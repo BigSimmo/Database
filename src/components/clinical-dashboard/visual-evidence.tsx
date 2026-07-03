@@ -1,0 +1,769 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import {
+  AlertCircle,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  Copy,
+  ExternalLink,
+  FileImage,
+  Layers,
+  ListChecks,
+  Plus,
+  Quote,
+} from "lucide-react";
+
+import { AccessibleTable } from "@/components/AccessibleTable";
+import { type AnswerFeedbackType } from "@/components/ClinicalDashboard";
+import { ScopeAndGovernanceNotice, SourceImage } from "@/components/clinical-dashboard/answer-content";
+import { SectionHeading, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
+import {
+  AnswerFeedbackPanel,
+  AnswerSafetyNotice,
+  type EvidenceTabName,
+  evidenceTabCount,
+  evidenceTabOrder,
+  QuoteCards,
+  simpleClinicalTableProps,
+  VerificationWorkspace,
+} from "@/components/clinical-dashboard/evidence-panels";
+import { QueryCoverageChips } from "@/components/clinical-dashboard/relevance";
+import {
+  chatMicroAction,
+  clinicalDivider,
+  cn,
+  EmptyState,
+  floatingControl,
+  iconTilePremium,
+  metadataPill,
+  sourceCard,
+  tableCard,
+  tableCardHeader,
+  tableMicroActionRow,
+  textMuted,
+} from "@/components/ui-primitives";
+import { type AnswerRenderModel } from "@/lib/answer-render-policy";
+import { formatCompactCitationLabel } from "@/lib/citations";
+import { smartEvidenceTags } from "@/lib/evidence-tags";
+import { type SourceGovernanceWarning } from "@/lib/source-governance";
+import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
+import type { QuoteCard, RagAnswer, SearchResult, VisualEvidenceCard } from "@/lib/types";
+import { emptyStates } from "@/lib/ui-copy";
+import { type AnswerEvidenceMapRow } from "@/lib/ward-output";
+
+function compactClinicalTableCaption(item: VisualEvidenceCard) {
+  const raw = item.tableTitle || item.tableLabel || item.caption || "Clinical table";
+  const cleaned = sourceTextForCompactDisplay(raw)
+    .replace(/\btable\s+\d+\s*[:.-]?\s*/i, "")
+    .replace(/\b(?:page|p\.)\s*\d+\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  const caption = cleaned || "Clinical table";
+  return caption.length <= 72 ? caption : `${caption.slice(0, 69).trim()}...`;
+}
+
+function visualEvidenceHeader(item: VisualEvidenceCard) {
+  const titleSource = [item.tableLabel, item.tableTitle].filter(Boolean).join(" · ");
+  const titleText = sourceTextForCompactDisplay(titleSource).trim();
+  const captionText = sourceTextForCompactDisplay(item.caption ?? "").trim();
+  const normalizedTitle = titleText.toLowerCase();
+  const normalizedCaption = captionText.toLowerCase();
+  const isDuplicateCaption =
+    Boolean(normalizedCaption) &&
+    (normalizedCaption.startsWith(normalizedTitle) || normalizedCaption === normalizedTitle);
+  return {
+    title: titleText || captionText || "Visual evidence",
+    caption: isDuplicateCaption ? null : captionText,
+  };
+}
+
+function VisualEvidenceStrip({
+  evidence,
+  collapsed = false,
+  embedded = false,
+}: {
+  evidence: VisualEvidenceCard[];
+  collapsed?: boolean;
+  embedded?: boolean;
+}) {
+  function looksLikeTableText(value?: string | null) {
+    return Boolean(value?.includes("|") && value.split("|").filter((cell) => cell.trim()).length >= 3);
+  }
+
+  if (collapsed) {
+    return (
+      <section className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
+        <UtilityDrawer
+          icon={FileImage}
+          title="Nearby visual evidence"
+          summary="Nearby source support only."
+          mobileSummary={`${evidence.length} visuals`}
+        >
+          <VisualEvidenceStrip evidence={evidence} embedded />
+        </UtilityDrawer>
+      </section>
+    );
+  }
+
+  const content = (
+    <>
+      <SectionHeading
+        icon={FileImage}
+        title="Tables and diagrams"
+        description="Clinical tables, diagrams, and images from indexed documents."
+        hideDescriptionOnMobile
+        compactMobile
+      />
+      {evidence.length === 0 ? (
+        <EmptyState icon={FileImage} title={emptyStates.indexedVisuals.title} body={emptyStates.indexedVisuals.body} />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {evidence.map((item) => {
+            const tableMarkdown = item.accessibleTableMarkdown?.trim()
+              ? item.accessibleTableMarkdown
+              : looksLikeTableText(item.tableTextSnippet)
+                ? item.tableTextSnippet
+                : null;
+            const hasStructuredTable = Boolean(tableMarkdown || item.tableRows?.length || item.tableColumns?.length);
+            const tableCaption = compactClinicalTableCaption(item);
+            const sourceHeader = visualEvidenceHeader(item);
+            const displayLabels = smartEvidenceTags(
+              item.labels,
+              [[item.tableLabel, item.tableTitle].filter(Boolean).join(": "), item.caption, item.tableTextSnippet]
+                .filter(Boolean)
+                .join(" "),
+            );
+            return (
+              <figure key={item.id} className={cn(sourceCard, "overflow-hidden p-2.5 sm:p-3")}>
+                <div className="rounded-lg bg-[color:var(--surface-inset)] p-2.5 sm:p-3">
+                  <SourceImage
+                    endpoint={item.signed_url_endpoint}
+                    caption={sourceHeader.caption || sourceHeader.title}
+                  />
+                </div>
+                <figcaption className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
+                  {!hasStructuredTable ? <p className="font-semibold">{sourceHeader.title}</p> : null}
+                  {!hasStructuredTable && sourceHeader.caption ? <p>{sourceHeader.caption}</p> : null}
+                  <AccessibleTable
+                    caption={tableCaption}
+                    markdown={tableMarkdown}
+                    rows={item.tableRows}
+                    columns={item.tableColumns}
+                    {...simpleClinicalTableProps}
+                    clinicalOnly
+                    dialogTitle={tableCaption || "Clinical table"}
+                  />
+                  {!hasStructuredTable && item.tableTextSnippet ? (
+                    <p className={cn("line-clamp-3 text-sm leading-6", textMuted)}>
+                      {sourceTextForCompactDisplay(item.tableTextSnippet)}
+                    </p>
+                  ) : null}
+                  {displayLabels.length ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {displayLabels.map((label) => (
+                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </figcaption>
+                <div
+                  className={cn(
+                    "mt-2 flex flex-wrap items-center justify-between gap-2 pt-3 text-xs sm:mt-3 sm:gap-3",
+                    clinicalDivider,
+                  )}
+                >
+                  <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
+                    {formatCompactCitationLabel(item)}
+                  </span>
+                  <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
+                    {cleanDisplayTitle(item.title)}, page {item.page_number ?? "n/a"}
+                  </span>
+                  {item.image_type && (
+                    <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+                      {item.image_type.replaceAll("_", " ")}
+                    </span>
+                  )}
+                  {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
+                  <Link href={item.viewer_href} className={cn(floatingControl, "min-h-11 px-4 text-xs")}>
+                    <ExternalLink className="h-4 w-4" />
+                    Open source
+                  </Link>
+                </div>
+              </figure>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+
+  if (embedded) return <div className="space-y-3">{content}</div>;
+
+  return <section className="space-y-3 scroll-mt-4 sm:scroll-mt-6">{content}</section>;
+}
+
+export function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
+  const tableMarkdown = item.accessibleTableMarkdown?.trim() ? item.accessibleTableMarkdown : null;
+  const title = compactClinicalTableCaption(item);
+
+  return (
+    <section className={cn(tableCard, "max-w-lg")} aria-label="Inline table preview">
+      <div
+        className={cn(
+          tableCardHeader,
+          "flex min-h-10 items-center justify-between gap-2 bg-[color:var(--surface)] py-2",
+        )}
+      >
+        <span className="hidden min-w-0 truncate sm:inline">{title}</span>
+        <span className="min-w-0 truncate sm:hidden">{title}</span>
+        <div className="flex shrink-0 items-center gap-1 sm:hidden" aria-label="Table actions">
+          <Link
+            href={item.viewer_href}
+            className={cn(chatMicroAction, "min-h-11 min-w-11 justify-center px-0")}
+            aria-label="Open table source"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+      <div className="p-1.5 sm:p-2">
+        <AccessibleTable
+          caption={title}
+          markdown={tableMarkdown}
+          rows={item.tableRows}
+          columns={item.tableColumns}
+          compact
+          expandOnMobile
+          previewRows={3}
+          hidePreviewCaption
+          hidePreviewRowCount
+          densePreview
+          clinicalOnly
+          dialogTitle={item.tableTitle || item.caption || title}
+        />
+      </div>
+      <div className={cn(tableMicroActionRow, "hidden sm:flex")}>
+        <Link href={item.viewer_href} className={chatMicroAction}>
+          Expand
+        </Link>
+        <Link href={item.viewer_href} className={chatMicroAction}>
+          Source
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
+  Claims: CheckCircle2,
+  Quotes: Quote,
+  Tables: ListChecks,
+  Images: FileImage,
+  Gaps: AlertCircle,
+};
+
+function supportDotClass(supportLevel: string) {
+  const normalized = supportLevel.toLowerCase();
+  if (normalized.includes("unsupported") || normalized.includes("none")) return "bg-[color:var(--danger)]";
+  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby")) {
+    return "bg-[color:var(--warning)]";
+  }
+  return "bg-[color:var(--clinical-accent)]";
+}
+
+function supportLabel(supportLevel: string) {
+  const normalized = supportLevel.toLowerCase();
+  if (normalized.includes("unsupported") || normalized.includes("none")) return "Unsupported";
+  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby"))
+    return "Partial";
+  return "Direct";
+}
+
+function claimRowsForEvidencePanel(rows: AnswerEvidenceMapRow[], renderModel: AnswerRenderModel) {
+  if (rows.length) return rows.slice(0, 6);
+  return renderModel.primarySources.slice(0, 6).map((source, index) => ({
+    id: source.id,
+    section: source.label || cleanDisplayTitle(source.title || source.file_name) || `Source ${index + 1}`,
+    detail: source.snippet || source.reason || "Open source passage to review the cited evidence.",
+    supportLevel: source.sourceStrength === "none" ? "partial" : source.sourceStrength,
+    citationCount: 1,
+    sourceStatus:
+      source.sourceStrength === "none" ? "Source requires review" : `${source.sourceStrength} source support`,
+    bestSourceLabel: source.label,
+    bestLinkedPassage: source.snippet || source.reason,
+    href: source.href,
+  }));
+}
+
+function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[]; renderModel: AnswerRenderModel }) {
+  const claimRows = claimRowsForEvidencePanel(rows, renderModel);
+  const directCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Direct").length;
+  const partialCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Partial").length;
+
+  if (!claimRows.length) {
+    return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
+  }
+
+  return (
+    <div data-testid="evidence-claims-panel" className="space-y-3">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-[color:var(--text-heading)]">Claims checked</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-semibold text-[color:var(--text-muted)]">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--clinical-accent)]" />
+              Direct
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--warning)]" />
+              Partial
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--danger)]" />
+              Unsupported
+            </span>
+          </div>
+        </div>
+        <p className="shrink-0 text-xs font-semibold text-[color:var(--text-muted)]">
+          {directCount} direct <span className="mx-1">·</span> {partialCount} partial
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
+        {claimRows.map((row, index) => (
+          <Link
+            key={`${row.id}:${index}`}
+            href={row.href ?? "#"}
+            data-testid={row.href ? "evidence-map-open-source" : undefined}
+            aria-disabled={!row.href}
+            className={cn(
+              "grid min-h-[76px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 text-left last:border-b-0 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
+              !row.href && "pointer-events-none",
+            )}
+            aria-label={`Open source for ${row.section}`}
+          >
+            <span className="grid h-7 w-7 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)]" />
+            <span className={cn("h-2.5 w-2.5 rounded-full", supportDotClass(row.supportLevel))} />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{row.section}</span>
+              <span className={cn("mt-1 line-clamp-2 block text-xs leading-5", textMuted)}>
+                {row.detail || row.bestLinkedPassage || row.bestSourceLabel}
+              </span>
+            </span>
+            <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
+  if (!warnings.length) {
+    return (
+      <EmptyState icon={CheckCircle2} title="No evidence gaps" body="No source gaps were attached to this answer." />
+    );
+  }
+
+  return (
+    <div className="grid gap-2">
+      {warnings.map((warning, index) => (
+        <article
+          key={`${warning}:${index}`}
+          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 p-3"
+        >
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[color:var(--warning)]">Gap {index + 1}</p>
+            <p className="mt-1 text-sm leading-6 text-[color:var(--text)]">{warning}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+export function MobileEvidenceSheetContent({
+  answer,
+  sources,
+  renderModel,
+  query,
+  visualEvidence,
+  answerEvidenceMapRows,
+  sourceGovernanceWarnings,
+  demoMode,
+  initialTab,
+  pendingFeedback,
+  copiedQuotes,
+  onCopyQuotes,
+  onSubmitFeedback,
+  onFollowUpQuote,
+  onScopeDocument,
+}: {
+  answer: RagAnswer;
+  sources: SearchResult[];
+  renderModel: AnswerRenderModel;
+  query: string;
+  visualEvidence: VisualEvidenceCard[];
+  answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  sourceGovernanceWarnings: SourceGovernanceWarning[];
+  demoMode: boolean;
+  initialTab?: EvidenceTabName | null;
+  pendingFeedback: AnswerFeedbackType | null;
+  copiedQuotes: boolean;
+  onCopyQuotes: () => void;
+  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
+  onFollowUpQuote?: (quote: QuoteCard) => void;
+  onScopeDocument: (documentId: string) => void;
+}) {
+  const order = evidenceTabOrder(answer, renderModel);
+  const [selectedTab, setSelectedTab] = useState<EvidenceTabName | null>(() => initialTab ?? null);
+  const activeTab = selectedTab && order.includes(selectedTab) ? selectedTab : order[0];
+  const panelIdFor = (tab: EvidenceTabName) => `mobile-evidence-panel-${tab.toLowerCase()}`;
+  const [added, setAdded] = useState(false);
+  const primarySourceHref = renderModel.primarySources[0]?.href;
+  async function copyEvidence() {
+    if (renderModel.quoteCards.length) {
+      onCopyQuotes();
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(renderModel.copyText);
+    } catch {
+      // Clipboard writes can fail in locked-down browsers; keep the panel usable.
+    }
+  }
+
+  return (
+    <div data-testid="mobile-evidence-sheet" className="min-w-0 space-y-4 overflow-hidden">
+      <div className="-mx-1 overflow-x-auto pb-1 polished-scroll" role="presentation">
+        <div
+          data-testid="mobile-evidence-tabs"
+          role="tablist"
+          aria-label="Evidence sections"
+          className="flex min-w-max gap-1 px-1"
+        >
+          {order.map((tab) => {
+            const selected = tab === activeTab;
+            const Icon = evidenceTabIconMap[tab];
+            const count = evidenceTabCount({
+              tab,
+              sources,
+              visualEvidence,
+              answerEvidenceMapRows,
+              renderModel,
+            });
+            return (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls={panelIdFor(tab)}
+                id={`mobile-evidence-tab-${tab.toLowerCase()}`}
+                data-testid={`mobile-evidence-tab-${tab.toLowerCase()}`}
+                onClick={() => setSelectedTab(tab)}
+                className={cn(
+                  "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition",
+                  selected
+                    ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {tab}
+                {count ? <span className="nums text-[11px] opacity-80">{count}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="min-h-[220px]">
+        {order.map((tab) => {
+          const selected = tab === activeTab;
+          return (
+            <div
+              key={tab}
+              id={panelIdFor(tab)}
+              role="tabpanel"
+              aria-labelledby={`mobile-evidence-tab-${tab.toLowerCase()}`}
+              data-testid={`mobile-evidence-panel-${tab.toLowerCase()}`}
+              hidden={!selected}
+              className="min-h-[220px]"
+            >
+              {selected ? (
+                <MobileEvidenceTabPanel
+                  tab={tab}
+                  renderModel={renderModel}
+                  query={query}
+                  visualEvidence={visualEvidence}
+                  answerEvidenceMapRows={answerEvidenceMapRows}
+                  copiedQuotes={copiedQuotes}
+                  onCopyQuotes={onCopyQuotes}
+                  onFollowUpQuote={onFollowUpQuote}
+                  onScopeDocument={onScopeDocument}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      <ScopeAndGovernanceNotice scope={null} warnings={sourceGovernanceWarnings} />
+      <AnswerSafetyNotice
+        demoMode={demoMode}
+        weakEvidence={renderModel.trust !== "high"}
+        retrievalDiagnostics={answer.retrievalDiagnostics}
+      />
+      <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
+      <div className="sticky bottom-0 -mx-3 mt-auto border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-2.5 py-1.5 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
+        <div className="grid grid-cols-3 divide-x divide-[color:var(--border)] bg-[color:var(--surface)]">
+          {primarySourceHref ? (
+            <Link
+              href={primarySourceHref}
+              className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Source
+            </Link>
+          ) : (
+            <span className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
+              <ExternalLink className="h-3.5 w-3.5" />
+              Source
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void copyEvidence()}
+            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            {copiedQuotes ? "Copied" : "Copy"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdded(true)}
+            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {added ? "Added" : "Add"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileEvidenceTabPanel({
+  tab,
+  renderModel,
+  query,
+  visualEvidence,
+  answerEvidenceMapRows,
+  copiedQuotes,
+  onCopyQuotes,
+  onFollowUpQuote,
+  onScopeDocument,
+}: {
+  tab: EvidenceTabName;
+  renderModel: AnswerRenderModel;
+  query: string;
+  visualEvidence: VisualEvidenceCard[];
+  answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  copiedQuotes: boolean;
+  onCopyQuotes: () => void;
+  onFollowUpQuote?: (quote: QuoteCard) => void;
+  onScopeDocument: (documentId: string) => void;
+}) {
+  if (tab === "Claims") {
+    return <EvidenceClaimsList rows={answerEvidenceMapRows} renderModel={renderModel} />;
+  }
+
+  if (tab === "Tables") {
+    const tableEvidence = visualEvidence.filter((item) => item.accessibleTableMarkdown || item.tableRows?.length);
+    return tableEvidence.length ? (
+      <div className="grid gap-2">
+        {tableEvidence.slice(0, 4).map((item, index) => (
+          <article key={item.id} className={cn(sourceCard, "grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 p-3")}>
+            <span className={iconTilePremium}>
+              <ListChecks className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">
+                {compactClinicalTableCaption(item)}
+              </p>
+              <p className={cn("mt-1 text-xs", textMuted)}>
+                Table {index + 1} · p.{item.page_number ?? "n/a"}
+              </p>
+            </div>
+            <Link href={item.viewer_href} className={chatMicroAction} aria-label={`Open table source ${index + 1}`}>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <EmptyState icon={ListChecks} title={emptyStates.tablesUsed.title} body={emptyStates.tablesUsed.body} />
+    );
+  }
+
+  if (tab === "Images") {
+    return visualEvidence.length ? (
+      <VisualEvidenceStrip evidence={visualEvidence} embedded />
+    ) : (
+      <EmptyState icon={FileImage} title={emptyStates.imagesUsed.title} body={emptyStates.imagesUsed.body} />
+    );
+  }
+
+  if (tab === "Quotes") {
+    return (
+      <QuoteCards
+        quotes={renderModel.quoteCards}
+        copiedQuotes={copiedQuotes}
+        onCopyQuotes={onCopyQuotes}
+        onFollowUp={onFollowUpQuote}
+        onScopeDocument={onScopeDocument}
+      />
+    );
+  }
+
+  return <EvidenceGapsPanel warnings={renderModel.warnings} />;
+}
+
+function UnifiedEvidenceDrawerContent({
+  answer,
+  renderModel,
+  query,
+  visualEvidence,
+  answerEvidenceMapRows,
+  pendingFeedback,
+  copiedQuotes,
+  onCopyQuotes,
+  onSubmitFeedback,
+  onFollowUpQuote,
+  onScopeDocument,
+}: {
+  answer: RagAnswer;
+  renderModel: AnswerRenderModel;
+  query: string;
+  visualEvidence: VisualEvidenceCard[];
+  answerEvidenceMapRows: AnswerEvidenceMapRow[];
+  pendingFeedback: AnswerFeedbackType | null;
+  copiedQuotes: boolean;
+  onCopyQuotes: () => void;
+  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
+  onFollowUpQuote?: (quote: QuoteCard) => void;
+  onScopeDocument: (documentId: string) => void;
+}) {
+  const order = evidenceTabOrder(answer, renderModel);
+
+  return (
+    <div className="space-y-4">
+      <VerificationWorkspace
+        renderModel={renderModel}
+        query={query}
+        answerEvidenceMapRows={answerEvidenceMapRows}
+        pendingFeedback={pendingFeedback}
+        onSubmitFeedback={onSubmitFeedback}
+        onScopeDocument={onScopeDocument}
+      />
+
+      <div className="flex flex-wrap gap-1.5" aria-label="Evidence sections">
+        {order.map((item) => (
+          <span key={item} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+            {item}
+          </span>
+        ))}
+      </div>
+
+      {order.map((section) => {
+        if (section === "Claims") {
+          return (
+            <section key={section} className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Claims</p>
+              <EvidenceClaimsList rows={answerEvidenceMapRows} renderModel={renderModel} />
+            </section>
+          );
+        }
+
+        if (section === "Tables") {
+          return (
+            <section key={section} className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tables</p>
+              {visualEvidence.some((item) => item.accessibleTableMarkdown || item.tableRows?.length) ? (
+                <div className="grid gap-2">
+                  {visualEvidence
+                    .filter((item) => item.accessibleTableMarkdown || item.tableRows?.length)
+                    .slice(0, 3)
+                    .map((item) => (
+                      <div key={item.id} className={cn(tableCard, "p-3")}>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-[color:var(--text-heading)]">
+                            {compactClinicalTableCaption(item)}
+                          </p>
+                          <span className={cn(metadataPill, "text-[11px]")}>p.{item.page_number ?? "n/a"}</span>
+                        </div>
+                        <div className={cn(tableMicroActionRow, "mt-2 border-t-0 px-0")}>
+                          <Link href={item.viewer_href} className={chatMicroAction}>
+                            Expand
+                          </Link>
+                          <Link href={item.viewer_href} className={chatMicroAction}>
+                            Source
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <EmptyState icon={ListChecks} title={emptyStates.tablesUsed.title} body={emptyStates.tablesUsed.body} />
+              )}
+            </section>
+          );
+        }
+
+        if (section === "Images") {
+          return (
+            <section key={section} className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Images</p>
+              <UtilityDrawer
+                icon={FileImage}
+                title={`Images ${visualEvidence.length}`}
+                summary="Open to view table images, PDF page crops, and figures."
+                mobileSummary={`${visualEvidence.length} images`}
+              >
+                <VisualEvidenceStrip evidence={visualEvidence} embedded />
+              </UtilityDrawer>
+            </section>
+          );
+        }
+
+        if (section === "Quotes") {
+          return (
+            <section key={section} className="space-y-2">
+              <QuoteCards
+                quotes={renderModel.quoteCards}
+                copiedQuotes={copiedQuotes}
+                onCopyQuotes={onCopyQuotes}
+                onFollowUp={onFollowUpQuote}
+                onScopeDocument={onScopeDocument}
+              />
+            </section>
+          );
+        }
+
+        return (
+          <section key={section} className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Gaps</p>
+            <EvidenceGapsPanel warnings={renderModel.warnings} />
+          </section>
+        );
+      })}
+    </div>
+  );
+}
