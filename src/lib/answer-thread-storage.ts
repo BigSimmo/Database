@@ -1,6 +1,7 @@
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
 export const answerThreadStorageKey = "clinical-kb-answer-thread";
+export const maxStoredAnswerTurns = 12;
 
 export type StoredAnswerTurn = {
   id: string;
@@ -16,7 +17,6 @@ export type PersistedAnswerThread = {
   collapsedTurnIds: string[];
 };
 
-const maxStoredTurns = 12;
 const maxStorageBytes = 4_500_000;
 
 function isStoredAnswerTurn(value: unknown): value is StoredAnswerTurn {
@@ -38,7 +38,7 @@ function normalizePersistedAnswerThread(value: unknown): PersistedAnswerThread |
   const record = value as Partial<PersistedAnswerThread>;
   if (record.version !== 1) return null;
   const priorTurns = Array.isArray(record.priorTurns)
-    ? record.priorTurns.filter(isStoredAnswerTurn).slice(-maxStoredTurns)
+    ? record.priorTurns.filter(isStoredAnswerTurn).slice(-maxStoredAnswerTurns)
     : [];
   const latestTurn =
     record.latestTurn &&
@@ -82,7 +82,7 @@ export function savePersistedAnswerThread(thread: PersistedAnswerThread): boolea
   try {
     const payload: PersistedAnswerThread = {
       version: 1,
-      priorTurns: thread.priorTurns.slice(-maxStoredTurns),
+      priorTurns: thread.priorTurns.slice(-maxStoredAnswerTurns),
       latestTurn: thread.latestTurn,
       collapsedTurnIds: thread.collapsedTurnIds,
     };

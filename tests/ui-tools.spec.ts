@@ -2,8 +2,6 @@ import { expect, test, type Page } from "playwright/test";
 import type { Route } from "playwright-core";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
 
-const expectedLauncherAppCount = 11;
-
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
   { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
