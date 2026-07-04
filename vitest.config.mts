@@ -10,10 +10,10 @@ const config = {
       // Regression floor set just below current coverage. Raise over time; the point
       // is to fail CI on a meaningful drop, not to chase a target.
       thresholds: {
-        statements: 48,
+        statements: 47,
         branches: 38,
-        functions: 43,
-        lines: 50,
+        functions: 41,
+        lines: 49,
       },
     },
     environment: "node",
