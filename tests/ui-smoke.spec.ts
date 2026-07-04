@@ -502,7 +502,7 @@ async function openGuide(page: Page) {
   const viewport = page.viewportSize();
   const trigger =
     viewport && viewport.width >= 1024
-      ? page.locator("button:visible").filter({ hasText: "Guide & help" }).first()
+      ? page.getByRole("button", { name: /Guide and help/i }).first()
       : null;
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
   if (trigger) {
@@ -515,7 +515,7 @@ async function openGuide(page: Page) {
     }).toPass({ timeout: 10_000 });
   } else {
     const menu = await openMobileClinicalGuideMenu(page);
-    await menu.getByRole("button", { name: "Guide & help" }).click();
+    await menu.getByRole("button", { name: /Guide\s*(?:&|and)\s*help/i }).click();
     await expect(dialog).toBeVisible();
   }
 
@@ -1311,8 +1311,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Favourites" })).toBeVisible();
+    await expect(page.getByTestId("favourites-command-library")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
 
     await page.getByRole("button", { name: "Start a new chat" }).click();
     await expect(page).toHaveURL(/\/favourites\?focus=1$/);
@@ -1339,9 +1339,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/favourites");
 
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
-    // The saved service slug is hydrated to its registry title in the hub.
-    await expect(page.getByTestId("favourites-hub").getByText("13YARN").first()).toBeVisible();
+    await expect(page.getByTestId("favourites-command-library")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("table")).toBeVisible();
   });
 
   test("app mode menu supports keyboard navigation without removed prototype modes", async ({ page }) => {
@@ -1464,18 +1464,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await questionInput.fill("lithium monitoring");
     await page.getByRole("button", { name: "Find matching documents" }).click();
 
-    await expect(page).toHaveURL(/\/mockups\/document-search-command\?.*q=lithium\+monitoring/);
-    await expect(page.getByRole("heading", { name: "Search command centre" })).toBeVisible();
-    const documentResults = page.getByRole("region", { name: "Document results" });
-    await expect(documentResults).toContainText("Clozapine prescribing and monitoring guidelines");
+    await expect(page).toHaveURL(/\/\?mode=documents/);
+    await expect(page.getByRole("region", { name: "Documents overview" })).toBeVisible();
+    const documentResults = page.getByRole("article").first();
+    await expect(documentResults).toContainText("Synthetic Lithium Monitoring Protocol");
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("Relevant");
-    await expect(documentResults.getByRole("link", { name: "Open document" }).first()).toBeVisible();
-    await expect(documentResults.getByRole("link", { name: "Evidence" }).first()).toBeVisible();
-    const selectedSource = page.getByRole("complementary").filter({ hasText: "Selected source" });
+    await expect(documentResults.getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })).toBeVisible();
+    const selectedSource = page.getByRole("complementary", { name: "Selected document evidence" });
     await expect(selectedSource).toBeVisible();
-    await expect(selectedSource).toContainText("Evidence on page");
-    await expect(selectedSource.getByRole("link", { name: "Open evidence" })).toBeVisible();
+    await expect(selectedSource).toContainText("Source match");
+    await expect(selectedSource.getByRole("link", { name: /Open exact evidence/i })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
