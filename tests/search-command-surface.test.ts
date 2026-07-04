@@ -71,16 +71,14 @@ describe("search command surface", () => {
 
   it("matches favourite and medication scope chips", () => {
     expect(
-      favouriteMatchesCommandScopes(
-        { pinned: true, evidence: "Guideline excerpt", lastUsed: "Today" },
-        ["pinned", "source", "recent"],
-      ),
+      favouriteMatchesCommandScopes({ pinned: true, evidence: "Guideline excerpt", lastUsed: "Today" }, [
+        "pinned",
+        "source",
+        "recent",
+      ]),
     ).toBe(true);
     expect(
-      favouriteMatchesCommandScopes(
-        { pinned: false, evidence: "Run", lastUsed: "Last week" },
-        ["pinned", "source"],
-      ),
+      favouriteMatchesCommandScopes({ pinned: false, evidence: "Run", lastUsed: "Last week" }, ["pinned", "source"]),
     ).toBe(false);
 
     expect(
