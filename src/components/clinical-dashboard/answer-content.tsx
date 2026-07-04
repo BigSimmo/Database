@@ -171,29 +171,29 @@ export function ScopeAndGovernanceNotice({
     scope?.matchedDocumentCount === 0;
   if (!showScope && groupedWarnings.length === 0) return null;
   return (
-    <div className="space-y-2 rounded-lg border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] p-3 text-sm text-[color:var(--text)]">
+    <div className="space-y-1.5 rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 px-2.5 py-2 text-xs text-[color:var(--text)]">
       {showScope && scope ? (
-        <p className="font-semibold">
+        <p className="font-semibold leading-5">
           Scope: {scope.summary}
           {scope.queryMode && scope.queryMode !== "auto" ? ` · ${scope.queryMode.replaceAll("_", " ")}` : ""}
         </p>
       ) : null}
       {scope?.warnings?.length ? (
-        <ul className="grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
+        <ul className="grid gap-0.5 text-[11px] font-medium text-[color:var(--warning)]">
           {scope.warnings.slice(0, 3).map((warning) => (
             <li key={warning}>{warning}</li>
           ))}
         </ul>
       ) : null}
       {groupedWarnings.length ? (
-        <ul className="grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
+        <ul className="grid gap-0.5 text-[11px] font-medium text-[color:var(--warning)]">
           {groupedWarnings.map((warning) => (
             <li key={warning.code}>
               {warning.message}
               {warning.titles.length ? (
-                <details className="mt-1 font-medium text-[color:var(--text-muted)]">
+                <details className="mt-0.5 font-normal text-[color:var(--text-muted)]">
                   <summary className="cursor-pointer">Sources affected</summary>
-                  <span className="mt-1 block">{warning.titles.slice(0, 5).join(", ")}</span>
+                  <span className="mt-0.5 block">{warning.titles.slice(0, 5).join(", ")}</span>
                 </details>
               ) : null}
             </li>
@@ -622,31 +622,23 @@ export function NaturalLanguageAnswer({
             data-testid="source-only-disclosure"
             role="note"
             className={cn(
-              "max-w-xl overflow-hidden rounded-lg border border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)]/45 text-xs shadow-[var(--shadow-inset)]",
+              "w-fit max-w-full overflow-hidden rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 text-xs",
               textMuted,
             )}
           >
             <button
               type="button"
               onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-              className="grid min-h-10 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2.5 py-1.5 text-left transition hover:bg-[color:var(--warning-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+              className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
               aria-expanded={sourceOnlyNoticeOpen}
               aria-controls="source-only-disclosure-detail"
             >
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-[color:var(--surface)] text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
-                <AlertCircle className="h-3.5 w-3.5" aria-hidden />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate font-semibold text-[color:var(--text-heading)]">
-                  Source-only answer
-                </span>
-                <span className="block truncate text-[11px] leading-4 text-[color:var(--text-muted)]">
-                  Verify against cited passages
-                </span>
-              </span>
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+              <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
+              <span className="shrink-0 text-[11px] text-[color:var(--text-muted)]">· verify passages</span>
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
+                  "ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition-transform",
                   sourceOnlyNoticeOpen && "rotate-180",
                 )}
                 aria-hidden
@@ -655,7 +647,7 @@ export function NaturalLanguageAnswer({
             {sourceOnlyNoticeOpen ? (
               <div
                 id="source-only-disclosure-detail"
-                className="border-t border-[color:var(--warning)]/20 bg-[color:var(--surface)]/70 px-3 py-2 text-xs leading-5 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+                className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-[11px] leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
               >
                 <p>
                   This answer was assembled from your documents without the AI model, so it may be less complete.

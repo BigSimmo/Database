@@ -167,7 +167,7 @@ export function AnswerSupportSummaryCard({
 }) {
   const supportRowCount = Number(clinicalAvailable) + Number(evidenceAvailable);
   const supportButtonClass =
-    "grid min-h-[72px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+    "grid min-h-[60px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2.5 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
   const safetyInteractive = Boolean(onOpenSafetyFindings && safetyFindingsCount > 0);
 
   return (
@@ -208,22 +208,22 @@ export function AnswerSupportSummaryCard({
         ) : (
           <div
             className={cn(
-              "grid min-h-[68px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t-2 px-3 py-3",
+              "grid min-h-[52px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 border-t-2 px-3 py-2",
               priority.tone === "caution" ? "border-t-[color:var(--warning)]" : "border-t-[color:var(--warning)]",
             )}
           >
             <span
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
               aria-hidden="true"
             >
-              {priority.tone === "caution" ? <AlertCircle className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+              {priority.tone === "caution" ? <AlertCircle className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
             </span>
-            <div className="min-w-0 sm:flex sm:items-center sm:gap-5">
+            <div className="min-w-0 sm:flex sm:min-w-0 sm:items-center sm:gap-3">
               <p className="shrink-0 text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</p>
-              <p className={cn("mt-1 line-clamp-2 text-sm leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
+              <p className={cn("mt-0.5 line-clamp-1 text-xs leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
             </div>
             {priority.sourceLabel ? (
-              <span className={cn(subtleStatusPill, "nums min-h-8 px-2 text-xs")}>{priority.sourceLabel}</span>
+              <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-[11px]")}>{priority.sourceLabel}</span>
             ) : null}
           </div>
         )
@@ -246,7 +246,7 @@ export function AnswerSupportSummaryCard({
               className={supportButtonClass}
               aria-label="Open clinical notes"
             >
-              <ClipboardCheck className="h-6 w-6 shrink-0 text-[color:var(--text-muted)]" />
+              <ClipboardCheck className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Clinical notes</span>
                 <span className={cn("mt-1 block truncate text-xs", textMuted)}>
@@ -266,7 +266,7 @@ export function AnswerSupportSummaryCard({
               className={supportButtonClass}
               aria-label="Open evidence"
             >
-              <Layers className="h-6 w-6 shrink-0 text-[color:var(--text-muted)]" />
+              <Layers className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence</span>
                 <span className={cn("mt-1 block truncate text-xs", textMuted)}>{evidenceSummary}</span>
@@ -1358,25 +1358,22 @@ export function AnswerSafetyNotice({
     <div
       data-testid="answer-safety-notice"
       className={cn(
-        "rounded-lg border p-3 text-sm leading-6",
-        weakEvidence
-          ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45"
-          : "border-[color:var(--border)] bg-[color:var(--surface)]",
+        "rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] px-2.5 py-2 text-xs leading-5",
+        weakEvidence ? "bg-[color:var(--warning-soft)]/30" : "border-[color:var(--border)] bg-[color:var(--surface)]",
       )}
     >
-      <p className="font-semibold text-[color:var(--text)]">
+      <p className="font-semibold text-[color:var(--text-heading)]">
         {weakEvidence
           ? "Weak source support; verify the linked source before relying on this answer."
           : "Draft only; verify source first before pasting into the medical record."}
       </p>
       {retrievalGateBlocked ? (
-        <p className="mt-1 font-semibold text-[color:var(--warning)]">
-          Retrieval confidence gate was triggered (low-confidence retrieval signal). Expand evidence details before
-          using this result.
+        <p className="mt-1 text-[11px] text-[color:var(--warning)]">
+          Retrieval confidence gate was triggered. Expand evidence details before using this result.
         </p>
       ) : null}
       {demoMode ? (
-        <p className="mt-1 font-semibold text-[color:var(--warning)]">
+        <p className="mt-1 text-[11px] font-semibold text-[color:var(--warning)]">
           Synthetic demo only: this is not clinical guidance.
         </p>
       ) : null}
