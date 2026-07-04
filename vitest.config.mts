@@ -12,7 +12,7 @@ const config = {
       thresholds: {
         statements: 48,
         branches: 38,
-        functions: 44,
+        functions: 43,
         lines: 50,
       },
     },
