@@ -48,38 +48,43 @@ const statusTone: Record<DifferentialRecord["status"], string> = {
   routine: "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
 };
 
-const rowMeta: Record<DifferentialSection["tone"], { label: string; badge: string; badgeClassName: string }> = {
+const rowMeta: Record<DifferentialSection["tone"], { label: string; badgeSuffix?: string; badgeClassName: string }> = {
   fit: {
     label: "Key features",
-    badge: "4 present",
+    badgeSuffix: "present",
     badgeClassName: "bg-[color:var(--success-soft)] text-[color:var(--success)]",
   },
   warning: {
     label: "High-risk causes",
-    badge: "3 possible",
+    badgeSuffix: "possible",
     badgeClassName: "bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
   },
   question: {
     label: "Helpful clues",
-    badge: "2 positive",
+    badgeSuffix: "positive",
     badgeClassName: "bg-[color:var(--info-soft)] text-[color:var(--info)]",
   },
   action: {
     label: "Priority steps",
-    badge: "2 pending",
+    badgeSuffix: "pending",
     badgeClassName: "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
   },
   test: {
     label: "Core tests",
-    badge: "6",
     badgeClassName: "bg-[color:var(--info-soft)] text-[color:var(--info)]",
   },
   overlap: {
     label: "Consider",
-    badge: "8",
     badgeClassName: "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
   },
 };
+
+function sectionBadge(section: DifferentialSection) {
+  const count = section.items.length;
+  const suffix = rowMeta[section.tone].badgeSuffix;
+  if (suffix) return `${count} ${suffix}`;
+  return String(count);
+}
 
 function statusLabel(status: DifferentialRecord["status"]) {
   if (status === "emergent") return "Emergent";
@@ -97,6 +102,7 @@ function likelihoodTag(likelihood: DifferentialRecord["related"][number]["likeli
 function SectionRow({ section }: { section: DifferentialSection }) {
   const Icon = sectionIcons[section.tone];
   const meta = rowMeta[section.tone];
+  const badgeLabel = String(section.items.length);
   return (
     <article className="group grid min-h-[4.25rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 last:border-b-0 sm:min-h-[4.75rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_9rem_5.5rem_2rem] sm:px-4 sm:py-3">
       <span
@@ -119,7 +125,7 @@ function SectionRow({ section }: { section: DifferentialSection }) {
           meta.badgeClassName,
         )}
       >
-        {meta.badge}
+        {sectionBadge(section)}
       </span>
       <ChevronDown
         className="hidden h-4 w-4 justify-self-end text-[color:var(--text-soft)] transition group-hover:translate-y-0.5 sm:block"

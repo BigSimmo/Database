@@ -8,9 +8,18 @@ questions with source citations that link back to the original PDF/document.
 ## Setup
 
 1. Use Node.js 24.x with npm 11.x. CI runs on Node 24, and `.nvmrc` /
-   `.node-version` pin the same runtime for local version managers. CI also runs `npm run check:edge:functions`, which requires Deno v2.x.
-2. Copy `.env.example` to `.env.local` and fill in Supabase and OpenAI values.
-3. Confirm the Supabase target:
+   `.node-version` pin the same runtime for local version managers. CI also runs
+   `npm run check:edge:functions`, which requires Deno v2.x.
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Copy the full `.env.example` to `.env.local` and fill in Supabase and OpenAI
+   values. Copy the worker and upload defaults too — they are conservative
+   local-first settings, not optional extras.
+4. Confirm the Supabase target:
 
 ```bash
 npm run check:supabase-project
@@ -28,19 +37,36 @@ Do not use the older unused Supabase project `Database`
 (`qjgitjyhxrwxsrydablr`). Local checks and runtime guards warn or fall back to
 demo mode if that stale ref appears in `.env.local`.
 
-4. Run `supabase/schema.sql` in the `Clinical KB Database` Supabase project SQL
-   editor.
-5. Install Deno v2.x to run Edge Function type checks (`npm run check:edge:functions`).
-   CI installs Deno automatically via `denoland/setup-deno`. For local use, follow the
+5. Database bootstrap:
+
+- **Existing `Clinical KB Database` project:** migrations are already applied on
+  live. Normal local dev does not need a SQL editor bootstrap step.
+- **New staging or fresh database:** link the Supabase CLI to the project, then
+  apply committed migrations when local and remote histories align:
+
+```bash
+npx supabase link --project-ref sjrfecxgysukkwxsowpy
+npx supabase migration list --linked
+npx supabase db push
+```
+
+Treat `supabase/schema.sql` as a reconciled reference mirror, not the primary
+onboarding path. For drift, repair policy, and live-only caveats, see
+`docs/supabase-migration-reconciliation.md` and the retrieval RPC section in
+`docs/process-hardening.md`.
+
+6. Install Deno v2.x to run Edge Function type checks
+   (`npm run check:edge:functions`). CI installs Deno automatically via
+   `denoland/setup-deno`. For local use, follow the
    [Deno installation guide](https://docs.deno.com/runtime/getting_started/installation/)
    and ensure `deno --version` reports a 2.x release.
-6. Install optional PDF/OCR worker dependencies:
+7. Install optional PDF/OCR worker dependencies:
 
 ```bash
 python -m pip install -r worker/python/requirements.txt
 ```
 
-7. Start the app:
+8. Start the app:
 
 ```bash
 npm run dev
@@ -63,7 +89,7 @@ belongs to this project, and starts the dev server in the background if needed.
 When you say `run` in this chat, Codex should use this command and return the
 printed URL.
 
-8. In a second terminal, start the local ingestion worker:
+9. In a second terminal, start the local ingestion worker:
 
 ```bash
 npm run worker
@@ -71,6 +97,8 @@ npm run worker
 
 The Next.js API stores uploads and queues ingestion jobs. The worker performs
 heavy parsing, OCR, image captioning, chunking, embedding, and database inserts.
+It uses the conservative worker defaults from `.env.example` when those vars are
+set in `.env.local`.
 
 ## Environment Notes
 
@@ -99,7 +127,31 @@ heavy parsing, OCR, image captioning, chunking, embedding, and database inserts.
   and TGA Software as a Medical Device screening where applicable.
 - See `docs/clinical-governance.md` for the deployment governance checklist.
 
+## Documentation
+
+- `docs/process-hardening.md` — verification gates, CI expectations, known limits
+- `docs/clinical-governance.md` — deployment and source governance checklist
+- `docs/reindex-runbook.md` — safe reindex and ingestion recovery
+- `docs/retrieval-quality-runbook.md` — RAG/retrieval eval gates
+- `docs/codex-prompt-playbook.md` — copy/paste prompts for common repo work
+- `docs/supabase-migration-reconciliation.md` — migration drift and repair policy
+- `docs/site-map.md` — generated route map (`npm run sitemap:update`)
+
 ## Commands
+
+Verification gates (see `package.json` for the full chain):
+
+```bash
+npm run verify:cheap   # check:runtime + sitemap:check + lint + typecheck + test
+npm run verify:ui      # check:runtime + test:e2e:chromium
+npm run verify:release # check:runtime + lint + typecheck + test + build + test:e2e
+                       # + check:production-readiness + governance:release
+                       # + eval:quality:release (needs live Supabase + OpenAI keys)
+```
+
+CI runs `format:check` in the `verify` job alongside lint, typecheck,
+test:coverage, build, and edge-function typecheck. PRs also run the Chromium
+`ui-smoke` job in parallel.
 
 ```bash
 npm run dev       # Next.js UI/API on this project's stable localhost port
@@ -120,9 +172,6 @@ npm run test:e2e:all
 npm run test:e2e:accessibility
 npm run test:e2e:chromium
 npm run test:e2e:visual
-npm run verify:cheap
-npm run verify:ui
-npm run verify:release
 npm run check:deployment-readiness
 npm run format
 npm run format:check

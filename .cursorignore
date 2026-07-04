@@ -1,0 +1,42 @@
+﻿# Cursor semantic index exclusions — keep search focused on source, not artifacts.
+# Mirrors .gitignore noise; Cursor still indexes tracked source under src/, worker/, scripts/, supabase/.
+
+node_modules/
+.next/
+out/
+build/
+coverage/
+output/
+test-results/
+playwright-report/
+playwright-cli/
+.playwright-cli/
+playwright/.auth/
+
+# Local env and secrets
+.env*
+
+# Generated / machine-local
+*.tsbuildinfo
+sample-documents/
+tmp/
+.tmp-visual/
+.codex-screenshots/
+artifacts/
+scratch/
+.qa-smoke/
+.impeccable/
+supabase/.temp/
+
+# Logs and PIDs
+*.log
+*.pid
+dev-server*.log
+worker-*.log
+
+# Python caches
+__pycache__/
+.pytest_cache/
+
+# Large binary / review scratch (not application logic)
+docs/mockups/

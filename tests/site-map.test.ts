@@ -87,9 +87,8 @@ describe("tracked sitemap", () => {
   });
 
   it("documents known intentional caveats and compatibility routes", () => {
-    expect(siteMap).toContain("No active stale internal route targets");
+    expect(siteMap).toContain("development-only");
     expect(siteMap).toContain("legacy compatibility route");
-    expect(siteMap).toContain("Root-level mockup artifact outside `src/app`");
     expect(siteMap).toContain("Live user registries may contain additional service or form slugs");
     expect(siteMap).toContain("individual document IDs are private runtime data");
   });

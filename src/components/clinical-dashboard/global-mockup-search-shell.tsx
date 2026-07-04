@@ -4,8 +4,10 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
+import { recentQueryStorageKey } from "@/components/ClinicalDashboard";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { recentQueryStorageKey, SettingsDialog } from "@/components/ClinicalDashboard";
+import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
+import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
@@ -16,6 +18,7 @@ import { MasterSearchHeader } from "@/components/clinical-dashboard/master-searc
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import { FormsSearchResultsPage } from "@/components/forms/forms-search-results-page";
+import { ClientHydrationBoundary } from "@/components/client-hydration-boundary";
 import { cn } from "@/components/ui-primitives";
 import {
   appModeHomeHref,
@@ -128,12 +131,15 @@ function GlobalMockupSearchShellClient({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountSetupOpen, setAccountSetupOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
-  const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search");
-  const isDocumentCommandSearchView = pathname === "/mockups/document-search-command" && requestedQuery.length > 0;
+  const isHomeRoute = pathname === "/";
+  const isDocumentFlowRoute = pathname === "/documents/search" || pathname.startsWith("/documents/source");
+  const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search") || isDocumentFlowRoute;
+  const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
   const shouldRenderDashboardSearch =
     hasSubmittedModeSearch && resolvedSearchMode !== "services" && !isDocumentSearchMockupRoute;
@@ -147,6 +153,8 @@ function GlobalMockupSearchShellClient({
       (searchMode === "forms" && pathname === "/forms") ||
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials"));
+  /** Favourites needs library/results visible above the fold — skip hero composer there. */
+  const useHeroModeHome = isStandaloneModeHome && searchMode !== "favourites";
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
@@ -209,7 +217,6 @@ function GlobalMockupSearchShellClient({
 
   function openGuide() {
     setSettingsOpen(false);
-    setAccountSetupOpen(false);
     setMobileMenuOpen(false);
     setGuideOpen(true);
   }
@@ -252,6 +259,7 @@ function GlobalMockupSearchShellClient({
 
   function changeMode(mode: AppModeId) {
     setQuery("");
+    setCommandScopes([]);
     setSearchMode(mode);
     setMobileMenuOpen(false);
     navigateToMode(mode);
@@ -260,21 +268,33 @@ function GlobalMockupSearchShellClient({
   function startNewAnswerChat() {
     setQuery("");
     setMobileMenuOpen(false);
-    navigateToMode("answer", { focus: true });
+    // On standalone mode routes (favourites, services, etc.) keep the user in
+    // that workspace and only clear the query — same as sidebar "New chat".
+    navigateToMode(searchMode === "answer" ? "answer" : searchMode, { focus: true });
   }
 
   function pickRecentQuery(recentQuery: string) {
     setMobileMenuOpen(false);
-    navigateToMode("answer", { query: recentQuery, focus: true });
+    navigateToMode(searchMode, { query: recentQuery, focus: true, run: true });
   }
 
-  if (shouldRenderDashboardSearch && !shouldRenderFormsSearchResults) {
+  function crossModeSearch(mode: AppModeId, crossQuery: string) {
+    setQuery(crossQuery);
+    setCommandScopes([]);
+    setSearchMode(mode);
+    setMobileMenuOpen(false);
+    navigateToMode(mode, { query: crossQuery, focus: true, run: true });
+  }
+
+  const shouldRenderClinicalDashboard = isHomeRoute || (shouldRenderDashboardSearch && !shouldRenderFormsSearchResults);
+
+  if (shouldRenderClinicalDashboard) {
     return (
       <ClinicalDashboard
         initialSearchMode={resolvedSearchMode}
         initialQuery={requestedQuery}
         focusSearch={searchParams.get("focus") === "1"}
-        autoRunSearch
+        autoRunSearch={isHomeRoute ? hasSubmittedModeSearch : true}
       />
     );
   }
@@ -293,18 +313,21 @@ function GlobalMockupSearchShellClient({
     <div
       className={cn(
         "min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]",
-        shouldShowDesktopSidebar && "lg:grid",
+        shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
+        shouldShowDesktopSidebar &&
+          "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         shouldShowDesktopSidebar &&
           (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
       )}
       style={
         {
           "--clinical-sidebar-width": effectiveSidebarWidth,
+          "--clinical-sidebar-width-md": shouldShowDesktopSidebar ? "5.25rem" : "0px",
         } as CSSProperties
       }
     >
       {shouldShowDesktopSidebar ? (
-        <div className="hidden lg:block">
+        <div className="hidden md:block">
           <div className="sticky top-0 flex h-dvh min-h-0">
             <ClinicalDesktopSidebar
               collapsed={effectiveSidebarCollapsed}
@@ -366,18 +389,25 @@ function GlobalMockupSearchShellClient({
             }}
             queryModeOptions={mockupQueryModeOptions}
             queryInputRef={inputRef}
+            recentQueries={recentQueries}
+            commandScopes={commandScopes}
+            onCommandScopesChange={setCommandScopes}
+            onPickRecent={pickRecentQuery}
+            onCrossModeSearch={crossModeSearch}
             headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
             mobileSearchPlacement="bottom"
             // Submitted searches that stay in the shell (services results) are
             // result views: compact the phone bottom composer so results keep
             // maximum screen space. Mode homes keep the chip-row layout.
-            mobileBottomSearchVariant={useCompactBottomSearch ? "compact" : "default"}
+            mobileBottomSearchVariant={
+              useCompactBottomSearch || (isStandaloneModeHome && searchMode === "favourites") ? "compact" : "default"
+            }
             desktopSearchPlacement={
-              (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
+              (desktopSearchPlacement === "hero" || isFormsOnlyShell) && useHeroModeHome ? "hero" : "default"
             }
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-            heroComposerFromTablet={isStandaloneModeHome}
+            heroComposerFromTablet={useHeroModeHome}
             // Phone-only: the document scrolls here and the header is sticky,
             // so a translate overlay hides it with zero layout shift.
             hideOnScroll={{ strategy: "overlay" }}
@@ -397,11 +427,25 @@ function GlobalMockupSearchShellClient({
               : searchMode === "answer"
                 ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
                 : useCompactBottomSearch
-                  ? "pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-8"
+                  ? "pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-8"
                   : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
-          {shouldRenderFormsSearchResults ? <FormsSearchResultsPage query={requestedQuery} /> : children}
+          <ClientHydrationBoundary
+            fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
+          >
+            <SearchCommandProvider
+              value={{
+                query,
+                modeId: searchMode,
+                commandScopes,
+                onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
+                onClearScopes: () => setCommandScopes([]),
+              }}
+            >
+              {shouldRenderFormsSearchResults ? <FormsSearchResultsPage query={requestedQuery} /> : children}
+            </SearchCommandProvider>
+          </ClientHydrationBoundary>
         </div>
       </div>
 
@@ -418,6 +462,9 @@ function GlobalMockupSearchShellClient({
       <AccountSetupDialog open={accountSetupOpen} onClose={() => setAccountSetupOpen(false)} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
+        // The workflow header keeps its menu trigger past md, so the drawer
+        // must stay available until the locked desktop rail takes over at lg.
+        hiddenFrom={isDifferentialPresentationWorkflow ? "lg" : "md"}
         recentQueries={recentQueries}
         identity={sidebarIdentity}
         activeMode={searchMode}

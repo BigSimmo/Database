@@ -1,59 +1,23 @@
 # Project Mockups
 
-This folder collects the current mockup files for the Clinical KB Database project in one place.
+This folder collects notes for mockup routes that live under `src/app/mockups/`.
 
-All remaining mockups use the Clinical White / Aegean Graphite role tokens (`--command`, `--clinical-accent`, `--success`)
-from `docs/redesign/02-design-direction.md`. The design-exploration mockups that led to that theme served their purpose and
-were removed in July 2026 so stale palettes do not mislead future design review (`answer-best-layout`,
-`clinical-command-popup`, `compact-answer-entry-points`, `crisp-white-colour-system`, `evidence-option`,
-`evidence-redesign`, `extended-menu-refined`, `final-rag-structure`, `premium-colour-system`, `rag-answer-responsive`,
-`rag-answer-structure`, `safety-critical-redesign`, `safety-notes-triage-redesign`).
+## Authoritative route list
 
-## Included mockups
+The generated route map in [`docs/site-map.md`](../docs/site-map.md) (mockups section) is the source of truth for runnable mockup URLs. Regenerate it after adding or removing mockup routes:
 
-- Medication prescribing now lives in the app at `/?mode=prescribing` and `/medications/acamprosate`.
-- `answer-evidence-popups/page.tsx` - copied from `src/app/mockups/answer-evidence-popups/page.tsx`
-- `document-search` - runnable document-search mockup review board, in `src/app/mockups/document-search/page.tsx`
-- `document-search/source` - live handoff route that resolves a mock result into `/documents/{id}?page=...&chunk=...`, in `src/app/mockups/document-search/source/page.tsx`
-- `document-search-command` - runnable mockup only, in `src/app/mockups/document-search-command/page.tsx`
-- `document-search-evidence-lens` - runnable mockup only, in `src/app/mockups/document-search-evidence-lens/page.tsx`
-- `document-search-triage-board` - runnable mockup only, in `src/app/mockups/document-search-triage-board/page.tsx`
-- `mode-dropdown` - runnable mockup only, in `src/app/mockups/mode-dropdown/page.tsx`
-- `recent-searches-bottom` - runnable mockup only, in `src/app/mockups/recent-searches-bottom/page.tsx`
-- `settings-search-general` - runnable mockup only, in `src/app/mockups/settings-search-general/page.tsx`
-- `settings-search-clinical` - runnable mockup only, in `src/app/mockups/settings-search-clinical/page.tsx`
-- `settings-search-privacy` - runnable mockup only, in `src/app/mockups/settings-search-privacy/page.tsx`
-- `favourites-command-desk` - runnable mockup only, in `src/app/mockups/favourites-command-desk/page.tsx`
-- `favourites-set-board` - runnable mockup only, in `src/app/mockups/favourites-set-board/page.tsx`
-- `favourites-library-view` - runnable mockup only, in `src/app/mockups/favourites-library-view/page.tsx`
+```bash
+npm run sitemap:update
+npm run sitemap:check
+```
 
-## App routes
+## Design tokens
 
-The runnable versions remain in the Next.js app route tree:
-
-- `/?mode=prescribing`
-- `/medications/acamprosate`
-- `/mockups/answer-evidence-popups`
-- `/mockups/document-search?mode=documents`
-- `/mockups/document-search/source?mode=documents&document=clozapine-monitoring&q=clozapine%20monitoring%20table&page=12&chunk=monitoring-table`
-- `/mockups/document-search-command?mode=documents`
-- `/mockups/document-search-evidence-lens?mode=documents`
-- `/mockups/document-search-triage-board?mode=documents`
-- `/mockups/mode-dropdown`
-- `/mockups/recent-searches-bottom`
-- `/mockups/settings-search-general`
-- `/mockups/settings-search-clinical`
-- `/mockups/settings-search-privacy`
-- `/mockups/favourites-command-desk`
-- `/mockups/favourites-set-board`
-- `/mockups/favourites-library-view`
-
-Favourites now lives in the live dashboard flow at `/?mode=favourites`; `/mockups/favourites-hub` redirects there for old links.
+Mockups use the Clinical White / Aegean Graphite role tokens (`--command`, `--clinical-accent`, `--success`) from [`docs/redesign/02-design-direction.md`](../docs/redesign/02-design-direction.md). Older design-exploration mockups were removed in July 2026 so stale palettes do not mislead future design review.
 
 ## Global search shell
 
-New runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header and bottom search composer from
-`src/app/mockups/layout.tsx`.
+Runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header and bottom search composer from `src/app/mockups/layout.tsx`.
 
 - Put the mockup content between the global header and bottom composer; do not copy the header or composer into new pages.
 - Tool and favourites mockups keep the shared app header but hide the bottom composer because they provide their own primary search surface.
@@ -61,11 +25,14 @@ New runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB he
 - The bottom composer routes live searches to the dashboard with `mode`, `q`, and `run=1`; New chat routes to `/?mode=answer&focus=1`.
 - If a future mockup must be standalone, move it outside the `/mockups` route shell or add an explicit opt-out route group before implementing it.
 
+## Production behavior
+
+- `/mockups/*` prototype routes are development-only; production returns 404 and `robots.txt` disallows indexing.
+- `/mockups/favourites-hub` is a legacy compatibility route and redirects to `/favourites`.
+- `/mockups/medication-prescribing` redirects to `/medications/acamprosate`; prescribing mode also lives at `/?mode=prescribing`.
+
 ## Synthetic document-search assets
 
-The document-search mockups use generated non-patient bitmap assets in `public/mockups/document-search/`. These images are
-abstract UI/document textures only: they must not be treated as source screenshots, hospital-branded material, or clinical
-content.
+The document-search mockups use generated non-patient bitmap assets in `public/mockups/document-search/`. These images are abstract UI/document textures only: they must not be treated as source screenshots, hospital-branded material, or clinical content.
 
-The `document-search/source` route is the exception to the fixture-only mockup behavior: it is a local live handoff that
-finds an indexed document and opens the existing document viewer with a selected page and chunk.
+Some document-search mockups include live handoff routes (for example `document-search/source-overlays`) that resolve into the real document viewer with a selected page and chunk when indexed data is available locally.

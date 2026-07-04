@@ -295,6 +295,12 @@ function metadataText(metadata: Record<string, unknown>, key: string) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
+  }
+}
+
 export type SearchChunksArgs = {
   query: string;
   topK?: number;
@@ -305,6 +311,7 @@ export type SearchChunksArgs = {
   allowGlobalSearch?: boolean;
   skipCache?: boolean;
   queryMode?: ClinicalQueryMode;
+  signal?: AbortSignal;
   // Internal: set when this call is a re-run on a trigram-corrected query, to prevent the
   // unsupported-short-circuit typo-correction path from recursing more than once.
   typoCorrected?: boolean;
@@ -5367,6 +5374,7 @@ function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryCla
 
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   assertGlobalSearchAllowed(args);
+  throwIfAborted(args.signal);
   const supabase = createAdminClient();
   // When the provider is source-only (offline mode, or auto mode without a usable key) we must
   // never call OpenAI for embeddings; retrieval falls back to the lexical text-fast-path only.
@@ -5377,6 +5385,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const retrievalQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
   const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
   const queryAnalysis = await analyzeQueryWithClassifierFallback(retrievalQuery, analyzeClinicalQuery(retrievalQuery));
+  throwIfAborted(args.signal);
   if (modeQueryClass) queryAnalysis.queryClass = modeQueryClass;
   const queryClassification = {
     queryClass: queryAnalysis.queryClass,
@@ -5501,6 +5510,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   telemetry.text_candidate_count = textData.length;
   telemetry.text_fast_path_latency_ms = Date.now() - textRpcStartedAt;
   telemetry.supabase_rpc_latency_ms += telemetry.text_fast_path_latency_ms;
+  throwIfAborted(args.signal);
   recordRetrievalLayer(telemetry, "text_candidates", textData.length, {
     latencyMs: telemetry.text_fast_path_latency_ms,
     topScore: layerTopScore(textData as SearchResult[]),
@@ -5725,6 +5735,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     return { results: textFastResults, telemetry };
   }
 
+  throwIfAborted(args.signal);
   if (!embeddingStartedAt) embeddingStartedAt = Date.now();
   let embeddingResult = await preloadedEmbedding;
   if (!embeddingResult) {
@@ -5761,6 +5772,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   // already-computed query embedding and have no data dependency on one another, so run
   // them concurrently instead of as three sequential Supabase round-trips. The two helper
   // functions swallow their own RPC errors and resolve to [], so Promise.all cannot reject.
+  throwIfAborted(args.signal);
   const parallelRpcStartedAt = Date.now();
   const [embeddingFieldResult, indexUnitResult, hybridResult] = await Promise.all([
     (async () => {
@@ -6373,6 +6385,7 @@ async function answerQuestionWithScopeUncoalesced(
   args: AnswerQuestionWithScopeArgs,
   startedAt: number,
 ): Promise<RagAnswer> {
+  throwIfAborted(args.signal);
   assertGlobalSearchAllowed({
     query: args.query,
     documentId: args.documentId,
@@ -6449,6 +6462,7 @@ async function answerQuestionWithScopeUncoalesced(
     minSimilarity: 0.12,
     skipCache: args.skipCache,
     queryMode: args.queryMode,
+    signal: args.signal,
   });
   const currentQueryClass = classifyRagQuery(answerFocusQuery).queryClass;
   const cachedQueryClass = search.telemetry.query_class ?? null;

@@ -47,16 +47,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import {
-  type CSSProperties,
-  type FormEvent,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type CSSProperties, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
 import {
   DocumentOrganizationBadges,
@@ -88,7 +79,6 @@ import {
   SourceProvenance,
   SourceStatusBadge,
   sourceCard,
-  subtleStatusPill,
   tableCard,
   tableCardHeader,
   tableMicroActionRow,
@@ -103,7 +93,8 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
+import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
@@ -121,6 +112,7 @@ import {
   IngestionQualityConsole,
   LibraryHealthStrip,
   fallbackSetupChecks,
+  hasReadyRequiredPublicSearchConfig,
   hasReadyPublicSearchSetup,
   type SetupCheck,
   type IngestionQualityReviewItem,
@@ -142,16 +134,10 @@ import {
   SourceImage,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
+import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
 import {
   AnswerFeedbackPanel,
   AnswerSafetyNotice,
-  AnswerSupportSummaryCard,
-  answerHasCentralTable,
-  answerSupportPriority,
-  ClinicalNotesChecklistPanel,
-  clinicalNotesCount,
-  clinicalNotesDisplayCountForAnswer,
-  compactEvidenceSummary,
   type EvidenceTabName,
   simpleClinicalTableProps,
   evidenceMapRowsFromRenderModel,
@@ -160,10 +146,9 @@ import {
   formatQuoteCardsForClipboard,
   primaryVisualTable,
   QuoteCards,
-  SafetyFindingsPanel,
 } from "@/components/clinical-dashboard/evidence-panels";
-import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 
@@ -214,9 +199,17 @@ import {
   type AppModeId,
   type AppModeSearchKind,
 } from "@/lib/app-modes";
+import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { rankFormRecords } from "@/lib/forms";
 import { rankServiceRecords } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
+import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
+import {
+  clearPersistedAnswerThread,
+  loadPersistedAnswerThread,
+  maxStoredAnswerTurns,
+  savePersistedAnswerThread,
+} from "@/lib/answer-thread-storage";
 import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import {
@@ -257,8 +250,13 @@ import type {
   DocumentLabelType,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
+import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import {
+  createQuoteFollowUp,
+  type AnswerEvidenceMapRow,
+  type AnswerViewMode,
+  shouldPollForUpdates,
+} from "@/lib/ward-output";
 
 export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 export const mobileSectionFabMediaQuery =
@@ -316,15 +314,8 @@ type BatchesPayload = {
   hasActiveBatches?: boolean;
   pollAfterMs?: number | null;
 };
-export type AnswerFeedbackType =
-  | "verified"
-  | "needs_correction"
-  | "source_insufficient"
-  | "wrong_source"
-  | "missing_source"
-  | "unsupported_answer"
-  | "numeric_error"
-  | "outdated_guidance";
+import type { AnswerFeedbackType } from "@/lib/answer-feedback";
+export type { AnswerFeedbackType } from "@/lib/answer-feedback";
 type IngestionQualityPayload = {
   items?: IngestionQualityReviewItem[];
   demoMode?: boolean;
@@ -1058,414 +1049,86 @@ function MobileEvidenceTabPanel({
   return <EvidenceGapsPanel warnings={renderModel.warnings} />;
 }
 
-function RelatedDocumentsPanel({
-  documents,
-  onScopeDocument,
-  onTagSearch,
-}: {
-  documents: RelatedDocument[];
-  onScopeDocument: (documentId: string) => void;
-  onTagSearch: (tag: SmartDocumentTag) => void;
-}) {
-  if (documents.length === 0) return null;
-
-  return (
-    <UtilityDrawer
-      icon={BookOpen}
-      title="Related documents"
-      summary={`${documents.length} broader document match${documents.length === 1 ? "" : "es"}`}
-      mobileSummary={`${documents.length} related`}
-    >
-      <div className="grid gap-3 md:grid-cols-2">
-        {documents.map((document) => (
-          <article key={document.document_id} className={cn(sourceCard, "p-3 sm:p-4")}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <Link
-                  href={`/documents/${document.document_id}?page=${document.best_pages[0] ?? 1}&chunk=${document.best_chunk_ids[0] ?? ""}`}
-                  className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
-                >
-                  <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
-                </Link>
-                <DocumentOrganizationBadges document={document} compact className="mt-1" />
-                <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-                  {document.match_reason} · pages {document.best_pages.join(", ") || "n/a"} · {document.image_count}{" "}
-                  images{document.table_count ? ` · ${document.table_count} tables` : ""}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => onScopeDocument(document.document_id)}
-                className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
-              >
-                Scope
-              </button>
-            </div>
-            {document.summary && (
-              <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>
-                <SafeBoldText text={document.summary} />
-              </p>
-            )}
-            <DocumentTagCloud labels={document.labels} limit={6} className="mt-3" onTagClick={onTagSearch} />
-          </article>
-        ))}
-      </div>
-    </UtilityDrawer>
-  );
-}
-
-function StagedAnswerResultSurface({
-  answer,
-  query,
-  safeAnswerText,
-  bestSource,
-  sourceGovernanceWarnings,
-  sourceSummary,
-  renderModel,
-  weakEvidence,
-  answerViewMode,
-  answerEvidenceMapRows,
-  onScopeDocument,
-  answerGrounded,
-  sources,
-  demoMode,
-  safeAnswerSections,
-  safetyFindings,
-  copiedAnswer,
-  pendingFeedback,
-  onCopyAnswer,
-  onSubmitFeedback,
-}: {
-  answer: RagAnswer;
+/**
+ * A completed Q&A exchange kept on screen after a newer answer arrives, so
+ * Answer mode reads as a conversation thread instead of replacing each result.
+ */
+type AnswerTurn = {
+  id: string;
   query: string;
-  safeAnswerText: string;
-  bestSource: BestSourceRecommendation | null;
-  sourceGovernanceWarnings: SourceGovernanceWarning[];
-  sourceSummary?: EvidenceSummary;
-  renderModel: AnswerRenderModel;
-  weakEvidence: boolean;
-  answerViewMode: AnswerViewMode;
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  onScopeDocument: (documentId: string) => void;
-  answerGrounded: boolean;
+  answer: RagAnswer;
   sources: SearchResult[];
-  demoMode: boolean;
-  safeAnswerSections: Array<AnswerSection & { citationSources: SearchResult[] }>;
-  safetyFindings: ReturnType<typeof extractSafetyFindings>;
-  copiedAnswer: boolean;
-  pendingFeedback: AnswerFeedbackType | null;
-  onCopyAnswer: () => void;
-  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
+};
+
+const maxVisiblePriorTurns = 10;
+
+/**
+ * Read-only surface for a previous turn in the answer thread. Renders the
+ * question bubble and the natural-language answer with its source capsule;
+ * evidence drawers, clinical notes, and feedback stay on the latest turn only.
+ */
+function PriorAnswerTurnSurface({
+  turn,
+  copied,
+  collapsed,
+  onToggleCollapsed,
+  onCopy,
+}: {
+  turn: AnswerTurn;
+  copied: boolean;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  onCopy: (text: string) => void;
 }) {
-  const noteCount = clinicalNotesCount(answer);
-  const showClinicalNotes = safetyFindings.length > 0 || noteCount > 0;
-  const clinicalNoteDisplayCount = clinicalNotesDisplayCountForAnswer(
-    answer,
-    answerViewMode,
-    noteCount || safetyFindings.length,
+  const renderModel = useMemo(
+    () => buildAnswerRenderModel(turn.answer, { sources: turn.sources }),
+    [turn.answer, turn.sources],
   );
+  const safeText = useMemo(() => sanitizeAnswerDisplayText(turn.answer.answer), [turn.answer.answer]);
+  const weakEvidence = renderModel.trust === "unsupported" || renderModel.trust === "low";
+  const grounded =
+    turn.answer.grounded === true && turn.answer.confidence !== "unsupported" && renderModel.trust !== "unsupported";
   const sourceCount =
     renderModel.primarySources.length ||
-    sourceSummary?.total_sources ||
-    sources.length ||
-    answer.sources?.length ||
-    answer.citations.length;
-  const centralTable = answerHasCentralTable(answer) ? primaryVisualTable(answer) : null;
-  const showEvidenceDrawer = renderModel.allowedBlocks.some((block) =>
-    ["sourceStatus", "reviewSources", "evidenceMap", "quoteCards", "visualEvidence", "warnings"].includes(block),
-  );
-  const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
-  const [evidenceOpen, setEvidenceOpen] = useState(false);
-  const [evidenceInitialTab, setEvidenceInitialTab] = useState<EvidenceTabName | null>(null);
-  const [activeReviewPanel, setActiveReviewPanel] = useState<"clinical" | "evidence" | null>(null);
-  const [copiedQuotes, setCopiedQuotes] = useState(false);
-  const clinicalNotesTriggerRef = useRef<HTMLButtonElement>(null);
-  const evidenceTriggerRef = useRef<HTMLButtonElement>(null);
-  const useReviewSheet = useMobilePreviewSheet();
-  const copyQuotesTimerRef = useRef<number | null>(null);
-  useEffect(() => {
-    return () => {
-      if (copyQuotesTimerRef.current !== null) window.clearTimeout(copyQuotesTimerRef.current);
-    };
-  }, []);
-  function openClinicalNotes() {
-    setEvidenceOpen(false);
-    setEvidenceInitialTab(null);
-    if (useReviewSheet) {
-      setActiveReviewPanel(null);
-      setClinicalNotesOpen(true);
-      return;
-    }
-    setClinicalNotesOpen(false);
-    setActiveReviewPanel("clinical");
-  }
-  function restoreFocusToTrigger(ref: RefObject<HTMLElement | null>) {
-    window.requestAnimationFrame(() => {
-      if (ref.current?.isConnected) ref.current.focus({ preventScroll: true });
-    });
-  }
-  function closeClinicalNotesReview() {
-    setClinicalNotesOpen(false);
-    restoreFocusToTrigger(clinicalNotesTriggerRef);
-  }
-  function openEvidence(initialTab: EvidenceTabName | null = null) {
-    setClinicalNotesOpen(false);
-    setEvidenceInitialTab(initialTab);
-    if (useReviewSheet) {
-      setActiveReviewPanel(null);
-      setEvidenceOpen(true);
-      return;
-    }
-    setEvidenceOpen(false);
-    setActiveReviewPanel("evidence");
-  }
-  function closeEvidenceReview() {
-    setEvidenceOpen(false);
-    setEvidenceInitialTab(null);
-    restoreFocusToTrigger(evidenceTriggerRef);
-  }
-  function closeDesktopReviewPanel() {
-    const triggerRef = activeReviewPanel === "clinical" ? clinicalNotesTriggerRef : evidenceTriggerRef;
-    setActiveReviewPanel(null);
-    restoreFocusToTrigger(triggerRef);
-  }
-  function openTableEvidence() {
-    setClinicalNotesOpen(false);
-    openEvidence("Tables");
-  }
-  const copyQuotes = useCallback(async () => {
-    const quoteText = formatQuoteCardsForClipboard(renderModel.quoteCards);
-    if (!quoteText) return;
-    try {
-      await navigator.clipboard.writeText(quoteText);
-      setCopiedQuotes(true);
-      if (copyQuotesTimerRef.current !== null) window.clearTimeout(copyQuotesTimerRef.current);
-      copyQuotesTimerRef.current = window.setTimeout(() => setCopiedQuotes(false), 1600);
-    } catch {
-      setCopiedQuotes(false);
-    }
-  }, [renderModel.quoteCards]);
-  const priority = answerSupportPriority(answer, safeAnswerSections, centralTable, safetyFindings, {
-    grounded: answerGrounded,
-    weakEvidence,
-  });
-  const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
-  const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
-  const showInlineSupportCard = Boolean(priority || showClinicalNotes || showEvidenceDrawer);
-  const showLayoutAside = Boolean(activeReviewPanel || centralTable);
+    turn.sources.length ||
+    turn.answer.sources?.length ||
+    turn.answer.citations.length;
+  const previewText = safeText || turn.answer.answer;
 
   return (
-    <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
+    <div
+      className="min-w-0 space-y-4 sm:space-y-5"
+      data-dashboard-stage="answer-thread-turn"
+      data-collapsed={collapsed ? "true" : "false"}
+    >
       <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
-        <UserQuestionBubble query={query} />
-
-        <div
-          data-testid="table-specific-answer-layout"
-          data-desktop-table-aside={centralTable ? "true" : "false"}
-          className={cn(
-            "space-y-3",
-            showLayoutAside &&
-              "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(21rem,0.72fr)] lg:items-start lg:gap-5 lg:space-y-0",
-          )}
+        <UserQuestionBubble query={turn.query} />
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-1 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
-          <div className="min-w-0 space-y-3">
-            <NaturalLanguageAnswer
-              text={safeAnswerText || answer.answer}
-              sourceCount={sourceCount}
-              weakEvidence={weakEvidence}
-              grounded={answerGrounded}
-              sourceOnly={answer.answerQualityTier === "source_only"}
-              bestSource={bestSource}
-              sources={sources}
-              sourceLinks={renderModel.primarySources}
-              copied={copiedAnswer}
-              onCopy={onCopyAnswer}
-            />
-
-            {showInlineSupportCard ? (
-              <AnswerSupportSummaryCard
-                priority={priority}
-                clinicalCount={clinicalNoteDisplayCount}
-                evidenceSummary={inlineEvidenceSummary}
-                clinicalAvailable={showClinicalNotes}
-                evidenceAvailable={showEvidenceDrawer}
-                clinicalTriggerRef={clinicalNotesTriggerRef}
-                evidenceTriggerRef={evidenceTriggerRef}
-                onOpenClinicalNotes={openClinicalNotes}
-                onOpenEvidence={() => openEvidence(null)}
-              />
-            ) : null}
-
-            {centralTable && activeReviewPanel ? <InlineTableCard item={centralTable} /> : null}
-          </div>
-
-          {activeReviewPanel ? (
-            <aside
-              data-testid="desktop-answer-review-panel"
-              className="hidden min-h-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)] lg:flex lg:max-h-[calc(100dvh-8rem)] lg:flex-col lg:sticky lg:top-4"
-              aria-label={activeReviewPanel === "clinical" ? "Clinical notes" : "Evidence"}
-            >
-              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
-                <div className="flex min-w-0 items-start gap-2.5">
-                  <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg")}>
-                    {activeReviewPanel === "clinical" ? (
-                      <ClipboardCheck className="h-3.5 w-3.5" />
-                    ) : (
-                      <Layers className="h-3.5 w-3.5" />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <h3 className="truncate text-lg font-semibold text-[color:var(--text-heading)]">
-                        {activeReviewPanel === "clinical" ? "Clinical notes" : "Evidence"}
-                      </h3>
-                      <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
-                        {activeReviewPanel === "clinical" ? clinicalNoteDisplayCount : "Supported"}
-                      </span>
-                    </div>
-                    <p className={cn("mt-1 text-sm leading-5", textMuted)}>
-                      {activeReviewPanel === "clinical"
-                        ? "Source-backed points from this answer."
-                        : "Review by evidence type."}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeDesktopReviewPanel}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label={`Close ${activeReviewPanel === "clinical" ? "clinical notes" : "evidence"}`}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-3 polished-scroll">
-                {activeReviewPanel === "clinical" ? (
-                  <ClinicalNotesChecklistPanel
-                    answer={answer}
-                    viewMode={answerViewMode}
-                    evidenceMapRows={answerEvidenceMapRows}
-                    bestSource={bestSource}
-                    copied={copiedAnswer}
-                    onCopy={onCopyAnswer}
-                    onOpenTables={openTableEvidence}
-                  />
-                ) : (
-                  <MobileEvidenceSheetContent
-                    answer={answer}
-                    sources={sources}
-                    renderModel={renderModel}
-                    visualEvidence={renderModel.visualEvidence}
-                    answerEvidenceMapRows={answerEvidenceMapRows}
-                    sourceGovernanceWarnings={sourceGovernanceWarnings}
-                    demoMode={demoMode}
-                    initialTab={evidenceInitialTab}
-                    pendingFeedback={pendingFeedback}
-                    copiedQuotes={copiedQuotes}
-                    onCopyQuotes={copyQuotes}
-                    onSubmitFeedback={onSubmitFeedback}
-                    onScopeDocument={onScopeDocument}
-                  />
-                )}
-              </div>
-            </aside>
-          ) : centralTable ? (
-            <div className="min-w-0 lg:sticky lg:top-24">
-              <InlineTableCard item={centralTable} />
-            </div>
-          ) : null}
-        </div>
-
-        {showClinicalNotes ? (
-          <Sheet
-            open={clinicalNotesOpen}
-            onClose={closeClinicalNotesReview}
-            title="Clinical notes"
-            description="Source-backed points from this answer."
-            closeLabel="Close clinical notes"
-            headerLeading={
-              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
-                <ClipboardCheck className="h-3.5 w-3.5" />
-              </span>
-            }
-            titleAccessory={
-              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-                {clinicalNoteDisplayCount}
-              </span>
-            }
-            headerActions={
-              bestSource ? (
-                <Link
-                  href={bestSource.viewer_href}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label="Open clinical notes source"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Link>
-              ) : null
-            }
-            headerClassName="gap-2 p-2.5 sm:p-3"
-            titleClassName="text-[15px] leading-5"
-            closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
-            contentStyle={{ height: "80dvh" }}
-            bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
-            returnFocusRef={clinicalNotesTriggerRef}
-            portal
-          >
-            <ClinicalNotesChecklistPanel
-              answer={answer}
-              viewMode={answerViewMode}
-              evidenceMapRows={answerEvidenceMapRows}
-              bestSource={bestSource}
-              copied={copiedAnswer}
-              onCopy={onCopyAnswer}
-              onOpenTables={openTableEvidence}
-            />
-          </Sheet>
-        ) : null}
-
-        {showEvidenceDrawer ? (
-          <Sheet
-            open={evidenceOpen}
-            onClose={closeEvidenceReview}
-            title="Evidence"
-            description="Review by evidence type."
-            titleAccessory={
-              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[11px]")}>{evidenceTrustLabel}</span>
-            }
-            closeLabel="Close evidence"
-            headerLeading={
-              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
-                <Layers className="h-3.5 w-3.5" />
-              </span>
-            }
-            contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
-            contentStyle={{ height: "80dvh" }}
-            bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
-            returnFocusRef={evidenceTriggerRef}
-            portal
-          >
-            <MobileEvidenceSheetContent
-              answer={answer}
-              sources={sources}
-              renderModel={renderModel}
-              visualEvidence={renderModel.visualEvidence}
-              answerEvidenceMapRows={answerEvidenceMapRows}
-              sourceGovernanceWarnings={sourceGovernanceWarnings}
-              demoMode={demoMode}
-              initialTab={evidenceInitialTab}
-              pendingFeedback={pendingFeedback}
-              copiedQuotes={copiedQuotes}
-              onCopyQuotes={copyQuotes}
-              onSubmitFeedback={onSubmitFeedback}
-              onScopeDocument={onScopeDocument}
-            />
-          </Sheet>
-        ) : null}
+          <ChevronDown className={cn("h-4 w-4 transition-transform", !collapsed && "rotate-180")} aria-hidden="true" />
+          {collapsed ? "Show previous answer" : "Hide previous answer"}
+        </button>
+        {collapsed ? (
+          <p className={cn("line-clamp-2 text-sm leading-6", textMuted)}>{previewText}</p>
+        ) : (
+          <NaturalLanguageAnswer
+            text={previewText}
+            sourceCount={sourceCount}
+            weakEvidence={weakEvidence}
+            grounded={grounded}
+            sourceOnly={turn.answer.answerQualityTier === "source_only"}
+            bestSource={renderModel.bestSource}
+            sources={renderModel.reviewSources}
+            sourceLinks={renderModel.primarySources}
+            copied={copied}
+            onCopy={() => onCopy(renderModel.copyText || previewText)}
+          />
+        )}
       </div>
-
-      <SafetyFindingsPanel findings={safetyFindings} />
     </div>
   );
 }
@@ -1613,7 +1276,7 @@ function DocumentLabelReviewPanel({
                 <div className="min-w-0">
                   <Link
                     href={`/documents/${item.document.id}`}
-                    className="line-clamp-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                    className="line-clamp-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)]"
                   >
                     {documentDisplayTitle(item.document)}
                   </Link>
@@ -2260,7 +1923,7 @@ function DocumentDrawer({
             id="needs-review-filter"
             checked={showNeedsReviewOnly}
             onChange={(e) => setShowNeedsReviewOnly(e.target.checked)}
-            className="rounded border-[color:var(--border)] text-[color:var(--primary)] focus:ring-[color:var(--primary)] h-4 w-4"
+            className="rounded border-[color:var(--border)] text-[color:var(--clinical-accent)] focus:ring-[color:var(--focus)] h-4 w-4"
           />
           <label
             htmlFor="needs-review-filter"
@@ -2454,7 +2117,7 @@ function DocumentDrawer({
                 <div className="min-w-0">
                   <Link
                     href={`/documents/${document.id}`}
-                    className="flex min-h-[44px] min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                    className="flex min-h-[44px] min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)]"
                   >
                     <span className="truncate">{documentDisplayTitle(document)}</span>
                     <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
@@ -2495,7 +2158,7 @@ function DocumentDrawer({
                     className={cn(
                       "inline-flex min-h-[44px] items-center rounded-lg border px-3 text-xs font-semibold transition",
                       selected
-                        ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
+                        ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
                     )}
                   >
@@ -2999,7 +2662,7 @@ function SettingsSummaryTile({
           className={cn(
             "grid h-8 w-8 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] lg:rounded-lg",
             emphasized
-              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)]"
+              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
           )}
         >
@@ -3039,7 +2702,7 @@ function SettingsRow({
         className={cn(
           "grid h-7 w-7 shrink-0 place-items-center rounded-full transition sm:h-8 sm:w-8 lg:rounded-lg lg:border lg:shadow-[var(--shadow-inset)]",
           active
-            ? "bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-accent)_24%,transparent)] lg:border-[color:var(--clinical-accent)]"
+            ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-accent)_24%,transparent)] lg:border-[color:var(--clinical-accent)]"
             : "bg-transparent text-[color:var(--text-muted)] lg:border-[color:var(--border)] lg:bg-[color:var(--surface-lux)]",
         )}
       >
@@ -3158,7 +2821,7 @@ function fabToneClassName(tone: MobileSectionFabTone) {
   if (tone === "empty") {
     return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
   }
-  return "border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]";
+  return "border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 }
 
 function buildMobileSectionFabState({
@@ -3435,14 +3098,14 @@ function MobileSectionFab({
                   "relative grid min-h-[58px] grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-transparent py-1.5 pl-3 pr-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                   item.empty && !active && "opacity-75",
                   active &&
-                    "border-[color:var(--primary)]/25 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)] shadow-[var(--shadow-inset)]",
+                    "border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
                 )}
               >
                 <span
                   aria-hidden="true"
                   className={cn(
                     "absolute bottom-2 left-1 top-2 w-1 rounded-full bg-transparent",
-                    active && "bg-[color:var(--primary)]",
+                    active && "bg-[color:var(--clinical-accent)]",
                   )}
                 />
                 <span
@@ -3451,7 +3114,7 @@ function MobileSectionFab({
                     "grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]",
                     item.empty && !active && "bg-[color:var(--surface-subtle)]",
                     active &&
-                      "border-[color:var(--primary)]/25 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
+                      "border-[color:var(--clinical-accent)]/25 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
                   )}
                 >
                   <Icon className="h-4.5 w-4.5" />
@@ -3468,7 +3131,7 @@ function MobileSectionFab({
                       "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-[11px] font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
                       item.empty && "text-[color:var(--text-muted)]",
                       active &&
-                        "border-[color:var(--primary)]/20 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
+                        "border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
                     )}
                   >
                     {item.count}
@@ -3583,6 +3246,7 @@ export function ClinicalDashboard({
   const urlSearchBootstrappedRef = useRef(false);
   const urlDocumentSearchBootstrappedRef = useRef(false);
   const lastSyncedSearchParamsRef = useRef(searchParams.toString());
+  const modeChangeFromUiRef = useRef(false);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
   const indexedDocumentTotal = documentsPagination?.total ?? documents.length;
@@ -3593,11 +3257,27 @@ export function ClinicalDashboard({
   const [qualityItems, setQualityItems] = useState<IngestionQualityReviewItem[]>([]);
   const jobsRef = useRef(jobs);
   const batchesRef = useRef(batches);
+  const answerThreadBootstrappedRef = useRef(false);
+  const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(false);
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
+  // Answer-mode conversation thread. `priorAnswerTurns` holds completed
+  // exchanges displayed above the latest answer; `latestAnswerQuery` is the
+  // question that produced the current `answer` (the composer `query` is a
+  // draft that clears after each successful answer). The ref mirrors the
+  // latest committed turn so async search completions can archive it without
+  // reading stale closure state.
+  const [priorAnswerTurns, setPriorAnswerTurns] = useState<AnswerTurn[]>([]);
+  const [latestAnswerQuery, setLatestAnswerQuery] = useState<string | null>(null);
+  const [collapsedTurnIds, setCollapsedTurnIds] = useState<Set<string>>(() => new Set());
+  const [showEarlierTurns, setShowEarlierTurns] = useState(false);
+  const threadRestoreScrolledRef = useRef(false);
+  const restoredThreadFromStorageRef = useRef(false);
+  const latestAnswerTurnRef = useRef<Omit<AnswerTurn, "id"> | null>(null);
+  const answerTurnSeqRef = useRef(0);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
   const [searchRelevance, setSearchRelevance] = useState<EvidenceRelevance | null>(null);
   const [searchFacets, setSearchFacets] = useState<SearchFacets | null>(null);
@@ -3625,7 +3305,77 @@ export function ClinicalDashboard({
     [searchMode, formSearchMatches, serviceSearchMatches],
   );
   const recordSearchMode = searchMode === "forms" ? "forms" : "services";
+  // The thread mirror ref must never outlive the answer it describes: every
+  // reset path nulls `answer`, so clearing here covers them all (mode
+  // switches, new chat, differentials/services clears) without each caller
+  // having to remember the ref.
+  useEffect(() => {
+    if (!answerThreadBootstrappedRef.current) return;
+    if (answer === null) latestAnswerTurnRef.current = null;
+  }, [answer]);
+  useEffect(() => {
+    queueMicrotask(() => {
+      const persisted = loadPersistedAnswerThread();
+      if (persisted) {
+        restoredThreadFromStorageRef.current = true;
+        setPriorAnswerTurns(persisted.priorTurns);
+        setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
+        if (persisted.latestTurn) {
+          latestAnswerTurnRef.current = persisted.latestTurn;
+          setAnswer(persisted.latestTurn.answer);
+          setSources(persisted.latestTurn.sources);
+          setModeSearchSubmitted(true);
+          setQuery("");
+          const restoredQuery = persisted.latestTurn.query.trim();
+          if (restoredQuery) {
+            autoRunSearchSignatureRef.current = `answer:${restoredQuery}`;
+          }
+        }
+        answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
+          const match = /^answer-turn-(\d+)$/.exec(turn.id);
+          return match ? Math.max(max, Number(match[1])) : max;
+        }, 0);
+        setCollapsedTurnIds(
+          persisted.collapsedTurnIds.length
+            ? new Set(persisted.collapsedTurnIds)
+            : new Set(persisted.priorTurns.map((turn) => turn.id)),
+        );
+      }
+      answerThreadBootstrappedRef.current = true;
+      setAnswerThreadBootstrapped(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (
+      !answerThreadBootstrappedRef.current ||
+      !answer ||
+      !restoredThreadFromStorageRef.current ||
+      threadRestoreScrolledRef.current
+    ) {
+      return;
+    }
+    threadRestoreScrolledRef.current = true;
+    window.requestAnimationFrame(() => {
+      mainRef.current?.scrollTo({ top: mainRef.current?.scrollHeight ?? 0, behavior: "auto" });
+    });
+  }, [answer]);
+  function resetAnswerThread() {
+    setPriorAnswerTurns([]);
+    setLatestAnswerQuery(null);
+    setCollapsedTurnIds(new Set());
+    setShowEarlierTurns(false);
+    clearPersistedAnswerThread();
+  }
+  function toggleAnswerTurnCollapsed(turnId: string) {
+    setCollapsedTurnIds((current) => {
+      const next = new Set(current);
+      if (next.has(turnId)) next.delete(turnId);
+      else next.add(turnId);
+      return next;
+    });
+  }
   function clearDifferentialModeResultState() {
+    resetAnswerThread();
     setAnswer(null);
     setSources([]);
     setDocumentMatches([]);
@@ -3668,12 +3418,27 @@ export function ClinicalDashboard({
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const [indexingActionId, setIndexingActionId] = useState<string | null>(null);
   const [indexingActive, setIndexingActive] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const { status: authStatus, authorizationHeader, markSessionExpired } = auth;
+  const prevAuthStatusRef = useRef(authStatus);
+  useEffect(() => {
+    const previous = prevAuthStatusRef.current;
+    prevAuthStatusRef.current = authStatus;
+    if (
+      (authStatus === "signed_out" || authStatus === "expired") &&
+      (previous === "authenticated" || previous === "loading")
+    ) {
+      resetAnswerThread();
+      setAnswer(null);
+      setSources([]);
+      latestAnswerTurnRef.current = null;
+    }
+  }, [authStatus]);
   const supabaseEnvStatus = setupChecks.find((check) => check.id === "env")?.status;
   const browserAuthUnavailableDemoFallback = !auth.isConfigured && supabaseEnvStatus !== "ready";
   const localNoAuthMode = isLocalNoAuthMode();
@@ -3682,9 +3447,12 @@ export function ClinicalDashboard({
   const uploadReadOnlyMode =
     demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
+  const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
+  const canUseDegradedLocalSearchApis =
+    process.env.NODE_ENV !== "production" && localProjectReady && hasReadyRequiredPublicSearchConfig(setupChecks);
   const canUsePrivateApis =
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
-  const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
+  const canRunSearch = explicitDemoMode || canUsePublicSearchApis || canUseDegradedLocalSearchApis;
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
@@ -3801,6 +3569,21 @@ export function ClinicalDashboard({
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    if (!answerThreadBootstrapped) return;
+    if (searchMode !== "answer") return;
+    if (!answer && priorAnswerTurns.length === 0) {
+      clearPersistedAnswerThread();
+      return;
+    }
+    savePersistedAnswerThread({
+      version: 1,
+      priorTurns: priorAnswerTurns,
+      latestTurn: latestAnswerTurnRef.current,
+      collapsedTurnIds: [...collapsedTurnIds],
+    });
+  }, [searchMode, answer, priorAnswerTurns, collapsedTurnIds, latestAnswerQuery, answerThreadBootstrapped]);
 
   useEffect(() => {
     jobsRef.current = jobs;
@@ -4323,6 +4106,11 @@ export function ClinicalDashboard({
     const mode = searchParams.get("mode");
     if (!isAppModeId(mode) || !isAppModeVisible(mode)) return;
 
+    if (modeChangeFromUiRef.current) {
+      modeChangeFromUiRef.current = false;
+      return;
+    }
+
     const nextQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
     const shouldFocusComposer = searchParams.get("focus") === "1";
     const hasUrlQuery = searchParams.has("q") || searchParams.has("query");
@@ -4351,7 +4139,9 @@ export function ClinicalDashboard({
     const frame = window.requestAnimationFrame(() => {
       if (targetMode === "differentials") clearDifferentialModeResultState();
       setSearchMode(targetMode);
-      if (searchText) setQuery(searchText);
+      // run=1 URLs name the latest answered question; the composer stays empty
+      // while an answer thread is active (including after localStorage restore).
+      if (searchText && params.get("run") !== "1") setQuery(searchText);
       if (shouldFocusComposer) focusComposerInput();
     });
     return () => window.cancelAnimationFrame(frame);
@@ -4365,6 +4155,14 @@ export function ClinicalDashboard({
     if (!searchText || !isAppModeId(mode) || !isAppModeVisible(mode)) return;
     if (mode === "prescribing") return;
     const modeSearch = appModeSearchConfig(mode);
+    // Answer-mode run=1 URLs are submitted by the autoRunSearch effect after
+    // localStorage thread restore completes; running here would archive a
+    // restored latest turn into a duplicate prior turn on reload.
+    if (modeSearch.resultKind === "answer") {
+      if (!answerThreadBootstrapped) return;
+      urlDocumentSearchBootstrappedRef.current = true;
+      return;
+    }
     const shouldRun =
       params.get("run") === "1" ||
       modeSearch.kind === "documents" ||
@@ -4377,7 +4175,7 @@ export function ClinicalDashboard({
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canRunSearch]);
+  }, [canRunSearch, answerThreadBootstrapped]);
 
   useEffect(() => {
     const updateHash = () => {
@@ -4543,7 +4341,7 @@ export function ClinicalDashboard({
   // under another query's composer text.
   const searchRequestSeqRef = useRef(0);
 
-  function applySearchResult(payload: SearchResultModePayload) {
+  function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
     if (payload.kind === "documents") {
       setDocumentMatches(payload.documentMatches);
       setSources(payload.sources);
@@ -4555,6 +4353,21 @@ export function ClinicalDashboard({
     }
 
     const answerData = payload.payload;
+    // Archive the previous exchange before the new answer replaces it, so the
+    // thread keeps every turn visible in the same window.
+    const priorTurn = latestAnswerTurnRef.current;
+    if (priorTurn) {
+      const turnId = `answer-turn-${++answerTurnSeqRef.current}`;
+      setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }].slice(-maxStoredAnswerTurns));
+      setCollapsedTurnIds((current) => new Set(current).add(turnId));
+    }
+    const committedQuery = displayQuery ?? payload.query;
+    latestAnswerTurnRef.current = {
+      query: committedQuery,
+      answer: answerData,
+      sources: answerData.sources ?? [],
+    };
+    setLatestAnswerQuery(committedQuery);
     setAnswer(answerData);
     setSources(answerData.sources ?? []);
     setSearchRelevance(answerData.relevance ?? answerData.smartPanel?.relevance ?? null);
@@ -4593,7 +4406,13 @@ export function ClinicalDashboard({
     const requestId = ++searchRequestSeqRef.current;
 
     setSearchMode(targetMode);
-    setQuery(trimmedQuery);
+    // Answer mode keeps the composer as the draft source until a successful
+    // response clears it. Syncing query here on follow-ups used to fire the
+    // URL-backed autoRunSearch effect before loading flipped true, which
+    // duplicated the in-flight answer request and produced extra thread turns.
+    if (modeSearch.resultKind !== "answer") {
+      setQuery(trimmedQuery);
+    }
     if (modeSearch.kind !== "tools") setModeSearchSubmitted(true);
     if (isDifferentialsMode) clearDifferentialModeResultState();
 
@@ -4614,6 +4433,7 @@ export function ClinicalDashboard({
       return;
     }
     if (modeSearch.kind === "services" || targetMode === "forms") {
+      resetAnswerThread();
       setAnswer(null);
       setSources([]);
       setDocumentMatches([]);
@@ -4649,14 +4469,23 @@ export function ClinicalDashboard({
     onProgress(modeSearch.progressLabel);
     rememberRecentQuery(trimmedQuery);
 
-    const fallbackQuery = keywordQueryFromNaturalLanguage(trimmedQuery);
+    // Answer-mode follow-ups: the API takes a single query string, so a short
+    // ambiguous follow-up ("what about renal impairment?") is wrapped with the
+    // previous turn's question before retrieval. The raw text the user typed
+    // is what the thread displays (via displayQuery below).
+    const isAnswerRequest = modeSearch.resultKind === "answer";
+    const priorTurnQuery = isAnswerRequest ? latestAnswerTurnRef.current?.query : undefined;
+    const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
+    const requestQuery = isAnswerRequest ? buildAnswerFollowUpQuery(priorTurnQuery, trimmedQuery) : trimmedQuery;
+
+    const fallbackQuery = keywordQueryFromNaturalLanguage(requestQuery);
     const queryPlan =
-      fallbackQuery && fallbackQuery !== trimmedQuery
+      fallbackQuery && fallbackQuery !== requestQuery
         ? [
-            { query: trimmedQuery, isKeyword: false },
+            { query: requestQuery, isKeyword: false },
             { query: fallbackQuery, isKeyword: true },
           ]
-        : [{ query: trimmedQuery, isKeyword: false }];
+        : [{ query: requestQuery, isKeyword: false }];
 
     try {
       let successfulPayload: SearchResultModePayload | null = null;
@@ -4702,7 +4531,24 @@ export function ClinicalDashboard({
       }
 
       // M10: discard a stale response — a newer search owns the UI state.
-      if (requestId === searchRequestSeqRef.current) applySearchResult(successfulPayload);
+      if (requestId === searchRequestSeqRef.current) {
+        applySearchResult(successfulPayload, trimmedQuery);
+        if (successfulPayload.kind === "answer") {
+          // The composer is a draft box in a conversation: clear it so the
+          // user can type the next follow-up immediately.
+          setQuery("");
+          // Keep only the latest question in the URL; the full thread lives in
+          // React state until refresh or New chat.
+          modeChangeFromUiRef.current = true;
+          window.history.replaceState(null, "", appModeHomeHref(targetMode, { query: trimmedQuery, run: true }));
+          if (isAnswerFollowUp) {
+            window.requestAnimationFrame(() => {
+              const main = mainRef.current;
+              main?.scrollTo({ top: main.scrollHeight, behavior: "smooth" });
+            });
+          }
+        }
+      }
     } catch (requestError) {
       if (requestId === searchRequestSeqRef.current) {
         setError(requestError instanceof Error ? requestError.message : "Search failed");
@@ -4716,6 +4562,7 @@ export function ClinicalDashboard({
   }
 
   function setMedicationSearchQuery(searchText: string, updateUrl = true) {
+    modeChangeFromUiRef.current = true;
     const trimmedSearchText = searchText.trim();
     if (!trimmedSearchText) return;
     setSearchMode("prescribing");
@@ -4730,6 +4577,12 @@ export function ClinicalDashboard({
   }
 
   async function ask() {
+    const trimmedQuery = query.trim();
+    if (searchMode === "documents" && trimmedQuery) {
+      rememberRecentQuery(trimmedQuery);
+      router.push(documentsSearchHref({ query: trimmedQuery, focus: true, run: true }));
+      return;
+    }
     if (searchMode === "prescribing") {
       setMedicationSearchQuery(query);
       return;
@@ -4739,15 +4592,24 @@ export function ClinicalDashboard({
 
   useEffect(() => {
     const trimmedQuery = query.trim();
-    const canAutoRunMode = searchMode === "prescribing" || canRunSearch;
+    const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !trimmedQuery || !canAutoRunMode || loading) return;
+    if (searchMode === "answer" && !answerThreadBootstrapped) return;
+    // Once an answer is on screen, composer edits are follow-up drafts and must
+    // only run on explicit submit — not on every query keystroke while run=1
+    // keeps autoRunSearch enabled from the URL.
+    if (searchMode === "answer" && answer) return;
+    // After reload, the URL query matches the restored latest turn — do not
+    // archive it again into a duplicate prior turn.
+    if (searchMode === "answer" && latestAnswerQuery?.trim() === trimmedQuery) {
+      autoRunSearchSignatureRef.current = `${searchMode}:${trimmedQuery}`;
+      return;
+    }
     const signature = `${searchMode}:${trimmedQuery}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
     void ask();
-    // The signature ref gates this URL-triggered run so it only submits once per mode/query.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRunSearch, canRunSearch, loading, query, searchMode]);
+  }, [autoRunSearch, canRunSearch, loading, query, searchMode, answer, answerThreadBootstrapped, latestAnswerQuery]);
 
   function pickRecentQuery(recentQuery: string) {
     if (searchMode === "prescribing") {
@@ -4755,6 +4617,32 @@ export function ClinicalDashboard({
       return;
     }
     setQuery(recentQuery);
+  }
+
+  function crossModeSearch(mode: AppModeId, crossQuery: string) {
+    modeChangeFromUiRef.current = true;
+    if (mode === "differentials") clearDifferentialModeResultState();
+    setCommandScopes([]);
+    setQuery(crossQuery);
+    setModeSearchSubmitted(false);
+    setLoading(false);
+    setError(null);
+    setAnswerProgress(null);
+    setSearchRelevance(null);
+    setSearchFacets(null);
+    setSearchScope(null);
+    setSourceGovernanceWarnings([]);
+    setDocumentMatches([]);
+    if (mode === "answer") {
+      resetAnswerThread();
+      setAnswer(null);
+      setSources([]);
+    }
+    if (mode === "prescribing") {
+      setMedicationSearchQuery(crossQuery);
+    }
+    setSearchMode(mode);
+    router.push(appModeHomeHref(mode, { query: crossQuery, focus: true, run: true }));
   }
 
   async function submitAnswerFeedback(feedbackType: AnswerFeedbackType) {
@@ -4850,6 +4738,18 @@ export function ClinicalDashboard({
   ) {
     const trimmedSearchText = searchText.trim();
     if (!trimmedSearchText) return;
+    if (targetMode === "documents") {
+      setQuery(trimmedSearchText);
+      setSearchMode("documents");
+      setModeSearchSubmitted(true);
+      setLoading(false);
+      setError(null);
+      setAnswerProgress(null);
+      rememberRecentQuery(trimmedSearchText);
+      window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+      if (updateUrl) router.push(documentsSearchHref({ query: trimmedSearchText, focus: true, run: true }));
+      return;
+    }
     if (!canRunSearch) {
       setError(errorCopy.searchSetupNotReady);
       return;
@@ -4971,9 +4871,12 @@ export function ClinicalDashboard({
   }
 
   function selectSearchMode(mode: AppModeId) {
+    modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setQuery("");
+    setCommandScopes([]);
     if (mode === "answer") {
+      resetAnswerThread();
       setAnswer(null);
       setSources([]);
     }
@@ -4997,7 +4900,21 @@ export function ClinicalDashboard({
     });
   }
 
+  function stageAnswerFollowUpDraft(draft: string) {
+    setQuery(draft);
+    focusComposerInput();
+  }
+
+  function handleFollowUpQuote(quote: QuoteCard) {
+    stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
+  }
+
+  function handlePickFollowUpSuggestion(suggestion: string) {
+    void executeSearch(suggestion);
+  }
+
   function startNewChat() {
+    modeChangeFromUiRef.current = true;
     const href = appModeHomeHref("answer", { focus: true });
     setQuery("");
     setModeSearchSubmitted(false);
@@ -5005,6 +4922,7 @@ export function ClinicalDashboard({
     setQueryMode("auto");
     setSelectedDocumentIds([]);
     setScopeFilters({});
+    resetAnswerThread();
     setAnswer(null);
     setSources([]);
     setDocumentMatches([]);
@@ -5211,6 +5129,16 @@ export function ClinicalDashboard({
     answerRenderModel?.trust !== "unsupported";
   const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
   const safeAnswerText = useMemo(() => sanitizeAnswerDisplayText(answer?.answer ?? ""), [answer?.answer]);
+  const answerFollowUpSuggestions = useMemo(() => {
+    if (!answer || !latestAnswerQuery) return [];
+    const priorQueries = [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery];
+    return buildAnswerFollowUpSuggestions(latestAnswerQuery, answer, priorQueries);
+  }, [answer, latestAnswerQuery, priorAnswerTurns]);
+  const hiddenPriorTurnCount = Math.max(0, priorAnswerTurns.length - maxVisiblePriorTurns);
+  const visiblePriorTurns = useMemo(() => {
+    if (showEarlierTurns || hiddenPriorTurnCount === 0) return priorAnswerTurns;
+    return priorAnswerTurns.slice(-maxVisiblePriorTurns);
+  }, [hiddenPriorTurnCount, priorAnswerTurns, showEarlierTurns]);
   const safeAnswerSections = useMemo(() => {
     return (answer?.answerSections ?? [])
       .map((section) => {
@@ -5373,6 +5301,18 @@ export function ClinicalDashboard({
   // stay top-aligned so their lists start in a stable position.
   const centeredModeHome =
     showDesktopHomeComposer && activeModeResultKind !== "tools" && activeModeResultKind !== "favourites";
+  // Short mode homes (centred homes plus the services/forms registry homes)
+  // drop the large mobile bottom padding so phones don't get a scrollbar for
+  // content that already fits. Result views keep the full clearance.
+  const compactMobileModeHome =
+    centeredModeHome ||
+    ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
+  // Submitted (non-answer) searches are result views, not mode homes: on phones
+  // the bottom composer drops its chip row and hugs the screen edge so results
+  // keep maximum vertical space. Mode homes keep the default chip-row layout.
+  const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
+  const differentialsCompareAddonActive =
+    searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -5483,12 +5423,14 @@ export function ClinicalDashboard({
     <div
       className={cn(
         appBackdrop,
-        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] lg:grid lg:overflow-hidden",
+        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] md:grid md:grid-cols-[5.25rem_minmax(0,1fr)] md:overflow-hidden",
+        "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={
         {
           "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
+          "--clinical-sidebar-width-md": "5.25rem",
         } as CSSProperties
       }
     >
@@ -5508,7 +5450,7 @@ export function ClinicalDashboard({
         onPrefetchApplications={prefetchApplications}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:h-full">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
         <MasterSearchHeader
           documents={documents}
           documentTotal={indexedDocumentTotal}
@@ -5524,7 +5466,7 @@ export function ClinicalDashboard({
           onAsk={ask}
           onClearQuery={() => {
             setQuery("");
-            setModeSearchSubmitted(false);
+            if (!answer) setModeSearchSubmitted(false);
           }}
           onClearScope={() => setSelectedDocumentIds([])}
           onQueryModeChange={setQueryMode}
@@ -5543,9 +5485,25 @@ export function ClinicalDashboard({
           queryModeOptions={clinicalQueryModeOptions}
           queryInputRef={composerInputRef}
           queryInputAutoFocus={focusSearch}
+          recentQueries={recentQueries}
+          commandScopes={commandScopes}
+          onCommandScopesChange={setCommandScopes}
+          onPickRecent={(recent) => {
+            pickRecentQuery(recent);
+            void ask();
+          }}
+          onCrossModeSearch={crossModeSearch}
+          composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
+          mobileBottomSearchVariant={compactMobileBottomSearch ? "compact" : "default"}
+          mobileBottomSearchAddonSlotId={
+            differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
+          }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
           heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
+          // Phone-only: the header sits above the internally scrolling <main>,
+          // so hiding must collapse its layout space to hand it to content.
+          hideOnScroll={{ strategy: "collapse", containerRef: mainRef }}
         />
 
         <main
@@ -5558,255 +5516,348 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
-                ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+                ? compactMobileBottomSearch
+                  ? differentialsCompareAddonActive
+                    ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
+                    : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
+                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
                 : "mb-0",
           )}
         >
           <h1 className="sr-only">Clinical Guide</h1>
-          <div
-            className={cn(
-              "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
-              searchMode === "answer"
-                ? "pb-32 sm:pb-36 lg:pb-40"
-                : hasMobileBottomSearch
-                  ? "pb-32 sm:pb-10 lg:pb-12"
-                  : "pb-8 sm:pb-10 lg:pb-12",
-            )}
+          <SearchCommandProvider
+            value={{
+              query,
+              modeId: searchMode,
+              commandScopes,
+              onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
+              onClearScopes: () => setCommandScopes([]),
+            }}
           >
-            {actionNotice && (
-              <div
-                role="status"
-                className={cn(
-                  "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
-                  actionNotice.tone === "success" ? toneSuccess : toneWarning,
-                )}
-              >
-                <span className="min-w-0">{actionNotice.message}</span>
-                <button
-                  type="button"
-                  onClick={() => setActionNotice(null)}
-                  aria-label="Dismiss notification"
-                  className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-            {showDegradedNotice && renderDegradedNotice()}
-            {showAuthPanel && <AuthPanel />}
-            {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
-
-            <section
+            <div
               className={cn(
-                "min-h-[calc(100dvh-11rem)]",
-                centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
-                  ? "grid w-full place-items-center"
-                  : activeModeResultKind === "tools" ||
-                      activeModeResultKind === "favourites" ||
-                      activeModeResultKind === "differentials"
-                    ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                    : activeModeResultKind === "documents" || activeModeResultKind === "services"
-                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                      : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
+                "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+                // Centred mode homes carry little content, so drop the large
+                // mobile bottom padding (the fixed composer already has its own
+                // reserved margin on <main>) to avoid a needless scrollbar.
+                // sm+/lg values stay identical to the result-view treatment.
+                searchMode === "answer"
+                  ? compactMobileModeHome
+                    ? "pb-4 sm:pb-36 lg:pb-40"
+                    : "pb-32 sm:pb-36 lg:pb-40"
+                  : hasMobileBottomSearch
+                    ? compactMobileModeHome
+                      ? "pb-4 sm:pb-10 lg:pb-12"
+                      : compactMobileBottomSearch
+                        ? "pb-8 sm:pb-10 lg:pb-12"
+                        : "pb-32 sm:pb-10 lg:pb-12"
+                    : "pb-8 sm:pb-10 lg:pb-12",
               )}
             >
-              <h2 data-testid="answer-section-heading" className="sr-only">
-                {activeModeSearch.resultHeading}
-              </h2>
-              {error && (
-                <div
-                  role="alert"
-                  className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
-                >
-                  <AlertCircle className="mr-2 inline h-4 w-4" />
-                  {error}
-                </div>
-              )}
-
-              {loading && answerProgress && searchMode !== "prescribing" && (
+              {actionNotice && (
                 <div
                   role="status"
-                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                  className={cn(
+                    "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
+                    actionNotice.tone === "success" ? toneSuccess : toneWarning,
+                  )}
                 >
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--primary)]" />
-                  <span className="min-w-0 truncate">{answerProgress}</span>
+                  <span className="min-w-0">{actionNotice.message}</span>
+                  <button
+                    type="button"
+                    onClick={() => setActionNotice(null)}
+                    aria-label="Dismiss notification"
+                    className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               )}
+              {showDegradedNotice && renderDegradedNotice()}
+              {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
 
-              {activeModeResultKind === "differentials" ? (
-                <DifferentialsHome
-                  query={query}
-                  loading={loading}
-                  documentMatches={documentMatches}
-                  realDataReady={canRunSearch}
-                  authUnavailable={!clientDemoMode && !canUsePrivateApis}
-                  apiUnavailable={apiUnavailable}
-                  setupWarning={setupWarning}
-                  onQueryChange={setQuery}
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
-                  onSuggestedSearch={(nextQuery) => {
-                    setQuery(nextQuery);
-                    focusComposerInput();
-                  }}
-                  onRunSearch={(nextQuery) => {
-                    void executeSearch(nextQuery, "differentials", scopeFilters);
-                  }}
-                  onOpenPresentations={(nextQuery) => {
-                    const queryParams = new URLSearchParams();
-                    const normalizedQuery = nextQuery.trim();
-                    if (normalizedQuery) queryParams.set("q", normalizedQuery);
-                    router.push(`/differentials/presentations${queryParams.toString() ? `?${queryParams}` : ""}`);
-                  }}
-                  onOpenDiagnoses={(nextQuery) => {
-                    const queryParams = new URLSearchParams();
-                    const normalizedQuery = nextQuery.trim();
-                    if (normalizedQuery) queryParams.set("q", normalizedQuery);
-                    router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
-                  }}
-                />
-              ) : activeModeResultKind === "tools" ? (
-                <ToolsHub
-                  query={query}
-                  onQueryChange={setQuery}
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
-                  showDetailPanel={!requestedRun}
-                />
-              ) : activeModeResultKind === "favourites" ? (
-                <FavouritesHub
-                  query={query}
-                  onClearQuery={() => {
-                    setQuery("");
-                    setModeSearchSubmitted(false);
-                    router.replace(appModeHomeHref("favourites", { focus: true }));
-                  }}
-                  onAddFavourite={() =>
-                    setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })
-                  }
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
-                />
-              ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
-                searchMode === "prescribing" ? (
-                  <MedicationPrescribingWorkspace
+              <section
+                className={cn(
+                  "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
+                  centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
+                    ? // On tall phones the centred home leans slightly toward the
+                      // bottom composer (matches the committed vertical-weighting
+                      // guard); short phones skip the bias so content still fits.
+                      "grid w-full place-items-center max-sm:[@media(min-height:800px)]:pt-[5vh]"
+                    : activeModeResultKind === "tools" ||
+                        activeModeResultKind === "favourites" ||
+                        activeModeResultKind === "differentials"
+                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                      : activeModeResultKind === "documents" || activeModeResultKind === "services"
+                        ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                        : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
+                )}
+              >
+                <h2 data-testid="answer-section-heading" className="sr-only">
+                  {activeModeSearch.resultHeading}
+                </h2>
+                {error && (
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
+                  >
+                    <AlertCircle className="mr-2 inline h-4 w-4" />
+                    {error}
+                  </div>
+                )}
+
+                {loading && answerProgress && searchMode !== "prescribing" && (
+                  <div
+                    role="status"
+                    className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                  >
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                    <span className="min-w-0 truncate">{answerProgress}</span>
+                  </div>
+                )}
+
+                {activeModeResultKind === "differentials" ? (
+                  <DifferentialsHome
                     query={query}
-                    loading={false}
-                    realDataReady
+                    loading={loading}
+                    documentMatches={documentMatches}
+                    realDataReady={canRunSearch}
                     authUnavailable={false}
-                    apiUnavailable={false}
-                    setupWarning={null}
-                    onSuggestedSearch={setMedicationSearchQuery}
-                    showHome={!query.trim() && !modeSearchSubmitted}
+                    apiUnavailable={apiUnavailable}
+                    setupWarning={setupWarning}
+                    onQueryChange={setQuery}
+                    desktopComposerSlotId={desktopHomeComposerSlotId}
+                    onSuggestedSearch={(nextQuery) => {
+                      setQuery(nextQuery);
+                      focusComposerInput();
+                    }}
+                    onRunSearch={(nextQuery) => {
+                      void executeSearch(nextQuery, "differentials", scopeFilters);
+                    }}
+                    onOpenPresentations={(nextQuery) => {
+                      const queryParams = new URLSearchParams();
+                      const normalizedQuery = nextQuery.trim();
+                      if (normalizedQuery) queryParams.set("q", normalizedQuery);
+                      router.push(`/differentials/presentations${queryParams.toString() ? `?${queryParams}` : ""}`);
+                    }}
+                    onOpenDiagnoses={(nextQuery) => {
+                      const queryParams = new URLSearchParams();
+                      const normalizedQuery = nextQuery.trim();
+                      if (normalizedQuery) queryParams.set("q", normalizedQuery);
+                      router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
+                    }}
+                  />
+                ) : activeModeResultKind === "tools" ? (
+                  <ToolsHub
+                    query={query}
+                    onQueryChange={setQuery}
+                    desktopComposerSlotId={desktopHomeComposerSlotId}
+                    showDetailPanel={!requestedRun}
+                  />
+                ) : activeModeResultKind === "favourites" ? (
+                  <FavouritesHub
+                    query={query}
+                    onClearQuery={() => {
+                      setQuery("");
+                      setModeSearchSubmitted(false);
+                      router.replace(appModeHomeHref("favourites", { focus: true }));
+                    }}
+                    onAddFavourite={() =>
+                      setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })
+                    }
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
-                ) : (
-                  <>
-                    <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                    <DocumentSearchResultsPanel
-                      matches={documentMatches}
-                      recordMatches={recordSearchMatches}
-                      recordMode={recordSearchMode}
-                      recordStatus={registryRecords.status}
-                      showRecordMatches={searchMode === "services" || searchMode === "forms"}
+                ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
+                  searchMode === "prescribing" ? (
+                    <MedicationPrescribingWorkspace
                       query={query}
-                      loading={loading}
-                      documentCount={indexedDocumentTotal}
-                      recentDocuments={documents}
-                      realDataReady={canRunSearch}
-                      authUnavailable={!clientDemoMode && !canUsePrivateApis}
-                      apiUnavailable={apiUnavailable}
-                      setupWarning={setupWarning}
-                      facets={searchFacets}
-                      onScopeDocument={scopeOnlyDocument}
-                      onAnswerFromDocument={answerFromDocument}
-                      onOpenRecentDocuments={openRecentDocuments}
-                      onOpenLibrary={openSourceLibrary}
-                      onOpenSourcePdf={openSourcePdfBrowser}
-                      onTagSearch={handleTagSearch}
-                      showHome={searchMode === "documents" && !modeSearchSubmitted}
+                      loading={false}
+                      realDataReady
+                      authUnavailable={false}
+                      apiUnavailable={false}
+                      setupWarning={null}
+                      onSuggestedSearch={setMedicationSearchQuery}
+                      showHome={!query.trim() && !modeSearchSubmitted}
                       desktopComposerSlotId={desktopHomeComposerSlotId}
                     />
-                  </>
-                )
-              ) : loading && !answer ? (
-                <AnswerSkeleton />
-              ) : answer && answerRenderModel ? (
-                stagedDashboardExtraction.answerSurface ? (
-                  <StagedAnswerResultSurface
-                    answer={answer}
-                    query={query}
-                    safeAnswerText={safeAnswerText}
-                    bestSource={bestSource}
-                    sourceGovernanceWarnings={sourceGovernanceWarnings}
-                    sourceSummary={sourceSummary}
-                    renderModel={answerRenderModel}
-                    weakEvidence={weakEvidence}
-                    answerViewMode={answerViewMode}
-                    answerEvidenceMapRows={answerEvidenceMapRows}
-                    onScopeDocument={scopeOnlyDocument}
-                    answerGrounded={answerGrounded}
-                    sources={answerRenderModel.reviewSources}
-                    demoMode={demoMode}
-                    safeAnswerSections={safeAnswerSections}
-                    safetyFindings={safetyFindings}
-                    copiedAnswer={copiedAction === "answer"}
-                    pendingFeedback={pendingFeedback}
-                    onCopyAnswer={() =>
-                      copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
-                    }
-                    onSubmitFeedback={submitAnswerFeedback}
+                  ) : (
+                    <>
+                      <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                      <DocumentSearchResultsPanel
+                        matches={documentMatches}
+                        recordMatches={recordSearchMatches}
+                        recordMode={recordSearchMode}
+                        recordStatus={registryRecords.status}
+                        showRecordMatches={searchMode === "services" || searchMode === "forms"}
+                        query={query}
+                        loading={loading}
+                        documentCount={indexedDocumentTotal}
+                        recentDocuments={documents}
+                        realDataReady={canRunSearch}
+                        authUnavailable={false}
+                        apiUnavailable={apiUnavailable}
+                        setupWarning={setupWarning}
+                        facets={searchFacets}
+                        onScopeDocument={scopeOnlyDocument}
+                        onAnswerFromDocument={answerFromDocument}
+                        onOpenRecentDocuments={openRecentDocuments}
+                        onOpenLibrary={openSourceLibrary}
+                        onOpenSourcePdf={openSourcePdfBrowser}
+                        onTagSearch={handleTagSearch}
+                        showHome={searchMode === "documents" && !modeSearchSubmitted}
+                        desktopComposerSlotId={desktopHomeComposerSlotId}
+                      />
+                    </>
+                  )
+                ) : loading && !answer ? (
+                  <AnswerSkeleton />
+                ) : answer && answerRenderModel ? (
+                  stagedDashboardExtraction.answerSurface ? (
+                    <>
+                      {hiddenPriorTurnCount > 0 && !showEarlierTurns ? (
+                        <button
+                          type="button"
+                          data-testid="answer-thread-show-earlier"
+                          onClick={() => setShowEarlierTurns(true)}
+                          className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                        >
+                          Show earlier messages ({hiddenPriorTurnCount})
+                        </button>
+                      ) : null}
+                      {visiblePriorTurns.map((turn) => (
+                        <PriorAnswerTurnSurface
+                          key={turn.id}
+                          turn={turn}
+                          copied={copiedAction === turn.id}
+                          collapsed={collapsedTurnIds.has(turn.id)}
+                          onToggleCollapsed={() => toggleAnswerTurnCollapsed(turn.id)}
+                          onCopy={(text) => copyText(turn.id, text)}
+                        />
+                      ))}
+                      <StagedAnswerResultSurface
+                        answer={answer}
+                        query={latestAnswerQuery ?? query}
+                        safeAnswerText={safeAnswerText}
+                        bestSource={bestSource}
+                        sourceGovernanceWarnings={sourceGovernanceWarnings}
+                        sourceSummary={sourceSummary}
+                        renderModel={answerRenderModel}
+                        weakEvidence={weakEvidence}
+                        answerViewMode={answerViewMode}
+                        answerEvidenceMapRows={answerEvidenceMapRows}
+                        onScopeDocument={scopeOnlyDocument}
+                        answerGrounded={answerGrounded}
+                        sources={answerRenderModel.reviewSources}
+                        demoMode={demoMode}
+                        safeAnswerSections={safeAnswerSections}
+                        safetyFindings={safetyFindings}
+                        copiedAnswer={copiedAction === "answer"}
+                        pendingFeedback={pendingFeedback}
+                        onCopyAnswer={() =>
+                          copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
+                        }
+                        onSubmitFeedback={submitAnswerFeedback}
+                        onFollowUpQuote={handleFollowUpQuote}
+                        followUpSuggestions={answerFollowUpSuggestions}
+                        onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
+                        followUpSuggestionsDisabled={loading}
+                      />
+                    </>
+                  ) : null
+                ) : (
+                  <AnswerEmptyState
+                    onPickSample={setQuery}
+                    onSearchDocuments={() => setSearchMode("documents")}
+                    onUploadDocument={openUploadDrawer}
+                    desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
-                ) : null
-              ) : (
-                <AnswerEmptyState
-                  onPickSample={setQuery}
-                  onSearchDocuments={() => setSearchMode("documents")}
-                  onUploadDocument={openUploadDrawer}
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
+                )}
+              </section>
+
+              {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
+
+              {activeModeResultKind === "answer" && answer && (
+                <RelatedDocumentsPanel
+                  documents={relatedDocuments}
+                  onScopeDocument={scopeOnlyDocument}
+                  onTagSearch={handleTagSearch}
                 />
               )}
-            </section>
-
-            {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
-
-            {activeModeResultKind === "answer" && answer && (
-              <RelatedDocumentsPanel
-                documents={relatedDocuments}
-                onScopeDocument={scopeOnlyDocument}
-                onTagSearch={handleTagSearch}
-              />
-            )}
-            {(documentsDrawerOpen || uploadDrawerOpen) && (
-              <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
-                <DrawerGroupLabel title={drawerGroupTitle} />
-                {documentsDrawerOpen ? (
-                  <UtilityDrawer
-                    id="dashboard-documents-drawer"
-                    icon={BookOpen}
-                    title={documentsDrawerTitle}
-                    summary={documentsDrawerSummary}
-                    mobileSummary={documentsDrawerMobileSummary}
-                    open={documentsDrawerOpen}
-                    onOpenChange={setDocumentsDrawerOpen}
-                    sheetBreakpoint="lg"
-                    sheetHeaderLeading={
-                      <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                        <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />
-                      </span>
-                    }
-                    sheetTitleAccessory={
-                      documentsDrawerIsAdmin ? (
-                        <span className="nums hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-bold text-[color:var(--text-muted)] sm:inline-flex">
-                          {indexedDocumentTotal.toLocaleString()} indexed
+              {(documentsDrawerOpen || uploadDrawerOpen) && (
+                <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
+                  <DrawerGroupLabel title={drawerGroupTitle} />
+                  {documentsDrawerOpen ? (
+                    <UtilityDrawer
+                      id="dashboard-documents-drawer"
+                      icon={BookOpen}
+                      title={documentsDrawerTitle}
+                      summary={documentsDrawerSummary}
+                      mobileSummary={documentsDrawerMobileSummary}
+                      open={documentsDrawerOpen}
+                      onOpenChange={setDocumentsDrawerOpen}
+                      sheetBreakpoint="lg"
+                      sheetHeaderLeading={
+                        <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                          <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />
                         </span>
-                      ) : null
-                    }
-                    sheetDescription={documentsDrawerSummary}
-                    sheetHeaderClassName="bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4"
-                    sheetCloseButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                    sheetContentClassName="max-h-[min(82dvh,40rem)] sm:max-h-[min(88dvh,46rem)] sm:max-w-2xl lg:max-w-3xl"
-                    sheetBodyClassName="bg-[color:var(--surface-subtle)] p-3 sm:p-4"
-                    sheetChildrenClassName="space-y-3"
-                  >
-                    {documentsDrawerIsAdmin ? (
+                      }
+                      sheetTitleAccessory={
+                        documentsDrawerIsAdmin ? (
+                          <span className="nums hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-bold text-[color:var(--text-muted)] sm:inline-flex">
+                            {indexedDocumentTotal.toLocaleString()} indexed
+                          </span>
+                        ) : null
+                      }
+                      sheetDescription={documentsDrawerSummary}
+                      sheetHeaderClassName="bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4"
+                      sheetCloseButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      sheetContentClassName="max-h-[min(82dvh,40rem)] sm:max-h-[min(88dvh,46rem)] sm:max-w-2xl lg:max-w-3xl"
+                      sheetBodyClassName="bg-[color:var(--surface-subtle)] p-3 sm:p-4"
+                      sheetChildrenClassName="space-y-3"
+                    >
+                      {documentsDrawerIsAdmin ? (
+                        <LibraryHealthStrip
+                          documents={documents}
+                          jobs={jobs}
+                          batches={batches}
+                          checks={setupChecks}
+                          loading={dashboardDataLoading}
+                          onSelectTarget={openLibraryHealthTarget}
+                        />
+                      ) : null}
+                      <DocumentDrawer
+                        documents={documents}
+                        pagination={documentsPagination}
+                        loadingMoreDocuments={loadingMoreDocuments}
+                        mode={documentsDrawerIsAdmin ? "admin" : documentsDrawerMode}
+                        selectedDocumentIds={selectedDocumentIds}
+                        statusFilter={documentDrawerStatusFilter}
+                        onToggleScope={toggleDocumentScope}
+                        onLoadMoreDocuments={loadMoreDocuments}
+                        onDocumentRenamed={handleDocumentRenamed}
+                        onDocumentDeleted={handleDocumentDeleted}
+                        onBulkReindex={bulkReindexSelected}
+                        onBulkAssignCollection={bulkAssignCollection}
+                        onBulkMetadataUpdate={bulkUpdateMetadata}
+                        bulkActionStatus={bulkActionStatus}
+                        bulkActionBusy={bulkActionBusy}
+                        canManageDocuments={canUsePrivateApis}
+                        onTagSearch={handleTagSearch}
+                        onMutateLabel={mutateDocumentLabel}
+                      />
+                    </UtilityDrawer>
+                  ) : null}
+
+                  {uploadDrawerOpen ? (
+                    <UtilityDrawer
+                      id="dashboard-upload-drawer"
+                      icon={UploadCloud}
+                      title="Upload and indexing"
+                      summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
+                      mobileSummary="Setup & uploads"
+                      open={uploadDrawerOpen}
+                      onOpenChange={setUploadDrawerOpen}
+                    >
                       <LibraryHealthStrip
                         documents={documents}
                         jobs={jobs}
@@ -5815,167 +5866,126 @@ export function ClinicalDashboard({
                         loading={dashboardDataLoading}
                         onSelectTarget={openLibraryHealthTarget}
                       />
-                    ) : null}
-                    <DocumentDrawer
-                      documents={documents}
-                      pagination={documentsPagination}
-                      loadingMoreDocuments={loadingMoreDocuments}
-                      mode={documentsDrawerIsAdmin ? "admin" : documentsDrawerMode}
-                      selectedDocumentIds={selectedDocumentIds}
-                      statusFilter={documentDrawerStatusFilter}
-                      onToggleScope={toggleDocumentScope}
-                      onLoadMoreDocuments={loadMoreDocuments}
-                      onDocumentRenamed={handleDocumentRenamed}
-                      onDocumentDeleted={handleDocumentDeleted}
-                      onBulkReindex={bulkReindexSelected}
-                      onBulkAssignCollection={bulkAssignCollection}
-                      onBulkMetadataUpdate={bulkUpdateMetadata}
-                      bulkActionStatus={bulkActionStatus}
-                      bulkActionBusy={bulkActionBusy}
-                      canManageDocuments={canUsePrivateApis}
-                      onTagSearch={handleTagSearch}
-                      onMutateLabel={mutateDocumentLabel}
-                    />
-                  </UtilityDrawer>
-                ) : null}
+                      <div
+                        role="tablist"
+                        aria-label="Upload and indexing sections"
+                        className="grid grid-cols-4 gap-2 lg:hidden"
+                      >
+                        {uploadTabs.map((tab) => {
+                          const active = uploadMobileTab === tab.id;
+                          const Icon = tab.icon;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              role="tab"
+                              aria-selected={active}
+                              aria-controls={tab.panelId}
+                              onClick={() => setUploadMobileTab(tab.id)}
+                              className={cn(
+                                "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
+                                active
+                                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--glow-soft)]"
+                                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+                              )}
+                            >
+                              <span className="flex items-center gap-1.5 text-xs font-bold">
+                                <Icon className="h-3.5 w-3.5" />
+                                {tab.label}
+                              </span>
+                              <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
+                                {tab.summary}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div
+                          id="dashboard-setup-section"
+                          role="tabpanel"
+                          aria-label="Setup"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
+                            uploadMobileTab !== "setup" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Developer setup status
+                          </p>
+                          <SetupChecklist checks={setupChecks} />
+                          {showAuthPanel && <AuthPanel />}
+                        </div>
+                        <div
+                          id="dashboard-upload-section"
+                          role="tabpanel"
+                          aria-label="Upload"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
+                            uploadMobileTab !== "upload" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Clinical upload
+                          </p>
+                          <UploadPanel
+                            onUploaded={handleUploadQueued}
+                            demoMode={uploadReadOnlyMode}
+                            canUpload={canUsePrivateApis}
+                            authorizationHeader={authorizationHeader}
+                          />
+                        </div>
+                        <div
+                          id="dashboard-indexing-section"
+                          role="tabpanel"
+                          aria-label="Jobs"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
+                            uploadMobileTab !== "jobs" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Indexing progress
+                          </p>
+                          <IndexingMonitor
+                            jobs={jobs}
+                            batches={batches}
+                            filter={indexingMonitorFilter}
+                            actionId={indexingActionId}
+                            onRetry={retryJob}
+                            onReindex={reindexDocument}
+                            onEnrich={enrichDocument}
+                          />
+                        </div>
+                        <div
+                          id="dashboard-quality-section"
+                          role="tabpanel"
+                          aria-label="Quality"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
+                            uploadMobileTab !== "quality" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Ingestion quality console
+                          </p>
+                          <IngestionQualityConsole
+                            items={qualityItems}
+                            actionId={indexingActionId}
+                            onRetry={retryJob}
+                            onReindex={reindexDocument}
+                            onEnrich={enrichDocument}
+                          />
+                        </div>
+                      </div>
+                    </UtilityDrawer>
+                  ) : null}
+                </section>
+              )}
 
-                {uploadDrawerOpen ? (
-                  <UtilityDrawer
-                    id="dashboard-upload-drawer"
-                    icon={UploadCloud}
-                    title="Upload and indexing"
-                    summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
-                    mobileSummary="Setup & uploads"
-                    open={uploadDrawerOpen}
-                    onOpenChange={setUploadDrawerOpen}
-                  >
-                    <LibraryHealthStrip
-                      documents={documents}
-                      jobs={jobs}
-                      batches={batches}
-                      checks={setupChecks}
-                      loading={dashboardDataLoading}
-                      onSelectTarget={openLibraryHealthTarget}
-                    />
-                    <div
-                      role="tablist"
-                      aria-label="Upload and indexing sections"
-                      className="grid grid-cols-4 gap-2 lg:hidden"
-                    >
-                      {uploadTabs.map((tab) => {
-                        const active = uploadMobileTab === tab.id;
-                        const Icon = tab.icon;
-                        return (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            role="tab"
-                            aria-selected={active}
-                            aria-controls={tab.panelId}
-                            onClick={() => setUploadMobileTab(tab.id)}
-                            className={cn(
-                              "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
-                              active
-                                ? "border-[color:var(--primary)] bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--glow-soft)]"
-                                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                            )}
-                          >
-                            <span className="flex items-center gap-1.5 text-xs font-bold">
-                              <Icon className="h-3.5 w-3.5" />
-                              {tab.label}
-                            </span>
-                            <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
-                              {tab.summary}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div
-                        id="dashboard-setup-section"
-                        role="tabpanel"
-                        aria-label="Setup"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
-                          uploadMobileTab !== "setup" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Developer setup status
-                        </p>
-                        <SetupChecklist checks={setupChecks} />
-                        {showAuthPanel && <AuthPanel />}
-                      </div>
-                      <div
-                        id="dashboard-upload-section"
-                        role="tabpanel"
-                        aria-label="Upload"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
-                          uploadMobileTab !== "upload" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Clinical upload
-                        </p>
-                        <UploadPanel
-                          onUploaded={handleUploadQueued}
-                          demoMode={uploadReadOnlyMode}
-                          canUpload={canUsePrivateApis}
-                          authorizationHeader={authorizationHeader}
-                        />
-                      </div>
-                      <div
-                        id="dashboard-indexing-section"
-                        role="tabpanel"
-                        aria-label="Jobs"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
-                          uploadMobileTab !== "jobs" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Indexing progress
-                        </p>
-                        <IndexingMonitor
-                          jobs={jobs}
-                          batches={batches}
-                          filter={indexingMonitorFilter}
-                          actionId={indexingActionId}
-                          onRetry={retryJob}
-                          onReindex={reindexDocument}
-                          onEnrich={enrichDocument}
-                        />
-                      </div>
-                      <div
-                        id="dashboard-quality-section"
-                        role="tabpanel"
-                        aria-label="Quality"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
-                          uploadMobileTab !== "quality" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Ingestion quality console
-                        </p>
-                        <IngestionQualityConsole
-                          items={qualityItems}
-                          actionId={indexingActionId}
-                          onRetry={retryJob}
-                          onReindex={reindexDocument}
-                          onEnrich={enrichDocument}
-                        />
-                      </div>
-                    </div>
-                  </UtilityDrawer>
-                ) : null}
-              </section>
-            )}
-
-            {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
-          </div>
+              {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
+            </div>
+          </SearchCommandProvider>
         </main>
 
         <MobileSectionFab

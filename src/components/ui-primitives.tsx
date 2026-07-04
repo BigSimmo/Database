@@ -114,6 +114,60 @@ export const toneWarningQuiet =
 export const toneNeutral =
   "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 
+export const searchPageCanvas = "bg-[color:var(--background)] text-[color:var(--text)]";
+export const searchPageShell =
+  "min-h-[calc(100dvh-4rem)] overflow-x-hidden px-3 py-3 pb-[calc(12rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
+export const searchPageContainer = "mx-auto w-full max-w-[1500px]";
+export const searchResultsBodyGrid = "grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]";
+export const searchResultsMainColumn = "search-results-main min-w-0";
+export const searchResultsSidebar = "hidden w-[22rem] shrink-0 space-y-4 xl:block";
+export const searchResultsSection =
+  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]";
+export const searchFocusRing =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+/** Shared disabled styling for non-functional demo controls. */
+export const disabledControlClass = "cursor-not-allowed opacity-60";
+
+export type SemanticChipTone = "danger" | "info" | "warning" | "success" | "neutral";
+
+export function semanticChipTone(tone: SemanticChipTone | undefined | null) {
+  if (tone === "danger") return toneDanger;
+  if (tone === "info") return toneInfo;
+  if (tone === "warning") return toneWarning;
+  if (tone === "success") return toneSuccess;
+  return toneNeutral;
+}
+
+export function ToggleSwitch({
+  enabled,
+  className,
+  "aria-label": ariaLabel,
+}: {
+  enabled: boolean;
+  className?: string;
+  "aria-label"?: string;
+}) {
+  return (
+    <span
+      role="switch"
+      aria-checked={enabled}
+      aria-label={ariaLabel}
+      className={cn(
+        "relative inline-flex h-6 w-10 shrink-0 rounded-full transition",
+        enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          "absolute top-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm transition",
+          enabled ? "right-1" : "left-1",
+        )}
+      />
+    </span>
+  );
+}
+
 type IconComponent = LucideIcon;
 
 export function SourceStatusBadge({
@@ -231,7 +285,7 @@ export function LoadingPanel({
       role="status"
     >
       <div>
-        <Loader2 className="mx-auto mb-2 h-4 w-4 animate-spin text-[color:var(--primary)]" />
+        <Loader2 className="mx-auto mb-2 h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
         {label}
       </div>
     </div>

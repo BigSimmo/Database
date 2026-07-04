@@ -21,6 +21,7 @@ import {
 import type { ReactNode } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { appModeIcons } from "@/lib/app-mode-icons";
 
 import { areaLabels, pinnedToolIds, toolById, tools, type ToolFixture } from "./tool-fixtures";
 import { useToolFilter, type ToolFilterId } from "./use-tool-filter";
@@ -173,7 +174,7 @@ function SavedWorkPanel() {
   const saved = [
     { title: "Lithium monitoring plan", tool: "Documents", icon: FileText },
     { title: "Medication review draft", tool: "Medication", icon: Pill },
-    { title: "13YARN referral pathway", tool: "Services", icon: ClipboardList },
+    { title: "13YARN referral pathway", tool: "Services", icon: appModeIcons.services },
   ];
 
   return (

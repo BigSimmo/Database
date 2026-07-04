@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     const safeFileName = clickedDocumentId ? safeTelemetryText(body.fileName) : null;
     const safeTitle = clickedDocumentId ? safeTelemetryText(body.title) : null;
 
-    await supabase.from("rag_query_misses").insert({
+    const { error: insertError } = await supabase.from("rag_query_misses").insert({
       owner_id: user.id,
       query: queryTextForStorage(body.query),
       normalized_query: normalizedQueryTextForStorage(body.query),
@@ -109,6 +109,7 @@ export async function POST(request: Request) {
         ...queryPrivacyMetadata(body.query),
       },
     });
+    if (insertError) throw new Error(insertError.message);
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (error instanceof serverAuth.AuthenticationError) {

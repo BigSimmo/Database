@@ -161,3 +161,17 @@ export function extractSafetyFindings(answer: RagAnswer | null | undefined, limi
 export function formatSafetyFindingLabel(finding: SafetyFinding) {
   return `${finding.label} · ${formatCitationLabel(finding.citation)}`;
 }
+
+const safetyKindPriority: Record<SafetyFindingKind, number> = {
+  contraindication: 10,
+  red_flag: 20,
+  escalation: 30,
+  dose_limit: 40,
+  monitoring: 50,
+  exclusion: 60,
+  caveat: 70,
+};
+
+export function sortSafetyFindingsBySeverity(findings: SafetyFinding[]): SafetyFinding[] {
+  return [...findings].sort((left, right) => safetyKindPriority[left.kind] - safetyKindPriority[right.kind]);
+}

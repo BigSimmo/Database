@@ -4,6 +4,12 @@ import { pathToFileURL } from "node:url";
 import { format } from "prettier";
 
 import { appModeDefinitions, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
+import {
+  documentEvidenceHref,
+  documentReaderHref,
+  documentsSearchHref,
+  DOCUMENTS_MODE_HOME_ROUTE,
+} from "@/lib/document-flow-routes";
 import { differentialRecords } from "@/lib/differentials";
 import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
@@ -40,6 +46,9 @@ const routeDescriptions: Record<string, string> = {
   "/differentials/diagnoses/[slug]": "Differential diagnosis detail.",
   "/differentials/presentations": "Presentation workflow stream.",
   "/documents/[id]": "Document viewer/detail page.",
+  "/documents/search": "Documents search command centre.",
+  "/documents/source": "Master document reader with demo PDF content and evidence navigation.",
+  "/documents/source/evidence": "Evidence detail page for document flow.",
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
@@ -87,9 +96,9 @@ const routeOwnershipRows = [
   ["Favourites", "src/app/favourites, src/components/clinical-dashboard/favourites-home-page.tsx"],
   ["Differentials", "src/app/differentials, src/lib/differentials.ts"],
   ["Medications", "src/app/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx"],
-  ["Documents", "src/app/documents/[id], src/app/api/documents"],
+  ["Documents", "src/app/documents, src/lib/document-flow-routes.ts"],
   ["Applications and tools", "src/app/applications, src/components/applications-launcher-page.tsx"],
-  ["Mockups", "src/app/mockups, mockups/"],
+  ["Mockups", "src/app/mockups"],
 ] as const;
 
 function toPosixPath(value: string) {
@@ -189,7 +198,7 @@ function renderSlugInventory(title: string, routePattern: string, slugs: readonl
 function renderModeRoutes() {
   const examples: Record<AppModeId, string> = {
     answer: appModeHomeHref("answer", { query: "example question", focus: true, run: true }),
-    documents: appModeHomeHref("documents", { query: "lithium monitoring", focus: true, run: true }),
+    documents: documentsSearchHref({ query: "lithium monitoring", focus: true, run: true }),
     services: appModeHomeHref("services", { query: "13YARN", focus: true, run: true }),
     forms: appModeHomeHref("forms", { query: "transport forms", focus: true, run: true }),
     favourites: appModeHomeHref("favourites", { query: "clozapine set", focus: true, run: true }),
@@ -231,9 +240,10 @@ function renderModePageIndex() {
     },
     {
       mode: "Documents",
-      home: appModeHomeHref("documents"),
-      search: appModeHomeHref("documents", { query: "lithium monitoring", focus: true, run: true }),
-      detail: "`/documents/[id]` document viewer and in-document search.",
+      home: DOCUMENTS_MODE_HOME_ROUTE,
+      search: documentsSearchHref({ query: "lithium monitoring", focus: true, run: true }),
+      detail:
+        "`/documents/source` master reader, `/documents/source/evidence` evidence detail, `/documents/search` results, and `/documents/[id]` live viewer.",
     },
     {
       mode: "Services",
@@ -274,6 +284,36 @@ function renderModePageIndex() {
   ]);
 }
 
+function renderDocumentFlowIndex() {
+  return [
+    bullet(DOCUMENTS_MODE_HOME_ROUTE, "Documents mode home. Stays as the no-query home surface for document mode."),
+    bullet(
+      documentsSearchHref({ query: "clozapine monitoring table", focus: true, run: true }),
+      "Documents search command centre used after submitting a search in Documents mode.",
+    ),
+    bullet(
+      documentReaderHref({
+        document: "clozapine-monitoring",
+        query: "clozapine monitoring table",
+        page: 12,
+        chunk: "monitoring-table",
+      }),
+      "Standalone master document reader for a selected result, with bundled demo PDF content and evidence navigation.",
+    ),
+    bullet(
+      documentEvidenceHref({
+        document: "clozapine-monitoring",
+        evidence: "monitoring-table",
+        query: "clozapine monitoring table",
+        page: 12,
+        chunk: "monitoring-table",
+      }),
+      "Reusable evidence detail page opened from the search tray or document reader evidence cards.",
+    ),
+    bullet("/documents/[id]", "Live document viewer route remains available for real document records."),
+  ];
+}
+
 function section(title: string, lines: string[]) {
   return [`## ${title}`, "", ...lines, ""];
 }
@@ -304,6 +344,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
     ),
     ...section("Mode/query routes", renderModeRoutes()),
     ...section("Mode page index", renderModePageIndex()),
+    ...section("Documents flow index", renderDocumentFlowIndex()),
     ...section("Registry-backed routes", [
       bullet(
         "/services/[slug]",
@@ -370,7 +411,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         : ["- No page-level redirects discovered."],
     ),
     ...section("Known caveats and stale-path flags", [
-      "- No active stale internal route targets are expected in the current generated sitemap.",
+      "- `/mockups/*` prototype routes are development-only; production returns 404 and `robots.txt` disallows indexing.",
       "- `/mockups/favourites-hub` is a legacy compatibility route and should redirect to `/favourites`.",
       "- Registry-backed service and form pages may show sign-in, load-error, or in-app not-found states for missing per-user records.",
       "- Live user registries may contain additional service or form slugs beyond the seeded/demo slugs listed here.",

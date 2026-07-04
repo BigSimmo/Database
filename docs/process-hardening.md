@@ -4,10 +4,10 @@ This document turns the current process review into phased, durable repo practic
 
 ## Phase 1 - Active now
 
-- `npm run verify:cheap` is the default broad local gate for source/config/test changes: lint, typecheck, and unit tests.
-- `npm run verify:ui` is the default UI gate: Chromium Playwright smoke, stress, and accessibility media checks.
-- `npm run verify:release` is the release-confidence gate: lint, typecheck, unit tests, build, and the full Playwright browser project set.
-- CI now installs Chromium and runs the Chromium UI gate after build on all branches; a gated release-browser job runs the full Playwright browser matrix on `main`, `release/*`, manual dispatch, and the weekly schedule.
+- `npm run verify:cheap` is the default broad local gate for source/config/test changes: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests.
+- `npm run verify:ui` is the default UI gate: `check:runtime` plus Chromium Playwright smoke, stress, and accessibility media checks (`test:e2e:chromium`).
+- `npm run verify:release` is the release-confidence gate: `check:runtime`, lint, typecheck, unit tests, build, full Playwright browser matrix, `check:production-readiness`, `governance:release`, and `eval:quality:release` (the last step needs live Supabase and OpenAI keys).
+- CI runs two parallel PR jobs: `verify` (runtime alignment, edge-function typecheck, CI-safe production readiness, `format:check`, lint, typecheck, unit tests with coverage, build) and `ui-smoke` (Chromium Playwright against its own dev server). A gated `release-browser-matrix` job runs the full Playwright browser set on `main`, `release/*`, manual dispatch, and the weekly schedule.
 - `tests/ui-accessibility.spec.ts` covers reduced-motion and forced-colors dashboard usability so those modes are no longer only reviewed by inspection.
 - `tests/ui-tools.spec.ts` covers the Applications dashboard mode at mobile and desktop sizes, including the `/applications` compatibility redirect.
 - `AGENTS.md` now points future agents to these gates and to this document.
@@ -18,6 +18,7 @@ This document turns the current process review into phased, durable repo practic
 - Local scratch and visual-capture output are excluded from Prettier through `.prettierignore` so generated investigation files do not block the format gate.
 - Pull requests now include a clinical governance preflight for ingestion, answer generation, source rendering, privacy, production environment, and clinical-output changes.
 - Applications mode now has dedicated Playwright coverage in the UI gate.
+- `tests/ui-stress.spec.ts` uses a **1000px** desktop viewport (below `lg`) because scope and evidence open in sheets, not side panels, at that width; widening to ≥1024 exercises a different UI path.
 
 ## Phase 3 - Structural cleanup
 
@@ -39,6 +40,8 @@ This document turns the current process review into phased, durable repo practic
 - **2026-07-03:** extracted `visual-evidence.tsx` — `compactClinicalTableCaption`, `visualEvidenceHeader`, `VisualEvidenceStrip`, `InlineTableCard`, `supportDotClass`, `supportLabel`, `claimRowsForEvidencePanel`, `EvidenceClaimsList`, `EvidenceGapsPanel`, `MobileEvidenceSheetContent`, `MobileEvidenceTabPanel`, `UnifiedEvidenceDrawerContent` (contiguous block 547–1259, moved verbatim). Monolith 5953 → 5241 lines. **No runtime cycle** — the only monolith import is `type AnswerFeedbackType` (erased at compile time); the module imports one-way from `evidence-panels`/`answer-content`/siblings, and the monolith imports `InlineTableCard` + `MobileEvidenceSheetContent` back. Added `visual-evidence.tsx` to the `rendered-text-formatting.test.ts` corpus (the `item.tableTextSnippet`/`item.title`/`item.caption` render surfaces moved here). Stripped 22 now-orphaned monolith imports. Done on a **dedicated worktree/branch** `claude/clinical-dashboard-decomp` (off `main`) instead of the shared claude branch, to avoid the squash-ancestry churn.
 
 - **2026-07-03:** extracted `document-results.tsx` — `WhyThisMatchedPanel`, `RelatedDocumentsPanel`, `StagedAnswerResultSurface` (contiguous block 456–944, moved verbatim). Monolith 5216 → 4726 lines. **No runtime cycle** — the only monolith import is `type AnswerFeedbackType` (erased); `StagedAnswerResultSurface` is a leaf result-surface that imports one-way from every sibling module (answer-content, evidence-panels, visual-evidence, relevance, document-search-results, badges, dashboard-shell, display-text, use-mobile-preview-sheet) and the monolith imports `RelatedDocumentsPanel` + `StagedAnswerResultSurface` back. The monolith's `visual-evidence` import (`InlineTableCard`/`MobileEvidenceSheetContent`) moved into `document-results` as predicted. Added `document-results.tsx` to the `rendered-text-formatting.test.ts` corpus; stripped 35 now-orphaned monolith imports.
+
+- **2026-07-04:** answer-review hygiene — `StagedAnswerResultSurface` now lives in `answer-result-surface.tsx`; `document-results.tsx` re-exports it and owns `RelatedDocumentsPanel` (monolith imports both). `AnswerFeedbackType` moved to `lib/answer-feedback.ts` so `evidence-panels`, `visual-evidence`, and `answer-result-surface` no longer import types from `ClinicalDashboard`. `rendered-text-formatting.test.ts` corpus includes `answer-result-surface.tsx`. Clinical-note checklist rows link to primary sources when available.
 
 #### Decomposition COMPLETE (approved move map)
 

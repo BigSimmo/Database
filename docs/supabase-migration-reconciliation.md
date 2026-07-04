@@ -1,18 +1,20 @@
 # Supabase Migration Reconciliation
 
-Last reviewed: 2026-06-28
+Last reviewed: 2026-07-04
 
 Target project: Clinical KB Database (`sjrfecxgysukkwxsowpy`)
 
 ## Policy
 
 - Do not use `supabase db push` while local and remote migration history are divergent.
+- **Never change a retrieval RPC, index, or function on the live project with raw SQL in the dashboard.** Use a committed migration under `supabase/migrations/` and reconcile `supabase/schema.sql` in the same change.
 - Use `supabase migration repair --linked --status applied <version>` only when live database evidence proves the migration effect already exists.
-- Leave all other local-only migrations unrepaired until their effects are verified or deliberately applied.
+- Leave other local-only migrations unrepaired until their effects are verified or deliberately applied.
+- Run `npx supabase migration list --linked` at apply/reconcile time; do not rely on a frozen “aligned through” snapshot in this doc alone.
 
-## Verified Applied
+## Verified Applied (through June 2026)
 
-These previously local-only versions have been verified in the live project history:
+These previously local-only versions were verified in the live project history before the July 2026 reconciliation wave:
 
 - `20260625033425` - `document_strict_gate_status` exists, `repair_strict_enrichment_gate_batch(integer)` exists, service role can read/execute, and anon cannot read/execute.
 - `20260625033944` - `complete_strict_enrichment_job(uuid, uuid, text, text, text)` exists, service role can execute, and anon cannot execute.
@@ -23,9 +25,23 @@ These previously local-only versions have been verified in the live project hist
 - `20260628000000` - atomic document index generation commit RPC and committed-generation retrieval filters are present and verified in live.
 - `20260628135727` - explicit `invoke_indexing_v3_agent(integer)` execute grant hardening is present and verified in live.
 
-## Current Status
+## Current Status (July 2026)
 
-As of this review, `npx supabase migration list --linked` shows no local-only migrations for `sjrfecxgysukkwxsowpy`. Remote migration history is aligned through `20260628135727`.
+The repo now includes additional July 2026 migrations beyond the June checkpoint above, including:
+
+- Retrieval RPC codification and hybrid execution smoke (`20260701140631`, related July 1 fixes)
+- Legacy vector index drops and `search_schema_health()` reconciliation (`20260702014803`, `20260702021604`)
+- Clinical registry tables (`20260703020000`)
+- Storage cleanup index reconciliation prep (`20260703030000`, prepared but apply only with explicit approval)
+- Indexing v3 agent job table and related hardening (`20260702190000` and neighbors)
+
+Live-only drift, duplicate migration-version churn, and outstanding follow-up debts are tracked in the **Retrieval RPC drift & indexing hygiene** section of [`docs/process-hardening.md`](process-hardening.md). Treat that section as the operational supplement to this reconciliation doc.
+
+Before applying pending migrations to live:
+
+1. Run `npx supabase migration list --linked` and confirm local vs remote alignment.
+2. Run `npm run supabase:recovery-status` and confirm Supabase is healthy.
+3. Apply only through the normal migration workflow; update `supabase/schema.sql` when the migration changes canonical schema shape.
 
 ## Verification Commands
 
@@ -34,4 +50,5 @@ npx supabase migration list --linked
 npx supabase db advisors --linked
 npx supabase db query --linked "select to_regclass('public.document_strict_gate_status') as gate_view, to_regprocedure('public.repair_strict_enrichment_gate_batch(integer)') as repair_rpc, to_regprocedure('public.complete_strict_enrichment_job(uuid, uuid, text, text, text)') as complete_rpc, to_regclass('public.ingestion_job_stages_doc_idx') as duplicate_index, to_regclass('public.ingestion_job_stages_document_started_idx') as canonical_stage_index;"
 npx supabase db query --linked "select to_regprocedure('public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb)') as commit_generation_rpc, has_function_privilege('anon', 'public.invoke_indexing_v3_agent(integer)', 'execute') as anon_can_invoke_indexing_v3_agent, has_function_privilege('service_role', 'public.invoke_indexing_v3_agent(integer)', 'execute') as service_role_can_invoke_indexing_v3_agent;"
+npm run check:indexing
 ```

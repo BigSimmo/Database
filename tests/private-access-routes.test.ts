@@ -192,8 +192,8 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
       ? { data: { user: { id: userId } }, error: null }
       : { data: { user: null }, error: { message: "Invalid token" } },
   );
-  const rpc = vi.fn(async (name: string) =>
-    name === "consume_api_rate_limit"
+  const rpc = vi.fn(async (name: string, args?: Record<string, unknown>) =>
+    name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
       ? {
           data: [rateLimitRow()],
           error: null,
@@ -2685,7 +2685,7 @@ describe("private document API access", () => {
     },
   );
 
-  it("rejects unauthenticated search and answer requests", async () => {
+  it("allows anonymous search and answer requests with anonymous rate-limit subjects", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
       telemetry: {
@@ -2725,13 +2725,89 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(searchResponse.status).toBe(401);
-    expect(answerResponse.status).toBe(401);
-    expect(await payload(searchResponse)).toEqual({ error: "Authentication required." });
-    expect(await payload(answerResponse)).toEqual({ error: "Authentication required." });
-    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
-    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+    expect(searchResponse.status).toBe(200);
+    expect(answerResponse.status).toBe(200);
+    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
+    );
+    expect(answerQuestionWithScope).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
+    );
     expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_subject_rate_limit",
+      expect.objectContaining({ p_bucket: "search" }),
+    );
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_subject_rate_limit",
+      expect.objectContaining({ p_bucket: "answer" }),
+    );
+    expect(client.rpc).not.toHaveBeenCalledWith(
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_bucket: "search" }),
+    );
+  });
+
+  it("rate limits anonymous answer bursts before generation", async () => {
+    let answerRequests = 0;
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Public evidence.",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "consume_api_subject_rate_limit" && args?.p_bucket === "answer") {
+        answerRequests += 1;
+        const limited = answerRequests > 6;
+        return {
+          data: [
+            rateLimitRow({
+              limited,
+              limit_value: 6,
+              remaining: limited ? 0 : Math.max(0, 6 - answerRequests),
+            }),
+          ],
+          error: null,
+        };
+      }
+      if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
+        return { data: [rateLimitRow()], error: null };
+      }
+      return ok([]);
+    });
+    mockRuntime(client, { answerQuestionWithScope });
+    const answerRoute = await import("../src/app/api/answer/route");
+    const anonymousAnswerRequest = () =>
+      request("/api/answer", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "anonymous-answer-limit-test",
+          "x-real-ip": "198.51.100.77",
+        },
+        body: JSON.stringify({ query: "monitoring" }),
+      });
+
+    for (let index = 0; index < 6; index += 1) {
+      const response = await answerRoute.POST(anonymousAnswerRequest());
+      expect(response.status).toBe(200);
+    }
+
+    const limited = await answerRoute.POST(anonymousAnswerRequest());
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("60");
+    expect(await payload(limited)).toEqual({
+      error: "Too many answer requests. Retry shortly.",
+      retryAfterSeconds: 60,
+    });
+    expect(answerQuestionWithScope).toHaveBeenCalledTimes(6);
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_subject_rate_limit",
+      expect.objectContaining({ p_bucket: "answer" }),
+    );
   });
 
   it("rate limits authenticated answer generation without limiting authenticated search", async () => {
@@ -2879,7 +2955,7 @@ describe("private document API access", () => {
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
-  it("uses an in-memory limiter fallback for managed local no-auth search when the durable check is unavailable", async () => {
+  it("uses an anonymous in-memory limiter for managed local no-auth search", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
       telemetry: {
@@ -2915,9 +2991,10 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(401);
-    expect(await payload(response)).toEqual({ error: "Authentication required." });
-    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
+    );
     expect(client.rpc).not.toHaveBeenCalledWith(
       "consume_api_rate_limit",
       expect.objectContaining({ p_owner_id: userId, p_bucket: "search" }),
@@ -3045,7 +3122,7 @@ describe("private document API access", () => {
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
-  it("uses an in-memory limiter fallback for managed local no-auth streaming answers when the durable check is unavailable", async () => {
+  it("uses an anonymous in-memory limiter for managed local no-auth streaming answers", async () => {
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Owned evidence.",
       grounded: true,
@@ -3072,9 +3149,11 @@ describe("private document API access", () => {
     );
     const body = await response.text();
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(200);
     expect(body).toBeTruthy();
-    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+    expect(answerQuestionWithScope).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
+    );
     expect(client.rpc).not.toHaveBeenCalledWith(
       "consume_api_rate_limit",
       expect.objectContaining({ p_owner_id: userId, p_bucket: "answer" }),

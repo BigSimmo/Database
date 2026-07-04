@@ -1,0 +1,12 @@
+# Exclude from Cursor semantic index only — still reachable via @Files when needed.
+
+# Golden eval fixtures (large JSON, low day-to-day search value)
+scripts/fixtures/
+
+# Playwright auth state and reports (already in .cursorignore via .gitignore patterns)
+playwright/.auth/
+playwright-report/
+
+# Local temp clones from tooling (if present)
+.tmp-skills-clone/
+.tmp-adeonir-skills/

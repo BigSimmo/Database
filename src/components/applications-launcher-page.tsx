@@ -88,7 +88,8 @@ const iconToneClasses: Record<LauncherArea | "safety" | "medication" | "differen
   assessment: "border-cyan-200 bg-cyan-50 text-cyan-700",
   reference: "border-emerald-200 bg-emerald-50 text-emerald-700",
   care: "border-sky-200 bg-sky-50 text-sky-700",
-  coordination: "border-teal-200 bg-teal-50 text-teal-700",
+  coordination:
+    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
   saved: "border-blue-200 bg-blue-50 text-blue-700",
   safety: "border-red-200 bg-red-50 text-red-600",
   medication: "border-amber-200 bg-amber-50 text-amber-600",
@@ -508,6 +509,8 @@ function QuickActions({ onSelect, mobile }: { onSelect: (id: string) => void; mo
           <button
             key={action.label}
             type="button"
+            aria-label={`Open ${action.desktopLabel}`}
+            data-testid={`tool-shortcut-${action.id}`}
             onClick={() => onSelect(action.id)}
             className={cn(
               "group border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)]",
@@ -621,6 +624,8 @@ function ToolCard({
   return (
     <a
       href={app.href}
+      aria-label={`Launch ${app.title}`}
+      data-testid={`application-card-${app.id}`}
       onClick={(event) => {
         event.preventDefault();
         onSelect(app.id);
@@ -669,6 +674,7 @@ function MobileToolRow({
   return (
     <a
       href={app.href}
+      aria-label={`Launch ${app.title}`}
       data-testid={`application-row-${app.id}`}
       onClick={(event) => {
         event.preventDefault();
@@ -829,15 +835,14 @@ function DetailDialog({ app, open, onClose }: { app: LauncherApp; open: boolean;
                   { icon: ClipboardList, label: "Needed input" },
                   { icon: Waves, label: "Output" },
                 ].map(({ icon: Icon, label }) => (
-                  <button
+                  <div
                     key={label}
-                    type="button"
-                    className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 text-left first:border-t-0"
+                    className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 first:border-t-0"
                   >
                     <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden />
                     <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{label}</span>
-                    <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
-                  </button>
+                    <span className="text-2xs font-semibold text-[color:var(--text-soft)]">Soon</span>
+                  </div>
                 ))}
               </div>
             </div>
@@ -901,8 +906,8 @@ export function ApplicationsLauncherWorkspace({
   const [uncontrolledQuery, setUncontrolledQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
   const [selectedId, setSelectedId] = useState(() => initialToolId(controlledQuery));
-  const [detailOpen, setDetailOpen] = useState(variant === "dashboard-tools" && showDetailPanel !== false);
   const isDashboardTools = variant === "dashboard-tools";
+  const [detailOpen, setDetailOpen] = useState(!isDashboardTools && showDetailPanel === true);
   const copy = isDashboardTools ? dashboardToolsLauncherCopy : standaloneLauncherCopy;
   const query = controlledQuery ?? uncontrolledQuery;
   const normalizedQuery = query.trim().toLowerCase();
@@ -946,6 +951,7 @@ export function ApplicationsLauncherWorkspace({
   return (
     <main
       data-testid={isDashboardTools ? "tools-hub" : "applications-launcher"}
+      aria-labelledby={isDashboardTools ? "tools-home-heading" : "applications-launcher-heading"}
       className={cn(
         "mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-8 text-[color:var(--text)] sm:px-6 lg:px-8",
         "pb-[calc(12rem+env(safe-area-inset-bottom))] sm:pb-8",
@@ -953,12 +959,19 @@ export function ApplicationsLauncherWorkspace({
         className,
       )}
     >
-      <section className="mx-auto grid max-w-5xl justify-items-center gap-5 text-center sm:gap-6">
+      <section
+        aria-label={isDashboardTools ? "Tools home" : "Applications home"}
+        data-testid={isDashboardTools ? "tools-home" : "applications-home"}
+        className="mx-auto grid max-w-5xl justify-items-center gap-5 text-center sm:gap-6"
+      >
         <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
           <Grid2X2 className="h-7 w-7 sm:h-8 sm:w-8" aria-hidden />
         </span>
         <div className="grid gap-2">
-          <h1 className="text-balance text-[2rem] font-extrabold leading-none tracking-normal text-[color:var(--text-heading)] sm:text-[2.7rem]">
+          <h1
+            id={isDashboardTools ? "tools-home-heading" : "applications-launcher-heading"}
+            className="text-balance text-[2rem] font-extrabold leading-none tracking-normal text-[color:var(--text-heading)] sm:text-[2.7rem]"
+          >
             {copy.heading}
           </h1>
           <p className="mx-auto max-w-xl text-pretty text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
@@ -967,19 +980,10 @@ export function ApplicationsLauncherWorkspace({
         </div>
 
         {desktopComposerSlotId ? (
-          <>
-            <div
-              id={desktopComposerSlotId}
-              className="mode-home-composer-slot hidden w-full max-w-3xl sm:[&:not(:empty)]:block"
-            />
-            <ToolSearch
-              value={query}
-              onChange={updateQuery}
-              onSubmit={submitSearch}
-              copy={copy}
-              className="w-full max-w-3xl sm:hidden"
-            />
-          </>
+          <div
+            id={desktopComposerSlotId}
+            className="mode-home-composer-slot hidden w-full max-w-3xl sm:[&:not(:empty)]:block"
+          />
         ) : (
           <ToolSearch
             value={query}
@@ -990,7 +994,7 @@ export function ApplicationsLauncherWorkspace({
           />
         )}
 
-        <div className="w-full max-w-6xl">
+        <div className="w-full max-w-6xl" data-testid={isDashboardTools ? "tools-shortcuts" : "application-shortcuts"}>
           <div className="hidden sm:block">
             <QuickActions onSelect={openTool} />
           </div>
@@ -1000,7 +1004,11 @@ export function ApplicationsLauncherWorkspace({
         </div>
       </section>
 
-      <section className="mx-auto mt-8 grid max-w-[86rem] gap-4 sm:mt-10">
+      <section
+        aria-label={copy.allSectionLabel}
+        data-testid={isDashboardTools ? "tools-all-tools" : "applications-all-applications"}
+        className="mx-auto mt-8 grid max-w-[86rem] gap-4 sm:mt-10"
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="text-left">
             <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{copy.allSectionLabel}</h2>
@@ -1010,7 +1018,9 @@ export function ApplicationsLauncherWorkspace({
             <div className="hidden min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] sm:inline-flex">
               Sort by
               <span className="text-[color:var(--text-heading)]">A to Z</span>
-              <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+              <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-3xs font-bold uppercase">
+                Soon
+              </span>
             </div>
           </div>
         </div>

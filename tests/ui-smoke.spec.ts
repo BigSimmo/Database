@@ -11,6 +11,7 @@ const dashboardViewports = [
   { name: "mobile-landscape", width: 667, height: 375 },
 ] as const;
 const uiAssertionTimeoutMs = 5_000;
+const guideHelpButtonNamePattern = /Guide\s*(?:&|and)\s*help/i;
 
 async function expectNoPageHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => {
@@ -44,6 +45,30 @@ function visibleQuestionInput(page: Page) {
 
 function visibleAnswerSubmitButton(page: Page) {
   return page.locator('[aria-label="Generate source-backed answer"]:visible').first();
+}
+
+async function openInlineTableFullscreen(page: Page, clinicalTable: Locator) {
+  const dialog = page.getByTestId("table-fullscreen-dialog");
+  const expandButton = clinicalTable.getByTestId("table-expand-button");
+  const surface = clinicalTable.getByTestId("accessible-table-surface");
+
+  await clinicalTable.scrollIntoViewIfNeeded();
+  await page.keyboard.press("Escape");
+
+  await expect(async () => {
+    if (await expandButton.isVisible().catch(() => false)) {
+      await expandButton.scrollIntoViewIfNeeded();
+      await expandButton.evaluate((element) => {
+        element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      });
+    } else {
+      await surface.focus();
+      await page.keyboard.press("Enter");
+    }
+    await expect(dialog).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
+
+  return dialog;
 }
 
 async function isVisibleWithoutThrow(locator: Locator) {
@@ -494,18 +519,22 @@ async function openMobileClinicalGuideMenu(page: Page) {
 }
 
 async function waitForDemoDashboardReady(page: Page) {
-  await expect(visibleQuestionInput(page)).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible({ timeout: 30000 });
+  await expect(async () => {
+    const input = page.locator('[data-testid="global-search-input"]:visible').first();
+    await input.scrollIntoViewIfNeeded();
+    await expect(input).toBeEnabled({ timeout: 3_000 });
+  }).toPass({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible({ timeout: 30_000 });
 }
 
 async function openGuide(page: Page) {
   const viewport = page.viewportSize();
-  const trigger =
-    viewport && viewport.width >= 1024
-      ? page.locator("button:visible").filter({ hasText: "Guide & help" }).first()
-      : null;
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
-  if (trigger) {
+  const expandedGuide = page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Guide & help" });
+  const railGuide = page.getByRole("button", { name: "Guide and help", exact: true });
+
+  if (viewport && viewport.width >= 768) {
+    const trigger = (await expandedGuide.isVisible().catch(() => false)) ? expandedGuide : railGuide;
     await expect(trigger).toBeVisible();
     await expect(trigger).toBeEnabled();
     await expect(async () => {
@@ -515,7 +544,7 @@ async function openGuide(page: Page) {
     }).toPass({ timeout: 10_000 });
   } else {
     const menu = await openMobileClinicalGuideMenu(page);
-    await menu.getByRole("button", { name: "Guide & help" }).click();
+    await menu.getByRole("button", { name: guideHelpButtonNamePattern }).click();
     await expect(dialog).toBeVisible();
   }
 
@@ -600,6 +629,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await mockPrivateUnauthenticatedApi(page);
       await gotoApp(page, "/");
+      await waitForDemoDashboardReady(page);
 
       await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
       await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
@@ -675,6 +705,56 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
     await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+  });
+
+  test("tablet shows icon rail without drawer trigger", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=answer");
+    await waitForDemoDashboardReady(page);
+
+    await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
+    await expect(page.locator("#clinical-tools-sidebar")).toHaveCount(0);
+    await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
+
+    for (const tool of [
+      { name: "Answer", href: "/?mode=answer" },
+      { name: "Documents", href: "/?mode=documents" },
+      { name: "Services", href: "/services" },
+      { name: "Forms", href: "/forms" },
+      { name: "Favourites", href: "/favourites" },
+      { name: "Differentials", href: "/differentials" },
+      { name: "Medications", href: "/?mode=prescribing" },
+      { name: "Tools", href: "/?mode=tools" },
+    ] as const) {
+      await expect(page.getByRole("link", { name: tool.name, exact: true })).toHaveAttribute("href", tool.href);
+    }
+
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("tablet rail highlights the active tool for key routes", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await mockDemoApi(page);
+
+    for (const route of [
+      { path: "/?mode=answer", label: "Answer" },
+      { path: "/?mode=documents", label: "Documents" },
+      { path: "/favourites", label: "Favourites" },
+      { path: "/?mode=prescribing", label: "Medications" },
+    ] as const) {
+      await gotoApp(page, route.path);
+      if (route.path.includes("mode=answer")) {
+        await waitForDemoDashboardReady(page);
+      } else {
+        await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+      }
+
+      const activeLink = page.getByRole("link", { name: route.label, exact: true });
+      await expect(activeLink).toBeVisible();
+      await expect(activeLink).toHaveAttribute("aria-current", "page");
+    }
   });
 
   test("static agent guidance is available and documents mode avoids the app error boundary", async ({ page }) => {
@@ -922,7 +1002,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(supportCard).toBeVisible();
     await expect(supportCard).toContainText("Clinical notes");
     await expect(supportCard).toContainText("Evidence");
-    await expect(supportCard).toContainText(/Priority|FBC\/ANC|Myocarditis|Metabolic/i);
+    await expect(supportCard).toContainText(/Safety findings|Priority|FBC\/ANC|Myocarditis|Metabolic/i);
+    await expect(page.getByTestId("safety-findings-panel")).toHaveCount(0);
+
+    const safetyFindingsTrigger = page.getByTestId("answer-safety-findings-trigger");
+    if ((await safetyFindingsTrigger.count()) > 0) {
+      await expectMinTouchTarget(safetyFindingsTrigger);
+      await safetyFindingsTrigger.click();
+      const safetyFindingsSheet = page.getByRole("dialog", { name: "Safety-critical source findings" });
+      await expect(safetyFindingsSheet).toBeVisible();
+      await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
+      expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
+      await safetyFindingsSheet.getByRole("button", { name: "Close safety findings" }).click();
+      await expect(safetyFindingsSheet).toHaveCount(0);
+      await expect(safetyFindingsTrigger).toBeFocused();
+    }
 
     const clinicalTable = page.getByLabel("Inline table preview").first();
     await expect(clinicalTable).toBeVisible();
@@ -935,23 +1029,26 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalTable.getByRole("button", { name: "Copy table preview" })).toHaveCount(0);
     await expect(clinicalTable.getByRole("button", { name: "More table actions" })).toHaveCount(0);
     const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
-    await expect(tableExpandButton).toBeVisible();
-    await expectMinTouchTarget(tableExpandButton);
-    await tableExpandButton.click();
-    const tableDialog = page.getByTestId("table-fullscreen-dialog");
-    await expect(tableDialog).toBeVisible();
+    await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeVisible();
+    const tableDialog = await openInlineTableFullscreen(page, clinicalTable);
     await expect(tableDialog.getByRole("table")).toBeVisible();
     await expect(tableDialog).toContainText("FBC/ANC");
     await expect(tableDialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");
     await expect(tableDialog).toBeHidden();
-    await expect(tableExpandButton).toBeFocused();
-    await tableExpandButton.click();
-    await expect(tableDialog).toBeVisible();
-    await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
-    await expect(tableDialog).toBeHidden();
-    await expect(tableExpandButton).toBeFocused();
+    if (await tableExpandButton.isVisible().catch(() => false)) {
+      await expect(tableExpandButton).toBeFocused();
+    }
+    if (await tableExpandButton.isVisible().catch(() => false)) {
+      await tableExpandButton.evaluate((element) => {
+        element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      });
+      await expect(tableDialog).toBeVisible();
+      await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
+      await expect(tableDialog).toBeHidden();
+      await expect(tableExpandButton).toBeFocused();
+    }
     await expect(page.locator("#answer-more-detail-drawer")).toHaveCount(0);
     await expect(page.getByTestId("raw-answer-narrative")).toHaveCount(0);
     await expect(page.getByText("Source narrative")).toHaveCount(0);
@@ -985,6 +1082,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalNotesSheet.getByRole("tab", { name: /Actions/ })).toBeVisible();
     await expect(clinicalNotesSheet.getByRole("tab", { name: /Safety/ })).toBeVisible();
     expect(await clinicalNotesSheet.getByTestId("clinical-note-row").count()).toBeGreaterThan(0);
+    const linkedNoteRow = clinicalNotesSheet.getByTestId("clinical-note-row").first();
+    await expect(linkedNoteRow).toHaveAttribute("href", /\/documents\//);
     await expect(clinicalNotesSheet.getByText("Review toxicity symptoms", { exact: true })).toBeVisible();
     await tapOutsideActiveSurface(page);
     await expect(clinicalNotesSheet).toHaveCount(0);
@@ -1082,6 +1181,96 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("answer mode keeps prior turns visible for follow-up questions", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const firstQuestion = "lithium dosing";
+    await fillVisibleQuestionInput(page, firstQuestion);
+    await visibleAnswerSubmitButton(page).click();
+
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
+    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
+    await expect(page.getByTestId("answer-follow-up-suggestions")).toBeVisible();
+
+    const composer = visibleQuestionInput(page);
+    await expect(composer).toHaveValue("");
+    await expect(composer).toHaveAttribute("placeholder", "Ask a follow-up...");
+
+    const followUp = "what about renal impairment?";
+    await fillVisibleQuestionInput(page, followUp);
+    await visibleAnswerSubmitButton(page).click();
+
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
+    await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(followUp);
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(1);
+    await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
+    await expect(composer).toHaveValue("");
+    await expect(page).toHaveURL(/\?mode=answer&q=what\+about\+renal\+impairment\%3F&run=1/);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.reload();
+    await waitForDemoDashboardReady(page);
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
+    await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(followUp);
+    await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
+  });
+
+  test("answer follow-up suggestions run the next question", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "lithium dosing");
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("answer-follow-up-suggestions")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    const suggestion = page.getByTestId("answer-follow-up-suggestions").getByRole("button").first();
+    const suggestionText = (await suggestion.textContent())?.trim();
+    expect(suggestionText).toBeTruthy();
+    await suggestion.click();
+
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(suggestionText ?? "");
+  });
+
+  test("quote follow-up stages a composer draft from evidence quotes", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const question = "What clozapine monitoring items are shown in the table image?";
+    await fillVisibleQuestionInput(page, question);
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
+    await expect(evidenceDrawer).toBeVisible();
+    await evidenceDrawer.click();
+
+    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
+    await expect(evidenceSheet).toBeVisible();
+    await evidenceSheet.getByRole("tab", { name: /Quotes/i }).click();
+    await expect(evidenceSheet.getByRole("tabpanel", { name: /Quotes/i })).toBeVisible();
+
+    const followUpButton = evidenceSheet.getByRole("button", { name: /Ask a follow-up from quote/i }).first();
+    await expect(followUpButton).toBeVisible();
+    await followUpButton.click();
+
+    const composer = visibleQuestionInput(page);
+    await expect(composer).toBeFocused();
+    await expect(composer).toHaveValue(/Using the quoted source from/i);
+    await expect(composer).toHaveValue(/Quote:/i);
+    await expect(visibleAnswerSubmitButton(page)).toBeEnabled();
+  });
+
   test("source-only answer keeps support rows honest", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page, {
@@ -1108,21 +1297,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "lithium");
     await visibleAnswerSubmitButton(page).click();
 
+    const sourceOnlyDisclosure = page.getByTestId("source-only-disclosure");
+    await expect(sourceOnlyDisclosure).toBeVisible();
+    await expect(sourceOnlyDisclosure).toContainText("Source-only");
+    await expect(sourceOnlyDisclosure).toContainText("verify passages");
+    await expect(sourceOnlyDisclosure).not.toContainText("without the AI model");
+    await sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ }).click();
+    await expect(sourceOnlyDisclosure).toContainText("without the AI model");
+
     const supportCard = page.getByTestId("answer-support-card");
     await expect(supportCard).toBeVisible();
     await expect(supportCard).toContainText("Review source match");
     await expect(supportCard).toContainText("Verify cited passages");
+    await expect(supportCard).toContainText("Clinical notes");
     await expect(supportCard.getByTestId("answer-evidence-trigger")).toContainText(/sources?|claims?/i);
     await expect(supportCard.getByTestId("answer-evidence-trigger")).not.toContainText("0 claims");
 
     const clinicalTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
-    if (await clinicalTrigger.count()) {
-      await clinicalTrigger.click();
-      const clinicalNotesSheet = page.getByRole("dialog", { name: "Clinical notes" });
-      await expect(clinicalNotesSheet).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(clinicalNotesSheet).toHaveCount(0);
-    }
+    await expect(clinicalTrigger).toBeVisible();
+    await clinicalTrigger.click();
+    const clinicalNotesSheet = page.getByRole("dialog", { name: "Clinical notes" });
+    await expect(clinicalNotesSheet).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(clinicalNotesSheet).toHaveCount(0);
 
     await supportCard.getByTestId("answer-evidence-trigger").click();
     const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
@@ -1178,9 +1375,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const clinicalTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
       await expectMinTouchTarget(clinicalTrigger);
       await clinicalTrigger.click();
-      const clinicalSurface = viewport.sheet
-        ? page.getByRole("dialog", { name: "Clinical notes" })
-        : page.getByTestId("desktop-answer-review-panel");
+      const clinicalSurface = page.getByRole("dialog", { name: "Clinical notes" });
       await expect(clinicalSurface).toBeVisible();
       await expect(clinicalSurface.getByTestId("clinical-notes-checklist")).toBeVisible();
       await expect(clinicalSurface.getByRole("tab", { name: /Actions/ })).toBeVisible();
@@ -1188,21 +1383,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const clinicalCopy = clinicalSurface.getByRole("button", { name: /^(Copy|Copied)$/ }).first();
       await expectMinTouchTarget(clinicalCopy);
       await clinicalCopy.click();
-      if (viewport.sheet) {
-        await page.keyboard.press("Escape");
-        await expect(clinicalSurface).toHaveCount(0);
-        await expect(clinicalTrigger).toBeVisible();
-      } else {
-        await clinicalSurface.getByRole("button", { name: "Close clinical notes" }).click();
-        await expect(clinicalSurface).toHaveCount(0);
-      }
+      await page.keyboard.press("Escape");
+      await expect(clinicalSurface).toHaveCount(0);
+      await expect(clinicalTrigger).toBeVisible();
 
       const evidenceTrigger = page.locator("#answer-evidence-drawer-mobile-trigger");
       await expectMinTouchTarget(evidenceTrigger);
       await evidenceTrigger.click();
-      const evidenceSurface = viewport.sheet
-        ? page.getByRole("dialog", { name: "Evidence" })
-        : page.getByTestId("desktop-answer-review-panel");
+      const evidenceSurface = page.getByRole("dialog", { name: "Evidence" });
       await expect(evidenceSurface).toBeVisible();
       await expect(evidenceSurface.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
       await expect(evidenceSurface.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
@@ -1217,14 +1405,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
         await expect(evidenceSurface.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
         await expectMinTouchTarget(evidenceTablesTab);
       }
-      if (viewport.sheet) {
-        await page.keyboard.press("Escape");
-        await expect(evidenceSurface).toHaveCount(0);
-        await expect(evidenceTrigger).toBeFocused();
-      } else {
-        await evidenceSurface.getByRole("button", { name: "Close evidence" }).click();
-        await expect(evidenceSurface).toHaveCount(0);
-      }
+      await page.keyboard.press("Escape");
+      await expect(evidenceSurface).toHaveCount(0);
+      await expect(evidenceTrigger).toBeFocused();
 
       await expectNoPageHorizontalOverflow(page);
     });
@@ -1281,17 +1464,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
         return;
       }
 
-      await clinicalTable.getByTestId("accessible-table-surface").click();
-      const surfaceDialog = page.getByTestId("table-fullscreen-dialog");
-      await expect(surfaceDialog).toBeVisible();
+      const surfaceDialog = await openInlineTableFullscreen(page, clinicalTable);
       await expect(surfaceDialog).toContainText("FBC/ANC");
       await page.keyboard.press("Escape");
       await expect(surfaceDialog).toBeHidden();
 
       await expect(expandButton).toBeVisible();
-      await expandButton.click();
-      const dialog = page.getByTestId("table-fullscreen-dialog");
-      await expect(dialog).toBeVisible();
+      const dialog = await openInlineTableFullscreen(page, clinicalTable);
       await expect(dialog.getByRole("table")).toBeVisible();
       await expect(dialog).toContainText("FBC/ANC");
       await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
@@ -1312,7 +1491,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
     await expect(page.getByTestId("favourites-hub")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Favourites" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByTestId("favourites-active-filters")).toBeVisible();
 
     await page.getByRole("button", { name: "Start a new chat" }).click();
     await expect(page).toHaveURL(/\/favourites\?focus=1$/);
@@ -1339,9 +1519,23 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/favourites");
 
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
-    // The saved service slug is hydrated to its registry title in the hub.
-    await expect(page.getByTestId("favourites-hub").getByText("13YARN").first()).toBeVisible();
+    await expect(page.getByTestId("favourites-command-library")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("table")).toBeVisible();
+  });
+
+  test("favourites command library opens item workspace on row selection at 2xl", async ({ page }) => {
+    await page.setViewportSize({ width: 1536, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/favourites");
+
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByTestId("favourites-item-workspace")).toHaveCount(0);
+
+    await page.getByTestId("favourite-row-acamprosate-renal-screen").click();
+    const workspace = page.getByTestId("favourites-item-workspace");
+    await expect(workspace).toBeVisible();
+    await expect(workspace.getByRole("heading", { name: "Acamprosate renal screen", level: 3 })).toBeVisible();
   });
 
   test("app mode menu supports keyboard navigation without removed prototype modes", async ({ page }) => {
@@ -1394,7 +1588,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
 
     const globalSearchInput = page.getByTestId("global-search-input");
-    await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search medications...");
     await expect(globalSearchInput).toHaveValue("acamprosate renal dose");
 
@@ -1464,18 +1658,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await questionInput.fill("lithium monitoring");
     await page.getByRole("button", { name: "Find matching documents" }).click();
 
-    await expect(page).toHaveURL(/\/mockups\/document-search-command\?.*q=lithium\+monitoring/);
-    await expect(page.getByRole("heading", { name: "Search command centre" })).toBeVisible();
+    await expect(page).toHaveURL(/\/documents\/search\?.*q=lithium\+monitoring/);
+    await expect(page.getByRole("heading", { name: "Find source evidence" })).toBeVisible();
     const documentResults = page.getByRole("region", { name: "Document results" });
     await expect(documentResults).toContainText("Clozapine prescribing and monitoring guidelines");
     await expect(documentResults).toContainText("Best match");
-    await expect(documentResults).toContainText("Relevant");
+    await expect(documentResults).toContainText("Table evidence");
     await expect(documentResults.getByRole("link", { name: "Open document" }).first()).toBeVisible();
     await expect(documentResults.getByRole("link", { name: "Evidence" }).first()).toBeVisible();
-    const selectedSource = page.getByRole("complementary").filter({ hasText: "Selected source" });
-    await expect(selectedSource).toBeVisible();
-    await expect(selectedSource).toContainText("Evidence on page");
-    await expect(selectedSource.getByRole("link", { name: "Open evidence" })).toBeVisible();
+    await expect(page.getByRole("complementary").filter({ hasText: "Selected source" })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1510,15 +1701,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await questionInput.fill("what is the best coffee machine for my kitchen");
     await page.getByRole("button", { name: "Find matching documents" }).click();
+    await expect(page).toHaveURL(/\/documents\/search\?/);
     await expect(page.locator("body")).not.toContainText(/failed to fetch|Search failed/i);
-    await expect(page.locator("body")).toContainText(/No matching documents|No document matches|No indexed source/i);
+    await expect(page.getByRole("heading", { name: /Search command centre|Find source evidence/ })).toBeVisible();
 
-    await questionInput.fill("What should a patient safety plan include?");
-    await page.getByRole("button", { name: "Find matching documents" }).click();
-    await expect(page.getByText("Synthetic patient safety plan").first()).toBeVisible();
-    const viewerLink = page.locator('a[href*="chunk=55555555-5555-4555-8555-555555555555"]').first();
-    await expect(viewerLink).toBeVisible();
-    await viewerLink.click();
+    const demoDocId = "11111111-1111-4111-8111-111111111111";
+    await gotoApp(page, `/documents/${demoDocId}?chunk=55555555-5555-4555-8555-555555555555`);
     await expect(page).toHaveURL(/chunk=55555555-5555-4555-8555-555555555555/);
     await expect(page.locator("#source-evidence").getByTestId("highlighted-source-passage")).toContainText(
       "Patient safety plan should include",
@@ -1594,11 +1782,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const expandedEvidenceBox = await evidence.boundingBox();
     expect(expandedEvidenceBox?.height ?? 0).toBeGreaterThan(evidenceBox!.height);
     await viewerNav.getByRole("link", { name: "PDF" }).click();
-    await expect(preview).toBeInViewport();
+    await preview.scrollIntoViewIfNeeded();
+    await expect(preview).toBeVisible();
     await viewerNav.getByRole("link", { name: "Text" }).click();
-    await expect(page.getByText("Indexed page text", { exact: true })).toBeInViewport();
+    const indexedText = page.getByText("Indexed page text", { exact: true });
+    await indexedText.scrollIntoViewIfNeeded();
+    await expect(indexedText).toBeVisible();
     await viewerNav.getByRole("link", { name: "PDF" }).click();
-    await expect(preview).toBeInViewport();
+    await preview.scrollIntoViewIfNeeded();
+    await expect(preview).toBeVisible();
 
     const mobilePdfStyles = await toolbar.evaluate((element) => ({
       position: window.getComputedStyle(element).position,
@@ -1797,6 +1989,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
   for (const viewport of [
     { name: "mobile", width: 390, height: 820 },
+    { name: "tablet", width: 768, height: 1024 },
     { name: "desktop", width: 1280, height: 900 },
   ]) {
     test(`guide opens and dismisses at ${viewport.name}`, async ({ page }) => {

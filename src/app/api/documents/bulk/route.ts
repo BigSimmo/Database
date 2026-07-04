@@ -140,42 +140,6 @@ export async function POST(request: Request) {
     const results: Array<{ documentId: string; updated: boolean; error?: string }> = [];
     const now = new Date().toISOString();
 
-    for (const document of documents) {
-      try {
-        const metadata = metadataRecord(document.metadata);
-        setMetadataValue(metadata, "document_status", parsed.metadata.sourceStatus);
-        setMetadataValue(metadata, "clinical_validation_status", parsed.metadata.validationStatus);
-        setMetadataValue(metadata, "extraction_quality", parsed.metadata.extractionQuality);
-        setMetadataValue(metadata, "review_date", parsed.metadata.reviewDate);
-        setMetadataValue(metadata, "publication_date", parsed.metadata.publicationDate);
-        setMetadataValue(metadata, "jurisdiction", parsed.metadata.jurisdiction);
-        setMetadataValue(metadata, "publisher", parsed.metadata.publisher);
-        setMetadataValue(metadata, "source_type", parsed.metadata.sourceType);
-        setMetadataValue(metadata, "collection", parsed.metadata.collection);
-        setMetadataValue(metadata, "category", parsed.metadata.category);
-        metadata.bulk_metadata_updated_at = now;
-        metadata.bulk_metadata_updated_by = user.id;
-
-        const nextTitle = editTitle(document.title, parsed.titleEdit);
-        const updatePayload: TablesUpdate<"documents"> = { metadata: metadata as Json };
-        if (nextTitle && nextTitle !== document.title) updatePayload.title = nextTitle;
-
-        const { error: updateError } = await supabase
-          .from("documents")
-          .update(updatePayload)
-          .eq("id", document.id)
-          .eq("owner_id", user.id);
-        if (updateError) throw new Error(updateError.message);
-        results.push({ documentId: document.id, updated: true });
-      } catch (error) {
-        results.push({
-          documentId: document.id,
-          updated: false,
-          error: error instanceof Error ? error.message : "Bulk edit failed.",
-        });
-      }
-    }
-
     const labelsToAdd = parsed.labels.add
       .map((label) => normalizeDocumentLabelForStorage({ ...label, source: "manual" }))
       .filter((label): label is NonNullable<typeof label> => Boolean(label));
@@ -211,6 +175,42 @@ export async function POST(request: Request) {
         .eq("label", normalized.label)
         .eq("label_type", normalized.label_type);
       if (removeError) throw new Error(removeError.message);
+    }
+
+    for (const document of documents) {
+      try {
+        const metadata = metadataRecord(document.metadata);
+        setMetadataValue(metadata, "document_status", parsed.metadata.sourceStatus);
+        setMetadataValue(metadata, "clinical_validation_status", parsed.metadata.validationStatus);
+        setMetadataValue(metadata, "extraction_quality", parsed.metadata.extractionQuality);
+        setMetadataValue(metadata, "review_date", parsed.metadata.reviewDate);
+        setMetadataValue(metadata, "publication_date", parsed.metadata.publicationDate);
+        setMetadataValue(metadata, "jurisdiction", parsed.metadata.jurisdiction);
+        setMetadataValue(metadata, "publisher", parsed.metadata.publisher);
+        setMetadataValue(metadata, "source_type", parsed.metadata.sourceType);
+        setMetadataValue(metadata, "collection", parsed.metadata.collection);
+        setMetadataValue(metadata, "category", parsed.metadata.category);
+        metadata.bulk_metadata_updated_at = now;
+        metadata.bulk_metadata_updated_by = user.id;
+
+        const nextTitle = editTitle(document.title, parsed.titleEdit);
+        const updatePayload: TablesUpdate<"documents"> = { metadata: metadata as Json };
+        if (nextTitle && nextTitle !== document.title) updatePayload.title = nextTitle;
+
+        const { error: updateError } = await supabase
+          .from("documents")
+          .update(updatePayload)
+          .eq("id", document.id)
+          .eq("owner_id", user.id);
+        if (updateError) throw new Error(updateError.message);
+        results.push({ documentId: document.id, updated: true });
+      } catch (error) {
+        results.push({
+          documentId: document.id,
+          updated: false,
+          error: error instanceof Error ? error.message : "Bulk edit failed.",
+        });
+      }
     }
 
     invalidateRagCachesForOwner(user.id);

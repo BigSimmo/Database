@@ -3,6 +3,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";
@@ -234,12 +235,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (!client) return;
     await client.auth.signOut();
+    clearPersistedAnswerThread();
     setSession(null);
     setStatus("signed_out");
     setError(null);
   }, [client]);
 
   const markSessionExpired = useCallback(() => {
+    clearPersistedAnswerThread();
     setSession(null);
     setStatus("expired");
     setError("Your session expired. Sign in again to use private documents.");

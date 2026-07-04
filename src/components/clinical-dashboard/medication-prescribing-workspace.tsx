@@ -24,9 +24,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
+import { medicationMatchesCommandScopes } from "@/lib/search-command-surface";
 import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
 
 type MedicationPrescribingWorkspaceProps = {
@@ -505,6 +508,7 @@ function MedicationHome({
       pills={medicationCapabilities.map((item) => ({
         label: item.label,
         icon: item.icon,
+        onClick: () => onSuggestedSearch(`${item.label.toLowerCase()} prescribing`),
       }))}
       footer={
         <div className="grid gap-3">
@@ -604,12 +608,24 @@ function MedicationResults({
   MedicationPrescribingWorkspaceProps,
   "query" | "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning"
 >) {
+  const command = useSearchCommand();
   const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
-  const visibleMedicationResults = medicationResults.filter((result) => resultMatchesFilter(result, activeFilter));
+  const visibleMedicationResults = useMemo(() => {
+    const filtered = medicationResults.filter((result) => resultMatchesFilter(result, activeFilter));
+    const scopes = command?.commandScopes ?? [];
+    if (!scopes.length) return filtered;
+    return filtered.filter((result) => medicationMatchesCommandScopes(result, scopes));
+  }, [activeFilter, command?.commandScopes]);
   const resultCount = visibleMedicationResults.length;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-3 py-0 sm:py-2">
+    <div className="mx-auto w-full max-w-7xl space-y-3 py-0 sm:py-2">
+      <div className="lg:hidden">
+        <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} compact />
+      </div>
+      <div className="hidden lg:block">
+        <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} />
+      </div>
       <div className="min-w-0 space-y-2 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-semibold uppercase text-[color:var(--text-soft)]">Medication search</p>
