@@ -20,6 +20,8 @@ const selfContainedFollowUpLength = 80;
 const followUpCuePattern =
   /\b(what about|how about|and (?:for|in|with|the)|also|too\??$|same (?:for|with)|instead|as well|it\b|they\b|them\b|this\b|that\b|those\b|these\b)\b/i;
 
+const questionLeadPattern = /^(what|how|when|where|which|who|why|can|should|does|do|is|are)\b/i;
+
 function significantTokens(text: string): string[] {
   return (text.toLowerCase().match(/[a-z][a-z-]{3,}/g) ?? []).filter(
     (token) => !["what", "when", "where", "which", "about", "does", "should", "would", "could"].includes(token),
@@ -72,8 +74,25 @@ function topicLabel(priorQuery: string, answer: RagAnswer) {
   const medications = answer.queryAnalysis?.medications ?? [];
   const medication = medications.find((item) => item.trim());
   if (medication) return medication.trim();
+
+  const canonical = answer.queryAnalysis?.canonicalTerms?.filter((term) => term.trim()) ?? [];
+  if (canonical.length > 0) {
+    const label = canonical.slice(0, 3).join(" ");
+    return label.length > 48 ? `${label.slice(0, 45).trimEnd()}…` : label;
+  }
+
   const trimmed = priorQuery.trim();
   if (!trimmed) return "this topic";
+
+  // Long or interrogative queries: use a short topic phrase instead of the full question.
+  if (trimmed.length > 48 || questionLeadPattern.test(trimmed)) {
+    const tokens = significantTokens(trimmed);
+    if (tokens.length > 0) {
+      const label = tokens.slice(0, 3).join(" ");
+      return label.length > 48 ? `${label.slice(0, 45).trimEnd()}…` : label;
+    }
+  }
+
   return trimmed.length > 48 ? `${trimmed.slice(0, 45).trimEnd()}…` : trimmed;
 }
 

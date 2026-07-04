@@ -124,4 +124,30 @@ describe("buildAnswerFollowUpSuggestions", () => {
     expect(suggestions.every((item) => !/for what about renal impairment/i.test(item))).toBe(true);
     expect(suggestions.some((item) => /lithium dosing|What monitoring is required\?/i.test(item))).toBe(true);
   });
+
+  it("uses a concise topic label for long first-turn questions", () => {
+    const clozapineQuestion = "What clozapine monitoring items are shown in the table image?";
+    const tableAnswer = {
+      answer: "The synthetic clozapine table image highlights core monitoring domains.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+      queryClass: "document_lookup",
+      queryAnalysis: {
+        ...medicationAnswer.queryAnalysis,
+        originalQuery: clozapineQuestion,
+        normalizedQuery: clozapineQuestion,
+        queryClass: "document_lookup",
+        medications: [],
+        canonicalTerms: [],
+      },
+    } satisfies import("@/lib/types").RagAnswer;
+
+    const suggestions = buildAnswerFollowUpSuggestions(clozapineQuestion, tableAnswer, [clozapineQuestion]);
+
+    expect(suggestions.length).toBeGreaterThan(0);
+    expect(suggestions.every((item) => !/for What clozapine monitoring items/i.test(item))).toBe(true);
+    expect(suggestions.some((item) => /clozapine/i.test(item))).toBe(true);
+  });
 });
