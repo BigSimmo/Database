@@ -136,8 +136,7 @@ function GlobalMockupSearchShellClient({
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
   const isHomeRoute = pathname === "/";
-  const isDocumentFlowRoute =
-    pathname === "/documents/search" || pathname.startsWith("/documents/source");
+  const isDocumentFlowRoute = pathname === "/documents/search" || pathname.startsWith("/documents/source");
   const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search") || isDocumentFlowRoute;
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
@@ -285,8 +284,7 @@ function GlobalMockupSearchShellClient({
     navigateToMode(mode, { query: crossQuery, focus: true, run: true });
   }
 
-  const shouldRenderClinicalDashboard =
-    isHomeRoute || (shouldRenderDashboardSearch && !shouldRenderFormsSearchResults);
+  const shouldRenderClinicalDashboard = isHomeRoute || (shouldRenderDashboardSearch && !shouldRenderFormsSearchResults);
 
   if (shouldRenderClinicalDashboard) {
     return (
@@ -314,7 +312,8 @@ function GlobalMockupSearchShellClient({
       className={cn(
         "min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
-        shouldShowDesktopSidebar && "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
+        shouldShowDesktopSidebar &&
+          "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         shouldShowDesktopSidebar &&
           (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
       )}
@@ -428,21 +427,21 @@ function GlobalMockupSearchShellClient({
                   : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
-        <ClientHydrationBoundary
-          fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
-        >
-        <SearchCommandProvider
-          value={{
-            query,
-            modeId: searchMode,
-            commandScopes,
-            onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
-            onClearScopes: () => setCommandScopes([]),
-          }}
-        >
-          {shouldRenderFormsSearchResults ? <FormsSearchResultsPage query={requestedQuery} /> : children}
-        </SearchCommandProvider>
-        </ClientHydrationBoundary>
+          <ClientHydrationBoundary
+            fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
+          >
+            <SearchCommandProvider
+              value={{
+                query,
+                modeId: searchMode,
+                commandScopes,
+                onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
+                onClearScopes: () => setCommandScopes([]),
+              }}
+            >
+              {shouldRenderFormsSearchResults ? <FormsSearchResultsPage query={requestedQuery} /> : children}
+            </SearchCommandProvider>
+          </ClientHydrationBoundary>
         </div>
       </div>
 

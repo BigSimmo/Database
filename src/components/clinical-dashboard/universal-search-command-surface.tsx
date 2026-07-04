@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  AlertTriangle,
-  Clock,
-  CornerDownLeft,
-  Search,
-  X,
-} from "lucide-react";
+import { AlertTriangle, Clock, CornerDownLeft, Search, X } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -17,7 +11,11 @@ import {
   type ReactNode,
 } from "react";
 
-import { modeActionItemsFor, type ModeActionId, type ModeActionSetId } from "@/components/clinical-dashboard/mode-action-popup";
+import {
+  modeActionItemsFor,
+  type ModeActionId,
+  type ModeActionSetId,
+} from "@/components/clinical-dashboard/mode-action-popup";
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -246,7 +244,9 @@ function CommandDropdown({
               ) : null}
               {section.layout === "chips" ? (
                 <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5">
-                  <span className="text-xs font-semibold text-[color:var(--text-muted)]">Search &ldquo;{query}&rdquo; in</span>
+                  <span className="text-xs font-semibold text-[color:var(--text-muted)]">
+                    Search &ldquo;{query}&rdquo; in
+                  </span>
                   {section.items.map((item) => (
                     <div
                       key={item.id}
@@ -430,7 +430,9 @@ export function UniversalSearchCommandSurface({
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
                   <Search className="h-4 w-4" />
                 </span>
-                <span className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{suggestion.text}</span>
+                <span className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">
+                  {suggestion.text}
+                </span>
                 <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
                   {suggestion.meta}
                 </span>
@@ -589,7 +591,10 @@ export function UniversalSearchCommandSurface({
       const target = event.target as HTMLElement | null;
       if (
         target &&
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable)
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
       ) {
         return;
       }
@@ -648,12 +653,7 @@ export function UniversalSearchCommandSurface({
           />
         ) : null}
       </div>
-      <ScopeChipRow
-        scopes={config.scopes}
-        activeScopes={commandScopes}
-        onToggle={toggleScope}
-        modeLabel={mode.label}
-      />
+      <ScopeChipRow scopes={config.scopes} activeScopes={commandScopes} onToggle={toggleScope} modeLabel={mode.label} />
       <style>{`@keyframes universal-command-fade { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }`}</style>
     </div>
   );

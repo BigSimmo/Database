@@ -576,10 +576,7 @@ function MobileEvidencePanel({ selected }: { selected: string }) {
 function DesktopEvidenceModal() {
   return (
     <div className="relative overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-6">
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
-      />
+      <div aria-hidden="true" className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" />
       <div
         role="dialog"
         aria-label="Evidence"

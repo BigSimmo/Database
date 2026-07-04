@@ -27,7 +27,10 @@ import {
   searchResultsSection,
   ToggleSwitch,
 } from "@/components/ui-primitives";
-import { SearchResultsEmptyState, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  SearchResultsEmptyState,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
 
@@ -143,7 +146,10 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
                   return (
                     <span
                       key={`${chipLabel}-${chipIndex}`}
-                      className={cn("rounded-full px-2 py-1 text-3xs font-extrabold uppercase", tagToneClass(chipLabel))}
+                      className={cn(
+                        "rounded-full px-2 py-1 text-3xs font-extrabold uppercase",
+                        tagToneClass(chipLabel),
+                      )}
                     >
                       {chipLabel}
                     </span>
@@ -598,23 +604,19 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 <SearchResultsHeaderBand modeId="forms" query={query} matchCount={scopedMatches.length} />
               </div>
               {query.trim() && scopedMatches.length === 0 ? (
-                <SearchResultsEmptyState
-                  modeId="forms"
-                  query={query}
-                  onClearScopes={command?.onClearScopes}
-                />
+                <SearchResultsEmptyState modeId="forms" query={query} onClearScopes={command?.onClearScopes} />
               ) : (
-              <>
-              <div className="overflow-x-auto">
-                <ResultTabs formsCount={scopedMatches.length} />
-              </div>
-              <div className="hidden lg:block">
-                <ResultsTable matches={scopedMatches} />
-              </div>
-              <div className="lg:hidden">
-                <MobileCards matches={scopedMatches} />
-              </div>
-              </>
+                <>
+                  <div className="overflow-x-auto">
+                    <ResultTabs formsCount={scopedMatches.length} />
+                  </div>
+                  <div className="hidden lg:block">
+                    <ResultsTable matches={scopedMatches} />
+                  </div>
+                  <div className="lg:hidden">
+                    <MobileCards matches={scopedMatches} />
+                  </div>
+                </>
               )}
             </>
           ) : null}

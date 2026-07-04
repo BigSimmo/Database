@@ -873,7 +873,7 @@ export function DocumentSearchResultsPanel({
       matches.length > 0 ||
       (trimmedQuery && !shouldShowHome) ||
       loading ||
-      unavailableMessage && !shouldShowHome ? (
+      (unavailableMessage && !shouldShowHome) ? (
         <SearchResultsHeader resultLabel={resultLabel} trimmedQuery={trimmedQuery} />
       ) : null}
 
@@ -902,9 +902,7 @@ export function DocumentSearchResultsPanel({
               <FileText className="h-5 w-5" />
             </span>
             <div>
-              <h3 className="text-base font-semibold text-[color:var(--text-heading)]">
-                No matching documents
-              </h3>
+              <h3 className="text-base font-semibold text-[color:var(--text-heading)]">No matching documents</h3>
               <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>
                 {`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
               </p>

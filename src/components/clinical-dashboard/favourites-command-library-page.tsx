@@ -953,12 +953,7 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
             </header>
 
             <div className="lg:hidden">
-              <SearchResultsHeaderBand
-                modeId="favourites"
-                query={query}
-                matchCount={scopedItems.length}
-                compact
-              />
+              <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
             </div>
             <div className="hidden lg:block">
               <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">

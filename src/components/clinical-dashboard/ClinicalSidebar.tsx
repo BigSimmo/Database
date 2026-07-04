@@ -268,7 +268,11 @@ export function ClinicalSidebarContent({
           className={sidebarItem}
           aria-label={themeUiReady ? themeToggleLabel : "Toggle theme"}
         >
-          {themeUiReady ? <ThemeIcon className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" aria-hidden />}
+          {themeUiReady ? (
+            <ThemeIcon className="h-4 w-4 shrink-0" />
+          ) : (
+            <Moon className="h-4 w-4 shrink-0" aria-hidden />
+          )}
           <span>{themeUiReady ? nextThemeLabel : "Theme"}</span>
         </button>
         <button

@@ -23,7 +23,10 @@ import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
-import { SearchResultsEmptyState, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  SearchResultsEmptyState,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
