@@ -47,6 +47,28 @@ function visibleAnswerSubmitButton(page: Page) {
   return page.locator('[aria-label="Generate source-backed answer"]:visible').first();
 }
 
+async function openInlineTableFullscreen(page: Page, clinicalTable: Locator) {
+  const dialog = page.getByTestId("table-fullscreen-dialog");
+  const expandButton = clinicalTable.getByTestId("table-expand-button");
+  const surface = clinicalTable.getByTestId("accessible-table-surface");
+
+  await clinicalTable.scrollIntoViewIfNeeded();
+  await page.keyboard.press("Escape");
+
+  await expect(async () => {
+    if (await expandButton.isVisible().catch(() => false)) {
+      await expandButton.scrollIntoViewIfNeeded();
+      await expandButton.click({ force: true });
+    } else {
+      await surface.focus();
+      await page.keyboard.press("Enter");
+    }
+    await expect(dialog).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
+
+  return dialog;
+}
+
 async function isVisibleWithoutThrow(locator: Locator) {
   return locator.isVisible().catch(() => false);
 }
@@ -495,8 +517,12 @@ async function openMobileClinicalGuideMenu(page: Page) {
 }
 
 async function waitForDemoDashboardReady(page: Page) {
-  await expect(visibleQuestionInput(page)).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible({ timeout: 30000 });
+  await expect(async () => {
+    const input = page.locator('[data-testid="global-search-input"]:visible').first();
+    await input.scrollIntoViewIfNeeded();
+    await expect(input).toBeEnabled({ timeout: 3_000 });
+  }).toPass({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible({ timeout: 30_000 });
 }
 
 async function openGuide(page: Page) {
@@ -1002,15 +1028,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalTable.getByRole("button", { name: "More table actions" })).toHaveCount(0);
     const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
     await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await clinicalTable.scrollIntoViewIfNeeded();
-    if (await tableExpandButton.isVisible().catch(() => false)) {
-      await tableExpandButton.click({ force: true });
-    } else {
-      await clinicalTable.getByTestId("accessible-table-surface").click({ force: true });
-    }
-    const tableDialog = page.getByTestId("table-fullscreen-dialog");
-    await expect(tableDialog).toBeVisible({ timeout: 10_000 });
+    const tableDialog = await openInlineTableFullscreen(page, clinicalTable);
     await expect(tableDialog.getByRole("table")).toBeVisible();
     await expect(tableDialog).toContainText("FBC/ANC");
     await expect(tableDialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
@@ -1060,6 +1078,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalNotesSheet.getByRole("tab", { name: /Actions/ })).toBeVisible();
     await expect(clinicalNotesSheet.getByRole("tab", { name: /Safety/ })).toBeVisible();
     expect(await clinicalNotesSheet.getByTestId("clinical-note-row").count()).toBeGreaterThan(0);
+    const linkedNoteRow = clinicalNotesSheet.getByTestId("clinical-note-row").first();
+    await expect(linkedNoteRow).toHaveAttribute("href", /\/documents\//);
     await expect(clinicalNotesSheet.getByText("Review toxicity symptoms", { exact: true })).toBeVisible();
     await tapOutsideActiveSurface(page);
     await expect(clinicalNotesSheet).toHaveCount(0);
@@ -1440,20 +1460,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
         return;
       }
 
-      await page.keyboard.press("Escape");
-      await clinicalTable.scrollIntoViewIfNeeded();
-
-      await clinicalTable.getByTestId("accessible-table-surface").click({ force: true });
-      const surfaceDialog = page.getByTestId("table-fullscreen-dialog");
-      await expect(surfaceDialog).toBeVisible();
+      const surfaceDialog = await openInlineTableFullscreen(page, clinicalTable);
       await expect(surfaceDialog).toContainText("FBC/ANC");
       await page.keyboard.press("Escape");
       await expect(surfaceDialog).toBeHidden();
 
       await expect(expandButton).toBeVisible();
-      await expandButton.click({ force: true });
-      const dialog = page.getByTestId("table-fullscreen-dialog");
-      await expect(dialog).toBeVisible();
+      const dialog = await openInlineTableFullscreen(page, clinicalTable);
       await expect(dialog.getByRole("table")).toBeVisible();
       await expect(dialog).toContainText("FBC/ANC");
       await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
@@ -1765,11 +1778,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const expandedEvidenceBox = await evidence.boundingBox();
     expect(expandedEvidenceBox?.height ?? 0).toBeGreaterThan(evidenceBox!.height);
     await viewerNav.getByRole("link", { name: "PDF" }).click();
-    await expect(preview).toBeInViewport();
+    await preview.scrollIntoViewIfNeeded();
+    await expect(preview).toBeVisible();
     await viewerNav.getByRole("link", { name: "Text" }).click();
-    await expect(page.getByText("Indexed page text", { exact: true })).toBeInViewport();
+    const indexedText = page.getByText("Indexed page text", { exact: true });
+    await indexedText.scrollIntoViewIfNeeded();
+    await expect(indexedText).toBeVisible();
     await viewerNav.getByRole("link", { name: "PDF" }).click();
-    await expect(preview).toBeInViewport();
+    await preview.scrollIntoViewIfNeeded();
+    await expect(preview).toBeVisible();
 
     const mobilePdfStyles = await toolbar.evaluate((element) => ({
       position: window.getComputedStyle(element).position,

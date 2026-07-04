@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 
 import { AccessibleTable } from "@/components/AccessibleTable";
-import { type AnswerFeedbackType } from "@/components/ClinicalDashboard";
+import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { ClinicalOutputPanel } from "@/components/clinical-dashboard/output-panel";
 import {
   keyClinicalItemsFromSections,
@@ -68,7 +68,13 @@ import {
 } from "@/components/ui-primitives";
 import { type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
-import { extractSafetyFindings, formatSafetyFindingLabel, sortSafetyFindingsBySeverity, type SafetyFinding, type SafetyFindingKind } from "@/lib/clinical-safety";
+import {
+  extractSafetyFindings,
+  formatSafetyFindingLabel,
+  sortSafetyFindingsBySeverity,
+  type SafetyFinding,
+  type SafetyFindingKind,
+} from "@/lib/clinical-safety";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import {
   normalizeExtractedGlyphs,
@@ -184,10 +190,7 @@ export function AnswerSupportSummaryCard({
             data-testid="answer-safety-findings-trigger"
             type="button"
             onClick={onOpenSafetyFindings}
-            className={cn(
-              supportButtonClass,
-              "w-full border-t-2 border-t-[color:var(--warning)]",
-            )}
+            className={cn(supportButtonClass, "w-full border-t-2 border-t-[color:var(--warning)]")}
             aria-label="Open safety-critical source findings"
           >
             <span
@@ -209,11 +212,16 @@ export function AnswerSupportSummaryCard({
           <div
             className={cn(
               "grid min-h-[52px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 border-t-2 px-3 py-2",
-              priority.tone === "caution" ? "border-t-[color:var(--warning)]" : "border-t-[color:var(--warning)]",
+              priority.tone === "caution"
+                ? "border-t-[color:var(--warning)]"
+                : "border-t-[color:var(--clinical-accent)]",
             )}
           >
             <span
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
+              className={cn(
+                "grid h-8 w-8 shrink-0 place-items-center rounded-md",
+                priority.tone === "caution" ? "text-[color:var(--warning)]" : "text-[color:var(--clinical-accent)]",
+              )}
               aria-hidden="true"
             >
               {priority.tone === "caution" ? <AlertCircle className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
@@ -413,7 +421,16 @@ type ClinicalNotesRow = {
   detail: string;
   sourceIndex: number;
   tone: "safe" | "warn";
+  href?: string;
 };
+
+function clinicalNoteHref(
+  sourceIndex: number,
+  sourceLinks: SourceLink[],
+  bestSource: BestSourceRecommendation | null,
+): string | undefined {
+  return sourceLinks[sourceIndex - 1]?.href ?? sourceLinks[0]?.href ?? bestSource?.viewer_href ?? undefined;
+}
 
 const clinicalNotesTabMeta: Record<
   ClinicalNotesTabId,
@@ -602,7 +619,12 @@ function clinicalNotesTableEvidenceCount(answer: RagAnswer) {
   ).length;
 }
 
-function clinicalNotesRowsForTab(sections: ClinicalDetailSection[], tab: ClinicalNotesTabId) {
+function clinicalNotesRowsForTab(
+  sections: ClinicalDetailSection[],
+  tab: ClinicalNotesTabId,
+  sourceLinks: SourceLink[] = [],
+  bestSource: BestSourceRecommendation | null = null,
+) {
   const meta = clinicalNotesTabMeta[tab];
   const rows: ClinicalNotesRow[] = [];
   let sourceIndex = 1;
@@ -633,21 +655,25 @@ function clinicalNotesRowsForTab(sections: ClinicalDetailSection[], tab: Clinica
       if (fragments) {
         for (const fragment of fragments) {
           const fragmentTitle = clinicalNoteTitleFromFragment(fragment);
+          const currentSourceIndex = sourceIndex;
           rows.push({
             id: `${tab}:${section.id}:${rows.length}:${fragmentTitle}`,
             title: fragmentTitle,
             detail: fragment,
             sourceIndex: sourceIndex++,
             tone: clinicalNoteToneForText(fragment, tone),
+            href: clinicalNoteHref(currentSourceIndex, sourceLinks, bestSource),
           });
         }
       } else {
+        const currentSourceIndex = sourceIndex;
         rows.push({
           id: `${tab}:${section.id}:${rows.length}:${title}`,
           title,
           detail: clinicalNoteDetailFromItem(item, title),
           sourceIndex: sourceIndex++,
           tone: clinicalNoteToneForText(item, tone),
+          href: clinicalNoteHref(currentSourceIndex, sourceLinks, bestSource),
         });
       }
     }
@@ -688,6 +714,7 @@ export function ClinicalNotesChecklistPanel({
   answer,
   viewMode,
   evidenceMapRows,
+  sourceLinks = [],
   bestSource,
   copied,
   onCopy,
@@ -696,6 +723,7 @@ export function ClinicalNotesChecklistPanel({
   answer: RagAnswer;
   viewMode: AnswerViewMode;
   evidenceMapRows: AnswerEvidenceMapRow[];
+  sourceLinks?: SourceLink[];
   bestSource: BestSourceRecommendation | null;
   copied: boolean;
   onCopy: () => void;
@@ -706,10 +734,10 @@ export function ClinicalNotesChecklistPanel({
   const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
   const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(defaultTab);
   const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : defaultTab;
-  const rows = clinicalNotesRowsForTab(detailSections, activeTab);
+  const rows = clinicalNotesRowsForTab(detailSections, activeTab, sourceLinks, bestSource);
   const tableEvidenceCount = clinicalNotesTableEvidenceCount(answer);
   const [added, setAdded] = useState(false);
-  const warningRows = clinicalNotesRowsForTab(detailSections, "safety");
+  const warningRows = clinicalNotesRowsForTab(detailSections, "safety", sourceLinks, bestSource);
   const warningCount = warningRows.filter((row) => row.tone === "warn").length || warningRows.length;
 
   if (!tabs.length || rows.length === 0) {
@@ -790,12 +818,8 @@ export function ClinicalNotesChecklistPanel({
           const hasDistinctDetail = clinicalNoteHasDistinctDetail(row);
           const RowIcon = row.tone === "warn" ? AlertCircle : activeTab === "actions" ? Activity : CheckCircle2;
           const isWarnRow = row.tone === "warn";
-          return (
-            <article
-              key={row.id}
-              data-testid="clinical-note-row"
-              className="grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-[color:var(--border)] px-3 py-2.5 last:border-b-0"
-            >
+          const rowContent = (
+            <>
               <span
                 className={cn(
                   "grid h-7 w-7 shrink-0 place-items-center rounded-md",
@@ -830,6 +854,24 @@ export function ClinicalNotesChecklistPanel({
                 )}
                 <ChevronDown className="h-3.5 w-3.5 -rotate-90 text-[color:var(--text-muted)]" />
               </div>
+            </>
+          );
+          return row.href ? (
+            <Link
+              key={row.id}
+              href={row.href}
+              data-testid="clinical-note-row"
+              className="grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-[color:var(--border)] px-3 py-2.5 transition last:border-b-0 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+            >
+              {rowContent}
+            </Link>
+          ) : (
+            <article
+              key={row.id}
+              data-testid="clinical-note-row"
+              className="grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-[color:var(--border)] px-3 py-2.5 last:border-b-0"
+            >
+              {rowContent}
             </article>
           );
         })}

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react";
 
-import { type AnswerFeedbackType } from "@/components/ClinicalDashboard";
+import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { NaturalLanguageAnswer, UserQuestionBubble } from "@/components/clinical-dashboard/answer-content";
 import {
@@ -89,7 +89,10 @@ export function StagedAnswerResultSurface({
 }) {
   const noteCount = clinicalNotesCount(answer);
   const showClinicalNotes =
-    safetyFindings.length > 0 || noteCount > 0 || answer.answerQualityTier === "source_only" || answerGrounded === false;
+    safetyFindings.length > 0 ||
+    noteCount > 0 ||
+    answer.answerQualityTier === "source_only" ||
+    answerGrounded === false;
   const clinicalNoteDisplayCount = clinicalNotesDisplayCountForAnswer(
     answer,
     answerViewMode,
@@ -282,6 +285,7 @@ export function StagedAnswerResultSurface({
               answer={answer}
               viewMode={answerViewMode}
               evidenceMapRows={answerEvidenceMapRows}
+              sourceLinks={renderModel.primarySources}
               bestSource={bestSource}
               copied={copiedAnswer}
               onCopy={onCopyAnswer}
