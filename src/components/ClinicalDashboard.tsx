@@ -182,7 +182,7 @@ const MedicationPrescribingWorkspace = dynamic(
     ),
   { ssr: false },
 );
-const ApplicationsLauncherWorkspace = dynamic(
+export const ApplicationsLauncherWorkspace = dynamic(
   () => import("@/components/applications-launcher-page").then((m) => m.ApplicationsLauncherWorkspace),
   { ssr: false },
 );
@@ -260,8 +260,9 @@ import type { SearchScopeFilters } from "@/lib/search-scope";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
 
-const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
-const mobileSectionFabMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
+export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
+export const mobileSectionFabMediaQuery =
+  "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
 
 export const recentQueryStorageKey = "clinical-kb-recent-queries";
 const documentPageSize = 150;
@@ -271,7 +272,7 @@ const indexingWorkDetailsPollMs = 15_000;
 const stagedDashboardExtraction = {
   answerSurface: true,
 } as const;
-type DocumentPagination = {
+export type DocumentPagination = {
   limit: number;
   offset: number;
   total: number;
@@ -2162,7 +2163,12 @@ function DocumentDrawer({
       {/* Dynamic Browse Library Filters */}
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         <div>
-          <label htmlFor="browse-filter-type" className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Type</label>
+          <label
+            htmlFor="browse-filter-type"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Type
+          </label>
           <select
             id="browse-filter-type"
             value={selectedType}
@@ -2179,7 +2185,12 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label htmlFor="browse-filter-site" className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Site</label>
+          <label
+            htmlFor="browse-filter-site"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Site
+          </label>
           <select
             id="browse-filter-site"
             value={selectedSite}
@@ -2196,7 +2207,12 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label htmlFor="browse-filter-topic" className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Topic</label>
+          <label
+            htmlFor="browse-filter-topic"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
+            Topic
+          </label>
           <select
             id="browse-filter-topic"
             value={selectedTopic}
@@ -2213,7 +2229,10 @@ function DocumentDrawer({
           </select>
         </div>
         <div>
-          <label htmlFor="browse-filter-population" className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">
+          <label
+            htmlFor="browse-filter-population"
+            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+          >
             Population
           </label>
           <select
