@@ -714,9 +714,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await waitForDemoDashboardReady(page);
 
     await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
     await expect(page.locator("#clinical-tools-sidebar")).toHaveCount(0);
     await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
 
     for (const tool of [
       { name: "Answer", href: "/?mode=answer" },
