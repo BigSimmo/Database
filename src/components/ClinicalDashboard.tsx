@@ -50,7 +50,6 @@ import {
 import {
   type CSSProperties,
   type FormEvent,
-  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -88,7 +87,6 @@ import {
   SourceProvenance,
   SourceStatusBadge,
   sourceCard,
-  subtleStatusPill,
   tableCard,
   tableCardHeader,
   tableMicroActionRow,
@@ -105,7 +103,6 @@ import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
-import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
@@ -149,13 +146,6 @@ import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboar
 import {
   AnswerFeedbackPanel,
   AnswerSafetyNotice,
-  AnswerSupportSummaryCard,
-  answerHasCentralTable,
-  answerSupportPriority,
-  ClinicalNotesChecklistPanel,
-  clinicalNotesCount,
-  clinicalNotesDisplayCountForAnswer,
-  compactEvidenceSummary,
   type EvidenceTabName,
   simpleClinicalTableProps,
   evidenceMapRowsFromRenderModel,
@@ -164,7 +154,6 @@ import {
   formatQuoteCardsForClipboard,
   primaryVisualTable,
   QuoteCards,
-  SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
