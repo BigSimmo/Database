@@ -315,21 +315,12 @@ test.describe("Clinical KB long-content stress coverage", () => {
       const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
       await expect(evidenceDrawer).toBeVisible();
       await evidenceDrawer.click();
-      if (viewport.width < 1024) {
-        const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
-        await expect(evidenceSheet).toBeVisible();
-        await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
-        await expect(evidenceSheet.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
-        await expect(evidenceSheet.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
-        await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
-      } else {
-        const evidenceReview = page.getByTestId("desktop-answer-review-panel");
-        await expect(evidenceReview).toBeVisible();
-        await expect(evidenceReview.getByRole("heading", { name: "Evidence" })).toBeVisible();
-        await expect(evidenceReview.getByTestId("mobile-evidence-tabs")).toBeVisible();
-        await expect(evidenceReview.getByTestId("evidence-claims-panel")).toBeVisible();
-        await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
-      }
+      const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
+      await expect(evidenceSheet).toBeVisible();
+      await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
+      await expect(evidenceSheet.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
+      await expect(evidenceSheet.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
+      await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     });
   }

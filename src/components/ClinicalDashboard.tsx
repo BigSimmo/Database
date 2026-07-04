@@ -53,7 +53,6 @@ import {
   type RefObject,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -104,6 +103,7 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
+import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
@@ -225,6 +225,7 @@ import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/
 import {
   clearPersistedAnswerThread,
   loadPersistedAnswerThread,
+  maxStoredAnswerTurns,
   savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
 import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
@@ -1135,6 +1136,8 @@ type AnswerTurn = {
   sources: SearchResult[];
 };
 
+const maxVisiblePriorTurns = 10;
+
 /**
  * Read-only surface for a previous turn in the answer thread. Renders the
  * question bubble and the natural-language answer with its source capsule;
@@ -1198,333 +1201,6 @@ function PriorAnswerTurnSurface({
             onCopy={() => onCopy(renderModel.copyText || previewText)}
           />
         )}
-      </div>
-    </div>
-  );
-}
-
-function StagedAnswerResultSurface({
-  answer,
-  query,
-  safeAnswerText,
-  bestSource,
-  sourceGovernanceWarnings,
-  sourceSummary,
-  renderModel,
-  weakEvidence,
-  answerViewMode,
-  answerEvidenceMapRows,
-  onScopeDocument,
-  answerGrounded,
-  sources,
-  demoMode,
-  safeAnswerSections,
-  safetyFindings,
-  copiedAnswer,
-  pendingFeedback,
-  onCopyAnswer,
-  onSubmitFeedback,
-  onFollowUpQuote,
-  followUpSuggestions,
-  onPickFollowUpSuggestion,
-  followUpSuggestionsDisabled = false,
-}: {
-  answer: RagAnswer;
-  query: string;
-  safeAnswerText: string;
-  bestSource: BestSourceRecommendation | null;
-  sourceGovernanceWarnings: SourceGovernanceWarning[];
-  sourceSummary?: EvidenceSummary;
-  renderModel: AnswerRenderModel;
-  weakEvidence: boolean;
-  answerViewMode: AnswerViewMode;
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  onScopeDocument: (documentId: string) => void;
-  answerGrounded: boolean;
-  sources: SearchResult[];
-  demoMode: boolean;
-  safeAnswerSections: Array<AnswerSection & { citationSources: SearchResult[] }>;
-  safetyFindings: ReturnType<typeof extractSafetyFindings>;
-  copiedAnswer: boolean;
-  pendingFeedback: AnswerFeedbackType | null;
-  onCopyAnswer: () => void;
-  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
-  followUpSuggestions?: string[];
-  onPickFollowUpSuggestion?: (suggestion: string) => void;
-  followUpSuggestionsDisabled?: boolean;
-}) {
-  const noteCount = clinicalNotesCount(answer);
-  const showClinicalNotes =
-    safetyFindings.length > 0 || noteCount > 0 || answer.answerQualityTier === "source_only" || answerGrounded === false;
-  const clinicalNoteDisplayCount = clinicalNotesDisplayCountForAnswer(
-    answer,
-    answerViewMode,
-    noteCount || safetyFindings.length,
-  );
-  const sourceCount =
-    renderModel.primarySources.length ||
-    sourceSummary?.total_sources ||
-    sources.length ||
-    answer.sources?.length ||
-    answer.citations.length;
-  const centralTable = answerHasCentralTable(answer) ? primaryVisualTable(answer) : null;
-  const showEvidenceDrawer = renderModel.allowedBlocks.some((block) =>
-    ["sourceStatus", "reviewSources", "evidenceMap", "quoteCards", "visualEvidence", "warnings"].includes(block),
-  );
-  const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
-  const [evidenceOpen, setEvidenceOpen] = useState(false);
-  const [safetyFindingsOpen, setSafetyFindingsOpen] = useState(false);
-  const [evidenceInitialTab, setEvidenceInitialTab] = useState<EvidenceTabName | null>(null);
-  const [copiedQuotes, setCopiedQuotes] = useState(false);
-  const clinicalNotesTriggerRef = useRef<HTMLButtonElement>(null);
-  const evidenceTriggerRef = useRef<HTMLButtonElement>(null);
-  const safetyTriggerRef = useRef<HTMLButtonElement>(null);
-  const copyQuotesTimerRef = useRef<number | null>(null);
-  useEffect(() => {
-    return () => {
-      if (copyQuotesTimerRef.current !== null) window.clearTimeout(copyQuotesTimerRef.current);
-    };
-  }, []);
-  function openClinicalNotes() {
-    setEvidenceOpen(false);
-    setSafetyFindingsOpen(false);
-    setEvidenceInitialTab(null);
-    setClinicalNotesOpen(true);
-  }
-  function restoreFocusToTrigger(ref: RefObject<HTMLElement | null>) {
-    window.requestAnimationFrame(() => {
-      if (ref.current?.isConnected) ref.current.focus({ preventScroll: true });
-    });
-  }
-  function closeClinicalNotesReview() {
-    setClinicalNotesOpen(false);
-    restoreFocusToTrigger(clinicalNotesTriggerRef);
-  }
-  function openEvidence(initialTab: EvidenceTabName | null = null) {
-    setClinicalNotesOpen(false);
-    setSafetyFindingsOpen(false);
-    setEvidenceInitialTab(initialTab);
-    setEvidenceOpen(true);
-  }
-  function closeEvidenceReview() {
-    setEvidenceOpen(false);
-    setEvidenceInitialTab(null);
-    restoreFocusToTrigger(evidenceTriggerRef);
-  }
-  function openTableEvidence() {
-    setClinicalNotesOpen(false);
-    setSafetyFindingsOpen(false);
-    openEvidence("Tables");
-  }
-  function openSafetyFindings() {
-    setClinicalNotesOpen(false);
-    setEvidenceOpen(false);
-    setEvidenceInitialTab(null);
-    setSafetyFindingsOpen(true);
-  }
-  function closeSafetyFindingsReview() {
-    setSafetyFindingsOpen(false);
-    restoreFocusToTrigger(safetyTriggerRef);
-  }
-  const copyQuotes = useCallback(async () => {
-    const quoteText = formatQuoteCardsForClipboard(renderModel.quoteCards);
-    if (!quoteText) return;
-    try {
-      await navigator.clipboard.writeText(quoteText);
-      setCopiedQuotes(true);
-      if (copyQuotesTimerRef.current !== null) window.clearTimeout(copyQuotesTimerRef.current);
-      copyQuotesTimerRef.current = window.setTimeout(() => setCopiedQuotes(false), 1600);
-    } catch {
-      setCopiedQuotes(false);
-    }
-  }, [renderModel.quoteCards]);
-  const priority = answerSupportPriority(answer, safeAnswerSections, centralTable, safetyFindings, {
-    grounded: answerGrounded,
-    weakEvidence,
-  });
-  const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
-  const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
-  const showInlineSupportCard = Boolean(priority || showClinicalNotes || showEvidenceDrawer);
-  const showLayoutAside = Boolean(centralTable);
-
-  return (
-    <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
-      <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
-        <UserQuestionBubble query={query} />
-
-        <div
-          data-testid="table-specific-answer-layout"
-          data-desktop-table-aside={centralTable ? "true" : "false"}
-          className={cn(
-            "space-y-3",
-            showLayoutAside &&
-              "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(21rem,0.72fr)] lg:items-start lg:gap-5 lg:space-y-0",
-          )}
-        >
-          <div className="min-w-0 space-y-3">
-            <NaturalLanguageAnswer
-              text={safeAnswerText || answer.answer}
-              sourceCount={sourceCount}
-              weakEvidence={weakEvidence}
-              grounded={answerGrounded}
-              sourceOnly={answer.answerQualityTier === "source_only"}
-              bestSource={bestSource}
-              sources={sources}
-              sourceLinks={renderModel.primarySources}
-              copied={copiedAnswer}
-              onCopy={onCopyAnswer}
-            />
-
-            {showInlineSupportCard ? (
-              <AnswerSupportSummaryCard
-                priority={priority}
-                clinicalCount={clinicalNoteDisplayCount}
-                evidenceSummary={inlineEvidenceSummary}
-                clinicalAvailable={showClinicalNotes}
-                evidenceAvailable={showEvidenceDrawer}
-                clinicalTriggerRef={clinicalNotesTriggerRef}
-                evidenceTriggerRef={evidenceTriggerRef}
-                safetyTriggerRef={safetyTriggerRef}
-                safetyFindingsCount={safetyFindings.length}
-                onOpenClinicalNotes={openClinicalNotes}
-                onOpenEvidence={() => openEvidence(null)}
-                onOpenSafetyFindings={safetyFindings.length > 0 ? openSafetyFindings : undefined}
-              />
-            ) : null}
-
-            {followUpSuggestions?.length && onPickFollowUpSuggestion ? (
-              <AnswerFollowUpSuggestions
-                suggestions={followUpSuggestions}
-                onPick={onPickFollowUpSuggestion}
-                disabled={followUpSuggestionsDisabled}
-              />
-            ) : null}
-
-          </div>
-
-          {centralTable ? (
-            <div className="min-w-0 lg:sticky lg:top-24">
-              <InlineTableCard item={centralTable} />
-            </div>
-          ) : null}
-        </div>
-
-        {showClinicalNotes ? (
-          <Sheet
-            open={clinicalNotesOpen}
-            onClose={closeClinicalNotesReview}
-            title="Clinical notes"
-            description="Source-backed points from this answer."
-            closeLabel="Close clinical notes"
-            headerLeading={
-              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--clinical-accent)]")}>
-                <ClipboardCheck className="h-3.5 w-3.5" />
-              </span>
-            }
-            titleAccessory={
-              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-                {clinicalNoteDisplayCount}
-              </span>
-            }
-            headerActions={
-              bestSource ? (
-                <Link
-                  href={bestSource.viewer_href}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label="Open clinical notes source"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Link>
-              ) : null
-            }
-            headerClassName="gap-2 p-2.5 sm:p-3"
-            titleClassName="text-[15px] leading-5"
-            closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-md"
-            bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
-            returnFocusRef={clinicalNotesTriggerRef}
-            portal
-          >
-            <ClinicalNotesChecklistPanel
-              answer={answer}
-              viewMode={answerViewMode}
-              evidenceMapRows={answerEvidenceMapRows}
-              bestSource={bestSource}
-              copied={copiedAnswer}
-              onCopy={onCopyAnswer}
-              onOpenTables={openTableEvidence}
-            />
-          </Sheet>
-        ) : null}
-
-        {showEvidenceDrawer ? (
-          <Sheet
-            open={evidenceOpen}
-            onClose={closeEvidenceReview}
-            title="Evidence"
-            description="Review by evidence type."
-            titleAccessory={
-              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[11px]")}>{evidenceTrustLabel}</span>
-            }
-            closeLabel="Close evidence"
-            headerLeading={
-              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--clinical-accent)]")}>
-                <Layers className="h-3.5 w-3.5" />
-              </span>
-            }
-            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(88dvh,44rem)] sm:max-w-2xl"
-            bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
-            returnFocusRef={evidenceTriggerRef}
-            portal
-          >
-            <MobileEvidenceSheetContent
-              answer={answer}
-              sources={sources}
-              renderModel={renderModel}
-              visualEvidence={renderModel.visualEvidence}
-              answerEvidenceMapRows={answerEvidenceMapRows}
-              sourceGovernanceWarnings={sourceGovernanceWarnings}
-              demoMode={demoMode}
-              initialTab={evidenceInitialTab}
-              pendingFeedback={pendingFeedback}
-              copiedQuotes={copiedQuotes}
-              onCopyQuotes={copyQuotes}
-              onSubmitFeedback={onSubmitFeedback}
-              onFollowUpQuote={onFollowUpQuote}
-              onScopeDocument={onScopeDocument}
-            />
-          </Sheet>
-        ) : null}
-
-        {safetyFindings.length > 0 ? (
-          <Sheet
-            open={safetyFindingsOpen}
-            onClose={closeSafetyFindingsReview}
-            title="Safety-critical source findings"
-            description="Items come from source text. Verify before clinical use."
-            closeLabel="Close safety findings"
-            headerLeading={
-              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--warning)]")}>
-                <ShieldAlert className="h-3.5 w-3.5" />
-              </span>
-            }
-            titleAccessory={
-              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-                {safetyFindings.length}
-              </span>
-            }
-            headerClassName="gap-2 p-2.5 sm:p-3"
-            titleClassName="text-[15px] leading-5"
-            closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
-            bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
-            returnFocusRef={safetyTriggerRef}
-            portal
-          >
-            <SafetyFindingsListContent findings={safetyFindings} />
-          </Sheet>
-        ) : null}
       </div>
     </div>
   );
@@ -3655,6 +3331,7 @@ export function ClinicalDashboard({
   const jobsRef = useRef(jobs);
   const batchesRef = useRef(batches);
   const answerThreadBootstrappedRef = useRef(false);
+  const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(false);
@@ -3669,6 +3346,9 @@ export function ClinicalDashboard({
   const [priorAnswerTurns, setPriorAnswerTurns] = useState<AnswerTurn[]>([]);
   const [latestAnswerQuery, setLatestAnswerQuery] = useState<string | null>(null);
   const [collapsedTurnIds, setCollapsedTurnIds] = useState<Set<string>>(() => new Set());
+  const [showEarlierTurns, setShowEarlierTurns] = useState(false);
+  const threadRestoreScrolledRef = useRef(false);
+  const restoredThreadFromStorageRef = useRef(false);
   const latestAnswerTurnRef = useRef<Omit<AnswerTurn, "id"> | null>(null);
   const answerTurnSeqRef = useRef(0);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
@@ -3706,34 +3386,57 @@ export function ClinicalDashboard({
     if (!answerThreadBootstrappedRef.current) return;
     if (answer === null) latestAnswerTurnRef.current = null;
   }, [answer]);
-  useLayoutEffect(() => {
-    if (answerThreadBootstrappedRef.current) return;
-    const persisted = loadPersistedAnswerThread();
-    if (persisted) {
-      setPriorAnswerTurns(persisted.priorTurns);
-      setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
-      if (persisted.latestTurn) {
-        latestAnswerTurnRef.current = persisted.latestTurn;
-        setAnswer(persisted.latestTurn.answer);
-        setSources(persisted.latestTurn.sources);
-        setModeSearchSubmitted(true);
+  useEffect(() => {
+    queueMicrotask(() => {
+      const persisted = loadPersistedAnswerThread();
+      if (persisted) {
+        restoredThreadFromStorageRef.current = true;
+        setPriorAnswerTurns(persisted.priorTurns);
+        setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
+        if (persisted.latestTurn) {
+          latestAnswerTurnRef.current = persisted.latestTurn;
+          setAnswer(persisted.latestTurn.answer);
+          setSources(persisted.latestTurn.sources);
+          setModeSearchSubmitted(true);
+          setQuery("");
+          const restoredQuery = persisted.latestTurn.query.trim();
+          if (restoredQuery) {
+            autoRunSearchSignatureRef.current = `answer:${restoredQuery}`;
+          }
+        }
+        answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
+          const match = /^answer-turn-(\d+)$/.exec(turn.id);
+          return match ? Math.max(max, Number(match[1])) : max;
+        }, 0);
+        setCollapsedTurnIds(
+          persisted.collapsedTurnIds.length
+            ? new Set(persisted.collapsedTurnIds)
+            : new Set(persisted.priorTurns.map((turn) => turn.id)),
+        );
       }
-      answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
-        const match = /^answer-turn-(\d+)$/.exec(turn.id);
-        return match ? Math.max(max, Number(match[1])) : max;
-      }, 0);
-      setCollapsedTurnIds(
-        persisted.collapsedTurnIds.length
-          ? new Set(persisted.collapsedTurnIds)
-          : new Set(persisted.priorTurns.map((turn) => turn.id)),
-      );
-    }
-    answerThreadBootstrappedRef.current = true;
+      answerThreadBootstrappedRef.current = true;
+      setAnswerThreadBootstrapped(true);
+    });
   }, []);
+  useEffect(() => {
+    if (
+      !answerThreadBootstrappedRef.current ||
+      !answer ||
+      !restoredThreadFromStorageRef.current ||
+      threadRestoreScrolledRef.current
+    ) {
+      return;
+    }
+    threadRestoreScrolledRef.current = true;
+    window.requestAnimationFrame(() => {
+      mainRef.current?.scrollTo({ top: mainRef.current?.scrollHeight ?? 0, behavior: "auto" });
+    });
+  }, [answer]);
   function resetAnswerThread() {
     setPriorAnswerTurns([]);
     setLatestAnswerQuery(null);
     setCollapsedTurnIds(new Set());
+    setShowEarlierTurns(false);
     clearPersistedAnswerThread();
   }
   function toggleAnswerTurnCollapsed(turnId: string) {
@@ -3927,7 +3630,7 @@ export function ClinicalDashboard({
   }, []);
 
   useEffect(() => {
-    if (!answerThreadBootstrappedRef.current) return;
+    if (!answerThreadBootstrapped) return;
     if (searchMode !== "answer") return;
     if (!answer && priorAnswerTurns.length === 0) {
       clearPersistedAnswerThread();
@@ -3939,7 +3642,7 @@ export function ClinicalDashboard({
       latestTurn: latestAnswerTurnRef.current,
       collapsedTurnIds: [...collapsedTurnIds],
     });
-  }, [searchMode, answer, priorAnswerTurns, collapsedTurnIds, latestAnswerQuery]);
+  }, [searchMode, answer, priorAnswerTurns, collapsedTurnIds, latestAnswerQuery, answerThreadBootstrapped]);
 
   useEffect(() => {
     jobsRef.current = jobs;
@@ -4495,7 +4198,9 @@ export function ClinicalDashboard({
     const frame = window.requestAnimationFrame(() => {
       if (targetMode === "differentials") clearDifferentialModeResultState();
       setSearchMode(targetMode);
-      if (searchText) setQuery(searchText);
+      // run=1 URLs name the latest answered question; the composer stays empty
+      // while an answer thread is active (including after localStorage restore).
+      if (searchText && params.get("run") !== "1") setQuery(searchText);
       if (shouldFocusComposer) focusComposerInput();
     });
     return () => window.cancelAnimationFrame(frame);
@@ -4509,6 +4214,14 @@ export function ClinicalDashboard({
     if (!searchText || !isAppModeId(mode) || !isAppModeVisible(mode)) return;
     if (mode === "prescribing") return;
     const modeSearch = appModeSearchConfig(mode);
+    // Answer-mode run=1 URLs are submitted by the autoRunSearch effect after
+    // localStorage thread restore completes; running here would archive a
+    // restored latest turn into a duplicate prior turn on reload.
+    if (modeSearch.resultKind === "answer") {
+      if (!answerThreadBootstrapped) return;
+      urlDocumentSearchBootstrappedRef.current = true;
+      return;
+    }
     const shouldRun =
       params.get("run") === "1" ||
       modeSearch.kind === "documents" ||
@@ -4521,7 +4234,7 @@ export function ClinicalDashboard({
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canRunSearch]);
+  }, [canRunSearch, answerThreadBootstrapped]);
 
   useEffect(() => {
     const updateHash = () => {
@@ -4704,7 +4417,7 @@ export function ClinicalDashboard({
     const priorTurn = latestAnswerTurnRef.current;
     if (priorTurn) {
       const turnId = `answer-turn-${++answerTurnSeqRef.current}`;
-      setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }]);
+      setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }].slice(-maxStoredAnswerTurns));
       setCollapsedTurnIds((current) => new Set(current).add(turnId));
     }
     const committedQuery = displayQuery ?? payload.query;
@@ -4944,18 +4657,22 @@ export function ClinicalDashboard({
     const trimmedQuery = query.trim();
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !trimmedQuery || !canAutoRunMode || loading) return;
-    if (searchMode === "answer" && !answerThreadBootstrappedRef.current) return;
+    if (searchMode === "answer" && !answerThreadBootstrapped) return;
     // Once an answer is on screen, composer edits are follow-up drafts and must
     // only run on explicit submit — not on every query keystroke while run=1
     // keeps autoRunSearch enabled from the URL.
     if (searchMode === "answer" && answer) return;
+    // After reload, the URL query matches the restored latest turn — do not
+    // archive it again into a duplicate prior turn.
+    if (searchMode === "answer" && latestAnswerQuery?.trim() === trimmedQuery) {
+      autoRunSearchSignatureRef.current = `${searchMode}:${trimmedQuery}`;
+      return;
+    }
     const signature = `${searchMode}:${trimmedQuery}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
     void ask();
-    // The signature ref gates this URL-triggered run so it only submits once per mode/query.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRunSearch, canRunSearch, loading, query, searchMode]);
+  }, [autoRunSearch, canRunSearch, loading, query, searchMode, answer, answerThreadBootstrapped, latestAnswerQuery]);
 
   function pickRecentQuery(recentQuery: string) {
     if (searchMode === "prescribing") {
@@ -5480,6 +5197,11 @@ export function ClinicalDashboard({
     const priorQueries = [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery];
     return buildAnswerFollowUpSuggestions(latestAnswerQuery, answer, priorQueries);
   }, [answer, latestAnswerQuery, priorAnswerTurns]);
+  const hiddenPriorTurnCount = Math.max(0, priorAnswerTurns.length - maxVisiblePriorTurns);
+  const visiblePriorTurns = useMemo(() => {
+    if (showEarlierTurns || hiddenPriorTurnCount === 0) return priorAnswerTurns;
+    return priorAnswerTurns.slice(-maxVisiblePriorTurns);
+  }, [hiddenPriorTurnCount, priorAnswerTurns, showEarlierTurns]);
   const safeAnswerSections = useMemo(() => {
     return (answer?.answerSections ?? [])
       .map((section) => {
@@ -5807,7 +5529,7 @@ export function ClinicalDashboard({
           onAsk={ask}
           onClearQuery={() => {
             setQuery("");
-            setModeSearchSubmitted(false);
+            if (!answer) setModeSearchSubmitted(false);
           }}
           onClearScope={() => setSelectedDocumentIds([])}
           onQueryModeChange={setQueryMode}
@@ -6055,7 +5777,17 @@ export function ClinicalDashboard({
               ) : answer && answerRenderModel ? (
                 stagedDashboardExtraction.answerSurface ? (
                   <>
-                    {priorAnswerTurns.map((turn) => (
+                    {hiddenPriorTurnCount > 0 && !showEarlierTurns ? (
+                      <button
+                        type="button"
+                        data-testid="answer-thread-show-earlier"
+                        onClick={() => setShowEarlierTurns(true)}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      >
+                        Show earlier messages ({hiddenPriorTurnCount})
+                      </button>
+                    ) : null}
+                    {visiblePriorTurns.map((turn) => (
                       <PriorAnswerTurnSurface
                         key={turn.id}
                         turn={turn}

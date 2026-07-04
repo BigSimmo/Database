@@ -718,109 +718,117 @@ export function ClinicalNotesChecklistPanel({
     );
   }
 
-  const activeMeta = clinicalNotesTabMeta[activeTab];
+  const showTabStrip = tabs.length > 1;
 
   return (
     <section data-testid="clinical-notes-checklist" className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="sticky top-0 z-10 -mx-3 -mt-2 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-3 py-2 backdrop-blur sm:static sm:mx-0 sm:mt-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:backdrop-blur-0">
-        <div
-          role="tablist"
-          aria-label="Clinical notes categories"
-          className="grid min-w-0 grid-cols-3 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
-        >
-          {tabs.map((tab) => {
-            const selected = tab.id === activeTab;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                aria-label={`${tab.label} (${tab.count})`}
-                onClick={() => setRequestedTab(tab.id)}
-                className={cn(
-                  "inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                  selected
-                    ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                )}
-              >
-                <span className="truncate">{tab.label}</span>
-                <span
+      {showTabStrip ? (
+        <div className="sticky top-0 z-10 -mx-3 -mt-2 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-3 py-2 backdrop-blur sm:static sm:mx-0 sm:mt-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:backdrop-blur-0">
+          <div
+            role="tablist"
+            aria-label="Clinical notes categories"
+            className={cn(
+              "grid min-w-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]",
+              tabs.length === 2 ? "grid-cols-2" : "grid-cols-3",
+            )}
+          >
+            {tabs.map((tab) => {
+              const selected = tab.id === activeTab;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-label={`${tab.label} (${tab.count})`}
+                  onClick={() => setRequestedTab(tab.id)}
                   className={cn(
-                    "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px]",
+                    "inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                     selected
-                      ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)]"
-                      : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+                      ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
+                      : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                   )}
                 >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
+                  <span className="truncate">{tab.label}</span>
+                  <span
+                    className={cn(
+                      "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px]",
+                      selected
+                        ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)]"
+                        : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+                    )}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
-          {activeMeta.label} ({rows.length})
-        </p>
-        {tableEvidenceCount > 0 && onOpenTables ? (
+      {tableEvidenceCount > 0 && onOpenTables ? (
+        <div className={cn("flex min-w-0 justify-end", showTabStrip ? "mt-3" : "mt-0")}>
           <button
             type="button"
             onClick={onOpenTables}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <Table2 className="h-3.5 w-3.5" />
             Tables
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
-      <div className="mt-3 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
+      <div
+        className={cn(
+          "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
+          showTabStrip || (tableEvidenceCount > 0 && onOpenTables) ? "mt-3" : "mt-0",
+        )}
+      >
         {rows.map((row) => {
           const hasDistinctDetail = clinicalNoteHasDistinctDetail(row);
           const RowIcon = row.tone === "warn" ? AlertCircle : activeTab === "actions" ? Activity : CheckCircle2;
+          const isWarnRow = row.tone === "warn";
           return (
             <article
               key={row.id}
               data-testid="clinical-note-row"
-              className="grid min-h-[70px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 last:border-b-0"
+              className="grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-[color:var(--border)] px-3 py-2.5 last:border-b-0"
             >
               <span
                 className={cn(
-                  "grid h-8 w-8 shrink-0 place-items-center rounded-md",
-                  row.tone === "warn" ? "text-[color:var(--warning)]" : "text-[color:var(--clinical-accent)]",
+                  "grid h-7 w-7 shrink-0 place-items-center rounded-md",
+                  isWarnRow ? "text-[color:var(--warning)]" : "text-[color:var(--clinical-accent)]",
                 )}
                 aria-hidden="true"
               >
-                <RowIcon className="h-5 w-5" />
+                <RowIcon className="h-4 w-4" />
               </span>
               <div className="min-w-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <p className="min-w-0 flex-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                     {row.title}
                   </p>
-                  <span
-                    className={cn(
-                      subtleStatusPill,
-                      "min-h-6 px-2 text-[10px]",
-                      row.tone === "warn" ? toneWarning : toneSuccess,
-                    )}
-                  >
-                    {row.tone === "warn" ? "Review" : activeTab === "actions" ? "Action" : "Source"}
-                  </span>
+                  {!isWarnRow ? (
+                    <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", toneSuccess)}>
+                      {activeTab === "actions" ? "Action" : "Source"}
+                    </span>
+                  ) : null}
                 </div>
                 {hasDistinctDetail ? (
-                  <p className={cn("mt-1 line-clamp-2 text-xs leading-5", textMuted)}>{row.detail}</p>
+                  <p className={cn("mt-0.5 line-clamp-2 text-xs leading-5", textMuted)}>{row.detail}</p>
                 ) : null}
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="nums grid h-7 min-w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-                  S{row.sourceIndex}
-                </span>
-                <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+              <div className="flex shrink-0 items-center gap-1.5">
+                {isWarnRow ? (
+                  <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", toneWarning)}>Review</span>
+                ) : (
+                  <span className="nums grid h-6 min-w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+                    S{row.sourceIndex}
+                  </span>
+                )}
+                <ChevronDown className="h-3.5 w-3.5 -rotate-90 text-[color:var(--text-muted)]" />
               </div>
             </article>
           );

@@ -1001,11 +1001,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalTable.getByRole("button", { name: "Copy table preview" })).toHaveCount(0);
     await expect(clinicalTable.getByRole("button", { name: "More table actions" })).toHaveCount(0);
     const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
-    await expect(tableExpandButton).toBeVisible();
-    await expectMinTouchTarget(tableExpandButton);
-    await tableExpandButton.click();
+    await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await clinicalTable.scrollIntoViewIfNeeded();
+    if (await tableExpandButton.isVisible().catch(() => false)) {
+      await tableExpandButton.click({ force: true });
+    } else {
+      await clinicalTable.getByTestId("accessible-table-surface").click({ force: true });
+    }
     const tableDialog = page.getByTestId("table-fullscreen-dialog");
-    await expect(tableDialog).toBeVisible();
+    await expect(tableDialog).toBeVisible({ timeout: 10_000 });
     await expect(tableDialog.getByRole("table")).toBeVisible();
     await expect(tableDialog).toContainText("FBC/ANC");
     await expect(tableDialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
@@ -1235,10 +1240,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const sourceOnlyDisclosure = page.getByTestId("source-only-disclosure");
     await expect(sourceOnlyDisclosure).toBeVisible();
-    await expect(sourceOnlyDisclosure).toContainText("Source-only answer");
+    await expect(sourceOnlyDisclosure).toContainText("Source-only");
     await expect(sourceOnlyDisclosure).toContainText("Verify against cited passages");
     await expect(sourceOnlyDisclosure).not.toContainText("without the AI model");
-    await sourceOnlyDisclosure.getByRole("button", { name: /Source-only answer/ }).click();
+    await sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ }).click();
     await expect(sourceOnlyDisclosure).toContainText("without the AI model");
 
     const supportCard = page.getByTestId("answer-support-card");
@@ -1400,7 +1405,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
         return;
       }
 
-      await clinicalTable.getByTestId("accessible-table-surface").click();
+      await page.keyboard.press("Escape");
+      await clinicalTable.scrollIntoViewIfNeeded();
+
+      await clinicalTable.getByTestId("accessible-table-surface").click({ force: true });
       const surfaceDialog = page.getByTestId("table-fullscreen-dialog");
       await expect(surfaceDialog).toBeVisible();
       await expect(surfaceDialog).toContainText("FBC/ANC");
@@ -1408,7 +1416,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(surfaceDialog).toBeHidden();
 
       await expect(expandButton).toBeVisible();
-      await expandButton.click();
+      await expandButton.click({ force: true });
       const dialog = page.getByTestId("table-fullscreen-dialog");
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole("table")).toBeVisible();

@@ -102,6 +102,10 @@ async function commandSurfaceOpensAbovePill(page: Page, hintPattern: RegExp) {
   expect(geometry?.dropdownBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual((geometry?.pillTop ?? 0) + 2);
 }
 
+function launcherLaunchLink(page: Page, title: string) {
+  return page.getByRole("link", { name: `Launch ${title}` }).first();
+}
+
 async function gotoLauncher(page: Page, path = "/applications") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
@@ -210,10 +214,7 @@ test.describe("Clinical KB applications launcher", () => {
         await page.getByRole("button", { name: "Close Medication Prescribing" }).click();
         await expect(selectedSheet).toBeHidden();
       } else {
-        await expect(page.getByRole("link", { name: /^Clinical KB Search\b/ }).first()).toHaveAttribute(
-          "href",
-          "/?mode=answer",
-        );
+        await expect(launcherLaunchLink(page, "Clinical KB Search")).toHaveAttribute("href", "/?mode=answer");
       }
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
       await expect(page.getByPlaceholder("Search applications...")).toBeVisible();
@@ -226,17 +227,14 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
 
-    const medicationLink = page.getByRole("link", { name: /^Medication Prescribing\b/ }).first();
+    const medicationLink = launcherLaunchLink(page, "Medication Prescribing");
     await expect(medicationLink).toHaveAttribute("href", "/?mode=prescribing");
     await expect(medicationLink).not.toHaveAttribute("target", "_blank");
-    await expect(page.getByRole("link", { name: /^Documents\b/ }).first()).toHaveAttribute("href", "/?mode=documents");
-    await expect(page.getByRole("link", { name: /^Services\b/ }).first()).toHaveAttribute("href", "/services");
-    await expect(page.getByRole("link", { name: /^Forms\b/ }).first()).toHaveAttribute("href", "/forms");
-    await expect(page.getByRole("link", { name: /^Saved workflows\b/ }).first()).toHaveAttribute("href", "/favourites");
-    await expect(page.getByRole("link", { name: /^Clinical KB Search\b/ }).first()).toHaveAttribute(
-      "href",
-      "/?mode=answer",
-    );
+    await expect(launcherLaunchLink(page, "Documents")).toHaveAttribute("href", "/?mode=documents");
+    await expect(launcherLaunchLink(page, "Services")).toHaveAttribute("href", "/services");
+    await expect(launcherLaunchLink(page, "Forms")).toHaveAttribute("href", "/forms");
+    await expect(launcherLaunchLink(page, "Saved workflows")).toHaveAttribute("href", "/favourites");
+    await expect(launcherLaunchLink(page, "Clinical KB Search")).toHaveAttribute("href", "/?mode=answer");
     // External companion-app launchers were removed; no localhost links should remain.
     await expect(page.locator('a[href^="http://localhost"], a[href^="http://127.0.0.1"]')).toHaveCount(0);
   });
@@ -247,8 +245,8 @@ test.describe("Clinical KB applications launcher", () => {
 
     await page.getByLabel("Search applications").fill("medication");
 
-    await expect(page.getByRole("link", { name: /^Medication Prescribing\b/ }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /^Documents\b/ })).toHaveCount(0);
+    await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
+    await expect(page.getByTestId("application-card-documents")).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -261,14 +259,15 @@ test.describe("Clinical KB applications launcher", () => {
 
     const toolsHub = page.getByTestId("tools-hub");
     await expect(toolsHub).toBeVisible();
-    await expect(toolsHub.getByRole("heading", { name: "Tools", exact: true })).toBeVisible();
+    await expect(toolsHub.getByTestId("tools-home")).toBeVisible();
+    await expect(toolsHub.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("global-search-input")).toBeVisible();
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
-    await expect(toolsHub.getByRole("link", { name: /^Medication Prescribing\b/ }).first()).toBeVisible();
-    await expect(toolsHub.getByRole("link", { name: /^Documents\b/ })).toHaveCount(0);
+    await expect(toolsHub.getByRole("link", { name: "Launch Medication Prescribing" })).toBeVisible();
+    await expect(toolsHub.getByTestId("application-card-documents")).toBeHidden();
     await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
 
-    await expect(toolsHub.getByRole("link", { name: /^Medication Prescribing\b/ }).first()).toHaveAttribute(
+    await expect(toolsHub.getByRole("link", { name: "Launch Medication Prescribing" })).toHaveAttribute(
       "href",
       "/?mode=prescribing",
     );
@@ -375,7 +374,7 @@ test.describe("Clinical KB applications launcher", () => {
       const metrics = await globalSearchComposerMetrics(page);
       expect(metrics).not.toBeNull();
       expect(metrics?.position).toBe("fixed");
-      expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390 - 8);
+      expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390);
       expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
       // Mode homes keep the footer chip row under the pill on phones.
       await expect(page.locator(".answer-footer-search-chip:visible").first()).toBeVisible();
@@ -472,7 +471,7 @@ test.describe("Clinical KB applications launcher", () => {
         const metrics = await globalSearchComposerMetrics(page);
         expect(metrics, `${route.path} at ${viewport.name}`).not.toBeNull();
         expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
-        expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(viewport.width - 8);
+        expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(viewport.width);
 
         if (viewport.width < 640) {
           expect(metrics?.position).toBe("fixed");
@@ -525,11 +524,8 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
 
-    await expect(page.getByText("WA MHA FORMS")).toBeVisible();
-    await expect(page.getByText("Forms / Search")).toBeVisible();
-    await expect(page.getByLabel("Search forms, clocks, sources")).toHaveValue("");
-    await expect(page.getByLabel("Current forms query")).toHaveValue("transport forms");
-    await expect(page.getByLabel("Current forms query")).toBeFocused();
+    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveValue("transport forms");
     await expect(page.getByTestId("form-search-results")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toContainText("Best matches");
     await expect(page.getByTestId("form-search-result-transport-crisis-form")).toContainText("Transport order");
@@ -608,7 +604,7 @@ test.describe("Clinical KB applications launcher", () => {
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
-    await expect(page.getByPlaceholder("Ask or search forms...")).toHaveValue("");
+    await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);
   });
 

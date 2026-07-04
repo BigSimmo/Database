@@ -573,36 +573,40 @@ function MobileEvidencePanel({ selected }: { selected: string }) {
   );
 }
 
-function DesktopEvidenceDrawer() {
+function DesktopEvidenceModal() {
   return (
-    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-elevated)]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-[color:var(--text-heading)]">Evidence review</h3>
-          <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            Verify the answer against cited passages before using it clinically.
-          </p>
-        </div>
-        <Pill tone="success">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          Source-backed
-        </Pill>
-      </div>
-      <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.75fr)]">
-        <div className="space-y-3">
-          <FeedbackPanel />
-          <EvidenceMap />
-        </div>
-        <div className="space-y-3">
-          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Pinned source</p>
-            <p className="mt-1 text-sm font-semibold text-[color:var(--text)]">Clozapine physical health protocol</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <Pill tone="success">Current</Pill>
-              <Pill>Locally reviewed</Pill>
+    <div className="relative overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-6">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
+      />
+      <div
+        role="dialog"
+        aria-label="Evidence"
+        className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)]"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-3 sm:p-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold text-[color:var(--text-heading)]">Evidence</h3>
+              <Pill tone="success">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Source-backed
+              </Pill>
             </div>
+            <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6">
+              Review by evidence type. The answer stays in place behind a dimmed backdrop.
+            </p>
           </div>
-          <SourceCards />
+          <CloseButton label="Close evidence" />
+        </div>
+        <div className="max-h-[min(44rem,88dvh)] overflow-y-auto p-3 sm:p-4">
+          <div className="space-y-3">
+            <FeedbackPanel />
+            <EvidenceTabs selected="Map" />
+            <EvidenceMap />
+            <SourceCards />
+          </div>
         </div>
       </div>
     </div>
@@ -709,10 +713,10 @@ export default function AnswerEvidencePopupsMockupPage() {
         </Section>
 
         <Section
-          title="4. Desktop evidence drawer"
-          body="Desktop opens into a denser inline drawer with review controls, support map, pinned source, and cited excerpts."
+          title="4. Desktop evidence modal"
+          body="Desktop uses the same centered sheet modal as mobile: dimmed backdrop, no answer reflow, and a wider evidence panel."
         >
-          <DesktopEvidenceDrawer />
+          <DesktopEvidenceModal />
         </Section>
 
         <Section

@@ -115,6 +115,12 @@ export const toneNeutral =
   "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 
 export const searchPageCanvas = "bg-[color:var(--background)] text-[color:var(--text)]";
+export const searchPageShell =
+  "min-h-[calc(100dvh-4rem)] overflow-x-hidden px-3 py-3 pb-[calc(12rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
+export const searchPageContainer = "mx-auto w-full max-w-[1500px]";
+export const searchResultsBodyGrid = "grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]";
+export const searchResultsMainColumn = "search-results-main min-w-0";
+export const searchResultsSidebar = "hidden w-[22rem] shrink-0 space-y-4 xl:block";
 export const searchResultsSection =
   "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]";
 export const searchFocusRing =
