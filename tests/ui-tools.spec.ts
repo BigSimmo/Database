@@ -1,4 +1,108 @@
 import { expect, test, type Page } from "playwright/test";
+import type { Route } from "playwright-core";
+import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
+
+const expectedLauncherAppCount = 11;
+
+const readySetupChecks = [
+  { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
+  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
+  { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
+  { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
+  { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
+  { id: "worker", label: "npm run worker running", status: "unknown", detail: "Worker not required for UI smoke." },
+];
+
+async function fulfillAnswerResponse(route: Route, payload: unknown) {
+  const pathname = new URL(route.request().url()).pathname;
+  if (pathname.endsWith("/stream")) {
+    const body = [
+      `event: progress\ndata: ${JSON.stringify({ stage: "retrieving", message: "Searching indexed documents." })}`,
+      `event: final\ndata: ${JSON.stringify(payload)}`,
+      "",
+    ].join("\n\n");
+    await route.fulfill({
+      body,
+      contentType: "text/event-stream; charset=utf-8",
+      headers: { "Cache-Control": "no-cache, no-transform" },
+    });
+    return;
+  }
+
+  await route.fulfill({ json: payload });
+}
+
+async function mockAnswerDashboardApi(page: Page) {
+  await page.route(/\/api\/local-project-id$/, async (route) => {
+    await route.fulfill({
+      json: {
+        appName: "Clinical KB",
+        projectId: "test-project",
+        identityPath: "/api/local-project-id",
+        localServer: {
+          currentUrl: "http://localhost:4298",
+          currentPort: 4298,
+          projectPortStart: 4298,
+          projectPortEnd: 53210,
+          safeLocalOrigin: true,
+          requestOrigin: null,
+          requestReferer: null,
+          unsafeLocalCaller: null,
+        },
+      },
+    });
+  });
+  await page.route("**/api/setup-status**", async (route) => {
+    await route.fulfill({ json: { demoMode: true, checks: readySetupChecks } });
+  });
+  await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        documents: demoDocuments,
+        demoMode: true,
+        pagination: { limit: 150, offset: 0, total: demoDocuments.length, nextOffset: demoDocuments.length, hasMore: false },
+      },
+    });
+  });
+  await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
+    const body = route.request().postDataJSON() as { query?: string; documentId?: string; documentIds?: string[] };
+    const answer = demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds);
+    await fulfillAnswerResponse(route, { ...answer, demoMode: true });
+  });
+  await page.route(/\/api\/ingestion\/jobs(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { jobs: [], demoMode: true } });
+  });
+  await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { batches: [], demoMode: true } });
+  });
+  await page.route(/\/api\/ingestion\/quality(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { items: [], demoMode: true } });
+  });
+}
+
+async function commandSurfaceOpensAbovePill(page: Page, hintPattern: RegExp) {
+  const input = visibleGlobalSearchInput(page).first();
+  await input.focus();
+
+  await expect(page.getByText(hintPattern)).toBeVisible();
+  const listbox = page.getByRole("listbox").first();
+  await expect(listbox).toBeVisible();
+
+  const geometry = await page.evaluate(() => {
+    const pill = document.querySelector(".answer-footer-search-pill");
+    const dropdown = document.querySelector(".universal-command-dropdown");
+    if (!pill || !dropdown) return null;
+    const pillRect = pill.getBoundingClientRect();
+    const dropdownRect = dropdown.getBoundingClientRect();
+    return {
+      pillTop: pillRect.top,
+      dropdownBottom: dropdownRect.bottom,
+    };
+  });
+
+  expect(geometry).not.toBeNull();
+  expect(geometry?.dropdownBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual((geometry?.pillTop ?? 0) + 2);
+}
 
 async function gotoLauncher(page: Page, path = "/applications") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
@@ -279,6 +383,26 @@ test.describe("Clinical KB applications launcher", () => {
       await expect(page.locator(".answer-footer-search-chip:visible").first()).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     }
+  });
+
+  test("phone bottom-dock search opens the command surface above the pill", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await gotoLauncher(page, "/services");
+    await expect(page.getByTestId("services-home")).toBeVisible();
+    await commandSurfaceOpensAbovePill(page, /Searching services/i);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("desktop answer footer opens the command surface above the pill", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
+    await gotoLauncher(page, "/?mode=answer&q=lithium+dosing&run=1");
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: 30_000 });
+
+    const metrics = await globalSearchComposerMetrics(page);
+    expect(metrics?.position).toBe("fixed");
+    await commandSurfaceOpensAbovePill(page, /Searching answer/i);
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("mode home routes center the shared search from tablet up", async ({ page }) => {

@@ -77,6 +77,7 @@ import {
   visibleAppModeDefinitions,
   type AppModeId,
 } from "@/lib/app-modes";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
@@ -89,16 +90,6 @@ const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
 // hero exactly like desktop instead of floating over the heading.
 const tabletHomeComposerMediaQuery = "(min-width: 640px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
-const appModeIcons: Record<AppModeId, typeof Search> = {
-  answer: Sparkles,
-  documents: FileText,
-  services: ShieldCheck,
-  forms: FileSignature,
-  favourites: Heart,
-  differentials: BrainCircuit,
-  prescribing: Pill,
-  tools: Wrench,
-};
 
 const medicationModeActionItems: readonly ModeActionItem[] = [
   {
@@ -1198,11 +1189,14 @@ export function MasterSearchHeader({
 
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
 
+    const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
+
     return (
       <form
         onSubmit={submit}
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
         data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
+        data-command-open={usesBottomComposerPlacement && commandDropdownOpen ? "true" : undefined}
         className={cn(
           isDesktopHomeComposer
             ? "universal-home-search-edge mx-auto w-full"
@@ -1237,6 +1231,7 @@ export function MasterSearchHeader({
           query={query}
           recentQueries={recentQueries}
           commandScopes={commandScopes}
+          placement={commandSurfacePlacement}
           dropdownOpen={commandDropdownOpen}
           onDropdownOpenChange={setCommandDropdownOpen}
           onQueryChange={onQueryChange}

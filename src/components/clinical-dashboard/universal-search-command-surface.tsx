@@ -2,18 +2,9 @@
 
 import {
   AlertTriangle,
-  BrainCircuit,
-  ClipboardList,
   Clock,
   CornerDownLeft,
-  FileSignature,
-  FileText,
-  Heart,
-  Pill,
   Search,
-  ShieldCheck,
-  Sparkles,
-  Wrench,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -30,6 +21,7 @@ import {
 import { modeActionItemsFor, type ModeActionId, type ModeActionSetId } from "@/components/clinical-dashboard/mode-action-popup";
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import {
   differentialRedFlagTerms,
   filteredSuggestions,
@@ -39,17 +31,6 @@ import {
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-
-const modeIcons: Record<AppModeId, LucideIcon> = {
-  answer: Sparkles,
-  documents: FileText,
-  services: ShieldCheck,
-  forms: FileSignature,
-  favourites: Heart,
-  differentials: BrainCircuit,
-  prescribing: Pill,
-  tools: Wrench,
-};
 
 function subscribeReducedMotion(onChange: () => void) {
   const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -95,19 +76,23 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
   );
 }
 
+export type CommandSurfacePlacement = "bottom-dock" | "inline";
+
 function ContextHintRow({
   modeId,
   examples,
   onPickExample,
+  placement,
 }: {
   modeId: AppModeId;
   examples: string[];
   onPickExample: (example: string) => void;
+  placement: CommandSurfacePlacement;
 }) {
   const reducedMotion = usePrefersReducedMotion();
   const [index, setIndex] = useState(0);
   const mode = appModeDefinition(modeId);
-  const ModeIcon = modeIcons[modeId];
+  const ModeIcon = appModeIcons[modeId];
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -119,7 +104,12 @@ function ContextHintRow({
   const example = examples[index % examples.length];
 
   return (
-    <div className="hidden min-h-8 items-center gap-2 px-1 text-xs font-semibold text-[color:var(--text-muted)] lg:flex">
+    <div
+      className={cn(
+        "min-h-8 items-center gap-2 px-1 text-xs font-semibold text-[color:var(--text-muted)]",
+        placement === "bottom-dock" ? "flex" : "hidden lg:flex",
+      )}
+    >
       <span className="inline-flex shrink-0 items-center gap-1.5">
         <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
           <ModeIcon className="h-3 w-3" />
@@ -204,6 +194,7 @@ function CommandDropdown({
   sections,
   showSafetyBanner,
   onHoverItem,
+  placement,
 }: {
   modeId: AppModeId;
   query: string;
@@ -212,13 +203,19 @@ function CommandDropdown({
   sections: Array<{ key: string; heading?: string; layout?: "list" | "chips"; items: DropdownItem[] }>;
   showSafetyBanner: boolean;
   onHoverItem: (id: string) => void;
+  placement: CommandSurfacePlacement;
 }) {
   const mode = appModeDefinition(modeId);
   const hasItems = sections.some((section) => section.items.length > 0);
+  const opensUpward = placement === "bottom-dock";
 
   return (
     <div
-      className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-30 hidden overflow-hidden rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--surface)] shadow-[0_8px_20px_rgb(16_24_40_/_9%),0_24px_56px_rgb(16_24_40_/_14%)] lg:block"
+      className={cn(
+        "universal-command-dropdown absolute left-0 right-0 z-30 overflow-hidden rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--surface)] shadow-[0_8px_20px_rgb(16_24_40_/_9%),0_24px_56px_rgb(16_24_40_/_14%)]",
+        opensUpward ? "bottom-[calc(100%+0.5rem)] top-auto" : "top-[calc(100%+0.5rem)]",
+        placement === "bottom-dock" ? "block" : "hidden lg:block",
+      )}
       role="presentation"
     >
       {showSafetyBanner ? (
@@ -231,7 +228,12 @@ function CommandDropdown({
         </div>
       ) : null}
 
-      <div id={listboxId} role="listbox" aria-label={`${mode.label} search suggestions`} className="max-h-[26rem] overflow-y-auto p-2">
+      <div
+        id={listboxId}
+        role="listbox"
+        aria-label={`${mode.label} search suggestions`}
+        className={cn("overflow-y-auto p-2", opensUpward ? "max-h-[min(38dvh,20rem)]" : "max-h-[26rem]")}
+      >
         {sections.map((section) =>
           section.items.length ? (
             <div key={section.key} className="pb-1 last:pb-0">
@@ -291,7 +293,7 @@ function CommandDropdown({
         ) : null}
       </div>
 
-      <div className="flex items-center justify-between border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-bold text-[color:var(--text-soft)]">
+      <div className="hidden items-center justify-between border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-bold text-[color:var(--text-soft)] sm:flex">
         <span className="inline-flex items-center gap-2">
           <kbd className="rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-1 font-mono">↑↓</kbd>
           navigate
@@ -320,6 +322,7 @@ export function UniversalSearchCommandSurface({
   onInputKeyDown,
   onFocusSearchInput,
   onListboxIdReady,
+  placement = "inline",
   children,
 }: {
   modeId: AppModeId;
@@ -337,6 +340,7 @@ export function UniversalSearchCommandSurface({
   onInputKeyDown?: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
   onFocusSearchInput?: () => void;
   onListboxIdReady?: (listboxId: string) => void;
+  placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
   const config = searchCommandSurfaceConfig(modeId);
@@ -488,7 +492,7 @@ export function UniversalSearchCommandSurface({
         layout: "chips",
         items: config.crossModes.map((target) => {
           const targetMode = appModeDefinition(target);
-          const TargetIcon = modeIcons[target];
+          const TargetIcon = appModeIcons[target];
           return {
             id: nextId(),
             label: targetMode.label,
@@ -606,6 +610,7 @@ export function UniversalSearchCommandSurface({
       <ContextHintRow
         modeId={modeId}
         examples={config.examples}
+        placement={placement}
         onPickExample={(example) => {
           onQueryChange(example);
           onDropdownOpenChange(true);
@@ -636,6 +641,7 @@ export function UniversalSearchCommandSurface({
             activeItemId={activeItemId}
             sections={sections}
             showSafetyBanner={showSafetyBanner}
+            placement={placement}
             onHoverItem={(id) => {
               const index = flatItems.findIndex((item) => item.id === id);
               if (index >= 0) setActiveIndex(index);

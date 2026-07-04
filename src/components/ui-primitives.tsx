@@ -114,6 +114,52 @@ export const toneWarningQuiet =
 export const toneNeutral =
   "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 
+export const searchPageCanvas = "bg-[color:var(--background)] text-[color:var(--text)]";
+export const searchResultsSection =
+  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]";
+export const searchFocusRing =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+export type SemanticChipTone = "danger" | "info" | "warning" | "success" | "neutral";
+
+export function semanticChipTone(tone: SemanticChipTone | undefined | null) {
+  if (tone === "danger") return toneDanger;
+  if (tone === "info") return toneInfo;
+  if (tone === "warning") return toneWarning;
+  if (tone === "success") return toneSuccess;
+  return toneNeutral;
+}
+
+export function ToggleSwitch({
+  enabled,
+  className,
+  "aria-label": ariaLabel,
+}: {
+  enabled: boolean;
+  className?: string;
+  "aria-label"?: string;
+}) {
+  return (
+    <span
+      role="switch"
+      aria-checked={enabled}
+      aria-label={ariaLabel}
+      className={cn(
+        "relative inline-flex h-6 w-10 shrink-0 rounded-full transition",
+        enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          "absolute top-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm transition",
+          enabled ? "right-1" : "left-1",
+        )}
+      />
+    </span>
+  );
+}
+
 type IconComponent = LucideIcon;
 
 export function SourceStatusBadge({
@@ -231,7 +277,7 @@ export function LoadingPanel({
       role="status"
     >
       <div>
-        <Loader2 className="mx-auto mb-2 h-4 w-4 animate-spin text-[color:var(--primary)]" />
+        <Loader2 className="mx-auto mb-2 h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
         {label}
       </div>
     </div>

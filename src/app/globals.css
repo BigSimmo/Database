@@ -636,6 +636,33 @@ summary::-webkit-details-marker {
   --footer-scrim-height: max(7rem, calc(var(--safe-area-bottom) + 5.5rem));
 }
 
+/* Bottom-docked composer: hint row + upward dropdown grow above the pill. */
+.answer-footer-search-edge {
+  overflow: visible;
+}
+
+.answer-footer-search-edge .universal-command-surface,
+.answer-footer-search-edge .universal-command-surface > .relative {
+  overflow: visible;
+}
+
+.answer-footer-search-edge[data-command-open="true"] .answer-footer-search-backdrop {
+  height: max(18rem, calc(var(--safe-area-bottom) + 16rem));
+}
+
+.answer-footer-search-dock[data-command-open="true"] {
+  --footer-scrim-height: max(22rem, calc(var(--safe-area-bottom) + 20rem));
+}
+
+.answer-footer-search-dock[data-command-open="true"][data-footer-variant="compact"] {
+  --footer-scrim-height: max(18rem, calc(var(--safe-area-bottom) + 16rem));
+}
+
+.answer-footer-search-edge .universal-command-dropdown {
+  border-bottom-left-radius: 1rem;
+  border-bottom-right-radius: 1rem;
+}
+
 .answer-footer-search-dock .answer-footer-search-backdrop {
   position: fixed;
   inset-inline: 0;
