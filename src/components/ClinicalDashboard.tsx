@@ -4715,14 +4715,6 @@ export function ClinicalDashboard({
       setMedicationSearchQuery(query);
       return;
     }
-    if (searchMode === "documents") {
-      const trimmedQuery = query.trim();
-      if (!trimmedQuery) return;
-      rememberRecentQuery(trimmedQuery);
-      const params = new URLSearchParams({ mode: "documents", q: trimmedQuery });
-      router.push(`/mockups/document-search-command?${params.toString()}`);
-      return;
-    }
     await executeSearch(query, searchMode, scopeFilters);
   }
 

@@ -89,7 +89,7 @@ const favouriteItems: FavouriteItem[] = [
     evidence: "PDF verified",
     lastUsed: "Today 08:20",
     action: "Ask",
-    href: "/documents?q=lithium+monitoring",
+    href: "/?mode=documents&q=lithium+monitoring&run=1",
     icon: FileText,
   },
   {
@@ -101,7 +101,7 @@ const favouriteItems: FavouriteItem[] = [
     evidence: "Table verified",
     lastUsed: "Yesterday 16:12",
     action: "Open",
-    href: "/documents?q=clozapine+monitoring+table",
+    href: "/?mode=documents&q=clozapine+monitoring+table&run=1",
     icon: Quote,
   },
   {
@@ -125,7 +125,7 @@ const favouriteItems: FavouriteItem[] = [
     evidence: "2 sources",
     lastUsed: "Mon 11:03",
     action: "Copy",
-    href: "/documents?q=QT+prolongation",
+    href: "/?mode=documents&q=QT+prolongation&run=1",
     icon: Quote,
   },
 ];
@@ -351,16 +351,23 @@ function ContinueStrip() {
 
 function FavouritesTable() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set([selectedItem.id]));
+  const [searchTerm, setSearchTerm] = useState("");
   const selectedCount = selectedIds.size;
 
-  const tableRows = useMemo(
-    () =>
-      favouriteItems.map((item) => ({
-        ...item,
-        selected: selectedIds.has(item.id),
-      })),
-    [selectedIds],
-  );
+  const tableRows = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const filteredItems = normalizedSearch
+      ? favouriteItems.filter((item) =>
+          [item.title, item.description, item.type, item.set].some((field) =>
+            field.toLowerCase().includes(normalizedSearch),
+          ),
+        )
+      : favouriteItems;
+    return filteredItems.map((item) => ({
+      ...item,
+      selected: selectedIds.has(item.id),
+    }));
+  }, [searchTerm, selectedIds]);
 
   function toggleRow(id: string) {
     setSelectedIds((current) => {
@@ -385,6 +392,8 @@ function FavouritesTable() {
           <input
             type="search"
             placeholder="Search within results..."
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
             className={cn(
               "h-9 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20",
             )}

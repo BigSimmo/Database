@@ -895,12 +895,13 @@ export function ApplicationsLauncherWorkspace({
   query: controlledQuery,
   onQueryChange,
   desktopComposerSlotId,
+  showDetailPanel,
   className,
 }: ApplicationsLauncherWorkspaceProps) {
   const [uncontrolledQuery, setUncontrolledQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
   const [selectedId, setSelectedId] = useState(() => initialToolId(controlledQuery));
-  const [detailOpen, setDetailOpen] = useState(variant === "dashboard-tools");
+  const [detailOpen, setDetailOpen] = useState(variant === "dashboard-tools" && showDetailPanel !== false);
   const isDashboardTools = variant === "dashboard-tools";
   const copy = isDashboardTools ? dashboardToolsLauncherCopy : standaloneLauncherCopy;
   const query = controlledQuery ?? uncontrolledQuery;

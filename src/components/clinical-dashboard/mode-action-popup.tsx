@@ -61,6 +61,7 @@ export type ModeActionId =
   | "services-search"
   | "services-pathways"
   | "services-records"
+  | "forms-records"
   | "favourites-browse"
   | "favourites-sets"
   | "medication-dose"

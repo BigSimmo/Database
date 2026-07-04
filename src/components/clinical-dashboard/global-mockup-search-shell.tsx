@@ -229,14 +229,6 @@ function GlobalMockupSearchShellClient({
   }
 
   function navigateToMode(mode: AppModeId, options: { query?: string; run?: boolean; focus?: boolean } = {}) {
-    if (mode === "documents") {
-      const params = new URLSearchParams({ mode: "documents" });
-      const documentQuery = options.query?.trim();
-      if (documentQuery) params.set("q", documentQuery);
-      if (options.focus) params.set("focus", "1");
-      router.push(`/mockups/document-search-command?${params.toString()}`);
-      return;
-    }
     router.push(appModeHomeHref(mode, options));
   }
 

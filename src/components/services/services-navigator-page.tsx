@@ -24,7 +24,8 @@ import { useMemo, useState } from "react";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { searchServiceRecords, serviceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/services";
+import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/services";
+import { useRegistryRecords } from "@/lib/use-registry-records";
 
 const defaultQuery = "13YARN crisis support aboriginal phone";
 
@@ -388,10 +389,13 @@ export function ServicesNavigatorPage() {
   const initialQuery = urlQuery || defaultQuery;
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
+  const registry = useRegistryRecords("service");
+  const searchableRecords =
+    registry.status === "ready" && registry.records.length > 0 ? registry.records : serviceRecords;
   const matches = useMemo(() => {
-    const ranked = searchServiceRecords(query);
-    return ranked.length ? ranked.map((match) => match.service) : serviceRecords;
-  }, [query]);
+    const ranked = rankServiceRecords(searchableRecords, query);
+    return ranked.length ? ranked.map((match) => match.service) : searchableRecords;
+  }, [query, searchableRecords]);
   const [selectedSlugs, setSelectedSlugs] = useState(() => serviceRecords.slice(0, 2).map((service) => service.slug));
   const selected = serviceRecords.filter((service) => selectedSlugs.includes(service.slug));
 

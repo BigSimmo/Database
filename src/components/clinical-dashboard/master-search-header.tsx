@@ -484,6 +484,11 @@ export function MasterSearchHeader({
       onQueryChange("");
       return;
     }
+    if (actionId === "forms-records") {
+      onSearchModeChange("forms");
+      onQueryChange("");
+      return;
+    }
     if (actionId === "favourites-browse") {
       onSearchModeChange("favourites");
       onQueryChange("");
@@ -1019,7 +1024,7 @@ export function MasterSearchHeader({
           icon: BadgeCheck,
           shortLabel: "Library",
           longLabel: "Form library",
-          actionId: "documents-collections",
+          actionId: "forms-records",
           ariaLabel: "Open the form library",
         };
       case "services":
