@@ -58,7 +58,13 @@ async function mockAnswerDashboardApi(page: Page) {
       json: {
         documents: demoDocuments,
         demoMode: true,
-        pagination: { limit: 150, offset: 0, total: demoDocuments.length, nextOffset: demoDocuments.length, hasMore: false },
+        pagination: {
+          limit: 150,
+          offset: 0,
+          total: demoDocuments.length,
+          nextOffset: demoDocuments.length,
+          hasMore: false,
+        },
       },
     });
   });

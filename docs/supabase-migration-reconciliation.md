@@ -52,3 +52,7 @@ npx supabase db query --linked "select to_regclass('public.document_strict_gate_
 npx supabase db query --linked "select to_regprocedure('public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb)') as commit_generation_rpc, has_function_privilege('anon', 'public.invoke_indexing_v3_agent(integer)', 'execute') as anon_can_invoke_indexing_v3_agent, has_function_privilege('service_role', 'public.invoke_indexing_v3_agent(integer)', 'execute') as service_role_can_invoke_indexing_v3_agent;"
 npm run check:indexing
 ```
+
+## Operator follow-ups
+
+Manual key rotation and live migration apply decisions are recorded in [`docs/archive/operator-decisions-2026-07-04.md`](archive/operator-decisions-2026-07-04.md). Do not execute those steps from CI or agent automation without explicit operator approval.

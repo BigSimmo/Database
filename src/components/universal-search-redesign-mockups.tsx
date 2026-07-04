@@ -1,6 +1,20 @@
 "use client";
 
-import { ArrowRight, ChevronDown, ExternalLink, FileText, Filter, FolderOpen, Heart, Plus, Search, Send, SlidersHorizontal, Table2, X } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  ExternalLink,
+  FileText,
+  Filter,
+  FolderOpen,
+  Heart,
+  Plus,
+  Search,
+  Send,
+  SlidersHorizontal,
+  Table2,
+  X,
+} from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { cn } from "@/components/ui-primitives";
@@ -25,7 +39,10 @@ const variantMeta: Record<
     tagline: "Same width, radius, and surface as the page below",
     rationale:
       "Drop the floating pill. The universal search becomes a full-width control inside the page canvas — same max-width as tables and cards, rounded-lg corners, inset border shadow, and left alignment with the page title.",
-    tradeoffs: ["Still a distinct row below the app header", "Needs a clear rule for pages that already have inline search"],
+    tradeoffs: [
+      "Still a distinct row below the app header",
+      "Needs a clear rule for pages that already have inline search",
+    ],
     bestFor: ["Document search command centre", "Referral / results pages", "Any data-heavy table view"],
   },
   "toolbar-inline": {
@@ -58,12 +75,20 @@ function CurrentFloatingSearch({ query = "lithium", placeholder = "Search" }: Se
       aria-label="Current universal search (floating pill)"
       className="mx-auto grid w-full max-w-2xl min-h-[3.8rem] grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-1 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[0_1px_2px_rgb(16_24_40_/_4%),0_6px_16px_rgb(16_24_40_/_7%),0_20px_48px_rgb(16_24_40_/_12%)]"
     >
-      <button type="button" className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)]" aria-label="Actions">
+      <button
+        type="button"
+        className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)]"
+        aria-label="Actions"
+      >
         <Plus className="h-4 w-4" />
       </button>
       <span className="truncate px-1 text-base font-semibold text-[color:var(--text)]">{query || placeholder}</span>
       {query ? (
-        <button type="button" className="grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)]" aria-label="Clear">
+        <button
+          type="button"
+          className="grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)]"
+          aria-label="Clear"
+        >
           <X className="h-4 w-4" />
         </button>
       ) : (
@@ -104,7 +129,11 @@ function ContentStripSearch({ query = "lithium", placeholder = "Search documents
         className="min-w-0 bg-transparent text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
       />
       {query ? (
-        <button type="button" className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]" aria-label="Clear">
+        <button
+          type="button"
+          className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]"
+          aria-label="Clear"
+        >
           <X className="h-4 w-4" />
         </button>
       ) : null}
@@ -140,7 +169,11 @@ function ToolbarInlineSearch({ query = "lithium", compact }: SearchProps) {
         className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
       />
       {query ? (
-        <button type="button" className="grid h-7 w-7 place-items-center rounded-md text-[color:var(--text-muted)]" aria-label="Clear">
+        <button
+          type="button"
+          className="grid h-7 w-7 place-items-center rounded-md text-[color:var(--text-muted)]"
+          aria-label="Clear"
+        >
           <X className="h-3.5 w-3.5" />
         </button>
       ) : null}
@@ -176,7 +209,10 @@ function HeaderEmbeddedSearch({ query = "lithium", compact }: SearchProps) {
   );
 }
 
-function SearchForVariant({ variant, ...props }: SearchProps & { variant: UniversalSearchRedesignVariant | "current" }) {
+function SearchForVariant({
+  variant,
+  ...props
+}: SearchProps & { variant: UniversalSearchRedesignVariant | "current" }) {
   if (variant === "current") return <CurrentFloatingSearch {...props} />;
   if (variant === "content-strip") return <ContentStripSearch {...props} />;
   if (variant === "toolbar-inline") return <ToolbarInlineSearch {...props} />;
@@ -253,7 +289,10 @@ function PagePreview({
       {/* Current design: floating search band */}
       {showFloatingCurrent ? (
         <div className="border-b border-[color:var(--border)]/60 bg-[color:var(--background)] px-4 py-5">
-          <CurrentFloatingSearch query={page === "favourites" ? "" : "lithium"} placeholder={page === "favourites" ? "Search commands" : "Search"} />
+          <CurrentFloatingSearch
+            query={page === "favourites" ? "" : "lithium"}
+            placeholder={page === "favourites" ? "Search commands" : "Search"}
+          />
         </div>
       ) : null}
 
@@ -263,7 +302,9 @@ function PagePreview({
           <div className="mb-4">
             <ContentStripSearch
               query={page === "favourites" ? "" : "lithium"}
-              placeholder={page === "favourites" ? "Search favourites, sets, source notes" : "Search documents, forms, tasks…"}
+              placeholder={
+                page === "favourites" ? "Search favourites, sets, source notes" : "Search documents, forms, tasks…"
+              }
             />
           </div>
         ) : null}
@@ -271,18 +312,30 @@ function PagePreview({
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-xl font-extrabold text-[color:var(--text-heading)]">
-              {page === "documents" ? "Search command centre" : page === "favourites" ? "Favourites command library" : "Results"}
+              {page === "documents"
+                ? "Search command centre"
+                : page === "favourites"
+                  ? "Favourites command library"
+                  : "Results"}
             </h2>
             {page === "favourites" ? (
-              <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">Saved commands and quick actions for ward rounds.</p>
+              <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">
+                Saved commands and quick actions for ward rounds.
+              </p>
             ) : null}
           </div>
           {page !== "results" ? (
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="inline-flex min-h-9 items-center rounded-lg border border-[color:var(--clinical-accent-border)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)]">
+              <button
+                type="button"
+                className="inline-flex min-h-9 items-center rounded-lg border border-[color:var(--clinical-accent-border)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)]"
+              >
                 + Create search
               </button>
-              <button type="button" className="inline-flex min-h-9 items-center rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)]">
+              <button
+                type="button"
+                className="inline-flex min-h-9 items-center rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)]"
+              >
                 Export
               </button>
             </div>
@@ -320,9 +373,15 @@ function PagePreview({
               <span className="inline-flex min-h-9 items-center border-b-2 border-[color:var(--clinical-accent)] px-2 text-xs font-extrabold text-[color:var(--clinical-accent)]">
                 Results
               </span>
-              <span className="inline-flex min-h-9 items-center px-2 text-xs font-bold text-[color:var(--text-muted)]">Forms</span>
-              <span className="inline-flex min-h-9 items-center px-2 text-xs font-bold text-[color:var(--text-muted)]">Documents</span>
-              <span className="inline-flex min-h-9 items-center px-2 text-xs font-bold text-[color:var(--text-muted)]">Tasks</span>
+              <span className="inline-flex min-h-9 items-center px-2 text-xs font-bold text-[color:var(--text-muted)]">
+                Forms
+              </span>
+              <span className="inline-flex min-h-9 items-center px-2 text-xs font-bold text-[color:var(--text-muted)]">
+                Documents
+              </span>
+              <span className="inline-flex min-h-9 items-center px-2 text-xs font-bold text-[color:var(--text-muted)]">
+                Tasks
+              </span>
             </>
           ) : null}
         </div>
@@ -336,7 +395,11 @@ function PagePreview({
                 <span>Status</span>
                 <span>Relevance</span>
               </div>
-              <MiniTableRow title="Clozapine prescribing and monitoring guidelines" meta="Current · p.12" relevance="88%" />
+              <MiniTableRow
+                title="Clozapine prescribing and monitoring guidelines"
+                meta="Current · p.12"
+                relevance="88%"
+              />
               <MiniTableRow title="Lithium monitoring quick reference" meta="Review due · p.4" relevance="76%" />
             </>
           ) : null}
@@ -396,13 +459,16 @@ export function UniversalSearchRedesignMockupsPage() {
     <div className="min-h-full bg-[color:var(--background)] text-[color:var(--text)]">
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-          <p className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--clinical-accent)]">Universal search redesign</p>
+          <p className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--clinical-accent)]">
+            Universal search redesign
+          </p>
           <h1 className="mt-2 text-balance text-3xl font-extrabold text-[color:var(--text-heading)] sm:text-4xl">
             Three directions that blend with search pages
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            The current top pill floats above every page with heavy shadow and a different radius than cards, filters, and inline search fields.
-            These mockups keep the same behaviour but restyle placement and chrome to match each page type.
+            The current top pill floats above every page with heavy shadow and a different radius than cards, filters,
+            and inline search fields. These mockups keep the same behaviour but restyle placement and chrome to match
+            each page type.
           </p>
         </div>
       </header>
@@ -461,12 +527,16 @@ export function UniversalSearchRedesignMockupsPage() {
           <div className={cn("grid gap-6", compareCurrent ? "xl:grid-cols-2" : "")}>
             {compareCurrent ? (
               <div>
-                <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">Current</p>
+                <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
+                  Current
+                </p>
                 <PagePreview variant="current" page={page} />
               </div>
             ) : null}
             <div>
-              <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-[color:var(--clinical-accent)]">{meta.label}</p>
+              <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-[color:var(--clinical-accent)]">
+                {meta.label}
+              </p>
               <PagePreview variant={variant} page={page} />
             </div>
           </div>
@@ -477,7 +547,9 @@ export function UniversalSearchRedesignMockupsPage() {
               <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">{meta.rationale}</p>
             </div>
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">Best for</h3>
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
+                Best for
+              </h3>
               <ul className="mt-2 space-y-1.5 text-sm font-medium text-[color:var(--text)]">
                 {meta.bestFor.map((item) => (
                   <li key={item} className="flex gap-2">
@@ -488,7 +560,9 @@ export function UniversalSearchRedesignMockupsPage() {
               </ul>
             </div>
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">Trade-offs</h3>
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
+                Trade-offs
+              </h3>
               <ul className="mt-2 space-y-1.5 text-sm font-medium text-[color:var(--text-muted)]">
                 {meta.tradeoffs.map((item) => (
                   <li key={item} className="flex gap-2">
@@ -499,7 +573,9 @@ export function UniversalSearchRedesignMockupsPage() {
               </ul>
             </div>
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">Isolated control</h3>
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
+                Isolated control
+              </h3>
               <div className="mt-3 space-y-3">
                 <SearchForVariant variant="current" query="lithium" />
                 <SearchForVariant variant={variant} query="lithium" />
@@ -509,15 +585,32 @@ export function UniversalSearchRedesignMockupsPage() {
         </section>
 
         <section className="mt-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 sm:p-5">
-          <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Shared design rules (all directions)</h2>
+          <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">
+            Shared design rules (all directions)
+          </h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { title: "Radius", body: "Use rounded-lg for the search field — same as cards, buttons, and inline filters. Retire the full pill on search pages." },
-              { title: "Elevation", body: "Replace layered drop shadows with border + shadow-inset. Reserve elevation for menus and sheets only." },
-              { title: "Submit affordance", body: "Prefer a labelled Search button or soft accent icon — not a heavy floating circle that duplicates the magnifier." },
-              { title: "Width", body: "Match the content max-width or toolbar row. Avoid a narrow centred capsule when the page below is full-bleed." },
+              {
+                title: "Radius",
+                body: "Use rounded-lg for the search field — same as cards, buttons, and inline filters. Retire the full pill on search pages.",
+              },
+              {
+                title: "Elevation",
+                body: "Replace layered drop shadows with border + shadow-inset. Reserve elevation for menus and sheets only.",
+              },
+              {
+                title: "Submit affordance",
+                body: "Prefer a labelled Search button or soft accent icon — not a heavy floating circle that duplicates the magnifier.",
+              },
+              {
+                title: "Width",
+                body: "Match the content max-width or toolbar row. Avoid a narrow centred capsule when the page below is full-bleed.",
+              },
             ].map((rule) => (
-              <article key={rule.title} className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+              <article
+                key={rule.title}
+                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
+              >
                 <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">{rule.title}</h3>
                 <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">{rule.body}</p>
               </article>

@@ -23,7 +23,10 @@ import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
-import { SearchResultsEmptyState, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  SearchResultsEmptyState,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
@@ -395,7 +398,8 @@ export function ServicesNavigatorPage() {
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
   const registry = useRegistryRecords("service");
-  const searchableRecords = registry.status === "ready" ? registry.records : serviceRecords;
+  const searchableRecords =
+    registry.status === "ready" ? registry.records : registry.status === "loading" ? [] : serviceRecords;
   const matches = useMemo(() => {
     const ranked = rankServiceRecords(searchableRecords, query);
     return ranked.length ? ranked.map((match) => match.service) : query.trim() ? [] : searchableRecords;

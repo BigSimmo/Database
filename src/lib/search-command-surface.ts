@@ -206,9 +206,7 @@ export function favouriteMatchesCommandScopes(item: FavouriteScopeItem, scopes: 
       case "source":
         return Boolean(item.evidence && item.evidence !== "Run" && item.evidence !== "Saved query");
       case "recent":
-        return (
-          item.lastUsed.toLowerCase().startsWith("today") || item.lastUsed.toLowerCase().startsWith("yesterday")
-        );
+        return item.lastUsed.toLowerCase().startsWith("today") || item.lastUsed.toLowerCase().startsWith("yesterday");
       default:
         return true;
     }

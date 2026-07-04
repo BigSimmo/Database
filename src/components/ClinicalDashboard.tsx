@@ -172,8 +172,8 @@ import {
   DrawerGroupLabel,
   type DocumentDrawerMode,
   type DocumentDrawerStatusFilter,
+  type LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/document-admin";
-
 
 const DifferentialsHome = dynamic(
   () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
@@ -195,7 +195,7 @@ export const ApplicationsLauncherWorkspace = dynamic(
   { ssr: false },
 );
 const DocumentDrawer = dynamic(
-  () => import("@/components/clinical-dashboard/document-admin/document-drawer").then((m) => m.DocumentDrawer),
+  () => import("@/components/clinical-dashboard/document-admin").then((m) => m.DocumentDrawer),
   { ssr: false },
 );
 
@@ -274,7 +274,12 @@ import type {
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { createQuoteFollowUp, type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
+import {
+  createQuoteFollowUp,
+  type AnswerEvidenceMapRow,
+  type AnswerViewMode,
+  shouldPollForUpdates,
+} from "@/lib/ward-output";
 
 export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 export const mobileSectionFabMediaQuery =
@@ -1107,7 +1112,10 @@ function PriorAnswerTurnSurface({
   const grounded =
     turn.answer.grounded === true && turn.answer.confidence !== "unsupported" && renderModel.trust !== "unsupported";
   const sourceCount =
-    renderModel.primarySources.length || turn.sources.length || turn.answer.sources?.length || turn.answer.citations.length;
+    renderModel.primarySources.length ||
+    turn.sources.length ||
+    turn.answer.sources?.length ||
+    turn.answer.citations.length;
   const previewText = safeText || turn.answer.answer;
 
   return (
@@ -3481,11 +3489,7 @@ export function ClinicalDashboard({
           // Keep only the latest question in the URL; the full thread lives in
           // React state until refresh or New chat.
           modeChangeFromUiRef.current = true;
-          window.history.replaceState(
-            null,
-            "",
-            appModeHomeHref(targetMode, { query: trimmedQuery, run: true }),
-          );
+          window.history.replaceState(null, "", appModeHomeHref(targetMode, { query: trimmedQuery, run: true }));
           if (isAnswerFollowUp) {
             window.requestAnimationFrame(() => {
               const main = mainRef.current;
@@ -4479,288 +4483,330 @@ export function ClinicalDashboard({
               onClearScopes: () => setCommandScopes([]),
             }}
           >
-          <div
-            className={cn(
-              "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
-              // Centred mode homes carry little content, so drop the large
-              // mobile bottom padding (the fixed composer already has its own
-              // reserved margin on <main>) to avoid a needless scrollbar.
-              // sm+/lg values stay identical to the result-view treatment.
-              searchMode === "answer"
-                ? compactMobileModeHome
-                  ? "pb-4 sm:pb-36 lg:pb-40"
-                  : "pb-32 sm:pb-36 lg:pb-40"
-                : hasMobileBottomSearch
-                  ? compactMobileModeHome
-                    ? "pb-4 sm:pb-10 lg:pb-12"
-                    : compactMobileBottomSearch
-                      ? "pb-8 sm:pb-10 lg:pb-12"
-                      : "pb-32 sm:pb-10 lg:pb-12"
-                  : "pb-8 sm:pb-10 lg:pb-12",
-            )}
-          >
-            {actionNotice && (
-              <div
-                role="status"
-                className={cn(
-                  "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
-                  actionNotice.tone === "success" ? toneSuccess : toneWarning,
-                )}
-              >
-                <span className="min-w-0">{actionNotice.message}</span>
-                <button
-                  type="button"
-                  onClick={() => setActionNotice(null)}
-                  aria-label="Dismiss notification"
-                  className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-            {showDegradedNotice && renderDegradedNotice()}
-            {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
-
-            <section
+            <div
               className={cn(
-                "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
-                centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
-                  ? // On tall phones the centred home leans slightly toward the
-                    // bottom composer (matches the committed vertical-weighting
-                    // guard); short phones skip the bias so content still fits.
-                    "grid w-full place-items-center max-sm:[@media(min-height:800px)]:pt-[5vh]"
-                  : activeModeResultKind === "tools" ||
-                      activeModeResultKind === "favourites" ||
-                      activeModeResultKind === "differentials"
-                    ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                    : activeModeResultKind === "documents" || activeModeResultKind === "services"
-                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                      : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
+                "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+                // Centred mode homes carry little content, so drop the large
+                // mobile bottom padding (the fixed composer already has its own
+                // reserved margin on <main>) to avoid a needless scrollbar.
+                // sm+/lg values stay identical to the result-view treatment.
+                searchMode === "answer"
+                  ? compactMobileModeHome
+                    ? "pb-4 sm:pb-36 lg:pb-40"
+                    : "pb-32 sm:pb-36 lg:pb-40"
+                  : hasMobileBottomSearch
+                    ? compactMobileModeHome
+                      ? "pb-4 sm:pb-10 lg:pb-12"
+                      : compactMobileBottomSearch
+                        ? "pb-8 sm:pb-10 lg:pb-12"
+                        : "pb-32 sm:pb-10 lg:pb-12"
+                    : "pb-8 sm:pb-10 lg:pb-12",
               )}
             >
-              <h2 data-testid="answer-section-heading" className="sr-only">
-                {activeModeSearch.resultHeading}
-              </h2>
-              {error && (
-                <div
-                  role="alert"
-                  className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
-                >
-                  <AlertCircle className="mr-2 inline h-4 w-4" />
-                  {error}
-                </div>
-              )}
-
-              {loading && answerProgress && searchMode !== "prescribing" && (
+              {actionNotice && (
                 <div
                   role="status"
-                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                  className={cn(
+                    "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
+                    actionNotice.tone === "success" ? toneSuccess : toneWarning,
+                  )}
                 >
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
-                  <span className="min-w-0 truncate">{answerProgress}</span>
+                  <span className="min-w-0">{actionNotice.message}</span>
+                  <button
+                    type="button"
+                    onClick={() => setActionNotice(null)}
+                    aria-label="Dismiss notification"
+                    className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               )}
+              {showDegradedNotice && renderDegradedNotice()}
+              {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
 
-              {activeModeResultKind === "differentials" ? (
-                <DifferentialsHome
-                  query={query}
-                  loading={loading}
-                  documentMatches={documentMatches}
-                  realDataReady={canRunSearch}
-                  authUnavailable={false}
-                  apiUnavailable={apiUnavailable}
-                  setupWarning={setupWarning}
-                  onQueryChange={setQuery}
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
-                  onSuggestedSearch={(nextQuery) => {
-                    setQuery(nextQuery);
-                    focusComposerInput();
-                  }}
-                  onRunSearch={(nextQuery) => {
-                    void executeSearch(nextQuery, "differentials", scopeFilters);
-                  }}
-                  onOpenPresentations={(nextQuery) => {
-                    const queryParams = new URLSearchParams();
-                    const normalizedQuery = nextQuery.trim();
-                    if (normalizedQuery) queryParams.set("q", normalizedQuery);
-                    router.push(`/differentials/presentations${queryParams.toString() ? `?${queryParams}` : ""}`);
-                  }}
-                  onOpenDiagnoses={(nextQuery) => {
-                    const queryParams = new URLSearchParams();
-                    const normalizedQuery = nextQuery.trim();
-                    if (normalizedQuery) queryParams.set("q", normalizedQuery);
-                    router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
-                  }}
-                />
-              ) : activeModeResultKind === "tools" ? (
-                <ToolsHub
-                  query={query}
-                  onQueryChange={setQuery}
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
-                  showDetailPanel={!requestedRun}
-                />
-              ) : activeModeResultKind === "favourites" ? (
-                <FavouritesHub
-                  query={query}
-                  onClearQuery={() => {
-                    setQuery("");
-                    setModeSearchSubmitted(false);
-                    router.replace(appModeHomeHref("favourites", { focus: true }));
-                  }}
-                  onAddFavourite={() =>
-                    setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })
-                  }
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
-                />
-              ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
-                searchMode === "prescribing" ? (
-                  <MedicationPrescribingWorkspace
+              <section
+                className={cn(
+                  "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
+                  centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
+                    ? // On tall phones the centred home leans slightly toward the
+                      // bottom composer (matches the committed vertical-weighting
+                      // guard); short phones skip the bias so content still fits.
+                      "grid w-full place-items-center max-sm:[@media(min-height:800px)]:pt-[5vh]"
+                    : activeModeResultKind === "tools" ||
+                        activeModeResultKind === "favourites" ||
+                        activeModeResultKind === "differentials"
+                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                      : activeModeResultKind === "documents" || activeModeResultKind === "services"
+                        ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                        : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
+                )}
+              >
+                <h2 data-testid="answer-section-heading" className="sr-only">
+                  {activeModeSearch.resultHeading}
+                </h2>
+                {error && (
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
+                  >
+                    <AlertCircle className="mr-2 inline h-4 w-4" />
+                    {error}
+                  </div>
+                )}
+
+                {loading && answerProgress && searchMode !== "prescribing" && (
+                  <div
+                    role="status"
+                    className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                  >
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                    <span className="min-w-0 truncate">{answerProgress}</span>
+                  </div>
+                )}
+
+                {activeModeResultKind === "differentials" ? (
+                  <DifferentialsHome
                     query={query}
-                    loading={false}
-                    realDataReady
+                    loading={loading}
+                    documentMatches={documentMatches}
+                    realDataReady={canRunSearch}
                     authUnavailable={false}
-                    apiUnavailable={false}
-                    setupWarning={null}
-                    onSuggestedSearch={setMedicationSearchQuery}
-                    showHome={!query.trim() && !modeSearchSubmitted}
+                    apiUnavailable={apiUnavailable}
+                    setupWarning={setupWarning}
+                    onQueryChange={setQuery}
+                    desktopComposerSlotId={desktopHomeComposerSlotId}
+                    onSuggestedSearch={(nextQuery) => {
+                      setQuery(nextQuery);
+                      focusComposerInput();
+                    }}
+                    onRunSearch={(nextQuery) => {
+                      void executeSearch(nextQuery, "differentials", scopeFilters);
+                    }}
+                    onOpenPresentations={(nextQuery) => {
+                      const queryParams = new URLSearchParams();
+                      const normalizedQuery = nextQuery.trim();
+                      if (normalizedQuery) queryParams.set("q", normalizedQuery);
+                      router.push(`/differentials/presentations${queryParams.toString() ? `?${queryParams}` : ""}`);
+                    }}
+                    onOpenDiagnoses={(nextQuery) => {
+                      const queryParams = new URLSearchParams();
+                      const normalizedQuery = nextQuery.trim();
+                      if (normalizedQuery) queryParams.set("q", normalizedQuery);
+                      router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
+                    }}
+                  />
+                ) : activeModeResultKind === "tools" ? (
+                  <ToolsHub
+                    query={query}
+                    onQueryChange={setQuery}
+                    desktopComposerSlotId={desktopHomeComposerSlotId}
+                    showDetailPanel={!requestedRun}
+                  />
+                ) : activeModeResultKind === "favourites" ? (
+                  <FavouritesHub
+                    query={query}
+                    onClearQuery={() => {
+                      setQuery("");
+                      setModeSearchSubmitted(false);
+                      router.replace(appModeHomeHref("favourites", { focus: true }));
+                    }}
+                    onAddFavourite={() =>
+                      setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })
+                    }
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
-                ) : (
-                  <>
-                    <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                    <DocumentSearchResultsPanel
-                      matches={documentMatches}
-                      recordMatches={recordSearchMatches}
-                      recordMode={recordSearchMode}
-                      recordStatus={registryRecords.status}
-                      showRecordMatches={searchMode === "services" || searchMode === "forms"}
+                ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
+                  searchMode === "prescribing" ? (
+                    <MedicationPrescribingWorkspace
                       query={query}
-                      loading={loading}
-                      documentCount={indexedDocumentTotal}
-                      recentDocuments={documents}
-                      realDataReady={searchMode === "services" || searchMode === "forms" ? true : canRunSearch}
+                      loading={false}
+                      realDataReady
                       authUnavailable={false}
-                      apiUnavailable={apiUnavailable}
-                      setupWarning={setupWarning}
-                      facets={searchFacets}
-                      onScopeDocument={scopeOnlyDocument}
-                      onAnswerFromDocument={answerFromDocument}
-                      onOpenRecentDocuments={openRecentDocuments}
-                      onOpenLibrary={openSourceLibrary}
-                      onOpenSourcePdf={openSourcePdfBrowser}
-                      onTagSearch={handleTagSearch}
-                      showHome={searchMode === "documents" && !modeSearchSubmitted}
+                      apiUnavailable={false}
+                      setupWarning={null}
+                      onSuggestedSearch={setMedicationSearchQuery}
+                      showHome={!query.trim() && !modeSearchSubmitted}
                       desktopComposerSlotId={desktopHomeComposerSlotId}
                     />
-                  </>
-                )
-              ) : loading && !answer ? (
-                <AnswerSkeleton />
-              ) : answer && answerRenderModel ? (
-                stagedDashboardExtraction.answerSurface ? (
-                  <>
-                    {hiddenPriorTurnCount > 0 && !showEarlierTurns ? (
-                      <button
-                        type="button"
-                        data-testid="answer-thread-show-earlier"
-                        onClick={() => setShowEarlierTurns(true)}
-                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                      >
-                        Show earlier messages ({hiddenPriorTurnCount})
-                      </button>
-                    ) : null}
-                    {visiblePriorTurns.map((turn) => (
-                      <PriorAnswerTurnSurface
-                        key={turn.id}
-                        turn={turn}
-                        copied={copiedAction === turn.id}
-                        collapsed={collapsedTurnIds.has(turn.id)}
-                        onToggleCollapsed={() => toggleAnswerTurnCollapsed(turn.id)}
-                        onCopy={(text) => copyText(turn.id, text)}
+                  ) : (
+                    <>
+                      <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                      <DocumentSearchResultsPanel
+                        matches={documentMatches}
+                        recordMatches={recordSearchMatches}
+                        recordMode={recordSearchMode}
+                        recordStatus={registryRecords.status}
+                        showRecordMatches={searchMode === "services" || searchMode === "forms"}
+                        query={query}
+                        loading={loading}
+                        documentCount={indexedDocumentTotal}
+                        recentDocuments={documents}
+                        realDataReady={searchMode === "services" || searchMode === "forms" ? true : canRunSearch}
+                        authUnavailable={false}
+                        apiUnavailable={apiUnavailable}
+                        setupWarning={setupWarning}
+                        facets={searchFacets}
+                        onScopeDocument={scopeOnlyDocument}
+                        onAnswerFromDocument={answerFromDocument}
+                        onOpenRecentDocuments={openRecentDocuments}
+                        onOpenLibrary={openSourceLibrary}
+                        onOpenSourcePdf={openSourcePdfBrowser}
+                        onTagSearch={handleTagSearch}
+                        showHome={searchMode === "documents" && !modeSearchSubmitted}
+                        desktopComposerSlotId={desktopHomeComposerSlotId}
                       />
-                    ))}
-                    <StagedAnswerResultSurface
-                      answer={answer}
-                      query={latestAnswerQuery ?? query}
-                      safeAnswerText={safeAnswerText}
-                      bestSource={bestSource}
-                      sourceGovernanceWarnings={sourceGovernanceWarnings}
-                      sourceSummary={sourceSummary}
-                      renderModel={answerRenderModel}
-                      weakEvidence={weakEvidence}
-                      answerViewMode={answerViewMode}
-                      answerEvidenceMapRows={answerEvidenceMapRows}
-                      onScopeDocument={scopeOnlyDocument}
-                      answerGrounded={answerGrounded}
-                      sources={answerRenderModel.reviewSources}
-                      demoMode={demoMode}
-                      safeAnswerSections={safeAnswerSections}
-                      safetyFindings={safetyFindings}
-                      copiedAnswer={copiedAction === "answer"}
-                      pendingFeedback={pendingFeedback}
-                      onCopyAnswer={() =>
-                        copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
-                      }
-                      onSubmitFeedback={submitAnswerFeedback}
-                      onFollowUpQuote={handleFollowUpQuote}
-                      followUpSuggestions={answerFollowUpSuggestions}
-                      onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
-                      followUpSuggestionsDisabled={loading}
-                    />
-                  </>
-                ) : null
-              ) : (
-                <AnswerEmptyState
-                  onPickSample={setQuery}
-                  onSearchDocuments={() => setSearchMode("documents")}
-                  onUploadDocument={openUploadDrawer}
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
+                    </>
+                  )
+                ) : loading && !answer ? (
+                  <AnswerSkeleton />
+                ) : answer && answerRenderModel ? (
+                  stagedDashboardExtraction.answerSurface ? (
+                    <>
+                      {hiddenPriorTurnCount > 0 && !showEarlierTurns ? (
+                        <button
+                          type="button"
+                          data-testid="answer-thread-show-earlier"
+                          onClick={() => setShowEarlierTurns(true)}
+                          className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                        >
+                          Show earlier messages ({hiddenPriorTurnCount})
+                        </button>
+                      ) : null}
+                      {visiblePriorTurns.map((turn) => (
+                        <PriorAnswerTurnSurface
+                          key={turn.id}
+                          turn={turn}
+                          copied={copiedAction === turn.id}
+                          collapsed={collapsedTurnIds.has(turn.id)}
+                          onToggleCollapsed={() => toggleAnswerTurnCollapsed(turn.id)}
+                          onCopy={(text) => copyText(turn.id, text)}
+                        />
+                      ))}
+                      <StagedAnswerResultSurface
+                        answer={answer}
+                        query={latestAnswerQuery ?? query}
+                        safeAnswerText={safeAnswerText}
+                        bestSource={bestSource}
+                        sourceGovernanceWarnings={sourceGovernanceWarnings}
+                        sourceSummary={sourceSummary}
+                        renderModel={answerRenderModel}
+                        weakEvidence={weakEvidence}
+                        answerViewMode={answerViewMode}
+                        answerEvidenceMapRows={answerEvidenceMapRows}
+                        onScopeDocument={scopeOnlyDocument}
+                        answerGrounded={answerGrounded}
+                        sources={answerRenderModel.reviewSources}
+                        demoMode={demoMode}
+                        safeAnswerSections={safeAnswerSections}
+                        safetyFindings={safetyFindings}
+                        copiedAnswer={copiedAction === "answer"}
+                        pendingFeedback={pendingFeedback}
+                        onCopyAnswer={() =>
+                          copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
+                        }
+                        onSubmitFeedback={submitAnswerFeedback}
+                        onFollowUpQuote={handleFollowUpQuote}
+                        followUpSuggestions={answerFollowUpSuggestions}
+                        onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
+                        followUpSuggestionsDisabled={loading}
+                      />
+                    </>
+                  ) : null
+                ) : (
+                  <AnswerEmptyState
+                    onPickSample={setQuery}
+                    onSearchDocuments={() => setSearchMode("documents")}
+                    onUploadDocument={openUploadDrawer}
+                    desktopComposerSlotId={desktopHomeComposerSlotId}
+                  />
+                )}
+              </section>
+
+              {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
+
+              {activeModeResultKind === "answer" && answer && (
+                <RelatedDocumentsPanel
+                  documents={relatedDocuments}
+                  onScopeDocument={scopeOnlyDocument}
+                  onTagSearch={handleTagSearch}
                 />
               )}
-            </section>
-
-            {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
-
-            {activeModeResultKind === "answer" && answer && (
-              <RelatedDocumentsPanel
-                documents={relatedDocuments}
-                onScopeDocument={scopeOnlyDocument}
-                onTagSearch={handleTagSearch}
-              />
-            )}
-            {(documentsDrawerOpen || uploadDrawerOpen) && (
-              <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
-                <DrawerGroupLabel title={drawerGroupTitle} />
-                {documentsDrawerOpen ? (
-                  <UtilityDrawer
-                    id="dashboard-documents-drawer"
-                    icon={BookOpen}
-                    title={documentsDrawerTitle}
-                    summary={documentsDrawerSummary}
-                    mobileSummary={documentsDrawerMobileSummary}
-                    open={documentsDrawerOpen}
-                    onOpenChange={setDocumentsDrawerOpen}
-                    sheetBreakpoint="lg"
-                    sheetHeaderLeading={
-                      <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                        <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />
-                      </span>
-                    }
-                    sheetTitleAccessory={
-                      documentsDrawerIsAdmin ? (
-                        <span className="nums hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-bold text-[color:var(--text-muted)] sm:inline-flex">
-                          {indexedDocumentTotal.toLocaleString()} indexed
+              {(documentsDrawerOpen || uploadDrawerOpen) && (
+                <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
+                  <DrawerGroupLabel title={drawerGroupTitle} />
+                  {documentsDrawerOpen ? (
+                    <UtilityDrawer
+                      id="dashboard-documents-drawer"
+                      icon={BookOpen}
+                      title={documentsDrawerTitle}
+                      summary={documentsDrawerSummary}
+                      mobileSummary={documentsDrawerMobileSummary}
+                      open={documentsDrawerOpen}
+                      onOpenChange={setDocumentsDrawerOpen}
+                      sheetBreakpoint="lg"
+                      sheetHeaderLeading={
+                        <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                          <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />
                         </span>
-                      ) : null
-                    }
-                    sheetDescription={documentsDrawerSummary}
-                    sheetHeaderClassName="bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4"
-                    sheetCloseButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                    sheetContentClassName="max-h-[min(82dvh,40rem)] sm:max-h-[min(88dvh,46rem)] sm:max-w-2xl lg:max-w-3xl"
-                    sheetBodyClassName="bg-[color:var(--surface-subtle)] p-3 sm:p-4"
-                    sheetChildrenClassName="space-y-3"
-                  >
-                    {documentsDrawerIsAdmin ? (
+                      }
+                      sheetTitleAccessory={
+                        documentsDrawerIsAdmin ? (
+                          <span className="nums hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-bold text-[color:var(--text-muted)] sm:inline-flex">
+                            {indexedDocumentTotal.toLocaleString()} indexed
+                          </span>
+                        ) : null
+                      }
+                      sheetDescription={documentsDrawerSummary}
+                      sheetHeaderClassName="bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4"
+                      sheetCloseButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      sheetContentClassName="max-h-[min(82dvh,40rem)] sm:max-h-[min(88dvh,46rem)] sm:max-w-2xl lg:max-w-3xl"
+                      sheetBodyClassName="bg-[color:var(--surface-subtle)] p-3 sm:p-4"
+                      sheetChildrenClassName="space-y-3"
+                    >
+                      {documentsDrawerIsAdmin ? (
+                        <LibraryHealthStrip
+                          documents={documents}
+                          jobs={jobs}
+                          batches={batches}
+                          checks={setupChecks}
+                          loading={dashboardDataLoading}
+                          onSelectTarget={openLibraryHealthTarget}
+                        />
+                      ) : null}
+                      <DocumentDrawer
+                        documents={documents}
+                        pagination={documentsPagination}
+                        loadingMoreDocuments={loadingMoreDocuments}
+                        mode={documentsDrawerIsAdmin ? "admin" : documentsDrawerMode}
+                        selectedDocumentIds={selectedDocumentIds}
+                        statusFilter={documentDrawerStatusFilter}
+                        onToggleScope={toggleDocumentScope}
+                        onLoadMoreDocuments={loadMoreDocuments}
+                        onDocumentRenamed={handleDocumentRenamed}
+                        onDocumentDeleted={handleDocumentDeleted}
+                        onBulkReindex={bulkReindexSelected}
+                        onBulkAssignCollection={bulkAssignCollection}
+                        onBulkMetadataUpdate={bulkUpdateMetadata}
+                        bulkActionStatus={bulkActionStatus}
+                        bulkActionBusy={bulkActionBusy}
+                        canManageDocuments={canUsePrivateApis}
+                        onTagSearch={handleTagSearch}
+                        onMutateLabel={mutateDocumentLabel}
+                      />
+                    </UtilityDrawer>
+                  ) : null}
+
+                  {uploadDrawerOpen ? (
+                    <UtilityDrawer
+                      id="dashboard-upload-drawer"
+                      icon={UploadCloud}
+                      title="Upload and indexing"
+                      summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
+                      mobileSummary="Setup & uploads"
+                      open={uploadDrawerOpen}
+                      onOpenChange={setUploadDrawerOpen}
+                    >
                       <LibraryHealthStrip
                         documents={documents}
                         jobs={jobs}
@@ -4769,167 +4815,125 @@ export function ClinicalDashboard({
                         loading={dashboardDataLoading}
                         onSelectTarget={openLibraryHealthTarget}
                       />
-                    ) : null}
-                    <DocumentDrawer
-                      documents={documents}
-                      pagination={documentsPagination}
-                      loadingMoreDocuments={loadingMoreDocuments}
-                      mode={documentsDrawerIsAdmin ? "admin" : documentsDrawerMode}
-                      selectedDocumentIds={selectedDocumentIds}
-                      statusFilter={documentDrawerStatusFilter}
-                      onToggleScope={toggleDocumentScope}
-                      onLoadMoreDocuments={loadMoreDocuments}
-                      onDocumentRenamed={handleDocumentRenamed}
-                      onDocumentDeleted={handleDocumentDeleted}
-                      onBulkReindex={bulkReindexSelected}
-                      onBulkAssignCollection={bulkAssignCollection}
-                      onBulkMetadataUpdate={bulkUpdateMetadata}
-                      bulkActionStatus={bulkActionStatus}
-                      bulkActionBusy={bulkActionBusy}
-                      canManageDocuments={canUsePrivateApis}
-                      onTagSearch={handleTagSearch}
-                      onMutateLabel={mutateDocumentLabel}
-                    />
-                  </UtilityDrawer>
-                ) : null}
+                      <div
+                        role="tablist"
+                        aria-label="Upload and indexing sections"
+                        className="grid grid-cols-4 gap-2 lg:hidden"
+                      >
+                        {uploadTabs.map((tab) => {
+                          const active = uploadMobileTab === tab.id;
+                          const Icon = tab.icon;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              role="tab"
+                              aria-selected={active}
+                              aria-controls={tab.panelId}
+                              onClick={() => setUploadMobileTab(tab.id)}
+                              className={cn(
+                                "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
+                                active
+                                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--glow-soft)]"
+                                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+                              )}
+                            >
+                              <span className="flex items-center gap-1.5 text-xs font-bold">
+                                <Icon className="h-3.5 w-3.5" />
+                                {tab.label}
+                              </span>
+                              <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
+                                {tab.summary}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div
+                          id="dashboard-setup-section"
+                          role="tabpanel"
+                          aria-label="Setup"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
+                            uploadMobileTab !== "setup" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Developer setup status
+                          </p>
+                          <SetupChecklist checks={setupChecks} />
+                          {showAuthPanel && <AuthPanel />}
+                        </div>
+                        <div
+                          id="dashboard-upload-section"
+                          role="tabpanel"
+                          aria-label="Upload"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
+                            uploadMobileTab !== "upload" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Clinical upload
+                          </p>
+                          <UploadPanel
+                            onUploaded={handleUploadQueued}
+                            demoMode={uploadReadOnlyMode}
+                            canUpload={canUsePrivateApis}
+                            authorizationHeader={authorizationHeader}
+                          />
+                        </div>
+                        <div
+                          id="dashboard-indexing-section"
+                          role="tabpanel"
+                          aria-label="Jobs"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
+                            uploadMobileTab !== "jobs" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Indexing progress
+                          </p>
+                          <IndexingMonitor
+                            jobs={jobs}
+                            batches={batches}
+                            filter={indexingMonitorFilter}
+                            actionId={indexingActionId}
+                            onRetry={retryJob}
+                            onReindex={reindexDocument}
+                            onEnrich={enrichDocument}
+                          />
+                        </div>
+                        <div
+                          id="dashboard-quality-section"
+                          role="tabpanel"
+                          aria-label="Quality"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
+                            uploadMobileTab !== "quality" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Ingestion quality console
+                          </p>
+                          <IngestionQualityConsole
+                            items={qualityItems}
+                            actionId={indexingActionId}
+                            onRetry={retryJob}
+                            onReindex={reindexDocument}
+                            onEnrich={enrichDocument}
+                          />
+                        </div>
+                      </div>
+                    </UtilityDrawer>
+                  ) : null}
+                </section>
+              )}
 
-                {uploadDrawerOpen ? (
-                  <UtilityDrawer
-                    id="dashboard-upload-drawer"
-                    icon={UploadCloud}
-                    title="Upload and indexing"
-                    summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
-                    mobileSummary="Setup & uploads"
-                    open={uploadDrawerOpen}
-                    onOpenChange={setUploadDrawerOpen}
-                  >
-                    <LibraryHealthStrip
-                      documents={documents}
-                      jobs={jobs}
-                      batches={batches}
-                      checks={setupChecks}
-                      loading={dashboardDataLoading}
-                      onSelectTarget={openLibraryHealthTarget}
-                    />
-                    <div
-                      role="tablist"
-                      aria-label="Upload and indexing sections"
-                      className="grid grid-cols-4 gap-2 lg:hidden"
-                    >
-                      {uploadTabs.map((tab) => {
-                        const active = uploadMobileTab === tab.id;
-                        const Icon = tab.icon;
-                        return (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            role="tab"
-                            aria-selected={active}
-                            aria-controls={tab.panelId}
-                            onClick={() => setUploadMobileTab(tab.id)}
-                            className={cn(
-                              "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
-                              active
-                                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--glow-soft)]"
-                                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                            )}
-                          >
-                            <span className="flex items-center gap-1.5 text-xs font-bold">
-                              <Icon className="h-3.5 w-3.5" />
-                              {tab.label}
-                            </span>
-                            <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
-                              {tab.summary}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div
-                        id="dashboard-setup-section"
-                        role="tabpanel"
-                        aria-label="Setup"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
-                          uploadMobileTab !== "setup" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Developer setup status
-                        </p>
-                        <SetupChecklist checks={setupChecks} />
-                        {showAuthPanel && <AuthPanel />}
-                      </div>
-                      <div
-                        id="dashboard-upload-section"
-                        role="tabpanel"
-                        aria-label="Upload"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
-                          uploadMobileTab !== "upload" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Clinical upload
-                        </p>
-                        <UploadPanel
-                          onUploaded={handleUploadQueued}
-                          demoMode={uploadReadOnlyMode}
-                          canUpload={canUsePrivateApis}
-                          authorizationHeader={authorizationHeader}
-                        />
-                      </div>
-                      <div
-                        id="dashboard-indexing-section"
-                        role="tabpanel"
-                        aria-label="Jobs"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
-                          uploadMobileTab !== "jobs" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Indexing progress
-                        </p>
-                        <IndexingMonitor
-                          jobs={jobs}
-                          batches={batches}
-                          filter={indexingMonitorFilter}
-                          actionId={indexingActionId}
-                          onRetry={retryJob}
-                          onReindex={reindexDocument}
-                          onEnrich={enrichDocument}
-                        />
-                      </div>
-                      <div
-                        id="dashboard-quality-section"
-                        role="tabpanel"
-                        aria-label="Quality"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
-                          uploadMobileTab !== "quality" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Ingestion quality console
-                        </p>
-                        <IngestionQualityConsole
-                          items={qualityItems}
-                          actionId={indexingActionId}
-                          onRetry={retryJob}
-                          onReindex={reindexDocument}
-                          onEnrich={enrichDocument}
-                        />
-                      </div>
-                    </div>
-                  </UtilityDrawer>
-                ) : null}
-              </section>
-            )}
-
-            {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
-          </div>
+              {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
+            </div>
           </SearchCommandProvider>
         </main>
 

@@ -26,10 +26,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
               : "answer"
       }
       searchComposerVisible={
-        !isToolsPageMockup &&
-        !isFavouritesPageMockup &&
-        !isStandaloneDocumentFlow &&
-        !isUniversalSearchRedesignMockup
+        !isToolsPageMockup && !isFavouritesPageMockup && !isStandaloneDocumentFlow && !isUniversalSearchRedesignMockup
       }
       chromeVisible={!isSourceOverlayRedesignMockup}
     >

@@ -37,7 +37,10 @@ import {
   type FavouriteItem as PrototypeFavouriteItem,
 } from "@/components/clinical-dashboard/favourites-prototype-data";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
-import { SearchResultsEmptyState, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  SearchResultsEmptyState,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -85,12 +88,14 @@ const sourceRecords: SourceRecord[] = [
 const typeStyles: Record<FavouriteType, string> = {
   Medication:
     "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-  Document: "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]",
+  Document:
+    "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]",
   Table: "border-[color:var(--type-table-border)] bg-[color:var(--type-table-soft)] text-[color:var(--type-table)]",
   "Saved search":
     "border-[color:var(--type-search-border)] bg-[color:var(--type-search-soft)] text-[color:var(--type-search)]",
   Source: "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
-  Service: "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
+  Service:
+    "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
   Form: "border-[color:var(--type-form-border)] bg-[color:var(--type-form-soft)] text-[color:var(--type-form)]",
 };
 
@@ -165,7 +170,10 @@ function buildFavouriteSets(items: FavouriteItem[]): FavouriteSet[] {
   const dynamicSets = Array.from(new Set(items.map((item) => item.set)))
     .filter((title) => title && !knownTitles.has(title))
     .map((title) => ({
-      id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+      id: title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, ""),
       title,
       count: items.filter((item) => item.set === title).length,
     }));
@@ -213,7 +221,8 @@ function filterAndSortItems(
     )
     .sort((first, second) => {
       if (effectiveSort === "title") return first.title.localeCompare(second.title);
-      if (effectiveSort === "type") return first.type.localeCompare(second.type) || first.title.localeCompare(second.title);
+      if (effectiveSort === "type")
+        return first.type.localeCompare(second.type) || first.title.localeCompare(second.title);
       return lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed);
     });
 }
@@ -298,13 +307,7 @@ function ActiveFilterChips({
   );
 }
 
-function ContinueStrip({
-  item,
-  onSelect,
-}: {
-  item: FavouriteItem;
-  onSelect: (id: string) => void;
-}) {
+function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id: string) => void }) {
   const Icon = item.icon;
   return (
     <section
@@ -587,7 +590,8 @@ function FavouritesTable({
                   onClick={() => onSelectItem(item.id)}
                   className={cn(
                     "relative h-16 cursor-pointer transition hover:bg-[color:var(--surface-subtle)]",
-                    selected && "bg-[color:var(--clinical-accent-soft)]/45 shadow-[inset_3px_0_0_var(--clinical-accent)]",
+                    selected &&
+                      "bg-[color:var(--clinical-accent-soft)]/45 shadow-[inset_3px_0_0_var(--clinical-accent)]",
                   )}
                 >
                   <td className="px-3 align-middle">
@@ -871,7 +875,7 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   const effectiveSelectedSetId = selectedSetId && sets.some((set) => set.id === selectedSetId) ? selectedSetId : null;
-  const selectedSet = effectiveSelectedSetId ? sets.find((set) => set.id === effectiveSelectedSetId) ?? null : null;
+  const selectedSet = effectiveSelectedSetId ? (sets.find((set) => set.id === effectiveSelectedSetId) ?? null) : null;
 
   const filteredItems = useMemo(
     () =>
@@ -892,11 +896,9 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
 
   const continueItem = useMemo(() => getMostRecentlyUsedItem(items), [items]);
   const showContinueStrip =
-    continueItem !== null &&
-    filteredItems.some((item) => item.id === continueItem.id) &&
-    filteredItems.length > 0;
+    continueItem !== null && filteredItems.some((item) => item.id === continueItem.id) && filteredItems.length > 0;
 
-  const selectedItem = selectedItemId ? items.find((item) => item.id === selectedItemId) ?? null : null;
+  const selectedItem = selectedItemId ? (items.find((item) => item.id === selectedItemId) ?? null) : null;
 
   function clearSearch() {
     router.push("/favourites");
@@ -970,24 +972,20 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
             ) : null}
 
             {query.trim() && scopedItems.length === 0 ? (
-              <SearchResultsEmptyState
-                modeId="favourites"
-                query={query}
-                onClearScopes={command?.onClearScopes}
-              />
+              <SearchResultsEmptyState modeId="favourites" query={query} onClearScopes={command?.onClearScopes} />
             ) : (
-            <FavouritesTable
-              items={items}
-              searchTerm={query}
-              selectedTypeId={selectedTypeId}
-              selectedSet={selectedSet}
-              viewMode={viewMode}
-              sortMode={sortMode}
-              selectedItemId={selectedItemId}
-              commandScopes={command?.commandScopes}
-              onSortModeChange={setSortMode}
-              onSelectItem={setSelectedItemId}
-            />
+              <FavouritesTable
+                items={items}
+                searchTerm={query}
+                selectedTypeId={selectedTypeId}
+                selectedSet={selectedSet}
+                viewMode={viewMode}
+                sortMode={sortMode}
+                selectedItemId={selectedItemId}
+                commandScopes={command?.commandScopes}
+                onSortModeChange={setSortMode}
+                onSelectItem={setSelectedItemId}
+              />
             )}
 
             <FavouritesMobileBrowseRail

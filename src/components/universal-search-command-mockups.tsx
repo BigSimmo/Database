@@ -24,7 +24,13 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
-import { chatComposerIconButton, chatComposerInput, chatComposerShell, chatSendButton, cn } from "@/components/ui-primitives";
+import {
+  chatComposerIconButton,
+  chatComposerInput,
+  chatComposerShell,
+  chatSendButton,
+  cn,
+} from "@/components/ui-primitives";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -454,7 +460,8 @@ const redFlagTerms = ["confusion", "overdose", "suicid", "chest pain", "unrespon
 /* ------------------------------------------------------------------ */
 
 const badgeToneClasses: Record<BadgeTone, string> = {
-  accent: "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+  accent:
+    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
   success: "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]",
   warning: "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
   danger: "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
@@ -463,7 +470,12 @@ const badgeToneClasses: Record<BadgeTone, string> = {
 
 function Badge({ tone = "neutral", children }: { tone?: BadgeTone; children: ReactNode }) {
   return (
-    <span className={cn("inline-flex min-h-6 shrink-0 items-center rounded-md border px-1.5 text-2xs font-bold", badgeToneClasses[tone])}>
+    <span
+      className={cn(
+        "inline-flex min-h-6 shrink-0 items-center rounded-md border px-1.5 text-2xs font-bold",
+        badgeToneClasses[tone],
+      )}
+    >
       {children}
     </span>
   );
@@ -540,7 +552,9 @@ function ContextHintRow({ mode, onPickExample }: { mode: ModeConfig; onPickExamp
       </span>
       <span className="ml-auto hidden shrink-0 items-center gap-1 text-2xs font-bold text-[color:var(--text-soft)] lg:inline-flex">
         Press
-        <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 py-0.5 font-mono text-2xs shadow-[var(--shadow-inset)]">/</kbd>
+        <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 py-0.5 font-mono text-2xs shadow-[var(--shadow-inset)]">
+          /
+        </kbd>
         to search
       </span>
       <style>{`@keyframes universal-command-fade { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }`}</style>
@@ -654,12 +668,20 @@ function SmartDropdown({
         </div>
       ) : null}
 
-      <div id={listboxId} role="listbox" aria-label={`${mode.label} search suggestions`} className="max-h-[26rem] overflow-y-auto p-2">
+      <div
+        id={listboxId}
+        role="listbox"
+        aria-label={`${mode.label} search suggestions`}
+        className="max-h-[26rem] overflow-y-auto p-2"
+      >
         {sections.map((section) =>
           section.items.length ? (
             <div key={section.key} className="pb-1 last:pb-0">
               {section.heading ? (
-                <div role="presentation" className="px-2.5 pb-1 pt-2 text-2xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                <div
+                  role="presentation"
+                  className="px-2.5 pb-1 pt-2 text-2xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]"
+                >
                   {section.heading}
                 </div>
               ) : null}
@@ -708,17 +730,26 @@ function SmartDropdown({
         )}
         {!hasAnyItems ? (
           <div className="px-3 py-4 text-sm font-semibold text-[color:var(--text-muted)]">
-            No suggestions for &ldquo;{query}&rdquo;{activeScopes.length ? " with the current scope filters" : ""}. Press Enter to run the full
-            search.
+            No suggestions for &ldquo;{query}&rdquo;{activeScopes.length ? " with the current scope filters" : ""}.
+            Press Enter to run the full search.
           </div>
         ) : null}
       </div>
 
       <div className="flex items-center justify-between border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-bold text-[color:var(--text-soft)]">
         <span className="inline-flex items-center gap-2">
-          <kbd className="rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-1 font-mono">&uarr;&darr;</kbd> navigate
-          <kbd className="rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-1 font-mono">&crarr;</kbd> open / search
-          <kbd className="rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-1 font-mono">esc</kbd> close
+          <kbd className="rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-1 font-mono">
+            &uarr;&darr;
+          </kbd>{" "}
+          navigate
+          <kbd className="rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-1 font-mono">
+            &crarr;
+          </kbd>{" "}
+          open / search
+          <kbd className="rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-1 font-mono">
+            esc
+          </kbd>{" "}
+          close
         </span>
         <span>Enter with nothing highlighted runs the full search</span>
       </div>
@@ -818,13 +849,21 @@ function ResultsHeaderBand({
       <div className="ml-auto flex items-center gap-1.5">
         <label className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-muted)]">
           Sort
-          <select className="bg-transparent text-xs font-bold text-[color:var(--text)] outline-none" aria-label="Sort results" defaultValue="relevance">
+          <select
+            className="bg-transparent text-xs font-bold text-[color:var(--text)] outline-none"
+            aria-label="Sort results"
+            defaultValue="relevance"
+          >
             <option value="relevance">Relevance</option>
             <option value="recent">Last used</option>
             <option value="alpha">A&ndash;Z</option>
           </select>
         </label>
-        <div className="inline-flex overflow-hidden rounded-lg border border-[color:var(--border)]" role="group" aria-label="Results view">
+        <div
+          className="inline-flex overflow-hidden rounded-lg border border-[color:var(--border)]"
+          role="group"
+          aria-label="Results view"
+        >
           <button
             type="button"
             aria-pressed={view === "table"}
@@ -832,7 +871,9 @@ function ResultsHeaderBand({
             className={cn(
               "grid h-9 w-9 place-items-center",
               focusRing,
-              view === "table" ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
+              view === "table"
+                ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "text-[color:var(--text-muted)]",
             )}
           >
             <Table2 className="h-4 w-4" aria-hidden />
@@ -845,7 +886,9 @@ function ResultsHeaderBand({
             className={cn(
               "grid h-9 w-9 place-items-center border-l border-[color:var(--border)]",
               focusRing,
-              view === "list" ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
+              view === "list"
+                ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "text-[color:var(--text-muted)]",
             )}
           >
             <LayoutList className="h-4 w-4" aria-hidden />
@@ -903,7 +946,11 @@ function ResultsPanel({
 }) {
   if (state === "loading") {
     return (
-      <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]" role="status" aria-label="Loading results">
+      <div
+        className="divide-y divide-[color:var(--border)] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
+        role="status"
+        aria-label="Loading results"
+      >
         <SkeletonRow />
         <SkeletonRow />
         <SkeletonRow />
@@ -975,7 +1022,10 @@ function ResultsPanel({
       {rows.map((row, index) => {
         const ModeIcon = mode.icon;
         return (
-          <div key={row.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 px-3 py-3 hover:bg-[color:var(--surface-subtle)]">
+          <div
+            key={row.id}
+            className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 px-3 py-3 hover:bg-[color:var(--surface-subtle)]"
+          >
             {row.code ? (
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-sm font-black text-[color:var(--clinical-accent)]">
                 {row.code}
@@ -991,9 +1041,13 @@ function ResultsPanel({
                 <span className="truncate text-sm font-extrabold text-[color:var(--text-heading)]">{row.title}</span>
                 {row.badge ? <Badge tone={row.badgeTone}>{row.badge}</Badge> : null}
               </span>
-              <span className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-muted)]">{row.meta}</span>
+              <span className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                {row.meta}
+              </span>
             </span>
-            <span className="hidden text-right text-xs font-bold text-[color:var(--text)] sm:block">{row.detail ?? ""}</span>
+            <span className="hidden text-right text-xs font-bold text-[color:var(--text)] sm:block">
+              {row.detail ?? ""}
+            </span>
             <button
               type="button"
               onClick={() => onOpenRow(row)}
@@ -1046,7 +1100,13 @@ function CommandSurfaceDemo({
     function handleKey(event: KeyboardEvent) {
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable)) {
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
         return;
       }
       event.preventDefault();
@@ -1070,11 +1130,16 @@ function CommandSurfaceDemo({
     if (!trimmedQuery) return [];
     const lowered = trimmedQuery.toLowerCase();
     return mode.suggestions
-      .filter((entry) => entry.text.toLowerCase().includes(lowered) || lowered.split(/\s+/).every((token) => entry.text.toLowerCase().includes(token)))
+      .filter(
+        (entry) =>
+          entry.text.toLowerCase().includes(lowered) ||
+          lowered.split(/\s+/).every((token) => entry.text.toLowerCase().includes(token)),
+      )
       .slice(0, 4);
   }, [mode, trimmedQuery]);
 
-  const showSafetyBanner = mode.id === "differentials" && redFlagTerms.some((term) => trimmedQuery.toLowerCase().includes(term));
+  const showSafetyBanner =
+    mode.id === "differentials" && redFlagTerms.some((term) => trimmedQuery.toLowerCase().includes(term));
 
   const formCodeMatch = useMemo(() => {
     if (mode.id !== "forms") return null;
@@ -1331,7 +1396,11 @@ function CommandSurfaceDemo({
               role="search"
               aria-label={`${mode.label} search`}
             >
-              <button type="button" className={cn(chatComposerIconButton, "answer-footer-search-action")} aria-label="Search actions">
+              <button
+                type="button"
+                className={cn(chatComposerIconButton, "answer-footer-search-action")}
+                aria-label="Search actions"
+              >
                 <Plus className="h-5 w-5" />
               </button>
               <label className="flex min-w-0 flex-1 items-center overflow-hidden">
@@ -1375,7 +1444,11 @@ function CommandSurfaceDemo({
                 ) : null}
               </label>
               <span className="answer-footer-search-divider" aria-hidden="true" />
-              <button type="submit" className={cn(chatSendButton, "answer-footer-search-send")} aria-label={`Search ${mode.label.toLowerCase()}`}>
+              <button
+                type="submit"
+                className={cn(chatSendButton, "answer-footer-search-send")}
+                aria-label={`Search ${mode.label.toLowerCase()}`}
+              >
                 <Search className="h-5 w-5" />
               </button>
             </form>
@@ -1441,32 +1514,39 @@ const wiringMap: Array<{ piece: string; target: string; notes: string }> = [
   {
     piece: "Context hint row (rotating examples, / hint)",
     target: "src/components/clinical-dashboard/master-search-header.tsx",
-    notes: "Rendered above the composer on sm+; example sets defined per mode in src/lib/app-modes.ts (extend search config with examples[]).",
+    notes:
+      "Rendered above the composer on sm+; example sets defined per mode in src/lib/app-modes.ts (extend search config with examples[]).",
   },
   {
     piece: "Smart dropdown (recents, suggestions, top matches, actions, cross-mode)",
     target: "src/components/clinical-dashboard/master-search-header.tsx",
-    notes: "New sibling of the composer form; recents read the existing clinical-kb-recent-queries store extended per-mode; top matches call the same ranking helpers each mode already uses (rankServiceRecords, rankFormRecords, document search API).",
+    notes:
+      "New sibling of the composer form; recents read the existing clinical-kb-recent-queries store extended per-mode; top matches call the same ranking helpers each mode already uses (rankServiceRecords, rankFormRecords, document search API).",
   },
   {
     piece: "Scope chips row",
     target: "src/lib/app-modes.ts + master-search-header.tsx",
-    notes: "Chip definitions live beside placeholder/submit config; chips write to the same URL params the results pages already read.",
+    notes:
+      "Chip definitions live beside placeholder/submit config; chips write to the same URL params the results pages already read.",
   },
   {
     piece: "Unified results header band",
-    target: "Per-page results components (services-navigator-page.tsx, forms-search-results-page.tsx, document-search-results.tsx, favourites-command-library-page.tsx, medication-prescribing-workspace.tsx, differentials-home.tsx)",
-    notes: "One shared component (query echo, count, scope chips, sort, view toggle, save) replacing each page's improvised header.",
+    target:
+      "Per-page results components (services-navigator-page.tsx, forms-search-results-page.tsx, document-search-results.tsx, favourites-command-library-page.tsx, medication-prescribing-workspace.tsx, differentials-home.tsx)",
+    notes:
+      "One shared component (query echo, count, scope chips, sort, view toggle, save) replacing each page's improvised header.",
   },
   {
     piece: "Skeleton + empty states",
     target: "Same per-page results components",
-    notes: "Fixes the current gaps where Services/Forms render blank lists on zero matches; empty state offers scope-clear, example, and cross-mode jumps.",
+    notes:
+      "Fixes the current gaps where Services/Forms render blank lists on zero matches; empty state offers scope-clear, example, and cross-mode jumps.",
   },
   {
     piece: "Safety banner / form-code recognition / dose inline",
     target: "Mode-specific dropdown row renderers",
-    notes: "Red-flag term list for differentials; /^\\d{1,2}[a-z]?$/ code detection for forms; dose/ceiling fields on medication rows.",
+    notes:
+      "Red-flag term list for differentials; /^\\d{1,2}[a-z]?$/ code detection for forms; dose/ceiling fields on medication rows.",
   },
 ];
 
@@ -1491,15 +1571,20 @@ export function UniversalSearchCommandMockupsPage() {
     <div className="min-h-full bg-[color:var(--background)] text-[color:var(--text)]">
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-          <p className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--clinical-accent)]">Universal search command surface</p>
+          <p className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--clinical-accent)]">
+            Universal search command surface
+          </p>
           <h1 className="mt-2 text-balance text-3xl font-extrabold text-[color:var(--text-heading)] sm:text-4xl">
             One smart surface around the untouched pill bar
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            The pill composer stays pixel-identical. Everything new wraps around it: a context hint row with rotating per-mode examples, a
-            smart dropdown (recents, suggestions, live top-match previews, mode actions, cross-mode jump), mode-aware scope chips, and one
-            consistent results header band with proper loading and empty states. Fully interactive &mdash; type, use arrow keys, press
-            <kbd className="mx-1 rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1 font-mono text-xs">/</kbd>
+            The pill composer stays pixel-identical. Everything new wraps around it: a context hint row with rotating
+            per-mode examples, a smart dropdown (recents, suggestions, live top-match previews, mode actions, cross-mode
+            jump), mode-aware scope chips, and one consistent results header band with proper loading and empty states.
+            Fully interactive &mdash; type, use arrow keys, press
+            <kbd className="mx-1 rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1 font-mono text-xs">
+              /
+            </kbd>
             anywhere to focus.
           </p>
         </div>
@@ -1551,7 +1636,10 @@ export function UniversalSearchCommandMockupsPage() {
         </div>
 
         {demoEvent ? (
-          <p className="mt-3 inline-flex min-h-8 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)]" role="status">
+          <p
+            className="mt-3 inline-flex min-h-8 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)]"
+            role="status"
+          >
             <Sparkles className="h-3.5 w-3.5" aria-hidden />
             {demoEvent}
           </p>
@@ -1570,7 +1658,9 @@ export function UniversalSearchCommandMockupsPage() {
 
           <aside className="space-y-4">
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-              <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Smart features in {mode.label}</h2>
+              <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">
+                Smart features in {mode.label}
+              </h2>
               <ul className="mt-2 space-y-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
                 {mode.smartNotes.map((note) => (
                   <li key={note} className="flex gap-2">
@@ -1581,25 +1671,65 @@ export function UniversalSearchCommandMockupsPage() {
               </ul>
             </div>
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">Shared across all six modes</h3>
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
+                Shared across all six modes
+              </h3>
               <ul className="mt-2 space-y-1.5 text-sm font-medium text-[color:var(--text)]">
-                <li className="flex gap-2"><span className="text-[color:var(--clinical-accent)]">·</span><span>Hint row: mode identity + rotating example queries (reduced-motion aware)</span></li>
-                <li className="flex gap-2"><span className="text-[color:var(--clinical-accent)]">·</span><span>Dropdown: recents when empty, suggestions + top matches while typing</span></li>
-                <li className="flex gap-2"><span className="text-[color:var(--clinical-accent)]">·</span><span>Enter opens the highlighted row; Enter on the bar runs the full search</span></li>
-                <li className="flex gap-2"><span className="text-[color:var(--clinical-accent)]">·</span><span>Scope chips filter both the dropdown preview and the results table</span></li>
-                <li className="flex gap-2"><span className="text-[color:var(--clinical-accent)]">·</span><span>Cross-mode jump keeps the query when the mode was wrong</span></li>
-                <li className="flex gap-2"><span className="text-[color:var(--clinical-accent)]">·</span><span>One results band: query echo, count, sort, view toggle, save search</span></li>
+                <li className="flex gap-2">
+                  <span className="text-[color:var(--clinical-accent)]">·</span>
+                  <span>Hint row: mode identity + rotating example queries (reduced-motion aware)</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-[color:var(--clinical-accent)]">·</span>
+                  <span>Dropdown: recents when empty, suggestions + top matches while typing</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-[color:var(--clinical-accent)]">·</span>
+                  <span>Enter opens the highlighted row; Enter on the bar runs the full search</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-[color:var(--clinical-accent)]">·</span>
+                  <span>Scope chips filter both the dropdown preview and the results table</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-[color:var(--clinical-accent)]">·</span>
+                  <span>Cross-mode jump keeps the query when the mode was wrong</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-[color:var(--clinical-accent)]">·</span>
+                  <span>One results band: query echo, count, sort, view toggle, save search</span>
+                </li>
               </ul>
             </div>
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
-              <h3 className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">Try these</h3>
+              <h3 className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
+                Try these
+              </h3>
               <ul className="mt-2 space-y-1.5 text-sm font-medium text-[color:var(--text-muted)]">
-                <li className="flex gap-2"><span>1.</span><span>Clear the query, focus the bar &mdash; recents appear</span></li>
-                <li className="flex gap-2"><span>2.</span><span>Arrow down through rows, press Enter on a top match</span></li>
-                <li className="flex gap-2"><span>3.</span><span>Toggle a scope chip and watch the dropdown re-filter</span></li>
-                <li className="flex gap-2"><span>4.</span><span>Forms mode: type just &ldquo;4a&rdquo;</span></li>
-                <li className="flex gap-2"><span>5.</span><span>Differentials mode: type &ldquo;confusion&rdquo; for the safety banner</span></li>
-                <li className="flex gap-2"><span>6.</span><span>Switch results state to Loading / Empty</span></li>
+                <li className="flex gap-2">
+                  <span>1.</span>
+                  <span>Clear the query, focus the bar &mdash; recents appear</span>
+                </li>
+                <li className="flex gap-2">
+                  <span>2.</span>
+                  <span>Arrow down through rows, press Enter on a top match</span>
+                </li>
+                <li className="flex gap-2">
+                  <span>3.</span>
+                  <span>Toggle a scope chip and watch the dropdown re-filter</span>
+                </li>
+                <li className="flex gap-2">
+                  <span>4.</span>
+                  <span>Forms mode: type just &ldquo;4a&rdquo;</span>
+                </li>
+                <li className="flex gap-2">
+                  <span>5.</span>
+                  <span>Differentials mode: type &ldquo;confusion&rdquo; for the safety banner</span>
+                </li>
+                <li className="flex gap-2">
+                  <span>6.</span>
+                  <span>Switch results state to Loading / Empty</span>
+                </li>
               </ul>
             </div>
           </aside>
@@ -1609,14 +1739,19 @@ export function UniversalSearchCommandMockupsPage() {
         <section className="mt-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 sm:p-5">
           <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Production wiring map</h2>
           <p className="mt-1 max-w-3xl text-sm font-medium text-[color:var(--text-muted)]">
-            Where each piece lands once this direction is approved. No shared CSS changes are needed &mdash; the mockup reuses the existing
-            composer primitives untouched.
+            Where each piece lands once this direction is approved. No shared CSS changes are needed &mdash; the mockup
+            reuses the existing composer primitives untouched.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {wiringMap.map((entry) => (
-              <article key={entry.piece} className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+              <article
+                key={entry.piece}
+                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
+              >
                 <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">{entry.piece}</h3>
-                <p className="mt-1 break-words font-mono text-xs font-semibold text-[color:var(--clinical-accent)]">{entry.target}</p>
+                <p className="mt-1 break-words font-mono text-xs font-semibold text-[color:var(--clinical-accent)]">
+                  {entry.target}
+                </p>
                 <p className="mt-1.5 text-sm font-medium leading-5 text-[color:var(--text-muted)]">{entry.notes}</p>
               </article>
             ))}
