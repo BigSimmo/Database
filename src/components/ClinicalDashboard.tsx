@@ -5373,6 +5373,12 @@ export function ClinicalDashboard({
   // stay top-aligned so their lists start in a stable position.
   const centeredModeHome =
     showDesktopHomeComposer && activeModeResultKind !== "tools" && activeModeResultKind !== "favourites";
+  // Short mode homes (centred homes plus the services/forms registry homes)
+  // drop the large mobile bottom padding so phones don't get a scrollbar for
+  // content that already fits. Result views keep the full clearance.
+  const compactMobileModeHome =
+    centeredModeHome ||
+    ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -5566,10 +5572,18 @@ export function ClinicalDashboard({
           <div
             className={cn(
               "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+              // Centred mode homes carry little content, so drop the large
+              // mobile bottom padding (the fixed composer already has its own
+              // reserved margin on <main>) to avoid a needless scrollbar.
+              // sm+/lg values stay identical to the result-view treatment.
               searchMode === "answer"
-                ? "pb-32 sm:pb-36 lg:pb-40"
+                ? compactMobileModeHome
+                  ? "pb-4 sm:pb-36 lg:pb-40"
+                  : "pb-32 sm:pb-36 lg:pb-40"
                 : hasMobileBottomSearch
-                  ? "pb-32 sm:pb-10 lg:pb-12"
+                  ? compactMobileModeHome
+                    ? "pb-4 sm:pb-10 lg:pb-12"
+                    : "pb-32 sm:pb-10 lg:pb-12"
                   : "pb-8 sm:pb-10 lg:pb-12",
             )}
           >
@@ -5598,9 +5612,12 @@ export function ClinicalDashboard({
 
             <section
               className={cn(
-                "min-h-[calc(100dvh-11rem)]",
+                "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                 centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
-                  ? "grid w-full place-items-center"
+                  ? // On tall phones the centred home leans slightly toward the
+                    // bottom composer (matches the committed vertical-weighting
+                    // guard); short phones skip the bias so content still fits.
+                    "grid w-full place-items-center max-sm:[@media(min-height:800px)]:pt-[5vh]"
                   : activeModeResultKind === "tools" ||
                       activeModeResultKind === "favourites" ||
                       activeModeResultKind === "differentials"
