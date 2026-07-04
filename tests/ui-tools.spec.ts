@@ -649,7 +649,9 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByText("Service details")).toHaveCount(0);
     await expect(page.getByText("Transport order")).toHaveCount(0);
     await expect(page.getByLabel("Differential review sidebar").getByText("Local content only").first()).toBeVisible();
-    await expect(page.getByLabel("Differential review sidebar").getByText("Source pending review").first()).toBeVisible();
+    await expect(
+      page.getByLabel("Differential review sidebar").getByText("Source pending review").first(),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Copy after review" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
 

@@ -502,9 +502,7 @@ async function waitForDemoDashboardReady(page: Page) {
 async function openGuide(page: Page) {
   const viewport = page.viewportSize();
   const trigger =
-    viewport && viewport.width >= 1024
-      ? page.getByRole("button", { name: guideHelpButtonNamePattern }).first()
-      : null;
+    viewport && viewport.width >= 1024 ? page.getByRole("button", { name: guideHelpButtonNamePattern }).first() : null;
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
   if (trigger) {
     await expect(trigger).toBeVisible();
@@ -1471,7 +1469,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Synthetic Lithium Monitoring Protocol");
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("Relevant");
-    await expect(documentResults.getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })).toBeVisible();
+    await expect(
+      documentResults.getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i }),
+    ).toBeVisible();
     const selectedSource = page.getByRole("complementary", { name: "Selected document evidence" });
     await expect(selectedSource).toBeVisible();
     await expect(selectedSource).toContainText("Source match");
