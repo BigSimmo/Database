@@ -69,12 +69,14 @@
 ### Task 1: Add Public Access Context and Optional Auth
 
 **Files:**
+
 - Modify: `src/lib/supabase/auth.ts:32-83`
 - Create: `src/lib/public-api-access.ts`
 - Modify: `src/lib/env.ts:1-20`, `src/lib/env.ts:150-179`
 - Test: `tests/private-access-routes.test.ts`
 
 **Interfaces:**
+
 - Consumes: existing `requireAuthenticatedUser(request, supabase)`.
 - Produces:
   - `getOptionalAuthenticatedUser(request: Request, supabase: AdminClient): Promise<AuthenticatedUser | null>`
@@ -199,9 +201,7 @@ import { getOptionalAuthenticatedUser } from "@/lib/supabase/auth";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
-export type RateLimitSubject =
-  | { kind: "owner"; ownerId: string }
-  | { kind: "anonymous"; subjectKey: string };
+export type RateLimitSubject = { kind: "owner"; ownerId: string } | { kind: "anonymous"; subjectKey: string };
 
 function firstForwardedIp(value: string | null) {
   return value?.split(",")[0]?.trim() || "";
@@ -258,12 +258,14 @@ Expected: PASS.
 ### Task 2: Add Durable Anonymous Rate Limiting
 
 **Files:**
+
 - Modify: `src/lib/api-rate-limit.ts:1-160`
 - Create: `supabase/migrations/YYYYMMDDHHMMSS_public_api_rate_limit_subjects.sql`
 - Modify: `supabase/schema.sql`
 - Test: `tests/private-access-routes.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RateLimitSubject` from `src/lib/public-api-access.ts`.
 - Produces:
   - `consumeSubjectApiRateLimit(args: { supabase: SupabaseAdmin; subject: RateLimitSubject; bucket: ApiRateLimitBucket; limit?: number; windowSeconds?: number; allowInMemoryFallbackOnUnavailable?: boolean }): Promise<ApiRateLimitResult>`
@@ -469,7 +471,12 @@ export async function consumeSubjectApiRateLimit(args: {
         code: error.code,
         message: error.message,
       });
-      return consumeInMemoryApiRateLimit({ ownerId: args.subject.subjectKey, bucket: args.bucket, limit, windowSeconds });
+      return consumeInMemoryApiRateLimit({
+        ownerId: args.subject.subjectKey,
+        bucket: args.bucket,
+        limit,
+        windowSeconds,
+      });
     }
     throw new ApiRateLimitUnavailableError();
   }
@@ -477,7 +484,12 @@ export async function consumeSubjectApiRateLimit(args: {
   const row = parseRateLimitRow(data);
   if (!row || typeof row.limited !== "boolean") {
     if (args.allowInMemoryFallbackOnUnavailable) {
-      return consumeInMemoryApiRateLimit({ ownerId: args.subject.subjectKey, bucket: args.bucket, limit, windowSeconds });
+      return consumeInMemoryApiRateLimit({
+        ownerId: args.subject.subjectKey,
+        bucket: args.bucket,
+        limit,
+        windowSeconds,
+      });
     }
     throw new ApiRateLimitUnavailableError();
   }
@@ -507,12 +519,14 @@ Expected: PASS.
 ### Task 3: Make Search and Answer Public While Rate Limited
 
 **Files:**
+
 - Modify: `src/app/api/search/route.ts:882-909`
 - Modify: `src/app/api/answer/route.ts:64-108`
 - Modify: `src/app/api/answer/stream/route.ts:220-236`
 - Test: `tests/private-access-routes.test.ts:2688-2804`
 
 **Interfaces:**
+
 - Consumes: `publicAccessContext`, `consumeSubjectApiRateLimit`.
 - Produces: anonymous `/api/search`, `/api/answer`, and `/api/answer/stream` success instead of 401.
 
@@ -575,7 +589,9 @@ it("allows anonymous search and answer requests with anonymous rate limits", asy
   expect(searchResponse.status).toBe(200);
   expect(answerResponse.status).toBe(200);
   expect(searchChunksWithTelemetry).toHaveBeenCalledWith(expect.objectContaining({ ownerId: undefined }));
-  expect(answerQuestionWithScope).toHaveBeenCalledWith(expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }));
+  expect(answerQuestionWithScope).toHaveBeenCalledWith(
+    expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
+  );
   expect(client.auth.getUser).not.toHaveBeenCalled();
   expect(client.rpc).toHaveBeenCalledWith(
     "consume_api_subject_rate_limit",
@@ -619,7 +635,9 @@ it("allows anonymous streamed answers with anonymous rate limits", async () => {
 
   expect(response.status).toBe(200);
   expect(ssePayload(body, "final")).toMatchObject({ answer: "Streamed public answer." });
-  expect(answerQuestionWithScope).toHaveBeenCalledWith(expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }));
+  expect(answerQuestionWithScope).toHaveBeenCalledWith(
+    expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
+  );
   expect(client.rpc).toHaveBeenCalledWith(
     "consume_api_subject_rate_limit",
     expect.objectContaining({ p_subject_key: expect.stringMatching(/^anon:/), p_bucket: "answer" }),
@@ -737,6 +755,7 @@ Expected: PASS.
 ### Task 4: Allow Anonymous Document Listing and Source Preview for Live Search Results
 
 **Files:**
+
 - Modify: `src/app/api/documents/route.ts:118-203`
 - Modify after inspection: `src/app/api/documents/[id]/route.ts`
 - Modify after inspection: `src/app/api/documents/[id]/search/route.ts`
@@ -745,6 +764,7 @@ Expected: PASS.
 - Test: `tests/private-access-routes.test.ts`
 
 **Interfaces:**
+
 - Consumes: `publicAccessContext`.
 - Produces: anonymous document browsing/source previews; authenticated users remain owner-scoped.
 
@@ -785,21 +805,16 @@ In `src/app/api/documents/route.ts`, replace:
 
 ```ts
 const user = await requireAuthenticatedUser(request, supabase);
-let query = supabase
-  .from("documents")
-  .select(DOCUMENT_LIST_COLUMNS, { count: "exact" })
-  .eq("owner_id", user.id)
+let query = supabase.from("documents").select(DOCUMENT_LIST_COLUMNS, { count: "exact" }).eq("owner_id", user.id);
 ```
 
 with:
 
 ```ts
 const access = await publicAccessContext(request, supabase);
-let query = supabase
-  .from("documents")
-  .select(DOCUMENT_LIST_COLUMNS, { count: "exact" });
+let query = supabase.from("documents").select(DOCUMENT_LIST_COLUMNS, { count: "exact" });
 if (access.ownerId) query = query.eq("owner_id", access.ownerId);
-query = query
+query = query;
 ```
 
 then keep the existing `.order(...).range(...)` chain after `query = query`.
@@ -842,11 +857,13 @@ Expected: PASS.
 ### Task 5: Decide and Implement Anonymous Upload Behavior
 
 **Files:**
+
 - Modify: `src/app/api/upload/route.ts:24-238`
 - Modify: `src/components/clinical-dashboard/DocumentManagerPanel.tsx`
 - Test: `tests/private-access-routes.test.ts`, `tests/api-validation-contract.test.ts`
 
 **Interfaces:**
+
 - Consumes: `publicWorkspaceOwnerId()`, `publicUploadsEnabled()`, `publicAccessContext`.
 - Produces: either public upload to shared owner when configured, or no login prompt when not configured.
 
@@ -875,7 +892,8 @@ it("uploads anonymous documents to the configured public workspace owner", async
   const publicOwnerId = "99999999-9999-4999-8999-999999999999";
   const client = createSupabaseMock((call) => {
     if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
-    if (call.table === "documents" && call.operation === "insert") return ok({ id: documentId, owner_id: publicOwnerId });
+    if (call.table === "documents" && call.operation === "insert")
+      return ok({ id: documentId, owner_id: publicOwnerId });
     if (call.table === "ingestion_jobs" && call.operation === "insert") return ok({ id: "job-1" });
     if (call.table === "audit_log" && call.operation === "insert") return ok([]);
     return ok([]);
@@ -889,7 +907,9 @@ it("uploads anonymous documents to the configured public workspace owner", async
 
   expect(response.status).toBe(200);
   expect(client.auth.getUser).not.toHaveBeenCalled();
-  expect(client.calls.find((call) => call.table === "documents" && call.operation === "insert")?.insertPayload).toMatchObject({
+  expect(
+    client.calls.find((call) => call.table === "documents" && call.operation === "insert")?.insertPayload,
+  ).toMatchObject({
     owner_id: publicOwnerId,
   });
 });
@@ -925,13 +945,13 @@ Then replace every `user.id` in upload ownership/storage/audit/naming code with 
 In `DocumentManagerPanel.tsx`, replace copy like:
 
 ```ts
-"Sign in before uploading private guideline files."
+"Sign in before uploading private guideline files.";
 ```
 
 with:
 
 ```ts
-"Uploads are unavailable until this public workspace is configured."
+"Uploads are unavailable until this public workspace is configured.";
 ```
 
 - [ ] **Step 5: Run upload tests**
@@ -949,6 +969,7 @@ Expected: PASS.
 ### Task 6: Remove Forced Login UI and Fix “Search request was not authorized” UX
 
 **Files:**
+
 - Modify: `src/components/ClinicalDashboard.tsx:3652-3664`, `src/components/ClinicalDashboard.tsx:5341-5893`
 - Modify: `src/components/clinical-dashboard/auth-panel.tsx`
 - Modify: `src/components/clinical-dashboard/document-search-results.tsx`
@@ -956,6 +977,7 @@ Expected: PASS.
 - Test: `tests/ui-smoke.spec.ts` or focused component route tests if present
 
 **Interfaces:**
+
 - Consumes: public API behavior from Tasks 3-5.
 - Produces: no forced sign-in panel; search controls enabled when backend setup is ready; no 401 authorization banner for anonymous users.
 
@@ -1074,11 +1096,13 @@ Expected: PASS.
 ### Task 7: Verify Authenticated Behavior Still Works and Destructive Routes Stay Protected
 
 **Files:**
+
 - Modify tests only unless failures reveal route regressions:
   - `tests/private-access-routes.test.ts`
   - `tests/api-validation-contract.test.ts`
 
 **Interfaces:**
+
 - Consumes: public access route changes.
 - Produces: confidence that anonymous access did not expose destructive actions.
 
@@ -1132,9 +1156,11 @@ Expected: PASS.
 ### Task 8: Full Verification and Production Readiness Checks
 
 **Files:**
+
 - No source changes unless verification fails.
 
 **Interfaces:**
+
 - Consumes: all prior tasks.
 - Produces: verified anonymous live-search behavior.
 
@@ -1193,6 +1219,7 @@ Expected: anonymous users can run live searches; excessive use is rate-limited.
 ## Self-Review
 
 **Spec coverage:**
+
 - Forced login removal: Task 6.
 - “Search request was not authorized” fix: Tasks 3 and 6.
 - Live anonymous search: Task 3.

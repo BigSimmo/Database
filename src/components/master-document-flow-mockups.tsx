@@ -538,7 +538,10 @@ function SelectedSourceTray({
 }) {
   return (
     <aside className="fixed inset-x-0 bottom-[calc(7.25rem+env(safe-area-inset-bottom))] z-20 mx-auto max-h-[42dvh] overflow-y-auto rounded-t-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-3 shadow-[0_18px_60px_rgb(15_23_42_/_16%)] md:inset-x-3 md:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] md:max-h-none md:max-w-[88rem] md:rounded-lg lg:left-[calc(var(--clinical-sidebar-width,0px)+4.5rem)]">
-      <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-[color:var(--border-strong)] md:hidden" aria-hidden="true" />
+      <div
+        className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-[color:var(--border-strong)] md:hidden"
+        aria-hidden="true"
+      />
       <div className="md:hidden">
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3">
           <FileTile />
@@ -1016,7 +1019,8 @@ function DocumentPreview({ selectedEvidence }: { selectedEvidence: EvidenceFixtu
         </div>
         <div>
           <h3 className="mb-3 text-sm font-extrabold text-[color:var(--text-heading)]">
-            Table 3. <span className="font-semibold">Haematological monitoring schedule for patients on clozapine.</span>
+            Table 3.{" "}
+            <span className="font-semibold">Haematological monitoring schedule for patients on clozapine.</span>
           </h3>
           <div className="sm:hidden">
             <MonitoringRowCards compact />
@@ -1038,10 +1042,7 @@ function DocumentPreview({ selectedEvidence }: { selectedEvidence: EvidenceFixtu
             </thead>
             <tbody>
               {monitoringTableRows.map((row, rowIndex) => (
-                <tr
-                  key={row[0]}
-                  className={rowIndex === 1 ? "bg-[color:var(--clinical-accent-soft)]/70" : undefined}
-                >
+                <tr key={row[0]} className={rowIndex === 1 ? "bg-[color:var(--clinical-accent-soft)]/70" : undefined}>
                   {row.map((cell) => (
                     <td
                       key={cell}
@@ -1449,16 +1450,24 @@ export function MasterDocumentReader() {
         >
           {mobileEvidenceOpen ? (
             <div>
-              <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[color:var(--border-strong)]" aria-hidden="true" />
+              <div
+                className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[color:var(--border-strong)]"
+                aria-hidden="true"
+              />
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Evidence on this page</h2>
-                  <p className="text-xs font-semibold text-[color:var(--text-muted)]">Page {document.page} · Section 4.1.2</p>
+                  <p className="text-xs font-semibold text-[color:var(--text-muted)]">
+                    Page {document.page} · Section 4.1.2
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setMobileEvidenceOpen(false)}
-                  className={cn("rounded-lg px-3 py-2 text-xs font-bold text-[color:var(--clinical-accent)]", focusRing)}
+                  className={cn(
+                    "rounded-lg px-3 py-2 text-xs font-bold text-[color:var(--clinical-accent)]",
+                    focusRing,
+                  )}
                 >
                   Collapse
                 </button>
@@ -1638,7 +1647,9 @@ export function MasterEvidenceDetail() {
             </nav>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-extrabold text-[color:var(--text-heading)]">Evidence detail</h1>
-              <Pill active icon={ShieldCheck}>Reusable source object</Pill>
+              <Pill active icon={ShieldCheck}>
+                Reusable source object
+              </Pill>
             </div>
           </div>
           <Link
@@ -1685,7 +1696,9 @@ export function MasterEvidenceDetail() {
             <div className="space-y-4 p-4 sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <Pill active icon={ShieldCheck}>Reusable source object</Pill>
+                  <Pill active icon={ShieldCheck}>
+                    Reusable source object
+                  </Pill>
                   <h2 className="mt-3 text-3xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-xl">
                     {evidence.title}
                   </h2>
@@ -1694,7 +1707,9 @@ export function MasterEvidenceDetail() {
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Pill active>{evidence.relevance}% relevance</Pill>
-                    <Pill tone="green" icon={ShieldCheck}>High confidence</Pill>
+                    <Pill tone="green" icon={ShieldCheck}>
+                      High confidence
+                    </Pill>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:flex">
@@ -1723,9 +1738,7 @@ export function MasterEvidenceDetail() {
               <ExtractedTable activeTab={tab} />
               <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">
-                    Source page
-                  </h3>
+                  <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">Source page</h3>
                   <Link
                     href={documentHref(document, query)}
                     className={cn(

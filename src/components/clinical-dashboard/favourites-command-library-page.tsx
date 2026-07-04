@@ -139,7 +139,8 @@ const sourceRecords: SourceRecord[] = [
 ];
 
 const typeStyles: Record<FavouriteType, string> = {
-  Medication: "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+  Medication:
+    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
   Document: "border-blue-200 bg-blue-50 text-blue-700",
   Table: "border-emerald-200 bg-emerald-50 text-emerald-700",
   "Saved search": "border-slate-200 bg-slate-50 text-slate-700",
@@ -161,13 +162,7 @@ function MiniIconTile({ icon: Icon, active = false }: { icon: LucideIcon; active
   );
 }
 
-function SmallChip({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+function SmallChip({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <span
       className={cn(
@@ -319,9 +314,7 @@ function ContinueStrip() {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-xs font-black uppercase tracking-[0.08em] text-[color:var(--success)]">Continue</p>
                 <span className="hidden h-1 w-1 rounded-full bg-[color:var(--border-strong)] sm:block" aria-hidden />
-                <p className="truncate text-sm font-black text-[color:var(--text-heading)]">
-                  Acamprosate renal screen
-                </p>
+                <p className="truncate text-sm font-black text-[color:var(--text-heading)]">Acamprosate renal screen</p>
               </div>
               <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
                 Ward round · 3 sources · last opened Today 08:44
@@ -492,7 +485,8 @@ function FavouritesTable() {
                   key={item.id}
                   className={cn(
                     "relative h-[5.25rem] transition hover:bg-[color:var(--surface-subtle)]",
-                    item.selected && "bg-[color:var(--clinical-accent-soft)]/45 shadow-[inset_2px_0_0_var(--clinical-accent)]",
+                    item.selected &&
+                      "bg-[color:var(--clinical-accent-soft)]/45 shadow-[inset_2px_0_0_var(--clinical-accent)]",
                   )}
                 >
                   <td className="px-3 align-middle">
@@ -651,7 +645,8 @@ function ItemWorkspace() {
         </div>
 
         <p className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[color:var(--text-muted)]">
-          Saved in <Folder className="h-4 w-4" aria-hidden /> <span className="text-[color:var(--text-heading)]">Ward round</span>
+          Saved in <Folder className="h-4 w-4" aria-hidden />{" "}
+          <span className="text-[color:var(--text-heading)]">Ward round</span>
         </p>
       </div>
 
@@ -750,7 +745,10 @@ function ItemWorkspace() {
             </h3>
             <button
               type="button"
-              className={cn("inline-flex items-center gap-1 text-xs font-black text-[color:var(--clinical-accent)]", focusRing)}
+              className={cn(
+                "inline-flex items-center gap-1 text-xs font-black text-[color:var(--clinical-accent)]",
+                focusRing,
+              )}
             >
               <Edit3 className="h-3.5 w-3.5" aria-hidden />
               Edit
@@ -764,7 +762,10 @@ function ItemWorkspace() {
               <span className="text-xs font-bold text-[color:var(--text-muted)]">Updated 11 May 2024</span>
               <button
                 type="button"
-                className={cn("inline-flex items-center gap-1 text-xs font-black text-[color:var(--success)]", focusRing)}
+                className={cn(
+                  "inline-flex items-center gap-1 text-xs font-black text-[color:var(--success)]",
+                  focusRing,
+                )}
               >
                 <Save className="h-3.5 w-3.5" aria-hidden />
                 Save note

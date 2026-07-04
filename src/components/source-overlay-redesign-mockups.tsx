@@ -104,7 +104,15 @@ function toneClass(tone: VariantTone) {
   };
 }
 
-function IconTile({ icon: Icon, tone = "scope", compact = false }: { icon: LucideIcon; tone?: VariantTone; compact?: boolean }) {
+function IconTile({
+  icon: Icon,
+  tone = "scope",
+  compact = false,
+}: {
+  icon: LucideIcon;
+  tone?: VariantTone;
+  compact?: boolean;
+}) {
   return (
     <span
       className={cn(
@@ -264,10 +272,17 @@ function SourceRow({ row, compact = false }: { row: (typeof sourceRows)[number];
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
       <span className="min-w-0">
-        <span className={cn("block truncate font-extrabold text-[color:var(--text-heading)]", compact ? "text-xs" : "text-sm")}>
+        <span
+          className={cn(
+            "block truncate font-extrabold text-[color:var(--text-heading)]",
+            compact ? "text-xs" : "text-sm",
+          )}
+        >
           {row.title}
         </span>
-        <span className="mt-0.5 block truncate text-[11px] font-semibold text-[color:var(--text-soft)]">{row.meta}</span>
+        <span className="mt-0.5 block truncate text-[11px] font-semibold text-[color:var(--text-soft)]">
+          {row.meta}
+        </span>
       </span>
       <Pill small tone={row.tone === "accent" ? "scope" : row.tone === "warning" ? "graphite" : "library"} active>
         {row.status}
@@ -297,12 +312,22 @@ function PanelHeader({
         <IconTile icon={icon} tone={tone} compact={device === "phone"} />
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h3 className={cn("truncate font-extrabold text-[color:var(--text-heading)]", device === "phone" ? "text-base" : "text-xl")}>
+            <h3
+              className={cn(
+                "truncate font-extrabold text-[color:var(--text-heading)]",
+                device === "phone" ? "text-base" : "text-xl",
+              )}
+            >
               {title}
             </h3>
             {device === "desktop" ? <Pill small>{count}</Pill> : null}
           </div>
-          <p className={cn("mt-1 font-medium text-[color:var(--text-muted)]", device === "phone" ? "text-xs" : "text-sm")}>
+          <p
+            className={cn(
+              "mt-1 font-medium text-[color:var(--text-muted)]",
+              device === "phone" ? "text-xs" : "text-sm",
+            )}
+          >
             {description}
           </p>
         </div>
@@ -395,7 +420,9 @@ function ScopeControlStrip({ device }: { device: Device }) {
           </div>
           <SearchField placeholder="Filter documents by title or file" compact={device === "phone"} />
           <div className="flex flex-wrap gap-2">
-            <Pill active tone="scope">All documents</Pill>
+            <Pill active tone="scope">
+              All documents
+            </Pill>
             <Pill icon={Clock3}>Recently updated</Pill>
             <Pill icon={CheckCircle2}>Pinned first</Pill>
           </div>
@@ -403,7 +430,9 @@ function ScopeControlStrip({ device }: { device: Device }) {
         <section className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-extrabold uppercase text-[color:var(--text-soft)]">Refine</p>
-            <Pill small icon={ListFilter}>10 filters</Pill>
+            <Pill small icon={ListFilter}>
+              10 filters
+            </Pill>
           </div>
           <MiniFilterGrid device={device} />
           {device === "desktop" ? (
@@ -412,7 +441,11 @@ function ScopeControlStrip({ device }: { device: Device }) {
             </div>
           ) : null}
         </section>
-        <EmptyState title="No documents in this scope" body="Clear a filter or search by file name." compact={device === "phone"} />
+        <EmptyState
+          title="No documents in this scope"
+          body="Clear a filter or search by file name."
+          compact={device === "phone"}
+        />
       </div>
     </div>
   );
@@ -432,7 +465,12 @@ function ScopeSplitWorkbench({ device }: { device: Device }) {
           count="2 selected"
         />
       </div>
-      <div className={cn("grid flex-1 gap-3 bg-[color:var(--surface-subtle)] p-3", isDesktop && "grid-cols-[1.25fr_.85fr] p-4")}>
+      <div
+        className={cn(
+          "grid flex-1 gap-3 bg-[color:var(--surface-subtle)] p-3",
+          isDesktop && "grid-cols-[1.25fr_.85fr] p-4",
+        )}
+      >
         <section className="grid content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
           <SearchField placeholder="Search loaded documents" compact={device === "phone"} />
           <div className="grid gap-2">
@@ -480,7 +518,12 @@ function ScopeFacetRail({ device }: { device: Device }) {
           count="0 available"
         />
       </div>
-      <div className={cn("grid flex-1 gap-3 bg-[color:var(--surface-subtle)] p-3", isDesktop && "grid-cols-[12rem_minmax(0,1fr)] p-4")}>
+      <div
+        className={cn(
+          "grid flex-1 gap-3 bg-[color:var(--surface-subtle)] p-3",
+          isDesktop && "grid-cols-[12rem_minmax(0,1fr)] p-4",
+        )}
+      >
         <section
           className={cn(
             "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5",
@@ -493,7 +536,9 @@ function ScopeFacetRail({ device }: { device: Device }) {
               type="button"
               className={cn(
                 "grid min-h-9 min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg border px-2 text-left text-xs font-extrabold",
-                index === 0 ? toneClass("library").soft : "border-transparent bg-transparent text-[color:var(--text-muted)]",
+                index === 0
+                  ? toneClass("library").soft
+                  : "border-transparent bg-transparent text-[color:var(--text-muted)]",
                 !isDesktop && "min-w-[7.5rem]",
               )}
             >
@@ -509,7 +554,11 @@ function ScopeFacetRail({ device }: { device: Device }) {
             <SelectField label="Topic" value="Monitoring" compact={device === "phone"} />
             {isDesktop ? <SelectField label="Risk" value="High-risk" compact={false} /> : null}
           </div>
-          <EmptyState title="No documents match" body="The scope can stay short until matching files exist." compact={device === "phone"} />
+          <EmptyState
+            title="No documents match"
+            body="The scope can stay short until matching files exist."
+            compact={device === "phone"}
+          />
         </section>
       </div>
     </div>
@@ -531,7 +580,12 @@ function LibraryCompactSheet({ device }: { device: Device }) {
         />
       </div>
       <div className={cn("grid flex-1 content-start gap-3 bg-[color:var(--surface-subtle)] p-3", isDesktop && "p-4")}>
-        <section className={cn("grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3", isDesktop && "grid-cols-[minmax(0,1fr)_auto] items-center")}>
+        <section
+          className={cn(
+            "grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3",
+            isDesktop && "grid-cols-[minmax(0,1fr)_auto] items-center",
+          )}
+        >
           <div className="min-w-0">
             <p className="text-sm font-extrabold text-[color:var(--text-heading)]">Source library</p>
             <p className="mt-0.5 text-xs font-semibold text-[color:var(--text-muted)]">0 matching documents.</p>
@@ -566,7 +620,12 @@ function LibraryStatusSplit({ device }: { device: Device }) {
           count="2,065 indexed"
         />
       </div>
-      <div className={cn("grid flex-1 gap-3 bg-[color:var(--surface-subtle)] p-3", isDesktop && "grid-cols-[13rem_minmax(0,1fr)] p-4")}>
+      <div
+        className={cn(
+          "grid flex-1 gap-3 bg-[color:var(--surface-subtle)] p-3",
+          isDesktop && "grid-cols-[13rem_minmax(0,1fr)] p-4",
+        )}
+      >
         <section className="grid content-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
           <p className="text-xs font-extrabold uppercase text-[color:var(--text-soft)]">Status</p>
           <Pill active tone="graphite" icon={CheckCircle2}>
@@ -630,8 +689,12 @@ export function SourceOverlayRedesignMockups() {
       <div className="mx-auto grid max-w-[92rem] gap-6">
         <header className="grid gap-4 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)] lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-end">
           <div>
-            <p className="text-xs font-extrabold uppercase text-[color:var(--clinical-accent)]">Source overlay review</p>
-            <h1 className="mt-2 text-3xl font-black text-[color:var(--text-heading)]">Compact source and scope mockups</h1>
+            <p className="text-xs font-extrabold uppercase text-[color:var(--clinical-accent)]">
+              Source overlay review
+            </p>
+            <h1 className="mt-2 text-3xl font-black text-[color:var(--text-heading)]">
+              Compact source and scope mockups
+            </h1>
             <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
               Six redesign options for the two oversized popups. Every option keeps the desktop and phone treatment in
               one comparison so proportion, symmetry, and sheet height can be judged together.
@@ -639,7 +702,10 @@ export function SourceOverlayRedesignMockups() {
           </div>
           <div className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
             {designNotes.map((note) => (
-              <div key={note} className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-xs font-bold text-[color:var(--text-muted)]">
+              <div
+                key={note}
+                className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 text-xs font-bold text-[color:var(--text-muted)]"
+              >
                 <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden="true" />
                 <span>{note}</span>
               </div>
@@ -657,13 +723,22 @@ export function SourceOverlayRedesignMockups() {
               3 alternatives
             </Pill>
           </div>
-          <MockupPair label="A. Control strip" intent="Best default: search stays visible, filters are grouped, and the phone sheet stops below the full viewport.">
+          <MockupPair
+            label="A. Control strip"
+            intent="Best default: search stays visible, filters are grouped, and the phone sheet stops below the full viewport."
+          >
             {(device) => <ScopeControlStrip device={device} />}
           </MockupPair>
-          <MockupPair label="B. Split workbench" intent="Best for heavier source sets: results and filters are balanced into two clear work areas.">
+          <MockupPair
+            label="B. Split workbench"
+            intent="Best for heavier source sets: results and filters are balanced into two clear work areas."
+          >
             {(device) => <ScopeSplitWorkbench device={device} />}
           </MockupPair>
-          <MockupPair label="C. Facet rail" intent="Best for dense metadata: categories move into a compact rail instead of a long vertical form.">
+          <MockupPair
+            label="C. Facet rail"
+            intent="Best for dense metadata: categories move into a compact rail instead of a long vertical form."
+          >
             {(device) => <ScopeFacetRail device={device} />}
           </MockupPair>
         </section>
@@ -678,13 +753,22 @@ export function SourceOverlayRedesignMockups() {
               3 alternatives
             </Pill>
           </div>
-          <MockupPair label="A. Compact sheet" intent="Best default: removes the huge blank lower half and keeps search, filters, and empty state in one balanced stack.">
+          <MockupPair
+            label="A. Compact sheet"
+            intent="Best default: removes the huge blank lower half and keeps search, filters, and empty state in one balanced stack."
+          >
             {(device) => <LibraryCompactSheet device={device} />}
           </MockupPair>
-          <MockupPair label="B. Status split" intent="Best for operational review: source health and browse actions are separate, scan-friendly zones.">
+          <MockupPair
+            label="B. Status split"
+            intent="Best for operational review: source health and browse actions are separate, scan-friendly zones."
+          >
             {(device) => <LibraryStatusSplit device={device} />}
           </MockupPair>
-          <MockupPair label="C. Command palette" intent="Best for fast opening: a focused search-first layout with source rows as the primary decision surface.">
+          <MockupPair
+            label="C. Command palette"
+            intent="Best for fast opening: a focused search-first layout with source rows as the primary decision surface."
+          >
             {(device) => <LibraryCommandPalette device={device} />}
           </MockupPair>
         </section>
