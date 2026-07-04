@@ -367,16 +367,21 @@ function ClinicalCollapsedRail({
             <BrandMark className="h-7 w-7" />
           </Link>
         ) : (
-          <button
-            type="button"
-            onClick={() => onCollapsedChange(false)}
-            className={cn("grid", collapsedSidebarControl, "group max-lg:cursor-default")}
-            aria-label="Expand sidebar"
-            title="Expand sidebar"
-          >
-            <BrandMark className="h-7 w-7 max-lg:opacity-100 lg:group-hover:hidden lg:group-focus-visible:hidden" />
-            <PanelLeftOpen className="hidden h-4.5 w-4.5 lg:group-hover:block lg:group-focus-visible:block" />
-          </button>
+          <>
+            <span className={cn("grid place-items-center lg:hidden", collapsedSidebarControl)} aria-hidden>
+              <BrandMark className="h-7 w-7" />
+            </span>
+            <button
+              type="button"
+              onClick={() => onCollapsedChange(false)}
+              className={cn("hidden lg:grid", collapsedSidebarControl, "group")}
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+            >
+              <BrandMark className="h-7 w-7 lg:group-hover:hidden lg:group-focus-visible:hidden" />
+              <PanelLeftOpen className="hidden h-4.5 w-4.5 lg:group-hover:block lg:group-focus-visible:block" />
+            </button>
+          </>
         )}
         <span className="h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
       </div>
