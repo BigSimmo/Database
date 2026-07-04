@@ -24,6 +24,7 @@ import {
   visibleAppModeDefinitions,
   type AppModeId,
 } from "@/lib/app-modes";
+import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
@@ -132,9 +133,13 @@ function GlobalMockupSearchShellClient({
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
   const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search");
+  const isDocumentCommandSearchView = pathname === "/mockups/document-search-command" && requestedQuery.length > 0;
+  const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
   const shouldRenderDashboardSearch =
     hasSubmittedModeSearch && resolvedSearchMode !== "services" && !isDocumentSearchMockupRoute;
   const isFormsOnlyShell = availableModeIds?.length === 1 && availableModeIds[0] === "forms";
+  const shouldRenderFormsSearchResults =
+    shouldRenderDashboardSearch && resolvedSearchMode === "forms" && isFormsOnlyShell;
   const isStandaloneModeHome =
     !hasSubmittedModeSearch &&
     !shouldRenderDashboardSearch &&
@@ -229,6 +234,10 @@ function GlobalMockupSearchShellClient({
   }
 
   function navigateToMode(mode: AppModeId, options: { query?: string; run?: boolean; focus?: boolean } = {}) {
+    if (mode === "documents" && options.query?.trim()) {
+      router.push(documentsSearchHref(options));
+      return;
+    }
     router.push(appModeHomeHref(mode, options));
   }
 
@@ -248,13 +257,6 @@ function GlobalMockupSearchShellClient({
     navigateToMode(mode);
   }
 
-  function startNewChat() {
-    setQuery("");
-    setSearchMode(fallbackMode);
-    setMobileMenuOpen(false);
-    navigateToMode(fallbackMode, { focus: true });
-  }
-
   function startNewAnswerChat() {
     setQuery("");
     setMobileMenuOpen(false);
@@ -266,11 +268,7 @@ function GlobalMockupSearchShellClient({
     navigateToMode("answer", { query: recentQuery, focus: true });
   }
 
-  if (shouldRenderDashboardSearch && resolvedSearchMode === "forms" && isFormsOnlyShell) {
-    return <FormsSearchResultsPage query={requestedQuery} focusSearch={searchParams.get("focus") === "1"} />;
-  }
-
-  if (shouldRenderDashboardSearch) {
+  if (shouldRenderDashboardSearch && !shouldRenderFormsSearchResults) {
     return (
       <ClinicalDashboard
         initialSearchMode={resolvedSearchMode}
@@ -329,7 +327,11 @@ function GlobalMockupSearchShellClient({
       ) : null}
 
       <div className="flex min-h-dvh min-w-0 flex-col">
-        <div className={cn(!mobileChromeVisible && "hidden lg:block")}>
+        {/* max-sm:contents lets the header's own `sticky top-0` engage against
+            the document scroll on phones (a plain wrapper div otherwise caps
+            its sticking range at its own height), which the phone
+            hide-on-scroll overlay relies on. */}
+        <div className={mobileChromeVisible ? "max-sm:contents" : "hidden lg:block"}>
           <MasterSearchHeader
             documents={[]}
             documentTotal={0}
@@ -343,14 +345,17 @@ function GlobalMockupSearchShellClient({
             onQueryChange={setQuery}
             onSearchModeChange={changeMode}
             onAsk={submitSearch}
-            onClearQuery={() => setQuery("")}
+            onClearQuery={() => {
+              setQuery("");
+              if (isStandaloneModeHome) navigateToMode(searchMode, { focus: true });
+            }}
             onClearScope={() => undefined}
             onQueryModeChange={setQueryMode}
             onScopeFiltersChange={setScopeFilters}
             onToggleScope={() => undefined}
             onOpenUpload={() => router.push(`${appModeHomeHref("documents", { focus: true })}#sources`)}
             onOpenEvidence={() => navigateToMode("answer", { focus: true })}
-            onNewChat={startNewChat}
+            onNewChat={startNewAnswerChat}
             onOpenMobileSidebar={() => setMobileMenuOpen(true)}
             mobileLeadingAction={
               pathname === "/differentials" && searchMode === "differentials" && requestedQuery ? "back" : "menu"
@@ -363,12 +368,19 @@ function GlobalMockupSearchShellClient({
             queryInputRef={inputRef}
             headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
             mobileSearchPlacement="bottom"
+            // Submitted searches that stay in the shell (services results) are
+            // result views: compact the phone bottom composer so results keep
+            // maximum screen space. Mode homes keep the chip-row layout.
+            mobileBottomSearchVariant={useCompactBottomSearch ? "compact" : "default"}
             desktopSearchPlacement={
               (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
             }
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
             heroComposerFromTablet={isStandaloneModeHome}
+            // Phone-only: the document scrolls here and the header is sticky,
+            // so a translate overlay hides it with zero layout shift.
+            hideOnScroll={{ strategy: "overlay" }}
           />
         </div>
 
@@ -376,15 +388,20 @@ function GlobalMockupSearchShellClient({
           id="main-content"
           tabIndex={-1}
           className={cn(
-            "min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden focus:outline-none",
+            // Phone: fill the space under the header exactly (the header is
+            // taller than the 4rem the calc assumed, which forced a phantom
+            // scrollbar on every standalone page). sm+ keeps the original calc.
+            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex-1 sm:min-h-[calc(100dvh-4rem)]",
             !shouldShowSearchComposer
               ? "pb-8"
               : searchMode === "answer"
                 ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
-                : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
+                : useCompactBottomSearch
+                  ? "pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-8"
+                  : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
-          {children}
+          {shouldRenderFormsSearchResults ? <FormsSearchResultsPage query={requestedQuery} /> : children}
         </div>
       </div>
 
