@@ -387,7 +387,10 @@ function GlobalMockupSearchShellClient({
           id="main-content"
           tabIndex={-1}
           className={cn(
-            "min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden focus:outline-none",
+            // Phone: fill the space under the header exactly (the header is
+            // taller than the 4rem the calc assumed, which forced a phantom
+            // scrollbar on every standalone page). sm+ keeps the original calc.
+            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex-1 sm:min-h-[calc(100dvh-4rem)]",
             !shouldShowSearchComposer
               ? "pb-8"
               : searchMode === "answer"
