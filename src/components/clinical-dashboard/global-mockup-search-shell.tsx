@@ -329,7 +329,11 @@ function GlobalMockupSearchShellClient({
       ) : null}
 
       <div className="flex min-h-dvh min-w-0 flex-col">
-        <div className={cn(!mobileChromeVisible && "hidden lg:block")}>
+        {/* max-sm:contents lets the header's own `sticky top-0` engage against
+            the document scroll on phones (a plain wrapper div otherwise caps
+            its sticking range at its own height), which the phone
+            hide-on-scroll overlay relies on. */}
+        <div className={mobileChromeVisible ? "max-sm:contents" : "hidden lg:block"}>
           <MasterSearchHeader
             documents={[]}
             documentTotal={0}
@@ -369,6 +373,9 @@ function GlobalMockupSearchShellClient({
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
             heroComposerFromTablet={isStandaloneModeHome}
+            // Phone-only: the document scrolls here and the header is sticky,
+            // so a translate overlay hides it with zero layout shift.
+            hideOnScroll={{ strategy: "overlay" }}
           />
         </div>
 
