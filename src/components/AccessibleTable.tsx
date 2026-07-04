@@ -16,8 +16,7 @@ import { cn, textMuted } from "@/components/ui-primitives";
 import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
 import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
 
-const tableExpandMediaQuery =
-  "(max-width: 784px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
+const tableExpandMediaQuery = "(max-width: 784px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
 const metadataHeaderPattern = /^(?:source|sources|support|pages?|chunk|file|document|citation|citations|provenance)$/i;
 const metadataCellPattern =
   /\b(?:page|pages|p\.|chunk|source|citation|citations)\s*[:#-]?\s*(?:n\/a|\d+(?:\s*[-,]\s*\d+)*)\b/gi;
