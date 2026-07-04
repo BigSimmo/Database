@@ -3498,6 +3498,20 @@ export function ClinicalDashboard({
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const { status: authStatus, authorizationHeader, markSessionExpired } = auth;
+  const prevAuthStatusRef = useRef(authStatus);
+  useEffect(() => {
+    const previous = prevAuthStatusRef.current;
+    prevAuthStatusRef.current = authStatus;
+    if (
+      (authStatus === "signed_out" || authStatus === "expired") &&
+      (previous === "authenticated" || previous === "loading")
+    ) {
+      resetAnswerThread();
+      setAnswer(null);
+      setSources([]);
+      latestAnswerTurnRef.current = null;
+    }
+  }, [authStatus]);
   const supabaseEnvStatus = setupChecks.find((check) => check.id === "env")?.status;
   const browserAuthUnavailableDemoFallback = !auth.isConfigured && supabaseEnvStatus !== "ready";
   const localNoAuthMode = isLocalNoAuthMode();

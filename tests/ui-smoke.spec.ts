@@ -1212,6 +1212,37 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(suggestionText ?? "");
   });
 
+  test("quote follow-up stages a composer draft from evidence quotes", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const question = "What clozapine monitoring items are shown in the table image?";
+    await fillVisibleQuestionInput(page, question);
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
+    await expect(evidenceDrawer).toBeVisible();
+    await evidenceDrawer.click();
+
+    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
+    await expect(evidenceSheet).toBeVisible();
+    await evidenceSheet.getByRole("tab", { name: /Quotes/i }).click();
+    await expect(evidenceSheet.getByRole("tabpanel", { name: /Quotes/i })).toBeVisible();
+
+    const followUpButton = evidenceSheet.getByRole("button", { name: /Ask a follow-up from quote/i }).first();
+    await expect(followUpButton).toBeVisible();
+    await followUpButton.click();
+
+    const composer = visibleQuestionInput(page);
+    await expect(composer).toBeFocused();
+    await expect(composer).toHaveValue(/Using the quoted source from/i);
+    await expect(composer).toHaveValue(/Quote:/i);
+    await expect(visibleAnswerSubmitButton(page)).toBeEnabled();
+  });
+
   test("source-only answer keeps support rows honest", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page, {
@@ -1443,8 +1474,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("favourites-active-filters")).toBeVisible();
 
     await page.getByRole("button", { name: "Start a new chat" }).click();
-    await expect(page).toHaveURL(/\/favourites\?focus=1$/);
-    await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
+    await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
+    await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toBeFocused();
   });
 

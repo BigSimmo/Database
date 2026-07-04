@@ -77,6 +77,29 @@ function topicLabel(priorQuery: string, answer: RagAnswer) {
   return trimmed.length > 48 ? `${trimmed.slice(0, 45).trimEnd()}…` : trimmed;
 }
 
+function isShortContinuationQuery(query: string) {
+  const trimmed = query.trim();
+  return trimmed.length < selfContainedFollowUpLength && followUpCuePattern.test(trimmed);
+}
+
+/**
+ * Pick the clinical topic embedded in follow-up suggestion chips. Short
+ * continuation questions ("what about renal impairment?") should anchor on the
+ * thread's opening question, not echo the latest follow-up phrasing.
+ */
+function resolveSuggestionTopicAnchor(latestQuery: string, priorQueries: string[], answer: RagAnswer) {
+  const medications = answer.queryAnalysis?.medications ?? [];
+  const medication = medications.find((item) => item.trim());
+  if (medication) return medication.trim();
+
+  const threadQueries = priorQueries.map((query) => query.trim()).filter(Boolean);
+  const firstQuery = threadQueries[0];
+  if (firstQuery && firstQuery !== latestQuery.trim() && isShortContinuationQuery(latestQuery)) {
+    return firstQuery;
+  }
+  return latestQuery.trim();
+}
+
 function medicationFollowUpTemplates(topic: string) {
   return [
     "What about renal impairment?",
@@ -162,11 +185,12 @@ export function buildAnswerFollowUpSuggestions(
   const trimmedPrior = priorQuery.trim();
   if (!trimmedPrior) return [];
 
+  const topicQuery = resolveSuggestionTopicAnchor(trimmedPrior, priorQueries, answer);
   const seen = new Set(priorQueries.map(normalizeSuggestionKey));
   seen.add(normalizeSuggestionKey(trimmedPrior));
 
   const suggestions: string[] = [];
-  for (const candidate of [...gapFollowUpTemplates(answer), ...templatesForAnswer(trimmedPrior, answer)]) {
+  for (const candidate of [...gapFollowUpTemplates(answer), ...templatesForAnswer(topicQuery, answer)]) {
     const normalized = normalizeSuggestionKey(candidate);
     if (!normalized || seen.has(normalized)) continue;
     if (suggestions.some((item) => normalizeSuggestionKey(item) === normalized)) continue;

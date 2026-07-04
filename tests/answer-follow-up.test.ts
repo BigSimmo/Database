@@ -104,4 +104,24 @@ describe("buildAnswerFollowUpSuggestions", () => {
     ]);
     expect(suggestions.some((item) => /renal impairment/i.test(item))).toBe(false);
   });
+
+  it("anchors suggestion topics on the opening question after a short follow-up turn", () => {
+    const answerWithoutMedicationHint = {
+      ...medicationAnswer,
+      queryAnalysis: {
+        ...medicationAnswer.queryAnalysis,
+        medications: [],
+      },
+    } satisfies import("@/lib/types").RagAnswer;
+
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "what about renal impairment?",
+      answerWithoutMedicationHint,
+      ["lithium dosing", "what about renal impairment?"],
+    );
+
+    expect(suggestions.length).toBeGreaterThan(0);
+    expect(suggestions.every((item) => !/for what about renal impairment/i.test(item))).toBe(true);
+    expect(suggestions.some((item) => /lithium dosing|What monitoring is required\?/i.test(item))).toBe(true);
+  });
 });
