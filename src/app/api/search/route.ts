@@ -14,7 +14,8 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag-provider";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
-import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { parseJsonBody } from "@/lib/validation/body";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
@@ -64,9 +65,9 @@ function isSourceLibrarySearchMode(mode: SearchRequestBody["mode"]) {
   return mode === "documents" || mode === "differentials";
 }
 
-function scopedSearchKey(body: SearchRequestBody, ownerId: string) {
+function scopedSearchKey(body: SearchRequestBody, ownerId?: string | null) {
   return JSON.stringify({
-    ownerId,
+    ownerId: ownerId ?? undefined,
     query: body.query.toLowerCase().replace(/\s+/g, " ").trim(),
     topK: body.topK ?? null,
     documentId: body.documentId ?? null,
@@ -377,7 +378,7 @@ function candidatePromotions(query: string, results: SearchResult[]) {
 
 function logWeakSearch(args: {
   supabase: ReturnType<typeof createAdminClient>;
-  ownerId: string;
+  ownerId?: string | null;
   query: string;
   queryClass: string;
   route?: string | null;
@@ -488,7 +489,7 @@ function retrievalDecisionTelemetry(telemetry: Record<string, unknown>) {
 
 function logRetrievalDiagnostics(args: {
   supabase: ReturnType<typeof createAdminClient>;
-  ownerId: string;
+  ownerId?: string | null;
   query: string;
   results: SearchResult[];
   telemetry: Record<string, unknown>;
@@ -573,7 +574,7 @@ function logRetrievalDiagnostics(args: {
 
 function logSearchObservation(args: {
   supabase: ReturnType<typeof createAdminClient>;
-  ownerId: string;
+  ownerId?: string | null;
   query: string;
   results: SearchResult[];
   payload: Record<string, unknown>;
@@ -625,14 +626,14 @@ function logSearchObservation(args: {
 async function buildScopedSearchPayload(
   body: SearchRequestBody,
   supabase: ReturnType<typeof createAdminClient>,
-  ownerId: string,
+  ownerId?: string | null,
 ) {
   const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const effectiveQueryClass =
     queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;
   const scope = await resolveSearchScope({
     supabase,
-    ownerId,
+    ownerId: ownerId ?? undefined,
     documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
     filters: body.filters,
   });
@@ -676,7 +677,8 @@ async function buildScopedSearchPayload(
       ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit))
       : (body.topK ?? 8),
     documentIds: scope.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
-    ownerId,
+    ownerId: ownerId ?? undefined,
+    allowGlobalSearch: !ownerId,
     queryMode: body.queryMode,
   });
   const resultLimit = isSourceLibrarySearchMode(body.mode)
@@ -692,7 +694,7 @@ async function buildScopedSearchPayload(
   const relatedDocuments = body.includeRelatedDocuments
     ? await fetchRelatedDocuments({
         supabase,
-        ownerId,
+        ownerId: ownerId ?? undefined,
         query: searchFocusQuery,
         results,
         limit: isSourceLibrarySearchMode(body.mode) ? body.documentLimit : undefined,
@@ -880,12 +882,12 @@ export async function POST(request: Request) {
     }
 
     supabase = createAdminClient();
-    const user = await serverAuth.requireAuthenticatedUser(request, supabase);
-    ownerId = user.id;
+    const access = await publicAccessContext(request, supabase);
+    ownerId = access.ownerId ?? null;
 
-    const rateLimit = await consumeApiRateLimit({
+    const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
-      ownerId,
+      subject: access.rateLimitSubject,
       bucket: "search",
       allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
     });
@@ -898,7 +900,7 @@ export async function POST(request: Request) {
 
     const key = scopedSearchKey(body, ownerId);
     const { payload, coalesced } = await coalesceScopedSearch(key, () =>
-      buildScopedSearchPayload(body, supabase!, ownerId!),
+      buildScopedSearchPayload(body, supabase!, ownerId),
     );
     return NextResponse.json({
       ...payload,

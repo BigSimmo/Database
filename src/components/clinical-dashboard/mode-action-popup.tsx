@@ -326,14 +326,19 @@ export function ModeActionPopup({
     const availableAbove = Math.max(0, rect.top - viewportTop - edgePadding);
     const availableBelow = Math.max(0, viewportBottom - rect.bottom - edgePadding);
     const nextPlacement: ModeActionPlacement = availableBelow > availableAbove + 40 ? "down" : "up";
-    const available = nextPlacement === "up" ? availableAbove : availableBelow;
+    const detachedUpOffset = 16;
+    const detachedDownOffset = integrated ? 72 : 14;
+    const available =
+      nextPlacement === "up"
+        ? Math.max(0, availableAbove - detachedUpOffset)
+        : Math.max(0, availableBelow - detachedDownOffset);
     const nextSurfaceMaxHeight = Math.max(220, Math.floor(Math.min(available, viewportHeight - edgePadding * 2)));
     const nextBodyMaxHeight = Math.max(156, nextSurfaceMaxHeight - 92);
 
     setPlacement((current) => (current === nextPlacement ? current : nextPlacement));
     setSurfaceMaxHeight((current) => (current === nextSurfaceMaxHeight ? current : nextSurfaceMaxHeight));
     setBodyMaxHeight((current) => (current === nextBodyMaxHeight ? current : nextBodyMaxHeight));
-  }, []);
+  }, [integrated]);
 
   function openWithFocus(index: number) {
     onBeforeOpen?.();
@@ -488,7 +493,11 @@ export function ModeActionPopup({
           className={cn(
             "mode-action-surface absolute z-50 text-[color:var(--text)]",
             integrated ? "inset-x-0" : "inset-x-0 sm:inset-x-auto sm:left-0",
-            placement === "up" ? "bottom-[calc(100%-1px)]" : "top-[calc(100%-1px)]",
+            placement === "up"
+              ? "bottom-[calc(100%+0.875rem)]"
+              : integrated
+                ? "top-[calc(100%+3.65rem)]"
+                : "top-[calc(100%+0.875rem)]",
             !integrated && (items.length <= 4 ? "sm:w-[min(22rem,100%)]" : "sm:w-[min(24rem,100%)]"),
           )}
         >

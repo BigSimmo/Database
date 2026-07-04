@@ -22,7 +22,10 @@ import {
 import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { SearchResultsEmptyState, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeHomeHref } from "@/lib/app-modes";
+import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
@@ -385,6 +388,7 @@ function RightRail({
 export function ServicesNavigatorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const command = useSearchCommand();
   const urlQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const initialQuery = urlQuery || defaultQuery;
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
@@ -395,6 +399,11 @@ export function ServicesNavigatorPage() {
     const ranked = rankServiceRecords(searchableRecords, query);
     return ranked.length ? ranked.map((match) => match.service) : query.trim() ? [] : searchableRecords;
   }, [query, searchableRecords]);
+  const scopedMatches = useMemo(() => {
+    const scopes = command?.commandScopes ?? [];
+    if (!scopes.length) return matches;
+    return matches.filter((service) => recordMatchesCommandScopes(service, scopes, "services"));
+  }, [command?.commandScopes, matches]);
   const [selectedSlugs, setSelectedSlugs] = useState(() => serviceRecords.slice(0, 2).map((service) => service.slug));
   const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
 
@@ -424,20 +433,32 @@ export function ServicesNavigatorPage() {
             className="mode-home-composer-slot hidden w-full min-w-0 sm:[&:not(:empty)]:block"
           />
           <Stepper />
+          <div className="hidden lg:block">
+            <SearchResultsHeaderBand modeId="services" query={query} matchCount={scopedMatches.length} />
+          </div>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
             <section data-testid="service-search-results" className="min-w-0 space-y-4" aria-label="Referral services">
+              {query.trim() && scopedMatches.length === 0 ? (
+                <SearchResultsEmptyState
+                  modeId="services"
+                  query={query}
+                  onClearScopes={command?.onClearScopes}
+                  onTryExample={(example) => applyServiceQuery(example)}
+                />
+              ) : (
+              <>
               <div className="overflow-hidden rounded-lg border border-[#d7e7f0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
                 <div className="flex min-w-0 items-start justify-between gap-2 bg-[linear-gradient(90deg,#f3fbfb_0%,#ffffff_62%)] p-3 sm:gap-3 sm:p-4">
                   <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 sm:grid-cols-[3.25rem_minmax(0,1fr)]">
                     <span className="hidden h-12 w-12 place-items-center rounded-lg border border-[#b8dedb] bg-[#e6f6f4] text-[#007a78] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] sm:grid">
-                      <span className="text-lg font-extrabold leading-none sm:text-xl">{matches.length}</span>
+                      <span className="text-lg font-extrabold leading-none sm:text-xl">{scopedMatches.length}</span>
                     </span>
                     <div className="min-w-0">
                       <p className="hidden text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#007a78] sm:block">
                         Referral matches
                       </p>
                       <h1 className="text-[1.45rem] font-extrabold leading-tight tracking-tight text-[#071844] sm:mt-0.5 sm:text-3xl">
-                        {matches.length} referral {matches.length === 1 ? "match" : "matches"}
+                        {scopedMatches.length} referral {scopedMatches.length === 1 ? "match" : "matches"}
                       </h1>
                       <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-slate-600 max-sm:max-w-[14rem]">
                         <span className="sm:hidden">Best fit for crisis, ATSI-specific phone referral.</span>
@@ -493,7 +514,7 @@ export function ServicesNavigatorPage() {
                 </div>
               </div>
               <div className="grid gap-3">
-                {matches.map((service, index) => (
+                {scopedMatches.map((service, index) => (
                   <ServiceCard
                     key={service.slug}
                     service={service}
@@ -503,9 +524,11 @@ export function ServicesNavigatorPage() {
                   />
                 ))}
               </div>
+              </>
+              )}
             </section>
             <RightRail
-              matches={matches}
+              matches={scopedMatches}
               selected={selected}
               onClearSelected={() => setSelectedSlugs([])}
               onToggleSelected={toggleSelected}

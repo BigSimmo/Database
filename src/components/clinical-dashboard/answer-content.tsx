@@ -546,6 +546,7 @@ export function NaturalLanguageAnswer({
   onCopy: () => void;
 }) {
   const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
+  const [sourceOnlyNoticeOpen, setSourceOnlyNoticeOpen] = useState(false);
   const [copiedSourceQuote, setCopiedSourceQuote] = useState(false);
   const sourceCapsuleRef = useRef<HTMLButtonElement>(null);
   const copySourceQuoteTimerRef = useRef<number | null>(null);
@@ -617,17 +618,52 @@ export function NaturalLanguageAnswer({
           </span>
         </p>
         {sourceOnly ? (
-          <p
+          <section
             data-testid="source-only-disclosure"
             role="note"
             className={cn(
-              "rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1.5 text-xs leading-5",
+              "max-w-xl overflow-hidden rounded-lg border border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)]/45 text-xs shadow-[var(--shadow-inset)]",
               textMuted,
             )}
           >
-            Source-only answer — assembled from your documents without the AI model, so it may be less complete. Verify
-            it against the cited passages below.
-          </p>
+            <button
+              type="button"
+              onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
+              className="grid min-h-10 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2.5 py-1.5 text-left transition hover:bg-[color:var(--warning-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+              aria-expanded={sourceOnlyNoticeOpen}
+              aria-controls="source-only-disclosure-detail"
+            >
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-[color:var(--surface)] text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
+                <AlertCircle className="h-3.5 w-3.5" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate font-semibold text-[color:var(--text-heading)]">
+                  Source-only answer
+                </span>
+                <span className="block truncate text-[11px] leading-4 text-[color:var(--text-muted)]">
+                  Verify against cited passages
+                </span>
+              </span>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
+                  sourceOnlyNoticeOpen && "rotate-180",
+                )}
+                aria-hidden
+              />
+            </button>
+            {sourceOnlyNoticeOpen ? (
+              <div
+                id="source-only-disclosure-detail"
+                className="border-t border-[color:var(--warning)]/20 bg-[color:var(--surface)]/70 px-3 py-2 text-xs leading-5 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+              >
+                <p>
+                  This answer was assembled from your documents without the AI model, so it may be less complete.
+                  Verify dose, threshold, route, timing, monitoring, and risk details against the cited passages below.
+                </p>
+              </div>
+            ) : null}
+          </section>
         ) : null}
         {sourceCapsuleButton}
         {sourcePreviewOpen && canOpenSourcePreview && !usePreviewSheet ? (
@@ -695,7 +731,6 @@ export function UserQuestionBubble({ query }: { query: string }) {
         className="ml-auto max-w-[min(28rem,86%)] rounded-lg border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-right shadow-[var(--shadow-inset)] sm:max-w-[28rem]"
       >
         <p className="text-sm font-medium leading-6 text-[color:var(--text-heading)]">{cleaned}</p>
-        <p className={cn("nums mt-0.5 text-[11px] leading-4", textMuted)}>9:14 AM</p>
       </div>
     </section>
   );

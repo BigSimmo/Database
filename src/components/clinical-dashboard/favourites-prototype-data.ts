@@ -11,6 +11,7 @@ export type FavouriteItem = {
   meta: string;
   sourceMeta: string;
   primaryAction: string;
+  href: string;
   icon: typeof FileText;
   keywords: string;
 };
@@ -47,6 +48,7 @@ export const favouriteItems: FavouriteItem[] = [
     meta: "Medication page · renal cautions · dose notes",
     sourceMeta: "3 sources",
     primaryAction: "Open",
+    href: "/medications/acamprosate",
     icon: Pill,
     keywords: "acamprosate renal screen medication dose safety ward round pbs",
   },
@@ -58,6 +60,7 @@ export const favouriteItems: FavouriteItem[] = [
     meta: "PDF · p.4-9 · 2 tables",
     sourceMeta: "PDF",
     primaryAction: "Ask",
+    href: "/?mode=documents&q=lithium+monitoring&run=1",
     icon: FileText,
     keywords: "lithium monitoring guideline blood tests shared care renal toxicity",
   },
@@ -69,6 +72,7 @@ export const favouriteItems: FavouriteItem[] = [
     meta: "Saved table · ANC monitoring",
     sourceMeta: "Table",
     primaryAction: "Source",
+    href: "/?mode=documents&q=clozapine+monitoring+table&run=1",
     icon: Quote,
     keywords: "clozapine monitoring table anc fbc neutrophil clinic",
   },
@@ -80,6 +84,7 @@ export const favouriteItems: FavouriteItem[] = [
     meta: "Saved query · medicines + documents",
     sourceMeta: "Run",
     primaryAction: "Run",
+    href: "/?mode=answer&q=renal+dose&run=1",
     icon: Search,
     keywords: "renal dose saved search kidney egfr medicines documents",
   },
@@ -91,6 +96,7 @@ export const favouriteItems: FavouriteItem[] = [
     meta: "Source card · prescribing safety",
     sourceMeta: "Quote",
     primaryAction: "Copy",
+    href: "/?mode=documents&q=QT+prolongation&run=1",
     icon: Quote,
     keywords: "qt prolongation quote source card prescribing safety",
   },

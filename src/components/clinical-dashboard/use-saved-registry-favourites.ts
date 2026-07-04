@@ -27,10 +27,11 @@ function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): F
     id: `${type}:${record.slug}`,
     title: record.title,
     type,
-    set: "",
+    set: type === "services" ? "Saved services" : "Saved forms",
     meta: record.subtitle ?? (type === "services" ? "Saved service" : "Saved form"),
     sourceMeta: type === "services" ? "Service" : "Form",
     primaryAction: "Open",
+    href: `/${type}/${record.slug}`,
     icon: type === "services" ? Stethoscope : ClipboardList,
     keywords: [record.title, record.subtitle, ...(record.tags ?? [])].filter(Boolean).join(" ").toLowerCase(),
   };

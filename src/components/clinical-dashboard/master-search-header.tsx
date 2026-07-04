@@ -66,6 +66,7 @@ import {
   shellChip,
   eyebrowText,
 } from "@/components/ui-primitives";
+import { UniversalSearchCommandSurface } from "@/components/clinical-dashboard/universal-search-command-surface";
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import { Sheet } from "@/components/ui/sheet";
 import {
@@ -203,12 +204,19 @@ export function MasterSearchHeader({
   queryModeOptions,
   queryInputRef,
   queryInputAutoFocus = false,
+  composerPlaceholder,
+  recentQueries = [],
+  commandScopes = [],
+  onCommandScopesChange,
+  onPickRecent,
+  onCrossModeSearch,
   headerVariant = "default",
   mobileSearchPlacement = "default",
   mobileBottomSearchVariant = "default",
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
   desktopHomeComposerSlotId,
+  mobileBottomSearchAddonSlotId,
   heroComposerFromTablet = false,
   mobileLeadingAction = "menu",
   onMobileBack,
@@ -242,6 +250,13 @@ export function MasterSearchHeader({
   queryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>;
   queryInputRef?: Ref<HTMLInputElement>;
   queryInputAutoFocus?: boolean;
+  /** Overrides the mode's default input placeholder (e.g. "Ask a follow-up..." mid-thread). */
+  composerPlaceholder?: string;
+  recentQueries?: string[];
+  commandScopes?: string[];
+  onCommandScopesChange?: (scopes: string[]) => void;
+  onPickRecent?: (query: string) => void;
+  onCrossModeSearch?: (modeId: AppModeId, query: string) => void;
   headerVariant?: "default" | "workflow";
   mobileSearchPlacement?: "default" | "bottom";
   /** "compact" drops the phone footer chip row and hugs the bottom edge —
@@ -251,6 +266,8 @@ export function MasterSearchHeader({
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
   desktopHomeComposerSlotId?: string;
+  /** Phone-only slot rendered above the bottom search pill for page-specific dock addons. */
+  mobileBottomSearchAddonSlotId?: string;
   /** Portal the composer into the hero slot from the tablet breakpoint (sm) up,
    *  rather than the default desktop (lg) breakpoint. */
   heroComposerFromTablet?: boolean;
@@ -274,6 +291,7 @@ export function MasterSearchHeader({
   const isMobileBottomComposer = searchComposerVisible && mobileSearchPlacement === "bottom" && !isAnswerFooterComposer;
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
   const canRunLocalSearch =
+    selectedSearch.kind === "documents" ||
     searchMode === "forms" ||
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
@@ -290,6 +308,8 @@ export function MasterSearchHeader({
   const [scopeSheetFullscreen, setScopeSheetFullscreen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [actionMenuPlacement, setActionMenuPlacement] = useState<ModeActionPlacement>("up");
+  const [commandDropdownOpen, setCommandDropdownOpen] = useState(false);
+  const [commandListboxId, setCommandListboxId] = useState<string>();
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
@@ -382,7 +402,8 @@ export function MasterSearchHeader({
   const activeQuickFilterCount =
     (scopeFilters.sourceStatuses?.length ? 1 : 0) + (scopeFilters.locality ? 1 : 0) + activeLabelFilterCount;
   const submitLabel = trimmedQuery ? selectedSearch.submitBusyLabel : selectedSearch.submitIdleLabel;
-  const queryPlaceholder = isAnswerFooterComposer ? "Ask Clinical Guide" : selectedSearch.placeholder;
+  const queryPlaceholder =
+    composerPlaceholder ?? (isAnswerFooterComposer ? "Ask Clinical Guide" : selectedSearch.placeholder);
   const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
   const actionMenuModeOptions = useMemo<ModeActionModeOption[]>(
     () =>
@@ -1175,9 +1196,13 @@ export function MasterSearchHeader({
     const composerPlaceholder =
       usesMobileBottomStyle && searchMode === "differentials" ? "Search a presentation" : queryPlaceholder;
 
+    const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
+
     return (
       <form
         onSubmit={submit}
+        data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
+        data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
         className={cn(
           isDesktopHomeComposer
             ? "universal-home-search-edge mx-auto w-full"
@@ -1195,17 +1220,60 @@ export function MasterSearchHeader({
                   )
                 : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
           usesBottomComposerPlacement && "answer-footer-search-edge",
+          usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
           usesFooterChipLayout && "flex flex-col items-center gap-2.5",
         )}
       >
         {usesBottomComposerPlacement ? <div className="answer-footer-search-backdrop" aria-hidden="true" /> : null}
+        {usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? (
+          <div
+            id={mobileBottomSearchAddonSlotId}
+            className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
+          />
+        ) : null}
+        <UniversalSearchCommandSurface
+          modeId={searchMode}
+          query={query}
+          recentQueries={recentQueries}
+          commandScopes={commandScopes}
+          dropdownOpen={commandDropdownOpen}
+          onDropdownOpenChange={setCommandDropdownOpen}
+          onQueryChange={onQueryChange}
+          onSearch={onAsk}
+          onPickRecent={(recent) => {
+            onQueryChange(recent);
+            if (onPickRecent) {
+              onPickRecent(recent);
+              return;
+            }
+            onAsk();
+          }}
+          onCrossMode={(targetMode, crossQuery) => {
+            if (onCrossModeSearch) {
+              onCrossModeSearch(targetMode, crossQuery);
+              return;
+            }
+            onQueryChange(crossQuery);
+            onSearchModeChange(targetMode);
+            onAsk();
+          }}
+          onRunModeAction={runModeAction}
+          onCommandScopesChange={(scopes) => onCommandScopesChange?.(scopes)}
+          onListboxIdReady={setCommandListboxId}
+          onFocusSearchInput={() => {
+            if (queryInputRef && "current" in queryInputRef) {
+              queryInputRef.current?.focus();
+            }
+          }}
+        >
         <div
           data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
           className={cn(
             chatComposerShell,
             "answer-footer-search-pill relative z-10 w-full",
             actionMenuOpen && "answer-footer-search-pill-open",
+            commandDropdownOpen && "answer-footer-search-pill-open",
           )}
         >
           <ModeActionPopup
@@ -1239,6 +1307,10 @@ export function MasterSearchHeader({
               data-testid="global-search-input"
               autoFocus={queryInputAutoFocus}
               value={query}
+              role="combobox"
+              aria-expanded={commandDropdownOpen}
+              aria-controls={commandDropdownOpen ? commandListboxId : undefined}
+              aria-autocomplete="list"
               onInput={(event) => onQueryChange(event.currentTarget.value)}
               onChange={(event) => onQueryChange(event.target.value)}
               onKeyDown={(event) => {
@@ -1285,6 +1357,7 @@ export function MasterSearchHeader({
             <span className="sr-only">{submitLabel}</span>
           </button>
         </div>
+        </UniversalSearchCommandSurface>
         {showFooterSearchChips && (trustFooterChip || hasScopeFooterChip || secondaryFooterChip) ? (
           <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">
             {trustFooterChip ? (
@@ -1432,7 +1505,9 @@ export function MasterSearchHeader({
               onClick={useMobileBackControl ? onMobileBack : onOpenMobileSidebar}
               className={cn(
                 "universal-header-icon-control h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                isWorkflowHeader ? "grid" : "grid lg:hidden",
+                // From md the desktop icon rail owns navigation, so the drawer
+                // trigger is phone-only outside workflow headers.
+                isWorkflowHeader ? "grid" : "grid md:hidden",
               )}
               aria-label={useMobileBackControl ? "Back to differentials home" : "Open Clinical Guide menu"}
             >

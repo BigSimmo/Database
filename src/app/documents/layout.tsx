@@ -1,11 +1,7 @@
 import type { ReactNode } from "react";
 
-import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search-shell";
+import { DocumentsLayoutClient } from "@/app/documents/documents-layout-client";
 
 export default function DocumentsLayout({ children }: { children: ReactNode }) {
-  return (
-    <GlobalSearchShell initialMode="documents" searchComposerVisible={false}>
-      {children}
-    </GlobalSearchShell>
-  );
+  return <DocumentsLayoutClient>{children}</DocumentsLayoutClient>;
 }

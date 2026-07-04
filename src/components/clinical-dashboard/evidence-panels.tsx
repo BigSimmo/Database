@@ -68,7 +68,7 @@ import {
 } from "@/components/ui-primitives";
 import { type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
-import { extractSafetyFindings, formatSafetyFindingLabel } from "@/lib/clinical-safety";
+import { extractSafetyFindings, formatSafetyFindingLabel, sortSafetyFindingsBySeverity, type SafetyFinding, type SafetyFindingKind } from "@/lib/clinical-safety";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import {
   normalizeExtractedGlyphs,
@@ -106,12 +106,11 @@ export function answerSupportPriority(
   safetyFindings: ReturnType<typeof extractSafetyFindings>,
   options: { grounded: boolean; weakEvidence: boolean },
 ): AnswerSupportPriority | null {
-  const firstSafetyFinding = safetyFindings[0];
+  const firstSafetyFinding = sortSafetyFindingsBySeverity(safetyFindings)[0];
   if (firstSafetyFinding) {
     return {
-      title: "Priority",
+      title: "Safety findings",
       detail: formatSafetyFindingLabel(firstSafetyFinding),
-      sourceLabel: "S1",
       tone: "caution",
     };
   }
@@ -147,8 +146,11 @@ export function AnswerSupportSummaryCard({
   evidenceAvailable,
   clinicalTriggerRef,
   evidenceTriggerRef,
+  safetyTriggerRef,
+  safetyFindingsCount = 0,
   onOpenClinicalNotes,
   onOpenEvidence,
+  onOpenSafetyFindings,
 }: {
   priority: AnswerSupportPriority | null;
   clinicalCount: number;
@@ -157,12 +159,16 @@ export function AnswerSupportSummaryCard({
   evidenceAvailable: boolean;
   clinicalTriggerRef?: RefObject<HTMLButtonElement | null>;
   evidenceTriggerRef?: RefObject<HTMLButtonElement | null>;
+  safetyTriggerRef?: RefObject<HTMLButtonElement | null>;
+  safetyFindingsCount?: number;
   onOpenClinicalNotes: () => void;
   onOpenEvidence: () => void;
+  onOpenSafetyFindings?: () => void;
 }) {
   const supportRowCount = Number(clinicalAvailable) + Number(evidenceAvailable);
   const supportButtonClass =
     "grid min-h-[72px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+  const safetyInteractive = Boolean(onOpenSafetyFindings && safetyFindingsCount > 0);
 
   return (
     <section
@@ -171,26 +177,56 @@ export function AnswerSupportSummaryCard({
       aria-label="Answer support"
     >
       {priority ? (
-        <div
-          className={cn(
-            "grid min-h-[68px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t-2 px-3 py-3",
-            priority.tone === "caution" ? "border-t-[color:var(--warning)]" : "border-t-[color:var(--warning)]",
-          )}
-        >
-          <span
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
-            aria-hidden="true"
+        safetyInteractive ? (
+          <button
+            ref={safetyTriggerRef}
+            id="answer-safety-findings-drawer-trigger"
+            data-testid="answer-safety-findings-trigger"
+            type="button"
+            onClick={onOpenSafetyFindings}
+            className={cn(
+              supportButtonClass,
+              "w-full border-t-2 border-t-[color:var(--warning)]",
+            )}
+            aria-label="Open safety-critical source findings"
           >
-            {priority.tone === "caution" ? <AlertCircle className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
-          </span>
-          <div className="min-w-0 sm:flex sm:items-center sm:gap-5">
-            <p className="shrink-0 text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</p>
-            <p className={cn("mt-1 line-clamp-2 text-sm leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
+            <span
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
+              aria-hidden="true"
+            >
+              <AlertCircle className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</span>
+              <span className={cn("mt-1 block line-clamp-2 text-xs leading-5", textMuted)}>{priority.detail}</span>
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              <span className={cn(subtleStatusPill, "nums min-h-8 px-2 text-xs")}>{safetyFindingsCount}</span>
+              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+            </span>
+          </button>
+        ) : (
+          <div
+            className={cn(
+              "grid min-h-[68px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t-2 px-3 py-3",
+              priority.tone === "caution" ? "border-t-[color:var(--warning)]" : "border-t-[color:var(--warning)]",
+            )}
+          >
+            <span
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
+              aria-hidden="true"
+            >
+              {priority.tone === "caution" ? <AlertCircle className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+            </span>
+            <div className="min-w-0 sm:flex sm:items-center sm:gap-5">
+              <p className="shrink-0 text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</p>
+              <p className={cn("mt-1 line-clamp-2 text-sm leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
+            </div>
+            {priority.sourceLabel ? (
+              <span className={cn(subtleStatusPill, "nums min-h-8 px-2 text-xs")}>{priority.sourceLabel}</span>
+            ) : null}
           </div>
-          {priority.sourceLabel ? (
-            <span className={cn(subtleStatusPill, "nums min-h-8 px-2 text-xs")}>{priority.sourceLabel}</span>
-          ) : null}
-        </div>
+        )
       ) : null}
 
       {supportRowCount > 0 ? (
@@ -573,19 +609,22 @@ function clinicalNotesRowsForTab(sections: ClinicalDetailSection[], tab: Clinica
 
   for (const section of sections) {
     const sectionText = `${section.title} ${section.items.join(" ")}`.toLowerCase();
+    const isVerifySourceReview = section.id === "verify-source";
+    if (isVerifySourceReview && tab !== "safety") continue;
     const hasMonitoringText =
       (tab === "actions" || tab === "essentials") &&
       /\b(monitor|screen|level|fbc|anc|metabolic|renal|thyroid|function)\b/i.test(sectionText);
     const hasSafetyText =
       tab === "safety" &&
       /\b(toxicity|toxic|urgent|caution|contraindication|red flag|escalat|warning|review due)\b/i.test(sectionText);
-    if (!meta.sectionIds.includes(section.id) && !hasMonitoringText) {
+    if (!isVerifySourceReview && !meta.sectionIds.includes(section.id) && !hasMonitoringText) {
       if (!hasSafetyText) continue;
     }
     if (tab === "essentials" && section.id === "action" && rows.length >= 2) {
       continue;
     }
-    const tone: ClinicalNotesRow["tone"] = section.id === "escalation" || section.id === "cautions" ? "warn" : "safe";
+    const tone: ClinicalNotesRow["tone"] =
+      section.id === "escalation" || section.id === "cautions" || isVerifySourceReview ? "warn" : "safe";
 
     for (const item of section.items.slice(0, 4)) {
       if (section.tables?.length && /\b(table|showing domains|table showing)\b/i.test(item)) continue;
@@ -627,9 +666,10 @@ function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: Answe
   const sections =
     viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);
   const primaryAnswer = plainAnswerText(answer.answer);
+  const keepVerifySource = answer.answerQualityTier === "source_only" || answer.grounded === false;
   return sortClinicalDetailSections(
     sections
-      .filter((section) => section.id !== "verify-source" && section.id !== "bottom-line")
+      .filter((section) => (keepVerifySource || section.id !== "verify-source") && section.id !== "bottom-line")
       .map((section) => ({
         ...section,
         items: displayItemsForClinicalDetailSection(section, primaryAnswer, false),
@@ -840,54 +880,63 @@ export function ClinicalNotesChecklistPanel({
   );
 }
 
-export function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof extractSafetyFindings> }) {
+function safetyFindingKindTone(kind: SafetyFindingKind) {
+  return kind === "contraindication" || kind === "red_flag" ? toneDanger : toneWarning;
+}
+
+function SafetyFindingRowIcon({ kind }: { kind: SafetyFindingKind }) {
+  if (kind === "contraindication" || kind === "red_flag") {
+    return <ShieldAlert className="h-5 w-5" />;
+  }
+  return <AlertCircle className="h-5 w-5" />;
+}
+
+export function SafetyFindingsListContent({ findings }: { findings: SafetyFinding[] }) {
   if (findings.length === 0) return null;
 
+  const sortedFindings = sortSafetyFindingsBySeverity(findings);
+
   return (
-    <section
+    <div
       data-testid="safety-findings-panel"
-      className={cn(
-        evidenceSurface,
-        "border-l-4 border-l-[color:var(--warning)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--warning-soft)_42%,transparent),transparent_62%),var(--surface-raised)] p-3 sm:p-4",
-      )}
+      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
     >
-      <SectionHeading
-        icon={ShieldAlert}
-        title="Safety-critical source findings"
-        description="Items come from source text. Verify before clinical use."
-        hideDescriptionOnMobile
-        compactMobile
-      />
-      <div className="mt-3 grid gap-2 sm:mt-4">
-        {findings.map((finding, index) => (
-          <article
-            key={`${finding.id}:${finding.href}:${index}`}
-            className={cn(sourceCard, "bg-[color:var(--surface-glass)] p-3 backdrop-blur-md")}
+      {sortedFindings.map((finding, index) => (
+        <article
+          key={`${finding.id}:${finding.href}:${index}`}
+          data-testid="safety-finding-row"
+          className="grid min-h-[70px] grid-cols-[auto_minmax(0,1fr)] items-start gap-3 border-b border-[color:var(--border)] px-3 py-3 last:border-b-0"
+        >
+          <span
+            className={cn(
+              "grid h-8 w-8 shrink-0 place-items-center rounded-md",
+              finding.kind === "contraindication" || finding.kind === "red_flag"
+                ? "text-[color:var(--danger)]"
+                : "text-[color:var(--warning)]",
+            )}
+            aria-hidden="true"
           >
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <span className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--warning-soft)] px-2 text-xs font-bold text-[color:var(--warning)]">
+            <SafetyFindingRowIcon kind={finding.kind} />
+          </span>
+          <div className="min-w-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", safetyFindingKindTone(finding.kind))}>
                 {finding.label}
               </span>
               <Link
                 href={finding.href}
-                className={cn(
-                  raisedCard,
-                  "inline-flex min-h-[44px] items-center gap-1.5 px-3 text-xs font-semibold text-[color:var(--primary)]",
-                )}
+                className="inline-flex min-h-8 min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
-                <ExternalLink className="h-4 w-4" />
-                Source
+                <span className="truncate">{formatCompactCitationLabel(finding.citation)}</span>
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
               </Link>
             </div>
-            <p className="mt-2 text-[15px] font-medium leading-6 text-[color:var(--text)]">{finding.text}</p>
-            <p className={cn("mt-2 text-xs font-semibold leading-5", textMuted)}>
-              {formatCitationLabel(finding.citation)}
-            </p>
-          </article>
-        ))}
-      </div>
-    </section>
+            <p className="mt-1.5 text-sm leading-5 text-[color:var(--text-heading)]">{finding.text}</p>
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
 

@@ -612,7 +612,7 @@ export function DocumentSearchLiveOpener() {
     <main className="min-h-screen bg-[color:var(--background)] px-3 py-4 pb-28 text-[color:var(--text)] sm:px-6 sm:py-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-4">
         <Link
-          href="/mockups/document-search-command?mode=documents"
+          href="/documents/search?mode=documents"
           className={cn(
             "inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--text)] shadow-[var(--shadow-inset)]",
             focusRing,

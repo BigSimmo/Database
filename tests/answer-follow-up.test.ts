@@ -1,0 +1,55 @@
+import { describe, expect, it } from "vitest";
+
+import { buildAnswerFollowUpQuery } from "@/lib/answer-follow-up";
+
+describe("buildAnswerFollowUpQuery", () => {
+  it("returns the follow-up unchanged when there is no prior question", () => {
+    expect(buildAnswerFollowUpQuery(undefined, "what about renal impairment?")).toBe(
+      "what about renal impairment?",
+    );
+    expect(buildAnswerFollowUpQuery("", "what about renal impairment?")).toBe("what about renal impairment?");
+  });
+
+  it("wraps a short ambiguous follow-up with the prior question", () => {
+    expect(buildAnswerFollowUpQuery("lithium dosing", "what about renal impairment?")).toBe(
+      'Follow-up to "lithium dosing": what about renal impairment?',
+    );
+  });
+
+  it("wraps pronoun-style continuations", () => {
+    expect(buildAnswerFollowUpQuery("clozapine monitoring", "is it safe in pregnancy?")).toBe(
+      'Follow-up to "clozapine monitoring": is it safe in pregnancy?',
+    );
+  });
+
+  it("does not wrap a follow-up that restates the prior topic", () => {
+    expect(buildAnswerFollowUpQuery("lithium dosing", "lithium levels in the elderly")).toBe(
+      "lithium levels in the elderly",
+    );
+  });
+
+  it("does not wrap a long self-contained follow-up", () => {
+    const longQuestion =
+      "What baseline investigations are required before starting sodium valproate in a woman of childbearing age?";
+    expect(buildAnswerFollowUpQuery("lithium dosing", longQuestion)).toBe(longQuestion);
+  });
+
+  it("does not wrap a short question on a clearly new topic without continuation cues", () => {
+    expect(buildAnswerFollowUpQuery("lithium dosing", "clozapine baseline bloods")).toBe(
+      "clozapine baseline bloods",
+    );
+  });
+
+  it("keeps the wrapped query within the 2000-char API limit", () => {
+    const longPrior = "a".repeat(2100);
+    const result = buildAnswerFollowUpQuery(longPrior, "what about them?");
+    expect(result.length).toBeLessThanOrEqual(2000);
+    expect(result).toContain("what about them?");
+  });
+
+  it("trims whitespace before deciding", () => {
+    expect(buildAnswerFollowUpQuery("  lithium dosing  ", "  what about the elderly?  ")).toBe(
+      'Follow-up to "lithium dosing": what about the elderly?',
+    );
+  });
+});

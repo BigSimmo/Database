@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractSafetyFindings } from "../src/lib/clinical-safety";
+import { extractSafetyFindings, sortSafetyFindingsBySeverity, type SafetyFinding } from "../src/lib/clinical-safety";
 import type { RagAnswer } from "../src/lib/types";
 
 const answer: RagAnswer = {
@@ -125,5 +125,59 @@ describe("clinical safety findings", () => {
     expect(findings).toHaveLength(1);
     expect(findings[0].text).toContain("Monitor FBC weekly");
     expect(findings[0].text).not.toMatch(/Source mentions|PAE-PRO-0338|Page 5 of 5|Chunk index/i);
+  });
+
+  it("sorts safety findings by clinical severity", () => {
+    const findings: SafetyFinding[] = [
+      {
+        id: "monitoring:1",
+        kind: "monitoring",
+        label: "Monitoring",
+        text: "Monitor renal function.",
+        citation: {
+          chunk_id: "1",
+          document_id: "doc-1",
+          title: "Guide",
+          file_name: "guide.pdf",
+          page_number: 1,
+          chunk_index: 0,
+        },
+        href: "/documents/doc-1?page=1&chunk=1",
+      },
+      {
+        id: "contraindication:2",
+        kind: "contraindication",
+        label: "Contraindication",
+        text: "Do not use with NSAIDs.",
+        citation: {
+          chunk_id: "2",
+          document_id: "doc-1",
+          title: "Guide",
+          file_name: "guide.pdf",
+          page_number: 2,
+          chunk_index: 1,
+        },
+        href: "/documents/doc-1?page=2&chunk=2",
+      },
+      {
+        id: "caveat:3",
+        kind: "caveat",
+        label: "Caveat",
+        text: "Consider dose adjustment.",
+        citation: {
+          chunk_id: "3",
+          document_id: "doc-1",
+          title: "Guide",
+          file_name: "guide.pdf",
+          page_number: 3,
+          chunk_index: 2,
+        },
+        href: "/documents/doc-1?page=3&chunk=3",
+      },
+    ];
+
+    const sorted = sortSafetyFindingsBySeverity(findings);
+
+    expect(sorted.map((finding) => finding.kind)).toEqual(["contraindication", "monitoring", "caveat"]);
   });
 });

@@ -1,4 +1,4 @@
-import { ClinicalDashboardLazy as ClinicalDashboard } from "@/components/clinical-dashboard-lazy";
+import { HomePageClient } from "@/app/home-page-client";
 import { isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
 
 type HomeProps = {
@@ -17,18 +17,8 @@ function firstSearchParam(value: string | string[] | undefined) {
 export default async function Home({ searchParams }: HomeProps) {
   const params = searchParams ? await searchParams : {};
   const requestedMode = firstSearchParam(params.mode);
-  const requestedQuery = firstSearchParam(params.q)?.trim() ?? "";
-  const requestedFocus = firstSearchParam(params.focus);
-  const requestedRun = firstSearchParam(params.run);
   const initialSearchMode: AppModeId =
     isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
 
-  return (
-    <ClinicalDashboard
-      initialSearchMode={initialSearchMode}
-      initialQuery={requestedQuery}
-      focusSearch={requestedFocus === "1"}
-      autoRunSearch={requestedRun === "1"}
-    />
-  );
+  return <HomePageClient initialMode={initialSearchMode} />;
 }

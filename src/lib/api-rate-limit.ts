@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { PublicApiError } from "@/lib/http";
+import type { RateLimitSubject } from "@/lib/public-api-access";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 export type ApiRateLimitBucket =
@@ -21,6 +22,11 @@ const apiRateLimitDefaults = {
   bulk_reindex: { limit: 2, windowSeconds: 60 },
   registry: { limit: 120, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
+
+const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
+  answer: { limit: 6, windowSeconds: 60 },
+  search: { limit: 60, windowSeconds: 60 },
+};
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -104,6 +110,34 @@ export async function consumeApiRateLimit(args: {
     retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? windowSeconds)),
     resetAt: String(row.reset_at ?? new Date(Date.now() + windowSeconds * 1000).toISOString()),
   };
+}
+
+export async function consumeSubjectApiRateLimit(args: {
+  supabase: SupabaseAdmin;
+  subject: RateLimitSubject;
+  bucket: ApiRateLimitBucket;
+  limit?: number;
+  windowSeconds?: number;
+  allowInMemoryFallbackOnUnavailable?: boolean;
+}): Promise<ApiRateLimitResult> {
+  if (args.subject.kind === "owner") {
+    return consumeApiRateLimit({
+      supabase: args.supabase,
+      ownerId: args.subject.ownerId,
+      bucket: args.bucket,
+      limit: args.limit,
+      windowSeconds: args.windowSeconds,
+      allowInMemoryFallbackOnUnavailable: args.allowInMemoryFallbackOnUnavailable,
+    });
+  }
+
+  const defaults = anonymousApiRateLimitDefaults[args.bucket] ?? apiRateLimitDefaults[args.bucket];
+  return consumeInMemoryApiRateLimit({
+    ownerId: args.subject.subjectKey,
+    bucket: args.bucket,
+    limit: args.limit ?? defaults.limit,
+    windowSeconds: args.windowSeconds ?? defaults.windowSeconds,
+  });
 }
 
 function consumeInMemoryApiRateLimit({

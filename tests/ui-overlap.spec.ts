@@ -29,14 +29,42 @@ async function mockSetupStatus(page: Page) {
   });
 }
 
+async function mockDemoDashboard(page: Page) {
+  await mockSetupStatus(page);
+  await page.route(/\/api\/local-project-id$/, async (route) => {
+    await route.fulfill({
+      json: {
+        appName: "Clinical Guide",
+        projectId: "test-project",
+        identityPath: "/api/local-project-id",
+        localServer: {
+          currentUrl: "http://localhost:4298",
+          currentPort: 4298,
+          projectPortStart: 4298,
+          projectPortEnd: 53210,
+          safeLocalOrigin: true,
+          requestOrigin: null,
+          requestReferer: null,
+          unsafeLocalCaller: null,
+        },
+      },
+    });
+  });
+  await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        documents: [],
+        demoMode: true,
+        pagination: { limit: 150, offset: 0, total: 0, nextOffset: 0, hasMore: false },
+      },
+    });
+  });
+}
+
 async function gotoHome(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  // The dashboard is a client-only (`ssr: false`) dynamic import, so DOM-ready
-  // and even network-idle can fire before the header mounts — Firefox and
-  // WebKit paint the client chunk later than Chromium, which is why the overlap
-  // assertion intermittently saw an empty shell. Wait for the real header to be
-  // attached before measuring instead of relying on the flaky idle heuristic.
   await page.locator("header#search").waitFor({ state: "visible", timeout: 30_000 });
+  await page.getByRole("button", { name: "Open answer options" }).waitFor({ state: "visible", timeout: 30_000 });
 }
 
 type OverlapReport = { count: number; overlaps: string[] };
@@ -82,7 +110,7 @@ test.describe("Header element overlap coverage", () => {
   for (const width of headerWidths) {
     test(`header controls do not overlap at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
-      await mockSetupStatus(page);
+      await mockDemoDashboard(page);
       await gotoHome(page);
 
       const report = await collectHeaderOverlaps(page);
@@ -97,14 +125,17 @@ test.describe("Header element overlap coverage", () => {
   ] as const) {
     test(`composer clear button does not cover typed text at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await mockSetupStatus(page);
+      await mockDemoDashboard(page);
       await gotoHome(page);
 
       const input = page.locator('[data-testid="global-search-input"]:visible').first();
-      await input.fill("Synthetic lithium monitoring guidance question");
-
-      const clearButton = page.locator('[aria-label="Clear search question"]:visible').first();
-      await expect(clearButton).toBeVisible();
+      await expect(input).toBeEditable();
+      await expect(async () => {
+        await input.click();
+        await input.fill("Synthetic lithium monitoring guidance question");
+        await expect(input).toHaveValue("Synthetic lithium monitoring guidance question");
+        await expect(page.locator('[aria-label="Clear search question"]:visible').first()).toBeVisible();
+      }).toPass({ timeout: 15_000 });
 
       const geometry = await page.evaluate(() => {
         const inputElement = document.querySelector('[data-testid="global-search-input"]');

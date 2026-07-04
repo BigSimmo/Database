@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, ChevronDown, ClipboardCheck, ExternalLink, Layers, Search, X } from "lucide-react";
+import { BookOpen, ChevronDown, ClipboardCheck, ExternalLink, Layers, Search, ShieldAlert, X } from "lucide-react";
 
 import { DocumentOrganizationBadges, documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
@@ -25,7 +25,7 @@ import {
   type EvidenceTabName,
   formatQuoteCardsForClipboard,
   primaryVisualTable,
-  SafetyFindingsPanel,
+  SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { QueryCoverageChips, RelevanceBadge } from "@/components/clinical-dashboard/relevance";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
@@ -253,11 +253,13 @@ export function StagedAnswerResultSurface({
   );
   const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [safetyFindingsOpen, setSafetyFindingsOpen] = useState(false);
   const [evidenceInitialTab, setEvidenceInitialTab] = useState<EvidenceTabName | null>(null);
   const [activeReviewPanel, setActiveReviewPanel] = useState<"clinical" | "evidence" | null>(null);
   const [copiedQuotes, setCopiedQuotes] = useState(false);
   const clinicalNotesTriggerRef = useRef<HTMLButtonElement>(null);
   const evidenceTriggerRef = useRef<HTMLButtonElement>(null);
+  const safetyTriggerRef = useRef<HTMLButtonElement>(null);
   const useReviewSheet = useMobilePreviewSheet();
   const copyQuotesTimerRef = useRef<number | null>(null);
   useEffect(() => {
@@ -267,6 +269,7 @@ export function StagedAnswerResultSurface({
   }, []);
   function openClinicalNotes() {
     setEvidenceOpen(false);
+    setSafetyFindingsOpen(false);
     setEvidenceInitialTab(null);
     if (useReviewSheet) {
       setActiveReviewPanel(null);
@@ -287,6 +290,7 @@ export function StagedAnswerResultSurface({
   }
   function openEvidence(initialTab: EvidenceTabName | null = null) {
     setClinicalNotesOpen(false);
+    setSafetyFindingsOpen(false);
     setEvidenceInitialTab(initialTab);
     if (useReviewSheet) {
       setActiveReviewPanel(null);
@@ -308,7 +312,19 @@ export function StagedAnswerResultSurface({
   }
   function openTableEvidence() {
     setClinicalNotesOpen(false);
+    setSafetyFindingsOpen(false);
     openEvidence("Tables");
+  }
+  function openSafetyFindings() {
+    setClinicalNotesOpen(false);
+    setEvidenceOpen(false);
+    setEvidenceInitialTab(null);
+    setActiveReviewPanel(null);
+    setSafetyFindingsOpen(true);
+  }
+  function closeSafetyFindingsReview() {
+    setSafetyFindingsOpen(false);
+    restoreFocusToTrigger(safetyTriggerRef);
   }
   const copyQuotes = useCallback(async () => {
     const quoteText = formatQuoteCardsForClipboard(renderModel.quoteCards);
@@ -368,8 +384,11 @@ export function StagedAnswerResultSurface({
                 evidenceAvailable={showEvidenceDrawer}
                 clinicalTriggerRef={clinicalNotesTriggerRef}
                 evidenceTriggerRef={evidenceTriggerRef}
+                safetyTriggerRef={safetyTriggerRef}
+                safetyFindingsCount={safetyFindings.length}
                 onOpenClinicalNotes={openClinicalNotes}
                 onOpenEvidence={() => openEvidence(null)}
+                onOpenSafetyFindings={safetyFindings.length > 0 ? openSafetyFindings : undefined}
               />
             ) : null}
 
@@ -542,9 +561,37 @@ export function StagedAnswerResultSurface({
             />
           </Sheet>
         ) : null}
-      </div>
 
-      <SafetyFindingsPanel findings={safetyFindings} />
+        {safetyFindings.length > 0 ? (
+          <Sheet
+            open={safetyFindingsOpen}
+            onClose={closeSafetyFindingsReview}
+            title="Safety-critical source findings"
+            description="Items come from source text. Verify before clinical use."
+            closeLabel="Close safety findings"
+            headerLeading={
+              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--warning)]")}>
+                <ShieldAlert className="h-3.5 w-3.5" />
+              </span>
+            }
+            titleAccessory={
+              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+                {safetyFindings.length}
+              </span>
+            }
+            headerClassName="gap-2 p-2.5 sm:p-3"
+            titleClassName="text-[15px] leading-5"
+            closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
+            contentStyle={{ height: "80dvh" }}
+            bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            returnFocusRef={safetyTriggerRef}
+            portal
+          >
+            <SafetyFindingsListContent findings={safetyFindings} />
+          </Sheet>
+        ) : null}
+      </div>
     </div>
   );
 }

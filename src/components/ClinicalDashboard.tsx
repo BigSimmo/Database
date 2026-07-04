@@ -121,6 +121,7 @@ import {
   IngestionQualityConsole,
   LibraryHealthStrip,
   fallbackSetupChecks,
+  hasReadyRequiredPublicSearchConfig,
   hasReadyPublicSearchSetup,
   type SetupCheck,
   type IngestionQualityReviewItem,
@@ -160,10 +161,11 @@ import {
   formatQuoteCardsForClipboard,
   primaryVisualTable,
   QuoteCards,
-  SafetyFindingsPanel,
+  SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 
@@ -214,9 +216,11 @@ import {
   type AppModeId,
   type AppModeSearchKind,
 } from "@/lib/app-modes";
+import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { rankFormRecords } from "@/lib/forms";
 import { rankServiceRecords } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
+import { buildAnswerFollowUpQuery } from "@/lib/answer-follow-up";
 import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import {
@@ -257,7 +261,7 @@ import type {
   DocumentLabelType,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
 
 export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
@@ -1114,6 +1118,63 @@ function RelatedDocumentsPanel({
   );
 }
 
+/**
+ * A completed Q&A exchange kept on screen after a newer answer arrives, so
+ * Answer mode reads as a conversation thread instead of replacing each result.
+ */
+type AnswerTurn = {
+  id: string;
+  query: string;
+  answer: RagAnswer;
+  sources: SearchResult[];
+};
+
+/**
+ * Read-only surface for a previous turn in the answer thread. Renders the
+ * question bubble and the natural-language answer with its source capsule;
+ * evidence drawers, clinical notes, and feedback stay on the latest turn only.
+ */
+function PriorAnswerTurnSurface({
+  turn,
+  copied,
+  onCopy,
+}: {
+  turn: AnswerTurn;
+  copied: boolean;
+  onCopy: (text: string) => void;
+}) {
+  const renderModel = useMemo(
+    () => buildAnswerRenderModel(turn.answer, { sources: turn.sources }),
+    [turn.answer, turn.sources],
+  );
+  const safeText = useMemo(() => sanitizeAnswerDisplayText(turn.answer.answer), [turn.answer.answer]);
+  const weakEvidence = renderModel.trust === "unsupported" || renderModel.trust === "low";
+  const grounded =
+    turn.answer.grounded === true && turn.answer.confidence !== "unsupported" && renderModel.trust !== "unsupported";
+  const sourceCount =
+    renderModel.primarySources.length || turn.sources.length || turn.answer.sources?.length || turn.answer.citations.length;
+
+  return (
+    <div className="min-w-0 space-y-4 sm:space-y-5" data-dashboard-stage="answer-thread-turn">
+      <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
+        <UserQuestionBubble query={turn.query} />
+        <NaturalLanguageAnswer
+          text={safeText || turn.answer.answer}
+          sourceCount={sourceCount}
+          weakEvidence={weakEvidence}
+          grounded={grounded}
+          sourceOnly={turn.answer.answerQualityTier === "source_only"}
+          bestSource={renderModel.bestSource}
+          sources={renderModel.reviewSources}
+          sourceLinks={renderModel.primarySources}
+          copied={copied}
+          onCopy={() => onCopy(renderModel.copyText || safeText || turn.answer.answer)}
+        />
+      </div>
+    </div>
+  );
+}
+
 function StagedAnswerResultSurface({
   answer,
   query,
@@ -1158,7 +1219,8 @@ function StagedAnswerResultSurface({
   onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
 }) {
   const noteCount = clinicalNotesCount(answer);
-  const showClinicalNotes = safetyFindings.length > 0 || noteCount > 0;
+  const showClinicalNotes =
+    safetyFindings.length > 0 || noteCount > 0 || answer.answerQualityTier === "source_only" || answerGrounded === false;
   const clinicalNoteDisplayCount = clinicalNotesDisplayCountForAnswer(
     answer,
     answerViewMode,
@@ -1176,11 +1238,13 @@ function StagedAnswerResultSurface({
   );
   const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [safetyFindingsOpen, setSafetyFindingsOpen] = useState(false);
   const [evidenceInitialTab, setEvidenceInitialTab] = useState<EvidenceTabName | null>(null);
   const [activeReviewPanel, setActiveReviewPanel] = useState<"clinical" | "evidence" | null>(null);
   const [copiedQuotes, setCopiedQuotes] = useState(false);
   const clinicalNotesTriggerRef = useRef<HTMLButtonElement>(null);
   const evidenceTriggerRef = useRef<HTMLButtonElement>(null);
+  const safetyTriggerRef = useRef<HTMLButtonElement>(null);
   const useReviewSheet = useMobilePreviewSheet();
   const copyQuotesTimerRef = useRef<number | null>(null);
   useEffect(() => {
@@ -1190,6 +1254,7 @@ function StagedAnswerResultSurface({
   }, []);
   function openClinicalNotes() {
     setEvidenceOpen(false);
+    setSafetyFindingsOpen(false);
     setEvidenceInitialTab(null);
     if (useReviewSheet) {
       setActiveReviewPanel(null);
@@ -1210,6 +1275,7 @@ function StagedAnswerResultSurface({
   }
   function openEvidence(initialTab: EvidenceTabName | null = null) {
     setClinicalNotesOpen(false);
+    setSafetyFindingsOpen(false);
     setEvidenceInitialTab(initialTab);
     if (useReviewSheet) {
       setActiveReviewPanel(null);
@@ -1231,7 +1297,19 @@ function StagedAnswerResultSurface({
   }
   function openTableEvidence() {
     setClinicalNotesOpen(false);
+    setSafetyFindingsOpen(false);
     openEvidence("Tables");
+  }
+  function openSafetyFindings() {
+    setClinicalNotesOpen(false);
+    setEvidenceOpen(false);
+    setEvidenceInitialTab(null);
+    setActiveReviewPanel(null);
+    setSafetyFindingsOpen(true);
+  }
+  function closeSafetyFindingsReview() {
+    setSafetyFindingsOpen(false);
+    restoreFocusToTrigger(safetyTriggerRef);
   }
   const copyQuotes = useCallback(async () => {
     const quoteText = formatQuoteCardsForClipboard(renderModel.quoteCards);
@@ -1291,8 +1369,11 @@ function StagedAnswerResultSurface({
                 evidenceAvailable={showEvidenceDrawer}
                 clinicalTriggerRef={clinicalNotesTriggerRef}
                 evidenceTriggerRef={evidenceTriggerRef}
+                safetyTriggerRef={safetyTriggerRef}
+                safetyFindingsCount={safetyFindings.length}
                 onOpenClinicalNotes={openClinicalNotes}
                 onOpenEvidence={() => openEvidence(null)}
+                onOpenSafetyFindings={safetyFindings.length > 0 ? openSafetyFindings : undefined}
               />
             ) : null}
 
@@ -1463,9 +1544,37 @@ function StagedAnswerResultSurface({
             />
           </Sheet>
         ) : null}
-      </div>
 
-      <SafetyFindingsPanel findings={safetyFindings} />
+        {safetyFindings.length > 0 ? (
+          <Sheet
+            open={safetyFindingsOpen}
+            onClose={closeSafetyFindingsReview}
+            title="Safety-critical source findings"
+            description="Items come from source text. Verify before clinical use."
+            closeLabel="Close safety findings"
+            headerLeading={
+              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--warning)]")}>
+                <ShieldAlert className="h-3.5 w-3.5" />
+              </span>
+            }
+            titleAccessory={
+              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+                {safetyFindings.length}
+              </span>
+            }
+            headerClassName="gap-2 p-2.5 sm:p-3"
+            titleClassName="text-[15px] leading-5"
+            closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
+            contentStyle={{ height: "80dvh" }}
+            bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            returnFocusRef={safetyTriggerRef}
+            portal
+          >
+            <SafetyFindingsListContent findings={safetyFindings} />
+          </Sheet>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -3583,6 +3692,7 @@ export function ClinicalDashboard({
   const urlSearchBootstrappedRef = useRef(false);
   const urlDocumentSearchBootstrappedRef = useRef(false);
   const lastSyncedSearchParamsRef = useRef(searchParams.toString());
+  const modeChangeFromUiRef = useRef(false);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
   const indexedDocumentTotal = documentsPagination?.total ?? documents.length;
@@ -3598,6 +3708,16 @@ export function ClinicalDashboard({
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(false);
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
+  // Answer-mode conversation thread. `priorAnswerTurns` holds completed
+  // exchanges displayed above the latest answer; `latestAnswerQuery` is the
+  // question that produced the current `answer` (the composer `query` is a
+  // draft that clears after each successful answer). The ref mirrors the
+  // latest committed turn so async search completions can archive it without
+  // reading stale closure state.
+  const [priorAnswerTurns, setPriorAnswerTurns] = useState<AnswerTurn[]>([]);
+  const [latestAnswerQuery, setLatestAnswerQuery] = useState<string | null>(null);
+  const latestAnswerTurnRef = useRef<Omit<AnswerTurn, "id"> | null>(null);
+  const answerTurnSeqRef = useRef(0);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
   const [searchRelevance, setSearchRelevance] = useState<EvidenceRelevance | null>(null);
   const [searchFacets, setSearchFacets] = useState<SearchFacets | null>(null);
@@ -3625,7 +3745,19 @@ export function ClinicalDashboard({
     [searchMode, formSearchMatches, serviceSearchMatches],
   );
   const recordSearchMode = searchMode === "forms" ? "forms" : "services";
+  // The thread mirror ref must never outlive the answer it describes: every
+  // reset path nulls `answer`, so clearing here covers them all (mode
+  // switches, new chat, differentials/services clears) without each caller
+  // having to remember the ref.
+  useEffect(() => {
+    if (answer === null) latestAnswerTurnRef.current = null;
+  }, [answer]);
+  function resetAnswerThread() {
+    setPriorAnswerTurns([]);
+    setLatestAnswerQuery(null);
+  }
   function clearDifferentialModeResultState() {
+    resetAnswerThread();
     setAnswer(null);
     setSources([]);
     setDocumentMatches([]);
@@ -3668,6 +3800,7 @@ export function ClinicalDashboard({
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const [indexingActionId, setIndexingActionId] = useState<string | null>(null);
   const [indexingActive, setIndexingActive] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
@@ -3682,9 +3815,12 @@ export function ClinicalDashboard({
   const uploadReadOnlyMode =
     demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
+  const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
+  const canUseDegradedLocalSearchApis =
+    process.env.NODE_ENV !== "production" && localProjectReady && hasReadyRequiredPublicSearchConfig(setupChecks);
   const canUsePrivateApis =
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
-  const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
+  const canRunSearch = explicitDemoMode || canUsePublicSearchApis || canUseDegradedLocalSearchApis;
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
@@ -4323,6 +4459,11 @@ export function ClinicalDashboard({
     const mode = searchParams.get("mode");
     if (!isAppModeId(mode) || !isAppModeVisible(mode)) return;
 
+    if (modeChangeFromUiRef.current) {
+      modeChangeFromUiRef.current = false;
+      return;
+    }
+
     const nextQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
     const shouldFocusComposer = searchParams.get("focus") === "1";
     const hasUrlQuery = searchParams.has("q") || searchParams.has("query");
@@ -4543,7 +4684,7 @@ export function ClinicalDashboard({
   // under another query's composer text.
   const searchRequestSeqRef = useRef(0);
 
-  function applySearchResult(payload: SearchResultModePayload) {
+  function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
     if (payload.kind === "documents") {
       setDocumentMatches(payload.documentMatches);
       setSources(payload.sources);
@@ -4555,6 +4696,20 @@ export function ClinicalDashboard({
     }
 
     const answerData = payload.payload;
+    // Archive the previous exchange before the new answer replaces it, so the
+    // thread keeps every turn visible in the same window.
+    const priorTurn = latestAnswerTurnRef.current;
+    if (priorTurn) {
+      const turnId = `answer-turn-${++answerTurnSeqRef.current}`;
+      setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }]);
+    }
+    const committedQuery = displayQuery ?? payload.query;
+    latestAnswerTurnRef.current = {
+      query: committedQuery,
+      answer: answerData,
+      sources: answerData.sources ?? [],
+    };
+    setLatestAnswerQuery(committedQuery);
     setAnswer(answerData);
     setSources(answerData.sources ?? []);
     setSearchRelevance(answerData.relevance ?? answerData.smartPanel?.relevance ?? null);
@@ -4593,7 +4748,13 @@ export function ClinicalDashboard({
     const requestId = ++searchRequestSeqRef.current;
 
     setSearchMode(targetMode);
-    setQuery(trimmedQuery);
+    // Answer mode keeps the composer as the draft source until a successful
+    // response clears it. Syncing query here on follow-ups used to fire the
+    // URL-backed autoRunSearch effect before loading flipped true, which
+    // duplicated the in-flight answer request and produced extra thread turns.
+    if (modeSearch.resultKind !== "answer") {
+      setQuery(trimmedQuery);
+    }
     if (modeSearch.kind !== "tools") setModeSearchSubmitted(true);
     if (isDifferentialsMode) clearDifferentialModeResultState();
 
@@ -4614,6 +4775,7 @@ export function ClinicalDashboard({
       return;
     }
     if (modeSearch.kind === "services" || targetMode === "forms") {
+      resetAnswerThread();
       setAnswer(null);
       setSources([]);
       setDocumentMatches([]);
@@ -4649,14 +4811,23 @@ export function ClinicalDashboard({
     onProgress(modeSearch.progressLabel);
     rememberRecentQuery(trimmedQuery);
 
-    const fallbackQuery = keywordQueryFromNaturalLanguage(trimmedQuery);
+    // Answer-mode follow-ups: the API takes a single query string, so a short
+    // ambiguous follow-up ("what about renal impairment?") is wrapped with the
+    // previous turn's question before retrieval. The raw text the user typed
+    // is what the thread displays (via displayQuery below).
+    const isAnswerRequest = modeSearch.resultKind === "answer";
+    const priorTurnQuery = isAnswerRequest ? latestAnswerTurnRef.current?.query : undefined;
+    const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
+    const requestQuery = isAnswerRequest ? buildAnswerFollowUpQuery(priorTurnQuery, trimmedQuery) : trimmedQuery;
+
+    const fallbackQuery = keywordQueryFromNaturalLanguage(requestQuery);
     const queryPlan =
-      fallbackQuery && fallbackQuery !== trimmedQuery
+      fallbackQuery && fallbackQuery !== requestQuery
         ? [
-            { query: trimmedQuery, isKeyword: false },
+            { query: requestQuery, isKeyword: false },
             { query: fallbackQuery, isKeyword: true },
           ]
-        : [{ query: trimmedQuery, isKeyword: false }];
+        : [{ query: requestQuery, isKeyword: false }];
 
     try {
       let successfulPayload: SearchResultModePayload | null = null;
@@ -4702,7 +4873,28 @@ export function ClinicalDashboard({
       }
 
       // M10: discard a stale response — a newer search owns the UI state.
-      if (requestId === searchRequestSeqRef.current) applySearchResult(successfulPayload);
+      if (requestId === searchRequestSeqRef.current) {
+        applySearchResult(successfulPayload, trimmedQuery);
+        if (successfulPayload.kind === "answer") {
+          // The composer is a draft box in a conversation: clear it so the
+          // user can type the next follow-up immediately.
+          setQuery("");
+          // Keep only the latest question in the URL; the full thread lives in
+          // React state until refresh or New chat.
+          modeChangeFromUiRef.current = true;
+          window.history.replaceState(
+            null,
+            "",
+            appModeHomeHref(targetMode, { query: trimmedQuery, run: true }),
+          );
+          if (isAnswerFollowUp) {
+            window.requestAnimationFrame(() => {
+              const main = mainRef.current;
+              main?.scrollTo({ top: main.scrollHeight, behavior: "smooth" });
+            });
+          }
+        }
+      }
     } catch (requestError) {
       if (requestId === searchRequestSeqRef.current) {
         setError(requestError instanceof Error ? requestError.message : "Search failed");
@@ -4716,6 +4908,7 @@ export function ClinicalDashboard({
   }
 
   function setMedicationSearchQuery(searchText: string, updateUrl = true) {
+    modeChangeFromUiRef.current = true;
     const trimmedSearchText = searchText.trim();
     if (!trimmedSearchText) return;
     setSearchMode("prescribing");
@@ -4730,6 +4923,12 @@ export function ClinicalDashboard({
   }
 
   async function ask() {
+    const trimmedQuery = query.trim();
+    if (searchMode === "documents" && trimmedQuery) {
+      rememberRecentQuery(trimmedQuery);
+      router.push(documentsSearchHref({ query: trimmedQuery, focus: true, run: true }));
+      return;
+    }
     if (searchMode === "prescribing") {
       setMedicationSearchQuery(query);
       return;
@@ -4739,8 +4938,12 @@ export function ClinicalDashboard({
 
   useEffect(() => {
     const trimmedQuery = query.trim();
-    const canAutoRunMode = searchMode === "prescribing" || canRunSearch;
+    const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !trimmedQuery || !canAutoRunMode || loading) return;
+    // Once an answer is on screen, composer edits are follow-up drafts and must
+    // only run on explicit submit — not on every query keystroke while run=1
+    // keeps autoRunSearch enabled from the URL.
+    if (searchMode === "answer" && answer) return;
     const signature = `${searchMode}:${trimmedQuery}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
@@ -4755,6 +4958,32 @@ export function ClinicalDashboard({
       return;
     }
     setQuery(recentQuery);
+  }
+
+  function crossModeSearch(mode: AppModeId, crossQuery: string) {
+    modeChangeFromUiRef.current = true;
+    if (mode === "differentials") clearDifferentialModeResultState();
+    setCommandScopes([]);
+    setQuery(crossQuery);
+    setModeSearchSubmitted(false);
+    setLoading(false);
+    setError(null);
+    setAnswerProgress(null);
+    setSearchRelevance(null);
+    setSearchFacets(null);
+    setSearchScope(null);
+    setSourceGovernanceWarnings([]);
+    setDocumentMatches([]);
+    if (mode === "answer") {
+      resetAnswerThread();
+      setAnswer(null);
+      setSources([]);
+    }
+    if (mode === "prescribing") {
+      setMedicationSearchQuery(crossQuery);
+    }
+    setSearchMode(mode);
+    router.push(appModeHomeHref(mode, { query: crossQuery, focus: true, run: true }));
   }
 
   async function submitAnswerFeedback(feedbackType: AnswerFeedbackType) {
@@ -4850,6 +5079,18 @@ export function ClinicalDashboard({
   ) {
     const trimmedSearchText = searchText.trim();
     if (!trimmedSearchText) return;
+    if (targetMode === "documents") {
+      setQuery(trimmedSearchText);
+      setSearchMode("documents");
+      setModeSearchSubmitted(true);
+      setLoading(false);
+      setError(null);
+      setAnswerProgress(null);
+      rememberRecentQuery(trimmedSearchText);
+      window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+      if (updateUrl) router.push(documentsSearchHref({ query: trimmedSearchText, focus: true, run: true }));
+      return;
+    }
     if (!canRunSearch) {
       setError(errorCopy.searchSetupNotReady);
       return;
@@ -4971,9 +5212,12 @@ export function ClinicalDashboard({
   }
 
   function selectSearchMode(mode: AppModeId) {
+    modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setQuery("");
+    setCommandScopes([]);
     if (mode === "answer") {
+      resetAnswerThread();
       setAnswer(null);
       setSources([]);
     }
@@ -4998,6 +5242,7 @@ export function ClinicalDashboard({
   }
 
   function startNewChat() {
+    modeChangeFromUiRef.current = true;
     const href = appModeHomeHref("answer", { focus: true });
     setQuery("");
     setModeSearchSubmitted(false);
@@ -5005,6 +5250,7 @@ export function ClinicalDashboard({
     setQueryMode("auto");
     setSelectedDocumentIds([]);
     setScopeFilters({});
+    resetAnswerThread();
     setAnswer(null);
     setSources([]);
     setDocumentMatches([]);
@@ -5383,6 +5629,8 @@ export function ClinicalDashboard({
   // the bottom composer drops its chip row and hugs the screen edge so results
   // keep maximum vertical space. Mode homes keep the default chip-row layout.
   const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
+  const differentialsCompareAddonActive =
+    searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -5493,12 +5741,14 @@ export function ClinicalDashboard({
     <div
       className={cn(
         appBackdrop,
-        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] lg:grid lg:overflow-hidden",
+        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] md:grid md:grid-cols-[5.25rem_minmax(0,1fr)] md:overflow-hidden",
+        "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={
         {
           "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
+          "--clinical-sidebar-width-md": "5.25rem",
         } as CSSProperties
       }
     >
@@ -5518,7 +5768,7 @@ export function ClinicalDashboard({
         onPrefetchApplications={prefetchApplications}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:h-full">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
         <MasterSearchHeader
           documents={documents}
           documentTotal={indexedDocumentTotal}
@@ -5553,8 +5803,20 @@ export function ClinicalDashboard({
           queryModeOptions={clinicalQueryModeOptions}
           queryInputRef={composerInputRef}
           queryInputAutoFocus={focusSearch}
+          recentQueries={recentQueries}
+          commandScopes={commandScopes}
+          onCommandScopesChange={setCommandScopes}
+          onPickRecent={(recent) => {
+            pickRecentQuery(recent);
+            void ask();
+          }}
+          onCrossModeSearch={crossModeSearch}
+          composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
           mobileBottomSearchVariant={compactMobileBottomSearch ? "compact" : "default"}
+          mobileBottomSearchAddonSlotId={
+            differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
+          }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
           heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
           // Phone-only: the header sits above the internally scrolling <main>,
@@ -5573,12 +5835,23 @@ export function ClinicalDashboard({
               ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? compactMobileBottomSearch
-                  ? "mb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:mb-0"
+                  ? differentialsCompareAddonActive
+                    ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
+                    : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
                   : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
                 : "mb-0",
           )}
         >
           <h1 className="sr-only">Clinical Guide</h1>
+          <SearchCommandProvider
+            value={{
+              query,
+              modeId: searchMode,
+              commandScopes,
+              onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
+              onClearScopes: () => setCommandScopes([]),
+            }}
+          >
           <div
             className={cn(
               "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
@@ -5619,7 +5892,6 @@ export function ClinicalDashboard({
               </div>
             )}
             {showDegradedNotice && renderDegradedNotice()}
-            {showAuthPanel && <AuthPanel />}
             {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
 
             <section
@@ -5668,7 +5940,7 @@ export function ClinicalDashboard({
                   loading={loading}
                   documentMatches={documentMatches}
                   realDataReady={canRunSearch}
-                  authUnavailable={!clientDemoMode && !canUsePrivateApis}
+                  authUnavailable={false}
                   apiUnavailable={apiUnavailable}
                   setupWarning={setupWarning}
                   onQueryChange={setQuery}
@@ -5740,7 +6012,7 @@ export function ClinicalDashboard({
                       documentCount={indexedDocumentTotal}
                       recentDocuments={documents}
                       realDataReady={canRunSearch}
-                      authUnavailable={!clientDemoMode && !canUsePrivateApis}
+                      authUnavailable={false}
                       apiUnavailable={apiUnavailable}
                       setupWarning={setupWarning}
                       facets={searchFacets}
@@ -5759,30 +6031,40 @@ export function ClinicalDashboard({
                 <AnswerSkeleton />
               ) : answer && answerRenderModel ? (
                 stagedDashboardExtraction.answerSurface ? (
-                  <StagedAnswerResultSurface
-                    answer={answer}
-                    query={query}
-                    safeAnswerText={safeAnswerText}
-                    bestSource={bestSource}
-                    sourceGovernanceWarnings={sourceGovernanceWarnings}
-                    sourceSummary={sourceSummary}
-                    renderModel={answerRenderModel}
-                    weakEvidence={weakEvidence}
-                    answerViewMode={answerViewMode}
-                    answerEvidenceMapRows={answerEvidenceMapRows}
-                    onScopeDocument={scopeOnlyDocument}
-                    answerGrounded={answerGrounded}
-                    sources={answerRenderModel.reviewSources}
-                    demoMode={demoMode}
-                    safeAnswerSections={safeAnswerSections}
-                    safetyFindings={safetyFindings}
-                    copiedAnswer={copiedAction === "answer"}
-                    pendingFeedback={pendingFeedback}
-                    onCopyAnswer={() =>
-                      copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
-                    }
-                    onSubmitFeedback={submitAnswerFeedback}
-                  />
+                  <>
+                    {priorAnswerTurns.map((turn) => (
+                      <PriorAnswerTurnSurface
+                        key={turn.id}
+                        turn={turn}
+                        copied={copiedAction === turn.id}
+                        onCopy={(text) => copyText(turn.id, text)}
+                      />
+                    ))}
+                    <StagedAnswerResultSurface
+                      answer={answer}
+                      query={latestAnswerQuery ?? query}
+                      safeAnswerText={safeAnswerText}
+                      bestSource={bestSource}
+                      sourceGovernanceWarnings={sourceGovernanceWarnings}
+                      sourceSummary={sourceSummary}
+                      renderModel={answerRenderModel}
+                      weakEvidence={weakEvidence}
+                      answerViewMode={answerViewMode}
+                      answerEvidenceMapRows={answerEvidenceMapRows}
+                      onScopeDocument={scopeOnlyDocument}
+                      answerGrounded={answerGrounded}
+                      sources={answerRenderModel.reviewSources}
+                      demoMode={demoMode}
+                      safeAnswerSections={safeAnswerSections}
+                      safetyFindings={safetyFindings}
+                      copiedAnswer={copiedAction === "answer"}
+                      pendingFeedback={pendingFeedback}
+                      onCopyAnswer={() =>
+                        copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
+                      }
+                      onSubmitFeedback={submitAnswerFeedback}
+                    />
+                  </>
                 ) : null
               ) : (
                 <AnswerEmptyState
@@ -6005,6 +6287,7 @@ export function ClinicalDashboard({
 
             {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
           </div>
+          </SearchCommandProvider>
         </main>
 
         <MobileSectionFab

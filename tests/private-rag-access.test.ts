@@ -75,6 +75,10 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
     if (!id) throw new MockAuthenticationError();
     return { id };
   });
+  const getOptionalAuthenticatedUser = vi.fn(async (request: Request) => {
+    const id = request.headers.get("x-test-user");
+    return id ? { id } : null;
+  });
   const unauthorizedResponse = vi.fn(() => Response.json({ error: "Authentication required." }, { status: 401 }));
   const searchChunksWithTelemetry = vi.fn(async () => ({
     results: [sampleSearchResult()],
@@ -132,6 +136,7 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
   vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient }));
   vi.doMock("@/lib/supabase/auth", () => ({
     AuthenticationError: MockAuthenticationError,
+    getOptionalAuthenticatedUser,
     requireAuthenticatedUser,
     unauthorizedResponse,
   }));
@@ -140,6 +145,7 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
     return {
       ...actual,
       consumeApiRateLimit: vi.fn(async () => allowedRateLimit),
+      consumeSubjectApiRateLimit: vi.fn(async () => allowedRateLimit),
     };
   });
   vi.doMock("@/lib/demo-data", () => ({ demoAnswer, demoSearch }));
@@ -189,6 +195,7 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
     demoAnswer,
     demoSearch,
     fetchRelatedDocuments,
+    getOptionalAuthenticatedUser,
     requireAuthenticatedUser,
     searchChunksWithTelemetry,
     supabase,
@@ -216,16 +223,19 @@ afterEach(() => {
 });
 
 describe("private RAG API access", () => {
-  it("rejects unauthenticated real search requests before retrieval", async () => {
+  it("allows unauthenticated real search requests with anonymous scope", async () => {
     const mocks = mockRuntime();
     const { POST } = await import("../src/app/api/search/route");
 
     const response = await POST(jsonRequest("/api/search", { query: "clozapine monitoring" }));
 
-    expect(response.status).toBe(401);
-    expect(await payload(response)).toEqual({ error: "Authentication required." });
-    expect(mocks.searchChunksWithTelemetry).not.toHaveBeenCalled();
-    expect(mocks.fetchRelatedDocuments).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mocks.searchChunksWithTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true, query: "clozapine monitoring" }),
+    );
+    expect(mocks.fetchRelatedDocuments).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: undefined, query: "clozapine monitoring" }),
+    );
   });
 
   it("scopes authenticated real search requests to the authenticated owner", async () => {
@@ -286,15 +296,16 @@ describe("private RAG API access", () => {
     expect(mocks.demoSearch).toHaveBeenCalledWith("demo question", 8, undefined, undefined);
   });
 
-  it("rejects unauthenticated real answer requests before generation", async () => {
+  it("allows unauthenticated real answer requests with anonymous scope", async () => {
     const mocks = mockRuntime();
     const { POST } = await import("../src/app/api/answer/route");
 
     const response = await POST(jsonRequest("/api/answer", { query: "clozapine monitoring" }));
 
-    expect(response.status).toBe(401);
-    expect(await payload(response)).toEqual({ error: "Authentication required." });
-    expect(mocks.answerQuestionWithScope).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mocks.answerQuestionWithScope).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true, query: "clozapine monitoring" }),
+    );
   });
 
   it("scopes authenticated real answer requests to the authenticated owner", async () => {
@@ -321,15 +332,17 @@ describe("private RAG API access", () => {
     expect(mocks.demoAnswer).toHaveBeenCalledWith("demo question", undefined, undefined);
   });
 
-  it("rejects unauthenticated real answer streams before generation", async () => {
+  it("allows unauthenticated real answer streams with anonymous scope", async () => {
     const mocks = mockRuntime();
     const { POST } = await import("../src/app/api/answer/stream/route");
 
     const response = await POST(jsonRequest("/api/answer/stream", { query: "clozapine monitoring" }));
+    await response.text();
 
-    expect(response.status).toBe(401);
-    expect(await payload(response)).toEqual({ error: "Authentication required." });
-    expect(mocks.answerQuestionWithScope).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mocks.answerQuestionWithScope).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true, query: "clozapine monitoring" }),
+    );
   });
 
   it("scopes authenticated real answer streams to the authenticated owner", async () => {
