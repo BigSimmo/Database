@@ -5,6 +5,7 @@ import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRe
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
 import { recentQueryStorageKey } from "@/components/ClinicalDashboard";
+import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
@@ -128,6 +129,7 @@ function GlobalMockupSearchShellClient({
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const { theme, toggleTheme } = useTheme();
@@ -221,6 +223,7 @@ function GlobalMockupSearchShellClient({
 
   function openSettings() {
     setGuideOpen(false);
+    setAccountSetupOpen(false);
     setMobileMenuOpen(false);
     setSettingsOpen(true);
   }
@@ -228,7 +231,13 @@ function GlobalMockupSearchShellClient({
   function openAccountProfile() {
     setGuideOpen(false);
     setMobileMenuOpen(false);
-    setSettingsOpen(true);
+    if (sidebarIdentity.signedIn) {
+      setAccountSetupOpen(false);
+      setSettingsOpen(true);
+      return;
+    }
+    setSettingsOpen(false);
+    setAccountSetupOpen(true);
   }
 
   function navigateToMode(mode: AppModeId, options: { query?: string; run?: boolean; focus?: boolean } = {}) {
@@ -450,6 +459,7 @@ function GlobalMockupSearchShellClient({
         onSignOut={auth.signOut}
         onOpenGuide={openGuide}
       />
+      <AccountSetupDialog open={accountSetupOpen} onClose={() => setAccountSetupOpen(false)} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
         // The workflow header keeps its menu trigger past md, so the drawer
