@@ -28,7 +28,6 @@ import {
   SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { QueryCoverageChips, RelevanceBadge } from "@/components/clinical-dashboard/relevance";
-import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
 import { InlineTableCard, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
 import {
   answerSurface,
@@ -255,12 +254,10 @@ export function StagedAnswerResultSurface({
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [safetyFindingsOpen, setSafetyFindingsOpen] = useState(false);
   const [evidenceInitialTab, setEvidenceInitialTab] = useState<EvidenceTabName | null>(null);
-  const [activeReviewPanel, setActiveReviewPanel] = useState<"clinical" | "evidence" | null>(null);
   const [copiedQuotes, setCopiedQuotes] = useState(false);
   const clinicalNotesTriggerRef = useRef<HTMLButtonElement>(null);
   const evidenceTriggerRef = useRef<HTMLButtonElement>(null);
   const safetyTriggerRef = useRef<HTMLButtonElement>(null);
-  const useReviewSheet = useMobilePreviewSheet();
   const copyQuotesTimerRef = useRef<number | null>(null);
   useEffect(() => {
     return () => {
@@ -271,13 +268,7 @@ export function StagedAnswerResultSurface({
     setEvidenceOpen(false);
     setSafetyFindingsOpen(false);
     setEvidenceInitialTab(null);
-    if (useReviewSheet) {
-      setActiveReviewPanel(null);
-      setClinicalNotesOpen(true);
-      return;
-    }
-    setClinicalNotesOpen(false);
-    setActiveReviewPanel("clinical");
+    setClinicalNotesOpen(true);
   }
   function restoreFocusToTrigger(ref: RefObject<HTMLElement | null>) {
     window.requestAnimationFrame(() => {
@@ -292,23 +283,12 @@ export function StagedAnswerResultSurface({
     setClinicalNotesOpen(false);
     setSafetyFindingsOpen(false);
     setEvidenceInitialTab(initialTab);
-    if (useReviewSheet) {
-      setActiveReviewPanel(null);
-      setEvidenceOpen(true);
-      return;
-    }
-    setEvidenceOpen(false);
-    setActiveReviewPanel("evidence");
+    setEvidenceOpen(true);
   }
   function closeEvidenceReview() {
     setEvidenceOpen(false);
     setEvidenceInitialTab(null);
     restoreFocusToTrigger(evidenceTriggerRef);
-  }
-  function closeDesktopReviewPanel() {
-    const triggerRef = activeReviewPanel === "clinical" ? clinicalNotesTriggerRef : evidenceTriggerRef;
-    setActiveReviewPanel(null);
-    restoreFocusToTrigger(triggerRef);
   }
   function openTableEvidence() {
     setClinicalNotesOpen(false);
@@ -319,7 +299,6 @@ export function StagedAnswerResultSurface({
     setClinicalNotesOpen(false);
     setEvidenceOpen(false);
     setEvidenceInitialTab(null);
-    setActiveReviewPanel(null);
     setSafetyFindingsOpen(true);
   }
   function closeSafetyFindingsReview() {
@@ -345,7 +324,7 @@ export function StagedAnswerResultSurface({
   const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
   const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
   const showInlineSupportCard = Boolean(priority || showClinicalNotes || showEvidenceDrawer);
-  const showLayoutAside = Boolean(activeReviewPanel || centralTable);
+  const showLayoutAside = Boolean(centralTable);
 
   return (
     <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
@@ -392,81 +371,9 @@ export function StagedAnswerResultSurface({
               />
             ) : null}
 
-            {centralTable && activeReviewPanel ? <InlineTableCard item={centralTable} /> : null}
           </div>
 
-          {activeReviewPanel ? (
-            <aside
-              data-testid="desktop-answer-review-panel"
-              className="hidden min-h-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)] lg:flex lg:max-h-[calc(100dvh-8rem)] lg:flex-col lg:sticky lg:top-4"
-              aria-label={activeReviewPanel === "clinical" ? "Clinical notes" : "Evidence"}
-            >
-              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
-                <div className="flex min-w-0 items-start gap-2.5">
-                  <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg")}>
-                    {activeReviewPanel === "clinical" ? (
-                      <ClipboardCheck className="h-3.5 w-3.5" />
-                    ) : (
-                      <Layers className="h-3.5 w-3.5" />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <h3 className="truncate text-lg font-semibold text-[color:var(--text-heading)]">
-                        {activeReviewPanel === "clinical" ? "Clinical notes" : "Evidence"}
-                      </h3>
-                      <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
-                        {activeReviewPanel === "clinical" ? clinicalNoteDisplayCount : "Supported"}
-                      </span>
-                    </div>
-                    <p className={cn("mt-1 text-sm leading-5", textMuted)}>
-                      {activeReviewPanel === "clinical"
-                        ? "Source-backed points from this answer."
-                        : "Review by evidence type."}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeDesktopReviewPanel}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label={`Close ${activeReviewPanel === "clinical" ? "clinical notes" : "evidence"}`}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-3 polished-scroll">
-                {activeReviewPanel === "clinical" ? (
-                  <ClinicalNotesChecklistPanel
-                    answer={answer}
-                    viewMode={answerViewMode}
-                    evidenceMapRows={answerEvidenceMapRows}
-                    bestSource={bestSource}
-                    copied={copiedAnswer}
-                    onCopy={onCopyAnswer}
-                    onOpenTables={openTableEvidence}
-                  />
-                ) : (
-                  <MobileEvidenceSheetContent
-                    answer={answer}
-                    sources={sources}
-                    renderModel={renderModel}
-                    query={query}
-                    visualEvidence={renderModel.visualEvidence}
-                    answerEvidenceMapRows={answerEvidenceMapRows}
-                    sourceGovernanceWarnings={sourceGovernanceWarnings}
-                    demoMode={demoMode}
-                    initialTab={evidenceInitialTab}
-                    pendingFeedback={pendingFeedback}
-                    copiedQuotes={copiedQuotes}
-                    onCopyQuotes={copyQuotes}
-                    onSubmitFeedback={onSubmitFeedback}
-                    onScopeDocument={onScopeDocument}
-                  />
-                )}
-              </div>
-            </aside>
-          ) : centralTable ? (
+          {centralTable ? (
             <div className="min-w-0 lg:sticky lg:top-24">
               <InlineTableCard item={centralTable} />
             </div>
@@ -504,8 +411,7 @@ export function StagedAnswerResultSurface({
             headerClassName="gap-2 p-2.5 sm:p-3"
             titleClassName="text-[15px] leading-5"
             closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
-            contentStyle={{ height: "80dvh" }}
+            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-md"
             bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
             returnFocusRef={clinicalNotesTriggerRef}
             portal
@@ -537,8 +443,7 @@ export function StagedAnswerResultSurface({
                 <Layers className="h-3.5 w-3.5" />
               </span>
             }
-            contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
-            contentStyle={{ height: "80dvh" }}
+            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(88dvh,44rem)] sm:max-w-2xl"
             bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
             returnFocusRef={evidenceTriggerRef}
             portal
@@ -582,8 +487,7 @@ export function StagedAnswerResultSurface({
             headerClassName="gap-2 p-2.5 sm:p-3"
             titleClassName="text-[15px] leading-5"
             closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
-            contentStyle={{ height: "80dvh" }}
+            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
             bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
             returnFocusRef={safetyTriggerRef}
             portal

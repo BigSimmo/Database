@@ -15,6 +15,7 @@ import {
   Pill,
   Quote,
   Search,
+  ShieldCheck,
   Trash2,
   X,
   type LucideIcon,

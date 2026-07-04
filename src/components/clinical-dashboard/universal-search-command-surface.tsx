@@ -6,7 +6,6 @@ import {
   CornerDownLeft,
   Search,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import {
   useEffect,
