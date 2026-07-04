@@ -376,13 +376,12 @@ function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
       {warnings.map((warning, index) => (
         <article
           key={`${warning}:${index}`}
-          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 p-3"
+          className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2"
         >
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-[color:var(--warning)]">Gap {index + 1}</p>
-            <p className="mt-1 text-sm leading-6 text-[color:var(--text)]">{warning}</p>
-          </div>
+          <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-[10px] font-bold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
+            {index + 1}
+          </span>
+          <p className="line-clamp-2 text-xs leading-5 text-[color:var(--text)]">{warning}</p>
         </article>
       ))}
     </div>
