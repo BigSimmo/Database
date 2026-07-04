@@ -202,6 +202,7 @@ export function MasterSearchHeader({
   queryInputAutoFocus = false,
   headerVariant = "default",
   mobileSearchPlacement = "default",
+  mobileBottomSearchVariant = "default",
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
   desktopHomeComposerSlotId,
@@ -239,6 +240,10 @@ export function MasterSearchHeader({
   queryInputAutoFocus?: boolean;
   headerVariant?: "default" | "workflow";
   mobileSearchPlacement?: "default" | "bottom";
+  /** "compact" drops the phone footer chip row and hugs the bottom edge —
+   *  used by search/result views so results keep maximum screen space.
+   *  Mode homes keep the default chip-row layout. */
+  mobileBottomSearchVariant?: "default" | "compact";
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
   desktopHomeComposerSlotId?: string;
@@ -1127,9 +1132,13 @@ export function MasterSearchHeader({
     const isDesktopHomeComposer = placement === "desktop-home";
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
+    const usesCompactMobileBottomStyle = usesMobileBottomStyle && mobileBottomSearchVariant === "compact";
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
     const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer;
-    const showFooterSearchChips = usesFooterChipLayout;
+    // Compact search views drop the chip row on phones so the pill can sit
+    // flush with the bottom edge; the same actions stay reachable via the
+    // integrated "+" menu.
+    const showFooterSearchChips = usesFooterChipLayout && !usesCompactMobileBottomStyle;
     // The visible footer/hero composer chrome is universal; submit semantics still
     // come from the active mode.
     const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;
@@ -1166,6 +1175,7 @@ export function MasterSearchHeader({
                   )
                 : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
           usesBottomComposerPlacement && "answer-footer-search-edge",
+          usesCompactMobileBottomStyle && "document-mobile-search-compact",
           usesFooterChipLayout && "flex flex-col items-center gap-2.5",
         )}
       >

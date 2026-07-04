@@ -363,6 +363,10 @@ function GlobalMockupSearchShellClient({
             queryInputRef={inputRef}
             headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
             mobileSearchPlacement="bottom"
+            // Submitted searches that stay in the shell (services results) are
+            // result views: compact the phone bottom composer so results keep
+            // maximum screen space. Mode homes keep the chip-row layout.
+            mobileBottomSearchVariant={hasSubmittedModeSearch ? "compact" : "default"}
             desktopSearchPlacement={
               (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
             }
@@ -381,7 +385,9 @@ function GlobalMockupSearchShellClient({
               ? "pb-8"
               : searchMode === "answer"
                 ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
-                : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
+                : hasSubmittedModeSearch
+                  ? "pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-8"
+                  : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
           {children}
