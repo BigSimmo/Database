@@ -374,13 +374,19 @@ describe("Supabase schema Data API grants", () => {
 
   it("supports service-role-only durable API rate limiting", () => {
     expect(schema).toContain("create table if not exists public.api_rate_limits");
+    expect(schema).toContain("create table if not exists public.api_rate_limit_subjects");
     expect(schema).toContain("primary key (owner_id, bucket)");
+    expect(schema).toContain("primary key (subject_key, bucket)");
     expect(schema).toContain("create or replace function public.consume_api_rate_limit");
+    expect(schema).toContain("create or replace function public.consume_api_subject_rate_limit");
     expect(schema).toContain("returns table ( limited boolean, limit_value integer, remaining integer");
     expect(schema).toContain("grant select, insert, update, delete on table");
     expect(schema).toContain("public.api_rate_limits,");
+    expect(schema).toContain("public.api_rate_limit_subjects,");
     expect(schema).toContain("alter table public.api_rate_limits enable row level security");
+    expect(schema).toContain("alter table public.api_rate_limit_subjects enable row level security");
     expect(schema).toContain('create policy "api rate limits service role all"');
+    expect(schema).toContain('create policy "api rate limit subjects service role all"');
     expect(schema).not.toMatch(/grant [^;]*public\.api_rate_limits[^;]* to authenticated;/);
   });
 

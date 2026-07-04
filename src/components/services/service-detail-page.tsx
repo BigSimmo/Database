@@ -49,8 +49,8 @@ import {
   type ServiceStatusChip,
   type ServiceSummaryCard,
 } from "@/lib/services";
+import { readSavedRegistrySlugs, savedServicesStorageKey, writeSavedRegistrySlugs } from "@/lib/saved-registry-storage";
 
-const savedServicesKey = "clinical-kb-saved-services";
 const missingText = "Not listed";
 
 function hasText(value: string | null | undefined): value is string {
@@ -133,15 +133,6 @@ function contactHref(contact: ServiceContact | null | undefined) {
 
 function hrefIsExternal(href: string | undefined) {
   return Boolean(href && /^https?:\/\//i.test(href));
-}
-
-function readSavedServices() {
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(savedServicesKey) ?? "[]");
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
-  }
 }
 
 async function copyText(value: string) {
@@ -448,7 +439,7 @@ function TagList({ items, emptyLabel }: { items: string[]; emptyLabel: string })
 export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   const router = useRouter();
   const [saved, setSaved] = useState(() =>
-    typeof window === "undefined" ? false : readSavedServices().includes(service.slug),
+    typeof window === "undefined" ? false : readSavedRegistrySlugs(savedServicesStorageKey).includes(service.slug),
   );
   const [notice, setNotice] = useState<string | null>(null);
   const primaryContact = hasText(service.primaryContact?.value)
@@ -516,11 +507,11 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
 
   function toggleSaved() {
     try {
-      const current = readSavedServices();
+      const current = readSavedRegistrySlugs(savedServicesStorageKey);
       const next = current.includes(service.slug)
         ? current.filter((item) => item !== service.slug)
         : [service.slug, ...current];
-      window.localStorage.setItem(savedServicesKey, JSON.stringify(next));
+      writeSavedRegistrySlugs(savedServicesStorageKey, next);
       const nowSaved = next.includes(service.slug);
       setSaved(nowSaved);
       setNotice(nowSaved ? "Service saved" : "Service removed from saved items");

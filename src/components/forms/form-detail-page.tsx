@@ -45,8 +45,8 @@ import {
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formNavigatorQuery, type FormRecord } from "@/lib/forms";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/services";
+import { readSavedRegistrySlugs, savedFormsStorageKey, writeSavedRegistrySlugs } from "@/lib/saved-registry-storage";
 
-const savedFormsKey = "clinical-kb-saved-forms";
 const missingText = "Not listed";
 
 function hasText(value: string | null | undefined): value is string {
@@ -55,16 +55,6 @@ function hasText(value: string | null | undefined): value is string {
 
 function displayText(value: string | null | undefined, fallback = missingText) {
   return hasText(value) ? value.trim() : fallback;
-}
-
-function readSavedForms() {
-  try {
-    const raw = window.localStorage.getItem(savedFormsKey);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
-  }
 }
 
 async function copyText(value: string) {
@@ -445,7 +435,7 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: string | 
 export function FormDetailPage({ form }: { form: FormRecord }) {
   const router = useRouter();
   const [saved, setSaved] = useState(() =>
-    typeof window === "undefined" ? false : readSavedForms().includes(form.slug),
+    typeof window === "undefined" ? false : readSavedRegistrySlugs(savedFormsStorageKey).includes(form.slug),
   );
   const [notice, setNotice] = useState<string | null>(null);
   const code = formCode(form);
@@ -483,9 +473,9 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
 
   function toggleSaved() {
     try {
-      const current = readSavedForms();
+      const current = readSavedRegistrySlugs(savedFormsStorageKey);
       const next = current.includes(form.slug) ? current.filter((item) => item !== form.slug) : [form.slug, ...current];
-      window.localStorage.setItem(savedFormsKey, JSON.stringify(next));
+      writeSavedRegistrySlugs(savedFormsStorageKey, next);
       const nowSaved = next.includes(form.slug);
       setSaved(nowSaved);
       setNotice(nowSaved ? "Form saved" : "Form removed from saved items");
