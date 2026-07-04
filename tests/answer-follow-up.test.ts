@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAnswerFollowUpQuery } from "@/lib/answer-follow-up";
+import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
 
 describe("buildAnswerFollowUpQuery", () => {
   it("returns the follow-up unchanged when there is no prior question", () => {
@@ -51,5 +51,57 @@ describe("buildAnswerFollowUpQuery", () => {
     expect(buildAnswerFollowUpQuery("  lithium dosing  ", "  what about the elderly?  ")).toBe(
       'Follow-up to "lithium dosing": what about the elderly?',
     );
+  });
+});
+
+describe("buildAnswerFollowUpSuggestions", () => {
+  const medicationAnswer = {
+    answer: "Start low and monitor levels.",
+    grounded: true,
+    confidence: "high",
+    citations: [],
+    sources: [],
+    queryClass: "medication_dose_risk",
+    queryAnalysis: {
+      originalQuery: "lithium dosing",
+      normalizedQuery: "lithium dosing",
+      queryClass: "medication_dose_risk",
+      intent: "drug_dosing",
+      confidence: 0.9,
+      reasons: [],
+      canonicalTerms: ["lithium"],
+      expandedTerms: [],
+      typoCorrections: [],
+      medications: ["lithium"],
+      acronyms: [],
+      thresholdTerms: [],
+      documentTitleTerms: [],
+      queryRewrite: {
+        normalizedQuery: "lithium dosing",
+        searchQuery: "lithium dosing",
+        expansions: [],
+        reasons: [],
+      },
+      documentTitleIntent: false,
+      comparisonIntent: false,
+      freshnessNeed: false,
+      needsVisualEvidence: false,
+      needsSynthesis: false,
+      needsClassifierFallback: false,
+    },
+  } satisfies import("@/lib/types").RagAnswer;
+
+  it("returns medication follow-up suggestions for the latest turn", () => {
+    const suggestions = buildAnswerFollowUpSuggestions("lithium dosing", medicationAnswer);
+    expect(suggestions.length).toBeGreaterThan(0);
+    expect(suggestions.some((item) => /renal impairment/i.test(item))).toBe(true);
+  });
+
+  it("avoids repeating questions already asked in the thread", () => {
+    const suggestions = buildAnswerFollowUpSuggestions("lithium dosing", medicationAnswer, [
+      "lithium dosing",
+      "What about renal impairment?",
+    ]);
+    expect(suggestions.some((item) => /renal impairment/i.test(item))).toBe(false);
   });
 });

@@ -53,6 +53,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -103,7 +104,7 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
@@ -143,6 +144,7 @@ import {
   SourceImage,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
+import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
 import {
   AnswerFeedbackPanel,
   AnswerSafetyNotice,
@@ -220,7 +222,12 @@ import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { rankFormRecords } from "@/lib/forms";
 import { rankServiceRecords } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
-import { buildAnswerFollowUpQuery } from "@/lib/answer-follow-up";
+import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
+import {
+  clearPersistedAnswerThread,
+  loadPersistedAnswerThread,
+  savePersistedAnswerThread,
+} from "@/lib/answer-thread-storage";
 import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import {
@@ -262,7 +269,7 @@ import type {
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
+import { createQuoteFollowUp, type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
 
 export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 export const mobileSectionFabMediaQuery =
@@ -1087,7 +1094,7 @@ function RelatedDocumentsPanel({
               <div className="min-w-0">
                 <Link
                   href={`/documents/${document.document_id}?page=${document.best_pages[0] ?? 1}&chunk=${document.best_chunk_ids[0] ?? ""}`}
-                  className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                  className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)]"
                 >
                   <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                 </Link>
@@ -1137,10 +1144,14 @@ type AnswerTurn = {
 function PriorAnswerTurnSurface({
   turn,
   copied,
+  collapsed,
+  onToggleCollapsed,
   onCopy,
 }: {
   turn: AnswerTurn;
   copied: boolean;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
   onCopy: (text: string) => void;
 }) {
   const renderModel = useMemo(
@@ -1153,23 +1164,41 @@ function PriorAnswerTurnSurface({
     turn.answer.grounded === true && turn.answer.confidence !== "unsupported" && renderModel.trust !== "unsupported";
   const sourceCount =
     renderModel.primarySources.length || turn.sources.length || turn.answer.sources?.length || turn.answer.citations.length;
+  const previewText = safeText || turn.answer.answer;
 
   return (
-    <div className="min-w-0 space-y-4 sm:space-y-5" data-dashboard-stage="answer-thread-turn">
+    <div
+      className="min-w-0 space-y-4 sm:space-y-5"
+      data-dashboard-stage="answer-thread-turn"
+      data-collapsed={collapsed ? "true" : "false"}
+    >
       <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
         <UserQuestionBubble query={turn.query} />
-        <NaturalLanguageAnswer
-          text={safeText || turn.answer.answer}
-          sourceCount={sourceCount}
-          weakEvidence={weakEvidence}
-          grounded={grounded}
-          sourceOnly={turn.answer.answerQualityTier === "source_only"}
-          bestSource={renderModel.bestSource}
-          sources={renderModel.reviewSources}
-          sourceLinks={renderModel.primarySources}
-          copied={copied}
-          onCopy={() => onCopy(renderModel.copyText || safeText || turn.answer.answer)}
-        />
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-1 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        >
+          <ChevronDown className={cn("h-4 w-4 transition-transform", !collapsed && "rotate-180")} aria-hidden="true" />
+          {collapsed ? "Show previous answer" : "Hide previous answer"}
+        </button>
+        {collapsed ? (
+          <p className={cn("line-clamp-2 text-sm leading-6", textMuted)}>{previewText}</p>
+        ) : (
+          <NaturalLanguageAnswer
+            text={previewText}
+            sourceCount={sourceCount}
+            weakEvidence={weakEvidence}
+            grounded={grounded}
+            sourceOnly={turn.answer.answerQualityTier === "source_only"}
+            bestSource={renderModel.bestSource}
+            sources={renderModel.reviewSources}
+            sourceLinks={renderModel.primarySources}
+            copied={copied}
+            onCopy={() => onCopy(renderModel.copyText || previewText)}
+          />
+        )}
       </div>
     </div>
   );
@@ -1196,6 +1225,10 @@ function StagedAnswerResultSurface({
   pendingFeedback,
   onCopyAnswer,
   onSubmitFeedback,
+  onFollowUpQuote,
+  followUpSuggestions,
+  onPickFollowUpSuggestion,
+  followUpSuggestionsDisabled = false,
 }: {
   answer: RagAnswer;
   query: string;
@@ -1217,6 +1250,10 @@ function StagedAnswerResultSurface({
   pendingFeedback: AnswerFeedbackType | null;
   onCopyAnswer: () => void;
   onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
+  onFollowUpQuote?: (quote: QuoteCard) => void;
+  followUpSuggestions?: string[];
+  onPickFollowUpSuggestion?: (suggestion: string) => void;
+  followUpSuggestionsDisabled?: boolean;
 }) {
   const noteCount = clinicalNotesCount(answer);
   const showClinicalNotes =
@@ -1377,6 +1414,14 @@ function StagedAnswerResultSurface({
               />
             ) : null}
 
+            {followUpSuggestions?.length && onPickFollowUpSuggestion ? (
+              <AnswerFollowUpSuggestions
+                suggestions={followUpSuggestions}
+                onPick={onPickFollowUpSuggestion}
+                disabled={followUpSuggestionsDisabled}
+              />
+            ) : null}
+
             {centralTable && activeReviewPanel ? <InlineTableCard item={centralTable} /> : null}
           </div>
 
@@ -1445,6 +1490,7 @@ function StagedAnswerResultSurface({
                     copiedQuotes={copiedQuotes}
                     onCopyQuotes={copyQuotes}
                     onSubmitFeedback={onSubmitFeedback}
+                    onFollowUpQuote={onFollowUpQuote}
                     onScopeDocument={onScopeDocument}
                   />
                 )}
@@ -1465,12 +1511,12 @@ function StagedAnswerResultSurface({
             description="Source-backed points from this answer."
             closeLabel="Close clinical notes"
             headerLeading={
-              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
+              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--clinical-accent)]")}>
                 <ClipboardCheck className="h-3.5 w-3.5" />
               </span>
             }
             titleAccessory={
-              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                 {clinicalNoteDisplayCount}
               </span>
             }
@@ -1517,7 +1563,7 @@ function StagedAnswerResultSurface({
             }
             closeLabel="Close evidence"
             headerLeading={
-              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
+              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--clinical-accent)]")}>
                 <Layers className="h-3.5 w-3.5" />
               </span>
             }
@@ -1540,6 +1586,7 @@ function StagedAnswerResultSurface({
               copiedQuotes={copiedQuotes}
               onCopyQuotes={copyQuotes}
               onSubmitFeedback={onSubmitFeedback}
+              onFollowUpQuote={onFollowUpQuote}
               onScopeDocument={onScopeDocument}
             />
           </Sheet>
@@ -1722,7 +1769,7 @@ function DocumentLabelReviewPanel({
                 <div className="min-w-0">
                   <Link
                     href={`/documents/${item.document.id}`}
-                    className="line-clamp-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                    className="line-clamp-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)]"
                   >
                     {documentDisplayTitle(item.document)}
                   </Link>
@@ -2369,7 +2416,7 @@ function DocumentDrawer({
             id="needs-review-filter"
             checked={showNeedsReviewOnly}
             onChange={(e) => setShowNeedsReviewOnly(e.target.checked)}
-            className="rounded border-[color:var(--border)] text-[color:var(--primary)] focus:ring-[color:var(--primary)] h-4 w-4"
+            className="rounded border-[color:var(--border)] text-[color:var(--clinical-accent)] focus:ring-[color:var(--focus)] h-4 w-4"
           />
           <label
             htmlFor="needs-review-filter"
@@ -2563,7 +2610,7 @@ function DocumentDrawer({
                 <div className="min-w-0">
                   <Link
                     href={`/documents/${document.id}`}
-                    className="flex min-h-[44px] min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                    className="flex min-h-[44px] min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)]"
                   >
                     <span className="truncate">{documentDisplayTitle(document)}</span>
                     <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
@@ -2604,7 +2651,7 @@ function DocumentDrawer({
                     className={cn(
                       "inline-flex min-h-[44px] items-center rounded-lg border px-3 text-xs font-semibold transition",
                       selected
-                        ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
+                        ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
                     )}
                   >
@@ -3108,7 +3155,7 @@ function SettingsSummaryTile({
           className={cn(
             "grid h-8 w-8 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] lg:rounded-lg",
             emphasized
-              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)]"
+              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
           )}
         >
@@ -3148,7 +3195,7 @@ function SettingsRow({
         className={cn(
           "grid h-7 w-7 shrink-0 place-items-center rounded-full transition sm:h-8 sm:w-8 lg:rounded-lg lg:border lg:shadow-[var(--shadow-inset)]",
           active
-            ? "bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-accent)_24%,transparent)] lg:border-[color:var(--clinical-accent)]"
+            ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-accent)_24%,transparent)] lg:border-[color:var(--clinical-accent)]"
             : "bg-transparent text-[color:var(--text-muted)] lg:border-[color:var(--border)] lg:bg-[color:var(--surface-lux)]",
         )}
       >
@@ -3267,7 +3314,7 @@ function fabToneClassName(tone: MobileSectionFabTone) {
   if (tone === "empty") {
     return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
   }
-  return "border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]";
+  return "border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 }
 
 function buildMobileSectionFabState({
@@ -3544,14 +3591,14 @@ function MobileSectionFab({
                   "relative grid min-h-[58px] grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-transparent py-1.5 pl-3 pr-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                   item.empty && !active && "opacity-75",
                   active &&
-                    "border-[color:var(--primary)]/25 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)] shadow-[var(--shadow-inset)]",
+                    "border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
                 )}
               >
                 <span
                   aria-hidden="true"
                   className={cn(
                     "absolute bottom-2 left-1 top-2 w-1 rounded-full bg-transparent",
-                    active && "bg-[color:var(--primary)]",
+                    active && "bg-[color:var(--clinical-accent)]",
                   )}
                 />
                 <span
@@ -3560,7 +3607,7 @@ function MobileSectionFab({
                     "grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]",
                     item.empty && !active && "bg-[color:var(--surface-subtle)]",
                     active &&
-                      "border-[color:var(--primary)]/25 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
+                      "border-[color:var(--clinical-accent)]/25 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
                   )}
                 >
                   <Icon className="h-4.5 w-4.5" />
@@ -3577,7 +3624,7 @@ function MobileSectionFab({
                       "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-[11px] font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
                       item.empty && "text-[color:var(--text-muted)]",
                       active &&
-                        "border-[color:var(--primary)]/20 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
+                        "border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
                     )}
                   >
                     {item.count}
@@ -3703,6 +3750,7 @@ export function ClinicalDashboard({
   const [qualityItems, setQualityItems] = useState<IngestionQualityReviewItem[]>([]);
   const jobsRef = useRef(jobs);
   const batchesRef = useRef(batches);
+  const answerThreadBootstrappedRef = useRef(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(false);
@@ -3716,6 +3764,7 @@ export function ClinicalDashboard({
   // reading stale closure state.
   const [priorAnswerTurns, setPriorAnswerTurns] = useState<AnswerTurn[]>([]);
   const [latestAnswerQuery, setLatestAnswerQuery] = useState<string | null>(null);
+  const [collapsedTurnIds, setCollapsedTurnIds] = useState<Set<string>>(() => new Set());
   const latestAnswerTurnRef = useRef<Omit<AnswerTurn, "id"> | null>(null);
   const answerTurnSeqRef = useRef(0);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
@@ -3752,9 +3801,42 @@ export function ClinicalDashboard({
   useEffect(() => {
     if (answer === null) latestAnswerTurnRef.current = null;
   }, [answer]);
+  useLayoutEffect(() => {
+    if (answerThreadBootstrappedRef.current) return;
+    answerThreadBootstrappedRef.current = true;
+    const persisted = loadPersistedAnswerThread();
+    if (!persisted) return;
+    setPriorAnswerTurns(persisted.priorTurns);
+    setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
+    if (persisted.latestTurn) {
+      latestAnswerTurnRef.current = persisted.latestTurn;
+      setAnswer(persisted.latestTurn.answer);
+      setSources(persisted.latestTurn.sources);
+      setModeSearchSubmitted(true);
+    }
+    answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
+      const match = /^answer-turn-(\d+)$/.exec(turn.id);
+      return match ? Math.max(max, Number(match[1])) : max;
+    }, 0);
+    setCollapsedTurnIds(
+      persisted.collapsedTurnIds.length
+        ? new Set(persisted.collapsedTurnIds)
+        : new Set(persisted.priorTurns.map((turn) => turn.id)),
+    );
+  }, []);
   function resetAnswerThread() {
     setPriorAnswerTurns([]);
     setLatestAnswerQuery(null);
+    setCollapsedTurnIds(new Set());
+    clearPersistedAnswerThread();
+  }
+  function toggleAnswerTurnCollapsed(turnId: string) {
+    setCollapsedTurnIds((current) => {
+      const next = new Set(current);
+      if (next.has(turnId)) next.delete(turnId);
+      else next.add(turnId);
+      return next;
+    });
   }
   function clearDifferentialModeResultState() {
     resetAnswerThread();
@@ -3937,6 +4019,20 @@ export function ClinicalDashboard({
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    if (searchMode !== "answer") return;
+    if (!answer && priorAnswerTurns.length === 0) {
+      clearPersistedAnswerThread();
+      return;
+    }
+    savePersistedAnswerThread({
+      version: 1,
+      priorTurns: priorAnswerTurns,
+      latestTurn: latestAnswerTurnRef.current,
+      collapsedTurnIds: [...collapsedTurnIds],
+    });
+  }, [searchMode, answer, priorAnswerTurns, collapsedTurnIds, latestAnswerQuery]);
 
   useEffect(() => {
     jobsRef.current = jobs;
@@ -4702,6 +4798,7 @@ export function ClinicalDashboard({
     if (priorTurn) {
       const turnId = `answer-turn-${++answerTurnSeqRef.current}`;
       setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }]);
+      setCollapsedTurnIds((current) => new Set(current).add(turnId));
     }
     const committedQuery = displayQuery ?? payload.query;
     latestAnswerTurnRef.current = {
@@ -4940,6 +5037,7 @@ export function ClinicalDashboard({
     const trimmedQuery = query.trim();
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !trimmedQuery || !canAutoRunMode || loading) return;
+    if (searchMode === "answer" && !answerThreadBootstrappedRef.current) return;
     // Once an answer is on screen, composer edits are follow-up drafts and must
     // only run on explicit submit — not on every query keystroke while run=1
     // keeps autoRunSearch enabled from the URL.
@@ -5241,6 +5339,19 @@ export function ClinicalDashboard({
     });
   }
 
+  function stageAnswerFollowUpDraft(draft: string) {
+    setQuery(draft);
+    focusComposerInput();
+  }
+
+  function handleFollowUpQuote(quote: QuoteCard) {
+    stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
+  }
+
+  function handlePickFollowUpSuggestion(suggestion: string) {
+    void executeSearch(suggestion);
+  }
+
   function startNewChat() {
     modeChangeFromUiRef.current = true;
     const href = appModeHomeHref("answer", { focus: true });
@@ -5457,6 +5568,11 @@ export function ClinicalDashboard({
     answerRenderModel?.trust !== "unsupported";
   const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
   const safeAnswerText = useMemo(() => sanitizeAnswerDisplayText(answer?.answer ?? ""), [answer?.answer]);
+  const answerFollowUpSuggestions = useMemo(() => {
+    if (!answer || !latestAnswerQuery) return [];
+    const priorQueries = [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery];
+    return buildAnswerFollowUpSuggestions(latestAnswerQuery, answer, priorQueries);
+  }, [answer, latestAnswerQuery, priorAnswerTurns]);
   const safeAnswerSections = useMemo(() => {
     return (answer?.answerSections ?? [])
       .map((section) => {
@@ -5927,9 +6043,9 @@ export function ClinicalDashboard({
               {loading && answerProgress && searchMode !== "prescribing" && (
                 <div
                   role="status"
-                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
                 >
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--primary)]" />
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
                   <span className="min-w-0 truncate">{answerProgress}</span>
                 </div>
               )}
@@ -6037,6 +6153,8 @@ export function ClinicalDashboard({
                         key={turn.id}
                         turn={turn}
                         copied={copiedAction === turn.id}
+                        collapsed={collapsedTurnIds.has(turn.id)}
+                        onToggleCollapsed={() => toggleAnswerTurnCollapsed(turn.id)}
                         onCopy={(text) => copyText(turn.id, text)}
                       />
                     ))}
@@ -6063,6 +6181,10 @@ export function ClinicalDashboard({
                         copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
                       }
                       onSubmitFeedback={submitAnswerFeedback}
+                      onFollowUpQuote={handleFollowUpQuote}
+                      followUpSuggestions={answerFollowUpSuggestions}
+                      onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
+                      followUpSuggestionsDisabled={loading}
                     />
                   </>
                 ) : null
@@ -6187,7 +6309,7 @@ export function ClinicalDashboard({
                             className={cn(
                               "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
                               active
-                                ? "border-[color:var(--primary)] bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--glow-soft)]"
+                                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--glow-soft)]"
                                 : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
                             )}
                           >

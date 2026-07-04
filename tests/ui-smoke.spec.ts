@@ -1132,6 +1132,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
     await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
     await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
+    await expect(page.getByTestId("answer-follow-up-suggestions")).toBeVisible();
 
     const composer = visibleQuestionInput(page);
     await expect(composer).toHaveValue("");
@@ -1144,10 +1145,37 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
     await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
     await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(followUp);
-    await expect(page.getByTestId("plain-answer-response")).toHaveCount(2);
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(1);
+    await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
     await expect(composer).toHaveValue("");
     await expect(page).toHaveURL(/\?mode=answer&q=what\+about\+renal\+impairment\%3F&run=1/);
     await expectNoPageHorizontalOverflow(page);
+
+    await page.reload();
+    await waitForDemoDashboardReady(page);
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
+    await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(followUp);
+    await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
+  });
+
+  test("answer follow-up suggestions run the next question", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "lithium dosing");
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("answer-follow-up-suggestions")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    const suggestion = page.getByTestId("answer-follow-up-suggestions").getByRole("button").first();
+    const suggestionText = (await suggestion.textContent())?.trim();
+    expect(suggestionText).toBeTruthy();
+    await suggestion.click();
+
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(suggestionText ?? "");
   });
 
   test("source-only answer keeps support rows honest", async ({ page }) => {
