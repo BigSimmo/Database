@@ -7,7 +7,12 @@ import { DocumentOrganizationBadges, documentDisplayTitle } from "@/components/D
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
-import { cn, floatingControl, sourceCard, textMuted } from "@/components/ui-primitives";
+import {
+  cn,
+  floatingControl,
+  sourceCard,
+  textMuted,
+} from "@/components/ui-primitives";
 import { type SmartDocumentTag } from "@/lib/document-tags";
 import type { RelatedDocument } from "@/lib/types";
 

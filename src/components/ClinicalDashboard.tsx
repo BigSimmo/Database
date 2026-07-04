@@ -12,7 +12,6 @@ import {
   ChevronRight,
   CircleUserRound,
   Clock3,
-  ClipboardCheck,
   Copy,
   ExternalLink,
   FileImage,
@@ -40,14 +39,22 @@ import {
   SlidersHorizontal,
   Sparkles,
   Stethoscope,
-  Tag,
   UploadCloud,
   UserRound,
   WifiOff,
   Wrench,
   X,
 } from "lucide-react";
-import { type CSSProperties, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type FormEvent,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
 import {
   DocumentOrganizationBadges,
@@ -79,6 +86,7 @@ import {
   SourceProvenance,
   SourceStatusBadge,
   sourceCard,
+  subtleStatusPill,
   tableCard,
   tableCardHeader,
   tableMicroActionRow,
@@ -95,6 +103,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
+import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
@@ -138,6 +147,13 @@ import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboar
 import {
   AnswerFeedbackPanel,
   AnswerSafetyNotice,
+  AnswerSupportSummaryCard,
+  answerHasCentralTable,
+  answerSupportPriority,
+  ClinicalNotesChecklistPanel,
+  clinicalNotesCount,
+  clinicalNotesDisplayCountForAnswer,
+  compactEvidenceSummary,
   type EvidenceTabName,
   simpleClinicalTableProps,
   evidenceMapRowsFromRenderModel,
@@ -146,11 +162,18 @@ import {
   formatQuoteCardsForClipboard,
   primaryVisualTable,
   QuoteCards,
+  SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
+import {
+  DrawerGroupLabel,
+  type DocumentDrawerMode,
+  type DocumentDrawerStatusFilter,
+} from "@/components/clinical-dashboard/document-admin";
+
 
 const DifferentialsHome = dynamic(
   () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
@@ -171,6 +194,11 @@ export const ApplicationsLauncherWorkspace = dynamic(
   () => import("@/components/applications-launcher-page").then((m) => m.ApplicationsLauncherWorkspace),
   { ssr: false },
 );
+const DocumentDrawer = dynamic(
+  () => import("@/components/clinical-dashboard/document-admin/document-drawer").then((m) => m.DocumentDrawer),
+  { ssr: false },
+);
+
 import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance, QueryCoverageChips } from "@/components/clinical-dashboard/relevance";
 import {
@@ -219,11 +247,6 @@ import {
 } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import {
-  documentLabelReviewStatus,
-  documentLabelTier,
-  formatDocumentLabelDisplay,
-  normalizeDocumentLabelForStorage,
-  reviewDocumentTagQuality,
   tagSearchText,
   type SmartDocumentTag,
   type SmartDocumentTagFacet,
@@ -251,12 +274,7 @@ import type {
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import {
-  createQuoteFollowUp,
-  type AnswerEvidenceMapRow,
-  type AnswerViewMode,
-  shouldPollForUpdates,
-} from "@/lib/ward-output";
+import { createQuoteFollowUp, type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
 
 export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 export const mobileSectionFabMediaQuery =
@@ -1089,10 +1107,7 @@ function PriorAnswerTurnSurface({
   const grounded =
     turn.answer.grounded === true && turn.answer.confidence !== "unsupported" && renderModel.trust !== "unsupported";
   const sourceCount =
-    renderModel.primarySources.length ||
-    turn.sources.length ||
-    turn.answer.sources?.length ||
-    turn.answer.citations.length;
+    renderModel.primarySources.length || turn.sources.length || turn.answer.sources?.length || turn.answer.citations.length;
   const previewText = safeText || turn.answer.answer;
 
   return (
@@ -1133,1083 +1148,9 @@ function PriorAnswerTurnSurface({
   );
 }
 
-const tagQualityTone: Record<SmartDocumentTagQualityIssueKind, string> = {
-  noisy: toneDanger,
-  duplicate: toneWarning,
-  low_confidence: toneInfo,
-  overused: toneNeutral,
-};
-
-const labelTierTone: Record<SmartDocumentTagTier, string> = {
-  primary: toneSuccess,
-  secondary: toneNeutral,
-  ranking: toneInfo,
-};
-
-const documentLabelTypeOptions: Array<{ value: DocumentLabelType; label: string }> = [
-  { value: "site", label: "Site" },
-  { value: "topic", label: "Topic" },
-  { value: "document_type", label: "Document type" },
-  { value: "medication", label: "Medication" },
-  { value: "risk", label: "Risk" },
-  { value: "setting", label: "Setting" },
-  { value: "workflow", label: "Workflow" },
-  { value: "population", label: "Population" },
-  { value: "service", label: "Service" },
-  { value: "clinical_action", label: "Clinical action" },
-  { value: "care_phase", label: "Care phase" },
-  { value: "document_intent", label: "Document intent" },
-  { value: "content_feature", label: "Content feature" },
-  { value: "custom", label: "Manual" },
-];
-
-function tagQualityLabel(kind: SmartDocumentTagQualityIssueKind) {
-  if (kind === "low_confidence") return "low confidence";
-  return kind;
-}
-
-function normalizedLabelReviewRow(label: DocumentLabel) {
-  const normalized = normalizeDocumentLabelForStorage(label);
-  const fallbackLabelType = documentLabelTypeOptions.some((option) => option.value === label.label_type)
-    ? label.label_type
-    : "custom";
-  const labelType = normalized?.label_type ?? fallbackLabelType;
-  const labelText = normalized?.label ?? label.label?.trim() ?? "";
-  const tier: SmartDocumentTagTier = normalized
-    ? documentLabelTier(normalized.label, normalized.label_type)
-    : "secondary";
-  const reviewStatus = documentLabelReviewStatus(label);
-  return {
-    id: label.id,
-    label: labelText,
-    displayLabel: labelText ? formatDocumentLabelDisplay(labelText, labelType) : "Unreviewed label",
-    labelType,
-    tier,
-    reviewStatus,
-    source: label.source,
-    confidence: normalized?.confidence ?? label.confidence ?? 0,
-  };
-}
-
-function labelTypeDisplay(value: DocumentLabelType) {
-  return documentLabelTypeOptions.find((option) => option.value === value)?.label ?? value.replaceAll("_", " ");
-}
-
-type LabelReviewMutationBody =
-  { labelId: string; action: "approve" | "hide" | "restore" } | { label: string; label_type: DocumentLabelType };
-
-function DocumentLabelReviewPanel({
-  documents,
-  canManage,
-  onMutateLabel,
-}: {
-  documents: ClinicalDocument[];
-  canManage: boolean;
-  onMutateLabel: (documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody) => Promise<boolean>;
-}) {
-  const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [overrideDrafts, setOverrideDrafts] = useState<Record<string, { label: string; labelType: DocumentLabelType }>>(
-    {},
-  );
-
-  const items = useMemo(() => {
-    return documents
-      .map((document) => {
-        const rows = (document.labels ?? [])
-          .map((label) => normalizedLabelReviewRow(label))
-          .filter((row): row is NonNullable<ReturnType<typeof normalizedLabelReviewRow>> => Boolean(row));
-        const visible = rows.filter((row) => row.reviewStatus !== "hidden" && row.tier !== "ranking");
-        const ranking = rows.filter((row) => row.reviewStatus !== "hidden" && row.tier === "ranking");
-        const hidden = rows.filter((row) => row.reviewStatus === "hidden");
-        const needsReview = rows.some((row) => row.reviewStatus === "new" && row.source === "generated");
-        return { document, rows, visible, ranking, hidden, needsReview };
-      })
-      .filter((item) => item.rows.length)
-      .sort((a, b) => Number(b.needsReview) - Number(a.needsReview) || b.ranking.length - a.ranking.length)
-      .slice(0, 8);
-  }, [documents]);
-
-  if (!items.length) return null;
-
-  async function mutate(documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody, actionId: string) {
-    setBusyAction(actionId);
-    try {
-      return await onMutateLabel(documentId, method, body);
-    } finally {
-      setBusyAction(null);
-    }
-  }
-
-  function draftFor(documentId: string) {
-    return overrideDrafts[documentId] ?? { label: "", labelType: "topic" as DocumentLabelType };
-  }
-
-  function setDraft(documentId: string, next: { label: string; labelType: DocumentLabelType }) {
-    setOverrideDrafts((current) => ({ ...current, [documentId]: next }));
-  }
-
-  return (
-    <details className={cn(sourceCard, "group p-3")}>
-      <summary className="flex min-h-[42px] cursor-pointer list-none items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className={cn(iconTilePremium, "h-8 w-8")}>
-            <ClipboardCheck className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[color:var(--text)]">Label review</span>
-            <span className={cn("block truncate text-xs", textMuted)}>
-              Visible labels, ranking labels, hidden labels, confidence, and manual overrides
-            </span>
-          </span>
-        </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
-      </summary>
-      <div className="mt-3 grid gap-3 border-t border-[color:var(--border)] pt-3">
-        {items.map((item) => {
-          const draft = draftFor(item.document.id);
-          return (
-            <article
-              key={item.document.id}
-              className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <Link
-                    href={`/documents/${item.document.id}`}
-                    className="line-clamp-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)]"
-                  >
-                    {documentDisplayTitle(item.document)}
-                  </Link>
-                  <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
-                    {item.visible.length} visible · {item.ranking.length} ranking · {item.hidden.length} hidden
-                  </p>
-                </div>
-                {item.needsReview ? (
-                  <span className={cn(metadataPill, toneWarning, "min-h-7 text-[11px]")}>Needs review</span>
-                ) : (
-                  <span className={cn(metadataPill, toneSuccess, "min-h-7 text-[11px]")}>Reviewed</span>
-                )}
-              </div>
-
-              {(
-                [
-                  { title: "Visible", rows: item.visible },
-                  { title: "Ranking", rows: item.ranking },
-                  { title: "Hidden", rows: item.hidden },
-                ] satisfies Array<{ title: string; rows: typeof item.rows }>
-              ).map(({ title, rows: labelRows }) => {
-                if (!labelRows.length) return null;
-                return (
-                  <section key={title} className="grid gap-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                      {title}
-                    </p>
-                    <div className="grid gap-1.5">
-                      {labelRows.slice(0, 8).map((label) => (
-                        <div
-                          key={label.id}
-                          className="grid gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="truncate text-xs font-semibold text-[color:var(--text)]">
-                                {label.displayLabel}
-                              </span>
-                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-[10px]")}>
-                                {label.tier}
-                              </span>
-                              <span className={cn(metadataPill, "min-h-6 text-[10px]")}>
-                                {labelTypeDisplay(label.labelType)}
-                              </span>
-                            </div>
-                            <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
-                              {label.source} · {Math.round(label.confidence * 100)}% · {label.reviewStatus}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {label.reviewStatus === "hidden" ? (
-                              <button
-                                type="button"
-                                disabled={!canManage || busyAction !== null}
-                                onClick={() =>
-                                  void mutate(
-                                    item.document.id,
-                                    "PATCH",
-                                    { labelId: label.id, action: "restore" },
-                                    `restore:${label.id}`,
-                                  )
-                                }
-                                className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
-                              >
-                                Restore
-                              </button>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={!canManage || busyAction !== null || label.reviewStatus === "approved"}
-                                  onClick={() =>
-                                    void mutate(
-                                      item.document.id,
-                                      "PATCH",
-                                      { labelId: label.id, action: "approve" },
-                                      `approve:${label.id}`,
-                                    )
-                                  }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={!canManage || busyAction !== null}
-                                  onClick={() =>
-                                    void mutate(
-                                      item.document.id,
-                                      "PATCH",
-                                      { labelId: label.id, action: "hide" },
-                                      `hide:${label.id}`,
-                                    )
-                                  }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px] text-[color:var(--danger)]")}
-                                >
-                                  Hide
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
-
-              <form
-                className="grid gap-2 border-t border-[color:var(--border)] pt-3 sm:grid-cols-[minmax(0,1fr)_10rem_auto]"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const trimmed = draft.label.trim();
-                  if (!trimmed) return;
-                  void mutate(
-                    item.document.id,
-                    "POST",
-                    { label: trimmed, label_type: draft.labelType },
-                    `override:${item.document.id}`,
-                  ).then((ok) => {
-                    if (ok) setDraft(item.document.id, { label: "", labelType: draft.labelType });
-                  });
-                }}
-              >
-                <input
-                  value={draft.label}
-                  onChange={(event) => setDraft(item.document.id, { ...draft, label: event.target.value })}
-                  disabled={!canManage || busyAction !== null}
-                  placeholder="Manual override label"
-                  aria-label="Manual override label"
-                  className={fieldControlPlain}
-                />
-                <select
-                  value={draft.labelType}
-                  onChange={(event) =>
-                    setDraft(item.document.id, { ...draft, labelType: event.target.value as DocumentLabelType })
-                  }
-                  disabled={!canManage || busyAction !== null}
-                  aria-label="Manual override label type"
-                  className={fieldControlPlain}
-                >
-                  {documentLabelTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="submit"
-                  disabled={!canManage || busyAction !== null || !draft.label.trim()}
-                  className={cn(primaryControl, "justify-center text-xs")}
-                >
-                  {busyAction === `override:${item.document.id}` ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                  Override
-                </button>
-              </form>
-            </article>
-          );
-        })}
-      </div>
-    </details>
-  );
-}
-
-function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] }) {
-  const issues = useMemo(() => reviewDocumentTagQuality(documents), [documents]);
-  const counts = issues.reduce<Record<SmartDocumentTagQualityIssueKind, number>>(
-    (current, issue) => ({ ...current, [issue.kind]: current[issue.kind] + 1 }),
-    { noisy: 0, duplicate: 0, low_confidence: 0, overused: 0 },
-  );
-
-  return (
-    <details className={cn(panelSubtle, "group p-3")}>
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className={cn(iconTilePremium, "h-8 w-8")}>
-            <Tag className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[color:var(--text)]">Tag quality review</span>
-            <span className={cn("block truncate text-xs", textMuted)}>
-              {issues.length
-                ? `${issues.length} issue${issues.length === 1 ? "" : "s"} across loaded documents`
-                : "No obvious tag cleanup issues in loaded documents"}
-            </span>
-          </span>
-        </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
-      </summary>
-      <div className="mt-3 space-y-3">
-        <div className="flex flex-wrap gap-1.5">
-          {(Object.keys(counts) as SmartDocumentTagQualityIssueKind[]).map((kind) => (
-            <span key={kind} className={cn(metadataPill, "min-h-7 px-2 text-[11px]", tagQualityTone[kind])}>
-              {tagQualityLabel(kind)}: {counts[kind]}
-            </span>
-          ))}
-        </div>
-        {issues.length ? (
-          <div className="grid gap-2">
-            {issues.slice(0, 12).map((issue, index) => (
-              <div
-                key={`${issue.kind}:${issue.label}:${index}`}
-                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]", tagQualityTone[issue.kind])}>
-                    {tagQualityLabel(issue.kind)}
-                  </span>
-                  <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{issue.label}</p>
-                  {issue.count > 1 ? (
-                    <span className={cn("text-[11px] font-semibold", textMuted)}>{issue.count} hits</span>
-                  ) : null}
-                </div>
-                <p className={cn("mt-1 text-xs leading-5", textMuted)}>{issue.reason}</p>
-                {issue.examples.length || issue.documentTitles.length ? (
-                  <p className={cn("mt-1 truncate text-[11px] font-semibold", textMuted)}>
-                    {[
-                      issue.examples.length ? `examples: ${issue.examples.join(", ")}` : "",
-                      issue.documentTitles.length ? `docs: ${issue.documentTitles.join(", ")}` : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className={cn("text-sm", textMuted)}>Loaded tags are clean enough for the current smart-tag rules.</p>
-        )}
-      </div>
-    </details>
-  );
-}
-
-function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[] }) {
-  const items = useMemo(() => {
-    return documents
-      .map((document) => {
-        const metadata = document.metadata && typeof document.metadata === "object" ? document.metadata : {};
-        const score = Number((metadata as Record<string, unknown>).index_quality_score ?? 1);
-        const issues = Array.isArray((metadata as Record<string, unknown>).index_quality_issues)
-          ? ((metadata as Record<string, unknown>).index_quality_issues as unknown[]).map(String)
-          : [];
-        const sectionCount = Number((metadata as Record<string, unknown>).section_count ?? 0);
-        const memoryCardCount = Number((metadata as Record<string, unknown>).memory_card_count ?? 0);
-        const extractionQuality = String((metadata as Record<string, unknown>).extraction_quality ?? "unknown");
-        const needsRepair =
-          score < 0.72 ||
-          issues.length > 0 ||
-          sectionCount === 0 ||
-          memoryCardCount === 0 ||
-          extractionQuality === "poor" ||
-          extractionQuality === "partial";
-        return { document, score, issues, sectionCount, memoryCardCount, extractionQuality, needsRepair };
-      })
-      .filter((item) => item.needsRepair)
-      .sort((a, b) => a.score - b.score || b.issues.length - a.issues.length)
-      .slice(0, 10);
-  }, [documents]);
-
-  if (!items.length) return null;
-
-  return (
-    <details className={cn(sourceCard, "p-3")}>
-      <summary className="flex min-h-[42px] cursor-pointer list-none items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className={cn(iconTilePremium, "h-8 w-8")}>
-            <ShieldAlert className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[color:var(--text)]">Index repair queue</span>
-            <span className={cn("block truncate text-xs", textMuted)}>
-              {items.length} loaded document{items.length === 1 ? "" : "s"} need quality review or reindexing
-            </span>
-          </span>
-        </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
-      </summary>
-      <div className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3">
-        {items.map((item) => (
-          <article
-            key={item.document.id}
-            className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{item.document.title}</p>
-              <span className={cn(metadataPill, "nums text-[11px]")}>
-                index {Number.isFinite(item.score) ? item.score.toFixed(2) : "n/a"}
-              </span>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className={cn(metadataPill, "text-[11px]")}>extraction:{item.extractionQuality}</span>
-              <span className={cn(metadataPill, "text-[11px]")}>sections:{item.sectionCount}</span>
-              <span className={cn(metadataPill, "text-[11px]")}>memory:{item.memoryCardCount}</span>
-              {item.issues.slice(0, 4).map((issue) => (
-                <span key={issue} className={cn(metadataPill, "text-[11px]")}>
-                  {issue}
-                </span>
-              ))}
-            </div>
-          </article>
-        ))}
-      </div>
-    </details>
-  );
-}
-
-function DocumentDrawer({
-  documents,
-  pagination,
-  loadingMoreDocuments,
-  mode,
-  selectedDocumentIds,
-  statusFilter,
-  onToggleScope,
-  onLoadMoreDocuments,
-  onDocumentRenamed,
-  onDocumentDeleted,
-  onBulkReindex,
-  onBulkAssignCollection,
-  onBulkMetadataUpdate,
-  bulkActionStatus,
-  bulkActionBusy,
-  canManageDocuments,
-  onTagSearch,
-  onMutateLabel,
-}: {
-  documents: ClinicalDocument[];
-  pagination: DocumentPagination | null;
-  loadingMoreDocuments: boolean;
-  mode: DocumentDrawerMode;
-  selectedDocumentIds: string[];
-  statusFilter: DocumentDrawerStatusFilter;
-  onToggleScope: (documentId: string) => void;
-  onLoadMoreDocuments: () => void;
-  onDocumentRenamed: (document: ClinicalDocument) => void;
-  onDocumentDeleted: (result: DocumentDeleteResult) => void;
-  onBulkReindex: (mode: "enrichment" | "full" | "retry_failed") => void;
-  onBulkAssignCollection: (collection: string) => void;
-  onBulkMetadataUpdate: (metadata: Record<string, unknown>) => void;
-  bulkActionStatus: string | null;
-  bulkActionBusy: boolean;
-  canManageDocuments: boolean;
-  onTagSearch: (tag: SmartDocumentTag) => void;
-  onMutateLabel: (documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody) => Promise<boolean>;
-}) {
-  const [filter, setFilter] = useState("");
-  const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedSite, setSelectedSite] = useState<string>("all");
-  const [selectedTopic, setSelectedTopic] = useState<string>("all");
-  const [selectedPopulation, setSelectedPopulation] = useState<string>("all");
-  const [showNeedsReviewOnly, setShowNeedsReviewOnly] = useState<boolean>(false);
-
-  const [collectionDraft, setCollectionDraft] = useState("");
-  const [metadataDraft, setMetadataDraft] = useState({
-    sourceStatus: "",
-    validationStatus: "",
-    extractionQuality: "",
-    reviewDate: "",
-    publicationDate: "",
-    jurisdiction: "",
-    sourceType: "",
-    category: "",
-  });
-
-  const allTypes = useMemo(() => {
-    const types = new Set<string>();
-    for (const doc of documents) {
-      const typeLabel = doc.labels?.find((l) => l.label_type === "document_type" && l.confidence >= 0.5)?.label;
-      if (typeLabel) types.add(typeLabel);
-      const profile = documentOrganizationProfile(doc);
-      if (profile?.document_type?.label && profile.document_type.label !== "unknown") {
-        types.add(profile.document_type.label);
-      }
-    }
-    return Array.from(types).sort();
-  }, [documents]);
-
-  const allSites = useMemo(() => {
-    const sites = new Set<string>();
-    for (const doc of documents) {
-      const siteLabels = doc.labels?.filter((l) => l.label_type === "site" && l.confidence >= 0.5) ?? [];
-      for (const l of siteLabels) sites.add(l.label);
-      const profile = documentOrganizationProfile(doc);
-      if (profile?.site?.label) sites.add(profile.site.label);
-    }
-    return Array.from(sites).sort();
-  }, [documents]);
-
-  const allTopics = useMemo(() => {
-    const topics = new Set<string>();
-    for (const doc of documents) {
-      const topicLabels =
-        doc.labels?.filter((l) => (l.label_type === "topic" || l.label_type === "custom") && l.confidence >= 0.5) ?? [];
-      for (const l of topicLabels) topics.add(l.label);
-      const profile = documentOrganizationProfile(doc);
-      if (profile?.secondary_facets?.topic) {
-        for (const t of profile.secondary_facets.topic) topics.add(t);
-      }
-    }
-    return Array.from(topics).sort();
-  }, [documents]);
-
-  const allPopulations = useMemo(() => {
-    const populations = new Set<string>();
-    for (const doc of documents) {
-      const popLabels = doc.labels?.filter((l) => l.label_type === "population" && l.confidence >= 0.5) ?? [];
-      for (const l of popLabels) populations.add(l.label);
-      const profile = documentOrganizationProfile(doc);
-      if (profile?.secondary_facets?.population) {
-        for (const p of profile.secondary_facets.population) populations.add(p);
-      }
-    }
-    return Array.from(populations).sort();
-  }, [documents]);
-
-  const isAdminMode = mode === "admin" && canManageDocuments;
-  const filterValue = filter.toLowerCase();
-  const sourcePdfCount = useMemo(
-    () =>
-      documents.filter((document) => {
-        const typeText = `${document.file_type} ${document.file_name}`.toLowerCase();
-        return documentStatusMatchesFilter(document, statusFilter) && typeText.includes("pdf");
-      }).length,
-    [documents, statusFilter],
-  );
-
-  const filtered = documents
-    .filter((document) => {
-      if (!documentStatusMatchesFilter(document, statusFilter)) return false;
-      if (mode === "source") {
-        const typeText = `${document.file_type} ${document.file_name}`.toLowerCase();
-        if (!typeText.includes("pdf")) return false;
-      }
-
-      // Filter by Type
-      if (selectedType !== "all") {
-        const typeLabel = document.labels?.find((l) => l.label_type === "document_type" && l.confidence >= 0.5)?.label;
-        const profile = documentOrganizationProfile(document);
-        const hasTypeMatch = typeLabel === selectedType || profile?.document_type?.label === selectedType;
-        if (!hasTypeMatch) return false;
-      }
-
-      // Filter by Site
-      if (selectedSite !== "all") {
-        const siteLabels = document.labels?.filter((l) => l.label_type === "site" && l.confidence >= 0.5) ?? [];
-        const profile = documentOrganizationProfile(document);
-        const hasSiteMatch = siteLabels.some((l) => l.label === selectedSite) || profile?.site?.label === selectedSite;
-        if (!hasSiteMatch) return false;
-      }
-
-      // Filter by Topic
-      if (selectedTopic !== "all") {
-        const topicLabels =
-          document.labels?.filter(
-            (l) => (l.label_type === "topic" || l.label_type === "custom") && l.confidence >= 0.5,
-          ) ?? [];
-        const profile = documentOrganizationProfile(document);
-        const hasTopicMatch =
-          topicLabels.some((l) => l.label === selectedTopic) ||
-          profile?.secondary_facets?.topic?.includes(selectedTopic);
-        if (!hasTopicMatch) return false;
-      }
-
-      // Filter by Population
-      if (selectedPopulation !== "all") {
-        const popLabels = document.labels?.filter((l) => l.label_type === "population" && l.confidence >= 0.5) ?? [];
-        const profile = documentOrganizationProfile(document);
-        const hasPopMatch =
-          popLabels.some((l) => l.label === selectedPopulation) ||
-          profile?.secondary_facets?.population?.includes(selectedPopulation);
-        if (!hasPopMatch) return false;
-      }
-
-      // Filter by Needs Review
-      if (showNeedsReviewOnly) {
-        const profile = documentOrganizationProfile(document);
-        if (profile?.review_status !== "needs_review") return false;
-      }
-
-      const labelText = tagSearchText(document);
-      const summaryText = document.summary?.summary ?? "";
-      const haystack = `${document.title} ${document.file_name} ${labelText} ${summaryText}`.toLowerCase();
-      return haystack.includes(filterValue);
-    })
-    .sort((left, right) => {
-      if (mode !== "recent") return 0;
-      return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
-    });
-  const availableDocumentCount = mode === "source" ? sourcePdfCount : (pagination?.total ?? documents.length);
-  const statusTitle =
-    mode === "recent"
-      ? `${availableDocumentCount.toLocaleString()} recent source${availableDocumentCount === 1 ? "" : "s"}`
-      : mode === "source"
-        ? `${availableDocumentCount.toLocaleString()} source PDF${availableDocumentCount === 1 ? "" : "s"}`
-        : isAdminMode
-          ? `${statusFilterLabel(statusFilter)}: ${filtered.length.toLocaleString()} shown`
-          : `${availableDocumentCount.toLocaleString()} indexed source${availableDocumentCount === 1 ? "" : "s"}`;
-  const statusHelper =
-    availableDocumentCount === 0
-      ? mode === "recent"
-        ? "Recent source rows will appear here after indexing."
-        : mode === "source"
-          ? "Indexed PDF source rows will appear below."
-          : "Indexed source rows will appear below."
-      : mode === "recent"
-        ? "Continue reading from the most recently updated sources."
-        : mode === "source"
-          ? "Open original PDF source documents."
-          : "Search and filter to open indexed clinical sources.";
-
-  return (
-    <div className="space-y-3">
-      <div
-        className={cn(
-          "grid min-h-[4.5rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
-          "sm:p-3.5",
-        )}
-      >
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
-          <FileText className="h-4.5 w-4.5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-extrabold text-[color:var(--text-heading)]">{statusTitle}</p>
-          <p className={cn("mt-0.5 line-clamp-2 text-xs font-medium leading-5", textMuted)}>{statusHelper}</p>
-        </div>
-        <span className="nums w-fit shrink-0 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-          {filtered.length.toLocaleString()} shown
-        </span>
-      </div>
-      <label className="relative block">
-        <Search className={fieldIcon} />
-        <input
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-          placeholder={mode === "source" ? "Find a source PDF" : "Find a document"}
-          data-sheet-autofocus={mode !== "admin" ? "true" : undefined}
-          className={fieldControlWithIcon}
-        />
-      </label>
-
-      {/* Dynamic Browse Library Filters */}
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <div>
-          <label
-            htmlFor="browse-filter-type"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
-          >
-            Type
-          </label>
-          <select
-            id="browse-filter-type"
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
-            aria-label="Filter by document type"
-          >
-            <option value="all">All Types</option>
-            {allTypes.map((t) => (
-              <option key={t} value={t}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor="browse-filter-site"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
-          >
-            Site
-          </label>
-          <select
-            id="browse-filter-site"
-            value={selectedSite}
-            onChange={(e) => setSelectedSite(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
-            aria-label="Filter by site"
-          >
-            <option value="all">All Sites</option>
-            {allSites.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor="browse-filter-topic"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
-          >
-            Topic
-          </label>
-          <select
-            id="browse-filter-topic"
-            value={selectedTopic}
-            onChange={(e) => setSelectedTopic(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
-            aria-label="Filter by topic"
-          >
-            <option value="all">All Topics</option>
-            {allTopics.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor="browse-filter-population"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
-          >
-            Population
-          </label>
-          <select
-            id="browse-filter-population"
-            value={selectedPopulation}
-            onChange={(e) => setSelectedPopulation(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
-            aria-label="Filter by population"
-          >
-            <option value="all">All Populations</option>
-            {allPopulations.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Admin Queue Toggle */}
-      {isAdminMode ? (
-        <div className="flex items-center gap-2 py-1">
-          <input
-            type="checkbox"
-            id="needs-review-filter"
-            checked={showNeedsReviewOnly}
-            onChange={(e) => setShowNeedsReviewOnly(e.target.checked)}
-            className="rounded border-[color:var(--border)] text-[color:var(--clinical-accent)] focus:ring-[color:var(--focus)] h-4 w-4"
-          />
-          <label
-            htmlFor="needs-review-filter"
-            className="text-xs font-semibold text-[color:var(--text-soft)] cursor-pointer select-none"
-          >
-            Show &quot;Needs review&quot; queue only
-          </label>
-        </div>
-      ) : null}
-      {pagination && pagination.total > documents.length ? (
-        <p className={cn("text-xs", textMuted)}>
-          Showing {documents.length} of {pagination.total} documents. Load more to manage older files.
-        </p>
-      ) : null}
-      {isAdminMode ? (
-        <DocumentLabelReviewPanel documents={documents} canManage={canManageDocuments} onMutateLabel={onMutateLabel} />
-      ) : null}
-      {isAdminMode ? <DocumentTagQualityPanel documents={documents} /> : null}
-      {isAdminMode ? <DocumentIndexRepairPanel documents={documents} /> : null}
-      {isAdminMode && selectedDocumentIds.length ? (
-        <div className={cn(panelSubtle, "space-y-3 p-3")}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-[color:var(--text)]">
-                {selectedDocumentIds.length} selected document{selectedDocumentIds.length === 1 ? "" : "s"}
-              </p>
-              <p className={cn("text-xs", textMuted)}>Bulk actions apply only to explicitly selected documents.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={!canManageDocuments || bulkActionBusy}
-                onClick={() => onBulkReindex("enrichment")}
-                className={cn(floatingControl, "px-3 text-xs")}
-              >
-                {bulkActionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Regenerate summaries
-              </button>
-              <button
-                type="button"
-                disabled={!canManageDocuments || bulkActionBusy}
-                onClick={() => onBulkReindex("full")}
-                className={cn(floatingControl, "px-3 text-xs")}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Full reindex
-              </button>
-              <button
-                type="button"
-                disabled={!canManageDocuments || bulkActionBusy}
-                onClick={() => onBulkReindex("retry_failed")}
-                className={cn(floatingControl, "px-3 text-xs")}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Retry failed
-              </button>
-            </div>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <input
-              value={collectionDraft}
-              onChange={(event) => setCollectionDraft(event.target.value)}
-              placeholder="Collection name for selected documents"
-              aria-label="Collection name for selected documents"
-              className={fieldControlPlain}
-            />
-            <button
-              type="button"
-              disabled={!canManageDocuments || bulkActionBusy || !collectionDraft.trim()}
-              onClick={() => onBulkAssignCollection(collectionDraft)}
-              className={cn(primaryControl, "justify-center")}
-            >
-              Assign collection
-            </button>
-          </div>
-          <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-            <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
-              Bulk metadata editor
-            </summary>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <select
-                value={metadataDraft.sourceStatus}
-                onChange={(event) => setMetadataDraft((current) => ({ ...current, sourceStatus: event.target.value }))}
-                aria-label="Bulk edit source status"
-                className={fieldControlPlain}
-              >
-                <option value="">Source status unchanged</option>
-                <option value="current">Current</option>
-                <option value="review_due">Review due</option>
-                <option value="outdated">Outdated</option>
-                <option value="unknown">Unknown</option>
-              </select>
-              <select
-                value={metadataDraft.validationStatus}
-                onChange={(event) =>
-                  setMetadataDraft((current) => ({ ...current, validationStatus: event.target.value }))
-                }
-                aria-label="Bulk edit validation status"
-                className={fieldControlPlain}
-              >
-                <option value="">Validation unchanged</option>
-                <option value="unverified">Unverified</option>
-                <option value="locally_reviewed">Locally reviewed</option>
-                <option value="approved">Approved</option>
-              </select>
-              <select
-                value={metadataDraft.extractionQuality}
-                onChange={(event) =>
-                  setMetadataDraft((current) => ({ ...current, extractionQuality: event.target.value }))
-                }
-                aria-label="Bulk edit extraction quality"
-                className={fieldControlPlain}
-              >
-                <option value="">Extraction unchanged</option>
-                <option value="good">Good</option>
-                <option value="partial">Partial</option>
-                <option value="poor">Poor</option>
-                <option value="unknown">Unknown</option>
-              </select>
-              <input
-                type="date"
-                value={metadataDraft.reviewDate}
-                onChange={(event) => setMetadataDraft((current) => ({ ...current, reviewDate: event.target.value }))}
-                className={fieldControlPlain}
-                aria-label="Bulk review date"
-              />
-              <input
-                type="date"
-                value={metadataDraft.publicationDate}
-                onChange={(event) =>
-                  setMetadataDraft((current) => ({ ...current, publicationDate: event.target.value }))
-                }
-                className={fieldControlPlain}
-                aria-label="Bulk publication date"
-              />
-              <input
-                value={metadataDraft.jurisdiction}
-                onChange={(event) => setMetadataDraft((current) => ({ ...current, jurisdiction: event.target.value }))}
-                placeholder="Jurisdiction/locality"
-                aria-label="Bulk edit jurisdiction/locality"
-                className={fieldControlPlain}
-              />
-              <input
-                value={metadataDraft.sourceType}
-                onChange={(event) => setMetadataDraft((current) => ({ ...current, sourceType: event.target.value }))}
-                placeholder="Source type"
-                aria-label="Bulk edit source type"
-                className={fieldControlPlain}
-              />
-              <input
-                value={metadataDraft.category}
-                onChange={(event) => setMetadataDraft((current) => ({ ...current, category: event.target.value }))}
-                placeholder="Category"
-                aria-label="Bulk edit category"
-                className={fieldControlPlain}
-              />
-            </div>
-            <button
-              type="button"
-              disabled={!canManageDocuments || bulkActionBusy}
-              onClick={() => {
-                const metadata = Object.fromEntries(
-                  Object.entries(metadataDraft).filter(([, value]) => String(value).trim()),
-                );
-                onBulkMetadataUpdate(metadata);
-              }}
-              className={cn(primaryControl, "mt-3 justify-center")}
-            >
-              Apply metadata to selected
-            </button>
-          </details>
-          {bulkActionStatus ? <p className={cn("text-xs font-semibold", textMuted)}>{bulkActionStatus}</p> : null}
-        </div>
-      ) : null}
-      <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-        {filtered.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title={documents.length === 0 ? emptyStates.documentsNoneIndexed.title : emptyStates.documentsNoMatch.title}
-            body={
-              documents.length === 0
-                ? "Upload a guideline to start indexing."
-                : "Try another document title or file name."
-            }
-          />
-        ) : (
-          filtered.slice(0, 12).map((document) => {
-            const selected = selectedDocumentIds.includes(document.id);
-            return (
-              <div key={document.id} className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                <div className="min-w-0">
-                  <Link
-                    href={`/documents/${document.id}`}
-                    className="flex min-h-[44px] min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)]"
-                  >
-                    <span className="truncate">{documentDisplayTitle(document)}</span>
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
-                  </Link>
-                  <DocumentOrganizationBadges document={document} compact className="mt-1" />
-                  <p className={cn("mt-1 truncate text-xs", textMuted)}>
-                    {document.page_count} pages · {document.chunk_count} chunks · {document.image_count} images
-                  </p>
-                  {document.summary?.summary && (
-                    <p className={cn("mt-2 line-clamp-2 text-[13px] leading-5", textMuted)}>
-                      <SafeBoldText text={document.summary.summary} />
-                    </p>
-                  )}
-                  <DocumentTagCloud
-                    labels={document.labels}
-                    query={filter}
-                    limit={5}
-                    compact
-                    className="mt-2"
-                    onTagClick={onTagSearch}
-                  />
-                  <SourceProvenance metadata={document.metadata} />
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge status={document.status} />
-                  <SourceStatusBadge metadata={document.metadata} />
-                  {isAdminMode ? (
-                    <DocumentManagementActions
-                      document={document}
-                      disabled={!canManageDocuments}
-                      onRenamed={onDocumentRenamed}
-                      onDeleted={onDocumentDeleted}
-                    />
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => onToggleScope(document.id)}
-                    className={cn(
-                      "inline-flex min-h-[44px] items-center rounded-lg border px-3 text-xs font-semibold transition",
-                      selected
-                        ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                    )}
-                  >
-                    {selected ? "In scope" : "Add scope"}
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-      {pagination?.hasMore ? (
-        <button
-          type="button"
-          onClick={onLoadMoreDocuments}
-          disabled={loadingMoreDocuments}
-          className={cn(floatingControl, "w-full justify-center")}
-        >
-          {loadingMoreDocuments ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}
-          Load more documents
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
 type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
-type DocumentDrawerMode = "recent" | "library" | "source" | "admin";
-type DocumentDrawerStatusFilter = "all" | "indexed" | "indexing" | "failed";
 type IndexingMonitorFilter = "all" | "active" | "failed";
 type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
-
-function documentStatusMatchesFilter(document: ClinicalDocument, filter: DocumentDrawerStatusFilter) {
-  if (filter === "all") return true;
-  if (filter === "indexed") return document.status === "indexed";
-  if (filter === "indexing") return document.status === "queued" || document.status === "processing";
-  return document.status === "failed";
-}
-
-function statusFilterLabel(filter: DocumentDrawerStatusFilter) {
-  if (filter === "indexed") return "Indexed documents";
-  if (filter === "indexing") return "Indexing documents";
-  if (filter === "failed") return "Failed documents";
-  return "All documents";
-}
-
-function DrawerGroupLabel({ title }: { title: string }) {
-  return (
-    <p className="px-1 pt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
-  );
-}
 
 export function SettingsDialog({
   open,
@@ -4540,7 +3481,11 @@ export function ClinicalDashboard({
           // Keep only the latest question in the URL; the full thread lives in
           // React state until refresh or New chat.
           modeChangeFromUiRef.current = true;
-          window.history.replaceState(null, "", appModeHomeHref(targetMode, { query: trimmedQuery, run: true }));
+          window.history.replaceState(
+            null,
+            "",
+            appModeHomeHref(targetMode, { query: trimmedQuery, run: true }),
+          );
           if (isAnswerFollowUp) {
             window.requestAnimationFrame(() => {
               const main = mainRef.current;
@@ -5534,330 +4479,288 @@ export function ClinicalDashboard({
               onClearScopes: () => setCommandScopes([]),
             }}
           >
-            <div
-              className={cn(
-                "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
-                // Centred mode homes carry little content, so drop the large
-                // mobile bottom padding (the fixed composer already has its own
-                // reserved margin on <main>) to avoid a needless scrollbar.
-                // sm+/lg values stay identical to the result-view treatment.
-                searchMode === "answer"
+          <div
+            className={cn(
+              "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+              // Centred mode homes carry little content, so drop the large
+              // mobile bottom padding (the fixed composer already has its own
+              // reserved margin on <main>) to avoid a needless scrollbar.
+              // sm+/lg values stay identical to the result-view treatment.
+              searchMode === "answer"
+                ? compactMobileModeHome
+                  ? "pb-4 sm:pb-36 lg:pb-40"
+                  : "pb-32 sm:pb-36 lg:pb-40"
+                : hasMobileBottomSearch
                   ? compactMobileModeHome
-                    ? "pb-4 sm:pb-36 lg:pb-40"
-                    : "pb-32 sm:pb-36 lg:pb-40"
-                  : hasMobileBottomSearch
-                    ? compactMobileModeHome
-                      ? "pb-4 sm:pb-10 lg:pb-12"
-                      : compactMobileBottomSearch
-                        ? "pb-8 sm:pb-10 lg:pb-12"
-                        : "pb-32 sm:pb-10 lg:pb-12"
-                    : "pb-8 sm:pb-10 lg:pb-12",
-              )}
-            >
-              {actionNotice && (
-                <div
-                  role="status"
-                  className={cn(
-                    "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
-                    actionNotice.tone === "success" ? toneSuccess : toneWarning,
-                  )}
-                >
-                  <span className="min-w-0">{actionNotice.message}</span>
-                  <button
-                    type="button"
-                    onClick={() => setActionNotice(null)}
-                    aria-label="Dismiss notification"
-                    className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-              {showDegradedNotice && renderDegradedNotice()}
-              {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
-
-              <section
+                    ? "pb-4 sm:pb-10 lg:pb-12"
+                    : compactMobileBottomSearch
+                      ? "pb-8 sm:pb-10 lg:pb-12"
+                      : "pb-32 sm:pb-10 lg:pb-12"
+                  : "pb-8 sm:pb-10 lg:pb-12",
+            )}
+          >
+            {actionNotice && (
+              <div
+                role="status"
                 className={cn(
-                  "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
-                  centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
-                    ? // On tall phones the centred home leans slightly toward the
-                      // bottom composer (matches the committed vertical-weighting
-                      // guard); short phones skip the bias so content still fits.
-                      "grid w-full place-items-center max-sm:[@media(min-height:800px)]:pt-[5vh]"
-                    : activeModeResultKind === "tools" ||
-                        activeModeResultKind === "favourites" ||
-                        activeModeResultKind === "differentials"
-                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                      : activeModeResultKind === "documents" || activeModeResultKind === "services"
-                        ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                        : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
+                  "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
+                  actionNotice.tone === "success" ? toneSuccess : toneWarning,
                 )}
               >
-                <h2 data-testid="answer-section-heading" className="sr-only">
-                  {activeModeSearch.resultHeading}
-                </h2>
-                {error && (
-                  <div
-                    role="alert"
-                    className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
-                  >
-                    <AlertCircle className="mr-2 inline h-4 w-4" />
-                    {error}
-                  </div>
-                )}
+                <span className="min-w-0">{actionNotice.message}</span>
+                <button
+                  type="button"
+                  onClick={() => setActionNotice(null)}
+                  aria-label="Dismiss notification"
+                  className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            {showDegradedNotice && renderDegradedNotice()}
+            {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
 
-                {loading && answerProgress && searchMode !== "prescribing" && (
-                  <div
-                    role="status"
-                    className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
-                  >
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
-                    <span className="min-w-0 truncate">{answerProgress}</span>
-                  </div>
-                )}
+            <section
+              className={cn(
+                "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
+                centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
+                  ? // On tall phones the centred home leans slightly toward the
+                    // bottom composer (matches the committed vertical-weighting
+                    // guard); short phones skip the bias so content still fits.
+                    "grid w-full place-items-center max-sm:[@media(min-height:800px)]:pt-[5vh]"
+                  : activeModeResultKind === "tools" ||
+                      activeModeResultKind === "favourites" ||
+                      activeModeResultKind === "differentials"
+                    ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                    : activeModeResultKind === "documents" || activeModeResultKind === "services"
+                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                      : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
+              )}
+            >
+              <h2 data-testid="answer-section-heading" className="sr-only">
+                {activeModeSearch.resultHeading}
+              </h2>
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
+                >
+                  <AlertCircle className="mr-2 inline h-4 w-4" />
+                  {error}
+                </div>
+              )}
 
-                {activeModeResultKind === "differentials" ? (
-                  <DifferentialsHome
+              {loading && answerProgress && searchMode !== "prescribing" && (
+                <div
+                  role="status"
+                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                >
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                  <span className="min-w-0 truncate">{answerProgress}</span>
+                </div>
+              )}
+
+              {activeModeResultKind === "differentials" ? (
+                <DifferentialsHome
+                  query={query}
+                  loading={loading}
+                  documentMatches={documentMatches}
+                  realDataReady={canRunSearch}
+                  authUnavailable={false}
+                  apiUnavailable={apiUnavailable}
+                  setupWarning={setupWarning}
+                  onQueryChange={setQuery}
+                  desktopComposerSlotId={desktopHomeComposerSlotId}
+                  onSuggestedSearch={(nextQuery) => {
+                    setQuery(nextQuery);
+                    focusComposerInput();
+                  }}
+                  onRunSearch={(nextQuery) => {
+                    void executeSearch(nextQuery, "differentials", scopeFilters);
+                  }}
+                  onOpenPresentations={(nextQuery) => {
+                    const queryParams = new URLSearchParams();
+                    const normalizedQuery = nextQuery.trim();
+                    if (normalizedQuery) queryParams.set("q", normalizedQuery);
+                    router.push(`/differentials/presentations${queryParams.toString() ? `?${queryParams}` : ""}`);
+                  }}
+                  onOpenDiagnoses={(nextQuery) => {
+                    const queryParams = new URLSearchParams();
+                    const normalizedQuery = nextQuery.trim();
+                    if (normalizedQuery) queryParams.set("q", normalizedQuery);
+                    router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
+                  }}
+                />
+              ) : activeModeResultKind === "tools" ? (
+                <ToolsHub
+                  query={query}
+                  onQueryChange={setQuery}
+                  desktopComposerSlotId={desktopHomeComposerSlotId}
+                  showDetailPanel={!requestedRun}
+                />
+              ) : activeModeResultKind === "favourites" ? (
+                <FavouritesHub
+                  query={query}
+                  onClearQuery={() => {
+                    setQuery("");
+                    setModeSearchSubmitted(false);
+                    router.replace(appModeHomeHref("favourites", { focus: true }));
+                  }}
+                  onAddFavourite={() =>
+                    setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })
+                  }
+                  desktopComposerSlotId={desktopHomeComposerSlotId}
+                />
+              ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
+                searchMode === "prescribing" ? (
+                  <MedicationPrescribingWorkspace
                     query={query}
-                    loading={loading}
-                    documentMatches={documentMatches}
-                    realDataReady={canRunSearch}
+                    loading={false}
+                    realDataReady
                     authUnavailable={false}
-                    apiUnavailable={apiUnavailable}
-                    setupWarning={setupWarning}
-                    onQueryChange={setQuery}
-                    desktopComposerSlotId={desktopHomeComposerSlotId}
-                    onSuggestedSearch={(nextQuery) => {
-                      setQuery(nextQuery);
-                      focusComposerInput();
-                    }}
-                    onRunSearch={(nextQuery) => {
-                      void executeSearch(nextQuery, "differentials", scopeFilters);
-                    }}
-                    onOpenPresentations={(nextQuery) => {
-                      const queryParams = new URLSearchParams();
-                      const normalizedQuery = nextQuery.trim();
-                      if (normalizedQuery) queryParams.set("q", normalizedQuery);
-                      router.push(`/differentials/presentations${queryParams.toString() ? `?${queryParams}` : ""}`);
-                    }}
-                    onOpenDiagnoses={(nextQuery) => {
-                      const queryParams = new URLSearchParams();
-                      const normalizedQuery = nextQuery.trim();
-                      if (normalizedQuery) queryParams.set("q", normalizedQuery);
-                      router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
-                    }}
-                  />
-                ) : activeModeResultKind === "tools" ? (
-                  <ToolsHub
-                    query={query}
-                    onQueryChange={setQuery}
-                    desktopComposerSlotId={desktopHomeComposerSlotId}
-                    showDetailPanel={!requestedRun}
-                  />
-                ) : activeModeResultKind === "favourites" ? (
-                  <FavouritesHub
-                    query={query}
-                    onClearQuery={() => {
-                      setQuery("");
-                      setModeSearchSubmitted(false);
-                      router.replace(appModeHomeHref("favourites", { focus: true }));
-                    }}
-                    onAddFavourite={() =>
-                      setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })
-                    }
+                    apiUnavailable={false}
+                    setupWarning={null}
+                    onSuggestedSearch={setMedicationSearchQuery}
+                    showHome={!query.trim() && !modeSearchSubmitted}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
-                ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
-                  searchMode === "prescribing" ? (
-                    <MedicationPrescribingWorkspace
+                ) : (
+                  <>
+                    <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                    <DocumentSearchResultsPanel
+                      matches={documentMatches}
+                      recordMatches={recordSearchMatches}
+                      recordMode={recordSearchMode}
+                      recordStatus={registryRecords.status}
+                      showRecordMatches={searchMode === "services" || searchMode === "forms"}
                       query={query}
-                      loading={false}
-                      realDataReady
+                      loading={loading}
+                      documentCount={indexedDocumentTotal}
+                      recentDocuments={documents}
+                      realDataReady={searchMode === "services" || searchMode === "forms" ? true : canRunSearch}
                       authUnavailable={false}
-                      apiUnavailable={false}
-                      setupWarning={null}
-                      onSuggestedSearch={setMedicationSearchQuery}
-                      showHome={!query.trim() && !modeSearchSubmitted}
+                      apiUnavailable={apiUnavailable}
+                      setupWarning={setupWarning}
+                      facets={searchFacets}
+                      onScopeDocument={scopeOnlyDocument}
+                      onAnswerFromDocument={answerFromDocument}
+                      onOpenRecentDocuments={openRecentDocuments}
+                      onOpenLibrary={openSourceLibrary}
+                      onOpenSourcePdf={openSourcePdfBrowser}
+                      onTagSearch={handleTagSearch}
+                      showHome={searchMode === "documents" && !modeSearchSubmitted}
                       desktopComposerSlotId={desktopHomeComposerSlotId}
                     />
-                  ) : (
-                    <>
-                      <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                      <DocumentSearchResultsPanel
-                        matches={documentMatches}
-                        recordMatches={recordSearchMatches}
-                        recordMode={recordSearchMode}
-                        recordStatus={registryRecords.status}
-                        showRecordMatches={searchMode === "services" || searchMode === "forms"}
-                        query={query}
-                        loading={loading}
-                        documentCount={indexedDocumentTotal}
-                        recentDocuments={documents}
-                        realDataReady={canRunSearch}
-                        authUnavailable={false}
-                        apiUnavailable={apiUnavailable}
-                        setupWarning={setupWarning}
-                        facets={searchFacets}
-                        onScopeDocument={scopeOnlyDocument}
-                        onAnswerFromDocument={answerFromDocument}
-                        onOpenRecentDocuments={openRecentDocuments}
-                        onOpenLibrary={openSourceLibrary}
-                        onOpenSourcePdf={openSourcePdfBrowser}
-                        onTagSearch={handleTagSearch}
-                        showHome={searchMode === "documents" && !modeSearchSubmitted}
-                        desktopComposerSlotId={desktopHomeComposerSlotId}
+                  </>
+                )
+              ) : loading && !answer ? (
+                <AnswerSkeleton />
+              ) : answer && answerRenderModel ? (
+                stagedDashboardExtraction.answerSurface ? (
+                  <>
+                    {hiddenPriorTurnCount > 0 && !showEarlierTurns ? (
+                      <button
+                        type="button"
+                        data-testid="answer-thread-show-earlier"
+                        onClick={() => setShowEarlierTurns(true)}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      >
+                        Show earlier messages ({hiddenPriorTurnCount})
+                      </button>
+                    ) : null}
+                    {visiblePriorTurns.map((turn) => (
+                      <PriorAnswerTurnSurface
+                        key={turn.id}
+                        turn={turn}
+                        copied={copiedAction === turn.id}
+                        collapsed={collapsedTurnIds.has(turn.id)}
+                        onToggleCollapsed={() => toggleAnswerTurnCollapsed(turn.id)}
+                        onCopy={(text) => copyText(turn.id, text)}
                       />
-                    </>
-                  )
-                ) : loading && !answer ? (
-                  <AnswerSkeleton />
-                ) : answer && answerRenderModel ? (
-                  stagedDashboardExtraction.answerSurface ? (
-                    <>
-                      {hiddenPriorTurnCount > 0 && !showEarlierTurns ? (
-                        <button
-                          type="button"
-                          data-testid="answer-thread-show-earlier"
-                          onClick={() => setShowEarlierTurns(true)}
-                          className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                        >
-                          Show earlier messages ({hiddenPriorTurnCount})
-                        </button>
-                      ) : null}
-                      {visiblePriorTurns.map((turn) => (
-                        <PriorAnswerTurnSurface
-                          key={turn.id}
-                          turn={turn}
-                          copied={copiedAction === turn.id}
-                          collapsed={collapsedTurnIds.has(turn.id)}
-                          onToggleCollapsed={() => toggleAnswerTurnCollapsed(turn.id)}
-                          onCopy={(text) => copyText(turn.id, text)}
-                        />
-                      ))}
-                      <StagedAnswerResultSurface
-                        answer={answer}
-                        query={latestAnswerQuery ?? query}
-                        safeAnswerText={safeAnswerText}
-                        bestSource={bestSource}
-                        sourceGovernanceWarnings={sourceGovernanceWarnings}
-                        sourceSummary={sourceSummary}
-                        renderModel={answerRenderModel}
-                        weakEvidence={weakEvidence}
-                        answerViewMode={answerViewMode}
-                        answerEvidenceMapRows={answerEvidenceMapRows}
-                        onScopeDocument={scopeOnlyDocument}
-                        answerGrounded={answerGrounded}
-                        sources={answerRenderModel.reviewSources}
-                        demoMode={demoMode}
-                        safeAnswerSections={safeAnswerSections}
-                        safetyFindings={safetyFindings}
-                        copiedAnswer={copiedAction === "answer"}
-                        pendingFeedback={pendingFeedback}
-                        onCopyAnswer={() =>
-                          copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
-                        }
-                        onSubmitFeedback={submitAnswerFeedback}
-                        onFollowUpQuote={handleFollowUpQuote}
-                        followUpSuggestions={answerFollowUpSuggestions}
-                        onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
-                        followUpSuggestionsDisabled={loading}
-                      />
-                    </>
-                  ) : null
-                ) : (
-                  <AnswerEmptyState
-                    onPickSample={setQuery}
-                    onSearchDocuments={() => setSearchMode("documents")}
-                    onUploadDocument={openUploadDrawer}
-                    desktopComposerSlotId={desktopHomeComposerSlotId}
-                  />
-                )}
-              </section>
-
-              {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
-
-              {activeModeResultKind === "answer" && answer && (
-                <RelatedDocumentsPanel
-                  documents={relatedDocuments}
-                  onScopeDocument={scopeOnlyDocument}
-                  onTagSearch={handleTagSearch}
+                    ))}
+                    <StagedAnswerResultSurface
+                      answer={answer}
+                      query={latestAnswerQuery ?? query}
+                      safeAnswerText={safeAnswerText}
+                      bestSource={bestSource}
+                      sourceGovernanceWarnings={sourceGovernanceWarnings}
+                      sourceSummary={sourceSummary}
+                      renderModel={answerRenderModel}
+                      weakEvidence={weakEvidence}
+                      answerViewMode={answerViewMode}
+                      answerEvidenceMapRows={answerEvidenceMapRows}
+                      onScopeDocument={scopeOnlyDocument}
+                      answerGrounded={answerGrounded}
+                      sources={answerRenderModel.reviewSources}
+                      demoMode={demoMode}
+                      safeAnswerSections={safeAnswerSections}
+                      safetyFindings={safetyFindings}
+                      copiedAnswer={copiedAction === "answer"}
+                      pendingFeedback={pendingFeedback}
+                      onCopyAnswer={() =>
+                        copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
+                      }
+                      onSubmitFeedback={submitAnswerFeedback}
+                      onFollowUpQuote={handleFollowUpQuote}
+                      followUpSuggestions={answerFollowUpSuggestions}
+                      onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
+                      followUpSuggestionsDisabled={loading}
+                    />
+                  </>
+                ) : null
+              ) : (
+                <AnswerEmptyState
+                  onPickSample={setQuery}
+                  onSearchDocuments={() => setSearchMode("documents")}
+                  onUploadDocument={openUploadDrawer}
+                  desktopComposerSlotId={desktopHomeComposerSlotId}
                 />
               )}
-              {(documentsDrawerOpen || uploadDrawerOpen) && (
-                <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
-                  <DrawerGroupLabel title={drawerGroupTitle} />
-                  {documentsDrawerOpen ? (
-                    <UtilityDrawer
-                      id="dashboard-documents-drawer"
-                      icon={BookOpen}
-                      title={documentsDrawerTitle}
-                      summary={documentsDrawerSummary}
-                      mobileSummary={documentsDrawerMobileSummary}
-                      open={documentsDrawerOpen}
-                      onOpenChange={setDocumentsDrawerOpen}
-                      sheetBreakpoint="lg"
-                      sheetHeaderLeading={
-                        <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                          <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />
-                        </span>
-                      }
-                      sheetTitleAccessory={
-                        documentsDrawerIsAdmin ? (
-                          <span className="nums hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-bold text-[color:var(--text-muted)] sm:inline-flex">
-                            {indexedDocumentTotal.toLocaleString()} indexed
-                          </span>
-                        ) : null
-                      }
-                      sheetDescription={documentsDrawerSummary}
-                      sheetHeaderClassName="bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4"
-                      sheetCloseButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                      sheetContentClassName="max-h-[min(82dvh,40rem)] sm:max-h-[min(88dvh,46rem)] sm:max-w-2xl lg:max-w-3xl"
-                      sheetBodyClassName="bg-[color:var(--surface-subtle)] p-3 sm:p-4"
-                      sheetChildrenClassName="space-y-3"
-                    >
-                      {documentsDrawerIsAdmin ? (
-                        <LibraryHealthStrip
-                          documents={documents}
-                          jobs={jobs}
-                          batches={batches}
-                          checks={setupChecks}
-                          loading={dashboardDataLoading}
-                          onSelectTarget={openLibraryHealthTarget}
-                        />
-                      ) : null}
-                      <DocumentDrawer
-                        documents={documents}
-                        pagination={documentsPagination}
-                        loadingMoreDocuments={loadingMoreDocuments}
-                        mode={documentsDrawerIsAdmin ? "admin" : documentsDrawerMode}
-                        selectedDocumentIds={selectedDocumentIds}
-                        statusFilter={documentDrawerStatusFilter}
-                        onToggleScope={toggleDocumentScope}
-                        onLoadMoreDocuments={loadMoreDocuments}
-                        onDocumentRenamed={handleDocumentRenamed}
-                        onDocumentDeleted={handleDocumentDeleted}
-                        onBulkReindex={bulkReindexSelected}
-                        onBulkAssignCollection={bulkAssignCollection}
-                        onBulkMetadataUpdate={bulkUpdateMetadata}
-                        bulkActionStatus={bulkActionStatus}
-                        bulkActionBusy={bulkActionBusy}
-                        canManageDocuments={canUsePrivateApis}
-                        onTagSearch={handleTagSearch}
-                        onMutateLabel={mutateDocumentLabel}
-                      />
-                    </UtilityDrawer>
-                  ) : null}
+            </section>
 
-                  {uploadDrawerOpen ? (
-                    <UtilityDrawer
-                      id="dashboard-upload-drawer"
-                      icon={UploadCloud}
-                      title="Upload and indexing"
-                      summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
-                      mobileSummary="Setup & uploads"
-                      open={uploadDrawerOpen}
-                      onOpenChange={setUploadDrawerOpen}
-                    >
+            {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
+
+            {activeModeResultKind === "answer" && answer && (
+              <RelatedDocumentsPanel
+                documents={relatedDocuments}
+                onScopeDocument={scopeOnlyDocument}
+                onTagSearch={handleTagSearch}
+              />
+            )}
+            {(documentsDrawerOpen || uploadDrawerOpen) && (
+              <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
+                <DrawerGroupLabel title={drawerGroupTitle} />
+                {documentsDrawerOpen ? (
+                  <UtilityDrawer
+                    id="dashboard-documents-drawer"
+                    icon={BookOpen}
+                    title={documentsDrawerTitle}
+                    summary={documentsDrawerSummary}
+                    mobileSummary={documentsDrawerMobileSummary}
+                    open={documentsDrawerOpen}
+                    onOpenChange={setDocumentsDrawerOpen}
+                    sheetBreakpoint="lg"
+                    sheetHeaderLeading={
+                      <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                        <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                    }
+                    sheetTitleAccessory={
+                      documentsDrawerIsAdmin ? (
+                        <span className="nums hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-bold text-[color:var(--text-muted)] sm:inline-flex">
+                          {indexedDocumentTotal.toLocaleString()} indexed
+                        </span>
+                      ) : null
+                    }
+                    sheetDescription={documentsDrawerSummary}
+                    sheetHeaderClassName="bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4"
+                    sheetCloseButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    sheetContentClassName="max-h-[min(82dvh,40rem)] sm:max-h-[min(88dvh,46rem)] sm:max-w-2xl lg:max-w-3xl"
+                    sheetBodyClassName="bg-[color:var(--surface-subtle)] p-3 sm:p-4"
+                    sheetChildrenClassName="space-y-3"
+                  >
+                    {documentsDrawerIsAdmin ? (
                       <LibraryHealthStrip
                         documents={documents}
                         jobs={jobs}
@@ -5866,125 +4769,167 @@ export function ClinicalDashboard({
                         loading={dashboardDataLoading}
                         onSelectTarget={openLibraryHealthTarget}
                       />
-                      <div
-                        role="tablist"
-                        aria-label="Upload and indexing sections"
-                        className="grid grid-cols-4 gap-2 lg:hidden"
-                      >
-                        {uploadTabs.map((tab) => {
-                          const active = uploadMobileTab === tab.id;
-                          const Icon = tab.icon;
-                          return (
-                            <button
-                              key={tab.id}
-                              type="button"
-                              role="tab"
-                              aria-selected={active}
-                              aria-controls={tab.panelId}
-                              onClick={() => setUploadMobileTab(tab.id)}
-                              className={cn(
-                                "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
-                                active
-                                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--glow-soft)]"
-                                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                              )}
-                            >
-                              <span className="flex items-center gap-1.5 text-xs font-bold">
-                                <Icon className="h-3.5 w-3.5" />
-                                {tab.label}
-                              </span>
-                              <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
-                                {tab.summary}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="grid gap-4 lg:grid-cols-2">
-                        <div
-                          id="dashboard-setup-section"
-                          role="tabpanel"
-                          aria-label="Setup"
-                          className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
-                            uploadMobileTab !== "setup" && "hidden lg:block",
-                          )}
-                        >
-                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                            Developer setup status
-                          </p>
-                          <SetupChecklist checks={setupChecks} />
-                          {showAuthPanel && <AuthPanel />}
-                        </div>
-                        <div
-                          id="dashboard-upload-section"
-                          role="tabpanel"
-                          aria-label="Upload"
-                          className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
-                            uploadMobileTab !== "upload" && "hidden lg:block",
-                          )}
-                        >
-                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                            Clinical upload
-                          </p>
-                          <UploadPanel
-                            onUploaded={handleUploadQueued}
-                            demoMode={uploadReadOnlyMode}
-                            canUpload={canUsePrivateApis}
-                            authorizationHeader={authorizationHeader}
-                          />
-                        </div>
-                        <div
-                          id="dashboard-indexing-section"
-                          role="tabpanel"
-                          aria-label="Jobs"
-                          className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
-                            uploadMobileTab !== "jobs" && "hidden lg:block",
-                          )}
-                        >
-                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                            Indexing progress
-                          </p>
-                          <IndexingMonitor
-                            jobs={jobs}
-                            batches={batches}
-                            filter={indexingMonitorFilter}
-                            actionId={indexingActionId}
-                            onRetry={retryJob}
-                            onReindex={reindexDocument}
-                            onEnrich={enrichDocument}
-                          />
-                        </div>
-                        <div
-                          id="dashboard-quality-section"
-                          role="tabpanel"
-                          aria-label="Quality"
-                          className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
-                            uploadMobileTab !== "quality" && "hidden lg:block",
-                          )}
-                        >
-                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                            Ingestion quality console
-                          </p>
-                          <IngestionQualityConsole
-                            items={qualityItems}
-                            actionId={indexingActionId}
-                            onRetry={retryJob}
-                            onReindex={reindexDocument}
-                            onEnrich={enrichDocument}
-                          />
-                        </div>
-                      </div>
-                    </UtilityDrawer>
-                  ) : null}
-                </section>
-              )}
+                    ) : null}
+                    <DocumentDrawer
+                      documents={documents}
+                      pagination={documentsPagination}
+                      loadingMoreDocuments={loadingMoreDocuments}
+                      mode={documentsDrawerIsAdmin ? "admin" : documentsDrawerMode}
+                      selectedDocumentIds={selectedDocumentIds}
+                      statusFilter={documentDrawerStatusFilter}
+                      onToggleScope={toggleDocumentScope}
+                      onLoadMoreDocuments={loadMoreDocuments}
+                      onDocumentRenamed={handleDocumentRenamed}
+                      onDocumentDeleted={handleDocumentDeleted}
+                      onBulkReindex={bulkReindexSelected}
+                      onBulkAssignCollection={bulkAssignCollection}
+                      onBulkMetadataUpdate={bulkUpdateMetadata}
+                      bulkActionStatus={bulkActionStatus}
+                      bulkActionBusy={bulkActionBusy}
+                      canManageDocuments={canUsePrivateApis}
+                      onTagSearch={handleTagSearch}
+                      onMutateLabel={mutateDocumentLabel}
+                    />
+                  </UtilityDrawer>
+                ) : null}
 
-              {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
-            </div>
+                {uploadDrawerOpen ? (
+                  <UtilityDrawer
+                    id="dashboard-upload-drawer"
+                    icon={UploadCloud}
+                    title="Upload and indexing"
+                    summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
+                    mobileSummary="Setup & uploads"
+                    open={uploadDrawerOpen}
+                    onOpenChange={setUploadDrawerOpen}
+                  >
+                    <LibraryHealthStrip
+                      documents={documents}
+                      jobs={jobs}
+                      batches={batches}
+                      checks={setupChecks}
+                      loading={dashboardDataLoading}
+                      onSelectTarget={openLibraryHealthTarget}
+                    />
+                    <div
+                      role="tablist"
+                      aria-label="Upload and indexing sections"
+                      className="grid grid-cols-4 gap-2 lg:hidden"
+                    >
+                      {uploadTabs.map((tab) => {
+                        const active = uploadMobileTab === tab.id;
+                        const Icon = tab.icon;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={active}
+                            aria-controls={tab.panelId}
+                            onClick={() => setUploadMobileTab(tab.id)}
+                            className={cn(
+                              "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
+                              active
+                                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--glow-soft)]"
+                                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+                            )}
+                          >
+                            <span className="flex items-center gap-1.5 text-xs font-bold">
+                              <Icon className="h-3.5 w-3.5" />
+                              {tab.label}
+                            </span>
+                            <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
+                              {tab.summary}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div
+                        id="dashboard-setup-section"
+                        role="tabpanel"
+                        aria-label="Setup"
+                        className={cn(
+                          "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
+                          uploadMobileTab !== "setup" && "hidden lg:block",
+                        )}
+                      >
+                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          Developer setup status
+                        </p>
+                        <SetupChecklist checks={setupChecks} />
+                        {showAuthPanel && <AuthPanel />}
+                      </div>
+                      <div
+                        id="dashboard-upload-section"
+                        role="tabpanel"
+                        aria-label="Upload"
+                        className={cn(
+                          "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
+                          uploadMobileTab !== "upload" && "hidden lg:block",
+                        )}
+                      >
+                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          Clinical upload
+                        </p>
+                        <UploadPanel
+                          onUploaded={handleUploadQueued}
+                          demoMode={uploadReadOnlyMode}
+                          canUpload={canUsePrivateApis}
+                          authorizationHeader={authorizationHeader}
+                        />
+                      </div>
+                      <div
+                        id="dashboard-indexing-section"
+                        role="tabpanel"
+                        aria-label="Jobs"
+                        className={cn(
+                          "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
+                          uploadMobileTab !== "jobs" && "hidden lg:block",
+                        )}
+                      >
+                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          Indexing progress
+                        </p>
+                        <IndexingMonitor
+                          jobs={jobs}
+                          batches={batches}
+                          filter={indexingMonitorFilter}
+                          actionId={indexingActionId}
+                          onRetry={retryJob}
+                          onReindex={reindexDocument}
+                          onEnrich={enrichDocument}
+                        />
+                      </div>
+                      <div
+                        id="dashboard-quality-section"
+                        role="tabpanel"
+                        aria-label="Quality"
+                        className={cn(
+                          "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
+                          uploadMobileTab !== "quality" && "hidden lg:block",
+                        )}
+                      >
+                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          Ingestion quality console
+                        </p>
+                        <IngestionQualityConsole
+                          items={qualityItems}
+                          actionId={indexingActionId}
+                          onRetry={retryJob}
+                          onReindex={reindexDocument}
+                          onEnrich={enrichDocument}
+                        />
+                      </div>
+                    </div>
+                  </UtilityDrawer>
+                ) : null}
+              </section>
+            )}
+
+            {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
+          </div>
           </SearchCommandProvider>
         </main>
 

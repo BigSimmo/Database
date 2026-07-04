@@ -11,7 +11,6 @@ const dashboardViewports = [
   { name: "mobile-landscape", width: 667, height: 375 },
 ] as const;
 const uiAssertionTimeoutMs = 5_000;
-const guideHelpButtonNamePattern = /Guide\s*(?:&|and)\s*help/i;
 
 async function expectNoPageHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => {
@@ -45,30 +44,6 @@ function visibleQuestionInput(page: Page) {
 
 function visibleAnswerSubmitButton(page: Page) {
   return page.locator('[aria-label="Generate source-backed answer"]:visible').first();
-}
-
-async function openInlineTableFullscreen(page: Page, clinicalTable: Locator) {
-  const dialog = page.getByTestId("table-fullscreen-dialog");
-  const expandButton = clinicalTable.getByTestId("table-expand-button");
-  const surface = clinicalTable.getByTestId("accessible-table-surface");
-
-  await clinicalTable.scrollIntoViewIfNeeded();
-  await page.keyboard.press("Escape");
-
-  await expect(async () => {
-    if (await expandButton.isVisible().catch(() => false)) {
-      await expandButton.scrollIntoViewIfNeeded();
-      await expandButton.evaluate((element) => {
-        element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-      });
-    } else {
-      await surface.focus();
-      await page.keyboard.press("Enter");
-    }
-    await expect(dialog).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 15_000 });
-
-  return dialog;
 }
 
 async function isVisibleWithoutThrow(locator: Locator) {
@@ -519,12 +494,8 @@ async function openMobileClinicalGuideMenu(page: Page) {
 }
 
 async function waitForDemoDashboardReady(page: Page) {
-  await expect(async () => {
-    const input = page.locator('[data-testid="global-search-input"]:visible').first();
-    await input.scrollIntoViewIfNeeded();
-    await expect(input).toBeEnabled({ timeout: 3_000 });
-  }).toPass({ timeout: 30_000 });
-  await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible({ timeout: 30_000 });
+  await expect(visibleQuestionInput(page)).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible({ timeout: 30000 });
 }
 
 async function openGuide(page: Page) {
@@ -544,7 +515,7 @@ async function openGuide(page: Page) {
     }).toPass({ timeout: 10_000 });
   } else {
     const menu = await openMobileClinicalGuideMenu(page);
-    await menu.getByRole("button", { name: guideHelpButtonNamePattern }).click();
+    await menu.getByRole("button", { name: "Guide & help" }).click();
     await expect(dialog).toBeVisible();
   }
 
@@ -707,7 +678,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
   });
 
-  test("tablet shows icon rail without drawer trigger", async ({ page }) => {
+  test("tablet shows icon rail without drawer trigger or expand control", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=answer");
@@ -1030,7 +1001,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalTable.getByRole("button", { name: "More table actions" })).toHaveCount(0);
     const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
     await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeVisible();
-    const tableDialog = await openInlineTableFullscreen(page, clinicalTable);
+    await page.keyboard.press("Escape");
+    await clinicalTable.scrollIntoViewIfNeeded();
+    if (await tableExpandButton.isVisible().catch(() => false)) {
+      await tableExpandButton.click({ force: true });
+    } else {
+      await clinicalTable.getByTestId("accessible-table-surface").click({ force: true });
+    }
+    const tableDialog = page.getByTestId("table-fullscreen-dialog");
+    await expect(tableDialog).toBeVisible({ timeout: 10_000 });
     await expect(tableDialog.getByRole("table")).toBeVisible();
     await expect(tableDialog).toContainText("FBC/ANC");
     await expect(tableDialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
@@ -1041,9 +1020,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(tableExpandButton).toBeFocused();
     }
     if (await tableExpandButton.isVisible().catch(() => false)) {
-      await tableExpandButton.evaluate((element) => {
-        element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-      });
+      await tableExpandButton.click();
       await expect(tableDialog).toBeVisible();
       await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
       await expect(tableDialog).toBeHidden();
@@ -1464,13 +1441,20 @@ test.describe("Clinical KB UI smoke coverage", () => {
         return;
       }
 
-      const surfaceDialog = await openInlineTableFullscreen(page, clinicalTable);
+      await page.keyboard.press("Escape");
+      await clinicalTable.scrollIntoViewIfNeeded();
+
+      await clinicalTable.getByTestId("accessible-table-surface").click({ force: true });
+      const surfaceDialog = page.getByTestId("table-fullscreen-dialog");
+      await expect(surfaceDialog).toBeVisible();
       await expect(surfaceDialog).toContainText("FBC/ANC");
       await page.keyboard.press("Escape");
       await expect(surfaceDialog).toBeHidden();
 
       await expect(expandButton).toBeVisible();
-      const dialog = await openInlineTableFullscreen(page, clinicalTable);
+      await expandButton.click({ force: true });
+      const dialog = page.getByTestId("table-fullscreen-dialog");
+      await expect(dialog).toBeVisible();
       await expect(dialog.getByRole("table")).toBeVisible();
       await expect(dialog).toContainText("FBC/ANC");
       await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
@@ -1495,8 +1479,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("favourites-active-filters")).toBeVisible();
 
     await page.getByRole("button", { name: "Start a new chat" }).click();
-    await expect(page).toHaveURL(/\/favourites\?focus=1$/);
-    await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
+    await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
+    await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toBeFocused();
   });
 
@@ -1519,9 +1503,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/favourites");
 
-    await expect(page.getByTestId("favourites-command-library")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
-    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    // The saved service slug is hydrated to its registry title in the hub.
+    await expect(page.getByTestId("favourites-hub").getByText("13YARN").first()).toBeVisible();
   });
 
   test("favourites command library opens item workspace on row selection at 2xl", async ({ page }) => {
@@ -1782,15 +1766,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const expandedEvidenceBox = await evidence.boundingBox();
     expect(expandedEvidenceBox?.height ?? 0).toBeGreaterThan(evidenceBox!.height);
     await viewerNav.getByRole("link", { name: "PDF" }).click();
-    await preview.scrollIntoViewIfNeeded();
-    await expect(preview).toBeVisible();
+    await expect(preview).toBeInViewport();
     await viewerNav.getByRole("link", { name: "Text" }).click();
-    const indexedText = page.getByText("Indexed page text", { exact: true });
-    await indexedText.scrollIntoViewIfNeeded();
-    await expect(indexedText).toBeVisible();
+    await expect(page.getByText("Indexed page text", { exact: true })).toBeInViewport();
     await viewerNav.getByRole("link", { name: "PDF" }).click();
-    await preview.scrollIntoViewIfNeeded();
-    await expect(preview).toBeVisible();
+    await expect(preview).toBeInViewport();
 
     const mobilePdfStyles = await toolbar.evaluate((element) => ({
       position: window.getComputedStyle(element).position,

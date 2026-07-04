@@ -650,8 +650,8 @@ export function NaturalLanguageAnswer({
                 className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-[11px] leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
               >
                 <p>
-                  This answer was assembled from your documents without the AI model, so it may be less complete. Verify
-                  dose, threshold, route, timing, monitoring, and risk details against the cited passages below.
+                  This answer was assembled from your documents without the AI model, so it may be less complete.
+                  Verify dose, threshold, route, timing, monitoring, and risk details against the cited passages below.
                 </p>
               </div>
             ) : null}

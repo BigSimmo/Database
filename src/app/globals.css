@@ -696,14 +696,7 @@ summary::-webkit-details-marker {
   backdrop-filter: blur(8px) saturate(130%);
   -webkit-backdrop-filter: blur(8px) saturate(130%);
   mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 35%) 20%, black 45%, black 80%, transparent 100%);
-  -webkit-mask-image: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgb(0 0 0 / 35%) 20%,
-    black 45%,
-    black 80%,
-    transparent 100%
-  );
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 35%) 20%, black 45%, black 80%, transparent 100%);
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop::after {
@@ -1426,12 +1419,11 @@ summary::-webkit-details-marker {
   }
 
   .dashboard-composer-edge.answer-footer-search-edge {
-    left: calc(var(--clinical-sidebar-width-md, 0px) + (100vw - var(--clinical-sidebar-width-md, 0px)) / 2);
-    right: auto;
-    width: min(
-      calc(100vw - var(--clinical-sidebar-width-md, 0px) - 48px - var(--safe-area-left) - var(--safe-area-right)),
-      680px
+    left: calc(
+      var(--clinical-sidebar-width-md, 0px) + (100vw - var(--clinical-sidebar-width-md, 0px)) / 2
     );
+    right: auto;
+    width: min(calc(100vw - var(--clinical-sidebar-width-md, 0px) - 48px - var(--safe-area-left) - var(--safe-area-right)), 680px);
   }
 }
 

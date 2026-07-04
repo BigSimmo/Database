@@ -68,13 +68,7 @@ import {
 } from "@/components/ui-primitives";
 import { type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
-import {
-  extractSafetyFindings,
-  formatSafetyFindingLabel,
-  sortSafetyFindingsBySeverity,
-  type SafetyFinding,
-  type SafetyFindingKind,
-} from "@/lib/clinical-safety";
+import { extractSafetyFindings, formatSafetyFindingLabel, sortSafetyFindingsBySeverity, type SafetyFinding, type SafetyFindingKind } from "@/lib/clinical-safety";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import {
   normalizeExtractedGlyphs,
@@ -190,7 +184,10 @@ export function AnswerSupportSummaryCard({
             data-testid="answer-safety-findings-trigger"
             type="button"
             onClick={onOpenSafetyFindings}
-            className={cn(supportButtonClass, "w-full border-t-2 border-t-[color:var(--warning)]")}
+            className={cn(
+              supportButtonClass,
+              "w-full border-t-2 border-t-[color:var(--warning)]",
+            )}
             aria-label="Open safety-critical source findings"
           >
             <span

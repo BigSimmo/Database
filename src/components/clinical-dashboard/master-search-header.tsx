@@ -1256,96 +1256,96 @@ export function MasterSearchHeader({
             }
           }}
         >
-          <div
-            data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
-            className={cn(
-              chatComposerShell,
-              "answer-footer-search-pill relative z-10 w-full",
-              actionMenuOpen && "answer-footer-search-pill-open",
-              commandDropdownOpen && "answer-footer-search-pill-open",
-            )}
-          >
-            <ModeActionPopup
-              open={actionMenuOpen}
-              title={actionMenuTitle}
-              titleIcon={SelectedAppModeIcon}
-              subtitle={actionMenuSubtitle}
-              buttonLabel={actionMenuButtonLabel}
-              items={actionMenuItems}
-              modeOptions={actionMenuModeOptions}
-              selectedModeId={selectedAppMode.id}
-              onOpenChange={setActionMenuOpen}
-              onBeforeOpen={() => {
-                setUsesScopeSheet(currentUsesScopeSheet());
-                setModeMenuOpen(false);
-                setScopeOpen(false);
-              }}
-              onAction={runModeAction}
-              onModeSelect={selectAppModeById}
-              onPlacementChange={setActionMenuPlacement}
-              triggerClassName="answer-footer-search-action"
-              integrated={usesFooterChipLayout}
-            />
+        <div
+          data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
+          className={cn(
+            chatComposerShell,
+            "answer-footer-search-pill relative z-10 w-full",
+            actionMenuOpen && "answer-footer-search-pill-open",
+            commandDropdownOpen && "answer-footer-search-pill-open",
+          )}
+        >
+          <ModeActionPopup
+            open={actionMenuOpen}
+            title={actionMenuTitle}
+            titleIcon={SelectedAppModeIcon}
+            subtitle={actionMenuSubtitle}
+            buttonLabel={actionMenuButtonLabel}
+            items={actionMenuItems}
+            modeOptions={actionMenuModeOptions}
+            selectedModeId={selectedAppMode.id}
+            onOpenChange={setActionMenuOpen}
+            onBeforeOpen={() => {
+              setUsesScopeSheet(currentUsesScopeSheet());
+              setModeMenuOpen(false);
+              setScopeOpen(false);
+            }}
+            onAction={runModeAction}
+            onModeSelect={selectAppModeById}
+            onPlacementChange={setActionMenuPlacement}
+            triggerClassName="answer-footer-search-action"
+            integrated={usesFooterChipLayout}
+          />
 
-            {/* The clear button is a flex sibling (not absolutely positioned): the
+          {/* The clear button is a flex sibling (not absolutely positioned): the
               unlayered .answer-footer-search-input padding beats a conditional
               pr-* utility, which let text run under an overlaid button. */}
-            <label className="flex min-w-0 flex-1 items-center overflow-hidden">
-              <input
-                ref={queryInputRef}
-                data-testid="global-search-input"
-                autoFocus={queryInputAutoFocus}
-                value={query}
-                role="combobox"
-                aria-expanded={commandDropdownOpen}
-                aria-controls={commandDropdownOpen ? commandListboxId : undefined}
-                aria-autocomplete="list"
-                onInput={(event) => onQueryChange(event.currentTarget.value)}
-                onChange={(event) => onQueryChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
-                }}
-                aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
-                placeholder={composerPlaceholder}
-                className={cn(chatComposerInput, "w-full min-w-0", "answer-footer-search-input")}
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={onClearQuery}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-                  aria-label="Clear search question"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </label>
-            <span className="answer-footer-search-divider" aria-hidden="true" />
-            <button
-              type="submit"
-              disabled={!canAsk}
-              title={
-                !realDataReady && !canRunLocalSearch
-                  ? "Search setup not ready"
-                  : trimmedQuery.length < 1
-                    ? selectedSearch.emptyTitle
-                    : selectedSearch.readyTitle
-              }
-              className={cn(chatSendButton, "answer-footer-search-send")}
-              aria-label={selectedSearch.submitAriaLabel}
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : usesSendAffordance ? (
-                <Send className="h-4 w-4" />
-              ) : usesModeIdentityAffordance ? (
-                <ModeIdentityIcon className="h-4.5 w-4.5" />
-              ) : (
-                <Search className="h-4.5 w-4.5" />
-              )}
-              <span className="sr-only">{submitLabel}</span>
-            </button>
-          </div>
+          <label className="flex min-w-0 flex-1 items-center overflow-hidden">
+            <input
+              ref={queryInputRef}
+              data-testid="global-search-input"
+              autoFocus={queryInputAutoFocus}
+              value={query}
+              role="combobox"
+              aria-expanded={commandDropdownOpen}
+              aria-controls={commandDropdownOpen ? commandListboxId : undefined}
+              aria-autocomplete="list"
+              onInput={(event) => onQueryChange(event.currentTarget.value)}
+              onChange={(event) => onQueryChange(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
+              }}
+              aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
+              placeholder={composerPlaceholder}
+              className={cn(chatComposerInput, "w-full min-w-0", "answer-footer-search-input")}
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={onClearQuery}
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                aria-label="Clear search question"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </label>
+          <span className="answer-footer-search-divider" aria-hidden="true" />
+          <button
+            type="submit"
+            disabled={!canAsk}
+            title={
+              !realDataReady && !canRunLocalSearch
+                ? "Search setup not ready"
+                : trimmedQuery.length < 1
+                  ? selectedSearch.emptyTitle
+                  : selectedSearch.readyTitle
+            }
+            className={cn(chatSendButton, "answer-footer-search-send")}
+            aria-label={selectedSearch.submitAriaLabel}
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : usesSendAffordance ? (
+              <Send className="h-4 w-4" />
+            ) : usesModeIdentityAffordance ? (
+              <ModeIdentityIcon className="h-4.5 w-4.5" />
+            ) : (
+              <Search className="h-4.5 w-4.5" />
+            )}
+            <span className="sr-only">{submitLabel}</span>
+          </button>
+        </div>
         </UniversalSearchCommandSurface>
         {showFooterSearchChips && (trustFooterChip || hasScopeFooterChip || secondaryFooterChip) ? (
           <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">

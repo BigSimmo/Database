@@ -4,7 +4,9 @@ import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/
 
 describe("buildAnswerFollowUpQuery", () => {
   it("returns the follow-up unchanged when there is no prior question", () => {
-    expect(buildAnswerFollowUpQuery(undefined, "what about renal impairment?")).toBe("what about renal impairment?");
+    expect(buildAnswerFollowUpQuery(undefined, "what about renal impairment?")).toBe(
+      "what about renal impairment?",
+    );
     expect(buildAnswerFollowUpQuery("", "what about renal impairment?")).toBe("what about renal impairment?");
   });
 
@@ -33,7 +35,9 @@ describe("buildAnswerFollowUpQuery", () => {
   });
 
   it("does not wrap a short question on a clearly new topic without continuation cues", () => {
-    expect(buildAnswerFollowUpQuery("lithium dosing", "clozapine baseline bloods")).toBe("clozapine baseline bloods");
+    expect(buildAnswerFollowUpQuery("lithium dosing", "clozapine baseline bloods")).toBe(
+      "clozapine baseline bloods",
+    );
   });
 
   it("keeps the wrapped query within the 2000-char API limit", () => {
@@ -110,10 +114,11 @@ describe("buildAnswerFollowUpSuggestions", () => {
       },
     } satisfies import("@/lib/types").RagAnswer;
 
-    const suggestions = buildAnswerFollowUpSuggestions("what about renal impairment?", answerWithoutMedicationHint, [
-      "lithium dosing",
+    const suggestions = buildAnswerFollowUpSuggestions(
       "what about renal impairment?",
-    ]);
+      answerWithoutMedicationHint,
+      ["lithium dosing", "what about renal impairment?"],
+    );
 
     expect(suggestions.length).toBeGreaterThan(0);
     expect(suggestions.every((item) => !/for what about renal impairment/i.test(item))).toBe(true);

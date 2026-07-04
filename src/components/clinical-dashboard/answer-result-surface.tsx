@@ -89,10 +89,7 @@ export function StagedAnswerResultSurface({
 }) {
   const noteCount = clinicalNotesCount(answer);
   const showClinicalNotes =
-    safetyFindings.length > 0 ||
-    noteCount > 0 ||
-    answer.answerQualityTier === "source_only" ||
-    answerGrounded === false;
+    safetyFindings.length > 0 || noteCount > 0 || answer.answerQualityTier === "source_only" || answerGrounded === false;
   const clinicalNoteDisplayCount = clinicalNotesDisplayCountForAnswer(
     answer,
     answerViewMode,

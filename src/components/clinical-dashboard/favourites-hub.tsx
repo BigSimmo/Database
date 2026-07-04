@@ -21,11 +21,11 @@ import {
   favouriteItems,
   favouriteSets,
   favouriteTabs,
+  favouriteTypeCount,
   type FavouriteItem,
   type FavouriteSet,
   type FavouriteTabId,
 } from "@/components/clinical-dashboard/favourites-prototype-data";
-import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 
 function favouriteMatchesQuery(value: { title: string; meta?: string; set?: string; keywords: string }, query: string) {
   const normalized = query.trim().toLowerCase();
@@ -51,16 +51,16 @@ export function FavouritesHub({
   headingLevel?: 1 | 2;
 }) {
   const savedRegistryFavourites = useSavedRegistryFavourites();
-  const allFavouriteItems = useMemo(() => [...favouriteItems, ...savedRegistryFavourites], [savedRegistryFavourites]);
+  const allFavouriteItems = useMemo(
+    () => [...favouriteItems, ...savedRegistryFavourites],
+    [savedRegistryFavourites],
+  );
   const allFavouriteSets = useMemo(() => {
     const savedSetTitles = new Set(favouriteSets.map((set) => set.title));
     const dynamicSets = Array.from(new Set(savedRegistryFavourites.map((item) => item.set)))
       .filter((title) => title && !savedSetTitles.has(title))
       .map((title) => ({
-        id: title
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)/g, ""),
+        id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
         title,
         count: savedRegistryFavourites.filter((item) => item.set === title).length,
         meta: "Saved from site activity",
