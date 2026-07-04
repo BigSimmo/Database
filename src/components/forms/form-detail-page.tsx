@@ -238,7 +238,7 @@ function PathwayContextCard({
   return (
     <section
       data-testid={testId}
-      className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]"
+      className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -361,7 +361,7 @@ function SourceSnapshotCard({ form }: { form: FormRecord }) {
   ];
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]">
+    <section className="overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]">
       {rows.map(({ icon: Icon, label, value }) => (
         <div
           key={label}
@@ -390,7 +390,7 @@ function ActionPanel({
   hrefForCall: string | null;
 }) {
   return (
-    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
+    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]">
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] gap-2">
         <button type="button" onClick={onUse} className={cn(primaryControl, "min-h-11 w-full px-3")}>
           <ExternalLink className="h-4 w-4" aria-hidden />
@@ -413,7 +413,7 @@ function ActionPanel({
 
 function RailCard({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
+    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]">
       <div className="mb-3 flex items-center gap-2">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
           <Icon className="h-4 w-4" aria-hidden />
@@ -503,7 +503,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
       data-testid="form-detail-page"
       className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:px-5 sm:pb-10 sm:pt-6 lg:px-8"
     >
-      <div className="mx-auto max-w-[104rem]">
+      <div className="mx-auto max-w-7xl">
         {notice ? (
           <div
             role="status"
@@ -546,7 +546,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="min-w-0 space-y-4">
-            <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-5">
+            <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
               <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
                 <div
                   className={cn(
@@ -557,7 +557,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   {code}
                 </div>
                 <div className="min-w-0">
-                  <h1 className="max-w-4xl text-xl font-semibold leading-[1.08] text-[color:var(--text-heading)] sm:text-4xl">
+                  <h1 className="max-w-4xl text-xl font-extrabold leading-[1.08] text-[color:var(--text-heading)] sm:text-4xl">
                     {form.title}
                   </h1>
                   <p className="mt-1.5 max-w-4xl text-xs font-medium leading-4 text-[color:var(--text-muted)] sm:mt-3 sm:text-base sm:leading-6">

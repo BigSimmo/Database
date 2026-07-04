@@ -256,7 +256,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]">
+    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]">
       <div className="border-b border-[color:var(--border)] px-3 py-3 sm:px-4">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
@@ -534,7 +534,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
       data-testid="service-detail-page"
       className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 py-4 pb-[calc(10rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
     >
-      <div className="mx-auto max-w-[94rem]">
+      <div className="mx-auto max-w-7xl">
         {notice ? (
           <div
             role="status"
@@ -556,7 +556,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
           </div>
         ) : null}
 
-        <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-5">
+        <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
           <div className="min-w-0 space-y-4">
             <section className="rounded-lg bg-[color:var(--surface-lux)]">
               <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 sm:gap-4">
@@ -570,7 +570,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                 </button>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
-                    <h1 className="max-w-4xl text-3xl font-semibold leading-[1.05] text-[color:var(--text-heading)] sm:text-4xl">
+                    <h1 className="max-w-4xl text-3xl font-extrabold leading-[1.05] text-[color:var(--text-heading)] sm:text-4xl">
                       {service.title}
                     </h1>
                   </div>

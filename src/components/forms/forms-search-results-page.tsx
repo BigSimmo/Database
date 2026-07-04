@@ -19,7 +19,14 @@ import { useMemo } from "react";
 
 import { rankFormRecords, type FormSearchMatch } from "@/lib/forms";
 import { useRegistryRecords, type RegistryRequestStatus } from "@/lib/use-registry-records";
-import { cn, codeText } from "@/components/ui-primitives";
+import {
+  cn,
+  codeText,
+  searchFocusRing,
+  searchPageCanvas,
+  searchResultsSection,
+  ToggleSwitch,
+} from "@/components/ui-primitives";
 import { SearchResultsEmptyState, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
@@ -57,29 +64,6 @@ function compactMatchReason(match: FormSearchMatch) {
   return "Content match for transfer/transport";
 }
 
-function SearchSummary({ query, formsCount }: { query: string; formsCount: number }) {
-  return (
-    <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-soft)]">
-      <div className="flex flex-wrap items-center gap-x-7 gap-y-2 px-1 text-sm font-bold text-[color:var(--text)]">
-        <span className="inline-flex min-w-0 items-center gap-2 text-[color:var(--text-heading)]">
-          <Search className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" />
-          <span className="truncate">Results for {query}</span>
-        </span>
-        <span className="text-[color:var(--text-soft)]">·</span>
-        <span>{formsCount} forms</span>
-        <span className="text-[color:var(--text-soft)]">·</span>
-        <span>
-          {sourceSnippetCount} <span className="font-medium text-[color:var(--text-muted)]">snippets</span>
-        </span>
-        <span className="text-[color:var(--text-soft)]">·</span>
-        <span>
-          {taskCount} <span className="font-medium text-[color:var(--text-muted)]">tasks</span>
-        </span>
-      </div>
-    </section>
-  );
-}
-
 function ResultTabs({ formsCount }: { formsCount: number }) {
   const tabs = [
     ["Results", null],
@@ -99,7 +83,8 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
           key={label}
           type="button"
           className={cn(
-            "relative -mb-px flex min-h-14 items-center gap-2 whitespace-nowrap rounded-t-md focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16",
+            "relative -mb-px flex min-h-14 items-center gap-2 whitespace-nowrap rounded-t-md",
+            searchFocusRing,
             index === 0 ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text)]",
           )}
         >
@@ -123,7 +108,7 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
     <section
       data-testid="form-search-results"
       aria-label="Form record matches"
-      className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+      className={cn("overflow-hidden", searchResultsSection)}
     >
       <div className="p-5 pb-2">
         <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Best matches</h2>
@@ -144,7 +129,7 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
               data-testid={`form-search-result-${form.slug}`}
               className="grid gap-4 border-b border-[color:var(--border)] px-5 py-4 transition last:border-b-0 hover:bg-[color:var(--surface-subtle)]/55 md:grid-cols-[86px_minmax(180px,1fr)_170px_minmax(180px,1fr)_86px] md:items-center"
             >
-              <div className="grid h-12 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-3xl font-black text-[color:var(--clinical-accent)]">
+              <div className="grid h-12 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-3xl font-extrabold text-[color:var(--clinical-accent)]">
                 {resultCode(index)}
               </div>
               <div>
@@ -158,7 +143,7 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
                   return (
                     <span
                       key={`${chipLabel}-${chipIndex}`}
-                      className={cn("rounded-full px-2 py-1 text-3xs font-black uppercase", tagToneClass(chipLabel))}
+                      className={cn("rounded-full px-2 py-1 text-3xs font-extrabold uppercase", tagToneClass(chipLabel))}
                     >
                       {chipLabel}
                     </span>
@@ -171,7 +156,10 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
               <Link
                 href={`/forms/${form.slug}`}
                 aria-label={`Open ${form.title}`}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16 md:justify-self-end"
+                className={cn(
+                  "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] md:justify-self-end",
+                  searchFocusRing,
+                )}
               >
                 Open
                 <ExternalLink className="h-4 w-4" />
@@ -183,7 +171,10 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
       <div className="flex justify-center border-t border-[color:var(--border)] p-4">
         <button
           type="button"
-          className="inline-flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+          className={cn(
+            "inline-flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+            searchFocusRing,
+          )}
         >
           View all forms ({matches.length})
           <ChevronRight className="h-4 w-4" />
@@ -213,31 +204,22 @@ function ToggleRow({
         <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{title}</p>
         <p className="mt-0.5 text-xs font-medium text-[color:var(--text-muted)]">{subtitle}</p>
       </div>
-      <span
-        className={cn(
-          "relative h-6 w-10 rounded-full transition",
-          enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
-        )}
-      >
-        <span
-          className={cn(
-            "absolute top-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm transition",
-            enabled ? "right-1" : "left-1",
-          )}
-        />
-      </span>
+      <ToggleSwitch enabled={enabled} aria-label={title} />
     </div>
   );
 }
 
 function RefineRail() {
   return (
-    <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[var(--shadow-soft)]">
+    <section className={cn(searchResultsSection, "p-5")}>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Refine</h2>
         <button
           type="button"
-          className="rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+          className={cn(
+            "rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+            searchFocusRing,
+          )}
         >
           Reset
         </button>
@@ -259,14 +241,17 @@ function NextSteps() {
     { icon: FileText, title: "Check source evidence", subtitle: "See matching sections and snippets" },
   ];
   return (
-    <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-soft)] lg:p-5">
+    <section className={cn(searchResultsSection, "p-4 lg:p-5")}>
       <h2 className="text-base font-extrabold text-[color:var(--text-heading)] lg:text-lg">Next steps</h2>
       <div className="mt-2 lg:mt-3">
         {steps.map(({ icon: Icon, title, subtitle }) => (
           <button
             key={title}
             type="button"
-            className="grid w-full grid-cols-[28px_1fr_18px] items-center gap-3 rounded-lg border-b border-[color:var(--border)] py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface-subtle)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16 lg:grid-cols-[32px_1fr_18px] lg:px-2 lg:py-4"
+            className={cn(
+              "grid w-full grid-cols-[28px_1fr_18px] items-center gap-3 rounded-lg border-b border-[color:var(--border)] py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface-subtle)] lg:grid-cols-[32px_1fr_18px] lg:px-2 lg:py-4",
+              searchFocusRing,
+            )}
           >
             <Icon className="h-5 w-5 text-[color:var(--clinical-accent)] lg:h-6 lg:w-6" />
             <span>
@@ -289,7 +274,7 @@ function SourceSnapshot() {
     ["Review due", "01 May 2026"],
   ];
   return (
-    <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[var(--shadow-soft)]">
+    <section className={cn(searchResultsSection, "p-5")}>
       <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Source snapshot</h2>
       <div className="mt-3">
         {rows.map(([label, value], index) => {
@@ -312,7 +297,7 @@ function SourceSnapshot() {
 
 function PathwayPanel() {
   return (
-    <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[var(--shadow-soft)]">
+    <section className={cn(searchResultsSection, "p-5")}>
       <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">
         Related pathway{" "}
         <span className="ml-2 text-sm font-medium text-[color:var(--text-muted)]">( PSOLIS Transport Pathway )</span>
@@ -335,7 +320,10 @@ function PathwayPanel() {
       <div className="mt-5 flex justify-center">
         <button
           type="button"
-          className="inline-flex min-h-9 items-center gap-3 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+          className={cn(
+            "inline-flex min-h-9 items-center gap-3 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+            searchFocusRing,
+          )}
         >
           <Workflow className="h-5 w-5" />
           View full pathway
@@ -373,7 +361,7 @@ function PathwayNode({
         )}
       >
         {code ? (
-          <p className={cn("text-2xl font-black text-[color:var(--clinical-accent)]", codeText)}>{code}</p>
+          <p className={cn("text-2xl font-extrabold text-[color:var(--clinical-accent)]", codeText)}>{code}</p>
         ) : null}
         <p className="mt-2 text-sm font-extrabold leading-snug text-[color:var(--text-heading)]">{title}</p>
         {active ? (
@@ -384,7 +372,7 @@ function PathwayNode({
         {secondaryCode && secondaryTitle ? (
           <div className="mt-3 grid gap-2 text-sm">
             <p>
-              <span className="mr-2 text-xl font-black text-[color:var(--clinical-accent)]">{secondaryCode}</span>
+              <span className="mr-2 text-xl font-extrabold text-[color:var(--clinical-accent)]">{secondaryCode}</span>
               <span className="text-xs font-medium text-[color:var(--text-muted)]">{secondaryTitle}</span>
             </p>
           </div>
@@ -425,7 +413,7 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
               data-testid={`form-search-mobile-result-${form.slug}`}
               className="grid grid-cols-[38px_minmax(0,1fr)] gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[0_1px_2px_rgb(12_24_34_/_5%)]"
             >
-              <div className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-lg font-black leading-none text-[color:var(--clinical-accent)]">
+              <div className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-lg font-extrabold leading-none text-[color:var(--clinical-accent)]">
                 {resultCode(index)}
               </div>
               <div className="min-w-0">
@@ -436,7 +424,10 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
                   <Link
                     href={`/forms/${form.slug}`}
                     aria-label={`Open ${form.title}`}
-                    className="relative inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[color:var(--border)] px-2 text-3xs font-extrabold text-[color:var(--clinical-accent)] transition before:absolute before:-inset-2 before:rounded-lg before:content-[''] hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+                    className={cn(
+                      "relative inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[color:var(--border)] px-2 text-3xs font-extrabold text-[color:var(--clinical-accent)] transition before:absolute before:-inset-2 before:rounded-lg before:content-[''] hover:bg-[color:var(--clinical-accent-soft)]",
+                      searchFocusRing,
+                    )}
                   >
                     Open
                     <ExternalLink className="h-3 w-3" />
@@ -449,7 +440,7 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
                       <span
                         key={`${chipLabel}-${chipIndex}`}
                         className={cn(
-                          "rounded-full px-1.5 py-0.5 text-4xs font-black uppercase leading-none",
+                          "rounded-full px-1.5 py-0.5 text-4xs font-extrabold uppercase leading-none",
                           tagToneClass(chipLabel),
                         )}
                       >
@@ -468,7 +459,10 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
       </div>
       <button
         type="button"
-        className="mx-auto mt-1.5 flex min-h-8 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+        className={cn(
+          "mx-auto mt-1.5 flex min-h-8 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+          searchFocusRing,
+        )}
       >
         View all forms ({matches.length})
         <ChevronRight className="h-4 w-4" />
@@ -500,13 +494,13 @@ function MobilePathway() {
               )}
             >
               {code ? (
-                <p className={cn("text-sm font-black leading-none text-[color:var(--clinical-accent)]", codeText)}>
+                <p className={cn("text-sm font-extrabold leading-none text-[color:var(--clinical-accent)]", codeText)}>
                   {code}
                 </p>
               ) : null}
               <p className="mt-0.5 text-4xs font-bold leading-[10px] text-[color:var(--text-muted)]">{label}</p>
               {index === 1 ? (
-                <p className="mt-0.5 rounded-full bg-[color:var(--clinical-accent-soft)] px-1 py-0.5 text-4xs font-black leading-[10px] text-[color:var(--clinical-accent)]">
+                <p className="mt-0.5 rounded-full bg-[color:var(--clinical-accent-soft)] px-1 py-0.5 text-4xs font-extrabold leading-[10px] text-[color:var(--clinical-accent)]">
                   You are here
                 </p>
               ) : null}
@@ -517,7 +511,10 @@ function MobilePathway() {
       </div>
       <button
         type="button"
-        className="mx-auto mt-1 flex min-h-8 items-center gap-2 rounded-md px-2 text-sm-minus font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+        className={cn(
+          "mx-auto mt-1 flex min-h-8 items-center gap-2 rounded-md px-2 text-sm-minus font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+          searchFocusRing,
+        )}
       >
         <Workflow className="h-4 w-4" />
         View full pathway
@@ -591,7 +588,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   }, [command?.commandScopes, matches]);
 
   return (
-    <div className="overflow-x-hidden bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)]">
+    <div className={cn("overflow-x-hidden", searchPageCanvas)}>
       <main className="mx-auto grid w-full max-w-7xl gap-3 px-4 pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6">
         <div className="grid gap-3 lg:gap-5">
           <RegistryStatusNotice status={registry.status} />
@@ -599,9 +596,6 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
             <>
               <div className="hidden lg:block">
                 <SearchResultsHeaderBand modeId="forms" query={query} matchCount={scopedMatches.length} />
-              </div>
-              <div className="hidden lg:block">
-                <SearchSummary query={query} formsCount={scopedMatches.length} />
               </div>
               {query.trim() && scopedMatches.length === 0 ? (
                 <SearchResultsEmptyState
@@ -645,7 +639,10 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
           <NextSteps />
           <button
             type="button"
-            className="mx-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-8 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-sm transition hover:bg-[color:var(--clinical-accent-soft)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--clinical-accent)]/16"
+            className={cn(
+              "mx-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-8 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+              searchFocusRing,
+            )}
           >
             <SlidersHorizontal className="h-5 w-5" />
             Filters

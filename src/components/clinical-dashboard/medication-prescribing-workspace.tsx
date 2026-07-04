@@ -618,7 +618,7 @@ function MedicationResults({
   const resultCount = visibleMedicationResults.length;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-3 py-0 sm:py-2">
+    <div className="mx-auto w-full max-w-7xl space-y-3 py-0 sm:py-2">
       <div className="hidden lg:block">
         <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} />
       </div>

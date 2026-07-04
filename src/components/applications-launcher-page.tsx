@@ -88,7 +88,7 @@ const iconToneClasses: Record<LauncherArea | "safety" | "medication" | "differen
   assessment: "border-cyan-200 bg-cyan-50 text-cyan-700",
   reference: "border-emerald-200 bg-emerald-50 text-emerald-700",
   care: "border-sky-200 bg-sky-50 text-sky-700",
-  coordination: "border-teal-200 bg-teal-50 text-teal-700",
+  coordination: "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
   saved: "border-blue-200 bg-blue-50 text-blue-700",
   safety: "border-red-200 bg-red-50 text-red-600",
   medication: "border-amber-200 bg-amber-50 text-amber-600",

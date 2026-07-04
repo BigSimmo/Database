@@ -165,7 +165,7 @@ function DocumentTagFacetRail({
             return (
               <section key={group} className="min-w-0">
                 <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                  <Icon className="h-3.5 w-3.5 text-[color:var(--primary)]" />
+                  <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   {group}
                 </h3>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -181,7 +181,7 @@ function DocumentTagFacetRail({
                         className={cn(
                           "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition",
                           selected
-                            ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
+                            ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                             : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
                         )}
                       >
@@ -654,7 +654,7 @@ function SearchRecordResults({
                   </p>
                   <a
                     href={recordRoute(service.slug)}
-                    className="mt-0.5 inline-flex min-h-11 items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)] sm:min-h-7"
+                    className="mt-0.5 inline-flex min-h-11 items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] sm:min-h-7"
                   >
                     <span className="line-clamp-2">{service.title}</span>
                   </a>
@@ -1009,7 +1009,7 @@ export function DocumentSearchResultsPanel({
                             </p>
                             <a
                               href={openHref}
-                              className="mt-0.5 inline-flex min-h-11 items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+                              className="mt-0.5 inline-flex min-h-11 items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
                             >
                               <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                             </a>
