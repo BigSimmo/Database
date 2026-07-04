@@ -63,7 +63,7 @@ belongs to this project, and starts the dev server in the background if needed.
 When you say `run` in this chat, Codex should use this command and return the
 printed URL.
 
-7. In a second terminal, start the local ingestion worker:
+8. In a second terminal, start the local ingestion worker:
 
 ```bash
 npm run worker
