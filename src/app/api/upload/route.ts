@@ -21,6 +21,60 @@ const uploadMetadataSchema = z
   })
   .strict();
 
+function isContentHashDuplicateError(error: unknown) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : error && typeof error === "object" && "message" in error && typeof error.message === "string"
+        ? error.message
+        : String(error);
+  return (
+    /duplicate key value violates unique constraint/i.test(message) &&
+    /content_hash|documents_owner_content_hash/i.test(message)
+  );
+}
+
+async function duplicateUploadResponse(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  ownerId: string;
+  contentHash: string;
+  storagePath: string | null;
+}) {
+  if (args.storagePath) {
+    const { error: cleanupStorageError } = await args.supabase.storage
+      .from(env.SUPABASE_DOCUMENT_BUCKET)
+      .remove([args.storagePath]);
+    if (cleanupStorageError) {
+      logger.warn("Duplicate upload storage cleanup failed", {
+        storagePath: args.storagePath,
+        message: cleanupStorageError.message,
+      });
+    }
+  }
+
+  const { data: duplicate, error: duplicateError } = await args.supabase
+    .from("documents")
+    .select("id,title,file_name,status,page_count,chunk_count,image_count,created_at")
+    .eq("owner_id", args.ownerId)
+    .eq("content_hash", args.contentHash)
+    .maybeSingle();
+
+  if (duplicateError) throw new Error(duplicateError.message);
+  if (!duplicate?.id) {
+    throw new PublicApiError(
+      "Upload conflicted with an existing document but the duplicate could not be resolved.",
+      409,
+    );
+  }
+
+  return NextResponse.json({
+    document: duplicate,
+    duplicate: true,
+    duplicateReason: "exact_content_hash",
+    message: `Exact copy already exists as "${duplicate.title}"; no duplicate job was queued.`,
+  });
+}
+
 export async function POST(request: Request) {
   let supabase: ReturnType<typeof createAdminClient> | null = null;
   let uploadedPath: string | null = null;
@@ -142,7 +196,19 @@ export async function POST(request: Request) {
       .select()
       .single();
 
-    if (documentError) throw new Error(documentError.message);
+    if (documentError) {
+      if (isContentHashDuplicateError(documentError)) {
+        insertedDocumentId = null;
+        insertedDocumentOwnerId = null;
+        return duplicateUploadResponse({
+          supabase,
+          ownerId: user.id,
+          contentHash,
+          storagePath: uploadedPath,
+        });
+      }
+      throw new Error(documentError.message);
+    }
     insertedDocumentId = documentId;
     insertedDocumentOwnerId = user.id;
 

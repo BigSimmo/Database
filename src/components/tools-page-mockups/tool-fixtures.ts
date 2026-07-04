@@ -1,4 +1,5 @@
-import { Brain, ClipboardList, FileCheck2, FileText, Pill, Search, Star, type LucideIcon } from "lucide-react";
+import { Brain, FileCheck2, FileText, Pill, Search, Star, type LucideIcon } from "lucide-react";
+import { appModeIcons } from "@/lib/app-mode-icons";
 
 export type ToolStatus = "ready" | "review_due" | "recent";
 export type ToolArea = "reference" | "assessment" | "care" | "coordination" | "personal";
@@ -75,7 +76,7 @@ export const tools: ToolFixture[] = [
     title: "Services",
     description: "Open source-backed service records, referral routes, and eligibility.",
     href: "/services",
-    icon: ClipboardList,
+    icon: appModeIcons.services,
     area: "coordination",
     sourceBacked: true,
     status: "review_due",

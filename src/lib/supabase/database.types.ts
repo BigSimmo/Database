@@ -1961,6 +1961,21 @@ export type Database = {
           retry_after_seconds: number
         }[]
       }
+      consume_api_subject_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_limit: number
+          p_subject_key: string
+          p_window_seconds: number
+        }
+        Returns: {
+          limit_value: number
+          limited: boolean
+          remaining: number
+          reset_at: string
+          retry_after_seconds: number
+        }[]
+      }
       correct_clinical_query_terms: {
         Args: { input_query: string; min_sim?: number }
         Returns: string

@@ -1,0 +1,247 @@
+"use client";
+
+import { Bookmark, LayoutList, Search, Table2, X } from "lucide-react";
+
+import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
+import { cn } from "@/components/ui-primitives";
+import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
+import type { AppModeId } from "@/lib/app-modes";
+
+const focusRing =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+export function SearchResultsHeaderBand({
+  modeId,
+  query,
+  matchCount,
+  loading = false,
+  view = "table",
+  onViewChange,
+  sortValue = "relevance",
+  onSortChange,
+  onSaveSearch,
+  compact = false,
+  className,
+}: {
+  modeId: AppModeId;
+  query: string;
+  matchCount: number;
+  loading?: boolean;
+  view?: "table" | "list";
+  onViewChange?: (view: "table" | "list") => void;
+  sortValue?: string;
+  onSortChange?: (value: string) => void;
+  onSaveSearch?: () => void;
+  compact?: boolean;
+  className?: string;
+}) {
+  const command = useSearchCommand();
+  const config = searchCommandSurfaceConfig(modeId);
+  const activeScopes = command?.commandScopes ?? [];
+  const displayQuery = query.trim() || "All";
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]",
+        compact ? "px-2.5 py-1.5" : "px-3 py-2",
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] font-bold text-[color:var(--clinical-accent)]",
+          compact ? "min-h-7 px-2 text-2xs" : "min-h-8 px-2.5 text-xs",
+        )}
+      >
+        <Search className={cn(compact ? "h-2.5 w-2.5" : "h-3 w-3")} aria-hidden />
+        {displayQuery}
+      </span>
+      <span className={cn("font-extrabold text-[color:var(--text-heading)]", compact ? "text-xs" : "text-sm")}>
+        {loading ? "Searching…" : `${matchCount} ${matchCount === 1 ? "match" : "matches"}`}
+      </span>
+      {activeScopes.map((scopeId) => {
+        const scope = config?.scopes.find((entry) => entry.id === scopeId);
+        if (!scope) return null;
+        return (
+          <button
+            key={scope.id}
+            type="button"
+            onClick={() => command?.onRemoveScope(scope.id)}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]",
+              compact ? "min-h-7 px-2 text-2xs" : "min-h-8 px-2.5 text-xs",
+              focusRing,
+            )}
+          >
+            {scope.label}
+            <X className="h-3 w-3" aria-hidden />
+          </button>
+        );
+      })}
+      <div className={cn("ml-auto flex items-center gap-1.5", compact && "hidden")}>
+        {onSortChange ? (
+          <label className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-muted)]">
+            Sort
+            <select
+              value={sortValue}
+              onChange={(event) => onSortChange(event.target.value)}
+              className="bg-transparent text-xs font-bold text-[color:var(--text)] outline-none"
+              aria-label="Sort results"
+            >
+              <option value="relevance">Relevance</option>
+              <option value="recent">Last used</option>
+              <option value="alpha">A–Z</option>
+            </select>
+          </label>
+        ) : null}
+        {onViewChange ? (
+          <div
+            className="inline-flex overflow-hidden rounded-lg border border-[color:var(--border)]"
+            role="group"
+            aria-label="Results view"
+          >
+            <button
+              type="button"
+              aria-pressed={view === "table"}
+              onClick={() => onViewChange("table")}
+              className={cn(
+                "grid h-9 w-9 place-items-center",
+                focusRing,
+                view === "table"
+                  ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                  : "text-[color:var(--text-muted)]",
+              )}
+            >
+              <Table2 className="h-4 w-4" aria-hidden />
+              <span className="sr-only">Table view</span>
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === "list"}
+              onClick={() => onViewChange("list")}
+              className={cn(
+                "grid h-9 w-9 place-items-center border-l border-[color:var(--border)]",
+                focusRing,
+                view === "list"
+                  ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                  : "text-[color:var(--text-muted)]",
+              )}
+            >
+              <LayoutList className="h-4 w-4" aria-hidden />
+              <span className="sr-only">List view</span>
+            </button>
+          </div>
+        ) : null}
+        {onSaveSearch ? (
+          <button
+            type="button"
+            onClick={onSaveSearch}
+            className={cn(
+              "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+              focusRing,
+            )}
+          >
+            <Bookmark className="h-3.5 w-3.5" aria-hidden />
+            Save search
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function SearchResultsEmptyState({
+  modeId,
+  query,
+  onClearScopes,
+  onTryExample,
+  onCrossMode,
+}: {
+  modeId: AppModeId;
+  query: string;
+  onClearScopes?: () => void;
+  onTryExample?: (example: string) => void;
+  onCrossMode?: (modeId: AppModeId) => void;
+}) {
+  const command = useSearchCommand();
+  const config = searchCommandSurfaceConfig(modeId);
+  const activeScopes = command?.commandScopes ?? [];
+
+  return (
+    <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center shadow-[var(--shadow-inset)]">
+      <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
+        <Search className="h-5 w-5" aria-hidden />
+      </span>
+      <p className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">
+        No matches for &ldquo;{query.trim() || "your search"}&rdquo;
+      </p>
+      <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
+        Relax the scope, try an example, or jump to another mode.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+        {activeScopes.length > 0 && onClearScopes ? (
+          <button
+            type="button"
+            onClick={onClearScopes}
+            className={cn(
+              "inline-flex min-h-9 items-center gap-1 rounded-lg border border-[color:var(--clinical-accent-border)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)]",
+              focusRing,
+            )}
+          >
+            Clear scope filters ({activeScopes.length})
+          </button>
+        ) : null}
+        {config?.examples[0] && onTryExample ? (
+          <button
+            type="button"
+            onClick={() => onTryExample(config.examples[0])}
+            className={cn(
+              "inline-flex min-h-9 items-center rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+              focusRing,
+            )}
+          >
+            Try: {config.examples[0]}
+          </button>
+        ) : null}
+        {config?.crossModes.slice(0, 2).map((target) =>
+          onCrossMode ? (
+            <button
+              key={target}
+              type="button"
+              onClick={() => onCrossMode(target)}
+              className={cn(
+                "inline-flex min-h-9 items-center rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                focusRing,
+              )}
+            >
+              Search in {target}
+            </button>
+          ) : null,
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function SearchResultsSkeleton() {
+  return (
+    <div
+      className="divide-y divide-[color:var(--border)] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
+      role="status"
+      aria-label="Loading results"
+    >
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3" aria-hidden>
+          <span className="h-9 w-9 rounded-lg bg-[color:var(--surface-subtle)]" />
+          <span className="space-y-1.5">
+            <span className="block h-3.5 w-2/3 rounded-md bg-[color:var(--surface-subtle)]" />
+            <span className="block h-3 w-1/3 rounded-md bg-[color:var(--surface-subtle)]" />
+          </span>
+          <span className="h-6 w-14 rounded-md bg-[color:var(--surface-subtle)]" />
+        </div>
+      ))}
+      <span className="sr-only">Loading results</span>
+    </div>
+  );
+}

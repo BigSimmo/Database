@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { PublicApiError } from "@/lib/http";
+import type { RateLimitSubject } from "@/lib/public-api-access";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 export type ApiRateLimitBucket =
@@ -21,6 +22,11 @@ const apiRateLimitDefaults = {
   bulk_reindex: { limit: 2, windowSeconds: 60 },
   registry: { limit: 120, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
+
+const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
+  answer: { limit: 6, windowSeconds: 60 },
+  search: { limit: 60, windowSeconds: 60 },
+};
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -104,6 +110,96 @@ export async function consumeApiRateLimit(args: {
     retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? windowSeconds)),
     resetAt: String(row.reset_at ?? new Date(Date.now() + windowSeconds * 1000).toISOString()),
   };
+}
+
+async function consumeAnonymousApiRateLimit(args: {
+  supabase: SupabaseAdmin;
+  subjectKey: string;
+  bucket: ApiRateLimitBucket;
+  limit: number;
+  windowSeconds: number;
+  allowInMemoryFallbackOnUnavailable?: boolean;
+}): Promise<ApiRateLimitResult> {
+  const { data, error } = await args.supabase.rpc("consume_api_subject_rate_limit", {
+    p_subject_key: args.subjectKey,
+    p_bucket: args.bucket,
+    p_limit: args.limit,
+    p_window_seconds: args.windowSeconds,
+  });
+
+  if (error) {
+    if (args.allowInMemoryFallbackOnUnavailable) {
+      console.warn("Durable anonymous API rate limit check unavailable; using local in-memory fallback.", {
+        bucket: args.bucket,
+        code: error.code,
+        message: error.message,
+      });
+      return consumeInMemoryApiRateLimit({
+        ownerId: args.subjectKey,
+        bucket: args.bucket,
+        limit: args.limit,
+        windowSeconds: args.windowSeconds,
+      });
+    }
+    throw new ApiRateLimitUnavailableError();
+  }
+
+  const row = parseRateLimitRow(data);
+  if (!row || typeof row.limited !== "boolean") {
+    if (args.allowInMemoryFallbackOnUnavailable) {
+      console.warn(
+        "Durable anonymous API rate limit check returned an invalid payload; using local in-memory fallback.",
+        {
+          bucket: args.bucket,
+        },
+      );
+      return consumeInMemoryApiRateLimit({
+        ownerId: args.subjectKey,
+        bucket: args.bucket,
+        limit: args.limit,
+        windowSeconds: args.windowSeconds,
+      });
+    }
+    throw new ApiRateLimitUnavailableError();
+  }
+
+  return {
+    limited: row.limited,
+    limit: Number(row.limit_value ?? args.limit),
+    remaining: Number(row.remaining ?? 0),
+    retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? args.windowSeconds)),
+    resetAt: String(row.reset_at ?? new Date(Date.now() + args.windowSeconds * 1000).toISOString()),
+  };
+}
+
+export async function consumeSubjectApiRateLimit(args: {
+  supabase: SupabaseAdmin;
+  subject: RateLimitSubject;
+  bucket: ApiRateLimitBucket;
+  limit?: number;
+  windowSeconds?: number;
+  allowInMemoryFallbackOnUnavailable?: boolean;
+}): Promise<ApiRateLimitResult> {
+  if (args.subject.kind === "owner") {
+    return consumeApiRateLimit({
+      supabase: args.supabase,
+      ownerId: args.subject.ownerId,
+      bucket: args.bucket,
+      limit: args.limit,
+      windowSeconds: args.windowSeconds,
+      allowInMemoryFallbackOnUnavailable: args.allowInMemoryFallbackOnUnavailable,
+    });
+  }
+
+  const defaults = anonymousApiRateLimitDefaults[args.bucket] ?? apiRateLimitDefaults[args.bucket];
+  return consumeAnonymousApiRateLimit({
+    supabase: args.supabase,
+    subjectKey: args.subject.subjectKey,
+    bucket: args.bucket,
+    limit: args.limit ?? defaults.limit,
+    windowSeconds: args.windowSeconds ?? defaults.windowSeconds,
+    allowInMemoryFallbackOnUnavailable: args.allowInMemoryFallbackOnUnavailable,
+  });
 }
 
 function consumeInMemoryApiRateLimit({

@@ -122,7 +122,7 @@ describe("app mode search contract", () => {
   it("builds stable dashboard home URLs for shared global search chrome", () => {
     expect(appModeHomeHref("answer")).toBe("/?mode=answer");
     expect(appModeHomeHref("documents", { query: "lithium monitoring", run: true, focus: true })).toBe(
-      "/?mode=documents&q=lithium+monitoring&focus=1&run=1",
+      "/documents/search?mode=documents&q=lithium+monitoring&focus=1&run=1",
     );
     expect(appModeHomeHref("services")).toBe("/services");
     expect(appModeHomeHref("services", { focus: true })).toBe("/services?focus=1");

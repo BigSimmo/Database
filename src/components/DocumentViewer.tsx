@@ -247,7 +247,7 @@ function ClinicalSummaryProfile({ profile }: { profile: ClinicalDocumentSummaryP
                 <li key={`${section.key}:${index}:${text}`} className="flex gap-2">
                   <span
                     aria-hidden="true"
-                    className="mt-[0.65em] h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--primary)]"
+                    className="mt-[0.65em] h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)]"
                   />
                   <span>
                     <SafeBoldText text={text} />
@@ -495,7 +495,7 @@ function TableReviewPanel({
                     className={cn(
                       "inline-flex min-h-8 items-center rounded-md border px-2 text-2xs font-semibold transition",
                       reviewClass === value
-                        ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
+                        ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
                     )}
                   >
@@ -542,7 +542,7 @@ function DocumentViewerAnchors({
           <a
             key={anchor.href}
             href={anchor.href}
-            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--primary)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--surface-subtle)]"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--surface-subtle)]"
           >
             <Icon className="h-3.5 w-3.5" />
             {anchor.label}
@@ -582,11 +582,11 @@ function PinnedSourceEvidence({
         data-testid="pinned-source-evidence"
         className={cn(
           sourceCard,
-          "scroll-mt-24 border-[color:var(--primary)]/20 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)]",
+          "scroll-mt-24 border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)]",
         )}
       >
         <div className="flex items-start gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
             <Quote className="h-4 w-4" />
           </span>
           <div className="min-w-0">
@@ -614,13 +614,13 @@ function PinnedSourceEvidence({
           data-testid="highlighted-source-passage"
           className={cn(
             sourceCard,
-            "mt-3 overflow-hidden border-[color:var(--primary)] bg-[color:var(--surface)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--primary)]/20",
+            "mt-3 overflow-hidden border-[color:var(--clinical-accent)] bg-[color:var(--surface)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--clinical-accent)]/20",
             compact ? "text-sm leading-6" : "text-base-minus leading-7",
           )}
         >
-          <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[color:var(--border)] bg-[color:var(--primary-soft)]/28 px-3 py-3">
+          <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)]/28 px-3 py-3">
             <div className="min-w-0">
-              <p className="inline-flex min-h-7 items-center gap-1.5 rounded-md bg-[color:var(--primary)] px-2 text-xs font-bold text-[color:var(--primary-contrast)]">
+              <p className="inline-flex min-h-7 items-center gap-1.5 rounded-md bg-[color:var(--clinical-accent)] px-2 text-xs font-bold text-[color:var(--clinical-accent-contrast)]">
                 <Target className="h-3.5 w-3.5" />
                 Highlighted source passage
               </p>
@@ -634,7 +634,7 @@ function PinnedSourceEvidence({
             <p className="mb-2 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
               Excerpt
             </p>
-            <p className="whitespace-pre-wrap rounded-md border border-[color:var(--border)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-raised)] px-3 py-2">
+            <p className="whitespace-pre-wrap rounded-md border border-[color:var(--border)] border-l-4 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-raised)] px-3 py-2">
               {visibleContent || "No displayable clinical text was available for this indexed passage."}
             </p>
           </blockquote>
@@ -663,7 +663,7 @@ function PinnedSourceEvidence({
           </div>
         </div>
       ) : (
-        <p className="mt-3 text-base-minus leading-6 text-[color:var(--primary)]">
+        <p className="mt-3 text-base-minus leading-6 text-[color:var(--clinical-accent)]">
           Open a citation from an answer to see the exact indexed passage.
         </p>
       )}
@@ -692,14 +692,14 @@ function IndexedSourceText({
           return block.level === "title" ? (
             <h3
               key={block.id}
-              className="rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)]/20 px-3 py-2 text-sm font-bold text-[color:var(--text-heading)]"
+              className="rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)]/20 px-3 py-2 text-sm font-bold text-[color:var(--text-heading)]"
             >
               {block.text}
             </h3>
           ) : (
             <h4
               key={block.id}
-              className="mt-1 border-l-4 border-[color:var(--primary)] pl-3 text-base-minus font-bold text-[color:var(--text-heading)]"
+              className="mt-1 border-l-4 border-[color:var(--clinical-accent)] pl-3 text-base-minus font-bold text-[color:var(--text-heading)]"
             >
               {block.text}
             </h4>
@@ -741,7 +741,7 @@ function IndexedSourceText({
           <p
             key={block.id}
             className={cn(
-              "rounded-lg border-l-4 border-[color:var(--primary)]/45 bg-[color:var(--primary-soft)]/14 py-2 pl-3 pr-2 text-base-minus leading-7 text-[color:var(--text)]",
+              "rounded-lg border-l-4 border-[color:var(--clinical-accent)]/45 bg-[color:var(--clinical-accent-soft)]/14 py-2 pl-3 pr-2 text-base-minus leading-7 text-[color:var(--text)]",
               compact && "text-sm leading-6",
             )}
           >
@@ -772,7 +772,7 @@ function HighlightedSearchText({ text, terms }: { text: string; terms: string[] 
         terms.some((term) => part.toLowerCase() === term.toLowerCase()) ? (
           <mark
             key={`${part}:${index}`}
-            className="rounded-sm bg-[color:var(--primary-soft)] px-0.5 font-semibold text-[color:var(--primary)]"
+            className="rounded-sm bg-[color:var(--clinical-accent-soft)] px-0.5 font-semibold text-[color:var(--clinical-accent)]"
           >
             {part}
           </mark>
@@ -955,7 +955,7 @@ function IndexedTextPanel({
                   sourceCard,
                   "overflow-hidden p-0 transition",
                   (selectedChunkId === chunk.id || activeHit?.id === chunk.id) &&
-                    "border-[color:var(--primary)] bg-[color:var(--primary-soft)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--primary)]/25",
+                    "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--clinical-accent)]/25",
                 )}
               >
                 <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-3">
@@ -963,9 +963,9 @@ function IndexedTextPanel({
                     className={cn(
                       "mb-2 inline-flex min-h-6 items-center rounded-md px-2 text-xs font-bold",
                       selectedChunkId === chunk.id
-                        ? "bg-[color:var(--primary)] text-[color:var(--primary-contrast)]"
+                        ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                         : activeHit?.id === chunk.id
-                          ? "bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
+                          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                           : "border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
                     )}
                   >
@@ -987,7 +987,7 @@ function IndexedTextPanel({
                       {chunk.matchedTerms.slice(0, 5).map((term) => (
                         <span
                           key={`${chunk.id}:${term}`}
-                          className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-2 text-3xs font-bold text-[color:var(--primary)]"
+                          className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-2 text-3xs font-bold text-[color:var(--clinical-accent)]"
                         >
                           {term}
                         </span>
@@ -1000,7 +1000,7 @@ function IndexedTextPanel({
                     Excerpt
                   </p>
                   {normalizedSearch ? (
-                    <p className="whitespace-pre-wrap rounded-md border border-[color:var(--border)] border-l-4 border-l-[color:var(--primary)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm leading-6 text-[color:var(--text)]">
+                    <p className="whitespace-pre-wrap rounded-md border border-[color:var(--border)] border-l-4 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm leading-6 text-[color:var(--text)]">
                       <HighlightedSearchText
                         text={
                           chunk.displayContent || "No displayable clinical text was available for this indexed passage."
@@ -1276,7 +1276,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           </label>
         ) : (
           <div className="flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:px-3">
-            <Loader2 className="h-4 w-4 animate-spin text-[color:var(--primary)]" />
+            <Loader2 className="h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
             <span className="hidden sm:inline">{error ? "Page unavailable" : "Loading pages"}</span>
             <span className="sm:hidden">{error ? "Unavailable" : "Loading"}</span>
           </div>
@@ -1309,7 +1309,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
               "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-[var(--radius-md)] border px-3 text-xs font-semibold transition",
               "disabled:cursor-not-allowed disabled:opacity-45",
               fitWidth || fullscreenActive
-                ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
+                ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                 : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
             )}
           >
@@ -1355,14 +1355,14 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
         {(loading || rendering) && (
           <div className="absolute left-3 right-3 top-3 z-[1] flex min-h-10 flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-tight)] sm:left-4 sm:right-auto sm:top-4">
             <span className="inline-flex min-h-8 items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-[color:var(--primary)]" />
+              <Loader2 className="h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
               {loading ? "Loading PDF" : "Rendering page"}
             </span>
             <a
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-[color:var(--primary)]"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-[color:var(--clinical-accent)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source PDF
@@ -1520,7 +1520,7 @@ function DocumentManualTagEditor({
     <div className={cn(sourceCard, "mt-4 p-3")}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-          <Tag className="h-3.5 w-3.5 text-[color:var(--primary)]" />
+          <Tag className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
           Manual tags
         </p>
         <span className={cn("text-2xs font-semibold", textMuted)}>
@@ -2386,7 +2386,7 @@ export function DocumentViewer({
             </Link>
             <Link
               href="/?mode=documents"
-              className="inline-flex min-h-9 items-center justify-center rounded-full bg-[color:var(--clinical-accent)] px-3 text-xs font-semibold text-[color:var(--primary-contrast)] shadow-[var(--shadow-tight)] sm:text-sm"
+              className="inline-flex min-h-9 items-center justify-center rounded-full bg-[color:var(--clinical-accent)] px-3 text-xs font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] sm:text-sm"
             >
               Documents
             </Link>
@@ -2587,7 +2587,7 @@ export function DocumentViewer({
           <details id="source-text-mobile" className={cn("group scroll-mt-24 lg:hidden", panel)}>
             <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
               <span className="inline-flex min-w-0 items-center gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--shadow-inset)]">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
                   <FileText className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
@@ -2620,9 +2620,9 @@ export function DocumentViewer({
           <div id="pdf-preview-section" className={cn(panel, "scroll-mt-24 overflow-hidden")}>
             <div data-testid="pdf-preview">
               {effectiveLoadingDocument ? (
-                <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--primary-soft)_55%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm font-semibold text-[color:var(--text-muted)] sm:min-h-72">
+                <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--clinical-accent-soft)_55%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm font-semibold text-[color:var(--text-muted)] sm:min-h-72">
                   <div className="max-w-sm">
-                    <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-[color:var(--primary)]" />
+                    <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-[color:var(--clinical-accent)]" />
                     <p>Preparing PDF preview</p>
                     <ul className="mt-3 space-y-1 text-left text-xs font-medium text-[color:var(--text-muted)]">
                       <li>Loading source metadata</li>
@@ -2736,7 +2736,7 @@ export function DocumentViewer({
                   )}
                 </>
               ) : (
-                <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--primary-soft)_40%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--text-muted)] sm:min-h-72">
+                <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--clinical-accent-soft)_40%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--text-muted)] sm:min-h-72">
                   <div>
                     <FileText className="mx-auto mb-2 h-8 w-8" />
                     Source preview is available after a signed URL is generated.
@@ -2974,7 +2974,7 @@ export function DocumentViewer({
           <button
             type="submit"
             disabled={!canSummarizeDocument}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--primary-strong)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Answer from this document"
           >
             {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

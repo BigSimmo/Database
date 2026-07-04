@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Activity,
   BrainCircuit,
@@ -25,8 +26,10 @@ import {
 } from "lucide-react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
+import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import {
   acuteConfusionPresentationWorkflow,
   getDifferentialRecord,
@@ -112,6 +115,40 @@ function routeWithQuery(path: string, query: string) {
   if (trimmedQuery) params.set("q", trimmedQuery);
   const suffix = params.toString();
   return suffix ? `${path}?${suffix}` : path;
+}
+
+function DifferentialsMobileCompareAddon({ selectedCount, query }: { selectedCount: number; query: string }) {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const phoneMediaQuery = window.matchMedia("(max-width: 1023px)");
+    const sync = () => {
+      setHost(phoneMediaQuery.matches ? document.getElementById(differentialsMobileCompareAddonSlotId) : null);
+    };
+    sync();
+    phoneMediaQuery.addEventListener("change", sync);
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      phoneMediaQuery.removeEventListener("change", sync);
+      observer.disconnect();
+    };
+  }, []);
+
+  if (!host) return null;
+
+  return createPortal(
+    <Link
+      href={routeWithQuery("/differentials/presentations", query)}
+      data-testid="differentials-compare-selected-mobile"
+      className="mx-auto flex min-h-12 w-full max-w-[26rem] items-center justify-center gap-3 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] active:bg-[color:var(--clinical-accent-hover)]"
+    >
+      <GitCompareArrows className="h-5 w-5 shrink-0" aria-hidden />
+      Compare selected ({selectedCount})
+      <ChevronRight className="ml-auto h-5 w-5 shrink-0" aria-hidden />
+    </Link>,
+    host,
+  );
 }
 
 function statusLabel(status: DifferentialRecord["status"]) {
@@ -651,8 +688,20 @@ function SearchResultsView({
   return (
     <div
       data-testid="differentials-search-results"
-      className="mx-auto grid w-full max-w-[86rem] gap-4 overflow-x-hidden px-3 pb-[calc(14rem+env(safe-area-inset-bottom))] sm:px-4 lg:px-0 lg:pb-0"
+      className="mx-auto grid w-full max-w-[86rem] gap-4 overflow-x-hidden px-3 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:px-4 lg:px-0 lg:pb-0"
     >
+      <div className="lg:hidden">
+        <SearchResultsHeaderBand
+          modeId="differentials"
+          query={query}
+          matchCount={results.length}
+          loading={loading}
+          compact
+        />
+      </div>
+      <div className="hidden lg:block">
+        <SearchResultsHeaderBand modeId="differentials" query={query} matchCount={results.length} loading={loading} />
+      </div>
       <p
         data-testid="differentials-demo-content-notice"
         className="flex items-start gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50 px-3 py-2 text-xs font-semibold leading-5 text-[color:var(--warning)] sm:text-sm"
@@ -824,16 +873,7 @@ function SearchResultsView({
         />
       </div>
 
-      <div className="fixed inset-x-0 bottom-[calc(8.5rem+env(safe-area-inset-bottom))] z-30 border-t border-[color:var(--border)] bg-[color:var(--background)] px-3 py-2.5 lg:hidden">
-        <Link
-          href={routeWithQuery("/differentials/presentations", query)}
-          className="mx-auto flex min-h-12 max-w-[26rem] items-center justify-center gap-3 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)]"
-        >
-          <GitCompareArrows className="h-5 w-5" aria-hidden />
-          Compare selected ({selectedCount})
-          <ChevronRight className="ml-auto h-5 w-5" aria-hidden />
-        </Link>
-      </div>
+      <DifferentialsMobileCompareAddon selectedCount={selectedCount} query={query} />
 
       <p className="pb-3 text-center text-xs font-medium text-[color:var(--text-muted)] lg:hidden">
         Clinical decision support only. Review before use.

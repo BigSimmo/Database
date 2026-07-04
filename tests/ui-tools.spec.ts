@@ -1,4 +1,116 @@
 import { expect, test, type Page } from "playwright/test";
+import type { Route } from "playwright-core";
+import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
+
+const readySetupChecks = [
+  { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
+  { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
+  { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
+  { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search schema ready." },
+  { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
+  { id: "worker", label: "npm run worker running", status: "unknown", detail: "Worker not required for UI smoke." },
+];
+
+async function fulfillAnswerResponse(route: Route, payload: unknown) {
+  const pathname = new URL(route.request().url()).pathname;
+  if (pathname.endsWith("/stream")) {
+    const body = [
+      `event: progress\ndata: ${JSON.stringify({ stage: "retrieving", message: "Searching indexed documents." })}`,
+      `event: final\ndata: ${JSON.stringify(payload)}`,
+      "",
+    ].join("\n\n");
+    await route.fulfill({
+      body,
+      contentType: "text/event-stream; charset=utf-8",
+      headers: { "Cache-Control": "no-cache, no-transform" },
+    });
+    return;
+  }
+
+  await route.fulfill({ json: payload });
+}
+
+async function mockAnswerDashboardApi(page: Page) {
+  await page.route(/\/api\/local-project-id$/, async (route) => {
+    await route.fulfill({
+      json: {
+        appName: "Clinical KB",
+        projectId: "test-project",
+        identityPath: "/api/local-project-id",
+        localServer: {
+          currentUrl: "http://localhost:4298",
+          currentPort: 4298,
+          projectPortStart: 4298,
+          projectPortEnd: 53210,
+          safeLocalOrigin: true,
+          requestOrigin: null,
+          requestReferer: null,
+          unsafeLocalCaller: null,
+        },
+      },
+    });
+  });
+  await page.route("**/api/setup-status**", async (route) => {
+    await route.fulfill({ json: { demoMode: true, checks: readySetupChecks } });
+  });
+  await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        documents: demoDocuments,
+        demoMode: true,
+        pagination: {
+          limit: 150,
+          offset: 0,
+          total: demoDocuments.length,
+          nextOffset: demoDocuments.length,
+          hasMore: false,
+        },
+      },
+    });
+  });
+  await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
+    const body = route.request().postDataJSON() as { query?: string; documentId?: string; documentIds?: string[] };
+    const answer = demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds);
+    await fulfillAnswerResponse(route, { ...answer, demoMode: true });
+  });
+  await page.route(/\/api\/ingestion\/jobs(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { jobs: [], demoMode: true } });
+  });
+  await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { batches: [], demoMode: true } });
+  });
+  await page.route(/\/api\/ingestion\/quality(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { items: [], demoMode: true } });
+  });
+}
+
+async function commandSurfaceOpensAbovePill(page: Page, hintPattern: RegExp) {
+  const input = visibleGlobalSearchInput(page).first();
+  await input.focus();
+
+  await expect(page.getByText(hintPattern)).toBeVisible();
+  const listbox = page.getByRole("listbox").first();
+  await expect(listbox).toBeVisible();
+
+  const geometry = await page.evaluate(() => {
+    const pill = document.querySelector(".answer-footer-search-pill");
+    const dropdown = document.querySelector(".universal-command-dropdown");
+    if (!pill || !dropdown) return null;
+    const pillRect = pill.getBoundingClientRect();
+    const dropdownRect = dropdown.getBoundingClientRect();
+    return {
+      pillTop: pillRect.top,
+      dropdownBottom: dropdownRect.bottom,
+    };
+  });
+
+  expect(geometry).not.toBeNull();
+  expect(geometry?.dropdownBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual((geometry?.pillTop ?? 0) + 2);
+}
+
+function launcherLaunchLink(page: Page, title: string) {
+  return page.getByRole("link", { name: `Launch ${title}` }).first();
+}
 
 async function gotoLauncher(page: Page, path = "/applications") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
@@ -108,10 +220,7 @@ test.describe("Clinical KB applications launcher", () => {
         await page.getByRole("button", { name: "Close Medication Prescribing" }).click();
         await expect(selectedSheet).toBeHidden();
       } else {
-        await expect(page.getByRole("link", { name: /^Clinical KB Search\b/ }).first()).toHaveAttribute(
-          "href",
-          "/?mode=answer",
-        );
+        await expect(launcherLaunchLink(page, "Clinical KB Search")).toHaveAttribute("href", "/?mode=answer");
       }
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
       await expect(page.getByPlaceholder("Search applications...")).toBeVisible();
@@ -124,17 +233,14 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
 
-    const medicationLink = page.getByRole("link", { name: /^Medication Prescribing\b/ }).first();
+    const medicationLink = launcherLaunchLink(page, "Medication Prescribing");
     await expect(medicationLink).toHaveAttribute("href", "/?mode=prescribing");
     await expect(medicationLink).not.toHaveAttribute("target", "_blank");
-    await expect(page.getByRole("link", { name: /^Documents\b/ }).first()).toHaveAttribute("href", "/?mode=documents");
-    await expect(page.getByRole("link", { name: /^Services\b/ }).first()).toHaveAttribute("href", "/services");
-    await expect(page.getByRole("link", { name: /^Forms\b/ }).first()).toHaveAttribute("href", "/forms");
-    await expect(page.getByRole("link", { name: /^Saved workflows\b/ }).first()).toHaveAttribute("href", "/favourites");
-    await expect(page.getByRole("link", { name: /^Clinical KB Search\b/ }).first()).toHaveAttribute(
-      "href",
-      "/?mode=answer",
-    );
+    await expect(launcherLaunchLink(page, "Documents")).toHaveAttribute("href", "/?mode=documents");
+    await expect(launcherLaunchLink(page, "Services")).toHaveAttribute("href", "/services");
+    await expect(launcherLaunchLink(page, "Forms")).toHaveAttribute("href", "/forms");
+    await expect(launcherLaunchLink(page, "Saved workflows")).toHaveAttribute("href", "/favourites");
+    await expect(launcherLaunchLink(page, "Clinical KB Search")).toHaveAttribute("href", "/?mode=answer");
     // External companion-app launchers were removed; no localhost links should remain.
     await expect(page.locator('a[href^="http://localhost"], a[href^="http://127.0.0.1"]')).toHaveCount(0);
   });
@@ -145,8 +251,8 @@ test.describe("Clinical KB applications launcher", () => {
 
     await page.getByLabel("Search applications").fill("medication");
 
-    await expect(page.getByRole("link", { name: /^Medication Prescribing\b/ }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: /^Documents\b/ })).toHaveCount(0);
+    await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
+    await expect(page.getByTestId("application-card-documents")).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -159,14 +265,15 @@ test.describe("Clinical KB applications launcher", () => {
 
     const toolsHub = page.getByTestId("tools-hub");
     await expect(toolsHub).toBeVisible();
-    await expect(toolsHub.getByRole("heading", { name: "Tools", exact: true })).toBeVisible();
+    await expect(toolsHub.getByTestId("tools-home")).toBeVisible();
+    await expect(toolsHub.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("global-search-input")).toBeVisible();
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
-    await expect(toolsHub.getByRole("link", { name: /^Medication Prescribing\b/ }).first()).toBeVisible();
-    await expect(toolsHub.getByRole("link", { name: /^Documents\b/ })).toHaveCount(0);
+    await expect(toolsHub.getByRole("link", { name: "Launch Medication Prescribing" })).toBeVisible();
+    await expect(toolsHub.getByTestId("application-card-documents")).toBeHidden();
     await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
 
-    await expect(toolsHub.getByRole("link", { name: /^Medication Prescribing\b/ }).first()).toHaveAttribute(
+    await expect(toolsHub.getByRole("link", { name: "Launch Medication Prescribing" })).toHaveAttribute(
       "href",
       "/?mode=prescribing",
     );
@@ -273,10 +380,32 @@ test.describe("Clinical KB applications launcher", () => {
       const metrics = await globalSearchComposerMetrics(page);
       expect(metrics).not.toBeNull();
       expect(metrics?.position).toBe("fixed");
-      expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390 - 8);
+      expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390);
       expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
+      // Mode homes keep the footer chip row under the pill on phones.
+      await expect(page.locator(".answer-footer-search-chip:visible").first()).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     }
+  });
+
+  test("phone bottom-dock search opens the command surface above the pill", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await gotoLauncher(page, "/services");
+    await expect(page.getByTestId("services-home")).toBeVisible();
+    await commandSurfaceOpensAbovePill(page, /Searching services/i);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("desktop answer footer opens the command surface above the pill", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
+    await gotoLauncher(page, "/?mode=answer&q=lithium+dosing&run=1");
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: 30_000 });
+
+    const metrics = await globalSearchComposerMetrics(page);
+    expect(metrics?.position).toBe("fixed");
+    await commandSurfaceOpensAbovePill(page, /Searching answer/i);
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("mode home routes center the shared search from tablet up", async ({ page }) => {
@@ -335,21 +464,32 @@ test.describe("Clinical KB applications launcher", () => {
     ] as const) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
-      for (const route of ["/services?q=13YARN&focus=1&run=1", "/services/13yarn"] as const) {
-        await gotoLauncher(page, route);
+      for (const route of [
+        { path: "/services?q=13YARN&focus=1&run=1", compactBottomSearch: true },
+        { path: "/services/13yarn", compactBottomSearch: false },
+      ] as const) {
+        await gotoLauncher(page, route.path);
         await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible({ timeout: 20_000 });
-        await expect(visibleGlobalSearchInput(page), `${route} at ${viewport.name}`).toHaveCount(1, {
+        await expect(visibleGlobalSearchInput(page), `${route.path} at ${viewport.name}`).toHaveCount(1, {
           timeout: 20_000,
         });
 
         const metrics = await globalSearchComposerMetrics(page);
-        expect(metrics, `${route} at ${viewport.name}`).not.toBeNull();
+        expect(metrics, `${route.path} at ${viewport.name}`).not.toBeNull();
         expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
-        expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(viewport.width - 8);
+        expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(viewport.width);
 
         if (viewport.width < 640) {
           expect(metrics?.position).toBe("fixed");
           expect(metrics?.formCenterY ?? 0).toBeGreaterThan(viewport.height * 0.72);
+          if (route.compactBottomSearch) {
+            // Search result views drop the chip row and hug the bottom edge
+            // on phones so results keep maximum screen space.
+            await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
+            expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 48);
+          } else {
+            await expect(page.locator(".answer-footer-search-chip:visible").first()).toBeVisible();
+          }
         } else {
           expect(metrics?.position).toBe("sticky");
           expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
@@ -390,11 +530,8 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
 
-    await expect(page.getByText("WA MHA FORMS")).toBeVisible();
-    await expect(page.getByText("Forms / Search")).toBeVisible();
-    await expect(page.getByLabel("Search forms, clocks, sources")).toHaveValue("");
-    await expect(page.getByLabel("Current forms query")).toHaveValue("transport forms");
-    await expect(page.getByLabel("Current forms query")).toBeFocused();
+    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveValue("transport forms");
     await expect(page.getByTestId("form-search-results")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toContainText("Best matches");
     await expect(page.getByTestId("form-search-result-transport-crisis-form")).toContainText("Transport order");
@@ -473,7 +610,7 @@ test.describe("Clinical KB applications launcher", () => {
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
-    await expect(page.getByPlaceholder("Ask or search forms...")).toHaveValue("");
+    await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);
   });
 

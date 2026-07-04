@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   BookOpen,
   BrainCircuit,
-  ClipboardList,
+  ClipboardPen,
   FileText,
   Heart,
   MessageSquarePlus,
@@ -20,8 +20,17 @@ import {
   Sun,
   Wrench,
 } from "lucide-react";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
-import { cn, sidebarItem, sidebarToolTile, statusDotReady, textMuted } from "@/components/ui-primitives";
+import { cn, sidebarItem, statusDotReady, textMuted } from "@/components/ui-primitives";
+
+function useClientMounted() {
+  return useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+}
 import { Sheet } from "@/components/ui/sheet";
 import { type AppModeId } from "@/lib/app-modes";
 import { type ResolvedTheme } from "@/lib/theme";
@@ -54,16 +63,19 @@ function accountProfileLabel(identity: SidebarIdentity) {
 const sidebarToolItems = [
   { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
   { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
-  { id: "services", label: "Services", icon: ClipboardList, href: "/services" },
-  { id: "forms", label: "Forms", icon: FileText, href: "/forms" },
+  { id: "services", label: "Services", icon: appModeIcons.services, href: "/services" },
+  { id: "forms", label: "Forms", icon: ClipboardPen, href: "/forms" },
   { id: "favourites", label: "Favourites", icon: Heart, href: "/favourites" },
   { id: "differentials", label: "Differentials", icon: BrainCircuit, href: "/differentials" },
   { id: "prescribing", label: "Medications", icon: Pill, href: "/?mode=prescribing" },
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
 ] as const;
 
-const collapsedSidebarButton =
-  "grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+// Display-free base so callers can compose `grid` / `hidden lg:grid` without
+// conflicting display utilities (cn does not de-duplicate classes).
+const collapsedSidebarControl =
+  "h-11 w-11 shrink-0 place-items-center rounded-xl border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+const collapsedSidebarButton = `grid ${collapsedSidebarControl}`;
 const collapsedSidebarActiveButton =
   "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
 
@@ -106,12 +118,14 @@ export function ClinicalSidebarContent({
   const visibleRecentQueries = matchingRecentQueries.slice(0, 5);
   const ThemeIcon = theme === "dark" ? Sun : Moon;
   const nextThemeLabel = theme === "dark" ? "Light mode" : "Dark mode";
+  const themeToggleLabel = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+  const themeUiReady = useClientMounted();
   const accountLabel = accountProfileLabel(identity);
 
   return (
     <div className="clinical-sidebar-content flex min-h-0 min-w-0 flex-1 flex-col gap-4">
       {showHeader ? (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <BrandMark className="h-10 w-10" />
             <p className="truncate text-base font-semibold tracking-tight text-[color:var(--text-heading)]">
@@ -136,102 +150,107 @@ export function ClinicalSidebarContent({
           onNewChat();
           onNavigate?.();
         }}
-        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
+        className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
       >
         <MessageSquarePlus className="h-4 w-4" />
         New chat
       </button>
 
-      <label className="relative block">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
-        <input
-          type="search"
-          placeholder="Search chats"
-          value={chatFilter}
-          onChange={(event) => setChatFilter(event.target.value)}
-          aria-label="Search recent chats"
-          className="clinical-sidebar-search-input h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
-        />
-      </label>
+      {/* Scroll region: search, recent chats, and tools scroll together on
+          short viewports while the header, New chat, and account footer stay
+          pinned. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto">
+        <label className="relative block shrink-0">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
+          <input
+            type="search"
+            placeholder="Search chats"
+            value={chatFilter}
+            onChange={(event) => setChatFilter(event.target.value)}
+            aria-label="Search recent chats"
+            className="clinical-sidebar-search-input h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+          />
+        </label>
 
-      <section className="min-w-0">
-        <div className="mb-2 flex items-center justify-between gap-2 px-1">
-          <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Recent chats</p>
-        </div>
-        <div className="grid gap-1">
-          {visibleRecentQueries.length ? (
-            visibleRecentQueries.map((recent, index) => (
-              <button
-                key={`${recent}:${index}`}
-                type="button"
-                onClick={() => {
-                  onPickRecent(recent);
-                  onNavigate?.();
-                }}
-                title={recent}
-                className={cn(
-                  sidebarItem,
-                  index === 0 &&
-                    "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
-                )}
-              >
-                <MessageSquare
-                  className={cn("h-4 w-4 shrink-0", index === 0 && "text-[color:var(--clinical-accent)]")}
-                />
-                <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
-              </button>
-            ))
-          ) : (
-            <p
-              className={cn(
-                "rounded-lg border border-dashed border-[color:var(--border)] px-3 py-2 text-sm",
-                textMuted,
-              )}
-            >
-              {normalizedChatFilter ? "No recent chats match your search." : "Recent chats will appear here."}
-            </p>
-          )}
-        </div>
-      </section>
-
-      <section>
-        <div className="mb-2 flex items-center justify-between gap-2 px-1">
-          <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tools</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {sidebarToolItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeMode === item.id;
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                prefetch={item.href === "/?mode=tools" ? true : undefined}
-                onFocus={item.href === "/?mode=tools" ? onPrefetchApplications : undefined}
-                onPointerEnter={item.href === "/?mode=tools" ? onPrefetchApplications : undefined}
-                onClick={onNavigate}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  sidebarToolTile,
-                  "clinical-sidebar-tool-tile",
-                  active &&
-                    "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] shadow-[var(--shadow-tight)]",
-                )}
-              >
-                <Icon
+        <section className="min-w-0 shrink-0">
+          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+            <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Recent chats</p>
+          </div>
+          <div className="grid gap-1">
+            {visibleRecentQueries.length ? (
+              visibleRecentQueries.map((recent, index) => (
+                <button
+                  key={`${recent}:${index}`}
+                  type="button"
+                  onClick={() => {
+                    onPickRecent(recent);
+                    onNavigate?.();
+                  }}
+                  title={recent}
                   className={cn(
-                    "h-4 w-4",
-                    active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-soft)]",
+                    sidebarItem,
+                    index === 0 &&
+                      "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
                   )}
-                />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+                >
+                  <MessageSquare
+                    className={cn("h-4 w-4 shrink-0", index === 0 && "text-[color:var(--clinical-accent)]")}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
+                </button>
+              ))
+            ) : (
+              <p
+                className={cn(
+                  "rounded-lg border border-dashed border-[color:var(--border)] px-3 py-2 text-sm",
+                  textMuted,
+                )}
+              >
+                {normalizedChatFilter ? "No recent chats match your search." : "Recent chats will appear here."}
+              </p>
+            )}
+          </div>
+        </section>
 
-      <div className="mt-auto grid gap-1 border-t border-[color:var(--border)] pt-3">
+        <section className="min-w-0 shrink-0">
+          <div className="mb-2 flex items-center justify-between gap-2 px-1">
+            <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tools</p>
+          </div>
+          <nav aria-label="Tools" className="grid gap-0.5">
+            {sidebarToolItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeMode === item.id;
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  prefetch={item.id === "tools" ? true : undefined}
+                  onFocus={item.id === "tools" ? onPrefetchApplications : undefined}
+                  onPointerEnter={item.id === "tools" ? onPrefetchApplications : undefined}
+                  onClick={onNavigate}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    sidebarItem,
+                    "border-l-2 border-transparent",
+                    active &&
+                      "border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-soft)]",
+                    )}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </section>
+      </div>
+
+      <div className="mt-auto grid shrink-0 gap-1 border-t border-[color:var(--border)] pt-3">
         <button
           type="button"
           onClick={() => {
@@ -247,10 +266,14 @@ export function ClinicalSidebarContent({
           type="button"
           onClick={onToggleTheme}
           className={sidebarItem}
-          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          aria-label={themeUiReady ? themeToggleLabel : "Toggle theme"}
         >
-          <ThemeIcon className="h-4 w-4 shrink-0" />
-          <span>{nextThemeLabel}</span>
+          {themeUiReady ? (
+            <ThemeIcon className="h-4 w-4 shrink-0" />
+          ) : (
+            <Moon className="h-4 w-4 shrink-0" aria-hidden />
+          )}
+          <span>{themeUiReady ? nextThemeLabel : "Theme"}</span>
         </button>
         <button
           type="button"
@@ -291,6 +314,150 @@ export function ClinicalSidebarContent({
   );
 }
 
+function ClinicalCollapsedRail({
+  hiddenOnDesktop,
+  collapseLocked,
+  identity,
+  activeMode,
+  onCollapsedChange,
+  onNewChat,
+  onOpenGuide,
+  onOpenSettings,
+  onOpenAccount,
+  theme,
+  onToggleTheme,
+  onPrefetchApplications,
+}: {
+  /** Tablet-only rail: hide from lg up when the expanded sidebar takes over. */
+  hiddenOnDesktop: boolean;
+  collapseLocked: boolean;
+  identity: SidebarIdentity;
+  activeMode: AppModeId;
+  onCollapsedChange: (collapsed: boolean) => void;
+  onNewChat: () => void;
+  onOpenGuide: () => void;
+  onOpenSettings: () => void;
+  onOpenAccount: () => void;
+  theme: ResolvedTheme;
+  onToggleTheme: () => void;
+  onPrefetchApplications: () => void;
+}) {
+  const CollapsedThemeIcon = theme === "dark" ? Sun : Moon;
+  const nextThemeLabel = theme === "dark" ? "Light mode" : "Dark mode";
+  const themeToggleLabel = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+  const themeUiReady = useClientMounted();
+  const accountLabel = accountProfileLabel(identity);
+
+  return (
+    <aside
+      aria-label="Clinical Guide collapsed sidebar"
+      className={cn(
+        "hidden min-h-0 w-[5.25rem] shrink-0 flex-col items-center border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] py-4 shadow-[var(--shadow-soft)] md:flex",
+        hiddenOnDesktop && "lg:hidden",
+      )}
+    >
+      <div className="grid w-full shrink-0 justify-items-center gap-2 px-3">
+        {collapseLocked ? (
+          <Link
+            href="/differentials"
+            className={cn(collapsedSidebarButton, activeMode === "differentials" && collapsedSidebarActiveButton)}
+            aria-label="Differentials home"
+            title="Differentials"
+          >
+            <BrandMark className="h-7 w-7" />
+          </Link>
+        ) : (
+          <>
+            <span className={cn("grid place-items-center lg:hidden", collapsedSidebarControl)} aria-hidden>
+              <BrandMark className="h-7 w-7" />
+            </span>
+            <button
+              type="button"
+              onClick={() => onCollapsedChange(false)}
+              className={cn("hidden lg:grid", collapsedSidebarControl, "group")}
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+            >
+              <BrandMark className="h-7 w-7 lg:group-hover:hidden lg:group-focus-visible:hidden" />
+              <PanelLeftOpen className="hidden h-4.5 w-4.5 lg:group-hover:block lg:group-focus-visible:block" />
+            </button>
+          </>
+        )}
+        <span className="h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
+      </div>
+
+      <div className="mt-3 grid min-h-0 w-full flex-1 content-start justify-items-center gap-1.5 overflow-y-auto px-3 pb-1">
+        <button
+          type="button"
+          onClick={onNewChat}
+          className={collapsedSidebarButton}
+          aria-label="New chat"
+          title="New chat"
+        >
+          <MessageSquarePlus className="h-4 w-4" />
+        </button>
+        {sidebarToolItems.map((item) => {
+          const Icon = item.icon;
+          const active = activeMode === item.id;
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              prefetch={item.id === "tools" ? true : undefined}
+              onFocus={item.id === "tools" ? onPrefetchApplications : undefined}
+              onPointerEnter={item.id === "tools" ? onPrefetchApplications : undefined}
+              className={cn(collapsedSidebarButton, active && collapsedSidebarActiveButton)}
+              aria-label={item.label}
+              title={item.label}
+              aria-current={active ? "page" : undefined}
+            >
+              <Icon className="h-4 w-4" />
+            </Link>
+          );
+        })}
+        <span className="h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
+        <button
+          type="button"
+          onClick={onOpenGuide}
+          className={collapsedSidebarButton}
+          aria-label="Guide and help"
+          title="Guide"
+        >
+          <BookOpen className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          className={collapsedSidebarButton}
+          aria-label={themeUiReady ? themeToggleLabel : "Toggle theme"}
+          title={themeUiReady ? nextThemeLabel : "Toggle theme"}
+        >
+          {themeUiReady ? <CollapsedThemeIcon className="h-4 w-4" /> : <Moon className="h-4 w-4" aria-hidden />}
+        </button>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className={collapsedSidebarButton}
+          aria-label="Settings"
+          title="Settings"
+        >
+          <SettingsIcon className="h-4 w-4" />
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={onOpenAccount}
+        data-testid="collapsed-account-settings"
+        className="mt-3 grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        title={identity.signedIn ? identity.detail : "Set up workspace"}
+        aria-label={accountLabel}
+      >
+        {identity.initials}
+      </button>
+    </aside>
+  );
+}
+
 export function ClinicalDesktopSidebar({
   collapsed,
   collapseLocked = false,
@@ -322,163 +489,17 @@ export function ClinicalDesktopSidebar({
   onToggleTheme: () => void;
   onPrefetchApplications: () => void;
 }) {
-  const CollapsedThemeIcon = theme === "dark" ? Sun : Moon;
-  const accountLabel = accountProfileLabel(identity);
-
-  if (collapsed) {
-    return (
-      <aside
-        aria-label="Clinical Guide collapsed sidebar"
-        className="hidden min-h-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] py-4 shadow-[var(--shadow-soft)] lg:flex lg:w-[5.25rem] lg:flex-col lg:items-center"
-      >
-        <div className="grid w-full justify-items-center gap-2 px-3">
-          {collapseLocked ? (
-            <Link
-              href="/differentials"
-              className={cn(collapsedSidebarButton, activeMode === "differentials" && collapsedSidebarActiveButton)}
-              aria-label="Differentials home"
-              title="Differentials"
-            >
-              <BrandMark className="h-7 w-7" />
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onCollapsedChange(false)}
-              className={cn(collapsedSidebarButton, "group")}
-              aria-label="Expand sidebar"
-              title="Expand sidebar"
-            >
-              <BrandMark className="h-7 w-7 group-hover:hidden group-focus-visible:hidden" />
-              <PanelLeftOpen className="hidden h-4.5 w-4.5 group-hover:block group-focus-visible:block" />
-            </button>
-          )}
-          <span className="h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
-        </div>
-
-        <div className="mt-3 grid w-full justify-items-center gap-2 px-3">
-          <button
-            type="button"
-            onClick={onNewChat}
-            className={collapsedSidebarButton}
-            aria-label="New chat"
-            title="New chat"
-          >
-            <MessageSquarePlus className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={collapseLocked ? onNewChat : () => onCollapsedChange(false)}
-            className={cn(collapsedSidebarButton, activeMode === "answer" && collapsedSidebarActiveButton)}
-            aria-label="Search chats"
-            title="Search chats"
-            aria-current={activeMode === "answer" ? "page" : undefined}
-          >
-            <Search className="h-4 w-4" />
-          </button>
-          <Link
-            href="/services"
-            className={cn(collapsedSidebarButton, activeMode === "services" && collapsedSidebarActiveButton)}
-            aria-label="Services"
-            title="Services"
-            aria-current={activeMode === "services" ? "page" : undefined}
-          >
-            <ClipboardList className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/forms"
-            className={cn(collapsedSidebarButton, activeMode === "forms" && collapsedSidebarActiveButton)}
-            aria-label="Forms"
-            title="Forms"
-            aria-current={activeMode === "forms" ? "page" : undefined}
-          >
-            <FileText className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/favourites"
-            className={cn(collapsedSidebarButton, activeMode === "favourites" && collapsedSidebarActiveButton)}
-            aria-label="Favourites"
-            title="Favourites"
-            aria-current={activeMode === "favourites" ? "page" : undefined}
-          >
-            <Heart className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/differentials"
-            className={cn(collapsedSidebarButton, activeMode === "differentials" && collapsedSidebarActiveButton)}
-            aria-label="Differentials"
-            title="Differentials"
-            aria-current={activeMode === "differentials" ? "page" : undefined}
-          >
-            <BrainCircuit className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/?mode=tools"
-            prefetch
-            onFocus={onPrefetchApplications}
-            onPointerEnter={onPrefetchApplications}
-            className={cn(collapsedSidebarButton, activeMode === "tools" && collapsedSidebarActiveButton)}
-            aria-label="Tools"
-            title="Tools"
-            aria-current={activeMode === "tools" ? "page" : undefined}
-          >
-            <Wrench className="h-4 w-4" />
-          </Link>
-          <button
-            type="button"
-            onClick={onOpenGuide}
-            className={collapsedSidebarButton}
-            aria-label="Guide and help"
-            title="Guide"
-          >
-            <BookOpen className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            className={collapsedSidebarButton}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            title={theme === "dark" ? "Light mode" : "Dark mode"}
-          >
-            <CollapsedThemeIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className={collapsedSidebarButton}
-            aria-label="Settings"
-            title="Settings"
-          >
-            <SettingsIcon className="h-4 w-4" />
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={onOpenAccount}
-          data-testid="collapsed-account-settings"
-          className="mt-auto grid h-11 w-11 place-items-center rounded-full border border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          title={identity.signedIn ? identity.detail : "Set up workspace"}
-          aria-label={accountLabel}
-        >
-          {identity.initials}
-        </button>
-      </aside>
-    );
-  }
-
   return (
-    <aside
-      id="clinical-tools-sidebar"
-      aria-label="Clinical Guide sidebar"
-      className="hidden min-h-0 w-[20rem] max-w-[20rem] shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] lg:flex lg:flex-col"
-    >
-      <ClinicalSidebarContent
-        recentQueries={recentQueries}
+    <>
+      {/* The icon rail covers tablets (md up); from lg the collapse toggle
+          decides between rail and full panel. */}
+      <ClinicalCollapsedRail
+        hiddenOnDesktop={!collapsed}
+        collapseLocked={collapseLocked}
         identity={identity}
         activeMode={activeMode}
         onCollapsedChange={onCollapsedChange}
         onNewChat={onNewChat}
-        onPickRecent={onPickRecent}
         onOpenGuide={onOpenGuide}
         onOpenSettings={onOpenSettings}
         onOpenAccount={onOpenAccount}
@@ -486,7 +507,29 @@ export function ClinicalDesktopSidebar({
         onToggleTheme={onToggleTheme}
         onPrefetchApplications={onPrefetchApplications}
       />
-    </aside>
+      {!collapsed ? (
+        <aside
+          id="clinical-tools-sidebar"
+          aria-label="Clinical Guide sidebar"
+          className="hidden min-h-0 w-[20rem] max-w-[20rem] shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] lg:flex lg:flex-col"
+        >
+          <ClinicalSidebarContent
+            recentQueries={recentQueries}
+            identity={identity}
+            activeMode={activeMode}
+            onCollapsedChange={onCollapsedChange}
+            onNewChat={onNewChat}
+            onPickRecent={onPickRecent}
+            onOpenGuide={onOpenGuide}
+            onOpenSettings={onOpenSettings}
+            onOpenAccount={onOpenAccount}
+            theme={theme}
+            onToggleTheme={onToggleTheme}
+            onPrefetchApplications={onPrefetchApplications}
+          />
+        </aside>
+      ) : null}
+    </>
   );
 }
 
@@ -504,6 +547,7 @@ export function ClinicalMobileSidebar({
   theme,
   onToggleTheme,
   onPrefetchApplications,
+  hiddenFrom = "md",
 }: {
   open: boolean;
   recentQueries: string[];
@@ -518,6 +562,8 @@ export function ClinicalMobileSidebar({
   theme: ResolvedTheme;
   onToggleTheme: () => void;
   onPrefetchApplications: () => void;
+  /** Breakpoint the drawer disappears at; workflow routes keep it until lg. */
+  hiddenFrom?: "md" | "lg";
 }) {
   return (
     <Sheet
@@ -527,7 +573,7 @@ export function ClinicalMobileSidebar({
       description="Recent chats, daily tools, help, and settings."
       closeLabel="Close Clinical Guide menu"
       placement="left"
-      contentClassName="lg:hidden"
+      contentClassName={hiddenFrom === "lg" ? "lg:hidden" : "md:hidden"}
       headerLeading={<BrandMark className="h-8 w-8" />}
     >
       <ClinicalSidebarContent

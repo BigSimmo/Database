@@ -617,13 +617,19 @@ export function DifferentialPresentationWorkflowPage({ query = "" }: { query?: s
               <div className="inline-flex rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]">
                 <button
                   type="button"
-                  className="min-h-9 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)]"
+                  disabled
+                  aria-disabled
+                  title="Soon"
+                  className="min-h-9 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Compact
                 </button>
                 <button
                   type="button"
-                  className="min-h-9 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)]"
+                  disabled
+                  aria-disabled
+                  title="Soon"
+                  className="min-h-9 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Detailed
                 </button>

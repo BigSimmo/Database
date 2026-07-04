@@ -1,4 +1,5 @@
-import { ClipboardList, FileText, Folder, LayoutList, Pill, Quote, Search, Stethoscope } from "lucide-react";
+import { ClipboardList, FileText, Folder, LayoutList, Pill, Quote, Search } from "lucide-react";
+import { appModeIcons } from "@/lib/app-mode-icons";
 
 export type FavouriteType = "medications" | "documents" | "sources" | "services" | "forms" | "sets";
 export type FavouriteTabId = "all" | FavouriteType;
@@ -11,6 +12,7 @@ export type FavouriteItem = {
   meta: string;
   sourceMeta: string;
   primaryAction: string;
+  href: string;
   icon: typeof FileText;
   keywords: string;
 };
@@ -33,7 +35,7 @@ export const favouriteTabs: Array<{
   { id: "medications", label: "Medications", shortLabel: "Meds", icon: Pill },
   { id: "documents", label: "Documents", shortLabel: "Docs", icon: FileText },
   { id: "sources", label: "Sources", shortLabel: "Sources", icon: Quote },
-  { id: "services", label: "Services", shortLabel: "Services", icon: Stethoscope },
+  { id: "services", label: "Services", shortLabel: "Services", icon: appModeIcons.services },
   { id: "forms", label: "Forms", shortLabel: "Forms", icon: ClipboardList },
   { id: "sets", label: "Sets", shortLabel: "Sets", icon: Folder },
 ];
@@ -47,6 +49,7 @@ export const favouriteItems: FavouriteItem[] = [
     meta: "Medication page · renal cautions · dose notes",
     sourceMeta: "3 sources",
     primaryAction: "Open",
+    href: "/medications/acamprosate",
     icon: Pill,
     keywords: "acamprosate renal screen medication dose safety ward round pbs",
   },
@@ -58,6 +61,7 @@ export const favouriteItems: FavouriteItem[] = [
     meta: "PDF · p.4-9 · 2 tables",
     sourceMeta: "PDF",
     primaryAction: "Ask",
+    href: "/?mode=documents&q=lithium+monitoring&run=1",
     icon: FileText,
     keywords: "lithium monitoring guideline blood tests shared care renal toxicity",
   },
@@ -69,6 +73,7 @@ export const favouriteItems: FavouriteItem[] = [
     meta: "Saved table · ANC monitoring",
     sourceMeta: "Table",
     primaryAction: "Source",
+    href: "/?mode=documents&q=clozapine+monitoring+table&run=1",
     icon: Quote,
     keywords: "clozapine monitoring table anc fbc neutrophil clinic",
   },
@@ -80,6 +85,7 @@ export const favouriteItems: FavouriteItem[] = [
     meta: "Saved query · medicines + documents",
     sourceMeta: "Run",
     primaryAction: "Run",
+    href: "/?mode=answer&q=renal+dose&run=1",
     icon: Search,
     keywords: "renal dose saved search kidney egfr medicines documents",
   },
@@ -91,6 +97,7 @@ export const favouriteItems: FavouriteItem[] = [
     meta: "Source card · prescribing safety",
     sourceMeta: "Quote",
     primaryAction: "Copy",
+    href: "/?mode=documents&q=QT+prolongation&run=1",
     icon: Quote,
     keywords: "qt prolongation quote source card prescribing safety",
   },
