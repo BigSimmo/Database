@@ -1091,6 +1091,16 @@ summary::-webkit-details-marker {
     transform: translateX(-50%);
   }
 
+  /* Compact search/result views: no chip row below the pill, so the pill
+     itself hugs the bottom edge and the scrim shrinks to match. */
+  .document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact {
+    bottom: max(0.4rem, calc(var(--safe-area-bottom) + 0.3rem));
+  }
+
+  .document-mobile-search-compact .answer-footer-search-backdrop {
+    height: max(5rem, calc(var(--safe-area-bottom) + 4.4rem));
+  }
+
   .document-mobile-search-pill {
     min-height: 3.6rem;
     border-color: var(--border-strong);

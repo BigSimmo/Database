@@ -283,6 +283,8 @@ test.describe("Clinical KB applications launcher", () => {
       expect(metrics?.position).toBe("fixed");
       expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390 - 8);
       expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
+      // Mode homes keep the footer chip row under the pill on phones.
+      await expect(page.locator(".answer-footer-search-chip:visible").first()).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -343,21 +345,32 @@ test.describe("Clinical KB applications launcher", () => {
     ] as const) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
-      for (const route of ["/services?q=13YARN&focus=1&run=1", "/services/13yarn"] as const) {
-        await gotoLauncher(page, route);
+      for (const route of [
+        { path: "/services?q=13YARN&focus=1&run=1", compactBottomSearch: true },
+        { path: "/services/13yarn", compactBottomSearch: false },
+      ] as const) {
+        await gotoLauncher(page, route.path);
         await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible({ timeout: 20_000 });
-        await expect(visibleGlobalSearchInput(page), `${route} at ${viewport.name}`).toHaveCount(1, {
+        await expect(visibleGlobalSearchInput(page), `${route.path} at ${viewport.name}`).toHaveCount(1, {
           timeout: 20_000,
         });
 
         const metrics = await globalSearchComposerMetrics(page);
-        expect(metrics, `${route} at ${viewport.name}`).not.toBeNull();
+        expect(metrics, `${route.path} at ${viewport.name}`).not.toBeNull();
         expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
         expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(viewport.width - 8);
 
         if (viewport.width < 640) {
           expect(metrics?.position).toBe("fixed");
           expect(metrics?.formCenterY ?? 0).toBeGreaterThan(viewport.height * 0.72);
+          if (route.compactBottomSearch) {
+            // Search result views drop the chip row and hug the bottom edge
+            // on phones so results keep maximum screen space.
+            await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
+            expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 48);
+          } else {
+            await expect(page.locator(".answer-footer-search-chip:visible").first()).toBeVisible();
+          }
         } else {
           expect(metrics?.position).toBe("sticky");
           expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
