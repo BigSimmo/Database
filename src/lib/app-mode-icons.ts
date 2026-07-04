@@ -1,0 +1,25 @@
+import {
+  BrainCircuit,
+  FileSignature,
+  FileText,
+  Heart,
+  Pill,
+  ShieldCheck,
+  Sparkles,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
+
+import type { AppModeId } from "@/lib/app-modes";
+
+/** Canonical Lucide icons for each app mode — keep in sync across nav, search, and favourites. */
+export const appModeIcons: Record<AppModeId, LucideIcon> = {
+  answer: Sparkles,
+  documents: FileText,
+  services: ShieldCheck,
+  forms: FileSignature,
+  favourites: Heart,
+  differentials: BrainCircuit,
+  prescribing: Pill,
+  tools: Wrench,
+};

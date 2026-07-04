@@ -1,4 +1,5 @@
-import { ClipboardList, FileText, Folder, LayoutList, Pill, Quote, Search, Stethoscope } from "lucide-react";
+import { ClipboardList, FileText, Folder, LayoutList, Pill, Quote, Search } from "lucide-react";
+import { appModeIcons } from "@/lib/app-mode-icons";
 
 export type FavouriteType = "medications" | "documents" | "sources" | "services" | "forms" | "sets";
 export type FavouriteTabId = "all" | FavouriteType;
@@ -34,7 +35,7 @@ export const favouriteTabs: Array<{
   { id: "medications", label: "Medications", shortLabel: "Meds", icon: Pill },
   { id: "documents", label: "Documents", shortLabel: "Docs", icon: FileText },
   { id: "sources", label: "Sources", shortLabel: "Sources", icon: Quote },
-  { id: "services", label: "Services", shortLabel: "Services", icon: Stethoscope },
+  { id: "services", label: "Services", shortLabel: "Services", icon: appModeIcons.services },
   { id: "forms", label: "Forms", shortLabel: "Forms", icon: ClipboardList },
   { id: "sets", label: "Sets", shortLabel: "Sets", icon: Folder },
 ];

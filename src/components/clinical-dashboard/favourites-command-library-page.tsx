@@ -15,8 +15,6 @@ import {
   Pill,
   Quote,
   Search,
-  ShieldCheck,
-  Stethoscope,
   Trash2,
   X,
   type LucideIcon,
@@ -41,6 +39,7 @@ import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-
 import { SearchResultsEmptyState, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
+import { appModeIcons } from "@/lib/app-mode-icons";
 
 type FavouriteType = "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form";
 type ViewMode = FavouritesViewMode;
@@ -116,7 +115,7 @@ const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
   medications: Pill,
   documents: FileText,
   sources: Quote,
-  services: Stethoscope,
+  services: appModeIcons.services,
   forms: FileText,
 };
 

@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   BookOpen,
   BrainCircuit,
-  ClipboardList,
   ClipboardPen,
   FileText,
   Heart,
@@ -21,6 +20,7 @@ import {
   Sun,
   Wrench,
 } from "lucide-react";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { cn, sidebarItem, statusDotReady, textMuted } from "@/components/ui-primitives";
 
@@ -63,7 +63,7 @@ function accountProfileLabel(identity: SidebarIdentity) {
 const sidebarToolItems = [
   { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
   { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
-  { id: "services", label: "Services", icon: ClipboardList, href: "/services" },
+  { id: "services", label: "Services", icon: appModeIcons.services, href: "/services" },
   { id: "forms", label: "Forms", icon: ClipboardPen, href: "/forms" },
   { id: "favourites", label: "Favourites", icon: Heart, href: "/favourites" },
   { id: "differentials", label: "Differentials", icon: BrainCircuit, href: "/differentials" },
