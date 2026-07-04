@@ -493,6 +493,10 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     "Hours not public";
 
   function goBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
     router.push(appModeHomeHref("services", { focus: true }));
   }
 
