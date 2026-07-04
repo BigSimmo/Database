@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { AccessibleTable } from "@/components/AccessibleTable";
-import { type AnswerFeedbackType } from "@/components/ClinicalDashboard";
+import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { ScopeAndGovernanceNotice, SourceImage } from "@/components/clinical-dashboard/answer-content";
 import { SectionHeading, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";

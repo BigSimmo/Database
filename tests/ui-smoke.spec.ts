@@ -1060,6 +1060,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalNotesSheet.getByRole("tab", { name: /Actions/ })).toBeVisible();
     await expect(clinicalNotesSheet.getByRole("tab", { name: /Safety/ })).toBeVisible();
     expect(await clinicalNotesSheet.getByTestId("clinical-note-row").count()).toBeGreaterThan(0);
+    const linkedNoteRow = clinicalNotesSheet.getByTestId("clinical-note-row").first();
+    await expect(linkedNoteRow).toHaveAttribute("href", /\/documents\//);
     await expect(clinicalNotesSheet.getByText("Review toxicity symptoms", { exact: true })).toBeVisible();
     await tapOutsideActiveSurface(page);
     await expect(clinicalNotesSheet).toHaveCount(0);

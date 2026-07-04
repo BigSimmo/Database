@@ -4,7 +4,7 @@ import Link from "next/link";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react";
 
-import { type AnswerFeedbackType } from "@/components/ClinicalDashboard";
+import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { NaturalLanguageAnswer, UserQuestionBubble } from "@/components/clinical-dashboard/answer-content";
 import {
@@ -282,6 +282,7 @@ export function StagedAnswerResultSurface({
               answer={answer}
               viewMode={answerViewMode}
               evidenceMapRows={answerEvidenceMapRows}
+              sourceLinks={renderModel.primarySources}
               bestSource={bestSource}
               copied={copiedAnswer}
               onCopy={onCopyAnswer}
