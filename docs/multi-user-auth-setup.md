@@ -1,13 +1,13 @@
 # Multi-user auth — Supabase configuration checklist (you apply)
 
-The **code** for multi-user (persistent cookie sessions, magic link + password +
-SSO, per-user isolation) lands via the `claude/multiuser-auth` branch. The
-**live Supabase configuration** below is done by you in the dashboard / provider
-consoles — Claude does not change the live Auth config. Target project:
-`Clinical KB Database` (`sjrfecxgysukkwxsowpy`).
+The app ships multi-user auth code (persistent cookie sessions, magic link +
+password + SSO, per-user isolation). The **live Supabase configuration** below
+is done by you in the dashboard / provider consoles — it is operator-owned, not
+changed automatically by repo commits. Target project: `Clinical KB Database`
+(`sjrfecxgysukkwxsowpy`).
 
-> **Order matters:** do **not** enable open signup on live until the fail-closed
-> owner-scoping hardening on this branch has merged (the DB owner-RLS + private
+> **Order matters:** do **not** enable open signup on live until fail-closed
+> owner-scoping hardening has merged and been verified (the DB owner-RLS + private
 > storage backstop is already in place — see §7). Validate the whole flow in a
 > **staging** project first.
 
@@ -52,15 +52,14 @@ consoles — Claude does not change the live Auth config. Target project:
 
 ## 6. App environment variables
 
-Already used by the app; ensure they are set per environment. Concrete values
-for **this** project (retrieved read-only from the live project 2026-07-03):
+Already used by the app; ensure they are set per environment. Copy values from
+the Supabase dashboard → Project Settings → API:
 
 - `NEXT_PUBLIC_SUPABASE_URL` = `https://sjrfecxgysukkwxsowpy.supabase.co`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = `sb_publishable_TgAfWIQDozYC_reOI-d5cw_FLYPnqOa`
-  (modern publishable key — public by design, safe in the browser; a legacy anon
-  JWT is also still active for compatibility)
-- `SUPABASE_SERVICE_ROLE_KEY` (server-only; never exposed to the client — not
-  reproduced here; copy it from the Supabase dashboard → Project Settings → API)
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = your publishable or anon key (public
+  by design, safe in the browser)
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only; never exposed to the client — copy
+  from the dashboard; do not commit real values to docs or Git)
 
 The **Supabase OAuth callback** to authorize in the Google Cloud / Azure AD app
 registrations (§1) is `https://sjrfecxgysukkwxsowpy.supabase.co/auth/v1/callback`.
@@ -83,7 +82,7 @@ project**, so no broad RLS migration is required:
   client storage access is enabled (so no per-user folder policy is needed unless
   client-direct storage reads are ever added).
 
-Combined with the app-layer **fail-closed owner scoping** shipped on this branch,
+Combined with the app-layer **fail-closed owner scoping** in the codebase,
 per-user isolation is enforced at both layers.
 
 **Two residual, low-priority items (out of scope for multi-user, no action needed

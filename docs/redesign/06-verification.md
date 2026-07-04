@@ -4,7 +4,7 @@ Scope: ultra-premium mobile-first redesign — token system, component layer, da
 
 ## June 20 scoped run — dashboard/viewer only, Tools deferred
 
-Branch: `codex/premium-redesign`. Local server: `npm run ensure` confirmed `http://localhost:4298`; `/api/local-project-id` confirmed `Clinical KB` with `safeLocalOrigin: true`.
+Last reviewed: 2026-07-04. Historical verification log for the premium-redesign reconciliation pass; branch names and test counts are snapshots only.
 
 | Check            | Command                                                                                                                               | Result                                                                                                                                     |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |

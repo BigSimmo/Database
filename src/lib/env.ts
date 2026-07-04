@@ -102,11 +102,11 @@ const envSchema = z.object({
   // within a section, so dose tables / monitoring protocols split across a page boundary stay
   // together. Enabled only for the eval-gated shadow re-index, never silently for live users.
   CHUNK_STRATEGY: z.enum(["page", "document"]).default("page"),
-  WORKER_POLL_MS: z.coerce.number().int().positive().default(1500),
-  WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(25),
-  WORKER_CONCURRENCY: z.coerce.number().int().positive().default(8),
-  WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
-  WORKER_STALE_AFTER_MINUTES: z.coerce.number().int().positive().default(5),
+  WORKER_POLL_MS: z.coerce.number().int().positive().default(30000),
+  WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
+  WORKER_CONCURRENCY: z.coerce.number().int().positive().default(1),
+  WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+  WORKER_STALE_AFTER_MINUTES: z.coerce.number().int().positive().default(45),
   WORKER_HEALTH_BACKOFF_MS: z.coerce.number().int().positive().default(120000),
   WORKER_MAX_CLAIM_FAILURES: z.coerce.number().int().positive().default(3),
   WORKER_PROGRESS_UPDATE_MIN_INTERVAL_MS: z.coerce.number().int().positive().default(60000),
