@@ -4,10 +4,10 @@ This document turns the current process review into phased, durable repo practic
 
 ## Phase 1 - Active now
 
-- `npm run verify:cheap` is the default broad local gate for source/config/test changes: lint, typecheck, and unit tests.
-- `npm run verify:ui` is the default UI gate: Chromium Playwright smoke, stress, and accessibility media checks.
-- `npm run verify:release` is the release-confidence gate: lint, typecheck, unit tests, build, and the full Playwright browser project set.
-- CI now installs Chromium and runs the Chromium UI gate after build on all branches; a gated release-browser job runs the full Playwright browser matrix on `main`, `release/*`, manual dispatch, and the weekly schedule.
+- `npm run verify:cheap` is the default broad local gate for source/config/test changes: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests.
+- `npm run verify:ui` is the default UI gate: `check:runtime` plus Chromium Playwright smoke, stress, and accessibility media checks (`test:e2e:chromium`).
+- `npm run verify:release` is the release-confidence gate: `check:runtime`, lint, typecheck, unit tests, build, full Playwright browser matrix, `check:production-readiness`, `governance:release`, and `eval:quality:release` (the last step needs live Supabase and OpenAI keys).
+- CI runs two parallel PR jobs: `verify` (runtime alignment, edge-function typecheck, CI-safe production readiness, `format:check`, lint, typecheck, unit tests with coverage, build) and `ui-smoke` (Chromium Playwright against its own dev server). A gated `release-browser-matrix` job runs the full Playwright browser set on `main`, `release/*`, manual dispatch, and the weekly schedule.
 - `tests/ui-accessibility.spec.ts` covers reduced-motion and forced-colors dashboard usability so those modes are no longer only reviewed by inspection.
 - `tests/ui-tools.spec.ts` covers the Applications dashboard mode at mobile and desktop sizes, including the `/applications` compatibility redirect.
 - `AGENTS.md` now points future agents to these gates and to this document.

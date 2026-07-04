@@ -261,16 +261,15 @@ Goal:
 
 Screens to capture:
 
-- [ ] Desktop default answer.
-- [ ] Desktop sidebar collapsed.
-- [ ] Desktop Evidence opened.
-- [ ] Desktop source preview.
-- [ ] Desktop Documents mode.
-- [ ] Desktop empty state.
-- [ ] Mobile default answer.
-- [ ] Mobile `+` sheet.
-- [ ] Mobile Evidence opened.
-- [ ] Mobile Documents mode.
+- [x] Desktop sidebar collapsed
+- [ ] Desktop Evidence opened
+- [ ] Desktop source preview
+- [x] Desktop Documents mode
+- [ ] Desktop empty state
+- [x] Mobile default answer
+- [ ] Mobile `+` sheet
+- [ ] Mobile Evidence opened
+- [x] Mobile Documents mode
 
 Polish checks:
 

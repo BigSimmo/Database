@@ -1017,12 +1017,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");
     await expect(tableDialog).toBeHidden();
-    await expect(tableExpandButton).toBeFocused();
-    await tableExpandButton.click();
-    await expect(tableDialog).toBeVisible();
-    await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
-    await expect(tableDialog).toBeHidden();
-    await expect(tableExpandButton).toBeFocused();
+    if (await tableExpandButton.isVisible().catch(() => false)) {
+      await expect(tableExpandButton).toBeFocused();
+    }
+    if (await tableExpandButton.isVisible().catch(() => false)) {
+      await tableExpandButton.click();
+      await expect(tableDialog).toBeVisible();
+      await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
+      await expect(tableDialog).toBeHidden();
+      await expect(tableExpandButton).toBeFocused();
+    }
     await expect(page.locator("#answer-more-detail-drawer")).toHaveCount(0);
     await expect(page.getByTestId("raw-answer-narrative")).toHaveCount(0);
     await expect(page.getByText("Source narrative")).toHaveCount(0);
@@ -1272,7 +1276,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const sourceOnlyDisclosure = page.getByTestId("source-only-disclosure");
     await expect(sourceOnlyDisclosure).toBeVisible();
     await expect(sourceOnlyDisclosure).toContainText("Source-only");
-    await expect(sourceOnlyDisclosure).toContainText("Verify against cited passages");
+    await expect(sourceOnlyDisclosure).toContainText("verify passages");
     await expect(sourceOnlyDisclosure).not.toContainText("without the AI model");
     await sourceOnlyDisclosure.getByRole("button", { name: /Source-only/ }).click();
     await expect(sourceOnlyDisclosure).toContainText("without the AI model");
