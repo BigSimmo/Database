@@ -1400,12 +1400,8 @@ export function MasterSearchHeader({
             data-testid="scope-command-popover"
             className="polished-scroll absolute bottom-[calc(100%+0.75rem)] right-2 z-50 max-h-[min(70dvh,28rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
           >
-            <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
-              <span>Document scope</span>
-              <span className="nums">{scopeSummary}</span>
-            </div>
             {scopePreview ? (
-              <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
+              <p className="truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
             ) : null}
             {renderScopeRows()}
           </div>
