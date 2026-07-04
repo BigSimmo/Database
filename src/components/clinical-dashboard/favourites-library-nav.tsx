@@ -46,6 +46,9 @@ export type FavouritesNavProps = {
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
+const librarySidebarSurface =
+  "bg-gradient-to-b from-[color:var(--surface-lux)] via-[color:var(--surface-lux)] to-[color:var(--surface-subtle)]";
+
 const favouritesNavCollapsedKey = "clinical-kb-favourites-nav-collapsed";
 const favouritesNavCollapsedEvent = "clinical-kb-favourites-nav-collapsed-change";
 
@@ -230,7 +233,10 @@ export function FavouritesSidebar({
       <aside
         aria-label="Favourites library filters"
         data-testid="favourites-sidebar-compact"
-        className="hidden min-w-0 border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] py-4 shadow-[var(--shadow-soft)] lg:flex lg:w-[5.25rem] lg:flex-col lg:items-center"
+        className={cn(
+          "hidden min-w-0 border-r border-[color:var(--border)] py-4 shadow-[var(--shadow-soft)] lg:flex lg:w-[5.25rem] lg:flex-col lg:items-center",
+          librarySidebarSurface,
+        )}
       >
         <button
           type="button"
@@ -285,7 +291,10 @@ export function FavouritesSidebar({
     <aside
       aria-label="Favourites library filters"
       data-testid="favourites-sidebar-expanded"
-      className="hidden min-w-0 overflow-y-auto border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-5 shadow-[var(--shadow-soft)] lg:block lg:w-[17.5rem]"
+      className={cn(
+        "hidden min-w-0 overflow-y-auto border-r border-[color:var(--border)] px-4 py-5 shadow-[var(--shadow-soft)] lg:block lg:w-[17.5rem]",
+        librarySidebarSurface,
+      )}
     >
       <div className="mb-4 flex items-center justify-between gap-2">
         <h2 className="truncate text-sm font-black text-[color:var(--text-heading)]">Library</h2>
