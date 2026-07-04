@@ -390,14 +390,13 @@ export function ServicesNavigatorPage() {
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
   const registry = useRegistryRecords("service");
-  const searchableRecords =
-    registry.status === "ready" && registry.records.length > 0 ? registry.records : serviceRecords;
+  const searchableRecords = registry.status === "ready" ? registry.records : serviceRecords;
   const matches = useMemo(() => {
     const ranked = rankServiceRecords(searchableRecords, query);
-    return ranked.length ? ranked.map((match) => match.service) : searchableRecords;
+    return ranked.length ? ranked.map((match) => match.service) : query.trim() ? [] : searchableRecords;
   }, [query, searchableRecords]);
   const [selectedSlugs, setSelectedSlugs] = useState(() => serviceRecords.slice(0, 2).map((service) => service.slug));
-  const selected = serviceRecords.filter((service) => selectedSlugs.includes(service.slug));
+  const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
 
   function toggleSelected(slug: string) {
     setSelectedSlugs((current) =>

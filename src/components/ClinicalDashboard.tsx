@@ -5379,6 +5379,10 @@ export function ClinicalDashboard({
   const compactMobileModeHome =
     centeredModeHome ||
     ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
+  // Submitted (non-answer) searches are result views, not mode homes: on phones
+  // the bottom composer drops its chip row and hugs the screen edge so results
+  // keep maximum vertical space. Mode homes keep the default chip-row layout.
+  const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -5550,8 +5554,12 @@ export function ClinicalDashboard({
           queryInputRef={composerInputRef}
           queryInputAutoFocus={focusSearch}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
+          mobileBottomSearchVariant={compactMobileBottomSearch ? "compact" : "default"}
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
           heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
+          // Phone-only: the header sits above the internally scrolling <main>,
+          // so hiding must collapse its layout space to hand it to content.
+          hideOnScroll={{ strategy: "collapse", containerRef: mainRef }}
         />
 
         <main
@@ -5564,7 +5572,9 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
-                ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+                ? compactMobileBottomSearch
+                  ? "mb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:mb-0"
+                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
                 : "mb-0",
           )}
         >
@@ -5583,7 +5593,9 @@ export function ClinicalDashboard({
                 : hasMobileBottomSearch
                   ? compactMobileModeHome
                     ? "pb-4 sm:pb-10 lg:pb-12"
-                    : "pb-32 sm:pb-10 lg:pb-12"
+                    : compactMobileBottomSearch
+                      ? "pb-8 sm:pb-10 lg:pb-12"
+                      : "pb-32 sm:pb-10 lg:pb-12"
                   : "pb-8 sm:pb-10 lg:pb-12",
             )}
           >

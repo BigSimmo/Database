@@ -94,29 +94,24 @@ test.describe("Clinical KB applications launcher", () => {
       await gotoLauncher(page);
 
       await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
-      await expect(page.getByRole("region", { name: "Pinned applications" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "Quick tool shortcuts" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "All applications" })).toBeVisible();
       if (viewport.name === "mobile") {
-        await expect(page.getByTestId("selected-application-panel")).toBeHidden();
-        await page.getByTestId("mobile-application-row-medication-prescribing").click();
-        const selectedSheet = page.getByRole("dialog", { name: "Selected application" });
+        await page.getByTestId("application-row-medication-prescribing").click();
+        const selectedSheet = page.getByRole("dialog", { name: "Medication Prescribing" });
         await expect(selectedSheet).toBeVisible();
-        await expect(page.getByTestId("selected-application-sheet-panel")).toContainText("Medication Prescribing");
-        const mobileLaunchLink = page
-          .getByTestId("selected-application-sheet-panel")
-          .getByLabel("Launch Medication Prescribing");
+        await expect(selectedSheet.getByRole("heading", { name: "Medication Prescribing" })).toBeVisible();
+        const mobileLaunchLink = selectedSheet.locator('a[href="/?mode=prescribing"]').first();
         await expect(mobileLaunchLink).toBeVisible();
         await expect(mobileLaunchLink).toHaveAttribute("href", "/?mode=prescribing");
         await expect(mobileLaunchLink).not.toHaveAttribute("target", "_blank");
-        await page.getByLabel("Close selected application").click();
+        await page.getByRole("button", { name: "Close Medication Prescribing" }).click();
         await expect(selectedSheet).toBeHidden();
       } else {
-        await expect(page.getByTestId("selected-application-panel")).toContainText("Clinical KB Search");
-        const desktopLaunchLink = page
-          .getByTestId("selected-application-panel")
-          .getByLabel("Launch Clinical KB Search");
-        await expect(desktopLaunchLink).toBeVisible();
-        await expect(desktopLaunchLink).toHaveAttribute("href", "/?mode=answer");
+        await expect(page.getByRole("link", { name: /^Clinical KB Search\b/ }).first()).toHaveAttribute(
+          "href",
+          "/?mode=answer",
+        );
       }
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
       await expect(page.getByPlaceholder("Search applications...")).toBeVisible();
@@ -129,14 +124,14 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
 
-    const medicationLink = page.locator('a[aria-label="Launch Medication Prescribing"]').first();
+    const medicationLink = page.getByRole("link", { name: /^Medication Prescribing\b/ }).first();
     await expect(medicationLink).toHaveAttribute("href", "/?mode=prescribing");
     await expect(medicationLink).not.toHaveAttribute("target", "_blank");
-    await expect(page.locator('a[aria-label="Launch Documents"]').first()).toHaveAttribute("href", "/?mode=documents");
-    await expect(page.locator('a[aria-label="Launch Services"]').first()).toHaveAttribute("href", "/services");
-    await expect(page.locator('a[aria-label="Launch Forms"]').first()).toHaveAttribute("href", "/forms");
-    await expect(page.locator('a[aria-label="Launch Favourites"]').first()).toHaveAttribute("href", "/favourites");
-    await expect(page.locator('a[aria-label="Launch Clinical KB Search"]').first()).toHaveAttribute(
+    await expect(page.getByRole("link", { name: /^Documents\b/ }).first()).toHaveAttribute("href", "/?mode=documents");
+    await expect(page.getByRole("link", { name: /^Services\b/ }).first()).toHaveAttribute("href", "/services");
+    await expect(page.getByRole("link", { name: /^Forms\b/ }).first()).toHaveAttribute("href", "/forms");
+    await expect(page.getByRole("link", { name: /^Saved workflows\b/ }).first()).toHaveAttribute("href", "/favourites");
+    await expect(page.getByRole("link", { name: /^Clinical KB Search\b/ }).first()).toHaveAttribute(
       "href",
       "/?mode=answer",
     );
@@ -150,9 +145,8 @@ test.describe("Clinical KB applications launcher", () => {
 
     await page.getByLabel("Search applications").fill("medication");
 
-    await expect(page.getByTestId("application-row-medication-prescribing")).toBeVisible();
-    await expect(page.getByTestId("application-row-documents")).toBeHidden();
-    await expect(page.getByText("Showing 1 to 1 of 7 applications")).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Medication Prescribing\b/ }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Documents\b/ })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -165,16 +159,14 @@ test.describe("Clinical KB applications launcher", () => {
 
     const toolsHub = page.getByTestId("tools-hub");
     await expect(toolsHub).toBeVisible();
-    await expect(toolsHub.getByRole("heading", { name: "Tools command center" })).toBeVisible();
+    await expect(toolsHub.getByRole("heading", { name: "Tools", exact: true })).toBeVisible();
     await expect(toolsHub.getByTestId("global-search-input")).toBeVisible();
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
-    await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toBeVisible();
-    await expect(toolsHub.getByTestId("application-row-documents")).toBeHidden();
-    await expect(toolsHub.getByText("Showing 1 to 1 of 7 tools")).toBeVisible();
-    await expect(toolsHub.getByTestId("selected-application-panel")).toContainText("Selected tool");
+    await expect(toolsHub.getByRole("link", { name: /^Medication Prescribing\b/ }).first()).toBeVisible();
+    await expect(toolsHub.getByRole("link", { name: /^Documents\b/ })).toHaveCount(0);
     await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
 
-    await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toHaveAttribute(
+    await expect(toolsHub.getByRole("link", { name: /^Medication Prescribing\b/ }).first()).toHaveAttribute(
       "href",
       "/?mode=prescribing",
     );
@@ -283,6 +275,8 @@ test.describe("Clinical KB applications launcher", () => {
       expect(metrics?.position).toBe("fixed");
       expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390 - 8);
       expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
+      // Mode homes keep the footer chip row under the pill on phones.
+      await expect(page.locator(".answer-footer-search-chip:visible").first()).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -343,21 +337,32 @@ test.describe("Clinical KB applications launcher", () => {
     ] as const) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
-      for (const route of ["/services?q=13YARN&focus=1&run=1", "/services/13yarn"] as const) {
-        await gotoLauncher(page, route);
+      for (const route of [
+        { path: "/services?q=13YARN&focus=1&run=1", compactBottomSearch: true },
+        { path: "/services/13yarn", compactBottomSearch: false },
+      ] as const) {
+        await gotoLauncher(page, route.path);
         await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible({ timeout: 20_000 });
-        await expect(visibleGlobalSearchInput(page), `${route} at ${viewport.name}`).toHaveCount(1, {
+        await expect(visibleGlobalSearchInput(page), `${route.path} at ${viewport.name}`).toHaveCount(1, {
           timeout: 20_000,
         });
 
         const metrics = await globalSearchComposerMetrics(page);
-        expect(metrics, `${route} at ${viewport.name}`).not.toBeNull();
+        expect(metrics, `${route.path} at ${viewport.name}`).not.toBeNull();
         expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
         expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(viewport.width - 8);
 
         if (viewport.width < 640) {
           expect(metrics?.position).toBe("fixed");
           expect(metrics?.formCenterY ?? 0).toBeGreaterThan(viewport.height * 0.72);
+          if (route.compactBottomSearch) {
+            // Search result views drop the chip row and hug the bottom edge
+            // on phones so results keep maximum screen space.
+            await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
+            expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 48);
+          } else {
+            await expect(page.locator(".answer-footer-search-chip:visible").first()).toBeVisible();
+          }
         } else {
           expect(metrics?.position).toBe("sticky");
           expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
@@ -651,13 +656,15 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differential-presentation-page")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Acute confusion / encephalopathy" })).toBeVisible();
-    await expect(page.getByText("Selected differentials (6 of 8)")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Selected differentials (6 of 8)" }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/differentials");
     await expect(page.getByRole("heading", { name: "Safety snapshot" }).first()).toBeVisible();
     await expect(page.getByText("Service details")).toHaveCount(0);
     await expect(page.getByText("Transport order")).toHaveCount(0);
-    await expect(page.getByText("Local content only")).toBeVisible();
-    await expect(page.getByText("Source pending review").first()).toBeVisible();
+    await expect(page.getByLabel("Differential review sidebar").getByText("Local content only").first()).toBeVisible();
+    await expect(
+      page.getByLabel("Differential review sidebar").getByText("Source pending review").first(),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Copy after review" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
 

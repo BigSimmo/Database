@@ -277,7 +277,7 @@ function findDocument(slug: string | null) {
 }
 
 function findEvidence(document: DocumentFixture, id: string | null) {
-  return document.evidence.find((evidence) => evidence.id === id) ?? document.evidence[0];
+  return document.evidence.find((evidence) => evidence.id === id) ?? primaryEvidence(document);
 }
 
 function searchHref(query = defaultQuery) {

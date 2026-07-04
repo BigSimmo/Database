@@ -7,8 +7,10 @@ import {
   useMemo,
   useRef,
   useState,
+  type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type Ref,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -45,6 +47,7 @@ import {
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
+import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import {
   ModeActionPopup,
   modeActionItemsFor,
@@ -202,12 +205,14 @@ export function MasterSearchHeader({
   queryInputAutoFocus = false,
   headerVariant = "default",
   mobileSearchPlacement = "default",
+  mobileBottomSearchVariant = "default",
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
   desktopHomeComposerSlotId,
   heroComposerFromTablet = false,
   mobileLeadingAction = "menu",
   onMobileBack,
+  hideOnScroll,
 }: {
   documents: ClinicalDocument[];
   documentTotal?: number;
@@ -239,6 +244,10 @@ export function MasterSearchHeader({
   queryInputAutoFocus?: boolean;
   headerVariant?: "default" | "workflow";
   mobileSearchPlacement?: "default" | "bottom";
+  /** "compact" drops the phone footer chip row and hugs the bottom edge —
+   *  used by search/result views so results keep maximum screen space.
+   *  Mode homes keep the default chip-row layout. */
+  mobileBottomSearchVariant?: "default" | "compact";
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
   desktopHomeComposerSlotId?: string;
@@ -247,6 +256,12 @@ export function MasterSearchHeader({
   heroComposerFromTablet?: boolean;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
+  /** Phone-only hide-on-scroll for the universal header. "overlay" translates
+   *  the sticky header away (host scrolls the document, content already flows
+   *  beneath); "collapse" also releases the header's layout space (host keeps
+   *  the header above an internally scrolling element). `containerRef` points
+   *  at the scrolling element; omit it to observe window scroll. */
+  hideOnScroll?: { strategy: "overlay" | "collapse"; containerRef?: RefObject<HTMLElement | null> };
 }) {
   const visibleAppModeOptions = defaultVisibleAppModeOptions;
   const trimmedQuery = query.trim();
@@ -279,6 +294,16 @@ export function MasterSearchHeader({
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
+  // Phone-only hide-on-scroll: never hide while a header-owned surface is open
+  // or while focus sits inside the header chrome (keyboard users must not tab
+  // into invisible controls).
+  const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
+  const scrollHidden = useHideOnScroll({
+    containerRef: hideOnScroll?.containerRef,
+    disabled: !hideOnScroll,
+  });
+  const headerChromeHidden =
+    scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
   // Stable, header-owned element the composer is portaled into; we move it in and
   // out of the page-owned slot rather than portaling into the slot directly.
   const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);
@@ -1127,9 +1152,13 @@ export function MasterSearchHeader({
     const isDesktopHomeComposer = placement === "desktop-home";
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
+    const usesCompactMobileBottomStyle = usesMobileBottomStyle && mobileBottomSearchVariant === "compact";
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
     const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer;
-    const showFooterSearchChips = usesFooterChipLayout;
+    // Compact search views drop the chip row on phones so the pill can sit
+    // flush with the bottom edge; the same actions stay reachable via the
+    // integrated "+" menu.
+    const showFooterSearchChips = usesFooterChipLayout && !usesCompactMobileBottomStyle;
     // The visible footer/hero composer chrome is universal; submit semantics still
     // come from the active mode.
     const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;
@@ -1166,6 +1195,7 @@ export function MasterSearchHeader({
                   )
                 : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
           usesBottomComposerPlacement && "answer-footer-search-edge",
+          usesCompactMobileBottomStyle && "document-mobile-search-compact",
           usesFooterChipLayout && "flex flex-col items-center gap-2.5",
         )}
       >
@@ -1361,13 +1391,32 @@ export function MasterSearchHeader({
     );
   }
 
-  return (
+  const hideStrategy = hideOnScroll?.strategy;
+  const chromeFocusProps = hideOnScroll
+    ? {
+        onFocusCapture: () => setHeaderChromeFocused(true),
+        onBlurCapture: (event: ReactFocusEvent<HTMLElement>) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setHeaderChromeFocused(false);
+        },
+      }
+    : undefined;
+
+  const headerAndComposer = (
     <>
       <header
         id="search"
         className={cn(
           "edge-glass-header universal-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl",
+          // Overlay hide-on-scroll (phones): the header is sticky over document
+          // scroll, so a plain translate reveals the content already flowing
+          // beneath it with zero layout shift. No transform is applied while
+          // visible so the fixed-position mobile mode menu keeps the viewport
+          // as its containing block.
+          hideStrategy === "overlay" &&
+            "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
+          hideStrategy === "overlay" && headerChromeHidden && "max-sm:-translate-y-full",
         )}
+        {...(hideStrategy === "overlay" ? chromeFocusProps : undefined)}
       >
         <div
           className={cn(
@@ -1552,4 +1601,36 @@ export function MasterSearchHeader({
       ) : null}
     </>
   );
+
+  if (hideStrategy === "collapse") {
+    // Collapse hide-on-scroll (phones): the host renders the header above an
+    // internally scrolling element, so hiding must also release the header's
+    // layout space. A 1fr -> 0fr grid row animates the collapse without any
+    // height measurement; the bottom-anchored inner track makes the chrome
+    // slide up out of the viewport top. Fixed-position composers (answer
+    // footer, mobile bottom search) escape the wrapper naturally because it
+    // never carries a transform, and everything is inert from sm up.
+    return (
+      <div
+        className={cn(
+          "max-sm:grid max-sm:transition-[grid-template-rows] max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
+          headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
+        )}
+        {...chromeFocusProps}
+      >
+        <div
+          className={cn(
+            "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
+            // Clip only while hiding so the edge-glass-header gradient that
+            // extends below the header keeps painting when the chrome is shown.
+            headerChromeHidden && "max-sm:overflow-hidden",
+          )}
+        >
+          {headerAndComposer}
+        </div>
+      </div>
+    );
+  }
+
+  return headerAndComposer;
 }

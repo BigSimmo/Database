@@ -329,7 +329,11 @@ function GlobalMockupSearchShellClient({
       ) : null}
 
       <div className="flex min-h-dvh min-w-0 flex-col">
-        <div className={cn(!mobileChromeVisible && "hidden lg:block")}>
+        {/* max-sm:contents lets the header's own `sticky top-0` engage against
+            the document scroll on phones (a plain wrapper div otherwise caps
+            its sticking range at its own height), which the phone
+            hide-on-scroll overlay relies on. */}
+        <div className={mobileChromeVisible ? "max-sm:contents" : "hidden lg:block"}>
           <MasterSearchHeader
             documents={[]}
             documentTotal={0}
@@ -363,12 +367,19 @@ function GlobalMockupSearchShellClient({
             queryInputRef={inputRef}
             headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
             mobileSearchPlacement="bottom"
+            // Submitted searches that stay in the shell (services results) are
+            // result views: compact the phone bottom composer so results keep
+            // maximum screen space. Mode homes keep the chip-row layout.
+            mobileBottomSearchVariant={hasSubmittedModeSearch ? "compact" : "default"}
             desktopSearchPlacement={
               (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
             }
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
             heroComposerFromTablet={isStandaloneModeHome}
+            // Phone-only: the document scrolls here and the header is sticky,
+            // so a translate overlay hides it with zero layout shift.
+            hideOnScroll={{ strategy: "overlay" }}
           />
         </div>
 
@@ -384,7 +395,9 @@ function GlobalMockupSearchShellClient({
               ? "pb-8"
               : searchMode === "answer"
                 ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
-                : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
+                : hasSubmittedModeSearch
+                  ? "pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-8"
+                  : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
           {children}
