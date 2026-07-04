@@ -15,12 +15,12 @@ function serviceRecord(overrides: Partial<ServiceRecord> = {}): ServiceRecord {
   return {
     slug: "crisis-line",
     title: "Crisis phone line",
-    summary: "Statewide crisis support",
+    subtitle: "Statewide crisis support",
     location: "WA statewide",
     route: "Phone self referral",
     referral: "Call anytime",
     cost: "Free",
-    primaryContact: { kind: "phone", value: "13 11 14" },
+    primaryContact: { label: "Primary contact", kind: "phone", value: "13 11 14" },
     statusChips: [{ label: "Crisis" }],
     catchments: ["Metro"],
     ...overrides,
@@ -62,7 +62,7 @@ describe("search command surface", () => {
 
     const formRecord = serviceRecord({
       title: "Official transport order template",
-      summary: "High risk pathway-linked form",
+      subtitle: "High risk pathway-linked form",
       statusChips: [{ label: "High risk" }],
     });
     expect(recordMatchesCommandScopes(formRecord, ["highrisk", "official"], "forms")).toBe(true);
