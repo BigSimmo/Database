@@ -3,10 +3,15 @@
 import { BookOpen, ChevronDown, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
-import { Sheet } from "@/components/ui/sheet";
+import { Sheet, type SheetMobileSize } from "@/components/ui/sheet";
 import { clinicalDivider, cn, iconTilePremium, navPill, panelSubtle, textMuted } from "@/components/ui-primitives";
 
-const mobileSheetMediaQuery = "(max-width: 639px)";
+const sheetMediaQueries = {
+  sm: "(max-width: 639px)",
+  lg: "(max-width: 1023px)",
+} as const;
+
+type UtilityDrawerSheetBreakpoint = keyof typeof sheetMediaQueries;
 
 export function SectionHeading({
   icon: Icon,
@@ -80,6 +85,8 @@ export function UtilityDrawer({
   sheetContentStyle,
   sheetBodyClassName,
   sheetDescription,
+  sheetBreakpoint = "sm",
+  sheetMobileSize,
 }: {
   id?: string;
   title: string;
@@ -104,11 +111,15 @@ export function UtilityDrawer({
   sheetContentStyle?: CSSProperties;
   sheetBodyClassName?: string;
   sheetDescription?: string | null;
+  sheetBreakpoint?: UtilityDrawerSheetBreakpoint;
+  sheetMobileSize?: SheetMobileSize;
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const [usesSheet, setUsesSheet] = useState(false);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const open = controlledOpen ?? uncontrolledOpen;
+  const sheetTriggerClassName = sheetBreakpoint === "lg" ? "lg:hidden" : "sm:hidden";
+  const inlineDrawerClassName = sheetBreakpoint === "lg" ? "hidden lg:block" : "hidden sm:block";
   const triggerClassName = cn(
     "flex min-h-[56px] w-full cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-3 text-left transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)]",
     className,
@@ -122,12 +133,12 @@ export function UtilityDrawer({
   );
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia(mobileSheetMediaQuery);
+    const mediaQuery = window.matchMedia(sheetMediaQueries[sheetBreakpoint]);
     const sync = () => setUsesSheet(mediaQuery.matches);
     sync();
     mediaQuery.addEventListener("change", sync);
     return () => mediaQuery.removeEventListener("change", sync);
-  }, []);
+  }, [sheetBreakpoint]);
 
   return (
     <>
@@ -137,7 +148,7 @@ export function UtilityDrawer({
         id={id ? `${id}-mobile-trigger` : undefined}
         onClick={() => setOpen(true)}
         aria-expanded={usesSheet ? open : undefined}
-        className={cn("group sm:hidden", triggerClassName, mobileInline && "hidden")}
+        className={cn("group", sheetTriggerClassName, triggerClassName, mobileInline && "hidden")}
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className={iconTilePremium}>
@@ -161,7 +172,7 @@ export function UtilityDrawer({
           const nextOpen = event.currentTarget.open;
           if (nextOpen !== open) setOpen(nextOpen);
         }}
-        className={cn("group overflow-hidden", mobileInline ? "block" : "hidden sm:block", panelSubtle)}
+        className={cn("group overflow-hidden", mobileInline ? "block" : inlineDrawerClassName, panelSubtle)}
       >
         <summary className={triggerClassName}>
           <span className="flex min-w-0 items-center gap-3">
@@ -209,6 +220,7 @@ export function UtilityDrawer({
         contentClassName={sheetContentClassName}
         contentStyle={sheetContentStyle}
         bodyClassName={sheetBodyClassName}
+        mobileSize={sheetMobileSize}
         returnFocusRef={mobileTriggerRef}
         portal
       >

@@ -24,7 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
@@ -960,12 +960,7 @@ export function DifferentialsHome({
                 onClick: () => handleSuggestedSearch(item.query),
               }))
         }
-        footer={
-          <p className="mx-auto flex items-center justify-center gap-2 text-center text-xs font-medium text-[color:var(--text-muted)] sm:text-sm">
-            <ShieldCheck className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
-            Clinical decision support only. Review before use.
-          </p>
-        }
+        footer={<ModeHomeVerificationFooter icon={ShieldCheck} label="Decision support" body="Review before use" />}
       />
     </div>
   );

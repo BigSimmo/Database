@@ -206,6 +206,74 @@ function renderModeRoutes() {
   );
 }
 
+type ModePageIndexRow = {
+  mode: string;
+  home: string;
+  search: string;
+  detail: string;
+};
+
+function renderRouteTable(rows: ModePageIndexRow[]) {
+  return [
+    "| Mode | Home page | Search/results page | Information/detail pages |",
+    "| --- | --- | --- | --- |",
+    ...rows.map((row) => `| ${row.mode} | \`${row.home}\` | \`${row.search}\` | ${row.detail} |`),
+  ];
+}
+
+function renderModePageIndex() {
+  return renderRouteTable([
+    {
+      mode: "Answer",
+      home: appModeHomeHref("answer"),
+      search: appModeHomeHref("answer", { query: "example question", focus: true, run: true }),
+      detail: "Answer, citations, evidence, and source panels render inside the root dashboard shell.",
+    },
+    {
+      mode: "Documents",
+      home: appModeHomeHref("documents"),
+      search: appModeHomeHref("documents", { query: "lithium monitoring", focus: true, run: true }),
+      detail: "`/documents/[id]` document viewer and in-document search.",
+    },
+    {
+      mode: "Services",
+      home: appModeHomeHref("services"),
+      search: appModeHomeHref("services", { query: "13YARN", focus: true, run: true }),
+      detail: "`/services/[slug]` service record pages.",
+    },
+    {
+      mode: "Forms",
+      home: appModeHomeHref("forms"),
+      search: appModeHomeHref("forms", { query: "transport forms", focus: true, run: true }),
+      detail: "`/forms/[slug]` form record pages.",
+    },
+    {
+      mode: "Favourites",
+      home: appModeHomeHref("favourites"),
+      search: appModeHomeHref("favourites", { query: "clozapine set", focus: true, run: true }),
+      detail: "Saved set and saved item detail render inside the favourites page surface.",
+    },
+    {
+      mode: "Differentials",
+      home: appModeHomeHref("differentials"),
+      search: appModeHomeHref("differentials", { query: "acute confusion", focus: true, run: true }),
+      detail: "`/differentials/diagnoses`, `/differentials/diagnoses/[slug]`, and `/differentials/presentations`.",
+    },
+    {
+      mode: "Medication",
+      home: appModeHomeHref("prescribing"),
+      search: appModeHomeHref("prescribing", { query: "acamprosate renal dose", focus: true, run: true }),
+      detail: "`/medications/[slug]`; `/medications` redirects to medication mode.",
+    },
+    {
+      mode: "Tools",
+      home: appModeHomeHref("tools"),
+      search: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
+      detail: "`/applications` launcher and tool detail panels inside tools mode.",
+    },
+  ]);
+}
+
 function section(title: string, lines: string[]) {
   return [`## ${title}`, "", ...lines, ""];
 }
@@ -235,6 +303,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
       productRoutes.map((route) => routeLine(route, routeDescriptions)),
     ),
     ...section("Mode/query routes", renderModeRoutes()),
+    ...section("Mode page index", renderModePageIndex()),
     ...section("Registry-backed routes", [
       bullet(
         "/services/[slug]",

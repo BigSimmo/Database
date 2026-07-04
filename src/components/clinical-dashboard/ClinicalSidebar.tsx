@@ -47,7 +47,8 @@ export function deriveSidebarIdentity(email: string | null | undefined): Sidebar
 }
 
 function accountProfileLabel(identity: SidebarIdentity) {
-  return `${identity.initials} ${identity.displayName} ${identity.detail}. Open account profile`;
+  const action = identity.signedIn ? "Open account profile" : "Set up workspace";
+  return `${identity.initials} ${identity.displayName} ${identity.detail}. ${action}`;
 }
 
 const sidebarToolItems = [
@@ -74,6 +75,7 @@ export function ClinicalSidebarContent({
   onPickRecent,
   onOpenGuide,
   onOpenSettings,
+  onOpenAccount,
   theme,
   onToggleTheme,
   onPrefetchApplications,
@@ -88,6 +90,7 @@ export function ClinicalSidebarContent({
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
   onOpenSettings: () => void;
+  onOpenAccount: () => void;
   theme: ResolvedTheme;
   onToggleTheme: () => void;
   onPrefetchApplications?: () => void;
@@ -264,7 +267,7 @@ export function ClinicalSidebarContent({
           type="button"
           onClick={() => {
             onNavigate?.();
-            window.requestAnimationFrame(onOpenSettings);
+            window.requestAnimationFrame(onOpenAccount);
           }}
           data-testid="sidebar-account-settings"
           className="mt-2 flex w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)]/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
@@ -299,6 +302,7 @@ export function ClinicalDesktopSidebar({
   onPickRecent,
   onOpenGuide,
   onOpenSettings,
+  onOpenAccount,
   theme,
   onToggleTheme,
   onPrefetchApplications,
@@ -313,6 +317,7 @@ export function ClinicalDesktopSidebar({
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
   onOpenSettings: () => void;
+  onOpenAccount: () => void;
   theme: ResolvedTheme;
   onToggleTheme: () => void;
   onPrefetchApplications: () => void;
@@ -449,10 +454,10 @@ export function ClinicalDesktopSidebar({
         </div>
         <button
           type="button"
-          onClick={onOpenSettings}
+          onClick={onOpenAccount}
           data-testid="collapsed-account-settings"
           className="mt-auto grid h-11 w-11 place-items-center rounded-full border border-[color:var(--clinical-accent-border)]/60 bg-[color:var(--clinical-accent-soft)] text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          title={identity.detail}
+          title={identity.signedIn ? identity.detail : "Set up workspace"}
           aria-label={accountLabel}
         >
           {identity.initials}
@@ -476,6 +481,7 @@ export function ClinicalDesktopSidebar({
         onPickRecent={onPickRecent}
         onOpenGuide={onOpenGuide}
         onOpenSettings={onOpenSettings}
+        onOpenAccount={onOpenAccount}
         theme={theme}
         onToggleTheme={onToggleTheme}
         onPrefetchApplications={onPrefetchApplications}
@@ -494,6 +500,7 @@ export function ClinicalMobileSidebar({
   onPickRecent,
   onOpenGuide,
   onOpenSettings,
+  onOpenAccount,
   theme,
   onToggleTheme,
   onPrefetchApplications,
@@ -507,6 +514,7 @@ export function ClinicalMobileSidebar({
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
   onOpenSettings: () => void;
+  onOpenAccount: () => void;
   theme: ResolvedTheme;
   onToggleTheme: () => void;
   onPrefetchApplications: () => void;
@@ -531,6 +539,7 @@ export function ClinicalMobileSidebar({
         onPickRecent={onPickRecent}
         onOpenGuide={onOpenGuide}
         onOpenSettings={onOpenSettings}
+        onOpenAccount={onOpenAccount}
         theme={theme}
         onToggleTheme={onToggleTheme}
         onPrefetchApplications={onPrefetchApplications}

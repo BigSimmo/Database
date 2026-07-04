@@ -9,11 +9,26 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isToolsPageMockup = pathname.startsWith("/mockups/tools-");
   const isFavouritesPageMockup = pathname.startsWith("/mockups/favourites-");
+  const isDocumentSearchMockup = pathname.startsWith("/mockups/document-search");
+  const isSourceOverlayRedesignMockup = pathname === "/mockups/document-search/source-overlays";
+  const isStandaloneDocumentFlow =
+    pathname === "/mockups/document-search" || pathname.startsWith("/mockups/document-search/source");
+  const documentFlowOwnsMobileChrome = pathname.startsWith("/mockups/document-search/source");
 
   return (
     <GlobalMockupSearchShell
-      initialMode={isToolsPageMockup ? "tools" : isFavouritesPageMockup ? "favourites" : "answer"}
-      searchComposerVisible={!isToolsPageMockup && !isFavouritesPageMockup}
+      initialMode={
+        isToolsPageMockup
+          ? "tools"
+          : isFavouritesPageMockup
+            ? "favourites"
+            : isDocumentSearchMockup
+              ? "documents"
+              : "answer"
+      }
+      searchComposerVisible={!isToolsPageMockup && !isFavouritesPageMockup && !isStandaloneDocumentFlow}
+      mobileChromeVisible={!documentFlowOwnsMobileChrome}
+      chromeVisible={!isSourceOverlayRedesignMockup}
     >
       {children}
     </GlobalMockupSearchShell>

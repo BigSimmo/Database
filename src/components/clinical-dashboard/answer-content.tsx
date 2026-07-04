@@ -751,47 +751,12 @@ export function keyClinicalItemsFromTable(item: VisualEvidenceCard | null): KeyC
     .map((row): KeyClinicalItem | null => {
       const [domain, baseline] = row.map((cell) => cell.trim()).filter(Boolean);
       if (!domain || !baseline) return null;
-      const detail = baseline;
       return {
-        id: comparableAnswerText([domain, detail].join(" ")),
+        id: comparableAnswerText([domain, baseline].join(" ")),
         label: domain,
-        detail,
+        detail: baseline,
       };
     })
     .filter((value): value is KeyClinicalItem => value !== null)
     .slice(0, 5);
-}
-
-function KeyClinicalItems({
-  sections,
-  table,
-}: {
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>;
-  table: VisualEvidenceCard | null;
-}) {
-  const sectionItems = keyClinicalItemsFromSections(sections);
-  const tableItems = keyClinicalItemsFromTable(table);
-  const items = sectionItems.length >= 2 ? sectionItems : tableItems;
-  if (items.length < 2) return null;
-
-  return (
-    <section aria-label="Key monitoring items" className="max-w-[68ch] space-y-2 px-1">
-      <h3 className="text-sm font-semibold text-[color:var(--text-heading)] sm:text-[15px]">Key monitoring items</h3>
-      <ul className="list-disc space-y-1 pl-5 text-sm leading-[1.55] text-[color:var(--text-heading)] marker:text-[color:var(--text-heading)] sm:text-[15px]">
-        {items.map((item) => (
-          <li key={item.id} className="pl-0.5">
-            {item.label ? (
-              <>
-                <span className="font-semibold">{item.label}</span>
-                <span className={textMuted}> — </span>
-                <SafeBoldText text={item.detail} />
-              </>
-            ) : (
-              <SafeBoldText text={item.detail} />
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
 }

@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   AlertCircle,
   BookOpen,
-  CheckCircle2,
   ChevronDown,
   Clock3,
   ExternalLink,
@@ -27,6 +25,7 @@ import {
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import {
   DocumentActionButton,
@@ -293,102 +292,17 @@ function documentOpenHref(document: DocumentMatch) {
   return `/documents/${document.document_id}?${params.toString()}`;
 }
 
-function documentMetadataRecord(document: Pick<ClinicalDocument, "metadata">) {
-  return document.metadata && typeof document.metadata === "object" && !Array.isArray(document.metadata)
-    ? (document.metadata as Record<string, unknown>)
-    : {};
-}
-
-function documentStatusText(document: ClinicalDocument) {
-  const metadata = documentMetadataRecord(document);
-  const sourceStatus = String(metadata.document_status ?? "");
-  if (sourceStatus === "review_due") return "Review due";
-  if (sourceStatus === "outdated") return "Outdated";
-  if (document.status === "indexed") return "Indexed";
-  if (document.status === "processing") return "Indexing";
-  if (document.status === "failed") return "Failed";
-  return "Queued";
-}
-
-function formatDocumentDate(value?: string | null) {
-  if (!value) return "Recently updated";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Recently updated";
-  return new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "short" }).format(date);
-}
-
-function topDocumentFacets(documents: ClinicalDocument[]) {
-  return buildSmartDocumentTagFacetIndex(documents, { limitPerGroup: 4 })
-    .groups.flatMap((group) => group.facets.map((facet) => ({ ...facet, group: facet.group })))
-    .slice(0, 8);
-}
-
-function DocumentHomeLane({
-  title,
-  count,
-  icon: Icon,
-  tone,
-}: {
-  title: string;
-  count: number | string;
-  icon: LucideIcon;
-  tone: "success" | "warning" | "info";
-}) {
-  const toneClass =
-    tone === "success"
-      ? "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]"
-      : tone === "warning"
-        ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-        : "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
-
-  return (
-    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-      <span className={cn("inline-flex h-9 w-9 items-center justify-center rounded-lg border", toneClass)}>
-        <Icon className="h-4 w-4" aria-hidden="true" />
-      </span>
-      <p className="nums mt-3 text-2xl font-extrabold text-[color:var(--text-heading)]">{count}</p>
-      <p className="mt-0.5 text-xs font-bold text-[color:var(--text-muted)]">{title}</p>
-    </div>
-  );
-}
-
-function RecentDocumentLink({ document }: { document: ClinicalDocument }) {
-  const kind = documentFileKind(document.file_name, "PDF");
-  return (
-    <Link
-      href={`/documents/${document.id}`}
-      className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-    >
-      <DocumentFileTile kind={kind} tone={documentTileTone(kind)} compact />
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">
-          {documentDisplayTitle(document)}
-        </span>
-        <span className="mt-0.5 block truncate text-xs font-semibold text-[color:var(--text-soft)]">
-          {documentStatusText(document)} - {document.page_count} page{document.page_count === 1 ? "" : "s"} -{" "}
-          {formatDocumentDate(document.updated_at)}
-        </span>
-      </span>
-      <ExternalLink className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden="true" />
-    </Link>
-  );
-}
-
 function DocumentSearchHome({
   documentCount,
-  recentDocuments = [],
   onOpenRecentDocuments,
   onOpenLibrary,
   onOpenSourcePdf,
-  onTagSearch,
   desktopComposerSlotId,
 }: {
   documentCount: number;
-  recentDocuments?: ClinicalDocument[];
   onOpenRecentDocuments: () => void;
   onOpenLibrary: () => void;
   onOpenSourcePdf: () => void;
-  onTagSearch: (tag: SmartDocumentTagFacet) => void;
   desktopComposerSlotId?: string;
 }) {
   const startItems = [
@@ -411,209 +325,28 @@ function DocumentSearchHome({
       action: onOpenSourcePdf,
     },
   ];
-  const recent = recentDocuments.slice(0, 4);
-  const reviewDueCount = recentDocuments.filter((document) => {
-    const status = String(documentMetadataRecord(document).document_status ?? "");
-    return status === "review_due" || status === "outdated";
-  }).length;
-  const tableLikeCount = recentDocuments.filter((document) =>
-    document.labels?.some((label) => /table|chart|checklist|form/i.test(label.label)),
-  ).length;
-  const previewDocument = recent[0] ?? null;
-  const facets = topDocumentFacets(recentDocuments);
-  const previewFacetCount = facets.length;
 
   return (
-    <div data-testid="document-search-empty-state" className="mx-auto w-full max-w-6xl space-y-4">
-      <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                <FileText className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
-                Documents
-              </p>
-            </div>
-            <h2 className="mt-4 text-balance text-2xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-4xl">
-              Start from source health, recent work, or a focused search.
-            </h2>
-            <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-              The library opens as a triage board until you search. Use the composer to jump into compact results, or
-              continue with the most recent indexed sources.
-            </p>
-          </div>
-          <div className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-            <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-              Indexed library
-            </p>
-            <p className="nums text-4xl font-extrabold text-[color:var(--text-heading)]">
-              {documentCount.toLocaleString()}
-            </p>
-            <p className="text-xs font-semibold text-[color:var(--text-muted)]" aria-live="polite">
-              source document{documentCount === 1 ? "" : "s"} ready for search
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)]">
-            Command center
-          </span>
-          <span className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)]">
-            Fast scan
-          </span>
-          {previewFacetCount > 0 ? (
-            <span className="ml-auto text-xs font-bold text-[color:var(--text-muted)]">
-              {previewFacetCount} live facet{previewFacetCount === 1 ? "" : "s"} active
-            </span>
-          ) : null}
-        </div>
-
-        {desktopComposerSlotId ? <div id={desktopComposerSlotId} className="mt-5 hidden lg:block" /> : null}
-      </section>
-
-      <section aria-label="Start here" className="grid grid-cols-3 gap-2 md:gap-3">
-        {startItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.label}
-              type="button"
-              onClick={item.action}
-              className="grid min-h-[5.25rem] grid-cols-1 place-items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 text-center shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] md:grid-cols-[auto_minmax(0,1fr)_auto] md:p-3 md:text-left"
-            >
-              <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-xs font-extrabold leading-4 text-[color:var(--text-heading)] sm:text-sm">
-                  {item.label}
-                </span>
-                <span className="mt-1 hidden text-xs font-medium leading-5 text-[color:var(--text-muted)] md:block">
-                  {item.description}
-                </span>
-              </span>
-              <ChevronDown
-                className="hidden -rotate-90 h-4 w-4 text-[color:var(--text-soft)] md:block"
-                aria-hidden="true"
-              />
-            </button>
-          );
-        })}
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="min-w-0 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <DocumentHomeLane
-              title="Current sources"
-              count={documentCount.toLocaleString()}
-              icon={CheckCircle2}
-              tone="success"
-            />
-            <DocumentHomeLane title="Review states" count={reviewDueCount} icon={AlertCircle} tone="warning" />
-            <DocumentHomeLane title="Tables and forms" count={tableLikeCount} icon={ListChecks} tone="info" />
-          </div>
-          {previewDocument ? (
-            <section
-              aria-label="Active source preview"
-              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">Active source preview</h3>
-                <button
-                  type="button"
-                  onClick={onOpenRecentDocuments}
-                  className={cn(floatingControl, "min-h-9 px-3 text-xs")}
-                >
-                  <Clock3 className="h-4 w-4" aria-hidden="true" />
-                  History
-                </button>
-              </div>
-              <div className="mt-3 grid gap-2">
-                <p className="line-clamp-2 text-sm font-bold leading-5 text-[color:var(--text-heading)]">
-                  {documentDisplayTitle(previewDocument)}
-                </p>
-                <p className="text-xs font-semibold text-[color:var(--text-soft)]">
-                  {documentStatusText(previewDocument)} • {previewDocument.page_count} page
-                  {previewDocument.page_count === 1 ? "" : "s"} • {formatDocumentDate(previewDocument.updated_at)}
-                </p>
-                <DocumentActionLink
-                  href={`/documents/${previewDocument.id}`}
-                  icon={ExternalLink}
-                  className="min-h-10 w-full rounded-lg px-2.5 text-xs"
-                  aria-label={`Open ${documentDisplayTitle(previewDocument)} preview`}
-                >
-                  Open active source
-                </DocumentActionLink>
-              </div>
-            </section>
-          ) : null}
-          <section
-            aria-label="Smart facets"
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">Smart facets</h3>
-              <button type="button" onClick={onOpenLibrary} className={cn(floatingControl, "min-h-9 px-3 text-xs")}>
-                <FolderOpen className="h-4 w-4" aria-hidden="true" />
-                Browse
-              </button>
-            </div>
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-              {facets.length ? (
-                facets.map((facet) => {
-                  const Icon = documentFacetIcons[facet.group] ?? Tag;
-                  return (
-                    <button
-                      key={facet.key}
-                      type="button"
-                      onClick={() => onTagSearch(facet)}
-                      className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                    >
-                      <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-                      <span>{facet.label}</span>
-                      <span className="nums text-[color:var(--text-soft)]">{facet.count}</span>
-                    </button>
-                  );
-                })
-              ) : (
-                <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
-                  Facets appear after labels are loaded for indexed documents.
-                </p>
-              )}
-            </div>
-          </section>
-        </div>
-
-        <section
-          aria-label="Recent documents"
-          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">Recent documents</h3>
-            <button
-              type="button"
-              onClick={onOpenRecentDocuments}
-              className={cn(floatingControl, "min-h-9 px-3 text-xs")}
-            >
-              <Clock3 className="h-4 w-4" aria-hidden="true" />
-              Recent
-            </button>
-          </div>
-          <div className="mt-3 grid gap-2">
-            {recent.length ? (
-              recent.map((document) => <RecentDocumentLink key={document.id} document={document} />)
-            ) : (
-              <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 text-sm font-semibold text-[color:var(--text-muted)]">
-                Indexed documents will appear here after upload.
-              </p>
-            )}
-          </div>
-        </section>
-      </section>
-    </div>
+    <ModeHomeTemplate
+      testId="document-search-empty-state"
+      title="Documents"
+      subtitle="Open, browse, and continue reading your clinical sources."
+      icon={FileText}
+      headingLevel={2}
+      desktopComposerSlotId={desktopComposerSlotId}
+      actionsLabel="Start here"
+      actions={startItems.map((item) => ({
+        title: item.label,
+        description: item.description,
+        icon: item.icon,
+        onClick: item.action,
+      }))}
+      footer={
+        <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
+          {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
+        </p>
+      }
+    />
   );
 }
 
@@ -1024,7 +757,6 @@ export function DocumentSearchResultsPanel({
   query,
   loading,
   documentCount,
-  recentDocuments = [],
   realDataReady,
   authUnavailable,
   apiUnavailable,
@@ -1173,11 +905,9 @@ export function DocumentSearchResultsPanel({
         ) : (
           <DocumentSearchHome
             documentCount={documentCount}
-            recentDocuments={recentDocuments}
             onOpenRecentDocuments={onOpenRecentDocuments}
             onOpenLibrary={onOpenLibrary}
             onOpenSourcePdf={onOpenSourcePdf}
-            onTagSearch={onTagSearch}
             desktopComposerSlotId={desktopComposerSlotId}
           />
         )

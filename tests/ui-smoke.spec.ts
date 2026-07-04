@@ -11,6 +11,7 @@ const dashboardViewports = [
   { name: "mobile-landscape", width: 667, height: 375 },
 ] as const;
 const uiAssertionTimeoutMs = 5_000;
+const guideHelpButtonNamePattern = /Guide\s*(?:&|and)\s*help/i;
 
 async function expectNoPageHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => {
@@ -501,9 +502,7 @@ async function waitForDemoDashboardReady(page: Page) {
 async function openGuide(page: Page) {
   const viewport = page.viewportSize();
   const trigger =
-    viewport && viewport.width >= 1024
-      ? page.locator("button:visible").filter({ hasText: "Guide & help" }).first()
-      : null;
+    viewport && viewport.width >= 1024 ? page.getByRole("button", { name: guideHelpButtonNamePattern }).first() : null;
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
   if (trigger) {
     await expect(trigger).toBeVisible();
@@ -515,7 +514,7 @@ async function openGuide(page: Page) {
     }).toPass({ timeout: 10_000 });
   } else {
     const menu = await openMobileClinicalGuideMenu(page);
-    await menu.getByRole("button", { name: "Guide & help" }).click();
+    await menu.getByRole("button", { name: guideHelpButtonNamePattern }).click();
     await expect(dialog).toBeVisible();
   }
 
@@ -532,6 +531,10 @@ function accountSettingsDialog(page: Page) {
   return page.getByRole("dialog", { name: "Account & app" });
 }
 
+function accountSetupDialog(page: Page) {
+  return page.getByRole("dialog", { name: "Set up your workspace" });
+}
+
 async function expectAccountSettingsSurface(settings: Locator) {
   await expect(settings.getByRole("heading", { name: "Account & app" })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
@@ -542,6 +545,21 @@ async function expectAccountSettingsSurface(settings: Locator) {
   await expect(settings.getByTestId("settings-row-answer-style")).toBeVisible();
   await expect(settings.getByTestId("settings-row-appearance")).toBeVisible();
   await expect(settings).not.toContainText(/admin|database|storage|source review|import pipeline/i);
+}
+
+async function expectAccountSetupSurface(setup: Locator) {
+  await expect(setup.getByRole("heading", { name: "Set up your workspace" })).toBeVisible();
+  await expect(setup.getByLabel("Email address")).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Apple" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Google" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Microsoft" })).toBeVisible();
+  await expect(setup.getByRole("heading", { name: "Source preferences" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Guidelines" })).toHaveAttribute("aria-pressed", "true");
+  await expect(setup.getByRole("button", { name: "Drug references" })).toHaveAttribute("aria-pressed", "false");
+  await expect(setup.getByRole("heading", { name: "Security summary" })).toBeVisible();
+  await expect(setup.getByText("No PHI required")).toBeVisible();
+  await expect(setup).toContainText("Do not enter patient-identifying information.");
 }
 
 async function openUploadDrawer(page: Page) {
@@ -623,20 +641,34 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const sidebar = page.locator("#clinical-tools-sidebar");
     const modeButton = page.getByRole("button", { name: "Mode Tools" });
     await expect(modeButton).toBeVisible();
+    const selectedToolSheet = page.getByRole("dialog", { name: "Risk & Safety" });
+    if (await isVisibleWithoutThrow(selectedToolSheet)) {
+      await selectedToolSheet.getByRole("button", { name: "Close Risk & Safety" }).click();
+      await expect(selectedToolSheet).toBeHidden();
+    }
+    const expandSidebar = page.getByRole("button", { name: "Expand sidebar" });
+    await expect(expandSidebar).toBeVisible();
+    await expectMinTouchTarget(expandSidebar);
+    await expect(page.getByTestId("collapsed-account-settings")).toHaveAccessibleName(
+      /G Guest Not signed in\. Set up workspace/,
+    );
+    await expect(sidebar).toHaveCount(0);
+    await expandSidebar.click();
+    await expect(sidebar).toBeVisible();
     await expect(sidebar.getByRole("link", { name: "View tools" })).toHaveCount(0);
     await expect(sidebar.getByRole("link", { name: "Tools", exact: true })).toHaveAttribute("href", "/?mode=tools");
     await expect(sidebar.getByTestId("sidebar-account-settings")).toHaveAccessibleName(
-      /G Guest Not signed in\. Open account profile/,
+      /G Guest Not signed in\. Set up workspace/,
     );
 
     const collapseSidebar = page.getByRole("button", { name: "Collapse sidebar" });
     await expectMinTouchTarget(collapseSidebar);
     await collapseSidebar.click();
     await expect(page.getByTestId("collapsed-account-settings")).toHaveAccessibleName(
-      /G Guest Not signed in\. Open account profile/,
+      /G Guest Not signed in\. Set up workspace/,
     );
 
-    await page.getByRole("button", { name: "Expand sidebar" }).click();
+    await expandSidebar.click();
     await sidebar.getByRole("link", { name: "Answer", exact: true }).click();
     await expect(page).toHaveURL(/\/\?mode=answer$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
@@ -659,13 +691,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
   });
 
-  test("account settings opens from desktop sidebar and collapsed avatar", async ({ page }) => {
+  test("account setup opens from desktop sidebar account affordances while settings stays separate", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
     const settings = accountSettingsDialog(page);
+    const setup = accountSetupDialog(page);
+    await page.getByRole("button", { name: "Expand sidebar" }).click();
+    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
     await page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Settings", exact: true }).click();
     await expect(settings).toBeVisible();
     await expectAccountSettingsSurface(settings);
@@ -674,10 +711,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await settings.getByRole("button", { name: "Close settings" }).click();
     await expect(settings).toBeHidden();
 
+    await page.locator("#clinical-tools-sidebar").getByTestId("sidebar-account-settings").click();
+    await expect(setup).toBeVisible();
+    await expectAccountSetupSurface(setup);
+    await expectNoPageHorizontalOverflow(page);
+    await setup.getByRole("button", { name: "Close account setup" }).click();
+    await expect(setup).toBeHidden();
+
     await page.getByRole("button", { name: "Collapse sidebar" }).click();
     await page.getByTestId("collapsed-account-settings").click();
-    await expect(settings).toBeVisible();
-    await expectAccountSettingsSurface(settings);
+    await expect(setup).toBeVisible();
+    await expectAccountSetupSurface(setup);
   });
 
   test("account settings uses a fullscreen settings page below desktop and closes from X and Escape", async ({
@@ -689,6 +733,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await waitForDemoDashboardReady(page);
 
     const settings = accountSettingsDialog(page);
+    const setup = accountSetupDialog(page);
     const menu = await openMobileClinicalGuideMenu(page);
     await menu.getByRole("button", { name: "Settings", exact: true }).click();
     await expect(menu).toHaveCount(0);
@@ -715,6 +760,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(settings).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(settings).toBeHidden();
+
+    const accountMenu = await openMobileClinicalGuideMenu(page);
+    await accountMenu.getByTestId("sidebar-account-settings").click();
+    await expect(accountMenu).toHaveCount(0);
+    await expect(setup).toBeVisible();
+    await expectAccountSetupSurface(setup);
+    const setupBox = await setup.boundingBox();
+    expect(setupBox).not.toBeNull();
+    expect(setupBox!.x).toBeGreaterThanOrEqual(-1);
+    expect(setupBox!.width + fullscreenTolerance).toBeLessThanOrEqual(viewport.width + fullscreenTolerance);
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("private mode unauthenticated dashboard gates real-mode search", async ({ page }) => {
@@ -1254,8 +1310,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Favourites" })).toBeVisible();
+    await expect(page.getByTestId("favourites-command-library")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
 
     await page.getByRole("button", { name: "Start a new chat" }).click();
     await expect(page).toHaveURL(/\/favourites\?focus=1$/);
@@ -1282,9 +1338,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/favourites");
 
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
-    // The saved service slug is hydrated to its registry title in the hub.
-    await expect(page.getByTestId("favourites-hub").getByText("13YARN").first()).toBeVisible();
+    await expect(page.getByTestId("favourites-command-library")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByRole("table")).toBeVisible();
   });
 
   test("app mode menu supports keyboard navigation without removed prototype modes", async ({ page }) => {
@@ -1373,14 +1429,33 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(startHereBox).not.toBeNull();
     expect((searchInputBox?.y ?? 0) + (searchInputBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.72);
     expect((startHereBox?.y ?? 0) + (startHereBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
-    await expect(page.getByRole("button", { name: /Recent documents/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Browse library/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Open a source PDF/i })).toBeVisible();
-    await page.getByRole("region", { name: "Smart facets" }).scrollIntoViewIfNeeded();
-    await expect(page.getByRole("region", { name: "Smart facets" })).toBeVisible();
-    await page.getByRole("region", { name: "Recent documents" }).scrollIntoViewIfNeeded();
-    await expect(page.getByRole("region", { name: "Recent documents" })).toBeVisible();
-    await expect(page.locator('a[href^="/documents/"]').first()).toBeVisible();
+    const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
+    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
+    const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();
+    await expect(recentDocumentsButton).toBeVisible();
+    await expect(browseLibraryButton).toBeVisible();
+    await expect(sourcePdfButton).toBeVisible();
+
+    await recentDocumentsButton.click();
+    const recentDocumentsDialog = page.getByRole("dialog", { name: "Recent documents" });
+    await expect(recentDocumentsDialog).toBeVisible();
+    await expect(recentDocumentsDialog.getByPlaceholder("Find a document")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(recentDocumentsDialog).toHaveCount(0);
+
+    await browseLibraryButton.click();
+    const sourceLibraryDialog = page.getByRole("dialog", { name: "Source library" });
+    await expect(sourceLibraryDialog).toBeVisible();
+    await expect(sourceLibraryDialog.getByPlaceholder("Find a document")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(sourceLibraryDialog).toHaveCount(0);
+
+    await sourcePdfButton.click();
+    const sourcePdfDialog = page.getByRole("dialog", { name: "Source PDFs" });
+    await expect(sourcePdfDialog).toBeVisible();
+    await expect(sourcePdfDialog.getByPlaceholder("Find a source PDF")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(sourcePdfDialog).toHaveCount(0);
     await expect(page.getByText("Source library workspace")).toHaveCount(0);
     await expect(page.getByText("Document display")).toHaveCount(0);
 
@@ -1388,23 +1463,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await questionInput.fill("lithium monitoring");
     await page.getByRole("button", { name: "Find matching documents" }).click();
 
-    await expect(page.getByText("Synthetic lithium monitoring protocol").first()).toBeVisible();
-    await expect(page.getByRole("heading", { name: "1 document" })).toBeVisible();
-    await expect(page.getByText("1 table").first()).toBeVisible();
-    await expect(page.getByTestId("document-search-workspace")).toContainText("Best match");
-    await expect(page.getByTestId("document-search-workspace")).toContainText("Relevant");
-    await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Open exact evidence/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Lithium", exact: true })).toBeVisible();
-    await expect(page.getByText("Tag facets")).toHaveCount(0);
-    await expectMinTouchTarget(page.getByRole("link", { name: /Open Synthetic lithium/i }).first());
-    await expect(page.getByRole("button", { name: /Preview evidence for/i }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /Scope search to/i }).first()).toBeVisible();
-    await page
-      .getByRole("button", { name: /Answer from/i })
-      .first()
-      .click();
-    await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
+    await expect(page).toHaveURL(/\/\?mode=documents/);
+    await expect(page.getByRole("region", { name: "Documents overview" })).toBeVisible();
+    const documentResults = page.getByRole("article").first();
+    await expect(documentResults).toContainText("Synthetic Lithium Monitoring Protocol");
+    await expect(documentResults).toContainText("Best match");
+    await expect(documentResults).toContainText("Relevant");
+    await expect(
+      documentResults.getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i }),
+    ).toBeVisible();
+    const selectedSource = page.getByRole("complementary", { name: "Selected document evidence" });
+    await expect(selectedSource).toBeVisible();
+    await expect(selectedSource).toContainText("Source match");
+    await expect(selectedSource.getByRole("link", { name: /Open exact evidence/i })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 

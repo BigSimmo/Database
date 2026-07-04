@@ -26,7 +26,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 
-import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
 
 type MedicationPrescribingWorkspaceProps = {
@@ -507,12 +507,15 @@ function MedicationHome({
         icon: item.icon,
       }))}
       footer={
-        <StatusNotice
-          realDataReady={realDataReady}
-          authUnavailable={authUnavailable}
-          apiUnavailable={apiUnavailable}
-          setupWarning={setupWarning}
-        />
+        <div className="grid gap-3">
+          <StatusNotice
+            realDataReady={realDataReady}
+            authUnavailable={authUnavailable}
+            apiUnavailable={apiUnavailable}
+            setupWarning={setupWarning}
+          />
+          <ModeHomeVerificationFooter icon={ShieldCheck} label="Prescribing support" body="Confirm against source" />
+        </div>
       }
     />
   );

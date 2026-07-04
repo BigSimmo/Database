@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { DocumentSearchLiveOpener } from "@/components/document-search-live-opener";
+import { MasterDocumentReader } from "@/components/master-document-flow-mockups";
 
 export const metadata: Metadata = {
-  title: "Open Highlighted Document - Clinical KB",
-  description: "Resolves a document-search mockup result to the live document viewer with a selected source chunk.",
+  title: "Document Reader Mockup - Clinical KB",
+  description: "Functional document reader mockup with bundled PDF content, highlights, and evidence inspector.",
 };
 
 export default function HighlightedDocumentSearchSourceRoute() {
   return (
     <Suspense fallback={null}>
-      <DocumentSearchLiveOpener />
+      <MasterDocumentReader />
     </Suspense>
   );
 }

@@ -22,13 +22,12 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
-  SlidersHorizontal,
   Table2,
   Target,
 } from "lucide-react";
 
 import { AccessibleTable } from "@/components/AccessibleTable";
-import { clinicalQueryModeOptions, type AnswerFeedbackType } from "@/components/ClinicalDashboard";
+import { type AnswerFeedbackType } from "@/components/ClinicalDashboard";
 import { ClinicalOutputPanel } from "@/components/clinical-dashboard/output-panel";
 import {
   keyClinicalItemsFromSections,
@@ -44,13 +43,7 @@ import {
   compactSourceSnippet,
   comparableAnswerText,
 } from "@/components/clinical-dashboard/display-text";
-import {
-  hasStrongRelevanceIcon,
-  QueryCoverageChips,
-  relevanceChipLabel,
-  RelevanceBadge,
-} from "@/components/clinical-dashboard/relevance";
-import { SourceActionRow, sourceResultHref } from "@/components/clinical-dashboard/source-actions";
+import { SourceActionRow } from "@/components/clinical-dashboard/source-actions";
 import {
   chatMicroAction,
   clinicalDivider,
@@ -58,16 +51,12 @@ import {
   codeText,
   EmptyState,
   evidenceSurface,
-  floatingControl,
   iconTilePremium,
   metadataPill,
   panelSubtle,
-  primaryControl,
   proseMeasure,
   raisedCard,
   sourceCard,
-  SourceProvenance,
-  SourceStatusBadge,
   subtleStatusPill,
   tableMicroActionRow,
   textMuted,
@@ -80,8 +69,7 @@ import {
 import { type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
 import { extractSafetyFindings, formatSafetyFindingLabel } from "@/lib/clinical-safety";
-import { frontendSourceGovernanceWarnings, type SourceGovernanceWarning } from "@/lib/source-governance";
-import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
+import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import {
   normalizeExtractedGlyphs,
   sourceTextForCompactDisplay,
@@ -90,9 +78,6 @@ import {
 import type {
   AnswerSection,
   BestSourceRecommendation,
-  ClinicalQueryMode,
-  ConflictOrGap,
-  EvidenceRelevance,
   EvidenceSummary,
   QuoteCard,
   RagAnswer,
@@ -575,28 +560,6 @@ function clinicalNoteHasDistinctDetail(row: ClinicalNotesRow) {
   return Boolean(detail) && detail !== title;
 }
 
-function clinicalNoteDetailLabel(row: ClinicalNotesRow) {
-  const text = `${row.title} ${row.detail}`.toLowerCase();
-  if (/\b(timing|level|schedule|dose change|stable|days?)\b/.test(text)) return "Timing";
-  if (/\b(escalation|escalate|urgent|toxicity|trigger|vomiting|confusion|ataxia|tremor)\b/.test(text)) {
-    return "Escalate";
-  }
-  if (/\b(baseline|confirm|record|document|check|review)\b/.test(text)) return "Action";
-  return "Note";
-}
-
-function ClinicalNoteDetailCard({ row }: { row: ClinicalNotesRow }) {
-  const detail = sentenceCaseClinicalNoteDetail(row.detail);
-  return (
-    <div className="mt-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 shadow-[var(--shadow-inset)]">
-      <p className="text-[12px] leading-[1.5] text-[color:var(--text)]">
-        <span className="mr-1.5 font-semibold text-[color:var(--text-muted)]">{clinicalNoteDetailLabel(row)}:</span>
-        {detail}
-      </p>
-    </div>
-  );
-}
-
 function clinicalNotesTableEvidenceCount(answer: RagAnswer) {
   return (answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []).filter(
     (item) => item.accessibleTableMarkdown || item.tableRows?.length,
@@ -844,13 +807,13 @@ export function ClinicalNotesChecklistPanel({
           {bestSource ? (
             <Link
               href={bestSource.viewer_href}
-              className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
@@ -858,7 +821,7 @@ export function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text)]"
           >
             <Copy className="h-3.5 w-3.5" />
             {copied ? "Copied" : "Copy"}
@@ -866,7 +829,7 @@ export function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
           >
             <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
@@ -909,7 +872,7 @@ export function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof 
                 href={finding.href}
                 className={cn(
                   raisedCard,
-                  "inline-flex min-h-11 items-center gap-1.5 px-3 text-xs font-semibold text-[color:var(--primary)]",
+                  "inline-flex min-h-[44px] items-center gap-1.5 px-3 text-xs font-semibold text-[color:var(--primary)]",
                 )}
                 aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
@@ -925,292 +888,6 @@ export function SafetyFindingsPanel({ findings }: { findings: ReturnType<typeof 
         ))}
       </div>
     </section>
-  );
-}
-
-function EvidenceGapPanel({
-  relevance,
-  sources,
-  query,
-}: {
-  relevance?: EvidenceRelevance | null;
-  sources: SearchResult[];
-  query: string;
-}) {
-  if (!relevance || relevance.isSourceBacked) return null;
-  const closestSources = sources.slice(0, 3);
-  const found = relevance.matchedTerms.length
-    ? relevance.matchedTerms.slice(0, 6).join(", ")
-    : "Only weak neighboring passages were retrieved.";
-  const missing = relevance.missingTerms.length
-    ? relevance.missingTerms.slice(0, 6).join(", ")
-    : "No direct indexed passage covered the full question.";
-
-  return (
-    <section
-      data-testid="evidence-gap-panel"
-      className={cn(
-        evidenceSurface,
-        "border-l-4 border-l-[color:var(--warning)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--warning-soft)_38%,transparent),transparent_64%),var(--surface-raised)] p-3 sm:p-4",
-      )}
-    >
-      <SectionHeading
-        icon={AlertCircle}
-        title="Source gaps"
-        description={relevance.supportReason}
-        hideDescriptionOnMobile
-        compactMobile
-        action={<RelevanceBadge relevance={relevance} />}
-      />
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <article className={cn(sourceCard, "p-3")}>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">What was found</p>
-          <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{found}</p>
-        </article>
-        <article className={cn(sourceCard, "p-3")}>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            What was not found
-          </p>
-          <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>{missing}</p>
-        </article>
-        <article className={cn(sourceCard, "p-3 md:col-span-2")}>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Closest sources</p>
-          {closestSources.length ? (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {closestSources.map((source) => (
-                <Link
-                  key={source.id}
-                  href={sourceResultHref(source)}
-                  className={cn(floatingControl, "min-h-11 px-3 text-xs")}
-                  aria-label={`Open closest source ${cleanDisplayTitle(source.title)}`}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  <span className="max-w-[12rem] truncate">{cleanDisplayTitle(source.title)}</span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>No nearby indexed sources were returned.</p>
-          )}
-        </article>
-        <article className={cn(sourceCard, "p-3 md:col-span-2")}>
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Suggested next search/upload
-          </p>
-          <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>
-            Try a narrower query using the missing terms, scope to a likely document, or upload/index the guideline that
-            directly covers &quot;{query.trim()}&quot;.
-          </p>
-        </article>
-      </div>
-    </section>
-  );
-}
-
-function EvidenceCounts({
-  answer,
-  sourceSummary,
-  sourceCount,
-}: {
-  answer: RagAnswer;
-  sourceSummary?: EvidenceSummary;
-  sourceCount: number;
-}) {
-  const counts = [
-    {
-      label: "Citations",
-      value: answer.citations.length,
-    },
-    {
-      label: "Quotes",
-      value: answer.quoteCards?.length ?? sourceSummary?.quote_count ?? 0,
-    },
-    {
-      label: "Images",
-      value:
-        answer.visualEvidence?.length ?? answer.smartPanel?.visualEvidence?.length ?? sourceSummary?.image_count ?? 0,
-    },
-    {
-      label: "Passages",
-      value: sourceCount || sourceSummary?.total_sources || 0,
-    },
-  ];
-
-  return (
-    <div data-testid="evidence-counts" className="grid grid-cols-2 gap-2">
-      {counts.map((item) => (
-        <div
-          key={item.label}
-          className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5"
-        >
-          <p className="text-lg font-semibold leading-none text-[color:var(--text-heading)]">{item.value}</p>
-          <p className={cn("mt-1 text-[11px] font-bold uppercase tracking-[0.08em]", textMuted)}>{item.label}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function AnswerSourceStatus({
-  source,
-  weakEvidence,
-}: {
-  source: BestSourceRecommendation | null | undefined;
-  weakEvidence: boolean;
-}) {
-  const metadata = source?.source_metadata;
-  return (
-    <div
-      data-testid="answer-source-status"
-      className={cn(
-        "rounded-lg border p-3",
-        weakEvidence
-          ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45"
-          : "border-[color:var(--border)] bg-[color:var(--surface)]",
-      )}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-[color:var(--text)]">Source status</p>
-        <SourceStatusBadge metadata={metadata} />
-      </div>
-      <SourceProvenance metadata={metadata} />
-      {weakEvidence ? (
-        <p className="mt-2 text-xs font-semibold leading-5 text-[color:var(--warning)]">
-          Evidence support is limited. Treat this as a source-finding result until the linked passage is verified.
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function EvidenceSummaryCard({
-  answer,
-  bestSource,
-  grounded,
-  relevance,
-  sourceSummary,
-  weakEvidence,
-  sources,
-  gaps,
-  onScopeDocument,
-  compact = false,
-  supporting = false,
-}: {
-  answer: RagAnswer;
-  bestSource: BestSourceRecommendation | null;
-  grounded: boolean;
-  relevance?: EvidenceRelevance | null;
-  sourceSummary?: EvidenceSummary;
-  weakEvidence: boolean;
-  sources: SearchResult[];
-  gaps: ConflictOrGap[];
-  onScopeDocument: (documentId: string) => void;
-  compact?: boolean;
-  supporting?: boolean;
-}) {
-  const sourceLabel = relevance && !relevance.isSourceBacked ? "Closest source" : "Top source";
-  const supportLabel = relevanceChipLabel(relevance, grounded);
-  const sourceStrength = bestSource?.source_strength ?? sourceSummary?.source_strength ?? "none";
-  const gapMessage =
-    gaps[0]?.message ??
-    (!relevance?.isSourceBacked && relevance?.supportReason
-      ? relevance.supportReason
-      : (sourceSummary?.summary ?? null));
-
-  return (
-    <aside
-      data-testid={supporting ? "evidence-support-panel" : compact ? "evidence-summary-card" : "evidence-rail"}
-      aria-label={
-        supporting ? "Answer evidence and sources" : compact ? "Answer evidence summary" : "Answer evidence rail"
-      }
-      className={cn(
-        evidenceSurface,
-        "space-y-3 p-3 sm:p-4",
-        weakEvidence && "border-[color:var(--warning)]/30 border-l-[color:var(--warning)]",
-        compact && !supporting && "xl:hidden",
-        !compact && !supporting && "xl:sticky xl:top-4 xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto",
-      )}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text-heading)]">Evidence review</p>
-          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            {weakEvidence
-              ? "Verify before relying on this answer."
-              : "Source status and retrieved evidence at a glance."}
-          </p>
-        </div>
-        <RelevanceBadge relevance={relevance} grounded={grounded} />
-      </div>
-
-      <AnswerSourceStatus source={bestSource} weakEvidence={weakEvidence} />
-
-      <EvidenceCounts answer={answer} sourceSummary={sourceSummary} sourceCount={sources.length} />
-
-      {bestSource ? (
-        <article className={cn(sourceCard, "p-3")}>
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                {sourceLabel}
-              </p>
-              <p className="mt-1 line-clamp-2 text-sm font-semibold leading-5 text-[color:var(--text)]">
-                {bestSource.title}
-              </p>
-              <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-                page {bestSource.page_number ?? "n/a"} · {sourceStrength} support
-              </p>
-            </div>
-            <span className={cn(subtleStatusPill, "nums")}>
-              {Math.round(Math.max(0, Math.min(1, bestSource.score)) * 100)}% match
-            </span>
-          </div>
-          <p className={cn("mt-3 line-clamp-3 text-[13px] font-medium leading-5", textMuted)}>
-            &ldquo;{bestSource.snippet}&rdquo;
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link
-              href={bestSource.viewer_href}
-              className={cn(primaryControl, "min-h-11 px-3 text-xs")}
-              aria-label={`Open ${sourceLabel.toLowerCase()}: ${formatCitationLabel(bestSource)}`}
-            >
-              Open source
-              <ExternalLink className="h-4 w-4" />
-            </Link>
-            <button
-              type="button"
-              onClick={() => onScopeDocument(bestSource.document_id)}
-              className={cn(floatingControl, "min-h-11 px-3 text-xs")}
-              aria-label={`Search only ${bestSource.title}`}
-            >
-              <Filter className="h-4 w-4" />
-              Add scope
-            </button>
-          </div>
-        </article>
-      ) : (
-        <EmptyState icon={Target} title={emptyStates.topSource.title} body={emptyStates.topSource.body} />
-      )}
-
-      {gapMessage ? (
-        <div
-          className={cn(
-            "rounded-lg border p-3 text-sm leading-6",
-            weakEvidence
-              ? "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45 text-[color:var(--warning)]"
-              : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-          )}
-        >
-          <p className="text-xs font-bold uppercase tracking-[0.08em]">Coverage note</p>
-          <p className="mt-1 font-medium">{gapMessage}</p>
-        </div>
-      ) : null}
-
-      <QueryCoverageChips relevance={relevance} limit={compact ? 3 : 5} />
-      <p className={cn("text-xs leading-5", textMuted)}>
-        {supportLabel}. Verify source before copying, including any clinical draft text.
-      </p>
-    </aside>
   );
 }
 
@@ -1315,192 +992,6 @@ export function primaryVisualTable(answer: RagAnswer) {
   return answer.visualEvidence?.find((item) => item.accessibleTableMarkdown || item.tableRows?.length) ?? null;
 }
 
-type RenderModelPdfSource = {
-  document_id: string;
-  title: string;
-  file_name: string;
-  page_number: number | null;
-  chunk_id: string | null;
-};
-
-function uniquePdfSourcesForRenderModel(renderModel: AnswerRenderModel): RenderModelPdfSource[] {
-  return renderModel.primarySources.map((source) => ({
-    document_id: source.document_id,
-    title: source.title,
-    file_name: source.file_name,
-    page_number: source.page_number,
-    chunk_id: source.chunk_id,
-  }));
-}
-
-function queryModeLabel(mode: ClinicalQueryMode) {
-  return clinicalQueryModeOptions.find((option) => option.value === mode)?.label ?? mode.replaceAll("_", " ");
-}
-
-function AnswerInsightBar({
-  answer,
-  bestSource,
-  relevance,
-  queryMode,
-  sourceGovernanceWarnings,
-}: {
-  answer: RagAnswer;
-  bestSource: BestSourceRecommendation | null;
-  relevance?: EvidenceRelevance | null;
-  queryMode: ClinicalQueryMode;
-  sourceGovernanceWarnings: SourceGovernanceWarning[];
-}) {
-  const frontendGovernanceWarnings = frontendSourceGovernanceWarnings(sourceGovernanceWarnings);
-  const metadata = normalizeSourceMetadata(
-    bestSource?.source_metadata ?? answer.sources?.[0]?.source_metadata ?? answer.citations?.[0]?.source_metadata,
-  );
-  const modeLabel =
-    answer.smartApiPlan?.displayMode?.replaceAll("_", " ") ??
-    answer.responseMode?.replaceAll("_", " ") ??
-    queryModeLabel(queryMode);
-  const sourceCount = answer.evidenceSummary?.total_sources ?? answer.sources?.length ?? answer.citations.length;
-  const support = relevanceChipLabel(relevance ?? answer.relevance, answer.grounded);
-  const sourceStatus = frontendGovernanceWarnings.length
-    ? `${frontendGovernanceWarnings.length} source status note${frontendGovernanceWarnings.length === 1 ? "" : "s"}`
-    : sourceStatusLabel(metadata);
-  const retrievalGate = answer.retrievalDiagnostics?.gateStatus;
-  const items = [
-    { label: "Mode", value: modeLabel, icon: SlidersHorizontal },
-    {
-      label: "Support",
-      value: support,
-      icon: hasStrongRelevanceIcon(relevance ?? answer.relevance, answer.grounded) ? CheckCircle2 : AlertCircle,
-    },
-    { label: "Sources", value: String(sourceCount), icon: FileText },
-    { label: "Confidence", value: answer.confidence, icon: Target },
-    {
-      label: "Retrieval",
-      value: retrievalGate ? `${retrievalGate} gate` : "Not logged",
-      icon: retrievalGate === "blocked" ? ShieldAlert : CheckCircle2,
-    },
-    { label: "Status", value: `${sourceStatus} / ${validationStatusLabel(metadata)}`, icon: BookOpen },
-  ];
-
-  return (
-    <div
-      data-testid="answer-insight-bar"
-      className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2 sm:flex sm:flex-wrap sm:items-center"
-      aria-label="Answer evidence summary"
-    >
-      {items.map((item) => {
-        const Icon = item.icon;
-        return (
-          <span
-            key={item.label}
-            className="inline-flex min-h-8 min-w-0 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)]"
-          >
-            <Icon className="h-3.5 w-3.5 shrink-0 text-[color:var(--primary)]" />
-            <span className="shrink-0 text-[10px] uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-              {item.label}
-            </span>
-            <span className="min-w-0 truncate">{item.value}</span>
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function EvidenceVerificationStrip({
-  answer,
-  bestSource,
-  sourceSummary,
-  weakEvidence,
-  governanceWarningCount,
-}: {
-  answer: RagAnswer;
-  bestSource: BestSourceRecommendation | null;
-  sourceSummary?: EvidenceSummary | null;
-  weakEvidence: boolean;
-  governanceWarningCount: number;
-}) {
-  const metadata = normalizeSourceMetadata(
-    bestSource?.source_metadata ?? answer.sources?.[0]?.source_metadata ?? answer.citations?.[0]?.source_metadata,
-  );
-  const sourceCount = sourceSummary?.total_sources ?? answer.sources?.length ?? answer.citations.length;
-  const citationCount = answer.citations.length;
-  const gapCount = answer.conflictsOrGaps?.length ?? answer.smartPanel?.conflictsOrGaps?.length ?? 0;
-  const retrievalGateBlocked = answer.retrievalDiagnostics?.gateStatus === "blocked";
-  const checks = [
-    {
-      label: "Citations",
-      value: citationCount ? `${citationCount} citation${citationCount === 1 ? "" : "s"}` : "None",
-      ready: citationCount > 0,
-    },
-    {
-      label: "Sources",
-      value: `${sourceCount} source${sourceCount === 1 ? "" : "s"}`,
-      ready: sourceCount > 0,
-    },
-    {
-      label: "Source status",
-      value: sourceStatusLabel(metadata),
-      ready: metadata.document_status === "current" && !governanceWarningCount,
-    },
-    {
-      label: "Retrieval gate",
-      value: retrievalGateBlocked ? "Blocked for low signal" : answer.retrievalDiagnostics ? "Passed" : "Not available",
-      ready: !retrievalGateBlocked,
-    },
-    {
-      label: "Gaps",
-      value: governanceWarningCount
-        ? `${governanceWarningCount} status note${governanceWarningCount === 1 ? "" : "s"}`
-        : gapCount
-          ? `${gapCount} gap${gapCount === 1 ? "" : "s"}`
-          : "None",
-      ready: !weakEvidence && !gapCount && !governanceWarningCount,
-    },
-  ];
-
-  return (
-    <section
-      data-testid="evidence-verification-strip"
-      className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto]"
-      aria-label="Evidence verification progress"
-    >
-      <div className="grid gap-2 sm:grid-cols-4">
-        {checks.map((check) => (
-          <div
-            key={check.label}
-            className="min-w-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2"
-          >
-            <div className="flex items-center gap-1.5">
-              {check.ready ? (
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[color:var(--success)]" />
-              ) : (
-                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" />
-              )}
-              <p className="truncate text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-                {check.label}
-              </p>
-            </div>
-            <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text)]">{check.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:max-w-72">
-        <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-          Pinned source
-        </span>
-        {bestSource ? (
-          <>
-            <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--text)]">{bestSource.title}</span>
-            <SourceStatusBadge metadata={bestSource.source_metadata} showTitle={false} />
-          </>
-        ) : (
-          <span className="text-xs font-semibold text-[color:var(--text-muted)]">No pinned source yet</span>
-        )}
-      </div>
-    </section>
-  );
-}
-
 const answerFeedbackOptions: Array<{
   type: AnswerFeedbackType;
   label: string;
@@ -1600,7 +1091,7 @@ function RenderModelSourceList({
           <article key={`${source.id}:${source.href}`} className={cn(sourceCard, "overflow-hidden p-0")}>
             <Link
               href={source.href}
-              className="block min-h-11 px-3 py-3 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="block min-h-[44px] px-3 py-3 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               aria-label={openLabel}
             >
               <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
@@ -1784,7 +1275,7 @@ export function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
               data-testid="evidence-map-open-source"
               className={cn(
                 sourceCard,
-                "grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-sm transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                "grid min-h-[44px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-3 text-sm transition hover:border-[color:var(--primary)]/45 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
               )}
               aria-label={`Open source for ${row.section}: ${row.bestSourceLabel}`}
             >
@@ -1889,11 +1380,6 @@ export function QuoteCards({
                 <blockquote className={cn(proseMeasure, "text-[15px] font-medium leading-6 text-[color:var(--text)]")}>
                   &ldquo;{quoteText}&rdquo;
                 </blockquote>
-                {quote.isTruncated ? (
-                  <p className="mt-1 text-xs italic leading-5 text-[color:var(--text-muted)]">
-                    Quote truncated for length — open the source to read the full passage.
-                  </p>
-                ) : null}
                 <div
                   className={cn(
                     "mt-3 flex flex-wrap items-center justify-between gap-2 pt-3 sm:mt-4 sm:gap-3",
@@ -1933,12 +1419,12 @@ export function formatQuoteCardsForClipboard(quotes: QuoteCard[]) {
         // Clean the copied text the same way the card displays it, so clipboard
         // output never contains internal image-data blocks or glyph artifacts.
         `${index + 1}. "${sourceTextForVerbatimQuote(quote.quote)}"`,
-        quote.isTruncated ? "Warning: quote truncated for length; open the source to read the full passage." : null,
+        ...(quote.isTruncated
+          ? ["Warning: quote truncated for length; open the source to read the full passage."]
+          : []),
         `Source: ${formatCitationLabel(quote)}`,
         `Link: ${documentCitationHref(quote)}`,
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      ].join("\n"),
     )
     .join("\n\n");
 }

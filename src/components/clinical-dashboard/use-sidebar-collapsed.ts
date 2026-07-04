@@ -7,14 +7,15 @@ const changeEvent = "clinical-kb-sidebar-collapsed-change";
 
 function getSnapshot() {
   try {
-    return window.localStorage.getItem(storageKey) === "1";
+    const storedValue = window.localStorage.getItem(storageKey);
+    return storedValue === null ? true : storedValue === "1";
   } catch {
-    return false;
+    return true;
   }
 }
 
 function getServerSnapshot() {
-  return false;
+  return true;
 }
 
 function subscribe(onChange: () => void) {
