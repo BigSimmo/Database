@@ -114,10 +114,10 @@ export const tools: ToolFixture[] = [
 export const pinnedToolIds = ["clinical-kb-search", "documents", "medication-prescribing", "services"] as const;
 
 export const areaLabels: Record<ToolArea, string> = {
-  assessment: "Assess",
-  care: "Treat",
-  coordination: "Coordinate",
-  personal: "Resume",
+  assessment: "Assessment",
+  care: "Treatment",
+  coordination: "Coordination",
+  personal: "Saved",
   reference: "Reference",
 };
 

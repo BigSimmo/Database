@@ -157,7 +157,9 @@ function hasDoseAmount(text: string) {
 }
 
 function hasRoute(text: string) {
-  return /\b(?:oral|orally|intramuscular|intramuscularly|im|po)\b/.test(text);
+  return /\b(?:oral|orally|intramuscular|intramuscularly|subcutaneous|subcutaneously|subcut|sublingual|sublingually|im|po|sc|sl)\b/.test(
+    text,
+  );
 }
 
 function hasSourceImageEvidence(result: SearchResult) {
@@ -337,9 +339,10 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
 
 export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): RetrievalIntent {
   const normalizedQuery = normalize(query);
-  const asksDoseRoute = /\b(?:dose|dosage|dosing|route|oral|intramuscular|im|po|frequency|mg|mcg|prn)\b/.test(
-    normalizedQuery,
-  );
+  const asksDoseRoute =
+    /\b(?:dose|dosage|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|im|po|sc|sl|frequency|mg|mcg|prn)\b/.test(
+      normalizedQuery,
+    );
   const asksDoseAmount = /\b(?:dose|dosage|dosing|mg|mcg|microgram|maximum|minimum)\b/.test(normalizedQuery);
   const asksTable = /\b(?:table|chart|matrix|threshold|cutoff|cut off|range|criteria|row)\b/.test(normalizedQuery);
   const asksSourceImage =
@@ -382,7 +385,8 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
   }
   if (asksDoseRoute) {
     if (asksDoseAmount) requiredTermSignals.push("dose_amount");
-    if (/\b(?:route|oral|intramuscular|im|po)\b/.test(normalizedQuery)) requiredTermSignals.push("route");
+    if (/\b(?:route|oral|intramuscular|subcutaneous|subcut|sublingual|im|po|sc|sl)\b/.test(normalizedQuery))
+      requiredTermSignals.push("route");
   }
   if (asksFlowchart) {
     preferredDocumentSignals.push("flowchart", "pathway", "risk matrix");

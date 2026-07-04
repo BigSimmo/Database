@@ -266,7 +266,7 @@ export function GuideDialog({ open, onClose }: { open: boolean; onClose: () => v
       description="Practical use notes for source-backed guideline search."
       closeLabel="Close guide"
       contentClassName="font-sans sm:max-w-2xl"
-      titleClassName="text-[17px] font-semibold tracking-normal sm:text-lg"
+      titleClassName="text-lg-minus font-semibold tracking-normal sm:text-lg"
       bodyClassName="p-4 sm:p-5"
       closeButtonClassName="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
     >

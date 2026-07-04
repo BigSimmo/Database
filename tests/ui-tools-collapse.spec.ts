@@ -1,0 +1,55 @@
+import { expect, test, type Page } from "playwright/test";
+
+// Additive coverage for collapse-on-filter: when a search/filter is active the
+// static primary region (Start here / workflow lanes / launcher overview) is
+// hidden so results are never shown beneath a still-populated grid.
+
+async function goto(page: Page, path: string) {
+  await page.goto(path, { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+}
+
+test.describe("Tools mockups collapse the primary region when filtering", () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test("command center hides Start here and avoids a populated grid over an empty state", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await goto(page, "/mockups/tools-command-center");
+
+    await expect(page.getByRole("heading", { name: "Start here" })).toBeVisible();
+
+    const search = page.getByRole("searchbox").first();
+    await search.fill("medication");
+    await expect(page.getByRole("heading", { name: "Start here" })).toHaveCount(0);
+    await expect(page.getByLabel("Open Medication Prescribing")).toBeVisible();
+
+    // No-match: empty state shows and the pinned grid is gone (not sitting above it).
+    await search.fill("zzzzznotarealtool");
+    await expect(page.getByText(/No tools match/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Start here" })).toHaveCount(0);
+  });
+
+  test("workflow board has a Resume lane and hides lanes when searching", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await goto(page, "/mockups/tools-workflow-board");
+
+    await expect(page.getByRole("heading", { name: "Resume" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Assess" })).toBeVisible();
+
+    await page.getByRole("searchbox").first().fill("medication");
+    await expect(page.getByRole("heading", { name: "Assess" })).toHaveCount(0);
+    await expect(page.getByLabel("Open Medication Prescribing")).toBeVisible();
+  });
+
+  test("split pane swaps the launcher overview to live results when filtering", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await goto(page, "/mockups/tools-split-pane");
+
+    await expect(page.getByRole("heading", { name: "Launcher overview" })).toBeVisible();
+
+    await page.getByRole("searchbox").first().fill("medication");
+    await expect(page.getByRole("heading", { name: "Launcher overview" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Results" })).toBeVisible();
+    await expect(page.getByLabel("Open Medication Prescribing")).toBeVisible();
+  });
+});

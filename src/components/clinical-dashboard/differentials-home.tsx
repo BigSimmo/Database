@@ -824,10 +824,10 @@ function SearchResultsView({
         />
       </div>
 
-      <div className="fixed inset-x-3 bottom-[calc(8.5rem+env(safe-area-inset-bottom))] z-30 lg:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(8.5rem+env(safe-area-inset-bottom))] z-30 border-t border-[color:var(--border)] bg-[color:var(--background)] px-3 py-2.5 lg:hidden">
         <Link
           href={routeWithQuery("/differentials/presentations", query)}
-          className="mx-auto flex min-h-14 max-w-[26rem] items-center justify-center gap-3 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)]"
+          className="mx-auto flex min-h-12 max-w-[26rem] items-center justify-center gap-3 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)]"
         >
           <GitCompareArrows className="h-5 w-5" aria-hidden />
           Compare selected ({selectedCount})
@@ -904,7 +904,11 @@ export function DifferentialsHome({
     runSearch(action.query);
   }
 
-  if (trimmedQuery) {
+  // Only surface ranked results once an actual search has run (loading or
+  // evidence matches present) — not on every keystroke, and not for a query
+  // whose source search returned nothing. Otherwise the hard-coded demo
+  // rankings render as if relevant to any typed text.
+  if (trimmedQuery && (loading || hasEvidenceMatches)) {
     return (
       <SearchResultsView
         query={trimmedQuery}

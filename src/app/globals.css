@@ -21,7 +21,15 @@
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
 
-  /* Type scale — sub-`xs` micro steps plus the 13/15px "between" steps the
+  /* Minimum interactive target (WCAG 2.5.5 / 2.5.8). Named spacing token so the
+     44px tap-target minimum is a single source of truth instead of copy-pasted
+     `min-h-11` / `h-[44px]` magic numbers. Generates min-h-tap, h-tap, w-tap,
+     min-w-tap, size-tap. Semantic intent: "this is a touch target", not "44px".
+     NB: controls that flake the ui-smoke sub-pixel tap-target check when scrolled
+     deep in sheets stay on min-h-12 (48px) — do not downgrade those to the token. */
+  --spacing-tap: 2.75rem;
+
+  /* Type scale — sub-`xs` micro steps plus the 13–22px "between" steps the
      dense clinical UI reaches for. These are intentionally SIZE-ONLY: unlike
      Tailwind's default text-* tokens they carry no `--line-height` /
      `--letter-spacing` companion, so `text-3xs` etc. set font-size alone and
@@ -38,12 +46,17 @@
        2xs         11px  small chips / secondary labels (most common small size)
        (xs 12 · sm 14 · base 16 come from Tailwind's default scale)
        sm-minus    13px  one notch under sm — dense body/labels bigger than xs
-       base-minus  15px  one notch under base — comfortable body just under 16 */
+       base-minus  15px  one notch under base — comfortable body just under 16
+       (lg 18 · xl 20 · 2xl 24 come from Tailwind's default scale)
+       lg-minus    17px  one notch under lg — display titles a shade under 18
+       2xl-minus   22px  one notch under 2xl — wide-screen nowrap headings */
   --text-4xs: 0.5rem;
   --text-3xs: 0.625rem;
   --text-2xs: 0.6875rem;
   --text-sm-minus: 0.8125rem;
   --text-base-minus: 0.9375rem;
+  --text-lg-minus: 1.0625rem;
+  --text-2xl-minus: 1.375rem;
 
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for
@@ -158,8 +171,13 @@
   --danger: var(--danger-text);
   --danger-soft: var(--danger-bg);
 
-  /* Categorical dot accent with no semantic triad (e.g. Youth service pathway). */
+  /* Categorical tone scale — taxonomy/pathway dots only. NEVER semantic: kept
+     visually distinct from the role tokens (success/danger/warning/info) and
+     the brand accent so green/blue/teal keep their meanings. */
   --tone-purple: #7c3aed;
+  --tone-indigo: #4338ca;
+  --tone-rose: #a21caf;
+  --tone-slate: #475569;
 
   --disabled: #98a2b3;
   --focus: var(--clinical-accent);
@@ -297,8 +315,11 @@
   --danger: var(--danger-text);
   --danger-soft: var(--danger-bg);
 
-  /* Categorical dot accent, brightened for dark surfaces. */
+  /* Categorical tone scale, brightened for dark surfaces (categorical only). */
   --tone-purple: #a78bfa;
+  --tone-indigo: #818cf8;
+  --tone-rose: #e879f9;
+  --tone-slate: #94a3b8;
 
   --disabled: #555e6b;
   --focus: var(--clinical-accent);
@@ -1364,6 +1385,9 @@ summary::-webkit-details-marker {
     --danger: Mark;
     --danger-soft: Canvas;
     --tone-purple: CanvasText;
+    --tone-indigo: CanvasText;
+    --tone-rose: CanvasText;
+    --tone-slate: CanvasText;
     --focus: Highlight;
     --surface-lux: Canvas;
     --surface-wash: Canvas;

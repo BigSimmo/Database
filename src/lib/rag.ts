@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireOwnerScope } from "@/lib/owner-scope";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   embedTextWithTelemetry,
@@ -73,6 +74,7 @@ import { clinicalModePrompt, queryClassForClinicalMode, queryForClinicalMode } f
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { buildRetrievalIntent, selectRetrievalEvidence } from "@/lib/retrieval-selection";
+import { rankingConfig } from "@/lib/ranking-config";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import {
@@ -306,6 +308,10 @@ export type SearchChunksArgs = {
   // Internal: set when this call is a re-run on a trigram-corrected query, to prevent the
   // unsupported-short-circuit typo-correction path from recursing more than once.
   typoCorrected?: boolean;
+  // Diagnostic/eval-only: bypass every lexical text-fast-path so retrieval always exercises
+  // the embedding/vector stage. Lets the golden eval measure the vector index directly for a
+  // re-index, instead of being masked by lexical shortcuts. Never set on production paths.
+  forceEmbedding?: boolean;
 };
 
 export type AnswerProgressEvent = {
@@ -579,20 +585,29 @@ function secondStageScore(result: SearchResult, queryClass: RagQueryClass | unde
     )
     .join(" ")}`;
   const hasDoseAmount = /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(doseAmountText);
-  score += Math.max(0, 0.09 - index * 0.004);
-  if (result.memory_cards?.length && (queryClass === "broad_summary" || queryClass === "comparison")) score += 0.035;
+  const w = rankingConfig.secondStage;
+  score += Math.max(0, w.positionBase - index * w.positionStep);
+  if (result.memory_cards?.length && (queryClass === "broad_summary" || queryClass === "comparison"))
+    score += w.memorySummaryBoost;
   if (queryClass === "document_lookup" && (result.match_explanation?.titleHit || result.match_explanation?.labelHit))
-    score += 0.045;
+    score += w.documentLookupTitleBoost;
   if ((queryClass === "table_threshold" || queryClass === "medication_dose_risk") && result.table_facts?.length)
-    score += 0.065;
-  if (queryClass === "medication_dose_risk" && hasDoseAmount) score += 0.18;
-  if (tableVisualEvidenceUnitTypes.has(unitType)) score += 0.08;
-  else if (visualEvidenceUnitTypes.has(unitType)) score += 0.04;
-  if (source === "visual_intelligence") score += Math.min(0.035, Math.max(0, sourceQuality - 0.55) * 0.08);
-  if (result.source_metadata?.document_status === "outdated") score -= 0.035;
-  if (result.source_metadata?.extraction_quality === "poor") score -= 0.035;
-  if (result.indexing_quality?.quality_score !== undefined && result.indexing_quality.quality_score < 0.55)
-    score -= 0.035;
+    score += w.tableThresholdEvidenceBoost;
+  if (queryClass === "medication_dose_risk" && hasDoseAmount) score += w.doseAmountBoost;
+  if (tableVisualEvidenceUnitTypes.has(unitType)) score += w.tableVisualBoost;
+  else if (visualEvidenceUnitTypes.has(unitType)) score += w.visualBoost;
+  if (source === "visual_intelligence")
+    score += Math.min(
+      w.visualIntelligenceMax,
+      Math.max(0, sourceQuality - w.visualIntelligencePivot) * w.visualIntelligenceSlope,
+    );
+  if (result.source_metadata?.document_status === "outdated") score -= w.outdatedPenalty;
+  if (result.source_metadata?.extraction_quality === "poor") score -= w.poorExtractionPenalty;
+  if (
+    result.indexing_quality?.quality_score !== undefined &&
+    result.indexing_quality.quality_score < w.lowIndexQualityThreshold
+  )
+    score -= w.lowIndexQualityPenalty;
   return score;
 }
 
@@ -604,12 +619,26 @@ function applySecondStageRerankIfNeeded(args: {
 }) {
   if (!shouldUseSecondStageRerank(args.queryClass, args.results, args.topK)) return args.results;
   const startedAt = Date.now();
+  // CI-16 document diversity: subtract a demotion from each EXTRA chunk of a document that
+  // has already appeared higher up, so a single doc's sibling chunks can't crowd out other
+  // documents. Applied AFTER the additive-boost floor so it can actually lower the effective
+  // rank. Default penalty is 0 (disabled) — no reordering until deliberately tuned + eval-gated.
+  const seenPerDocument = new Map<string, number>();
   const reranked = args.results
     .map((result, index) => {
-      const score = secondStageScore(result, args.queryClass, index);
+      const boosted = secondStageScore(result, args.queryClass, index);
+      let score = Math.max(result.hybrid_score ?? 0, boosted);
+      const priorOccurrences = seenPerDocument.get(result.document_id) ?? 0;
+      seenPerDocument.set(result.document_id, priorOccurrences + 1);
+      if (rankingConfig.documentDiversityPenalty > 0 && priorOccurrences > 0) {
+        score -= Math.min(
+          rankingConfig.documentDiversityPenaltyCap,
+          rankingConfig.documentDiversityPenalty * priorOccurrences,
+        );
+      }
       return {
         ...result,
-        hybrid_score: Number(Math.max(result.hybrid_score ?? 0, score).toFixed(4)),
+        hybrid_score: Number(score.toFixed(4)),
         match_explanation: {
           ...result.match_explanation,
           reasons: Array.from(new Set([...(result.match_explanation?.reasons ?? []), "second_stage_rerank"])),
@@ -1405,7 +1434,7 @@ function stableHash(value: string) {
 export function retrievalPlanCacheQuery(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "topK" | "minSimilarity"
+    "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "topK" | "minSimilarity" | "forceEmbedding"
   >,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
@@ -1421,6 +1450,7 @@ export function retrievalPlanCacheQuery(
     `topK:${args.topK ?? 8}`,
     `min:${args.minSimilarity ?? 0.15}`,
     `rag:${ragDeepMemoryVersion}`,
+    `force:${args.forceEmbedding ? 1 : 0}`,
   ].join("|");
   return queryCacheKeyForStorage(cacheKey);
 }
@@ -2150,7 +2180,7 @@ async function searchTextChunkCandidates(args: {
       query_text: queryText,
       match_count: matchCount,
       document_filters: args.documentIds ?? undefined,
-      owner_filter: args.ownerId ?? undefined,
+      owner_filter: requireOwnerScope(args.ownerId),
     });
     return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
   };
@@ -2303,7 +2333,7 @@ async function fetchBestDocumentLookupChunks(args: {
     query_text: args.query,
     document_filters: args.documentIds ?? undefined,
     match_count: Math.max(args.limit * 3, 24),
-    owner_filter: args.ownerId ?? undefined,
+    owner_filter: requireOwnerScope(args.ownerId),
   });
   if (!rpcError && rpcChunks?.length) {
     const ranked = (rpcChunks as DocumentLookupChunkRow[])
@@ -2407,7 +2437,7 @@ async function searchDocumentLookupFastPath(args: {
       const { data, error } = await args.supabase.rpc("match_documents_for_query", {
         query_text: variant,
         match_count: index === 0 ? 12 : 8,
-        owner_filter: args.ownerId ?? undefined,
+        owner_filter: requireOwnerScope(args.ownerId),
       });
       if (error || !data?.length) return [] as DocumentLookupRow[];
       return data as DocumentLookupRow[];
@@ -2761,7 +2791,7 @@ async function searchTableFactCandidates(args: {
         query_text: variant,
         match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
         document_filters: args.documentIds ?? undefined,
-        owner_filter: args.ownerId ?? undefined,
+        owner_filter: requireOwnerScope(args.ownerId),
       });
       if (error || !data?.length) return [] as TableFactRpcRow[];
       return data as TableFactRpcRow[];
@@ -2809,7 +2839,7 @@ async function searchEmbeddingFieldCandidates(args: {
     match_count: args.matchCount,
     min_similarity: 0.12,
     document_filters: args.documentIds ?? undefined,
-    owner_filter: args.ownerId ?? undefined,
+    owner_filter: requireOwnerScope(args.ownerId),
   });
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -2859,7 +2889,7 @@ async function searchIndexUnitCandidates(args: {
     match_count: args.matchCount,
     min_similarity: 0.1,
     document_filters: args.documentIds ?? undefined,
-    owner_filter: args.ownerId ?? undefined,
+    owner_filter: requireOwnerScope(args.ownerId),
   });
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -3414,7 +3444,9 @@ function hasDoseAmountEvidenceForGate(result: SearchResult) {
 }
 
 function hasRouteEvidenceForGate(result: SearchResult) {
-  return /\b(?:oral|orally|intramuscular|intramuscularly|\bim\b|\bpo\b)\b/i.test(evidenceTextForGate(result));
+  return /\b(?:oral|orally|intramuscular|intramuscularly|subcutaneous|subcutaneously|subcut|sublingual|sublingually|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(
+    evidenceTextForGate(result),
+  );
 }
 
 function hasDirectSourceImageEvidence(result: SearchResult) {
@@ -3521,10 +3553,13 @@ export function evaluateEvidenceCoverageGate(
   if (queryClass === "table_threshold") {
     if (
       /\bclozapine\b/i.test(query) &&
-      /\b(?:anc|fbc|wbc|neutrophil|neutrophils|full blood)\b/i.test(query) &&
+      /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils|full blood|white cell)\b/i.test(query) &&
       /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped)\b/i.test(query)
     ) {
-      const hasBlood = hasAnyTerm(evidenceText, /\b(?:anc|fbc|wbc|neutrophil|neutrophils|full blood)\b/i);
+      const hasBlood = hasAnyTerm(
+        evidenceText,
+        /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils|full blood|white cell)\b/i,
+      );
       const hasAction = hasAnyTerm(
         evidenceText,
         /\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped|red)\b/i,
@@ -3565,7 +3600,10 @@ export function evaluateEvidenceCoverageGate(
   }
 
   if (queryClass === "medication_dose_risk") {
-    const asksDoseRoute = /\b(?:dose|dosage|dosing|route|oral|intramuscular|\bim\b|\bpo\b)\b/i.test(query);
+    const asksDoseRoute =
+      /\b(?:dose|dosage|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(
+        query,
+      );
     const agitationOk = !/\bagitation|arousal\b/i.test(query) || /\bagitation|arousal\b/i.test(evidenceText);
     const accepted = hasDoseEvidence && hasDoseAmount && (!asksDoseRoute || hasRoute) && agitationOk;
     return {
@@ -5484,7 +5522,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     });
 
     const baseTextFastPath = decideTextFastPath(args.query, baseTextResults, queryClassification.queryClass);
-    if (shouldReturnBeforeMemory(queryClassification.queryClass, baseTextFastPath)) {
+    if (!args.forceEmbedding && shouldReturnBeforeMemory(queryClassification.queryClass, baseTextFastPath)) {
       textFastResults = await attachPageVisualEvidence(supabase, baseTextResults);
       textFastResults = applySecondStageRerankIfNeeded({
         queryClass: queryClassification.queryClass,
@@ -5535,7 +5573,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
 
     const boostedTextFastPath = decideTextFastPath(args.query, textFastResults, queryClassification.queryClass);
-    if (boostedTextFastPath.returnFastPath) {
+    if (!args.forceEmbedding && boostedTextFastPath.returnFastPath) {
       markEmbeddingSkippedByTextFastPath(telemetry, boostedTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
@@ -5641,7 +5679,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         documentLookupResults,
         queryClassification.queryClass,
       );
-      if (documentLookupFastPath.returnFastPath) {
+      if (!args.forceEmbedding && documentLookupFastPath.returnFastPath) {
         markEmbeddingSkippedByTextFastPath(
           telemetry,
           documentLookupFastPath.reason ? `document_lookup_fast_path:${documentLookupFastPath.reason}` : null,
@@ -5668,7 +5706,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     });
     const coverageGate = evaluateEvidenceCoverageGate(args.query, coverageGateResults, queryClassification.queryClass);
     applyCoverageGateTelemetry(telemetry, coverageGate, coverageGate.accepted);
-    if (coverageGate.accepted) {
+    if (!args.forceEmbedding && coverageGate.accepted) {
       telemetry.retrieval_strategy = coverageGate.strategy;
       recordSearchScoreTelemetry(telemetry, coverageGateResults);
       setCachedSearch(args, coverageGateResults, telemetry, queryVariants);
@@ -5712,6 +5750,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     latencyMs: telemetry.embedding_latency_ms,
   });
 
+  if (args.forceEmbedding) {
+    // Force-embedding eval isolation: drop the lexical / memory-card / table candidates gathered
+    // before embedding so the returned results reflect the embedding-driven retrieval layers only
+    // (otherwise a broken vector index could still be masked by the lexical text candidate path).
+    textFastResults = [];
+  }
+
   // A1: the embedding-field, index-unit, and chunk-hybrid RPCs each depend only on the
   // already-computed query embedding and have no data dependency on one another, so run
   // them concurrently instead of as three sequential Supabase round-trips. The two helper
@@ -5748,11 +5793,11 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       const startedAt = Date.now();
       const { data, error } = await supabase.rpc("match_document_chunks_hybrid", {
         query_embedding: embedding as unknown as string,
-        query_text: textSearchQuery,
+        query_text: args.forceEmbedding ? "" : textSearchQuery,
         match_count: candidateCount,
         min_similarity: minSimilarity,
         document_filters: documentFilterList ?? undefined,
-        owner_filter: args.ownerId ?? undefined,
+        owner_filter: requireOwnerScope(args.ownerId),
       });
       return { data, error, latencyMs: Date.now() - startedAt };
     })(),
@@ -5844,7 +5889,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         match_count: candidateCount,
         min_similarity: minSimilarity,
         document_filter: documentFilter ?? undefined,
-        owner_filter: args.ownerId ?? undefined,
+        owner_filter: requireOwnerScope(args.ownerId),
       });
 
       if (error) throw new Error(error.message);

@@ -55,6 +55,7 @@
     "backfill:text-normalization": "tsx scripts/backfill-text-normalization.ts",
     "check:supabase-project": "tsx scripts/check-supabase-project.ts",
     "check:indexing": "tsx scripts/check-indexing.ts",
+    "check:type-scale": "node scripts/check-type-scale.mjs",
     "recover:ingestion": "tsx scripts/recover-ingestion-queue.ts",
     "registry:seed": "tsx scripts/seed-registry-records.ts",
     "reindex": "tsx scripts/reindex.ts",
@@ -63,6 +64,7 @@
     "supabase:recovery-status": "tsx scripts/supabase-recovery-status.ts",
     "promote:query-misses": "tsx scripts/promote-query-misses.ts",
     "eval:rag": "node scripts/run-eval-safe.mjs scripts/eval-rag.ts",
+    "eval:answer-quality": "node scripts/run-eval-safe.mjs scripts/eval-answer-quality.ts",
     "eval:quality": "node scripts/run-eval-safe.mjs scripts/eval-quality.ts",
     "eval:quality:release": "npm run eval:quality -- --fail-on-threshold --source-metadata-debt docs/release-source-metadata-debt-2026-06-30.json",
     "eval:retrieval": "node scripts/run-eval-safe.mjs scripts/eval-retrieval.ts",
@@ -89,6 +91,7 @@
   },
   "dependencies": {
     "@next/env": "16.2.9",
+    "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.1",

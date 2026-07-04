@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyzeClinicalQuery, buildClinicalTextSearchQuery, rankClinicalResults } from "../src/lib/clinical-search";
+import { expandClinicalVocabularyText } from "../src/lib/clinical-vocabulary";
 import { selectRetrievalEvidence } from "../src/lib/retrieval-selection";
 import {
   buildRetrievalQueryVariants,
@@ -632,6 +633,34 @@ describe("retrieval query variants", () => {
     ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
   });
 
+  it("accepts SC and SL route evidence for dose-route fast gates", () => {
+    expect(
+      evaluateEvidenceCoverageGate(
+        "What SC route dose is listed?",
+        [
+          result({
+            content: "Medication chart: 2 mg subcutaneous administration is listed for the route option.",
+            similarity: 0.8,
+          }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
+
+    expect(
+      evaluateEvidenceCoverageGate(
+        "What SL route dose is listed?",
+        [
+          result({
+            content: "Medication chart: 2 mg sublingual administration is listed for the route option.",
+            similarity: 0.8,
+          }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
+  });
+
   it("requires direct source image evidence for source image/table requests", () => {
     const query = "Show the source table image for the patient property restricted items table.";
     expect(
@@ -953,6 +982,27 @@ describe("retrieval query variants", () => {
     expect(key).not.toEqual(retrievalPlanCacheQuery(baseArgs, "document_lookup", ["clozapine anc", "clozapine fbc"]));
     expect(key).not.toEqual(retrievalPlanCacheQuery(baseArgs, "table_threshold", ["different variant"]));
     expect(key).not.toEqual(retrievalPlanCacheQuery({ ...baseArgs, topK: 12 }, "table_threshold", ["clozapine anc"]));
+  });
+});
+
+describe("clinical abbreviation synonym expansion (CI-14)", () => {
+  it("expands the FBC/CBC lab family bidirectionally", () => {
+    // A clinician searching the US term "CBC" must reach FBC-only documents, and vice versa.
+    expect(expandClinicalVocabularyText("cbc")).toEqual(expect.arrayContaining(["full blood count", "fbc"]));
+    expect(expandClinicalVocabularyText("fbc")).toEqual(expect.arrayContaining(["full blood count", "cbc"]));
+    expect(expandClinicalVocabularyText("complete blood count")).toEqual(expect.arrayContaining(["fbc"]));
+  });
+
+  it("surfaces the FBC form into the retrieval analysis for a CBC query", () => {
+    // The expansion must reach analysis.expandedTerms, which feeds the query variants that
+    // are run against the lexical RPCs and unioned — recovering FBC-only chunks.
+    const analysis = analyzeClinicalQuery("clozapine CBC monitoring threshold");
+    expect(analysis.expandedTerms).toEqual(expect.arrayContaining(["fbc"]));
+  });
+
+  it("expands the subcutaneous and sublingual administration routes", () => {
+    expect(expandClinicalVocabularyText("give sc injection")).toEqual(expect.arrayContaining(["subcutaneous"]));
+    expect(expandClinicalVocabularyText("administer sublingual")).toEqual(expect.arrayContaining(["sublingual", "sl"]));
   });
 });
 

@@ -687,3 +687,23 @@ describe("Supabase schema Data API grants", () => {
     }
   });
 });
+
+describe("RC9 — lexical text path must not fabricate a cosine similarity", () => {
+  // Regression guard for RC9. The text-only fallback (match_document_chunks_text) has no vector
+  // cosine; an earlier version fabricated a synthetic `similarity` (0.56 + text_rank*0.39) that was
+  // read downstream as a real semantic score, letting a pure keyword hit masquerade as moderate/strong
+  // (>=0.64) evidence. The canonical definition in schema.sql now leaves similarity at 0 and carries
+  // the lexical signal in a hybrid_score capped below the 0.64 moderate gate (plus lexical_score).
+  // The two other lexical text RPCs (match_document_lookup_chunks_text / _table_facts_text) return only
+  // text_rank — no similarity/hybrid_score column to fabricate.
+  it("match_document_chunks_text returns similarity 0, not a synthetic score", () => {
+    expect(schema).toContain("0::double precision as similarity");
+    // The text path's hybrid_score is capped by least(0.5, ...) — strictly below the 0.64 moderate
+    // threshold — so a lexical-only row can order among its peers but never clears the moderate/strong
+    // evidence gate when merged with vector results. (Coefficients may be tuned; the 0.5 ceiling and
+    // text_rank basis are the invariant.)
+    expect(schema).toMatch(
+      /least\(0\.5, [0-9.]+ \+ \(least\(ranked\.text_rank, 1\) \* [0-9.]+\)\)::double precision as hybrid_score/,
+    );
+  });
+});

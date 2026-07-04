@@ -317,6 +317,21 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
+  // IDX-C2 fail-fast: verify the configured embedding dimension matches the schema's
+  // vector(N) columns before any indexing/DB work, so a model/dimension misconfiguration
+  // is caught here instead of silently corrupting retrieval at write time.
+  const { readFile } = await import("node:fs/promises");
+  const { fileURLToPath } = await import("node:url");
+  const { describeSchemaDimensionMismatch } = await import("@/lib/embedding-dimensions");
+  const schemaPath = fileURLToPath(new URL("../supabase/schema.sql", import.meta.url));
+  const dimensionProblem = describeSchemaDimensionMismatch(
+    env.EMBEDDING_DIMENSIONS,
+    await readFile(schemaPath, "utf8"),
+  );
+  if (dimensionProblem) {
+    throw new Error(`Embedding dimension check failed: ${dimensionProblem}`);
+  }
+
   const prereqs = await checkPythonPdfPrerequisites();
   if (!prereqs.ok) {
     throw new Error(`PDF/OCR prerequisite check failed: ${prereqs.detail}`);
