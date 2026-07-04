@@ -4,8 +4,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { recentQueryStorageKey, SettingsDialog } from "@/components/ClinicalDashboard";
+import { recentQueryStorageKey } from "@/components/ClinicalDashboard";
+import { SettingsDialog } from "@/components/clinical-dashboard/settings/settings-dialog";
+import type { SettingsSectionId } from "@/components/clinical-dashboard/settings/types";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   ClinicalDesktopSidebar,
@@ -128,7 +129,7 @@ function GlobalMockupSearchShellClient({
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSectionId>("general");
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const { theme, toggleTheme } = useTheme();
@@ -152,6 +153,9 @@ function GlobalMockupSearchShellClient({
       (searchMode === "forms" && pathname === "/forms") ||
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials"));
+  /** Favourites needs library/results visible above the fold — skip hero composer there. */
+  const useHeroModeHome =
+    isStandaloneModeHome && searchMode !== "favourites" && searchMode !== "prescribing";
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
@@ -214,28 +218,22 @@ function GlobalMockupSearchShellClient({
 
   function openGuide() {
     setSettingsOpen(false);
-    setAccountSetupOpen(false);
     setMobileMenuOpen(false);
     setGuideOpen(true);
   }
 
   function openSettings() {
     setGuideOpen(false);
-    setAccountSetupOpen(false);
     setMobileMenuOpen(false);
+    setSettingsInitialSection("general");
     setSettingsOpen(true);
   }
 
   function openAccountProfile() {
     setGuideOpen(false);
     setMobileMenuOpen(false);
-    if (sidebarIdentity.signedIn) {
-      setAccountSetupOpen(false);
-      setSettingsOpen(true);
-      return;
-    }
-    setSettingsOpen(false);
-    setAccountSetupOpen(true);
+    setSettingsInitialSection("account");
+    setSettingsOpen(true);
   }
 
   function navigateToMode(mode: AppModeId, options: { query?: string; run?: boolean; focus?: boolean } = {}) {
@@ -397,13 +395,15 @@ function GlobalMockupSearchShellClient({
             // Submitted searches that stay in the shell (services results) are
             // result views: compact the phone bottom composer so results keep
             // maximum screen space. Mode homes keep the chip-row layout.
-            mobileBottomSearchVariant={useCompactBottomSearch ? "compact" : "default"}
+            mobileBottomSearchVariant={
+              useCompactBottomSearch || (isStandaloneModeHome && searchMode === "favourites") ? "compact" : "default"
+            }
             desktopSearchPlacement={
-              (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
+              (desktopSearchPlacement === "hero" || isFormsOnlyShell) && useHeroModeHome ? "hero" : "default"
             }
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-            heroComposerFromTablet={isStandaloneModeHome}
+            heroComposerFromTablet={useHeroModeHome}
             // Phone-only: the document scrolls here and the header is sticky,
             // so a translate overlay hides it with zero layout shift.
             hideOnScroll={{ strategy: "overlay" }}
@@ -448,14 +448,12 @@ function GlobalMockupSearchShellClient({
       <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
       <SettingsDialog
         open={settingsOpen}
+        initialSection={settingsInitialSection}
         onClose={() => setSettingsOpen(false)}
         identity={sidebarIdentity}
-        theme={theme}
-        onToggleTheme={toggleTheme}
         onSignOut={auth.signOut}
         onOpenGuide={openGuide}
       />
-      <AccountSetupDialog open={accountSetupOpen} onClose={() => setAccountSetupOpen(false)} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
         // The workflow header keeps its menu trigger past md, so the drawer

@@ -231,17 +231,17 @@ const documents: DocumentFixture[] = [
 const defaultDocument = documents[0];
 const defaultQuery = "clozapine monitoring table";
 const sourceCategoryCounts = [
-  ["All sources", "2,065"],
-  ["Guidelines", "842"],
-  ["Procedures", "468"],
-  ["Reference", "411"],
-  ["Education", "344"],
+  ["All sources", "Sample 2,065"],
+  ["Guidelines", "Sample 842"],
+  ["Procedures", "Sample 468"],
+  ["Reference", "Sample 411"],
+  ["Education", "Sample 344"],
   ["Policies", "-"],
 ] as const;
 const libraryCategoryCounts = [
-  ["Favorites", "23"],
-  ["Recent", "12"],
-  ["My notes", "8"],
+  ["Favorites", "Sample 23"],
+  ["Recent", "Sample 12"],
+  ["My notes", "Sample 8"],
 ] as const;
 const monitoringTableHeadings = ["Treatment duration", "Frequency", "Test", "Action threshold"] as const;
 const monitoringTableRows = [
@@ -621,7 +621,7 @@ export function MasterDocumentSearch() {
                 <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
                   Documents
                 </p>
-                <h1 className="mt-1 text-3xl font-extrabold tracking-normal text-[color:var(--text-heading)] md:text-2xl">
+                <h1 className="mt-1 text-2xl font-extrabold tracking-normal text-[color:var(--text-heading)] sm:text-3xl">
                   <span className="md:hidden">Find source evidence</span>
                   <span className="hidden md:inline">Search command centre</span>
                 </h1>
@@ -631,18 +631,19 @@ export function MasterDocumentSearch() {
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[color:var(--text-muted)] max-sm:w-full">
                 <Pill tone="green" icon={CheckCircle2}>
-                  2,065 indexed
+                  Sample · 2,065 indexed
                 </Pill>
-                <span className="hidden sm:inline-flex">
+                <span className="hidden sm:inline-flex" title="Coming soon">
                   <Pill icon={Bookmark}>Save search</Pill>
                 </span>
                 <button
                   type="button"
+                  disabled
+                  title="Coming soon"
                   className={cn(
-                    "ml-auto grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] sm:hidden",
-                    focusRing,
+                    "ml-auto grid h-11 w-11 cursor-not-allowed place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-soft)] opacity-60 sm:hidden",
                   )}
-                  aria-label="More search actions"
+                  aria-label="More search actions (coming soon)"
                 >
                   <MoreVertical className="h-5 w-5" aria-hidden="true" />
                 </button>
@@ -669,14 +670,14 @@ export function MasterDocumentSearch() {
                   )}
                 >
                   {label}
-                  <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               ))}
               <button
                 type="button"
+                disabled
+                title="Coming soon"
                 className={cn(
-                  "inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-3 text-xs font-bold text-[color:var(--success)] shadow-[var(--shadow-inset)] md:hidden",
-                  focusRing,
+                  "inline-flex min-h-9 shrink-0 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-3 text-xs font-bold text-[color:var(--success)] opacity-70 shadow-[var(--shadow-inset)] md:hidden",
                 )}
               >
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
@@ -684,38 +685,34 @@ export function MasterDocumentSearch() {
               </button>
               <button
                 className={cn(
-                  "inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]",
-                  focusRing,
+                  "inline-flex min-h-9 shrink-0 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-bold text-[color:var(--text-soft)] opacity-70 shadow-[var(--shadow-inset)]",
                 )}
                 type="button"
+                disabled
+                title="Coming soon"
               >
                 <Filter className="h-4 w-4" aria-hidden="true" />
                 More filters
               </button>
-              <div className="ml-auto hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)] sm:flex">
-                <button
-                  type="button"
-                  className="inline-flex min-h-8 items-center gap-1 rounded-md bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)]"
-                >
+              <div className="ml-auto hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1 opacity-70 shadow-[var(--shadow-inset)] sm:flex">
+                <span className="inline-flex min-h-8 items-center gap-1 rounded-md bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)]">
                   <Table2 className="h-3.5 w-3.5" />
                   Table
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex min-h-8 items-center gap-1 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)]"
-                >
+                </span>
+                <span className="inline-flex min-h-8 items-center gap-1 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)]">
                   <List className="h-3.5 w-3.5" />
                   List
-                </button>
+                </span>
               </div>
             </div>
             <div className="flex items-center justify-between md:hidden">
               <p className="text-lg font-extrabold text-[color:var(--text-heading)]">{filtered.length} results</p>
               <button
                 type="button"
+                disabled
+                title="Coming soon"
                 className={cn(
-                  "inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]",
-                  focusRing,
+                  "inline-flex min-h-10 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--text-soft)] opacity-70 shadow-[var(--shadow-inset)]",
                 )}
               >
                 Sort: Relevance
@@ -989,7 +986,7 @@ export function MasterDocumentReader() {
               <ArrowLeft className="h-6 w-6" aria-hidden="true" />
             </Link>
             <h1 className="min-w-0 flex-1 truncate text-lg font-extrabold text-[color:var(--text-heading)]">
-              Clozapine guidelines
+              {document.shortTitle}
             </h1>
             <IconButton label="Bookmark document" icon={Bookmark} />
             <IconButton label="More document actions" icon={MoreVertical} />
@@ -1519,7 +1516,7 @@ export function MasterEvidenceDetail() {
                   <Pill active icon={ShieldCheck}>
                     Reusable source object
                   </Pill>
-                  <h2 className="mt-3 text-3xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-xl">
+                  <h2 className="mt-3 text-xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-2xl">
                     {evidence.title}
                   </h2>
                   <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">

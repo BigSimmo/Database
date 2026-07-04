@@ -20,6 +20,7 @@ export function SearchResultsHeaderBand({
   sortValue = "relevance",
   onSortChange,
   onSaveSearch,
+  compact = false,
   className,
 }: {
   modeId: AppModeId;
@@ -31,6 +32,7 @@ export function SearchResultsHeaderBand({
   sortValue?: string;
   onSortChange?: (value: string) => void;
   onSaveSearch?: () => void;
+  compact?: boolean;
   className?: string;
 }) {
   const command = useSearchCommand();
@@ -41,15 +43,21 @@ export function SearchResultsHeaderBand({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]",
+        "flex flex-wrap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]",
+        compact ? "px-2.5 py-1.5" : "px-3 py-2",
         className,
       )}
     >
-      <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)]">
-        <Search className="h-3 w-3" aria-hidden />
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] font-bold text-[color:var(--clinical-accent)]",
+          compact ? "min-h-7 px-2 text-2xs" : "min-h-8 px-2.5 text-xs",
+        )}
+      >
+        <Search className={cn(compact ? "h-2.5 w-2.5" : "h-3 w-3")} aria-hidden />
         {displayQuery}
       </span>
-      <span className="text-sm font-extrabold text-[color:var(--text-heading)]">
+      <span className={cn("font-extrabold text-[color:var(--text-heading)]", compact ? "text-xs" : "text-sm")}>
         {loading ? "Searching…" : `${matchCount} ${matchCount === 1 ? "match" : "matches"}`}
       </span>
       {activeScopes.map((scopeId) => {
@@ -61,7 +69,8 @@ export function SearchResultsHeaderBand({
             type="button"
             onClick={() => command?.onRemoveScope(scope.id)}
             className={cn(
-              "inline-flex min-h-8 items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]",
+              "inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]",
+              compact ? "min-h-7 px-2 text-2xs" : "min-h-8 px-2.5 text-xs",
               focusRing,
             )}
           >
@@ -70,7 +79,7 @@ export function SearchResultsHeaderBand({
           </button>
         );
       })}
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className={cn("ml-auto flex items-center gap-1.5", compact && "hidden")}>
         {onSortChange ? (
           <label className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-muted)]">
             Sort

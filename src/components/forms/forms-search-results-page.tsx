@@ -39,9 +39,8 @@ type FormsSearchResultsPageProps = {
 };
 
 const resultCodes = ["4A", "4B", "3A", "5", "2B", "1A"];
-const sourceSnippetCount = 278;
-const taskCount = 8;
-const pathwayCount = 12;
+
+const disabledControlClass = "cursor-not-allowed opacity-60";
 
 function resultCode(index: number) {
   return resultCodes[index] ?? String(index + 1);
@@ -68,27 +67,37 @@ function compactMatchReason(match: FormSearchMatch) {
 }
 
 function ResultTabs({ formsCount }: { formsCount: number }) {
-  const tabs = [
-    ["Results", null],
-    ["Forms", formsCount],
-    ["Evidence", sourceSnippetCount],
-    ["Pathways", pathwayCount],
-    ["Tasks", taskCount],
-  ] as const;
+  const tabs: Array<{
+    label: string;
+    count: number | null;
+    active: boolean;
+    disabled: boolean;
+    soon?: boolean;
+  }> = [
+    { label: "Results", count: null, active: true, disabled: false },
+    { label: "Forms", count: formsCount, active: false, disabled: true },
+    { label: "Evidence", count: null, active: false, disabled: true, soon: true },
+    { label: "Pathways", count: null, active: false, disabled: true, soon: true },
+    { label: "Tasks", count: null, active: false, disabled: true, soon: true },
+  ];
 
   return (
     <nav
       aria-label="Forms search sections"
       className="flex min-w-0 items-end gap-7 border-b border-[color:var(--border)] text-sm font-extrabold text-[color:var(--text)]"
     >
-      {tabs.map(([label, count], index) => (
+      {tabs.map(({ label, count, active, disabled, soon }) => (
         <button
           key={label}
           type="button"
+          disabled={disabled}
+          aria-disabled={disabled}
+          title={disabled && !active ? "Soon" : undefined}
           className={cn(
             "relative -mb-px flex min-h-14 items-center gap-2 whitespace-nowrap rounded-t-md",
             searchFocusRing,
-            index === 0 ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text)]",
+            active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
+            disabled && disabledControlClass,
           )}
         >
           {label}
@@ -97,7 +106,12 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
               {count}
             </span>
           ) : null}
-          {index === 0 ? (
+          {soon ? (
+            <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-3xs font-bold uppercase text-[color:var(--text-muted)]">
+              Soon
+            </span>
+          ) : null}
+          {active ? (
             <span className="absolute bottom-0 left-0 h-1 w-full rounded-t-full bg-[color:var(--clinical-accent)]" />
           ) : null}
         </button>
@@ -177,9 +191,12 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
       <div className="flex justify-center border-t border-[color:var(--border)] p-4">
         <button
           type="button"
+          disabled
+          aria-disabled
+          title="Soon"
           className={cn(
-            "inline-flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
-            searchFocusRing,
+            "inline-flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--text-muted)]",
+            disabledControlClass,
           )}
         >
           View all forms ({matches.length})
@@ -222,9 +239,12 @@ function RefineRail() {
         <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Refine</h2>
         <button
           type="button"
+          disabled
+          aria-disabled
+          title="Soon"
           className={cn(
-            "rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
-            searchFocusRing,
+            "rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--text-muted)]",
+            disabledControlClass,
           )}
         >
           Reset
@@ -274,7 +294,7 @@ function NextSteps() {
 
 function SourceSnapshot() {
   const rows = [
-    ["Source snippets", String(sourceSnippetCount)],
+    ["Source snippets", "Sample · demo"],
     ["Source", "Official source"],
     ["Act sections", "29, 63, 67, 92, 112, 129, 133, 148, 154"],
     ["Review due", "01 May 2026"],
@@ -465,9 +485,12 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
       </div>
       <button
         type="button"
+        disabled
+        aria-disabled
+        title="Soon"
         className={cn(
-          "mx-auto mt-1.5 flex min-h-8 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
-          searchFocusRing,
+          "mx-auto mt-1.5 flex min-h-8 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--text-muted)]",
+          disabledControlClass,
         )}
       >
         View all forms ({matches.length})
@@ -600,6 +623,9 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
           <RegistryStatusNotice status={registry.status} />
           {registryReady ? (
             <>
+              <div className="lg:hidden">
+                <SearchResultsHeaderBand modeId="forms" query={query} matchCount={scopedMatches.length} compact />
+              </div>
               <div className="hidden lg:block">
                 <SearchResultsHeaderBand modeId="forms" query={query} matchCount={scopedMatches.length} />
               </div>
@@ -641,15 +667,18 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
           <NextSteps />
           <button
             type="button"
+            disabled
+            aria-disabled
+            title="Soon"
             className={cn(
-              "mx-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-8 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-soft)]",
-              searchFocusRing,
+              "mx-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-8 text-sm font-extrabold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]",
+              disabledControlClass,
             )}
           >
             <SlidersHorizontal className="h-5 w-5" />
             Filters
-            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] px-1 text-3xs text-[color:var(--clinical-accent-contrast)]">
-              3
+            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[color:var(--surface-subtle)] px-1 text-3xs text-[color:var(--text-muted)]">
+              Soon
             </span>
           </button>
           <VerifiedFooter />
