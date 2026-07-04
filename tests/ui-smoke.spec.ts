@@ -11,6 +11,7 @@ const dashboardViewports = [
   { name: "mobile-landscape", width: 667, height: 375 },
 ] as const;
 const uiAssertionTimeoutMs = 5_000;
+const guideHelpButtonNamePattern = /Guide\s*(?:&|and)\s*help/i;
 
 async function expectNoPageHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => {
@@ -502,7 +503,7 @@ async function openGuide(page: Page) {
   const viewport = page.viewportSize();
   const trigger =
     viewport && viewport.width >= 1024
-      ? page.getByRole("button", { name: /Guide and help/i }).first()
+      ? page.getByRole("button", { name: guideHelpButtonNamePattern }).first()
       : null;
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
   if (trigger) {
@@ -515,7 +516,7 @@ async function openGuide(page: Page) {
     }).toPass({ timeout: 10_000 });
   } else {
     const menu = await openMobileClinicalGuideMenu(page);
-    await menu.getByRole("button", { name: /Guide\s*(?:&|and)\s*help/i }).click();
+    await menu.getByRole("button", { name: guideHelpButtonNamePattern }).click();
     await expect(dialog).toBeVisible();
   }
 
