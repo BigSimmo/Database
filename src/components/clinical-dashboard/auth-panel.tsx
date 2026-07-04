@@ -14,7 +14,7 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { AUTH_EMAIL_STORAGE_KEY, useAuthSession } from "@/lib/supabase/client";
+import { AUTH_EMAIL_STORAGE_KEY, type OAuthProvider, useAuthSession } from "@/lib/supabase/client";
 import {
   cn,
   fieldControlWithIcon,
@@ -55,7 +55,7 @@ function subscribeAuthEmail(onStoreChange: () => void) {
 }
 
 export function AuthPanel() {
-  const { status, error, isConfigured, signInWithEmail, signOut, session } = useAuthSession();
+  const { status, error, isConfigured, signInWithEmail, signInWithOAuth, signOut, session } = useAuthSession();
   const savedEmail = useSyncExternalStore(subscribeAuthEmail, getAuthEmailSnapshot, getServerAuthEmailSnapshot);
   const [draftEmail, setDraftEmail] = useState<string | null>(null);
   const [providerNotice, setProviderNotice] = useState<string | null>(null);
@@ -70,7 +70,14 @@ export function AuthPanel() {
     await signInWithEmail(email.trim());
   }
 
-  function chooseProvider(provider: string) {
+  async function chooseProvider(provider: "Apple" | "Google" | "Microsoft") {
+    setProviderNotice(null);
+    const providerId: OAuthProvider | null =
+      provider === "Google" ? "google" : provider === "Microsoft" ? "azure" : null;
+    if (providerId) {
+      await signInWithOAuth(providerId);
+      return;
+    }
     setProviderNotice(`${provider} sign-in is a placeholder for now. Continue with email to use this workspace.`);
   }
 
