@@ -1018,7 +1018,9 @@ export function ApplicationsLauncherWorkspace({
             <div className="hidden min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] sm:inline-flex">
               Sort by
               <span className="text-[color:var(--text-heading)]">A to Z</span>
-              <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-3xs font-bold uppercase">Soon</span>
+              <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-3xs font-bold uppercase">
+                Soon
+              </span>
             </div>
           </div>
         </div>

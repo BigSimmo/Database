@@ -691,7 +691,13 @@ function SearchResultsView({
       className="mx-auto grid w-full max-w-[86rem] gap-4 overflow-x-hidden px-3 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:px-4 lg:px-0 lg:pb-0"
     >
       <div className="lg:hidden">
-        <SearchResultsHeaderBand modeId="differentials" query={query} matchCount={results.length} loading={loading} compact />
+        <SearchResultsHeaderBand
+          modeId="differentials"
+          query={query}
+          matchCount={results.length}
+          loading={loading}
+          compact
+        />
       </div>
       <div className="hidden lg:block">
         <SearchResultsHeaderBand modeId="differentials" query={query} matchCount={results.length} loading={loading} />

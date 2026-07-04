@@ -5,8 +5,7 @@ import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRe
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
 import { recentQueryStorageKey } from "@/components/ClinicalDashboard";
-import { SettingsDialog } from "@/components/clinical-dashboard/settings/settings-dialog";
-import type { SettingsSectionId } from "@/components/clinical-dashboard/settings/types";
+import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   ClinicalDesktopSidebar,
@@ -129,7 +128,6 @@ function GlobalMockupSearchShellClient({
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSectionId>("general");
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const { theme, toggleTheme } = useTheme();
@@ -154,8 +152,7 @@ function GlobalMockupSearchShellClient({
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials"));
   /** Favourites needs library/results visible above the fold — skip hero composer there. */
-  const useHeroModeHome =
-    isStandaloneModeHome && searchMode !== "favourites" && searchMode !== "prescribing";
+  const useHeroModeHome = isStandaloneModeHome && searchMode !== "favourites";
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
@@ -225,14 +222,12 @@ function GlobalMockupSearchShellClient({
   function openSettings() {
     setGuideOpen(false);
     setMobileMenuOpen(false);
-    setSettingsInitialSection("general");
     setSettingsOpen(true);
   }
 
   function openAccountProfile() {
     setGuideOpen(false);
     setMobileMenuOpen(false);
-    setSettingsInitialSection("account");
     setSettingsOpen(true);
   }
 
@@ -448,9 +443,10 @@ function GlobalMockupSearchShellClient({
       <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
       <SettingsDialog
         open={settingsOpen}
-        initialSection={settingsInitialSection}
         onClose={() => setSettingsOpen(false)}
         identity={sidebarIdentity}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         onSignOut={auth.signOut}
         onOpenGuide={openGuide}
       />

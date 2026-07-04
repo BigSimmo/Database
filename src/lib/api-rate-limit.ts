@@ -147,9 +147,12 @@ async function consumeAnonymousApiRateLimit(args: {
   const row = parseRateLimitRow(data);
   if (!row || typeof row.limited !== "boolean") {
     if (args.allowInMemoryFallbackOnUnavailable) {
-      console.warn("Durable anonymous API rate limit check returned an invalid payload; using local in-memory fallback.", {
-        bucket: args.bucket,
-      });
+      console.warn(
+        "Durable anonymous API rate limit check returned an invalid payload; using local in-memory fallback.",
+        {
+          bucket: args.bucket,
+        },
+      );
       return consumeInMemoryApiRateLimit({
         ownerId: args.subjectKey,
         bucket: args.bucket,

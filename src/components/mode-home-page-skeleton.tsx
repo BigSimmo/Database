@@ -1,12 +1,18 @@
 import { cn } from "@/components/ui-primitives";
 
 function SkeletonBlock({ className }: { className?: string }) {
-  return <span className={cn("block animate-pulse rounded-md bg-[color:var(--surface-subtle)]", className)} aria-hidden />;
+  return (
+    <span className={cn("block animate-pulse rounded-md bg-[color:var(--surface-subtle)]", className)} aria-hidden />
+  );
 }
 
 export function ModeHomePageSkeleton() {
   return (
-    <div className="mx-auto grid w-full max-w-3xl justify-items-center gap-4 px-4 py-8" role="status" aria-label="Loading">
+    <div
+      className="mx-auto grid w-full max-w-3xl justify-items-center gap-4 px-4 py-8"
+      role="status"
+      aria-label="Loading"
+    >
       <SkeletonBlock className="h-14 w-14 rounded-2xl sm:h-16 sm:w-16" />
       <div className="grid w-full justify-items-center gap-2">
         <SkeletonBlock className="h-8 w-2/3 max-w-sm" />
@@ -33,7 +39,11 @@ export function ModeHomeRouteLoading() {
 
 export function DocumentSearchPageSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-[104rem] space-y-4 px-3 py-4 sm:px-5" role="status" aria-label="Loading documents">
+    <div
+      className="mx-auto w-full max-w-[104rem] space-y-4 px-3 py-4 sm:px-5"
+      role="status"
+      aria-label="Loading documents"
+    >
       <SkeletonBlock className="h-8 w-48" />
       <SkeletonBlock className="h-12 w-full max-w-2xl rounded-xl" />
       <div className="grid gap-3">
