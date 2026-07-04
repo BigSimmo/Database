@@ -266,9 +266,8 @@ function GlobalMockupSearchShellClient({
   function startNewAnswerChat() {
     setQuery("");
     setMobileMenuOpen(false);
-    // On standalone mode routes (favourites, services, etc.) keep the user in
-    // that workspace and only clear the query — same as sidebar "New chat".
-    navigateToMode(searchMode === "answer" ? "answer" : searchMode, { focus: true });
+    setSearchMode("answer");
+    navigateToMode("answer", { focus: true });
   }
 
   function pickRecentQuery(recentQuery: string) {
