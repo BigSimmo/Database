@@ -34,6 +34,7 @@ import {
 import { ReactNode, useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { documentEvidenceHref, documentReaderHref, documentsSearchHref } from "@/lib/document-flow-routes";
 
 type EvidenceType = "table" | "quote" | "image" | "related";
 
@@ -250,26 +251,22 @@ const monitoringTableRows = [
 ] as const;
 
 function documentHref(document: DocumentFixture, query = defaultQuery) {
-  const params = new URLSearchParams({
-    mode: "documents",
+  return documentReaderHref({
     document: document.slug,
-    q: query,
+    query,
     page: String(document.page),
     chunk: document.chunk,
   });
-  return `/mockups/document-search/source?${params.toString()}`;
 }
 
 function evidenceHref(document: DocumentFixture, evidence: EvidenceFixture, query = defaultQuery) {
-  const params = new URLSearchParams({
-    mode: "documents",
+  return documentEvidenceHref({
     document: document.slug,
     evidence: evidence.id,
-    q: query,
+    query,
     page: String(evidence.page),
     chunk: evidence.id,
   });
-  return `/mockups/document-search/source/evidence?${params.toString()}`;
 }
 
 function findDocument(slug: string | null) {
@@ -281,10 +278,7 @@ function findEvidence(document: DocumentFixture, id: string | null) {
 }
 
 function searchHref(query = defaultQuery) {
-  const params = new URLSearchParams({ mode: "documents" });
-  const normalizedQuery = query.trim();
-  if (normalizedQuery) params.set("q", normalizedQuery);
-  return `/mockups/document-search-command?${params.toString()}`;
+  return documentsSearchHref({ query });
 }
 
 function primaryEvidence(document: DocumentFixture) {
@@ -527,175 +521,6 @@ function SearchResultMobileCard({
   );
 }
 
-function SelectedSourceTray({
-  selected,
-  selectedEvidence,
-  query,
-}: {
-  selected: DocumentFixture;
-  selectedEvidence: EvidenceFixture;
-  query: string;
-}) {
-  return (
-    <aside className="fixed inset-x-0 bottom-[calc(7.25rem+env(safe-area-inset-bottom))] z-20 mx-auto max-h-[42dvh] overflow-y-auto rounded-t-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-3 shadow-[0_18px_60px_rgb(15_23_42_/_16%)] md:inset-x-3 md:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] md:max-h-none md:max-w-[88rem] md:rounded-lg lg:left-[calc(var(--clinical-sidebar-width,0px)+4.5rem)]">
-      <div
-        className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-[color:var(--border-strong)] md:hidden"
-        aria-hidden="true"
-      />
-      <div className="md:hidden">
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3">
-          <FileTile />
-          <div className="min-w-0">
-            <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
-              Selected source
-            </p>
-            <p className="line-clamp-2 text-base font-extrabold leading-5 text-[color:var(--text-heading)]">
-              {selected.title}
-            </p>
-            <p className="mt-0.5 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-              {selected.kind} · {selected.version}
-            </p>
-          </div>
-          <Link
-            href={documentHref(selected, query)}
-            className={cn(
-              "grid h-12 w-12 place-items-center rounded-full bg-[color:var(--command)] text-[color:var(--command-contrast)]",
-              focusRing,
-            )}
-            aria-label="Open selected document"
-          >
-            <ExternalLink className="h-5 w-5" aria-hidden="true" />
-          </Link>
-          <Link
-            href={evidenceHref(selected, selectedEvidence, query)}
-            className={cn(
-              "grid h-12 w-12 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-              focusRing,
-            )}
-            aria-label="Open selected evidence"
-          >
-            <Table2 className="h-5 w-5" aria-hidden="true" />
-          </Link>
-        </div>
-        <div className="mt-4 grid grid-cols-3 border-b border-[color:var(--border)] text-sm font-bold">
-          {["Evidence", "Why matched", "Actions"].map((item, index) => (
-            <button
-              key={item}
-              type="button"
-              className={cn(
-                "min-h-11 border-b-2 px-2",
-                focusRing,
-                index === 0
-                  ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
-                  : "border-transparent text-[color:var(--text-muted)]",
-              )}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-        <div className="mt-3 space-y-3">
-          <Link
-            href={evidenceHref(selected, selectedEvidence, query)}
-            className={cn(
-              "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3",
-              focusRing,
-            )}
-          >
-            <Table2 className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-            <span className="min-w-0">
-              <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">
-                {evidenceTypeLabel(selectedEvidence.type)} · p.{selectedEvidence.page} · {selectedEvidence.relevance}%
-              </span>
-              <span className="mt-0.5 block truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                {selectedEvidence.title}
-              </span>
-            </span>
-            <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden="true" />
-          </Link>
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-              Matched terms
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {selectedEvidence.terms.slice(0, 3).map((term) => (
-                <Pill key={term}>{term}</Pill>
-              ))}
-            </div>
-          </div>
-          <p className="flex items-start gap-2 text-sm font-semibold leading-6 text-[color:var(--text-muted)]">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--success)]" aria-hidden="true" />
-            Exact table match with high term coverage in title and content.
-          </p>
-        </div>
-      </div>
-      <div className="hidden gap-3 md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-        <div className="flex min-w-0 items-center gap-3">
-          <FileTile />
-          <div className="min-w-0">
-            <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
-              Selected source
-            </p>
-            <p className="truncate text-sm font-extrabold text-[color:var(--text-heading)]">{selected.title}</p>
-            <p className="truncate text-xs font-semibold text-[color:var(--text-muted)]">
-              {selected.kind} · {selected.version} · {selected.source}
-            </p>
-          </div>
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Evidence on page
-          </p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            <Pill active>{selectedEvidence.label}</Pill>
-            <Pill>p.{selectedEvidence.page}</Pill>
-            <Pill>{selectedEvidence.chunk}</Pill>
-          </div>
-        </div>
-        <div className="hidden min-w-0 sm:block">
-          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Matched terms
-          </p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {selected.terms.slice(0, 4).map((term) => (
-              <Pill key={term}>{term}</Pill>
-            ))}
-          </div>
-        </div>
-        <div className="hidden min-w-0 xl:block">
-          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Why matched
-          </p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-[color:var(--text-muted)]">
-            Exact table match, high term coverage, current source.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-end">
-          <Link
-            href={documentHref(selected, query)}
-            className={cn(
-              "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)]",
-              focusRing,
-            )}
-          >
-            Open document
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-          </Link>
-          <Link
-            href={evidenceHref(selected, selectedEvidence, query)}
-            className={cn(
-              "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]",
-              focusRing,
-            )}
-          >
-            Open evidence
-          </Link>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
 function DocumentShell({ children, hideSidebar = false }: { children: ReactNode; hideSidebar?: boolean }) {
   return (
     <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--text)]">
@@ -785,14 +610,11 @@ export function MasterDocumentSearch() {
     });
   }, [query, type]);
 
-  const selected = filtered[0] ?? defaultDocument;
-  const selectedEvidence = selected.evidence[0] ?? defaultDocument.evidence[0];
-
   return (
     <DocumentShell>
       <div className="grid min-h-[calc(100dvh-4rem)] xl:grid-cols-[12rem_minmax(0,1fr)]">
         <DocumentSearchCategoryRail />
-        <div className="mx-auto flex min-h-[calc(100dvh-4rem)] min-w-0 w-full max-w-[104rem] flex-col px-3 py-4 pb-[calc(20rem+env(safe-area-inset-bottom))] sm:px-5 md:pb-32 lg:px-6">
+        <div className="mx-auto flex min-h-[calc(100dvh-4rem)] min-w-0 w-full max-w-[104rem] flex-col px-3 py-4 pb-24 sm:px-5 md:pb-12 lg:px-6">
           <header className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -994,8 +816,6 @@ export function MasterDocumentSearch() {
               <SearchResultMobileCard key={document.slug} document={document} query={query} selected={index === 0} />
             ))}
           </section>
-
-          <SelectedSourceTray selected={selected} selectedEvidence={selectedEvidence} query={query} />
         </div>
       </div>
     </DocumentShell>

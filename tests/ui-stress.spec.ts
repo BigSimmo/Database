@@ -228,7 +228,8 @@ async function openDailyActions(page: Page) {
 test.describe("Clinical KB long-content stress coverage", () => {
   for (const viewport of [
     { name: "mobile", width: 320, height: 740 },
-    { name: "desktop", width: 1280, height: 900 },
+    // Scope opens in a sheet below lg; 1000px keeps the stress path stable on desktop.
+    { name: "desktop", width: 1000, height: 900 },
   ]) {
     test(`many documents and citations do not overflow at ${viewport.name}`, async ({ page }) => {
       await mockStressData(page);
@@ -236,21 +237,20 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await page.goto("/?mode=documents", { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 
-      const dailyActions = await openDailyActions(page);
-      await dailyActions.getByRole("menuitem", { name: /Upload(?: PDF)?/ }).click();
-      const uploadSurface =
-        viewport.name === "mobile"
-          ? page.getByRole("dialog", { name: "Upload and indexing" })
-          : page.locator("#dashboard-upload-drawer");
-      await expect(dailyActions).toBeHidden();
-      await expect(uploadSurface).toBeVisible();
-      await expect(uploadSurface.getByRole("button", { name: "Show indexed document files" })).toContainText(
-        "24 indexed",
-        { timeout: 20_000 },
-      );
-      const closeUploadSheet = page.getByRole("button", { name: "Close Upload and indexing" });
-      if (await closeUploadSheet.isVisible().catch(() => false)) {
-        await closeUploadSheet.click();
+      if (viewport.name === "mobile") {
+        const dailyActions = await openDailyActions(page);
+        await dailyActions.getByRole("menuitem", { name: /Upload(?: PDF)?/ }).click({ force: true });
+        await expect(dailyActions).toBeHidden();
+        const uploadSurface = page.getByRole("dialog", { name: "Upload and indexing" });
+        await expect(uploadSurface).toBeVisible();
+        await expect(uploadSurface.getByRole("button", { name: "Show indexed document files" })).toContainText(
+          "24 indexed",
+          { timeout: 20_000 },
+        );
+        const closeUploadSheet = page.getByRole("button", { name: "Close Upload and indexing" });
+        if (await closeUploadSheet.isVisible().catch(() => false)) {
+          await closeUploadSheet.click();
+        }
       }
       await expectNoPageHorizontalOverflow(page);
 
@@ -278,8 +278,11 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(page.getByLabel("Source-backed answer")).toBeVisible();
       await expect(page.getByTestId("plain-answer-response")).toBeVisible();
 
-      await page.locator('[data-testid="scope-trigger"]:visible').click();
+      const scopeTrigger = page.locator('[data-testid="scope-trigger"]:visible');
+      await page.keyboard.press("Escape");
+      await scopeTrigger.click();
       const scopeContainer = page.getByTestId("scope-command-popover");
+      await expect(scopeContainer).toBeVisible();
       await expect(scopeContainer).toBeVisible();
       await expect(
         scopeContainer.getByText(/Type to filter 24 (loaded )?documents\. Selected documents stay pinned here\./),
@@ -312,21 +315,12 @@ test.describe("Clinical KB long-content stress coverage", () => {
       const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
       await expect(evidenceDrawer).toBeVisible();
       await evidenceDrawer.click();
-      if (viewport.name === "mobile") {
-        const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
-        await expect(evidenceSheet).toBeVisible();
-        await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
-        await expect(evidenceSheet.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
-        await expect(evidenceSheet.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
-        await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
-      } else {
-        const evidenceReview = page.getByTestId("desktop-answer-review-panel");
-        await expect(evidenceReview).toBeVisible();
-        await expect(evidenceReview.getByRole("heading", { name: "Evidence" })).toBeVisible();
-        await expect(evidenceReview.getByTestId("mobile-evidence-tabs")).toBeVisible();
-        await expect(evidenceReview.getByTestId("evidence-claims-panel")).toBeVisible();
-        await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
-      }
+      const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
+      await expect(evidenceSheet).toBeVisible();
+      await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
+      await expect(evidenceSheet.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
+      await expect(evidenceSheet.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
+      await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     });
   }

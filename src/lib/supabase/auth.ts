@@ -120,3 +120,19 @@ export async function requireAuthenticatedUser(request: Request, supabase: Admin
 
   throw new AuthenticationError();
 }
+
+export async function getOptionalAuthenticatedUser(
+  request: Request,
+  supabase: AdminClient,
+): Promise<AuthenticatedUser | null> {
+  const token = extractSessionAccessToken(request);
+  if (token) {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data.user?.id) {
+      throw new AuthenticationError();
+    }
+    return { id: data.user.id };
+  }
+
+  return getUserFromRequestCookies(request);
+}

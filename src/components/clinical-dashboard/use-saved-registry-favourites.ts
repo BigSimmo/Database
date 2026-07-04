@@ -1,6 +1,7 @@
 "use client";
 
-import { ClipboardList, Stethoscope } from "lucide-react";
+import { ClipboardList } from "lucide-react";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import { useEffect, useMemo, useState } from "react";
 
 import type { FavouriteItem } from "@/components/clinical-dashboard/favourites-prototype-data";
@@ -27,11 +28,12 @@ function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): F
     id: `${type}:${record.slug}`,
     title: record.title,
     type,
-    set: "",
+    set: type === "services" ? "Saved services" : "Saved forms",
     meta: record.subtitle ?? (type === "services" ? "Saved service" : "Saved form"),
     sourceMeta: type === "services" ? "Service" : "Form",
     primaryAction: "Open",
-    icon: type === "services" ? Stethoscope : ClipboardList,
+    href: `/${type}/${record.slug}`,
+    icon: type === "services" ? appModeIcons.services : ClipboardList,
     keywords: [record.title, record.subtitle, ...(record.tags ?? [])].filter(Boolean).join(" ").toLowerCase(),
   };
 }

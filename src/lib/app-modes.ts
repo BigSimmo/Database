@@ -1,4 +1,5 @@
 import type { ClinicalQueryMode } from "@/lib/types";
+import { documentsSearchHref } from "@/lib/document-flow-routes";
 
 export type AppModeId =
   "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "prescribing" | "tools";
@@ -240,6 +241,10 @@ const namespaceIsolatedModes = new Set<AppModeId>(["services", "forms", "favouri
 export function appModeHomeHref(modeId: AppModeId, options: { query?: string; focus?: boolean; run?: boolean } = {}) {
   const mode = appModeDefinition(modeId);
   const query = options.query?.trim();
+
+  if (modeId === "documents" && query) {
+    return documentsSearchHref({ ...options, query });
+  }
 
   if (namespaceIsolatedModes.has(modeId) && "href" in mode && mode.href) {
     const namespacedParams = new URLSearchParams();

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import {
-  AlertCircle,
   BookOpen,
   ChevronDown,
   Clock3,
@@ -26,6 +25,7 @@ import {
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import {
   DocumentActionButton,
@@ -165,7 +165,7 @@ function DocumentTagFacetRail({
             return (
               <section key={group} className="min-w-0">
                 <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                  <Icon className="h-3.5 w-3.5 text-[color:var(--primary)]" />
+                  <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   {group}
                 </h3>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -181,7 +181,7 @@ function DocumentTagFacetRail({
                         className={cn(
                           "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition",
                           selected
-                            ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
+                            ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                             : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
                         )}
                       >
@@ -342,9 +342,11 @@ function DocumentSearchHome({
         onClick: item.action,
       }))}
       footer={
-        <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
-          {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
-        </p>
+        documentCount > 0 ? (
+          <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
+            {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
+          </p>
+        ) : null
       }
     />
   );
@@ -652,7 +654,7 @@ function SearchRecordResults({
                   </p>
                   <a
                     href={recordRoute(service.slug)}
-                    className="mt-0.5 inline-flex min-h-11 items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)] sm:min-h-7"
+                    className="mt-0.5 inline-flex min-h-11 items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] sm:min-h-7"
                   >
                     <span className="line-clamp-2">{service.title}</span>
                   </a>
@@ -852,17 +854,26 @@ export function DocumentSearchResultsPanel({
     if (recordMatchCount > 0)
       return `${recordMatchCount} ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"}`;
     if (matches.length) return `${displayedMatches.length} document${displayedMatches.length === 1 ? "" : "s"}`;
-    if (documentCount === 0) return "No indexed source documents";
     if (trimmedQuery) return "No matching documents";
     return `${documentCount} document${documentCount === 1 ? "" : "s"}`;
   })();
   return (
     <div data-testid="document-search-workspace" className="w-full space-y-3">
+      {trimmedQuery && !shouldShowHome ? (
+        <div className="hidden lg:block">
+          <SearchResultsHeaderBand
+            modeId="documents"
+            query={trimmedQuery}
+            matchCount={displayedMatches.length}
+            loading={loading}
+          />
+        </div>
+      ) : null}
       {recordMatchCount > 0 ||
       matches.length > 0 ||
       (trimmedQuery && !shouldShowHome) ||
       loading ||
-      unavailableMessage ? (
+      unavailableMessage && !shouldShowHome ? (
         <SearchResultsHeader resultLabel={resultLabel} trimmedQuery={trimmedQuery} />
       ) : null}
 
@@ -871,7 +882,6 @@ export function DocumentSearchResultsPanel({
           role="alert"
           className="rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45 p-4 text-sm font-semibold leading-6 text-[color:var(--warning)]"
         >
-          <AlertCircle className="mr-2 inline h-4 w-4" />
           {unavailableMessage}
         </div>
       ) : null}
@@ -893,12 +903,10 @@ export function DocumentSearchResultsPanel({
             </span>
             <div>
               <h3 className="text-base font-semibold text-[color:var(--text-heading)]">
-                {documentCount === 0 ? "No indexed source documents" : "No matching documents"}
+                No matching documents
               </h3>
               <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>
-                {documentCount === 0
-                  ? "Upload and index source documents before using Documents mode."
-                  : `No indexed documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
+                {`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
               </p>
             </div>
           </div>
@@ -1001,7 +1009,7 @@ export function DocumentSearchResultsPanel({
                             </p>
                             <a
                               href={openHref}
-                              className="mt-0.5 inline-flex min-h-11 items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+                              className="mt-0.5 inline-flex min-h-11 items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
                             >
                               <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                             </a>

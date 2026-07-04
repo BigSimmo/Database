@@ -4,7 +4,8 @@ import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { answerQuestionWithScope } from "@/lib/rag";
 import { jsonError, PublicApiError } from "@/lib/http";
-import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
@@ -62,11 +63,11 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient();
-    const user = await serverAuth.requireAuthenticatedUser(request, supabase);
+    const access = await publicAccessContext(request, supabase);
 
-    const rateLimit = await consumeApiRateLimit({
+    const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
-      ownerId: user.id,
+      subject: access.rateLimitSubject,
       bucket: "answer",
       allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
     });
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
 
     const scope = await resolveSearchScope({
       supabase,
-      ownerId: user.id,
+      ownerId: access.ownerId,
       documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
       filters: body.filters,
     });
@@ -101,7 +102,8 @@ export async function POST(request: Request) {
       documentIds: singleDocumentScope
         ? undefined
         : (scope.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
-      ownerId: user.id,
+      ownerId: access.ownerId,
+      allowGlobalSearch: !access.ownerId,
       queryMode: body.queryMode,
       skipCache: body.skipCache,
       signal: request.signal,

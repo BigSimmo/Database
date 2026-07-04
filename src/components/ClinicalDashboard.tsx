@@ -12,7 +12,6 @@ import {
   ChevronRight,
   CircleUserRound,
   Clock3,
-  ClipboardCheck,
   Copy,
   ExternalLink,
   FileImage,
@@ -40,7 +39,6 @@ import {
   SlidersHorizontal,
   Sparkles,
   Stethoscope,
-  Tag,
   UploadCloud,
   UserRound,
   WifiOff,
@@ -103,7 +101,9 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
+import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
+import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
@@ -121,6 +121,7 @@ import {
   IngestionQualityConsole,
   LibraryHealthStrip,
   fallbackSetupChecks,
+  hasReadyRequiredPublicSearchConfig,
   hasReadyPublicSearchSetup,
   type SetupCheck,
   type IngestionQualityReviewItem,
@@ -142,6 +143,7 @@ import {
   SourceImage,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
+import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
 import {
   AnswerFeedbackPanel,
   AnswerSafetyNotice,
@@ -160,12 +162,18 @@ import {
   formatQuoteCardsForClipboard,
   primaryVisualTable,
   QuoteCards,
-  SafetyFindingsPanel,
+  SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
-import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
+import {
+  DrawerGroupLabel,
+  type DocumentDrawerMode,
+  type DocumentDrawerStatusFilter,
+} from "@/components/clinical-dashboard/document-admin";
+
 
 const DifferentialsHome = dynamic(
   () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
@@ -186,6 +194,11 @@ export const ApplicationsLauncherWorkspace = dynamic(
   () => import("@/components/applications-launcher-page").then((m) => m.ApplicationsLauncherWorkspace),
   { ssr: false },
 );
+const DocumentDrawer = dynamic(
+  () => import("@/components/clinical-dashboard/document-admin/document-drawer").then((m) => m.DocumentDrawer),
+  { ssr: false },
+);
+
 import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance, QueryCoverageChips } from "@/components/clinical-dashboard/relevance";
 import {
@@ -214,9 +227,17 @@ import {
   type AppModeId,
   type AppModeSearchKind,
 } from "@/lib/app-modes";
+import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { rankFormRecords } from "@/lib/forms";
 import { rankServiceRecords } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
+import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
+import {
+  clearPersistedAnswerThread,
+  loadPersistedAnswerThread,
+  maxStoredAnswerTurns,
+  savePersistedAnswerThread,
+} from "@/lib/answer-thread-storage";
 import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
 import {
@@ -226,11 +247,6 @@ import {
 } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import {
-  documentLabelReviewStatus,
-  documentLabelTier,
-  formatDocumentLabelDisplay,
-  normalizeDocumentLabelForStorage,
-  reviewDocumentTagQuality,
   tagSearchText,
   type SmartDocumentTag,
   type SmartDocumentTagFacet,
@@ -257,8 +273,8 @@ import type {
   DocumentLabelType,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
+import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { createQuoteFollowUp, type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
 
 export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 export const mobileSectionFabMediaQuery =
@@ -316,15 +332,8 @@ type BatchesPayload = {
   hasActiveBatches?: boolean;
   pollAfterMs?: number | null;
 };
-export type AnswerFeedbackType =
-  | "verified"
-  | "needs_correction"
-  | "source_insufficient"
-  | "wrong_source"
-  | "missing_source"
-  | "unsupported_answer"
-  | "numeric_error"
-  | "outdated_guidance";
+import type { AnswerFeedbackType } from "@/lib/answer-feedback";
+export type { AnswerFeedbackType } from "@/lib/answer-feedback";
 type IngestionQualityPayload = {
   items?: IngestionQualityReviewItem[];
   demoMode?: boolean;
@@ -1058,1495 +1067,90 @@ function MobileEvidenceTabPanel({
   return <EvidenceGapsPanel warnings={renderModel.warnings} />;
 }
 
-function RelatedDocumentsPanel({
-  documents,
-  onScopeDocument,
-  onTagSearch,
-}: {
-  documents: RelatedDocument[];
-  onScopeDocument: (documentId: string) => void;
-  onTagSearch: (tag: SmartDocumentTag) => void;
-}) {
-  if (documents.length === 0) return null;
-
-  return (
-    <UtilityDrawer
-      icon={BookOpen}
-      title="Related documents"
-      summary={`${documents.length} broader document match${documents.length === 1 ? "" : "es"}`}
-      mobileSummary={`${documents.length} related`}
-    >
-      <div className="grid gap-3 md:grid-cols-2">
-        {documents.map((document) => (
-          <article key={document.document_id} className={cn(sourceCard, "p-3 sm:p-4")}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <Link
-                  href={`/documents/${document.document_id}?page=${document.best_pages[0] ?? 1}&chunk=${document.best_chunk_ids[0] ?? ""}`}
-                  className="inline-flex min-h-[44px] items-center text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
-                >
-                  <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
-                </Link>
-                <DocumentOrganizationBadges document={document} compact className="mt-1" />
-                <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-                  {document.match_reason} · pages {document.best_pages.join(", ") || "n/a"} · {document.image_count}{" "}
-                  images{document.table_count ? ` · ${document.table_count} tables` : ""}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => onScopeDocument(document.document_id)}
-                className={cn(floatingControl, "min-h-[44px] px-3 text-xs")}
-              >
-                Scope
-              </button>
-            </div>
-            {document.summary && (
-              <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>
-                <SafeBoldText text={document.summary} />
-              </p>
-            )}
-            <DocumentTagCloud labels={document.labels} limit={6} className="mt-3" onTagClick={onTagSearch} />
-          </article>
-        ))}
-      </div>
-    </UtilityDrawer>
-  );
-}
-
-function StagedAnswerResultSurface({
-  answer,
-  query,
-  safeAnswerText,
-  bestSource,
-  sourceGovernanceWarnings,
-  sourceSummary,
-  renderModel,
-  weakEvidence,
-  answerViewMode,
-  answerEvidenceMapRows,
-  onScopeDocument,
-  answerGrounded,
-  sources,
-  demoMode,
-  safeAnswerSections,
-  safetyFindings,
-  copiedAnswer,
-  pendingFeedback,
-  onCopyAnswer,
-  onSubmitFeedback,
-}: {
-  answer: RagAnswer;
+/**
+ * A completed Q&A exchange kept on screen after a newer answer arrives, so
+ * Answer mode reads as a conversation thread instead of replacing each result.
+ */
+type AnswerTurn = {
+  id: string;
   query: string;
-  safeAnswerText: string;
-  bestSource: BestSourceRecommendation | null;
-  sourceGovernanceWarnings: SourceGovernanceWarning[];
-  sourceSummary?: EvidenceSummary;
-  renderModel: AnswerRenderModel;
-  weakEvidence: boolean;
-  answerViewMode: AnswerViewMode;
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  onScopeDocument: (documentId: string) => void;
-  answerGrounded: boolean;
+  answer: RagAnswer;
   sources: SearchResult[];
-  demoMode: boolean;
-  safeAnswerSections: Array<AnswerSection & { citationSources: SearchResult[] }>;
-  safetyFindings: ReturnType<typeof extractSafetyFindings>;
-  copiedAnswer: boolean;
-  pendingFeedback: AnswerFeedbackType | null;
-  onCopyAnswer: () => void;
-  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
+};
+
+const maxVisiblePriorTurns = 10;
+
+/**
+ * Read-only surface for a previous turn in the answer thread. Renders the
+ * question bubble and the natural-language answer with its source capsule;
+ * evidence drawers, clinical notes, and feedback stay on the latest turn only.
+ */
+function PriorAnswerTurnSurface({
+  turn,
+  copied,
+  collapsed,
+  onToggleCollapsed,
+  onCopy,
+}: {
+  turn: AnswerTurn;
+  copied: boolean;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  onCopy: (text: string) => void;
 }) {
-  const noteCount = clinicalNotesCount(answer);
-  const showClinicalNotes = safetyFindings.length > 0 || noteCount > 0;
-  const clinicalNoteDisplayCount = clinicalNotesDisplayCountForAnswer(
-    answer,
-    answerViewMode,
-    noteCount || safetyFindings.length,
+  const renderModel = useMemo(
+    () => buildAnswerRenderModel(turn.answer, { sources: turn.sources }),
+    [turn.answer, turn.sources],
   );
+  const safeText = useMemo(() => sanitizeAnswerDisplayText(turn.answer.answer), [turn.answer.answer]);
+  const weakEvidence = renderModel.trust === "unsupported" || renderModel.trust === "low";
+  const grounded =
+    turn.answer.grounded === true && turn.answer.confidence !== "unsupported" && renderModel.trust !== "unsupported";
   const sourceCount =
-    renderModel.primarySources.length ||
-    sourceSummary?.total_sources ||
-    sources.length ||
-    answer.sources?.length ||
-    answer.citations.length;
-  const centralTable = answerHasCentralTable(answer) ? primaryVisualTable(answer) : null;
-  const showEvidenceDrawer = renderModel.allowedBlocks.some((block) =>
-    ["sourceStatus", "reviewSources", "evidenceMap", "quoteCards", "visualEvidence", "warnings"].includes(block),
-  );
-  const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
-  const [evidenceOpen, setEvidenceOpen] = useState(false);
-  const [evidenceInitialTab, setEvidenceInitialTab] = useState<EvidenceTabName | null>(null);
-  const [activeReviewPanel, setActiveReviewPanel] = useState<"clinical" | "evidence" | null>(null);
-  const [copiedQuotes, setCopiedQuotes] = useState(false);
-  const clinicalNotesTriggerRef = useRef<HTMLButtonElement>(null);
-  const evidenceTriggerRef = useRef<HTMLButtonElement>(null);
-  const useReviewSheet = useMobilePreviewSheet();
-  const copyQuotesTimerRef = useRef<number | null>(null);
-  useEffect(() => {
-    return () => {
-      if (copyQuotesTimerRef.current !== null) window.clearTimeout(copyQuotesTimerRef.current);
-    };
-  }, []);
-  function openClinicalNotes() {
-    setEvidenceOpen(false);
-    setEvidenceInitialTab(null);
-    if (useReviewSheet) {
-      setActiveReviewPanel(null);
-      setClinicalNotesOpen(true);
-      return;
-    }
-    setClinicalNotesOpen(false);
-    setActiveReviewPanel("clinical");
-  }
-  function restoreFocusToTrigger(ref: RefObject<HTMLElement | null>) {
-    window.requestAnimationFrame(() => {
-      if (ref.current?.isConnected) ref.current.focus({ preventScroll: true });
-    });
-  }
-  function closeClinicalNotesReview() {
-    setClinicalNotesOpen(false);
-    restoreFocusToTrigger(clinicalNotesTriggerRef);
-  }
-  function openEvidence(initialTab: EvidenceTabName | null = null) {
-    setClinicalNotesOpen(false);
-    setEvidenceInitialTab(initialTab);
-    if (useReviewSheet) {
-      setActiveReviewPanel(null);
-      setEvidenceOpen(true);
-      return;
-    }
-    setEvidenceOpen(false);
-    setActiveReviewPanel("evidence");
-  }
-  function closeEvidenceReview() {
-    setEvidenceOpen(false);
-    setEvidenceInitialTab(null);
-    restoreFocusToTrigger(evidenceTriggerRef);
-  }
-  function closeDesktopReviewPanel() {
-    const triggerRef = activeReviewPanel === "clinical" ? clinicalNotesTriggerRef : evidenceTriggerRef;
-    setActiveReviewPanel(null);
-    restoreFocusToTrigger(triggerRef);
-  }
-  function openTableEvidence() {
-    setClinicalNotesOpen(false);
-    openEvidence("Tables");
-  }
-  const copyQuotes = useCallback(async () => {
-    const quoteText = formatQuoteCardsForClipboard(renderModel.quoteCards);
-    if (!quoteText) return;
-    try {
-      await navigator.clipboard.writeText(quoteText);
-      setCopiedQuotes(true);
-      if (copyQuotesTimerRef.current !== null) window.clearTimeout(copyQuotesTimerRef.current);
-      copyQuotesTimerRef.current = window.setTimeout(() => setCopiedQuotes(false), 1600);
-    } catch {
-      setCopiedQuotes(false);
-    }
-  }, [renderModel.quoteCards]);
-  const priority = answerSupportPriority(answer, safeAnswerSections, centralTable, safetyFindings, {
-    grounded: answerGrounded,
-    weakEvidence,
-  });
-  const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
-  const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
-  const showInlineSupportCard = Boolean(priority || showClinicalNotes || showEvidenceDrawer);
-  const showLayoutAside = Boolean(activeReviewPanel || centralTable);
+    renderModel.primarySources.length || turn.sources.length || turn.answer.sources?.length || turn.answer.citations.length;
+  const previewText = safeText || turn.answer.answer;
 
   return (
-    <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
+    <div
+      className="min-w-0 space-y-4 sm:space-y-5"
+      data-dashboard-stage="answer-thread-turn"
+      data-collapsed={collapsed ? "true" : "false"}
+    >
       <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
-        <UserQuestionBubble query={query} />
-
-        <div
-          data-testid="table-specific-answer-layout"
-          data-desktop-table-aside={centralTable ? "true" : "false"}
-          className={cn(
-            "space-y-3",
-            showLayoutAside &&
-              "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(21rem,0.72fr)] lg:items-start lg:gap-5 lg:space-y-0",
-          )}
-        >
-          <div className="min-w-0 space-y-3">
-            <NaturalLanguageAnswer
-              text={safeAnswerText || answer.answer}
-              sourceCount={sourceCount}
-              weakEvidence={weakEvidence}
-              grounded={answerGrounded}
-              sourceOnly={answer.answerQualityTier === "source_only"}
-              bestSource={bestSource}
-              sources={sources}
-              sourceLinks={renderModel.primarySources}
-              copied={copiedAnswer}
-              onCopy={onCopyAnswer}
-            />
-
-            {showInlineSupportCard ? (
-              <AnswerSupportSummaryCard
-                priority={priority}
-                clinicalCount={clinicalNoteDisplayCount}
-                evidenceSummary={inlineEvidenceSummary}
-                clinicalAvailable={showClinicalNotes}
-                evidenceAvailable={showEvidenceDrawer}
-                clinicalTriggerRef={clinicalNotesTriggerRef}
-                evidenceTriggerRef={evidenceTriggerRef}
-                onOpenClinicalNotes={openClinicalNotes}
-                onOpenEvidence={() => openEvidence(null)}
-              />
-            ) : null}
-
-            {centralTable && activeReviewPanel ? <InlineTableCard item={centralTable} /> : null}
-          </div>
-
-          {activeReviewPanel ? (
-            <aside
-              data-testid="desktop-answer-review-panel"
-              className="hidden min-h-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)] lg:flex lg:max-h-[calc(100dvh-8rem)] lg:flex-col lg:sticky lg:top-4"
-              aria-label={activeReviewPanel === "clinical" ? "Clinical notes" : "Evidence"}
-            >
-              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
-                <div className="flex min-w-0 items-start gap-2.5">
-                  <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg")}>
-                    {activeReviewPanel === "clinical" ? (
-                      <ClipboardCheck className="h-3.5 w-3.5" />
-                    ) : (
-                      <Layers className="h-3.5 w-3.5" />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <h3 className="truncate text-lg font-semibold text-[color:var(--text-heading)]">
-                        {activeReviewPanel === "clinical" ? "Clinical notes" : "Evidence"}
-                      </h3>
-                      <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
-                        {activeReviewPanel === "clinical" ? clinicalNoteDisplayCount : "Supported"}
-                      </span>
-                    </div>
-                    <p className={cn("mt-1 text-sm leading-5", textMuted)}>
-                      {activeReviewPanel === "clinical"
-                        ? "Source-backed points from this answer."
-                        : "Review by evidence type."}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeDesktopReviewPanel}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label={`Close ${activeReviewPanel === "clinical" ? "clinical notes" : "evidence"}`}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-3 polished-scroll">
-                {activeReviewPanel === "clinical" ? (
-                  <ClinicalNotesChecklistPanel
-                    answer={answer}
-                    viewMode={answerViewMode}
-                    evidenceMapRows={answerEvidenceMapRows}
-                    bestSource={bestSource}
-                    copied={copiedAnswer}
-                    onCopy={onCopyAnswer}
-                    onOpenTables={openTableEvidence}
-                  />
-                ) : (
-                  <MobileEvidenceSheetContent
-                    answer={answer}
-                    sources={sources}
-                    renderModel={renderModel}
-                    visualEvidence={renderModel.visualEvidence}
-                    answerEvidenceMapRows={answerEvidenceMapRows}
-                    sourceGovernanceWarnings={sourceGovernanceWarnings}
-                    demoMode={demoMode}
-                    initialTab={evidenceInitialTab}
-                    pendingFeedback={pendingFeedback}
-                    copiedQuotes={copiedQuotes}
-                    onCopyQuotes={copyQuotes}
-                    onSubmitFeedback={onSubmitFeedback}
-                    onScopeDocument={onScopeDocument}
-                  />
-                )}
-              </div>
-            </aside>
-          ) : centralTable ? (
-            <div className="min-w-0 lg:sticky lg:top-24">
-              <InlineTableCard item={centralTable} />
-            </div>
-          ) : null}
-        </div>
-
-        {showClinicalNotes ? (
-          <Sheet
-            open={clinicalNotesOpen}
-            onClose={closeClinicalNotesReview}
-            title="Clinical notes"
-            description="Source-backed points from this answer."
-            closeLabel="Close clinical notes"
-            headerLeading={
-              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
-                <ClipboardCheck className="h-3.5 w-3.5" />
-              </span>
-            }
-            titleAccessory={
-              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-                {clinicalNoteDisplayCount}
-              </span>
-            }
-            headerActions={
-              bestSource ? (
-                <Link
-                  href={bestSource.viewer_href}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label="Open clinical notes source"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </Link>
-              ) : null
-            }
-            headerClassName="gap-2 p-2.5 sm:p-3"
-            titleClassName="text-[15px] leading-5"
-            closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
-            contentStyle={{ height: "80dvh" }}
-            bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
-            returnFocusRef={clinicalNotesTriggerRef}
-            portal
-          >
-            <ClinicalNotesChecklistPanel
-              answer={answer}
-              viewMode={answerViewMode}
-              evidenceMapRows={answerEvidenceMapRows}
-              bestSource={bestSource}
-              copied={copiedAnswer}
-              onCopy={onCopyAnswer}
-              onOpenTables={openTableEvidence}
-            />
-          </Sheet>
-        ) : null}
-
-        {showEvidenceDrawer ? (
-          <Sheet
-            open={evidenceOpen}
-            onClose={closeEvidenceReview}
-            title="Evidence"
-            description="Review by evidence type."
-            titleAccessory={
-              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[11px]")}>{evidenceTrustLabel}</span>
-            }
-            closeLabel="Close evidence"
-            headerLeading={
-              <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--primary)]")}>
-                <Layers className="h-3.5 w-3.5" />
-              </span>
-            }
-            contentClassName="max-h-[92dvh] translate-y-0 bg-[color:var(--surface-raised)] motion-safe:animate-none sm:h-auto sm:max-h-[88dvh] sm:max-w-lg"
-            contentStyle={{ height: "80dvh" }}
-            bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
-            returnFocusRef={evidenceTriggerRef}
-            portal
-          >
-            <MobileEvidenceSheetContent
-              answer={answer}
-              sources={sources}
-              renderModel={renderModel}
-              visualEvidence={renderModel.visualEvidence}
-              answerEvidenceMapRows={answerEvidenceMapRows}
-              sourceGovernanceWarnings={sourceGovernanceWarnings}
-              demoMode={demoMode}
-              initialTab={evidenceInitialTab}
-              pendingFeedback={pendingFeedback}
-              copiedQuotes={copiedQuotes}
-              onCopyQuotes={copyQuotes}
-              onSubmitFeedback={onSubmitFeedback}
-              onScopeDocument={onScopeDocument}
-            />
-          </Sheet>
-        ) : null}
-      </div>
-
-      <SafetyFindingsPanel findings={safetyFindings} />
-    </div>
-  );
-}
-
-const tagQualityTone: Record<SmartDocumentTagQualityIssueKind, string> = {
-  noisy: toneDanger,
-  duplicate: toneWarning,
-  low_confidence: toneInfo,
-  overused: toneNeutral,
-};
-
-const labelTierTone: Record<SmartDocumentTagTier, string> = {
-  primary: toneSuccess,
-  secondary: toneNeutral,
-  ranking: toneInfo,
-};
-
-const documentLabelTypeOptions: Array<{ value: DocumentLabelType; label: string }> = [
-  { value: "site", label: "Site" },
-  { value: "topic", label: "Topic" },
-  { value: "document_type", label: "Document type" },
-  { value: "medication", label: "Medication" },
-  { value: "risk", label: "Risk" },
-  { value: "setting", label: "Setting" },
-  { value: "workflow", label: "Workflow" },
-  { value: "population", label: "Population" },
-  { value: "service", label: "Service" },
-  { value: "clinical_action", label: "Clinical action" },
-  { value: "care_phase", label: "Care phase" },
-  { value: "document_intent", label: "Document intent" },
-  { value: "content_feature", label: "Content feature" },
-  { value: "custom", label: "Manual" },
-];
-
-function tagQualityLabel(kind: SmartDocumentTagQualityIssueKind) {
-  if (kind === "low_confidence") return "low confidence";
-  return kind;
-}
-
-function normalizedLabelReviewRow(label: DocumentLabel) {
-  const normalized = normalizeDocumentLabelForStorage(label);
-  const fallbackLabelType = documentLabelTypeOptions.some((option) => option.value === label.label_type)
-    ? label.label_type
-    : "custom";
-  const labelType = normalized?.label_type ?? fallbackLabelType;
-  const labelText = normalized?.label ?? label.label?.trim() ?? "";
-  const tier: SmartDocumentTagTier = normalized
-    ? documentLabelTier(normalized.label, normalized.label_type)
-    : "secondary";
-  const reviewStatus = documentLabelReviewStatus(label);
-  return {
-    id: label.id,
-    label: labelText,
-    displayLabel: labelText ? formatDocumentLabelDisplay(labelText, labelType) : "Unreviewed label",
-    labelType,
-    tier,
-    reviewStatus,
-    source: label.source,
-    confidence: normalized?.confidence ?? label.confidence ?? 0,
-  };
-}
-
-function labelTypeDisplay(value: DocumentLabelType) {
-  return documentLabelTypeOptions.find((option) => option.value === value)?.label ?? value.replaceAll("_", " ");
-}
-
-type LabelReviewMutationBody =
-  { labelId: string; action: "approve" | "hide" | "restore" } | { label: string; label_type: DocumentLabelType };
-
-function DocumentLabelReviewPanel({
-  documents,
-  canManage,
-  onMutateLabel,
-}: {
-  documents: ClinicalDocument[];
-  canManage: boolean;
-  onMutateLabel: (documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody) => Promise<boolean>;
-}) {
-  const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [overrideDrafts, setOverrideDrafts] = useState<Record<string, { label: string; labelType: DocumentLabelType }>>(
-    {},
-  );
-
-  const items = useMemo(() => {
-    return documents
-      .map((document) => {
-        const rows = (document.labels ?? [])
-          .map((label) => normalizedLabelReviewRow(label))
-          .filter((row): row is NonNullable<ReturnType<typeof normalizedLabelReviewRow>> => Boolean(row));
-        const visible = rows.filter((row) => row.reviewStatus !== "hidden" && row.tier !== "ranking");
-        const ranking = rows.filter((row) => row.reviewStatus !== "hidden" && row.tier === "ranking");
-        const hidden = rows.filter((row) => row.reviewStatus === "hidden");
-        const needsReview = rows.some((row) => row.reviewStatus === "new" && row.source === "generated");
-        return { document, rows, visible, ranking, hidden, needsReview };
-      })
-      .filter((item) => item.rows.length)
-      .sort((a, b) => Number(b.needsReview) - Number(a.needsReview) || b.ranking.length - a.ranking.length)
-      .slice(0, 8);
-  }, [documents]);
-
-  if (!items.length) return null;
-
-  async function mutate(documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody, actionId: string) {
-    setBusyAction(actionId);
-    try {
-      return await onMutateLabel(documentId, method, body);
-    } finally {
-      setBusyAction(null);
-    }
-  }
-
-  function draftFor(documentId: string) {
-    return overrideDrafts[documentId] ?? { label: "", labelType: "topic" as DocumentLabelType };
-  }
-
-  function setDraft(documentId: string, next: { label: string; labelType: DocumentLabelType }) {
-    setOverrideDrafts((current) => ({ ...current, [documentId]: next }));
-  }
-
-  return (
-    <details className={cn(sourceCard, "group p-3")}>
-      <summary className="flex min-h-[42px] cursor-pointer list-none items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className={cn(iconTilePremium, "h-8 w-8")}>
-            <ClipboardCheck className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[color:var(--text)]">Label review</span>
-            <span className={cn("block truncate text-xs", textMuted)}>
-              Visible labels, ranking labels, hidden labels, confidence, and manual overrides
-            </span>
-          </span>
-        </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
-      </summary>
-      <div className="mt-3 grid gap-3 border-t border-[color:var(--border)] pt-3">
-        {items.map((item) => {
-          const draft = draftFor(item.document.id);
-          return (
-            <article
-              key={item.document.id}
-              className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <Link
-                    href={`/documents/${item.document.id}`}
-                    className="line-clamp-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
-                  >
-                    {documentDisplayTitle(item.document)}
-                  </Link>
-                  <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
-                    {item.visible.length} visible · {item.ranking.length} ranking · {item.hidden.length} hidden
-                  </p>
-                </div>
-                {item.needsReview ? (
-                  <span className={cn(metadataPill, toneWarning, "min-h-7 text-[11px]")}>Needs review</span>
-                ) : (
-                  <span className={cn(metadataPill, toneSuccess, "min-h-7 text-[11px]")}>Reviewed</span>
-                )}
-              </div>
-
-              {(
-                [
-                  { title: "Visible", rows: item.visible },
-                  { title: "Ranking", rows: item.ranking },
-                  { title: "Hidden", rows: item.hidden },
-                ] satisfies Array<{ title: string; rows: typeof item.rows }>
-              ).map(({ title, rows: labelRows }) => {
-                if (!labelRows.length) return null;
-                return (
-                  <section key={title} className="grid gap-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                      {title}
-                    </p>
-                    <div className="grid gap-1.5">
-                      {labelRows.slice(0, 8).map((label) => (
-                        <div
-                          key={label.id}
-                          className="grid gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] p-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="truncate text-xs font-semibold text-[color:var(--text)]">
-                                {label.displayLabel}
-                              </span>
-                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-[10px]")}>
-                                {label.tier}
-                              </span>
-                              <span className={cn(metadataPill, "min-h-6 text-[10px]")}>
-                                {labelTypeDisplay(label.labelType)}
-                              </span>
-                            </div>
-                            <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
-                              {label.source} · {Math.round(label.confidence * 100)}% · {label.reviewStatus}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {label.reviewStatus === "hidden" ? (
-                              <button
-                                type="button"
-                                disabled={!canManage || busyAction !== null}
-                                onClick={() =>
-                                  void mutate(
-                                    item.document.id,
-                                    "PATCH",
-                                    { labelId: label.id, action: "restore" },
-                                    `restore:${label.id}`,
-                                  )
-                                }
-                                className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
-                              >
-                                Restore
-                              </button>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={!canManage || busyAction !== null || label.reviewStatus === "approved"}
-                                  onClick={() =>
-                                    void mutate(
-                                      item.document.id,
-                                      "PATCH",
-                                      { labelId: label.id, action: "approve" },
-                                      `approve:${label.id}`,
-                                    )
-                                  }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={!canManage || busyAction !== null}
-                                  onClick={() =>
-                                    void mutate(
-                                      item.document.id,
-                                      "PATCH",
-                                      { labelId: label.id, action: "hide" },
-                                      `hide:${label.id}`,
-                                    )
-                                  }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px] text-[color:var(--danger)]")}
-                                >
-                                  Hide
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
-
-              <form
-                className="grid gap-2 border-t border-[color:var(--border)] pt-3 sm:grid-cols-[minmax(0,1fr)_10rem_auto]"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const trimmed = draft.label.trim();
-                  if (!trimmed) return;
-                  void mutate(
-                    item.document.id,
-                    "POST",
-                    { label: trimmed, label_type: draft.labelType },
-                    `override:${item.document.id}`,
-                  ).then((ok) => {
-                    if (ok) setDraft(item.document.id, { label: "", labelType: draft.labelType });
-                  });
-                }}
-              >
-                <input
-                  value={draft.label}
-                  onChange={(event) => setDraft(item.document.id, { ...draft, label: event.target.value })}
-                  disabled={!canManage || busyAction !== null}
-                  placeholder="Manual override label"
-                  aria-label="Manual override label"
-                  className={fieldControlPlain}
-                />
-                <select
-                  value={draft.labelType}
-                  onChange={(event) =>
-                    setDraft(item.document.id, { ...draft, labelType: event.target.value as DocumentLabelType })
-                  }
-                  disabled={!canManage || busyAction !== null}
-                  aria-label="Manual override label type"
-                  className={fieldControlPlain}
-                >
-                  {documentLabelTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="submit"
-                  disabled={!canManage || busyAction !== null || !draft.label.trim()}
-                  className={cn(primaryControl, "justify-center text-xs")}
-                >
-                  {busyAction === `override:${item.document.id}` ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                  Override
-                </button>
-              </form>
-            </article>
-          );
-        })}
-      </div>
-    </details>
-  );
-}
-
-function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] }) {
-  const issues = useMemo(() => reviewDocumentTagQuality(documents), [documents]);
-  const counts = issues.reduce<Record<SmartDocumentTagQualityIssueKind, number>>(
-    (current, issue) => ({ ...current, [issue.kind]: current[issue.kind] + 1 }),
-    { noisy: 0, duplicate: 0, low_confidence: 0, overused: 0 },
-  );
-
-  return (
-    <details className={cn(panelSubtle, "group p-3")}>
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className={cn(iconTilePremium, "h-8 w-8")}>
-            <Tag className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[color:var(--text)]">Tag quality review</span>
-            <span className={cn("block truncate text-xs", textMuted)}>
-              {issues.length
-                ? `${issues.length} issue${issues.length === 1 ? "" : "s"} across loaded documents`
-                : "No obvious tag cleanup issues in loaded documents"}
-            </span>
-          </span>
-        </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
-      </summary>
-      <div className="mt-3 space-y-3">
-        <div className="flex flex-wrap gap-1.5">
-          {(Object.keys(counts) as SmartDocumentTagQualityIssueKind[]).map((kind) => (
-            <span key={kind} className={cn(metadataPill, "min-h-7 px-2 text-[11px]", tagQualityTone[kind])}>
-              {tagQualityLabel(kind)}: {counts[kind]}
-            </span>
-          ))}
-        </div>
-        {issues.length ? (
-          <div className="grid gap-2">
-            {issues.slice(0, 12).map((issue, index) => (
-              <div
-                key={`${issue.kind}:${issue.label}:${index}`}
-                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]", tagQualityTone[issue.kind])}>
-                    {tagQualityLabel(issue.kind)}
-                  </span>
-                  <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{issue.label}</p>
-                  {issue.count > 1 ? (
-                    <span className={cn("text-[11px] font-semibold", textMuted)}>{issue.count} hits</span>
-                  ) : null}
-                </div>
-                <p className={cn("mt-1 text-xs leading-5", textMuted)}>{issue.reason}</p>
-                {issue.examples.length || issue.documentTitles.length ? (
-                  <p className={cn("mt-1 truncate text-[11px] font-semibold", textMuted)}>
-                    {[
-                      issue.examples.length ? `examples: ${issue.examples.join(", ")}` : "",
-                      issue.documentTitles.length ? `docs: ${issue.documentTitles.join(", ")}` : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className={cn("text-sm", textMuted)}>Loaded tags are clean enough for the current smart-tag rules.</p>
-        )}
-      </div>
-    </details>
-  );
-}
-
-function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[] }) {
-  const items = useMemo(() => {
-    return documents
-      .map((document) => {
-        const metadata = document.metadata && typeof document.metadata === "object" ? document.metadata : {};
-        const score = Number((metadata as Record<string, unknown>).index_quality_score ?? 1);
-        const issues = Array.isArray((metadata as Record<string, unknown>).index_quality_issues)
-          ? ((metadata as Record<string, unknown>).index_quality_issues as unknown[]).map(String)
-          : [];
-        const sectionCount = Number((metadata as Record<string, unknown>).section_count ?? 0);
-        const memoryCardCount = Number((metadata as Record<string, unknown>).memory_card_count ?? 0);
-        const extractionQuality = String((metadata as Record<string, unknown>).extraction_quality ?? "unknown");
-        const needsRepair =
-          score < 0.72 ||
-          issues.length > 0 ||
-          sectionCount === 0 ||
-          memoryCardCount === 0 ||
-          extractionQuality === "poor" ||
-          extractionQuality === "partial";
-        return { document, score, issues, sectionCount, memoryCardCount, extractionQuality, needsRepair };
-      })
-      .filter((item) => item.needsRepair)
-      .sort((a, b) => a.score - b.score || b.issues.length - a.issues.length)
-      .slice(0, 10);
-  }, [documents]);
-
-  if (!items.length) return null;
-
-  return (
-    <details className={cn(sourceCard, "p-3")}>
-      <summary className="flex min-h-[42px] cursor-pointer list-none items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className={cn(iconTilePremium, "h-8 w-8")}>
-            <ShieldAlert className="h-4 w-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-[color:var(--text)]">Index repair queue</span>
-            <span className={cn("block truncate text-xs", textMuted)}>
-              {items.length} loaded document{items.length === 1 ? "" : "s"} need quality review or reindexing
-            </span>
-          </span>
-        </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
-      </summary>
-      <div className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3">
-        {items.map((item) => (
-          <article
-            key={item.document.id}
-            className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{item.document.title}</p>
-              <span className={cn(metadataPill, "nums text-[11px]")}>
-                index {Number.isFinite(item.score) ? item.score.toFixed(2) : "n/a"}
-              </span>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className={cn(metadataPill, "text-[11px]")}>extraction:{item.extractionQuality}</span>
-              <span className={cn(metadataPill, "text-[11px]")}>sections:{item.sectionCount}</span>
-              <span className={cn(metadataPill, "text-[11px]")}>memory:{item.memoryCardCount}</span>
-              {item.issues.slice(0, 4).map((issue) => (
-                <span key={issue} className={cn(metadataPill, "text-[11px]")}>
-                  {issue}
-                </span>
-              ))}
-            </div>
-          </article>
-        ))}
-      </div>
-    </details>
-  );
-}
-
-function DocumentDrawer({
-  documents,
-  pagination,
-  loadingMoreDocuments,
-  mode,
-  selectedDocumentIds,
-  statusFilter,
-  onToggleScope,
-  onLoadMoreDocuments,
-  onDocumentRenamed,
-  onDocumentDeleted,
-  onBulkReindex,
-  onBulkAssignCollection,
-  onBulkMetadataUpdate,
-  bulkActionStatus,
-  bulkActionBusy,
-  canManageDocuments,
-  onTagSearch,
-  onMutateLabel,
-}: {
-  documents: ClinicalDocument[];
-  pagination: DocumentPagination | null;
-  loadingMoreDocuments: boolean;
-  mode: DocumentDrawerMode;
-  selectedDocumentIds: string[];
-  statusFilter: DocumentDrawerStatusFilter;
-  onToggleScope: (documentId: string) => void;
-  onLoadMoreDocuments: () => void;
-  onDocumentRenamed: (document: ClinicalDocument) => void;
-  onDocumentDeleted: (result: DocumentDeleteResult) => void;
-  onBulkReindex: (mode: "enrichment" | "full" | "retry_failed") => void;
-  onBulkAssignCollection: (collection: string) => void;
-  onBulkMetadataUpdate: (metadata: Record<string, unknown>) => void;
-  bulkActionStatus: string | null;
-  bulkActionBusy: boolean;
-  canManageDocuments: boolean;
-  onTagSearch: (tag: SmartDocumentTag) => void;
-  onMutateLabel: (documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody) => Promise<boolean>;
-}) {
-  const [filter, setFilter] = useState("");
-  const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedSite, setSelectedSite] = useState<string>("all");
-  const [selectedTopic, setSelectedTopic] = useState<string>("all");
-  const [selectedPopulation, setSelectedPopulation] = useState<string>("all");
-  const [showNeedsReviewOnly, setShowNeedsReviewOnly] = useState<boolean>(false);
-
-  const [collectionDraft, setCollectionDraft] = useState("");
-  const [metadataDraft, setMetadataDraft] = useState({
-    sourceStatus: "",
-    validationStatus: "",
-    extractionQuality: "",
-    reviewDate: "",
-    publicationDate: "",
-    jurisdiction: "",
-    sourceType: "",
-    category: "",
-  });
-
-  const allTypes = useMemo(() => {
-    const types = new Set<string>();
-    for (const doc of documents) {
-      const typeLabel = doc.labels?.find((l) => l.label_type === "document_type" && l.confidence >= 0.5)?.label;
-      if (typeLabel) types.add(typeLabel);
-      const profile = documentOrganizationProfile(doc);
-      if (profile?.document_type?.label && profile.document_type.label !== "unknown") {
-        types.add(profile.document_type.label);
-      }
-    }
-    return Array.from(types).sort();
-  }, [documents]);
-
-  const allSites = useMemo(() => {
-    const sites = new Set<string>();
-    for (const doc of documents) {
-      const siteLabels = doc.labels?.filter((l) => l.label_type === "site" && l.confidence >= 0.5) ?? [];
-      for (const l of siteLabels) sites.add(l.label);
-      const profile = documentOrganizationProfile(doc);
-      if (profile?.site?.label) sites.add(profile.site.label);
-    }
-    return Array.from(sites).sort();
-  }, [documents]);
-
-  const allTopics = useMemo(() => {
-    const topics = new Set<string>();
-    for (const doc of documents) {
-      const topicLabels =
-        doc.labels?.filter((l) => (l.label_type === "topic" || l.label_type === "custom") && l.confidence >= 0.5) ?? [];
-      for (const l of topicLabels) topics.add(l.label);
-      const profile = documentOrganizationProfile(doc);
-      if (profile?.secondary_facets?.topic) {
-        for (const t of profile.secondary_facets.topic) topics.add(t);
-      }
-    }
-    return Array.from(topics).sort();
-  }, [documents]);
-
-  const allPopulations = useMemo(() => {
-    const populations = new Set<string>();
-    for (const doc of documents) {
-      const popLabels = doc.labels?.filter((l) => l.label_type === "population" && l.confidence >= 0.5) ?? [];
-      for (const l of popLabels) populations.add(l.label);
-      const profile = documentOrganizationProfile(doc);
-      if (profile?.secondary_facets?.population) {
-        for (const p of profile.secondary_facets.population) populations.add(p);
-      }
-    }
-    return Array.from(populations).sort();
-  }, [documents]);
-
-  const isAdminMode = mode === "admin" && canManageDocuments;
-  const filterValue = filter.toLowerCase();
-  const sourcePdfCount = useMemo(
-    () =>
-      documents.filter((document) => {
-        const typeText = `${document.file_type} ${document.file_name}`.toLowerCase();
-        return documentStatusMatchesFilter(document, statusFilter) && typeText.includes("pdf");
-      }).length,
-    [documents, statusFilter],
-  );
-
-  const filtered = documents
-    .filter((document) => {
-      if (!documentStatusMatchesFilter(document, statusFilter)) return false;
-      if (mode === "source") {
-        const typeText = `${document.file_type} ${document.file_name}`.toLowerCase();
-        if (!typeText.includes("pdf")) return false;
-      }
-
-      // Filter by Type
-      if (selectedType !== "all") {
-        const typeLabel = document.labels?.find((l) => l.label_type === "document_type" && l.confidence >= 0.5)?.label;
-        const profile = documentOrganizationProfile(document);
-        const hasTypeMatch = typeLabel === selectedType || profile?.document_type?.label === selectedType;
-        if (!hasTypeMatch) return false;
-      }
-
-      // Filter by Site
-      if (selectedSite !== "all") {
-        const siteLabels = document.labels?.filter((l) => l.label_type === "site" && l.confidence >= 0.5) ?? [];
-        const profile = documentOrganizationProfile(document);
-        const hasSiteMatch = siteLabels.some((l) => l.label === selectedSite) || profile?.site?.label === selectedSite;
-        if (!hasSiteMatch) return false;
-      }
-
-      // Filter by Topic
-      if (selectedTopic !== "all") {
-        const topicLabels =
-          document.labels?.filter(
-            (l) => (l.label_type === "topic" || l.label_type === "custom") && l.confidence >= 0.5,
-          ) ?? [];
-        const profile = documentOrganizationProfile(document);
-        const hasTopicMatch =
-          topicLabels.some((l) => l.label === selectedTopic) ||
-          profile?.secondary_facets?.topic?.includes(selectedTopic);
-        if (!hasTopicMatch) return false;
-      }
-
-      // Filter by Population
-      if (selectedPopulation !== "all") {
-        const popLabels = document.labels?.filter((l) => l.label_type === "population" && l.confidence >= 0.5) ?? [];
-        const profile = documentOrganizationProfile(document);
-        const hasPopMatch =
-          popLabels.some((l) => l.label === selectedPopulation) ||
-          profile?.secondary_facets?.population?.includes(selectedPopulation);
-        if (!hasPopMatch) return false;
-      }
-
-      // Filter by Needs Review
-      if (showNeedsReviewOnly) {
-        const profile = documentOrganizationProfile(document);
-        if (profile?.review_status !== "needs_review") return false;
-      }
-
-      const labelText = tagSearchText(document);
-      const summaryText = document.summary?.summary ?? "";
-      const haystack = `${document.title} ${document.file_name} ${labelText} ${summaryText}`.toLowerCase();
-      return haystack.includes(filterValue);
-    })
-    .sort((left, right) => {
-      if (mode !== "recent") return 0;
-      return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
-    });
-  const availableDocumentCount = mode === "source" ? sourcePdfCount : (pagination?.total ?? documents.length);
-  const statusTitle =
-    mode === "recent"
-      ? `${availableDocumentCount.toLocaleString()} recent source${availableDocumentCount === 1 ? "" : "s"}`
-      : mode === "source"
-        ? `${availableDocumentCount.toLocaleString()} source PDF${availableDocumentCount === 1 ? "" : "s"}`
-        : isAdminMode
-          ? `${statusFilterLabel(statusFilter)}: ${filtered.length.toLocaleString()} shown`
-          : `${availableDocumentCount.toLocaleString()} indexed source${availableDocumentCount === 1 ? "" : "s"}`;
-  const statusHelper =
-    availableDocumentCount === 0
-      ? mode === "recent"
-        ? "Recent source rows will appear here after indexing."
-        : mode === "source"
-          ? "Indexed PDF source rows will appear below."
-          : "Indexed source rows will appear below."
-      : mode === "recent"
-        ? "Continue reading from the most recently updated sources."
-        : mode === "source"
-          ? "Open original PDF source documents."
-          : "Search and filter to open indexed clinical sources.";
-
-  return (
-    <div className="space-y-3">
-      <div
-        className={cn(
-          "grid min-h-[4.5rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
-          "sm:p-3.5",
-        )}
-      >
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
-          <FileText className="h-4.5 w-4.5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-extrabold text-[color:var(--text-heading)]">{statusTitle}</p>
-          <p className={cn("mt-0.5 line-clamp-2 text-xs font-medium leading-5", textMuted)}>{statusHelper}</p>
-        </div>
-        <span className="nums w-fit shrink-0 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-          {filtered.length.toLocaleString()} shown
-        </span>
-      </div>
-      <label className="relative block">
-        <Search className={fieldIcon} />
-        <input
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-          placeholder={mode === "source" ? "Find a source PDF" : "Find a document"}
-          data-sheet-autofocus={mode !== "admin" ? "true" : undefined}
-          className={fieldControlWithIcon}
-        />
-      </label>
-
-      {/* Dynamic Browse Library Filters */}
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <div>
-          <label
-            htmlFor="browse-filter-type"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
-          >
-            Type
-          </label>
-          <select
-            id="browse-filter-type"
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
-            aria-label="Filter by document type"
-          >
-            <option value="all">All Types</option>
-            {allTypes.map((t) => (
-              <option key={t} value={t}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor="browse-filter-site"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
-          >
-            Site
-          </label>
-          <select
-            id="browse-filter-site"
-            value={selectedSite}
-            onChange={(e) => setSelectedSite(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
-            aria-label="Filter by site"
-          >
-            <option value="all">All Sites</option>
-            {allSites.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor="browse-filter-topic"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
-          >
-            Topic
-          </label>
-          <select
-            id="browse-filter-topic"
-            value={selectedTopic}
-            onChange={(e) => setSelectedTopic(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
-            aria-label="Filter by topic"
-          >
-            <option value="all">All Topics</option>
-            {allTopics.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor="browse-filter-population"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
-          >
-            Population
-          </label>
-          <select
-            id="browse-filter-population"
-            value={selectedPopulation}
-            onChange={(e) => setSelectedPopulation(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
-            aria-label="Filter by population"
-          >
-            <option value="all">All Populations</option>
-            {allPopulations.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Admin Queue Toggle */}
-      {isAdminMode ? (
-        <div className="flex items-center gap-2 py-1">
-          <input
-            type="checkbox"
-            id="needs-review-filter"
-            checked={showNeedsReviewOnly}
-            onChange={(e) => setShowNeedsReviewOnly(e.target.checked)}
-            className="rounded border-[color:var(--border)] text-[color:var(--primary)] focus:ring-[color:var(--primary)] h-4 w-4"
-          />
-          <label
-            htmlFor="needs-review-filter"
-            className="text-xs font-semibold text-[color:var(--text-soft)] cursor-pointer select-none"
-          >
-            Show &quot;Needs review&quot; queue only
-          </label>
-        </div>
-      ) : null}
-      {pagination && pagination.total > documents.length ? (
-        <p className={cn("text-xs", textMuted)}>
-          Showing {documents.length} of {pagination.total} documents. Load more to manage older files.
-        </p>
-      ) : null}
-      {isAdminMode ? (
-        <DocumentLabelReviewPanel documents={documents} canManage={canManageDocuments} onMutateLabel={onMutateLabel} />
-      ) : null}
-      {isAdminMode ? <DocumentTagQualityPanel documents={documents} /> : null}
-      {isAdminMode ? <DocumentIndexRepairPanel documents={documents} /> : null}
-      {isAdminMode && selectedDocumentIds.length ? (
-        <div className={cn(panelSubtle, "space-y-3 p-3")}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-[color:var(--text)]">
-                {selectedDocumentIds.length} selected document{selectedDocumentIds.length === 1 ? "" : "s"}
-              </p>
-              <p className={cn("text-xs", textMuted)}>Bulk actions apply only to explicitly selected documents.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={!canManageDocuments || bulkActionBusy}
-                onClick={() => onBulkReindex("enrichment")}
-                className={cn(floatingControl, "px-3 text-xs")}
-              >
-                {bulkActionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Regenerate summaries
-              </button>
-              <button
-                type="button"
-                disabled={!canManageDocuments || bulkActionBusy}
-                onClick={() => onBulkReindex("full")}
-                className={cn(floatingControl, "px-3 text-xs")}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Full reindex
-              </button>
-              <button
-                type="button"
-                disabled={!canManageDocuments || bulkActionBusy}
-                onClick={() => onBulkReindex("retry_failed")}
-                className={cn(floatingControl, "px-3 text-xs")}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Retry failed
-              </button>
-            </div>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <input
-              value={collectionDraft}
-              onChange={(event) => setCollectionDraft(event.target.value)}
-              placeholder="Collection name for selected documents"
-              aria-label="Collection name for selected documents"
-              className={fieldControlPlain}
-            />
-            <button
-              type="button"
-              disabled={!canManageDocuments || bulkActionBusy || !collectionDraft.trim()}
-              onClick={() => onBulkAssignCollection(collectionDraft)}
-              className={cn(primaryControl, "justify-center")}
-            >
-              Assign collection
-            </button>
-          </div>
-          <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-            <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
-              Bulk metadata editor
-            </summary>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <select
-                value={metadataDraft.sourceStatus}
-                onChange={(event) => setMetadataDraft((current) => ({ ...current, sourceStatus: event.target.value }))}
-                aria-label="Bulk edit source status"
-                className={fieldControlPlain}
-              >
-                <option value="">Source status unchanged</option>
-                <option value="current">Current</option>
-                <option value="review_due">Review due</option>
-                <option value="outdated">Outdated</option>
-                <option value="unknown">Unknown</option>
-              </select>
-              <select
-                value={metadataDraft.validationStatus}
-                onChange={(event) =>
-                  setMetadataDraft((current) => ({ ...current, validationStatus: event.target.value }))
-                }
-                aria-label="Bulk edit validation status"
-                className={fieldControlPlain}
-              >
-                <option value="">Validation unchanged</option>
-                <option value="unverified">Unverified</option>
-                <option value="locally_reviewed">Locally reviewed</option>
-                <option value="approved">Approved</option>
-              </select>
-              <select
-                value={metadataDraft.extractionQuality}
-                onChange={(event) =>
-                  setMetadataDraft((current) => ({ ...current, extractionQuality: event.target.value }))
-                }
-                aria-label="Bulk edit extraction quality"
-                className={fieldControlPlain}
-              >
-                <option value="">Extraction unchanged</option>
-                <option value="good">Good</option>
-                <option value="partial">Partial</option>
-                <option value="poor">Poor</option>
-                <option value="unknown">Unknown</option>
-              </select>
-              <input
-                type="date"
-                value={metadataDraft.reviewDate}
-                onChange={(event) => setMetadataDraft((current) => ({ ...current, reviewDate: event.target.value }))}
-                className={fieldControlPlain}
-                aria-label="Bulk review date"
-              />
-              <input
-                type="date"
-                value={metadataDraft.publicationDate}
-                onChange={(event) =>
-                  setMetadataDraft((current) => ({ ...current, publicationDate: event.target.value }))
-                }
-                className={fieldControlPlain}
-                aria-label="Bulk publication date"
-              />
-              <input
-                value={metadataDraft.jurisdiction}
-                onChange={(event) => setMetadataDraft((current) => ({ ...current, jurisdiction: event.target.value }))}
-                placeholder="Jurisdiction/locality"
-                aria-label="Bulk edit jurisdiction/locality"
-                className={fieldControlPlain}
-              />
-              <input
-                value={metadataDraft.sourceType}
-                onChange={(event) => setMetadataDraft((current) => ({ ...current, sourceType: event.target.value }))}
-                placeholder="Source type"
-                aria-label="Bulk edit source type"
-                className={fieldControlPlain}
-              />
-              <input
-                value={metadataDraft.category}
-                onChange={(event) => setMetadataDraft((current) => ({ ...current, category: event.target.value }))}
-                placeholder="Category"
-                aria-label="Bulk edit category"
-                className={fieldControlPlain}
-              />
-            </div>
-            <button
-              type="button"
-              disabled={!canManageDocuments || bulkActionBusy}
-              onClick={() => {
-                const metadata = Object.fromEntries(
-                  Object.entries(metadataDraft).filter(([, value]) => String(value).trim()),
-                );
-                onBulkMetadataUpdate(metadata);
-              }}
-              className={cn(primaryControl, "mt-3 justify-center")}
-            >
-              Apply metadata to selected
-            </button>
-          </details>
-          {bulkActionStatus ? <p className={cn("text-xs font-semibold", textMuted)}>{bulkActionStatus}</p> : null}
-        </div>
-      ) : null}
-      <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-        {filtered.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title={documents.length === 0 ? emptyStates.documentsNoneIndexed.title : emptyStates.documentsNoMatch.title}
-            body={
-              documents.length === 0
-                ? "Upload a guideline to start indexing."
-                : "Try another document title or file name."
-            }
-          />
-        ) : (
-          filtered.slice(0, 12).map((document) => {
-            const selected = selectedDocumentIds.includes(document.id);
-            return (
-              <div key={document.id} className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                <div className="min-w-0">
-                  <Link
-                    href={`/documents/${document.id}`}
-                    className="flex min-h-[44px] min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
-                  >
-                    <span className="truncate">{documentDisplayTitle(document)}</span>
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
-                  </Link>
-                  <DocumentOrganizationBadges document={document} compact className="mt-1" />
-                  <p className={cn("mt-1 truncate text-xs", textMuted)}>
-                    {document.page_count} pages · {document.chunk_count} chunks · {document.image_count} images
-                  </p>
-                  {document.summary?.summary && (
-                    <p className={cn("mt-2 line-clamp-2 text-[13px] leading-5", textMuted)}>
-                      <SafeBoldText text={document.summary.summary} />
-                    </p>
-                  )}
-                  <DocumentTagCloud
-                    labels={document.labels}
-                    query={filter}
-                    limit={5}
-                    compact
-                    className="mt-2"
-                    onTagClick={onTagSearch}
-                  />
-                  <SourceProvenance metadata={document.metadata} />
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge status={document.status} />
-                  <SourceStatusBadge metadata={document.metadata} />
-                  {isAdminMode ? (
-                    <DocumentManagementActions
-                      document={document}
-                      disabled={!canManageDocuments}
-                      onRenamed={onDocumentRenamed}
-                      onDeleted={onDocumentDeleted}
-                    />
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => onToggleScope(document.id)}
-                    className={cn(
-                      "inline-flex min-h-[44px] items-center rounded-lg border px-3 text-xs font-semibold transition",
-                      selected
-                        ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
-                        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                    )}
-                  >
-                    {selected ? "In scope" : "Add scope"}
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-      {pagination?.hasMore ? (
+        <UserQuestionBubble query={turn.query} />
         <button
           type="button"
-          onClick={onLoadMoreDocuments}
-          disabled={loadingMoreDocuments}
-          className={cn(floatingControl, "w-full justify-center")}
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-1 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
-          {loadingMoreDocuments ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}
-          Load more documents
+          <ChevronDown className={cn("h-4 w-4 transition-transform", !collapsed && "rotate-180")} aria-hidden="true" />
+          {collapsed ? "Show previous answer" : "Hide previous answer"}
         </button>
-      ) : null}
+        {collapsed ? (
+          <p className={cn("line-clamp-2 text-sm leading-6", textMuted)}>{previewText}</p>
+        ) : (
+          <NaturalLanguageAnswer
+            text={previewText}
+            sourceCount={sourceCount}
+            weakEvidence={weakEvidence}
+            grounded={grounded}
+            sourceOnly={turn.answer.answerQualityTier === "source_only"}
+            bestSource={renderModel.bestSource}
+            sources={renderModel.reviewSources}
+            sourceLinks={renderModel.primarySources}
+            copied={copied}
+            onCopy={() => onCopy(renderModel.copyText || previewText)}
+          />
+        )}
+      </div>
     </div>
   );
 }
 
 type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
-type DocumentDrawerMode = "recent" | "library" | "source" | "admin";
-type DocumentDrawerStatusFilter = "all" | "indexed" | "indexing" | "failed";
 type IndexingMonitorFilter = "all" | "active" | "failed";
 type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
-
-function documentStatusMatchesFilter(document: ClinicalDocument, filter: DocumentDrawerStatusFilter) {
-  if (filter === "all") return true;
-  if (filter === "indexed") return document.status === "indexed";
-  if (filter === "indexing") return document.status === "queued" || document.status === "processing";
-  return document.status === "failed";
-}
-
-function statusFilterLabel(filter: DocumentDrawerStatusFilter) {
-  if (filter === "indexed") return "Indexed documents";
-  if (filter === "indexing") return "Indexing documents";
-  if (filter === "failed") return "Failed documents";
-  return "All documents";
-}
-
-function DrawerGroupLabel({ title }: { title: string }) {
-  return (
-    <p className="px-1 pt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
-  );
-}
 
 export function SettingsDialog({
   open,
@@ -2999,7 +1603,7 @@ function SettingsSummaryTile({
           className={cn(
             "grid h-8 w-8 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] lg:rounded-lg",
             emphasized
-              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)]"
+              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
           )}
         >
@@ -3039,7 +1643,7 @@ function SettingsRow({
         className={cn(
           "grid h-7 w-7 shrink-0 place-items-center rounded-full transition sm:h-8 sm:w-8 lg:rounded-lg lg:border lg:shadow-[var(--shadow-inset)]",
           active
-            ? "bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-accent)_24%,transparent)] lg:border-[color:var(--clinical-accent)]"
+            ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-accent)_24%,transparent)] lg:border-[color:var(--clinical-accent)]"
             : "bg-transparent text-[color:var(--text-muted)] lg:border-[color:var(--border)] lg:bg-[color:var(--surface-lux)]",
         )}
       >
@@ -3158,7 +1762,7 @@ function fabToneClassName(tone: MobileSectionFabTone) {
   if (tone === "empty") {
     return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
   }
-  return "border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]";
+  return "border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 }
 
 function buildMobileSectionFabState({
@@ -3435,14 +2039,14 @@ function MobileSectionFab({
                   "relative grid min-h-[58px] grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-transparent py-1.5 pl-3 pr-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                   item.empty && !active && "opacity-75",
                   active &&
-                    "border-[color:var(--primary)]/25 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)] shadow-[var(--shadow-inset)]",
+                    "border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
                 )}
               >
                 <span
                   aria-hidden="true"
                   className={cn(
                     "absolute bottom-2 left-1 top-2 w-1 rounded-full bg-transparent",
-                    active && "bg-[color:var(--primary)]",
+                    active && "bg-[color:var(--clinical-accent)]",
                   )}
                 />
                 <span
@@ -3451,7 +2055,7 @@ function MobileSectionFab({
                     "grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]",
                     item.empty && !active && "bg-[color:var(--surface-subtle)]",
                     active &&
-                      "border-[color:var(--primary)]/25 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
+                      "border-[color:var(--clinical-accent)]/25 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
                   )}
                 >
                   <Icon className="h-4.5 w-4.5" />
@@ -3468,7 +2072,7 @@ function MobileSectionFab({
                       "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-[11px] font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
                       item.empty && "text-[color:var(--text-muted)]",
                       active &&
-                        "border-[color:var(--primary)]/20 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
+                        "border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
                     )}
                   >
                     {item.count}
@@ -3583,6 +2187,7 @@ export function ClinicalDashboard({
   const urlSearchBootstrappedRef = useRef(false);
   const urlDocumentSearchBootstrappedRef = useRef(false);
   const lastSyncedSearchParamsRef = useRef(searchParams.toString());
+  const modeChangeFromUiRef = useRef(false);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
   const indexedDocumentTotal = documentsPagination?.total ?? documents.length;
@@ -3593,11 +2198,27 @@ export function ClinicalDashboard({
   const [qualityItems, setQualityItems] = useState<IngestionQualityReviewItem[]>([]);
   const jobsRef = useRef(jobs);
   const batchesRef = useRef(batches);
+  const answerThreadBootstrappedRef = useRef(false);
+  const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(false);
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
+  // Answer-mode conversation thread. `priorAnswerTurns` holds completed
+  // exchanges displayed above the latest answer; `latestAnswerQuery` is the
+  // question that produced the current `answer` (the composer `query` is a
+  // draft that clears after each successful answer). The ref mirrors the
+  // latest committed turn so async search completions can archive it without
+  // reading stale closure state.
+  const [priorAnswerTurns, setPriorAnswerTurns] = useState<AnswerTurn[]>([]);
+  const [latestAnswerQuery, setLatestAnswerQuery] = useState<string | null>(null);
+  const [collapsedTurnIds, setCollapsedTurnIds] = useState<Set<string>>(() => new Set());
+  const [showEarlierTurns, setShowEarlierTurns] = useState(false);
+  const threadRestoreScrolledRef = useRef(false);
+  const restoredThreadFromStorageRef = useRef(false);
+  const latestAnswerTurnRef = useRef<Omit<AnswerTurn, "id"> | null>(null);
+  const answerTurnSeqRef = useRef(0);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
   const [searchRelevance, setSearchRelevance] = useState<EvidenceRelevance | null>(null);
   const [searchFacets, setSearchFacets] = useState<SearchFacets | null>(null);
@@ -3625,7 +2246,77 @@ export function ClinicalDashboard({
     [searchMode, formSearchMatches, serviceSearchMatches],
   );
   const recordSearchMode = searchMode === "forms" ? "forms" : "services";
+  // The thread mirror ref must never outlive the answer it describes: every
+  // reset path nulls `answer`, so clearing here covers them all (mode
+  // switches, new chat, differentials/services clears) without each caller
+  // having to remember the ref.
+  useEffect(() => {
+    if (!answerThreadBootstrappedRef.current) return;
+    if (answer === null) latestAnswerTurnRef.current = null;
+  }, [answer]);
+  useEffect(() => {
+    queueMicrotask(() => {
+      const persisted = loadPersistedAnswerThread();
+      if (persisted) {
+        restoredThreadFromStorageRef.current = true;
+        setPriorAnswerTurns(persisted.priorTurns);
+        setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
+        if (persisted.latestTurn) {
+          latestAnswerTurnRef.current = persisted.latestTurn;
+          setAnswer(persisted.latestTurn.answer);
+          setSources(persisted.latestTurn.sources);
+          setModeSearchSubmitted(true);
+          setQuery("");
+          const restoredQuery = persisted.latestTurn.query.trim();
+          if (restoredQuery) {
+            autoRunSearchSignatureRef.current = `answer:${restoredQuery}`;
+          }
+        }
+        answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
+          const match = /^answer-turn-(\d+)$/.exec(turn.id);
+          return match ? Math.max(max, Number(match[1])) : max;
+        }, 0);
+        setCollapsedTurnIds(
+          persisted.collapsedTurnIds.length
+            ? new Set(persisted.collapsedTurnIds)
+            : new Set(persisted.priorTurns.map((turn) => turn.id)),
+        );
+      }
+      answerThreadBootstrappedRef.current = true;
+      setAnswerThreadBootstrapped(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (
+      !answerThreadBootstrappedRef.current ||
+      !answer ||
+      !restoredThreadFromStorageRef.current ||
+      threadRestoreScrolledRef.current
+    ) {
+      return;
+    }
+    threadRestoreScrolledRef.current = true;
+    window.requestAnimationFrame(() => {
+      mainRef.current?.scrollTo({ top: mainRef.current?.scrollHeight ?? 0, behavior: "auto" });
+    });
+  }, [answer]);
+  function resetAnswerThread() {
+    setPriorAnswerTurns([]);
+    setLatestAnswerQuery(null);
+    setCollapsedTurnIds(new Set());
+    setShowEarlierTurns(false);
+    clearPersistedAnswerThread();
+  }
+  function toggleAnswerTurnCollapsed(turnId: string) {
+    setCollapsedTurnIds((current) => {
+      const next = new Set(current);
+      if (next.has(turnId)) next.delete(turnId);
+      else next.add(turnId);
+      return next;
+    });
+  }
   function clearDifferentialModeResultState() {
+    resetAnswerThread();
     setAnswer(null);
     setSources([]);
     setDocumentMatches([]);
@@ -3668,12 +2359,27 @@ export function ClinicalDashboard({
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const [indexingActionId, setIndexingActionId] = useState<string | null>(null);
   const [indexingActive, setIndexingActive] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const { status: authStatus, authorizationHeader, markSessionExpired } = auth;
+  const prevAuthStatusRef = useRef(authStatus);
+  useEffect(() => {
+    const previous = prevAuthStatusRef.current;
+    prevAuthStatusRef.current = authStatus;
+    if (
+      (authStatus === "signed_out" || authStatus === "expired") &&
+      (previous === "authenticated" || previous === "loading")
+    ) {
+      resetAnswerThread();
+      setAnswer(null);
+      setSources([]);
+      latestAnswerTurnRef.current = null;
+    }
+  }, [authStatus]);
   const supabaseEnvStatus = setupChecks.find((check) => check.id === "env")?.status;
   const browserAuthUnavailableDemoFallback = !auth.isConfigured && supabaseEnvStatus !== "ready";
   const localNoAuthMode = isLocalNoAuthMode();
@@ -3682,9 +2388,12 @@ export function ClinicalDashboard({
   const uploadReadOnlyMode =
     demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
+  const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
+  const canUseDegradedLocalSearchApis =
+    process.env.NODE_ENV !== "production" && localProjectReady && hasReadyRequiredPublicSearchConfig(setupChecks);
   const canUsePrivateApis =
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
-  const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
+  const canRunSearch = explicitDemoMode || canUsePublicSearchApis || canUseDegradedLocalSearchApis;
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
@@ -3801,6 +2510,21 @@ export function ClinicalDashboard({
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    if (!answerThreadBootstrapped) return;
+    if (searchMode !== "answer") return;
+    if (!answer && priorAnswerTurns.length === 0) {
+      clearPersistedAnswerThread();
+      return;
+    }
+    savePersistedAnswerThread({
+      version: 1,
+      priorTurns: priorAnswerTurns,
+      latestTurn: latestAnswerTurnRef.current,
+      collapsedTurnIds: [...collapsedTurnIds],
+    });
+  }, [searchMode, answer, priorAnswerTurns, collapsedTurnIds, latestAnswerQuery, answerThreadBootstrapped]);
 
   useEffect(() => {
     jobsRef.current = jobs;
@@ -4323,6 +3047,11 @@ export function ClinicalDashboard({
     const mode = searchParams.get("mode");
     if (!isAppModeId(mode) || !isAppModeVisible(mode)) return;
 
+    if (modeChangeFromUiRef.current) {
+      modeChangeFromUiRef.current = false;
+      return;
+    }
+
     const nextQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
     const shouldFocusComposer = searchParams.get("focus") === "1";
     const hasUrlQuery = searchParams.has("q") || searchParams.has("query");
@@ -4351,7 +3080,9 @@ export function ClinicalDashboard({
     const frame = window.requestAnimationFrame(() => {
       if (targetMode === "differentials") clearDifferentialModeResultState();
       setSearchMode(targetMode);
-      if (searchText) setQuery(searchText);
+      // run=1 URLs name the latest answered question; the composer stays empty
+      // while an answer thread is active (including after localStorage restore).
+      if (searchText && params.get("run") !== "1") setQuery(searchText);
       if (shouldFocusComposer) focusComposerInput();
     });
     return () => window.cancelAnimationFrame(frame);
@@ -4365,6 +3096,14 @@ export function ClinicalDashboard({
     if (!searchText || !isAppModeId(mode) || !isAppModeVisible(mode)) return;
     if (mode === "prescribing") return;
     const modeSearch = appModeSearchConfig(mode);
+    // Answer-mode run=1 URLs are submitted by the autoRunSearch effect after
+    // localStorage thread restore completes; running here would archive a
+    // restored latest turn into a duplicate prior turn on reload.
+    if (modeSearch.resultKind === "answer") {
+      if (!answerThreadBootstrapped) return;
+      urlDocumentSearchBootstrappedRef.current = true;
+      return;
+    }
     const shouldRun =
       params.get("run") === "1" ||
       modeSearch.kind === "documents" ||
@@ -4377,7 +3116,7 @@ export function ClinicalDashboard({
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canRunSearch]);
+  }, [canRunSearch, answerThreadBootstrapped]);
 
   useEffect(() => {
     const updateHash = () => {
@@ -4543,7 +3282,7 @@ export function ClinicalDashboard({
   // under another query's composer text.
   const searchRequestSeqRef = useRef(0);
 
-  function applySearchResult(payload: SearchResultModePayload) {
+  function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
     if (payload.kind === "documents") {
       setDocumentMatches(payload.documentMatches);
       setSources(payload.sources);
@@ -4555,6 +3294,21 @@ export function ClinicalDashboard({
     }
 
     const answerData = payload.payload;
+    // Archive the previous exchange before the new answer replaces it, so the
+    // thread keeps every turn visible in the same window.
+    const priorTurn = latestAnswerTurnRef.current;
+    if (priorTurn) {
+      const turnId = `answer-turn-${++answerTurnSeqRef.current}`;
+      setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }].slice(-maxStoredAnswerTurns));
+      setCollapsedTurnIds((current) => new Set(current).add(turnId));
+    }
+    const committedQuery = displayQuery ?? payload.query;
+    latestAnswerTurnRef.current = {
+      query: committedQuery,
+      answer: answerData,
+      sources: answerData.sources ?? [],
+    };
+    setLatestAnswerQuery(committedQuery);
     setAnswer(answerData);
     setSources(answerData.sources ?? []);
     setSearchRelevance(answerData.relevance ?? answerData.smartPanel?.relevance ?? null);
@@ -4593,7 +3347,13 @@ export function ClinicalDashboard({
     const requestId = ++searchRequestSeqRef.current;
 
     setSearchMode(targetMode);
-    setQuery(trimmedQuery);
+    // Answer mode keeps the composer as the draft source until a successful
+    // response clears it. Syncing query here on follow-ups used to fire the
+    // URL-backed autoRunSearch effect before loading flipped true, which
+    // duplicated the in-flight answer request and produced extra thread turns.
+    if (modeSearch.resultKind !== "answer") {
+      setQuery(trimmedQuery);
+    }
     if (modeSearch.kind !== "tools") setModeSearchSubmitted(true);
     if (isDifferentialsMode) clearDifferentialModeResultState();
 
@@ -4614,6 +3374,7 @@ export function ClinicalDashboard({
       return;
     }
     if (modeSearch.kind === "services" || targetMode === "forms") {
+      resetAnswerThread();
       setAnswer(null);
       setSources([]);
       setDocumentMatches([]);
@@ -4649,14 +3410,23 @@ export function ClinicalDashboard({
     onProgress(modeSearch.progressLabel);
     rememberRecentQuery(trimmedQuery);
 
-    const fallbackQuery = keywordQueryFromNaturalLanguage(trimmedQuery);
+    // Answer-mode follow-ups: the API takes a single query string, so a short
+    // ambiguous follow-up ("what about renal impairment?") is wrapped with the
+    // previous turn's question before retrieval. The raw text the user typed
+    // is what the thread displays (via displayQuery below).
+    const isAnswerRequest = modeSearch.resultKind === "answer";
+    const priorTurnQuery = isAnswerRequest ? latestAnswerTurnRef.current?.query : undefined;
+    const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
+    const requestQuery = isAnswerRequest ? buildAnswerFollowUpQuery(priorTurnQuery, trimmedQuery) : trimmedQuery;
+
+    const fallbackQuery = keywordQueryFromNaturalLanguage(requestQuery);
     const queryPlan =
-      fallbackQuery && fallbackQuery !== trimmedQuery
+      fallbackQuery && fallbackQuery !== requestQuery
         ? [
-            { query: trimmedQuery, isKeyword: false },
+            { query: requestQuery, isKeyword: false },
             { query: fallbackQuery, isKeyword: true },
           ]
-        : [{ query: trimmedQuery, isKeyword: false }];
+        : [{ query: requestQuery, isKeyword: false }];
 
     try {
       let successfulPayload: SearchResultModePayload | null = null;
@@ -4702,7 +3472,28 @@ export function ClinicalDashboard({
       }
 
       // M10: discard a stale response — a newer search owns the UI state.
-      if (requestId === searchRequestSeqRef.current) applySearchResult(successfulPayload);
+      if (requestId === searchRequestSeqRef.current) {
+        applySearchResult(successfulPayload, trimmedQuery);
+        if (successfulPayload.kind === "answer") {
+          // The composer is a draft box in a conversation: clear it so the
+          // user can type the next follow-up immediately.
+          setQuery("");
+          // Keep only the latest question in the URL; the full thread lives in
+          // React state until refresh or New chat.
+          modeChangeFromUiRef.current = true;
+          window.history.replaceState(
+            null,
+            "",
+            appModeHomeHref(targetMode, { query: trimmedQuery, run: true }),
+          );
+          if (isAnswerFollowUp) {
+            window.requestAnimationFrame(() => {
+              const main = mainRef.current;
+              main?.scrollTo({ top: main.scrollHeight, behavior: "smooth" });
+            });
+          }
+        }
+      }
     } catch (requestError) {
       if (requestId === searchRequestSeqRef.current) {
         setError(requestError instanceof Error ? requestError.message : "Search failed");
@@ -4716,6 +3507,7 @@ export function ClinicalDashboard({
   }
 
   function setMedicationSearchQuery(searchText: string, updateUrl = true) {
+    modeChangeFromUiRef.current = true;
     const trimmedSearchText = searchText.trim();
     if (!trimmedSearchText) return;
     setSearchMode("prescribing");
@@ -4730,6 +3522,12 @@ export function ClinicalDashboard({
   }
 
   async function ask() {
+    const trimmedQuery = query.trim();
+    if (searchMode === "documents" && trimmedQuery) {
+      rememberRecentQuery(trimmedQuery);
+      router.push(documentsSearchHref({ query: trimmedQuery, focus: true, run: true }));
+      return;
+    }
     if (searchMode === "prescribing") {
       setMedicationSearchQuery(query);
       return;
@@ -4739,15 +3537,24 @@ export function ClinicalDashboard({
 
   useEffect(() => {
     const trimmedQuery = query.trim();
-    const canAutoRunMode = searchMode === "prescribing" || canRunSearch;
+    const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !trimmedQuery || !canAutoRunMode || loading) return;
+    if (searchMode === "answer" && !answerThreadBootstrapped) return;
+    // Once an answer is on screen, composer edits are follow-up drafts and must
+    // only run on explicit submit — not on every query keystroke while run=1
+    // keeps autoRunSearch enabled from the URL.
+    if (searchMode === "answer" && answer) return;
+    // After reload, the URL query matches the restored latest turn — do not
+    // archive it again into a duplicate prior turn.
+    if (searchMode === "answer" && latestAnswerQuery?.trim() === trimmedQuery) {
+      autoRunSearchSignatureRef.current = `${searchMode}:${trimmedQuery}`;
+      return;
+    }
     const signature = `${searchMode}:${trimmedQuery}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
     void ask();
-    // The signature ref gates this URL-triggered run so it only submits once per mode/query.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRunSearch, canRunSearch, loading, query, searchMode]);
+  }, [autoRunSearch, canRunSearch, loading, query, searchMode, answer, answerThreadBootstrapped, latestAnswerQuery]);
 
   function pickRecentQuery(recentQuery: string) {
     if (searchMode === "prescribing") {
@@ -4755,6 +3562,32 @@ export function ClinicalDashboard({
       return;
     }
     setQuery(recentQuery);
+  }
+
+  function crossModeSearch(mode: AppModeId, crossQuery: string) {
+    modeChangeFromUiRef.current = true;
+    if (mode === "differentials") clearDifferentialModeResultState();
+    setCommandScopes([]);
+    setQuery(crossQuery);
+    setModeSearchSubmitted(false);
+    setLoading(false);
+    setError(null);
+    setAnswerProgress(null);
+    setSearchRelevance(null);
+    setSearchFacets(null);
+    setSearchScope(null);
+    setSourceGovernanceWarnings([]);
+    setDocumentMatches([]);
+    if (mode === "answer") {
+      resetAnswerThread();
+      setAnswer(null);
+      setSources([]);
+    }
+    if (mode === "prescribing") {
+      setMedicationSearchQuery(crossQuery);
+    }
+    setSearchMode(mode);
+    router.push(appModeHomeHref(mode, { query: crossQuery, focus: true, run: true }));
   }
 
   async function submitAnswerFeedback(feedbackType: AnswerFeedbackType) {
@@ -4850,6 +3683,18 @@ export function ClinicalDashboard({
   ) {
     const trimmedSearchText = searchText.trim();
     if (!trimmedSearchText) return;
+    if (targetMode === "documents") {
+      setQuery(trimmedSearchText);
+      setSearchMode("documents");
+      setModeSearchSubmitted(true);
+      setLoading(false);
+      setError(null);
+      setAnswerProgress(null);
+      rememberRecentQuery(trimmedSearchText);
+      window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+      if (updateUrl) router.push(documentsSearchHref({ query: trimmedSearchText, focus: true, run: true }));
+      return;
+    }
     if (!canRunSearch) {
       setError(errorCopy.searchSetupNotReady);
       return;
@@ -4971,9 +3816,12 @@ export function ClinicalDashboard({
   }
 
   function selectSearchMode(mode: AppModeId) {
+    modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setQuery("");
+    setCommandScopes([]);
     if (mode === "answer") {
+      resetAnswerThread();
       setAnswer(null);
       setSources([]);
     }
@@ -4997,7 +3845,21 @@ export function ClinicalDashboard({
     });
   }
 
+  function stageAnswerFollowUpDraft(draft: string) {
+    setQuery(draft);
+    focusComposerInput();
+  }
+
+  function handleFollowUpQuote(quote: QuoteCard) {
+    stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
+  }
+
+  function handlePickFollowUpSuggestion(suggestion: string) {
+    void executeSearch(suggestion);
+  }
+
   function startNewChat() {
+    modeChangeFromUiRef.current = true;
     const href = appModeHomeHref("answer", { focus: true });
     setQuery("");
     setModeSearchSubmitted(false);
@@ -5005,6 +3867,7 @@ export function ClinicalDashboard({
     setQueryMode("auto");
     setSelectedDocumentIds([]);
     setScopeFilters({});
+    resetAnswerThread();
     setAnswer(null);
     setSources([]);
     setDocumentMatches([]);
@@ -5211,6 +4074,16 @@ export function ClinicalDashboard({
     answerRenderModel?.trust !== "unsupported";
   const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
   const safeAnswerText = useMemo(() => sanitizeAnswerDisplayText(answer?.answer ?? ""), [answer?.answer]);
+  const answerFollowUpSuggestions = useMemo(() => {
+    if (!answer || !latestAnswerQuery) return [];
+    const priorQueries = [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery];
+    return buildAnswerFollowUpSuggestions(latestAnswerQuery, answer, priorQueries);
+  }, [answer, latestAnswerQuery, priorAnswerTurns]);
+  const hiddenPriorTurnCount = Math.max(0, priorAnswerTurns.length - maxVisiblePriorTurns);
+  const visiblePriorTurns = useMemo(() => {
+    if (showEarlierTurns || hiddenPriorTurnCount === 0) return priorAnswerTurns;
+    return priorAnswerTurns.slice(-maxVisiblePriorTurns);
+  }, [hiddenPriorTurnCount, priorAnswerTurns, showEarlierTurns]);
   const safeAnswerSections = useMemo(() => {
     return (answer?.answerSections ?? [])
       .map((section) => {
@@ -5373,6 +4246,18 @@ export function ClinicalDashboard({
   // stay top-aligned so their lists start in a stable position.
   const centeredModeHome =
     showDesktopHomeComposer && activeModeResultKind !== "tools" && activeModeResultKind !== "favourites";
+  // Short mode homes (centred homes plus the services/forms registry homes)
+  // drop the large mobile bottom padding so phones don't get a scrollbar for
+  // content that already fits. Result views keep the full clearance.
+  const compactMobileModeHome =
+    centeredModeHome ||
+    ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
+  // Submitted (non-answer) searches are result views, not mode homes: on phones
+  // the bottom composer drops its chip row and hugs the screen edge so results
+  // keep maximum vertical space. Mode homes keep the default chip-row layout.
+  const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
+  const differentialsCompareAddonActive =
+    searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -5483,12 +4368,14 @@ export function ClinicalDashboard({
     <div
       className={cn(
         appBackdrop,
-        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] lg:grid lg:overflow-hidden",
+        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] md:grid md:grid-cols-[5.25rem_minmax(0,1fr)] md:overflow-hidden",
+        "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={
         {
           "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
+          "--clinical-sidebar-width-md": "5.25rem",
         } as CSSProperties
       }
     >
@@ -5508,7 +4395,7 @@ export function ClinicalDashboard({
         onPrefetchApplications={prefetchApplications}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:h-full">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
         <MasterSearchHeader
           documents={documents}
           documentTotal={indexedDocumentTotal}
@@ -5524,7 +4411,7 @@ export function ClinicalDashboard({
           onAsk={ask}
           onClearQuery={() => {
             setQuery("");
-            setModeSearchSubmitted(false);
+            if (!answer) setModeSearchSubmitted(false);
           }}
           onClearScope={() => setSelectedDocumentIds([])}
           onQueryModeChange={setQueryMode}
@@ -5543,9 +4430,25 @@ export function ClinicalDashboard({
           queryModeOptions={clinicalQueryModeOptions}
           queryInputRef={composerInputRef}
           queryInputAutoFocus={focusSearch}
+          recentQueries={recentQueries}
+          commandScopes={commandScopes}
+          onCommandScopesChange={setCommandScopes}
+          onPickRecent={(recent) => {
+            pickRecentQuery(recent);
+            void ask();
+          }}
+          onCrossModeSearch={crossModeSearch}
+          composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
+          mobileBottomSearchVariant={compactMobileBottomSearch ? "compact" : "default"}
+          mobileBottomSearchAddonSlotId={
+            differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
+          }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
           heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
+          // Phone-only: the header sits above the internally scrolling <main>,
+          // so hiding must collapse its layout space to hand it to content.
+          hideOnScroll={{ strategy: "collapse", containerRef: mainRef }}
         />
 
         <main
@@ -5558,18 +4461,41 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
-                ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+                ? compactMobileBottomSearch
+                  ? differentialsCompareAddonActive
+                    ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
+                    : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
+                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
                 : "mb-0",
           )}
         >
           <h1 className="sr-only">Clinical Guide</h1>
+          <SearchCommandProvider
+            value={{
+              query,
+              modeId: searchMode,
+              commandScopes,
+              onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
+              onClearScopes: () => setCommandScopes([]),
+            }}
+          >
           <div
             className={cn(
               "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+              // Centred mode homes carry little content, so drop the large
+              // mobile bottom padding (the fixed composer already has its own
+              // reserved margin on <main>) to avoid a needless scrollbar.
+              // sm+/lg values stay identical to the result-view treatment.
               searchMode === "answer"
-                ? "pb-32 sm:pb-36 lg:pb-40"
+                ? compactMobileModeHome
+                  ? "pb-4 sm:pb-36 lg:pb-40"
+                  : "pb-32 sm:pb-36 lg:pb-40"
                 : hasMobileBottomSearch
-                  ? "pb-32 sm:pb-10 lg:pb-12"
+                  ? compactMobileModeHome
+                    ? "pb-4 sm:pb-10 lg:pb-12"
+                    : compactMobileBottomSearch
+                      ? "pb-8 sm:pb-10 lg:pb-12"
+                      : "pb-32 sm:pb-10 lg:pb-12"
                   : "pb-8 sm:pb-10 lg:pb-12",
             )}
           >
@@ -5593,14 +4519,16 @@ export function ClinicalDashboard({
               </div>
             )}
             {showDegradedNotice && renderDegradedNotice()}
-            {showAuthPanel && <AuthPanel />}
             {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
 
             <section
               className={cn(
-                "min-h-[calc(100dvh-11rem)]",
+                "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                 centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
-                  ? "grid w-full place-items-center"
+                  ? // On tall phones the centred home leans slightly toward the
+                    // bottom composer (matches the committed vertical-weighting
+                    // guard); short phones skip the bias so content still fits.
+                    "grid w-full place-items-center max-sm:[@media(min-height:800px)]:pt-[5vh]"
                   : activeModeResultKind === "tools" ||
                       activeModeResultKind === "favourites" ||
                       activeModeResultKind === "differentials"
@@ -5626,9 +4554,9 @@ export function ClinicalDashboard({
               {loading && answerProgress && searchMode !== "prescribing" && (
                 <div
                   role="status"
-                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
                 >
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--primary)]" />
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
                   <span className="min-w-0 truncate">{answerProgress}</span>
                 </div>
               )}
@@ -5639,7 +4567,7 @@ export function ClinicalDashboard({
                   loading={loading}
                   documentMatches={documentMatches}
                   realDataReady={canRunSearch}
-                  authUnavailable={!clientDemoMode && !canUsePrivateApis}
+                  authUnavailable={false}
                   apiUnavailable={apiUnavailable}
                   setupWarning={setupWarning}
                   onQueryChange={setQuery}
@@ -5710,8 +4638,8 @@ export function ClinicalDashboard({
                       loading={loading}
                       documentCount={indexedDocumentTotal}
                       recentDocuments={documents}
-                      realDataReady={canRunSearch}
-                      authUnavailable={!clientDemoMode && !canUsePrivateApis}
+                      realDataReady={searchMode === "services" || searchMode === "forms" ? true : canRunSearch}
+                      authUnavailable={false}
                       apiUnavailable={apiUnavailable}
                       setupWarning={setupWarning}
                       facets={searchFacets}
@@ -5730,30 +4658,56 @@ export function ClinicalDashboard({
                 <AnswerSkeleton />
               ) : answer && answerRenderModel ? (
                 stagedDashboardExtraction.answerSurface ? (
-                  <StagedAnswerResultSurface
-                    answer={answer}
-                    query={query}
-                    safeAnswerText={safeAnswerText}
-                    bestSource={bestSource}
-                    sourceGovernanceWarnings={sourceGovernanceWarnings}
-                    sourceSummary={sourceSummary}
-                    renderModel={answerRenderModel}
-                    weakEvidence={weakEvidence}
-                    answerViewMode={answerViewMode}
-                    answerEvidenceMapRows={answerEvidenceMapRows}
-                    onScopeDocument={scopeOnlyDocument}
-                    answerGrounded={answerGrounded}
-                    sources={answerRenderModel.reviewSources}
-                    demoMode={demoMode}
-                    safeAnswerSections={safeAnswerSections}
-                    safetyFindings={safetyFindings}
-                    copiedAnswer={copiedAction === "answer"}
-                    pendingFeedback={pendingFeedback}
-                    onCopyAnswer={() =>
-                      copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
-                    }
-                    onSubmitFeedback={submitAnswerFeedback}
-                  />
+                  <>
+                    {hiddenPriorTurnCount > 0 && !showEarlierTurns ? (
+                      <button
+                        type="button"
+                        data-testid="answer-thread-show-earlier"
+                        onClick={() => setShowEarlierTurns(true)}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      >
+                        Show earlier messages ({hiddenPriorTurnCount})
+                      </button>
+                    ) : null}
+                    {visiblePriorTurns.map((turn) => (
+                      <PriorAnswerTurnSurface
+                        key={turn.id}
+                        turn={turn}
+                        copied={copiedAction === turn.id}
+                        collapsed={collapsedTurnIds.has(turn.id)}
+                        onToggleCollapsed={() => toggleAnswerTurnCollapsed(turn.id)}
+                        onCopy={(text) => copyText(turn.id, text)}
+                      />
+                    ))}
+                    <StagedAnswerResultSurface
+                      answer={answer}
+                      query={latestAnswerQuery ?? query}
+                      safeAnswerText={safeAnswerText}
+                      bestSource={bestSource}
+                      sourceGovernanceWarnings={sourceGovernanceWarnings}
+                      sourceSummary={sourceSummary}
+                      renderModel={answerRenderModel}
+                      weakEvidence={weakEvidence}
+                      answerViewMode={answerViewMode}
+                      answerEvidenceMapRows={answerEvidenceMapRows}
+                      onScopeDocument={scopeOnlyDocument}
+                      answerGrounded={answerGrounded}
+                      sources={answerRenderModel.reviewSources}
+                      demoMode={demoMode}
+                      safeAnswerSections={safeAnswerSections}
+                      safetyFindings={safetyFindings}
+                      copiedAnswer={copiedAction === "answer"}
+                      pendingFeedback={pendingFeedback}
+                      onCopyAnswer={() =>
+                        copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
+                      }
+                      onSubmitFeedback={submitAnswerFeedback}
+                      onFollowUpQuote={handleFollowUpQuote}
+                      followUpSuggestions={answerFollowUpSuggestions}
+                      onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
+                      followUpSuggestionsDisabled={loading}
+                    />
+                  </>
                 ) : null
               ) : (
                 <AnswerEmptyState
@@ -5876,7 +4830,7 @@ export function ClinicalDashboard({
                             className={cn(
                               "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
                               active
-                                ? "border-[color:var(--primary)] bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--glow-soft)]"
+                                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--glow-soft)]"
                                 : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
                             )}
                           >
@@ -5976,6 +4930,7 @@ export function ClinicalDashboard({
 
             {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
           </div>
+          </SearchCommandProvider>
         </main>
 
         <MobileSectionFab

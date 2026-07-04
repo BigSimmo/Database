@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   ArrowUpDown,
   ChevronDown,
@@ -12,7 +13,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, floatingControl, iconTilePremium, panelSubtle, primaryControl } from "@/components/ui-primitives";
@@ -49,6 +50,30 @@ export function FavouritesHub({
   desktopComposerSlotId?: string;
   headingLevel?: 1 | 2;
 }) {
+  const savedRegistryFavourites = useSavedRegistryFavourites();
+  const allFavouriteItems = useMemo(
+    () => [...favouriteItems, ...savedRegistryFavourites],
+    [savedRegistryFavourites],
+  );
+  const allFavouriteSets = useMemo(() => {
+    const savedSetTitles = new Set(favouriteSets.map((set) => set.title));
+    const dynamicSets = Array.from(new Set(savedRegistryFavourites.map((item) => item.set)))
+      .filter((title) => title && !savedSetTitles.has(title))
+      .map((title) => ({
+        id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+        title,
+        count: savedRegistryFavourites.filter((item) => item.set === title).length,
+        meta: "Saved from site activity",
+        keywords: title.toLowerCase(),
+      }));
+    return [
+      ...favouriteSets.map((set) => ({
+        ...set,
+        count: allFavouriteItems.filter((item) => item.set === set.title).length,
+      })),
+      ...dynamicSets,
+    ].filter((set) => set.count > 0);
+  }, [allFavouriteItems, savedRegistryFavourites]);
   const [selectedTab, setSelectedTab] = useState<FavouriteTabId>("all");
   const [tabMenuOpen, setTabMenuOpen] = useState(false);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
@@ -56,24 +81,29 @@ export function FavouritesHub({
   const tabButtonRef = useRef<HTMLButtonElement | null>(null);
   const tabOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const normalizedQuery = query.trim();
-  const selectedSet = selectedSetId ? favouriteSets.find((set) => set.id === selectedSetId) : null;
+  const selectedSet = selectedSetId ? allFavouriteSets.find((set) => set.id === selectedSetId) : null;
+  const getTypeCount = (type: FavouriteTabId) => {
+    if (type === "all") return allFavouriteItems.length + allFavouriteSets.length;
+    if (type === "sets") return allFavouriteSets.length;
+    return allFavouriteItems.filter((item) => item.type === type).length;
+  };
   const tabItems =
     selectedTab === "all" || selectedTab === "sets"
-      ? favouriteItems
-      : favouriteItems.filter((item) => item.type === selectedTab);
+      ? allFavouriteItems
+      : allFavouriteItems.filter((item) => item.type === selectedTab);
   const visibleItems = tabItems
     .filter((item) => favouriteMatchesQuery(item, normalizedQuery))
     .filter((item) => !selectedSet || item.set === selectedSet.title);
-  const visibleSets = favouriteSets.filter((set) => favouriteMatchesQuery(set, normalizedQuery));
+  const visibleSets = allFavouriteSets.filter((set) => favouriteMatchesQuery(set, normalizedQuery));
   const showSets = selectedTab === "all" || selectedTab === "sets";
   const showItems = selectedTab !== "sets";
   const empty = (!showItems || visibleItems.length === 0) && (!showSets || visibleSets.length === 0);
   const selectedTabMeta = favouriteTabs.find((tab) => tab.id === selectedTab) ?? favouriteTabs[0];
   const selectedTabLabel = selectedTabMeta.label;
-  const selectedTabCount = favouriteTypeCount(selectedTab);
+  const selectedTabCount = getTypeCount(selectedTab);
   const SelectedTabIcon = selectedTabMeta.icon;
-  const itemCount = favouriteItems.length;
-  const setCount = favouriteSets.length;
+  const itemCount = allFavouriteItems.length;
+  const setCount = allFavouriteSets.length;
   const activeFilterCount = (normalizedQuery ? 1 : 0) + (selectedSet ? 1 : 0);
   const selectedTabIndex = Math.max(
     0,
@@ -210,7 +240,7 @@ export function FavouritesHub({
                 {favouriteTabs.map((tab, index) => {
                   const Icon = tab.icon;
                   const selected = selectedTab === tab.id;
-                  const count = favouriteTypeCount(tab.id);
+                  const count = getTypeCount(tab.id);
                   return (
                     <button
                       key={tab.id}
@@ -445,9 +475,9 @@ function FavouriteItemRow({ item, onMoveToSet }: { item: FavouriteItem; onMoveTo
         </div>
       </div>
       <div className="hidden items-center gap-1.5 sm:flex">
-        <button type="button" className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
+        <Link href={item.href} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
           {item.primaryAction}
-        </button>
+        </Link>
         <button type="button" onClick={onMoveToSet} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
           <FolderInput className="h-3.5 w-3.5" />
           Move
@@ -455,6 +485,9 @@ function FavouriteItemRow({ item, onMoveToSet }: { item: FavouriteItem; onMoveTo
       </div>
       <button
         type="button"
+        onClick={() => {
+          window.location.href = item.href;
+        }}
         className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden"
         aria-label={`Open ${item.title}`}
       >

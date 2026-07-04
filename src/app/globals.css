@@ -148,6 +148,26 @@
   --clinical-chat-table-header: #f7f8fa;
   --clinical-chat-ready: var(--success);
 
+  /* Favourite type chips — categorical, not semantic status. */
+  --type-document: #1d4ed8;
+  --type-document-soft: #eff6ff;
+  --type-document-border: #bfdbfe;
+  --type-table: #047857;
+  --type-table-soft: #ecfdf5;
+  --type-table-border: #a7f3d0;
+  --type-search: #334155;
+  --type-search-soft: #f8fafc;
+  --type-search-border: #e2e8f0;
+  --type-source: #6d28d9;
+  --type-source-soft: #f5f3ff;
+  --type-source-border: #ddd6fe;
+  --type-service: #0e7490;
+  --type-service-soft: #ecfeff;
+  --type-service-border: #a5f3fc;
+  --type-form: #b45309;
+  --type-form-soft: #fffbeb;
+  --type-form-border: #fde68a;
+
   /* Semantic triads (text / background / border), on-white for light mode. */
   --info-text: #2563eb;
   --info-bg: #eff4ff;
@@ -292,6 +312,25 @@
   --clinical-chat-document: #101215;
   --clinical-chat-table-header: #141619;
   --clinical-chat-ready: var(--success);
+
+  --type-document: #93c5fd;
+  --type-document-soft: #172554;
+  --type-document-border: #1e3a8a;
+  --type-table: #6ee7b7;
+  --type-table-soft: #064e3b;
+  --type-table-border: #047857;
+  --type-search: #cbd5e1;
+  --type-search-soft: #1e293b;
+  --type-search-border: #475569;
+  --type-source: #c4b5fd;
+  --type-source-soft: #2e1065;
+  --type-source-border: #5b21b6;
+  --type-service: #67e8f9;
+  --type-service-soft: #164e63;
+  --type-service-border: #0e7490;
+  --type-form: #fcd34d;
+  --type-form-soft: #451a03;
+  --type-form-border: #92400e;
 
   --info-text: #89c0f0;
   --info-bg: #122c4c;
@@ -588,6 +627,123 @@ summary::-webkit-details-marker {
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 32%, black 100%);
 }
 
+/* Phone dock: full-bleed footer with progressive blur scrim behind pill + chips. */
+.answer-footer-search-dock {
+  --footer-scrim-height: max(10rem, calc(var(--safe-area-bottom) + 8.5rem));
+}
+
+.answer-footer-search-dock[data-footer-variant="compact"] {
+  --footer-scrim-height: max(7rem, calc(var(--safe-area-bottom) + 5.5rem));
+}
+
+/* Bottom-docked composer: hint row + upward dropdown grow above the pill. */
+.answer-footer-search-edge {
+  overflow: visible;
+}
+
+.answer-footer-search-edge .universal-command-surface,
+.answer-footer-search-edge .universal-command-surface > .relative {
+  overflow: visible;
+}
+
+.answer-footer-search-edge[data-command-open="true"] .answer-footer-search-backdrop {
+  height: max(18rem, calc(var(--safe-area-bottom) + 16rem));
+}
+
+.answer-footer-search-dock[data-command-open="true"] {
+  --footer-scrim-height: max(22rem, calc(var(--safe-area-bottom) + 20rem));
+}
+
+.answer-footer-search-dock[data-command-open="true"][data-footer-variant="compact"] {
+  --footer-scrim-height: max(18rem, calc(var(--safe-area-bottom) + 16rem));
+}
+
+.answer-footer-search-edge .universal-command-dropdown {
+  border-bottom-left-radius: 1rem;
+  border-bottom-right-radius: 1rem;
+}
+
+.answer-footer-search-dock .answer-footer-search-backdrop {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  top: auto;
+  z-index: 0;
+  height: var(--footer-scrim-height);
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--background) 8%, transparent) 38%,
+    color-mix(in srgb, var(--background) 18%, transparent) 68%,
+    color-mix(in srgb, var(--background) 32%, transparent) 100%
+  );
+  backdrop-filter: blur(2px) saturate(130%);
+  -webkit-backdrop-filter: blur(2px) saturate(130%);
+  mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 45%) 28%, black 60%, black 100%);
+  -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 45%) 28%, black 60%, black 100%);
+}
+
+.answer-footer-search-dock .answer-footer-search-backdrop::before,
+.answer-footer-search-dock .answer-footer-search-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.answer-footer-search-dock .answer-footer-search-backdrop::before {
+  backdrop-filter: blur(8px) saturate(130%);
+  -webkit-backdrop-filter: blur(8px) saturate(130%);
+  mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 35%) 20%, black 45%, black 80%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 35%) 20%, black 45%, black 80%, transparent 100%);
+}
+
+.answer-footer-search-dock .answer-footer-search-backdrop::after {
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  mask-image: linear-gradient(180deg, transparent 0%, transparent 55%, black 72%, black 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, transparent 55%, black 72%, black 100%);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .answer-footer-search-dock .answer-footer-search-backdrop,
+  .answer-footer-search-dock .answer-footer-search-backdrop::before,
+  .answer-footer-search-dock .answer-footer-search-backdrop::after {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .answer-footer-search-dock .answer-footer-search-backdrop {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--background) 45%, transparent) 40%,
+      color-mix(in srgb, var(--background) 78%, transparent) 72%,
+      color-mix(in srgb, var(--background) 92%, transparent) 100%
+    );
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .answer-footer-search-dock .answer-footer-search-backdrop,
+  .answer-footer-search-dock .answer-footer-search-backdrop::before,
+  .answer-footer-search-dock .answer-footer-search-backdrop::after {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .answer-footer-search-dock .answer-footer-search-backdrop {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--background) 50%, transparent) 42%,
+      color-mix(in srgb, var(--background) 82%, transparent) 74%,
+      color-mix(in srgb, var(--background) 94%, transparent) 100%
+    );
+  }
+}
+
 .answer-footer-search-pill:hover {
   border-color: var(--border-strong);
   box-shadow:
@@ -613,13 +769,11 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-pill-open[data-menu-placement="up"] {
-  border-top-left-radius: 1rem;
-  border-top-right-radius: 1rem;
+  border-radius: 999px;
 }
 
 .answer-footer-search-pill-open[data-menu-placement="down"] {
-  border-bottom-left-radius: 1rem;
-  border-bottom-right-radius: 1rem;
+  border-radius: 999px;
 }
 
 .mode-action-surface {
@@ -630,6 +784,44 @@ summary::-webkit-details-marker {
 
 .mode-action-surface[data-placement="down"] {
   transform-origin: center top;
+}
+
+.mode-action-surface[data-placement="up"]::after {
+  content: "";
+  position: absolute;
+  bottom: -0.42rem;
+  left: 50%;
+  z-index: 2;
+  width: 0.9rem;
+  height: 0.9rem;
+  transform: translateX(-50%) rotate(45deg);
+  border: 1px solid color-mix(in srgb, var(--border-lux) 86%, transparent);
+  border-left: 0;
+  border-top: 0;
+  border-bottom-right-radius: 0.18rem;
+  background: var(--surface-raised);
+  box-shadow: 5px 5px 14px rgb(15 37 48 / 6%);
+}
+
+.mode-action-surface[data-placement="down"]::before {
+  content: "";
+  position: absolute;
+  top: -0.42rem;
+  left: 50%;
+  z-index: 2;
+  width: 0.9rem;
+  height: 0.9rem;
+  transform: translateX(-50%) rotate(45deg);
+  border: 1px solid color-mix(in srgb, var(--border-lux) 86%, transparent);
+  border-right: 0;
+  border-bottom: 0;
+  border-top-left-radius: 0.18rem;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--clinical-accent) 78%, #ffffff 22%) 0%,
+    color-mix(in srgb, var(--primary-700) 82%, #ffffff 18%) 100%
+  );
+  box-shadow: -5px -5px 14px rgb(15 37 48 / 6%);
 }
 
 .mode-action-panel {
@@ -839,36 +1031,34 @@ summary::-webkit-details-marker {
 
 @media (max-width: 430px) {
   .mode-action-header {
-    min-height: 5.7rem;
-    grid-template-areas:
-      "selector close"
-      "summary summary";
-    grid-template-columns: minmax(0, 1fr) 2.85rem;
-    gap: 0.5rem 0.65rem;
-    padding: 0.62rem;
+    min-height: 3.7rem;
+    grid-template-areas: "selector close";
+    grid-template-columns: minmax(0, 1fr) 2.35rem;
+    gap: 0.45rem;
+    padding: 0.48rem;
   }
 
   .mode-action-mode-button {
-    min-height: 2.85rem;
-    gap: 0.55rem;
-    padding-inline: 0.58rem;
-    font-size: 0.95rem;
+    min-height: 2.25rem;
+    gap: 0.42rem;
+    padding-inline: 0.5rem;
+    font-size: 0.9rem;
   }
 
   .mode-action-mode-icon {
-    height: 1.95rem;
-    width: 1.95rem;
+    height: 1.45rem;
+    width: 1.45rem;
+    border-radius: 0.42rem;
+  }
+
+  .mode-action-mode-icon svg,
+  .mode-action-mode-option-icon svg {
+    height: 0.9rem;
+    width: 0.9rem;
   }
 
   .mode-action-header-summary {
-    gap: 0;
-    padding-inline: 0.18rem;
-    font-size: 0.83rem;
-    white-space: normal;
-  }
-
-  .mode-action-header-summary .truncate {
-    white-space: normal;
+    display: none;
   }
 
   .mode-action-header-divider {
@@ -876,12 +1066,42 @@ summary::-webkit-details-marker {
   }
 
   .mode-action-close {
-    height: 2.55rem;
-    width: 2.55rem;
+    height: 2.05rem;
+    width: 2.05rem;
+  }
+
+  .mode-action-close svg {
+    height: 0.95rem;
+    width: 0.95rem;
   }
 
   .mode-action-mode-menu {
     width: min(20rem, calc(100vw - 1.5rem));
+  }
+
+  .mode-action-mode-option {
+    min-height: 2.75rem;
+    grid-template-columns: 1.75rem minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    padding: 0.38rem 0.45rem;
+  }
+
+  .mode-action-mode-option-icon {
+    height: 1.7rem;
+    width: 1.7rem;
+    border-radius: 0.42rem;
+  }
+
+  .answer-footer-search-action,
+  .answer-footer-search-send {
+    height: 2.05rem;
+    width: 2.05rem;
+  }
+
+  .answer-footer-search-action svg,
+  .answer-footer-search-send svg {
+    height: 1rem;
+    width: 1rem;
   }
 }
 
@@ -940,6 +1160,20 @@ summary::-webkit-details-marker {
 .answer-footer-search-send:hover {
   background: var(--clinical-accent-hover);
   box-shadow: 0 5px 14px color-mix(in srgb, var(--clinical-accent) 38%, transparent);
+}
+
+@media (max-width: 430px) {
+  .answer-footer-search-action,
+  .answer-footer-search-send {
+    height: 2.05rem !important;
+    width: 2.05rem !important;
+  }
+
+  .answer-footer-search-action svg,
+  .answer-footer-search-send svg {
+    height: 1rem;
+    width: 1rem;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1091,6 +1325,26 @@ summary::-webkit-details-marker {
     transform: translateX(-50%);
   }
 
+  /* Compact search/result views: no chip row below the pill, so the pill
+     itself hugs the bottom edge and the scrim shrinks to match. */
+  .document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact {
+    bottom: max(0.4rem, calc(var(--safe-area-bottom) + 0.3rem));
+  }
+
+  .document-mobile-search-compact .answer-footer-search-backdrop {
+    height: max(5rem, calc(var(--safe-area-bottom) + 4.4rem));
+  }
+
+  /* Differentials search results: compare action sits above the search pill in the dock. */
+  .answer-footer-search-dock[data-footer-addon="differentials-compare"] .answer-footer-search-backdrop {
+    height: max(8.75rem, calc(var(--safe-area-bottom) + 7.5rem));
+  }
+
+  .answer-footer-search-dock.document-mobile-search-compact[data-footer-addon="differentials-compare"]
+    .answer-footer-search-backdrop {
+    height: max(8.5rem, calc(var(--safe-area-bottom) + 7.25rem));
+  }
+
   .document-mobile-search-pill {
     min-height: 3.6rem;
     border-color: var(--border-strong);
@@ -1099,6 +1353,77 @@ summary::-webkit-details-marker {
     box-shadow:
       0 1px 2px rgb(16 24 40 / 5%),
       0 8px 22px rgb(16 24 40 / 8%);
+  }
+
+  /* Edge-to-edge phone dock: full-width footer, progressive scrim, inset pill. */
+  .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge,
+  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    transform: none;
+    padding-inline: max(0.75rem, var(--safe-area-left)) max(0.75rem, var(--safe-area-right));
+    padding-top: 0.5rem;
+    padding-bottom: max(0.5rem, var(--safe-area-bottom));
+  }
+
+  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact {
+    padding-bottom: max(0.45rem, var(--safe-area-bottom));
+  }
+
+  .answer-footer-search-dock .answer-footer-search-pill {
+    border-color: var(--border-strong);
+    background: var(--surface);
+    box-shadow:
+      0 -1px 0 color-mix(in srgb, var(--border) 60%, transparent),
+      0 1px 3px rgb(16 24 40 / 5%);
+  }
+
+  .answer-footer-search-dock .answer-footer-search-chip {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .answer-footer-search-dock .answer-footer-search-pill:hover {
+    box-shadow:
+      0 -1px 0 color-mix(in srgb, var(--border-strong) 70%, transparent),
+      0 2px 6px rgb(16 24 40 / 7%);
+  }
+
+  .answer-footer-search-dock .answer-footer-search-pill:focus-within {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--clinical-accent) 16%, transparent),
+      0 -1px 0 color-mix(in srgb, var(--border) 60%, transparent),
+      0 2px 6px rgb(16 24 40 / 6%);
+  }
+
+  .answer-footer-search-dock .answer-footer-search-pill-open {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--clinical-accent) 10%, transparent),
+      0 -1px 0 color-mix(in srgb, var(--border) 60%, transparent),
+      0 2px 8px rgb(16 24 40 / 8%);
+  }
+}
+
+/* Tablet rail range: the collapsed icon rail occupies the left edge from md
+   until the full sidebar takes over at lg, so fixed composers must centre on
+   the remaining content area instead of the viewport. Shells set
+   --clinical-sidebar-width-md (5.25rem, or 0px when the sidebar is hidden). */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .dashboard-composer-edge {
+    left: calc(var(--clinical-sidebar-width-md, 0px) + max(0.75rem, var(--safe-area-left)));
+    right: max(0.75rem, var(--safe-area-right));
+  }
+
+  .dashboard-composer-edge.answer-footer-search-edge {
+    left: calc(
+      var(--clinical-sidebar-width-md, 0px) + (100vw - var(--clinical-sidebar-width-md, 0px)) / 2
+    );
+    right: auto;
+    width: min(calc(100vw - var(--clinical-sidebar-width-md, 0px) - 48px - var(--safe-area-left) - var(--safe-area-right)), 680px);
   }
 }
 
@@ -1139,6 +1464,50 @@ summary::-webkit-details-marker {
 /* Tabular figures for data, counts, page numbers, byte sizes */
 @utility nums {
   font-variant-numeric: tabular-nums;
+}
+
+@utility search-results-main {
+  container-type: inline-size;
+  container-name: search-results-main;
+  min-width: 0;
+}
+
+.search-results-cards-compact {
+  display: none;
+}
+
+.search-results-table-desktop {
+  display: block;
+}
+
+@media (max-width: 1023px) {
+  .search-results-table-desktop {
+    display: none !important;
+  }
+
+  .search-results-cards-compact {
+    display: block !important;
+  }
+}
+
+@container search-results-main (max-width: 56rem) {
+  .search-results-table-desktop {
+    display: none;
+  }
+
+  .search-results-cards-compact {
+    display: block;
+  }
+}
+
+@container search-results-main (min-width: 56.01rem) {
+  .search-results-table-desktop {
+    display: block;
+  }
+
+  .search-results-cards-compact {
+    display: none;
+  }
 }
 
 /* Motion keyframes (suppressed under prefers-reduced-motion below) */

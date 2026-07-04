@@ -1,0 +1,243 @@
+import type { AppModeId } from "@/lib/app-modes";
+import type { ServiceRecord } from "@/lib/services";
+import { serviceRecordSearchText } from "@/lib/services";
+
+export type CommandScopeChip = {
+  id: string;
+  label: string;
+};
+
+export type CommandSuggestion = {
+  text: string;
+  meta: string;
+};
+
+export type SearchCommandSurfaceConfig = {
+  examples: string[];
+  suggestions: CommandSuggestion[];
+  scopes: CommandScopeChip[];
+  crossModes: AppModeId[];
+};
+
+const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurfaceConfig>> = {
+  documents: {
+    examples: ["clozapine ANC thresholds", "lithium monitoring table", "QT prolongation quote"],
+    suggestions: [
+      { text: "clozapine monitoring table", meta: "Tables" },
+      { text: "clozapine ANC thresholds", meta: "Guidelines" },
+      { text: "clozapine rechallenge criteria", meta: "Quotes" },
+    ],
+    scopes: [
+      { id: "guidelines", label: "Guidelines" },
+      { id: "tables", label: "Tables" },
+      { id: "quotes", label: "Quotes" },
+      { id: "current", label: "Current only" },
+    ],
+    crossModes: ["prescribing", "forms", "favourites"],
+  },
+  services: {
+    examples: ["crisis ATSI phone WA", "perinatal psychiatry metro", "older adult CMH Fremantle"],
+    suggestions: [
+      { text: "crisis phone referral", meta: "Route" },
+      { text: "crisis ATSI-specific", meta: "Eligibility" },
+      { text: "crisis free statewide", meta: "Cost" },
+    ],
+    scopes: [
+      { id: "crisis", label: "Crisis" },
+      { id: "atsi", label: "ATSI-specific" },
+      { id: "free", label: "Free" },
+      { id: "phone", label: "Phone referral" },
+      { id: "region", label: "My region" },
+    ],
+    crossModes: ["documents", "favourites", "forms"],
+  },
+  forms: {
+    examples: ["transport order", "Form 3A detention", "extension of transport"],
+    suggestions: [
+      { text: "transport order form 4A", meta: "Forms" },
+      { text: "transport order extension 4B", meta: "Forms" },
+      { text: "transport pathway PSOLIS", meta: "Pathways" },
+    ],
+    scopes: [
+      { id: "highrisk", label: "High risk" },
+      { id: "official", label: "Official only" },
+      { id: "pathway", label: "Pathway-linked" },
+    ],
+    crossModes: ["documents", "services", "favourites"],
+  },
+  differentials: {
+    examples: ["acute confusion", "first episode psychosis", "catatonia vs NMS"],
+    suggestions: [
+      { text: "acute confusion / encephalopathy", meta: "Presentation" },
+      { text: "confusion post-ictal", meta: "Presentation" },
+      { text: "confusion Wernicke risk", meta: "Red flag" },
+    ],
+    scopes: [
+      { id: "emergent", label: "Emergent only" },
+      { id: "compare", label: "Compare mode" },
+    ],
+    crossModes: ["documents", "prescribing", "forms"],
+  },
+  prescribing: {
+    examples: ["acamprosate renal", "naltrexone dose ceiling", "disulfiram counselling"],
+    suggestions: [
+      { text: "acamprosate renal dosing", meta: "Safety" },
+      { text: "acamprosate ceiling 1,998 mg/day", meta: "Dose" },
+      { text: "acamprosate vs naltrexone", meta: "Compare" },
+    ],
+    scopes: [
+      { id: "indication", label: "Indication" },
+      { id: "safety", label: "Safety" },
+      { id: "monitor", label: "Monitoring" },
+      { id: "renal", label: "Renal dose" },
+    ],
+    crossModes: ["documents", "differentials", "favourites"],
+  },
+  favourites: {
+    examples: ["ward round set", "pinned monitoring tables", "clozapine clinic"],
+    suggestions: [
+      { text: "ward round set", meta: "Sets" },
+      { text: "ward round medication pages", meta: "Items" },
+      { text: "ward round renal checks", meta: "Items" },
+    ],
+    scopes: [
+      { id: "pinned", label: "Pinned" },
+      { id: "source", label: "Source-backed" },
+      { id: "recent", label: "Recently used" },
+    ],
+    crossModes: ["documents", "prescribing", "services"],
+  },
+  answer: {
+    examples: ["lithium level timing", "clozapine ANC monitoring", "ECT consent requirements"],
+    suggestions: [
+      { text: "lithium monitoring intervals", meta: "Guidelines" },
+      { text: "clozapine rechallenge criteria", meta: "Safety" },
+      { text: "QT prolongation risk medicines", meta: "Prescribing" },
+    ],
+    scopes: [],
+    crossModes: ["documents", "prescribing", "differentials"],
+  },
+};
+
+export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {
+  return searchCommandSurfaceByMode[modeId] ?? null;
+}
+
+export const differentialRedFlagTerms = ["confusion", "overdose", "suicid", "chest pain", "unresponsive", "catatoni"];
+
+export function isFormCodeQuery(query: string) {
+  const codeQuery = query.replace(/^form\s+/i, "").trim();
+  return /^\d{1,2}[a-z]?$/i.test(codeQuery);
+}
+
+export function filteredSuggestions(config: SearchCommandSurfaceConfig, query: string) {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return [];
+  return config.suggestions.filter(
+    (entry) =>
+      entry.text.toLowerCase().includes(trimmed) ||
+      trimmed.split(/\s+/).every((token) => entry.text.toLowerCase().includes(token)),
+  );
+}
+
+function serviceScopeMatches(record: ServiceRecord, text: string, scope: string) {
+  switch (scope) {
+    case "crisis":
+      return (
+        /crisis|urgent|emergency/.test(text) ||
+        record.statusChips?.some((chip) => /crisis|urgent/i.test(chip.label ?? "")) === true
+      );
+    case "atsi":
+      return /atsi|aboriginal|torres strait|13yarn/i.test(text);
+    case "free":
+      return /free/i.test(record.cost ?? text);
+    case "phone":
+      return (
+        /phone|self referral|call/i.test(`${record.route ?? ""} ${record.referral ?? ""} ${text}`) ||
+        record.primaryContact?.kind === "phone"
+      );
+    case "region":
+      return (
+        Boolean(record.catchments?.length) || /regional|metro|statewide|wa|national/i.test(record.location ?? text)
+      );
+    default:
+      return true;
+  }
+}
+
+function formScopeMatches(record: ServiceRecord, text: string, scope: string) {
+  switch (scope) {
+    case "highrisk":
+      return (
+        /high risk|danger/.test(text) ||
+        record.statusChips?.some((chip) => /high risk/i.test(chip.label ?? "")) === true
+      );
+    case "official":
+      return /official|template|mha|act/i.test(text);
+    case "pathway":
+      return /pathway|psolis|linked/i.test(text);
+    default:
+      return true;
+  }
+}
+
+export function recordMatchesCommandScopes(record: ServiceRecord, scopes: string[], modeId: AppModeId) {
+  if (!scopes.length) return true;
+  const text = serviceRecordSearchText(record);
+  return scopes.every((scope) => {
+    if (modeId === "services") return serviceScopeMatches(record, text, scope);
+    if (modeId === "forms") return formScopeMatches(record, text, scope);
+    return true;
+  });
+}
+
+export type FavouriteScopeItem = {
+  pinned?: boolean;
+  evidence: string;
+  lastUsed: string;
+};
+
+export function favouriteMatchesCommandScopes(item: FavouriteScopeItem, scopes: string[]) {
+  if (!scopes.length) return true;
+  return scopes.every((scope) => {
+    switch (scope) {
+      case "pinned":
+        return item.pinned === true;
+      case "source":
+        return Boolean(item.evidence && item.evidence !== "Run" && item.evidence !== "Saved query");
+      case "recent":
+        return (
+          item.lastUsed.toLowerCase().startsWith("today") || item.lastUsed.toLowerCase().startsWith("yesterday")
+        );
+      default:
+        return true;
+    }
+  });
+}
+
+export type MedicationScopeItem = {
+  indication: string;
+  match: string;
+  dose: string;
+  ceiling: string;
+  action: string;
+};
+
+export function medicationMatchesCommandScopes(item: MedicationScopeItem, scopes: string[]) {
+  if (!scopes.length) return true;
+  const haystack = `${item.indication} ${item.match} ${item.dose} ${item.ceiling} ${item.action}`.toLowerCase();
+  return scopes.every((scope) => {
+    switch (scope) {
+      case "indication":
+        return /indication|abstinence|maintenance|opioid|alcohol/.test(haystack);
+      case "safety":
+        return /check|avoid|caution|contraind|renal|hepatic/.test(haystack);
+      case "monitor":
+        return /monitor|follow|baseline|level|function/.test(haystack);
+      case "renal":
+        return /renal|creatinine|dose adjust|mg\/day|ceiling/.test(haystack);
+      default:
+        return true;
+    }
+  });
+}

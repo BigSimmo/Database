@@ -46,7 +46,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {/* Applies the resolved theme before first paint on every route (standalone
             pages don't mount useTheme, and hydration-time toggling flashes light).
             Mirrors resolveThemePreference in src/lib/theme.ts: stored choice wins,
@@ -58,6 +58,7 @@ export default function RootLayout({
         />
         <a
           href="#main-content"
+          suppressHydrationWarning
           className="sr-only focus:not-sr-only focus:fixed focus:left-[max(0.75rem,env(safe-area-inset-left))] focus:top-[max(0.75rem,env(safe-area-inset-top))] focus:z-[100] focus:rounded-lg focus:border focus:border-[color:var(--border-lux)] focus:bg-[color:var(--surface-raised)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[color:var(--text)] focus:shadow-[var(--shadow-elevated)]"
         >
           Skip to main content

@@ -25,6 +25,7 @@ import {
 import type { ReactNode } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { documentReaderHref } from "@/lib/document-flow-routes";
 
 export type DocumentSearchMockupVariant = "command" | "evidence-lens" | "triage-board";
 
@@ -96,14 +97,12 @@ const documents: DocumentFixture[] = [
 ];
 
 function highlightedDocumentHref(document: DocumentFixture) {
-  const params = new URLSearchParams({
-    mode: "documents",
+  return documentReaderHref({
     document: document.slug,
-    q: document.active ? "clozapine monitoring table" : document.title,
+    query: document.active ? "clozapine monitoring table" : document.title,
     page: document.page.replace("p.", ""),
     chunk: document.active ? "monitoring-table" : "best-match",
   });
-  return `/mockups/document-search/source?${params.toString()}`;
 }
 
 const facets = [

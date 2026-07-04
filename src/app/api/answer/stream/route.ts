@@ -2,7 +2,8 @@ import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
-import { consumeApiRateLimit, type ApiRateLimitResult } from "@/lib/api-rate-limit";
+import { consumeSubjectApiRateLimit, type ApiRateLimitResult } from "@/lib/api-rate-limit";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
@@ -15,7 +16,7 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
 import { parseJsonBody } from "@/lib/validation/body";
 import type { RagAnswer } from "@/lib/types";
@@ -223,17 +224,17 @@ export async function POST(request: Request) {
     if (isDemoMode()) return streamAnswer(body, undefined, request.signal);
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const access = await publicAccessContext(request, supabase);
 
-    const rateLimit = await consumeApiRateLimit({
+    const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
-      ownerId: user.id,
+      subject: access.rateLimitSubject,
       bucket: "answer",
       allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
     });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
 
-    return streamAnswer(body, user.id, request.signal);
+    return streamAnswer(body, access.ownerId, request.signal);
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse(error);

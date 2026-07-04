@@ -97,9 +97,16 @@ export const fallbackSetupChecks: SetupCheck[] = [
 ];
 
 const publicSearchSetupCheckIds = new Set<SetupCheck["id"]>(["env", "project", "schema", "search", "openai"]);
+const requiredPublicSearchConfigCheckIds = new Set<SetupCheck["id"]>(["env", "project", "schema", "openai"]);
 
 export function hasReadyPublicSearchSetup(checks: SetupCheck[]) {
   return Array.from(publicSearchSetupCheckIds).every(
+    (id) => checks.find((check) => check.id === id)?.status === "ready",
+  );
+}
+
+export function hasReadyRequiredPublicSearchConfig(checks: SetupCheck[]) {
+  return Array.from(requiredPublicSearchConfigCheckIds).every(
     (id) => checks.find((check) => check.id === id)?.status === "ready",
   );
 }

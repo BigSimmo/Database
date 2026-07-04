@@ -12,7 +12,26 @@ import { env } from "@/lib/env";
 // public Supabase env is configured AND an `sb-` auth cookie is present, so
 // demo / local-no-auth traffic is untouched and adds no auth round-trip.
 
+const documentFlowRedirects: Record<string, string> = {
+  "/mockups/document-search-command": "/documents/search",
+  "/mockups/document-search/source": "/documents/source",
+  "/mockups/document-search/source/evidence": "/documents/source/evidence",
+};
+
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const redirectTarget = documentFlowRedirects[pathname];
+
+  if (redirectTarget) {
+    const url = request.nextUrl.clone();
+    url.pathname = redirectTarget;
+    return NextResponse.redirect(url);
+  }
+
+  if (pathname.startsWith("/mockups") && process.env.NODE_ENV === "production") {
+    return new NextResponse(null, { status: 404 });
+  }
+
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
   const key = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const hasAuthCookie = request.cookies.getAll().some((cookie) => cookie.name.startsWith("sb-"));

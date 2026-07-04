@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  ArrowUpDown,
-  Check,
   ChevronDown,
   ChevronsRight,
   Copy,
@@ -12,44 +11,61 @@ import {
   FileText,
   Folder,
   Heart,
-  LayoutGrid,
-  List,
-  MessageSquare,
   MoreVertical,
   Pill,
-  Pin,
   Quote,
-  Save,
   Search,
   ShieldCheck,
   Trash2,
   X,
   type LucideIcon,
 } from "lucide-react";
-import type { ComponentPropsWithoutRef } from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
+import {
+  FavouritesMobileBrowseRail,
+  FavouritesSidebar,
+  useFavouritesNavCollapsed,
+  type FavouritesViewMode,
+} from "@/components/clinical-dashboard/favourites-library-nav";
+import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn } from "@/components/ui-primitives";
+import {
+  favouriteItems as prototypeFavouriteItems,
+  favouriteSets as prototypeFavouriteSets,
+  favouriteTabs,
+  type FavouriteItem as PrototypeFavouriteItem,
+} from "@/components/clinical-dashboard/favourites-prototype-data";
+import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
+import { SearchResultsEmptyState, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
+import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
+import { appModeIcons } from "@/lib/app-mode-icons";
 
-type FavouriteType = "Medication" | "Document" | "Table" | "Saved search" | "Source";
+type FavouriteType = "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form";
+type ViewMode = FavouritesViewMode;
+type SortMode = "last-used" | "title" | "type";
 
 type FavouriteItem = {
   id: string;
   title: string;
   description: string;
   type: FavouriteType;
+  tabId: string;
   set: string;
   evidence: string;
   lastUsed: string;
   action: string;
   href: string;
   icon: LucideIcon;
-  selected?: boolean;
+  pinned?: boolean;
 };
 
 type FavouriteSet = {
+  id: string;
   title: string;
   count: number;
+  meta?: string;
 };
 
 type SourceRecord = {
@@ -60,78 +76,6 @@ type SourceRecord = {
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-const favouriteSets: FavouriteSet[] = [
-  { title: "Ward round", count: 2 },
-  { title: "Prescribing safety", count: 2 },
-  { title: "Clozapine clinic", count: 1 },
-];
-
-const favouriteItems: FavouriteItem[] = [
-  {
-    id: "acamprosate-renal-screen",
-    title: "Acamprosate renal screen",
-    description: "Medication page · renal cautions / dose notes",
-    type: "Medication",
-    set: "Ward round",
-    evidence: "3 sources",
-    lastUsed: "Today 08:44",
-    action: "Open",
-    href: "/medications/acamprosate",
-    icon: Pill,
-    selected: true,
-  },
-  {
-    id: "lithium-monitoring-guideline",
-    title: "Lithium monitoring guideline",
-    description: "PDF · p.4-9 · 2 tables",
-    type: "Document",
-    set: "Prescribing safety",
-    evidence: "PDF verified",
-    lastUsed: "Today 08:20",
-    action: "Ask",
-    href: "/?mode=documents&q=lithium+monitoring&run=1",
-    icon: FileText,
-  },
-  {
-    id: "clozapine-monitoring-table",
-    title: "Clozapine monitoring table",
-    description: "Saved table · ANC monitoring",
-    type: "Table",
-    set: "Clozapine clinic",
-    evidence: "Table verified",
-    lastUsed: "Yesterday 16:12",
-    action: "Open",
-    href: "/?mode=documents&q=clozapine+monitoring+table&run=1",
-    icon: Quote,
-  },
-  {
-    id: "renal-dose-saved-search",
-    title: "renal dose saved search",
-    description: "Medicines plus documents / eGFR cautions",
-    type: "Saved search",
-    set: "Ward round",
-    evidence: "Saved query",
-    lastUsed: "Today 07:55",
-    action: "Run",
-    href: "/?mode=answer&q=renal+dose&run=1",
-    icon: Search,
-  },
-  {
-    id: "qt-prolongation-quote",
-    title: "QT prolongation quote",
-    description: "Source card / prescribing safety",
-    type: "Source",
-    set: "Prescribing safety",
-    evidence: "2 sources",
-    lastUsed: "Mon 11:03",
-    action: "Copy",
-    href: "/?mode=documents&q=QT+prolongation&run=1",
-    icon: Quote,
-  },
-];
-
-const selectedItem = favouriteItems[0];
-
 const sourceRecords: SourceRecord[] = [
   { title: "NICE CKS - Alcohol dependence", type: "Guideline" },
   { title: "BNF - Acamprosate", type: "BNF" },
@@ -141,11 +85,138 @@ const sourceRecords: SourceRecord[] = [
 const typeStyles: Record<FavouriteType, string> = {
   Medication:
     "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-  Document: "border-blue-200 bg-blue-50 text-blue-700",
-  Table: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  "Saved search": "border-slate-200 bg-slate-50 text-slate-700",
-  Source: "border-violet-200 bg-violet-50 text-violet-700",
+  Document: "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]",
+  Table: "border-[color:var(--type-table-border)] bg-[color:var(--type-table-soft)] text-[color:var(--type-table)]",
+  "Saved search":
+    "border-[color:var(--type-search-border)] bg-[color:var(--type-search-soft)] text-[color:var(--type-search)]",
+  Source: "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
+  Service: "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
+  Form: "border-[color:var(--type-form-border)] bg-[color:var(--type-form-soft)] text-[color:var(--type-form)]",
 };
+
+const lastUsedByItemId: Record<string, string> = {
+  "acamprosate-renal-screen": "Today 08:44",
+  "lithium-monitoring-guideline": "Today 08:20",
+  "clozapine-monitoring-table": "Yesterday 16:12",
+  "renal-dose-search": "Today 07:55",
+  "qt-prolongation-quote": "Mon 11:03",
+};
+
+const pinnedItemIds = new Set(["acamprosate-renal-screen", "lithium-monitoring-guideline"]);
+
+const typeByPrototypeType: Record<PrototypeFavouriteItem["type"], FavouriteType> = {
+  medications: "Medication",
+  documents: "Document",
+  sources: "Source",
+  services: "Service",
+  forms: "Form",
+};
+
+const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
+  medications: Pill,
+  documents: FileText,
+  sources: Quote,
+  services: appModeIcons.services,
+  forms: FileText,
+};
+
+function lastUsedScore(lastUsed: string): number {
+  const lower = lastUsed.toLowerCase();
+  if (lower.startsWith("today")) {
+    const timeMatch = lastUsed.match(/(\d{1,2}):(\d{2})/);
+    if (timeMatch) return 100_000 + Number(timeMatch[1]) * 60 + Number(timeMatch[2]);
+    return 100_000;
+  }
+  if (lower.startsWith("yesterday")) return 50_000;
+  if (lower.startsWith("mon")) return 10_000;
+  return 1_000;
+}
+
+function isSourceBacked(item: FavouriteItem): boolean {
+  return Boolean(item.evidence && item.evidence !== "Run" && item.evidence !== "Saved query");
+}
+
+function toCommandItem(item: PrototypeFavouriteItem): FavouriteItem {
+  const type = typeByPrototypeType[item.type] ?? (item.primaryAction === "Run" ? "Saved search" : "Source");
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.meta,
+    type,
+    tabId: item.type,
+    set: item.set || (item.type === "services" ? "Saved services" : item.type === "forms" ? "Saved forms" : "Unsorted"),
+    evidence: item.sourceMeta,
+    lastUsed: lastUsedByItemId[item.id] ?? "Saved",
+    action: item.primaryAction,
+    href: item.href,
+    icon: item.icon ?? fallbackIconByType[item.type],
+    pinned: pinnedItemIds.has(item.id),
+  };
+}
+
+function buildFavouriteSets(items: FavouriteItem[]): FavouriteSet[] {
+  const presetSets = prototypeFavouriteSets.map((set) => ({
+    id: set.id,
+    title: set.title,
+    count: items.filter((item) => item.set === set.title).length,
+    meta: set.meta,
+  }));
+  const knownTitles = new Set(presetSets.map((set) => set.title));
+  const dynamicSets = Array.from(new Set(items.map((item) => item.set)))
+    .filter((title) => title && !knownTitles.has(title))
+    .map((title) => ({
+      id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+      title,
+      count: items.filter((item) => item.set === title).length,
+    }));
+  return [...presetSets, ...dynamicSets].filter((set) => set.count > 0);
+}
+
+function getMostRecentlyUsedItem(items: FavouriteItem[]): FavouriteItem | null {
+  if (items.length === 0) return null;
+  return [...items].sort((first, second) => lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed))[0] ?? null;
+}
+
+function filterAndSortItems(
+  items: FavouriteItem[],
+  {
+    searchTerm,
+    selectedTypeId,
+    selectedSet,
+    viewMode,
+    sortMode,
+  }: {
+    searchTerm: string;
+    selectedTypeId: string;
+    selectedSet: FavouriteSet | null;
+    viewMode: ViewMode;
+    sortMode: SortMode;
+  },
+): FavouriteItem[] {
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const effectiveSort: SortMode = viewMode === "recent" ? "last-used" : sortMode;
+
+  return items
+    .filter((item) => selectedTypeId === "all" || item.tabId === selectedTypeId)
+    .filter((item) => !selectedSet || item.set === selectedSet.title)
+    .filter((item) => {
+      if (viewMode === "source-backed") return isSourceBacked(item);
+      if (viewMode === "pinned") return item.pinned === true;
+      return true;
+    })
+    .filter((item) =>
+      normalizedSearch
+        ? [item.title, item.description, item.type, item.set, item.evidence].some((field) =>
+            field.toLowerCase().includes(normalizedSearch),
+          )
+        : true,
+    )
+    .sort((first, second) => {
+      if (effectiveSort === "title") return first.title.localeCompare(second.title);
+      if (effectiveSort === "type") return first.type.localeCompare(second.type) || first.title.localeCompare(second.title);
+      return lastUsedScore(second.lastUsed) - lastUsedScore(first.lastUsed);
+    });
+}
 
 function MiniIconTile({ icon: Icon, active = false }: { icon: LucideIcon; active?: boolean }) {
   return (
@@ -175,355 +246,356 @@ function SmallChip({ children, className }: { children: React.ReactNode; classNa
   );
 }
 
-type ToolbarButtonProps = ComponentPropsWithoutRef<"button"> & {
-  children: React.ReactNode;
-  active?: boolean;
-  className?: string;
-};
-
-function ToolbarButton({ children, active = false, className, ...props }: ToolbarButtonProps) {
-  return (
-    <button
-      type="button"
-      {...props}
-      className={cn(
-        "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-bold transition",
-        active
-          ? "border-[color:var(--clinical-accent)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
-          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
-        focusRing,
-        className,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function SidebarSection({
-  title,
-  action,
-  children,
+function ActiveFilterChips({
+  searchTerm,
+  selectedTypeId,
+  selectedSet,
+  viewMode,
+  onClearSearch,
+  onClearType,
+  onClearSet,
+  onClearViewMode,
 }: {
-  title: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
+  searchTerm: string;
+  selectedTypeId: string;
+  selectedSet: FavouriteSet | null;
+  viewMode: ViewMode;
+  onClearSearch: () => void;
+  onClearType: () => void;
+  onClearSet: () => void;
+  onClearViewMode: () => void;
 }) {
-  return (
-    <section className="border-b border-[color:var(--border)] pb-4 last:border-b-0">
-      <div className="mb-3 flex min-h-8 items-center justify-between gap-2">
-        <h2 className="text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">{title}</h2>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
+  const typeLabel = favouriteTabs.find((tab) => tab.id === selectedTypeId)?.label;
+  const chips: { key: string; label: string; onClear: () => void }[] = [];
 
-function SidebarRow({
-  icon: Icon,
-  label,
-  meta,
-  count,
-  active = false,
-}: {
-  icon: LucideIcon;
-  label: string;
-  meta?: string;
-  count?: number;
-  active?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      className={cn(
-        "grid min-h-11 w-full grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 text-left text-sm font-bold transition",
-        active
-          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-          : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-        focusRing,
-      )}
-    >
-      <MiniIconTile icon={Icon} active={active} />
-      <span className="min-w-0">
-        <span className="block truncate">{label}</span>
-        {meta ? <span className="block truncate text-xs font-semibold opacity-75">{meta}</span> : null}
-      </span>
-      {typeof count === "number" ? <span className="nums text-xs font-black">{count}</span> : null}
-    </button>
-  );
-}
+  if (searchTerm.trim()) chips.push({ key: "search", label: `Search: ${searchTerm.trim()}`, onClear: onClearSearch });
+  if (selectedSet) chips.push({ key: "set", label: selectedSet.title, onClear: onClearSet });
+  if (selectedTypeId !== "all" && typeLabel) chips.push({ key: "type", label: typeLabel, onClear: onClearType });
+  if (viewMode === "source-backed") chips.push({ key: "view", label: "Source-backed", onClear: onClearViewMode });
+  if (viewMode === "pinned") chips.push({ key: "view", label: "Pinned", onClear: onClearViewMode });
+  if (viewMode === "recent") chips.push({ key: "view", label: "Recently used", onClear: onClearViewMode });
 
-function FavouritesSidebar() {
+  if (chips.length === 0) return null;
+
   return (
-    <aside className="hidden min-w-0 border-r border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-6 lg:block">
-      <div className="grid gap-5">
-        <SidebarSection
-          title="Saved sets"
-          action={
-            <button type="button" className={cn("text-xs font-black text-[color:var(--clinical-accent)]", focusRing)}>
-              View all
-            </button>
-          }
+    <div className="flex flex-wrap items-center gap-2" data-testid="favourites-active-filters">
+      {chips.map((chip) => (
+        <button
+          key={chip.key}
+          type="button"
+          onClick={chip.onClear}
+          className={cn(
+            "inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]/80",
+            focusRing,
+          )}
         >
-          <div className="grid gap-1">
-            {favouriteSets.map((set, index) => (
-              <SidebarRow
-                key={set.title}
-                icon={Folder}
-                label={set.title}
-                meta={`${set.count} ${set.count === 1 ? "item" : "items"}`}
-                active={index === 0}
-              />
-            ))}
-            <SidebarRow icon={Folder} label="All favourites" meta="5 items" />
-          </div>
-        </SidebarSection>
-
-        <SidebarSection title="Library views">
-          <div className="grid gap-1">
-            <SidebarRow icon={ShieldCheck} label="Source-backed" count={5} />
-            <SidebarRow icon={Pin} label="Pinned items" count={2} />
-            <SidebarRow icon={Search} label="Recently used" count={5} />
-          </div>
-        </SidebarSection>
-
-        <SidebarSection title="Type filters">
-          <div className="grid gap-1">
-            <SidebarRow icon={Pill} label="Medications" count={1} />
-            <SidebarRow icon={FileText} label="Documents" count={2} />
-            <SidebarRow icon={LayoutGrid} label="Tables" count={1} />
-            <SidebarRow icon={Quote} label="Sources" count={1} />
-          </div>
-        </SidebarSection>
-      </div>
-    </aside>
+          <span className="truncate">{chip.label}</span>
+          <X className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span className="sr-only">Clear filter</span>
+        </button>
+      ))}
+    </div>
   );
 }
 
-function ContinueStrip() {
+function ContinueStrip({
+  item,
+  onSelect,
+}: {
+  item: FavouriteItem;
+  onSelect: (id: string) => void;
+}) {
+  const Icon = item.icon;
   return (
-    <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]">
-      <div className="grid min-h-[68px] grid-cols-[3px_minmax(0,1fr)]">
+    <section
+      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]"
+      data-testid="favourites-continue-strip"
+    >
+      <div className="grid min-h-[3.25rem] grid-cols-[3px_minmax(0,1fr)]">
         <span className="bg-[color:var(--success)]" aria-hidden />
-        <div className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-          <div className="flex min-w-0 items-center gap-3">
-            <MiniIconTile icon={Pill} active />
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xs font-black uppercase tracking-[0.08em] text-[color:var(--success)]">Continue</p>
-                <span className="hidden h-1 w-1 rounded-full bg-[color:var(--border-strong)] sm:block" aria-hidden />
-                <p className="truncate text-sm font-black text-[color:var(--text-heading)]">Acamprosate renal screen</p>
-              </div>
-              <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                Ward round · 3 sources · last opened Today 08:44
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:justify-end">
-            <Link
-              href="/medications/acamprosate"
-              className={cn(
-                "inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-black text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]",
-                focusRing,
-              )}
-            >
-              <ExternalLink className="h-4 w-4" aria-hidden />
-              Open
-            </Link>
+        <div className="flex min-w-0 flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
+          <div className="flex min-w-0 items-start gap-3 sm:flex-1">
+            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
             <button
               type="button"
-              className={cn(
-                "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
-                focusRing,
-              )}
+              onClick={() => onSelect(item.id)}
+              className={cn("min-w-0 flex-1 text-left", focusRing)}
             >
-              <MessageSquare className="h-4 w-4" aria-hidden />
-              Ask
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <p className="text-2xs font-black uppercase tracking-[0.08em] text-[color:var(--success)]">Continue</p>
+                <p className="min-w-0 text-sm font-black leading-snug text-[color:var(--text-heading)]">{item.title}</p>
+              </div>
+              <p className="mt-0.5 text-xs font-semibold leading-snug text-[color:var(--text-muted)]">
+                {item.set} · last opened {item.lastUsed}
+              </p>
             </button>
           </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FavouritesTable() {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set([selectedItem.id]));
-  const [searchTerm, setSearchTerm] = useState("");
-  const selectedCount = selectedIds.size;
-
-  const tableRows = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-    const filteredItems = normalizedSearch
-      ? favouriteItems.filter((item) =>
-          [item.title, item.description, item.type, item.set].some((field) =>
-            field.toLowerCase().includes(normalizedSearch),
-          ),
-        )
-      : favouriteItems;
-    return filteredItems.map((item) => ({
-      ...item,
-      selected: selectedIds.has(item.id),
-    }));
-  }, [searchTerm, selectedIds]);
-
-  function toggleRow(id: string) {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  return (
-    <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
-      <div className="grid gap-3 border-b border-[color:var(--border)] px-3 py-3 xl:grid-cols-[auto_minmax(13rem,1fr)_auto] xl:items-center">
-        <ToolbarButton className="justify-between xl:w-36">
-          <span>All favourites</span>
-          <span className="nums rounded-full bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs">5</span>
-          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-        </ToolbarButton>
-        <label className="relative block min-w-0">
-          <span className="sr-only">Search within favourites</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
-          <input
-            type="search"
-            placeholder="Search within results..."
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+          <Link
+            href={item.href}
             className={cn(
-              "h-9 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20",
-            )}
-          />
-        </label>
-        <div className="flex min-w-0 flex-wrap gap-2 xl:justify-end">
-          <ToolbarButton>
-            <ShieldCheck className="h-4 w-4" aria-hidden />
-            Type
-          </ToolbarButton>
-          <ToolbarButton>
-            <Folder className="h-4 w-4" aria-hidden />
-            Set
-          </ToolbarButton>
-          <ToolbarButton>
-            <ArrowUpDown className="h-4 w-4" aria-hidden />
-            Sort: Last used
-          </ToolbarButton>
-          <div className="inline-flex h-9 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-            <ToolbarButton active className="h-full rounded-none border-0 border-r border-[color:var(--border)]">
-              <List className="h-4 w-4" aria-hidden />
-              Table
-            </ToolbarButton>
-            <ToolbarButton className="h-full rounded-none border-0 px-2.5">
-              <LayoutGrid className="h-4 w-4" aria-hidden />
-              <span className="sr-only">List view</span>
-            </ToolbarButton>
-          </div>
-        </div>
-      </div>
-
-      {selectedCount > 0 ? (
-        <div className="flex min-h-11 flex-wrap items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] px-3 py-2">
-          <span className="text-sm font-black text-[color:var(--text-heading)]">{selectedCount} selected</span>
-          <ToolbarButton>
-            <Folder className="h-4 w-4" aria-hidden />
-            Move to set
-          </ToolbarButton>
-          <ToolbarButton>
-            <Copy className="h-4 w-4" aria-hidden />
-            Copy citation
-          </ToolbarButton>
-          <button
-            type="button"
-            onClick={() => setSelectedIds(new Set())}
-            className={cn(
-              "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+              "inline-flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-black text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] sm:w-auto",
               focusRing,
             )}
           >
-            <X className="h-4 w-4" aria-hidden />
-            Clear
+            <ExternalLink className="h-4 w-4" aria-hidden />
+            Continue
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RowActionsMenu({ item }: { item: FavouriteItem }) {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useDismissableLayer({
+    enabled: open,
+    refs: [buttonRef, menuRef],
+    onDismiss: () => setOpen(false),
+    restoreFocusRef: buttonRef,
+  });
+
+  const actionLabel = item.action === "Copy" ? "Open" : item.action;
+
+  return (
+    <div className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={`More actions for ${item.title}`}
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          "grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+          focusRing,
+        )}
+      >
+        <MoreVertical className="h-4 w-4" aria-hidden />
+      </button>
+      {open ? (
+        <div
+          ref={menuRef}
+          role="menu"
+          className="absolute right-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 shadow-[var(--shadow-soft)]"
+        >
+          <Link
+            href={item.href}
+            role="menuitem"
+            className={cn(
+              "flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+              focusRing,
+            )}
+            onClick={() => setOpen(false)}
+          >
+            <ExternalLink className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
+            {actionLabel}
+          </Link>
+          <button
+            type="button"
+            role="menuitem"
+            className={cn(
+              "flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+              focusRing,
+            )}
+            onClick={() => setOpen(false)}
+          >
+            <Copy className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
+            Copy citation
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled
+            title="Coming soon"
+            className="flex w-full cursor-not-allowed items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text-soft)]"
+          >
+            <Folder className="h-4 w-4" aria-hidden />
+            Move to set
           </button>
         </div>
       ) : null}
+    </div>
+  );
+}
 
-      <div className="overflow-x-auto">
-        <table className="min-w-[44rem] w-full table-fixed border-collapse text-left">
-          <colgroup>
-            <col className="w-11" />
-            <col className="w-[34%]" />
-            <col className="w-[14%]" />
-            <col className="w-[14%]" />
-            <col className="w-[14%]" />
-            <col className="w-[11%]" />
-            <col className="w-[13%]" />
-          </colgroup>
+function FavouriteMobileCard({
+  item,
+  selected,
+  onSelect,
+}: {
+  item: FavouriteItem;
+  selected: boolean;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(item.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(item.id);
+        }
+      }}
+      className={cn(
+        "min-w-0 max-w-full rounded-lg border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)]",
+        selected
+          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35 shadow-[inset_3px_0_0_var(--clinical-accent)]"
+          : "border-[color:var(--border)]",
+      )}
+    >
+      <div className="min-w-0">
+        <h3 className="line-clamp-2 text-sm font-black leading-5 text-[color:var(--text-heading)]">{item.title}</h3>
+        <p className="mt-1 line-clamp-2 text-xs font-semibold leading-4 text-[color:var(--text-muted)]">
+          {item.description}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
+          {isSourceBacked(item) ? (
+            <SmallChip className="border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]">
+              Source-backed
+            </SmallChip>
+          ) : null}
+        </div>
+      </div>
+
+      <dl className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3 text-xs font-bold">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <dt className="inline-flex items-center gap-1.5 text-[color:var(--text-muted)]">
+            <Folder className="h-3.5 w-3.5" aria-hidden />
+            Set
+          </dt>
+          <dd className="min-w-0 truncate text-right text-[color:var(--text-heading)]">{item.set}</dd>
+        </div>
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <dt className="text-[color:var(--text-muted)]">Last used</dt>
+          <dd className="min-w-0 truncate text-right text-[color:var(--text-heading)]">{item.lastUsed}</dd>
+        </div>
+      </dl>
+
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_2.5rem] gap-2" onClick={(event) => event.stopPropagation()}>
+        <Link
+          href={item.href}
+          className={cn(
+            "inline-flex h-10 min-w-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-black text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+            focusRing,
+          )}
+        >
+          Open
+        </Link>
+        <RowActionsMenu item={item} />
+      </div>
+    </article>
+  );
+}
+
+function FavouritesTable({
+  items,
+  searchTerm,
+  selectedTypeId,
+  selectedSet,
+  viewMode,
+  sortMode,
+  selectedItemId,
+  commandScopes = [],
+  onSortModeChange,
+  onSelectItem,
+}: {
+  items: FavouriteItem[];
+  searchTerm: string;
+  selectedTypeId: string;
+  selectedSet: FavouriteSet | null;
+  viewMode: ViewMode;
+  sortMode: SortMode;
+  selectedItemId: string | null;
+  commandScopes?: string[];
+  onSortModeChange: (value: SortMode) => void;
+  onSelectItem: (id: string) => void;
+}) {
+  const tableRows = useMemo(() => {
+    const rows = filterAndSortItems(items, {
+      searchTerm,
+      selectedTypeId,
+      selectedSet,
+      viewMode,
+      sortMode,
+    });
+    if (!commandScopes.length) return rows;
+    return rows.filter((item) => favouriteMatchesCommandScopes(item, commandScopes));
+  }, [commandScopes, items, searchTerm, selectedSet, selectedTypeId, viewMode, sortMode]);
+
+  return (
+    <section className="min-w-0 max-w-full overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] px-3 py-3">
+        <p className="text-sm font-bold text-[color:var(--text-muted)]">
+          {tableRows.length} {tableRows.length === 1 ? "item" : "items"}
+          {tableRows.length !== items.length ? ` of ${items.length}` : ""}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="relative block min-w-[9.5rem]">
+            <span className="sr-only">Sort favourites</span>
+            <select
+              value={sortMode}
+              onChange={(event) => onSortModeChange(event.target.value as SortMode)}
+              className="h-9 w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 pr-9 text-xs font-bold text-[color:var(--text-muted)] outline-none hover:bg-[color:var(--surface-subtle)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+            >
+              <option value="last-used">Sort: Last used</option>
+              <option value="title">Sort: Title</option>
+              <option value="type">Sort: Type</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--text-soft)]" />
+          </label>
+        </div>
+      </div>
+
+      <div className="hidden overflow-x-auto sm:block">
+        <table className="min-w-[36rem] w-full border-collapse text-left">
           <thead>
-            <tr className="h-12 border-b border-[color:var(--border)] bg-[color:var(--surface)] text-2xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-              <th scope="col" className="w-12 px-3">
-                <span className="sr-only">Select</span>
-              </th>
-              <th scope="col" className="px-3">
+            <tr className="h-11 border-b border-[color:var(--border)] bg-[color:var(--surface)] text-2xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+              <th scope="col" className="min-w-[12rem] px-3">
                 Item
               </th>
-              <th scope="col" className="px-3">
+              <th scope="col" className="min-w-[6.5rem] px-3">
                 Type
               </th>
-              <th scope="col" className="px-3">
+              <th scope="col" className="min-w-[7rem] px-3">
                 Set
               </th>
-              <th scope="col" className="px-3">
+              <th scope="col" className="hidden min-w-[7rem] px-3 lg:table-cell">
                 Evidence
               </th>
-              <th scope="col" className="px-3">
+              <th scope="col" className="min-w-[6rem] px-3">
                 Last used
               </th>
-              <th scope="col" className="px-3 text-right">
+              <th scope="col" className="min-w-[7.5rem] px-3 text-right">
                 Action
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[color:var(--border)]">
             {tableRows.map((item) => {
-              const Icon = item.icon;
+              const selected = selectedItemId === item.id;
               return (
                 <tr
                   key={item.id}
+                  data-testid={`favourite-row-${item.id}`}
+                  onClick={() => onSelectItem(item.id)}
                   className={cn(
-                    "relative h-[5.25rem] transition hover:bg-[color:var(--surface-subtle)]",
-                    item.selected &&
-                      "bg-[color:var(--clinical-accent-soft)]/45 shadow-[inset_2px_0_0_var(--clinical-accent)]",
+                    "relative h-16 cursor-pointer transition hover:bg-[color:var(--surface-subtle)]",
+                    selected && "bg-[color:var(--clinical-accent-soft)]/45 shadow-[inset_3px_0_0_var(--clinical-accent)]",
                   )}
                 >
                   <td className="px-3 align-middle">
-                    <button
-                      type="button"
-                      onClick={() => toggleRow(item.id)}
-                      aria-pressed={item.selected}
-                      aria-label={`${item.selected ? "Deselect" : "Select"} ${item.title}`}
-                      className={cn(
-                        "grid h-5 w-5 place-items-center rounded border transition",
-                        item.selected
-                          ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-white"
-                          : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",
-                        focusRing,
-                      )}
-                    >
-                      {item.selected ? <Check className="h-3.5 w-3.5" aria-hidden /> : null}
-                    </button>
-                  </td>
-                  <td className="px-3 align-middle">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <MiniIconTile icon={Icon} active={item.selected} />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-[color:var(--text-heading)]">{item.title}</p>
-                        <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                          {item.description}
-                        </p>
-                      </div>
+                    <div className="min-w-0">
+                      <p className="line-clamp-1 text-sm font-black text-[color:var(--text-heading)]">{item.title}</p>
+                      <p className="mt-0.5 line-clamp-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                        {item.description}
+                      </p>
                     </div>
                   </td>
                   <td className="px-3 align-middle">
@@ -531,93 +603,89 @@ function FavouritesTable() {
                   </td>
                   <td className="px-3 align-middle">
                     <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[color:var(--text-muted)]">
-                      <Folder className="h-3.5 w-3.5" aria-hidden />
-                      {item.set}
+                      <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <span className="line-clamp-1">{item.set}</span>
                     </span>
                   </td>
-                  <td className="px-3 align-middle">
+                  <td className="hidden px-3 align-middle lg:table-cell">
                     <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[color:var(--clinical-accent)]">
-                      <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
-                      {item.evidence}
+                      <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <span className="line-clamp-1">{item.evidence}</span>
                     </span>
                   </td>
                   <td className="px-3 align-middle">
                     <span className="text-xs font-bold text-[color:var(--text-heading)]">{item.lastUsed}</span>
                   </td>
-                  <td className="px-3 align-middle">
+                  <td className="px-3 align-middle" onClick={(event) => event.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={item.href}
                         className={cn(
                           "inline-flex h-9 min-w-16 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-black text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
                           focusRing,
-                          item.action === "Run" && "border-violet-300 text-violet-700 hover:bg-violet-50",
-                          item.action === "Ask" && "border-blue-300 text-blue-700 hover:bg-blue-50",
                         )}
                       >
-                        {item.action}
+                        Open
                       </Link>
-                      <button
-                        type="button"
-                        aria-label={`More actions for ${item.title}`}
-                        className={cn(
-                          "grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                          focusRing,
-                        )}
-                      >
-                        <MoreVertical className="h-4 w-4" aria-hidden />
-                      </button>
+                      <RowActionsMenu item={item} />
                     </div>
                   </td>
                 </tr>
               );
             })}
+            {tableRows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center">
+                  <Search className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
+                  <p className="font-black text-[color:var(--text-heading)]">No favourites match</p>
+                  <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
+                    Clear filters or search to show saved clinical work.
+                  </p>
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
 
-      <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-t border-[color:var(--border)] px-4 py-2 text-xs font-bold text-[color:var(--text-muted)]">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />5 source-backed items
-          </span>
-          <span aria-hidden>·</span>
-          <span className="inline-flex items-center gap-1.5">
-            <Pin className="h-4 w-4" aria-hidden />2 pinned
-          </span>
-          <span aria-hidden>·</span>
-          <span>Favourites updated 08:45</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span>Rows per page</span>
-          <ToolbarButton className="h-8 px-3">
-            25
-            <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-          </ToolbarButton>
-          <ToolbarButton className="h-8 w-8 px-0" aria-label="Previous page">
-            ‹
-          </ToolbarButton>
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[color:var(--command)] text-sm font-black text-[color:var(--command-contrast)]">
-            1
-          </span>
-          <ToolbarButton className="h-8 w-8 px-0" aria-label="Next page">
-            ›
-          </ToolbarButton>
-        </div>
+      <div className="grid min-w-0 gap-3 bg-[color:var(--surface-wash)] p-3 sm:hidden">
+        {tableRows.map((item) => (
+          <FavouriteMobileCard
+            key={item.id}
+            item={item}
+            selected={selectedItemId === item.id}
+            onSelect={onSelectItem}
+          />
+        ))}
+        {tableRows.length === 0 ? (
+          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-8 text-center">
+            <Search className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
+            <p className="font-black text-[color:var(--text-heading)]">No favourites match</p>
+            <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
+              Clear filters or search to show saved clinical work.
+            </p>
+          </div>
+        ) : null}
       </div>
     </section>
   );
 }
 
-function ItemWorkspace() {
+function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<"summary" | "evidence" | "notes">("summary");
+  const Icon = item.icon;
+  const actionLabel = item.action === "Copy" ? "Open" : item.action;
 
   return (
-    <aside className="hidden min-w-0 border-l border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-6 2xl:block">
+    <aside
+      className="hidden min-w-0 border-l border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-6 2xl:block"
+      data-testid="favourites-item-workspace"
+    >
       <div className="flex min-h-10 items-center justify-between gap-3 border-b border-[color:var(--border)] pb-3">
         <h2 className="text-sm font-black text-[color:var(--text-heading)]">Item workspace</h2>
         <button
           type="button"
+          onClick={onClose}
           className={cn(
             "grid h-8 w-8 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
             focusRing,
@@ -630,32 +698,23 @@ function ItemWorkspace() {
 
       <div className="mt-4">
         <div className="flex items-start gap-3">
-          <MiniIconTile icon={Pill} active />
+          <MiniIconTile icon={Icon} active />
           <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="text-xl font-black leading-tight text-[color:var(--text-heading)]">
-                Acamprosate renal screen
-              </h3>
-              <button
-                type="button"
-                className={cn("text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)]", focusRing)}
-                aria-label="Pin Acamprosate renal screen"
-              >
-                <Pin className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
+            <h3 className="text-xl font-black leading-tight text-[color:var(--text-heading)]">{item.title}</h3>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <SmallChip className={typeStyles.Medication}>Medication</SmallChip>
-              <SmallChip className="border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]">
-                Source-backed
-              </SmallChip>
+              <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
+              {isSourceBacked(item) ? (
+                <SmallChip className="border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]">
+                  Source-backed
+                </SmallChip>
+              ) : null}
             </div>
           </div>
         </div>
 
         <p className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[color:var(--text-muted)]">
           Saved in <Folder className="h-4 w-4" aria-hidden />{" "}
-          <span className="text-[color:var(--text-heading)]">Ward round</span>
+          <span className="text-[color:var(--text-heading)]">{item.set}</span>
         </p>
       </div>
 
@@ -683,135 +742,105 @@ function ItemWorkspace() {
       </div>
 
       <div className="mt-4 grid gap-5">
-        <section className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45 p-3">
-          <p className="text-xs font-black uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
-            Next action
-          </p>
-          <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-            Open for renal dose cautions, eGFR thresholds, and source links.
-          </p>
-          <Link
-            href="/medications/acamprosate"
-            className={cn(
-              "mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-black text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]",
-              focusRing,
-            )}
-          >
-            Open item
-            <ExternalLink className="h-4 w-4" aria-hidden />
-          </Link>
-          <p className="mt-2 text-xs font-bold text-[color:var(--text-muted)]">Last opened Today 08:44</p>
-        </section>
+        {activeTab === "summary" ? (
+          <section className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45 p-3">
+            <p className="text-xs font-black uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+              Next action
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{item.description}</p>
+            <p className="mt-1 text-xs font-bold text-[color:var(--text-muted)]">Saved action: {actionLabel}</p>
+            <Link
+              href={item.href}
+              className={cn(
+                "mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-black text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]",
+                focusRing,
+              )}
+            >
+              {actionLabel}
+              <ExternalLink className="h-4 w-4" aria-hidden />
+            </Link>
+            <p className="mt-2 text-xs font-bold text-[color:var(--text-muted)]">Last opened {item.lastUsed}</p>
+          </section>
+        ) : null}
 
-        <section>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+        {activeTab === "evidence" ? (
+          <section>
+            <h3 className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
               Sources (3)
             </h3>
-            <button
-              type="button"
-              className={cn(
-                "inline-flex min-h-7 items-center gap-1.5 rounded-md px-2 text-xs font-black text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
-                focusRing,
-              )}
-            >
-              <Copy className="h-3.5 w-3.5" aria-hidden />
-              Copy citation
-            </button>
-          </div>
-          <div className="grid gap-2">
-            {sourceRecords.map((source, index) => (
-              <button
-                key={source.title}
-                type="button"
-                className={cn(
-                  "grid min-h-11 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left hover:bg-[color:var(--surface-subtle)]",
-                  focusRing,
-                )}
-              >
-                <span className="nums grid h-5 w-5 place-items-center rounded bg-[color:var(--surface-subtle)] text-xs font-black text-[color:var(--text-muted)]">
-                  {index + 1}
-                </span>
-                <span className="truncate text-xs font-bold text-[color:var(--text-heading)]">{source.title}</span>
-                <SmallChip className="border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-                  {source.type}
-                </SmallChip>
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className={cn("mt-2 text-xs font-black text-[color:var(--clinical-accent)] hover:underline", focusRing)}
-          >
-            View all sources
-          </button>
-        </section>
+            <div className="grid gap-2">
+              {sourceRecords.map((source, index) => (
+                <div
+                  key={source.title}
+                  className="grid min-h-11 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5"
+                >
+                  <span className="nums grid h-5 w-5 place-items-center rounded bg-[color:var(--surface-subtle)] text-xs font-black text-[color:var(--text-muted)]">
+                    {index + 1}
+                  </span>
+                  <span className="truncate text-xs font-bold text-[color:var(--text-heading)]">{source.title}</span>
+                  <SmallChip className="border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+                    {source.type}
+                  </SmallChip>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
-        <section>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-              Personal note
-            </h3>
-            <button
-              type="button"
-              className={cn(
-                "inline-flex items-center gap-1 text-xs font-black text-[color:var(--clinical-accent)]",
-                focusRing,
-              )}
-            >
-              <Edit3 className="h-3.5 w-3.5" aria-hidden />
-              Edit
-            </button>
-          </div>
-          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-            <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-              Useful for older patients with fluctuating eGFR. Check adherence section on page 4.
-            </p>
-            <div className="mt-3 flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-[color:var(--text-muted)]">Updated 11 May 2024</span>
+        {activeTab === "notes" ? (
+          <section>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                Personal note
+              </h3>
               <button
                 type="button"
                 className={cn(
-                  "inline-flex items-center gap-1 text-xs font-black text-[color:var(--success)]",
+                  "inline-flex items-center gap-1 text-xs font-black text-[color:var(--clinical-accent)]",
                   focusRing,
                 )}
               >
-                <Save className="h-3.5 w-3.5" aria-hidden />
-                Save note
+                <Edit3 className="h-3.5 w-3.5" aria-hidden />
+                Edit
               </button>
             </div>
-          </div>
-        </section>
+            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+              <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                Useful for older patients with fluctuating eGFR. Check adherence section on page 4.
+              </p>
+              <span className="mt-3 block text-xs font-bold text-[color:var(--text-muted)]">Updated 11 May 2024</span>
+            </div>
+          </section>
+        ) : null}
 
         <section className="border-t border-[color:var(--border)] pt-4">
-          <h3 className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-            Actions
-          </h3>
+          <h3 className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">More</h3>
           <div className="grid gap-2">
-            {[
-              { label: "Ask a question", icon: MessageSquare },
-              { label: "Copy citation", icon: Copy },
-              { label: "Move to set", icon: Folder },
-            ].map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.label}
-                  type="button"
-                  className={cn(
-                    "inline-flex h-9 items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
-                    focusRing,
-                  )}
-                >
-                  <Icon className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
-                  {action.label}
-                </button>
-              );
-            })}
             <button
               type="button"
               className={cn(
-                "mt-2 inline-flex h-9 items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)] hover:bg-[color:var(--danger-soft)]",
+                "inline-flex h-9 items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+                focusRing,
+              )}
+            >
+              <Copy className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
+              Copy citation
+            </button>
+            <button
+              type="button"
+              disabled
+              title="Coming soon"
+              className="inline-flex h-9 cursor-not-allowed items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-soft)]"
+            >
+              <Folder className="h-4 w-4" aria-hidden />
+              Move to set
+            </button>
+            <button
+              type="button"
+              disabled
+              title="Coming soon"
+              className={cn(
+                "inline-flex h-9 cursor-not-allowed items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)]",
                 focusRing,
               )}
             >
@@ -825,36 +854,152 @@ function ItemWorkspace() {
   );
 }
 
-export function FavouritesCommandLibraryPage() {
+export function FavouritesCommandLibraryPage({ query = "" }: { query?: string }) {
+  const router = useRouter();
+  const command = useSearchCommand();
+  const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
+  const savedRegistryFavourites = useSavedRegistryFavourites();
+  const items = useMemo(
+    () => [...prototypeFavouriteItems, ...savedRegistryFavourites].map(toCommandItem),
+    [savedRegistryFavourites],
+  );
+  const sets = useMemo(() => buildFavouriteSets(items), [items]);
+  const [selectedTypeId, setSelectedTypeId] = useState("all");
+  const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("all");
+  const [sortMode, setSortMode] = useState<SortMode>("last-used");
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+  const effectiveSelectedSetId = selectedSetId && sets.some((set) => set.id === selectedSetId) ? selectedSetId : null;
+  const selectedSet = effectiveSelectedSetId ? sets.find((set) => set.id === effectiveSelectedSetId) ?? null : null;
+
+  const filteredItems = useMemo(
+    () =>
+      filterAndSortItems(items, {
+        searchTerm: query,
+        selectedTypeId,
+        selectedSet,
+        viewMode,
+        sortMode,
+      }),
+    [items, query, selectedTypeId, selectedSet, viewMode, sortMode],
+  );
+  const scopedItems = useMemo(() => {
+    const scopes = command?.commandScopes ?? [];
+    if (!scopes.length) return filteredItems;
+    return filteredItems.filter((item) => favouriteMatchesCommandScopes(item, scopes));
+  }, [command?.commandScopes, filteredItems]);
+
+  const continueItem = useMemo(() => getMostRecentlyUsedItem(items), [items]);
+  const showContinueStrip =
+    continueItem !== null &&
+    filteredItems.some((item) => item.id === continueItem.id) &&
+    filteredItems.length > 0;
+
+  const selectedItem = selectedItemId ? items.find((item) => item.id === selectedItemId) ?? null : null;
+
+  function clearSearch() {
+    router.push("/favourites");
+  }
+
   return (
     <main
-      data-testid="favourites-command-library"
-      className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] pb-32 text-[color:var(--text)] md:pb-0"
+      data-testid="favourites-hub"
+      className="min-h-[calc(100dvh-4rem)] overflow-x-hidden bg-[color:var(--background)] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:pb-32 md:pb-0"
     >
-      <div className="grid min-h-[calc(100dvh-4rem)] lg:grid-cols-[16.5rem_minmax(0,1fr)] 2xl:grid-cols-[16.5rem_minmax(0,1fr)_23rem]">
-        <FavouritesSidebar />
-        <div className="min-w-0 px-4 py-5 sm:px-6 lg:px-7">
-          <div className="mx-auto grid max-w-[70rem] gap-5">
+      <span data-testid="favourites-command-library" className="sr-only">
+        Favourites command library
+      </span>
+      <div
+        className={cn(
+          "grid min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden",
+          navCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[17.5rem_minmax(0,1fr)]",
+          selectedItem &&
+            (navCollapsed
+              ? "2xl:grid-cols-[5.25rem_minmax(0,1fr)_23rem]"
+              : "2xl:grid-cols-[17.5rem_minmax(0,1fr)_23rem]"),
+        )}
+      >
+        <FavouritesSidebar
+          sets={sets}
+          items={items}
+          selectedSetId={effectiveSelectedSetId}
+          selectedTypeId={selectedTypeId}
+          viewMode={viewMode}
+          collapsed={navCollapsed}
+          onCollapsedChange={setNavCollapsed}
+          onSelectSet={setSelectedSetId}
+          onSelectType={setSelectedTypeId}
+          onSelectViewMode={setViewMode}
+        />
+        <div className="min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 lg:px-7">
+          <div className="mx-auto grid min-w-0 max-w-[70rem] gap-4">
             <header>
               <div className="flex min-w-0 items-start gap-3">
                 <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                   <Heart className="h-4.5 w-4.5" aria-hidden />
                 </span>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <h1 className="text-balance text-2xl font-black leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-3xl">
                     Favourites command library
                   </h1>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-[color:var(--text-muted)]">
+                  <p className="mt-1 text-pretty text-sm font-semibold leading-6 text-[color:var(--text-muted)]">
                     Your saved clinical knowledge, sets and searches - action-ready and source-backed.
                   </p>
                 </div>
               </div>
             </header>
-            <ContinueStrip />
-            <FavouritesTable />
+
+            <div className="hidden lg:block">
+              <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
+            </div>
+
+            <ActiveFilterChips
+              searchTerm={query}
+              selectedTypeId={selectedTypeId}
+              selectedSet={selectedSet}
+              viewMode={viewMode}
+              onClearSearch={clearSearch}
+              onClearType={() => setSelectedTypeId("all")}
+              onClearSet={() => setSelectedSetId(null)}
+              onClearViewMode={() => setViewMode("all")}
+            />
+
+            {showContinueStrip && continueItem ? (
+              <ContinueStrip item={continueItem} onSelect={setSelectedItemId} />
+            ) : null}
+
+            {query.trim() && scopedItems.length === 0 ? (
+              <SearchResultsEmptyState
+                modeId="favourites"
+                query={query}
+                onClearScopes={command?.onClearScopes}
+              />
+            ) : (
+            <FavouritesTable
+              items={items}
+              searchTerm={query}
+              selectedTypeId={selectedTypeId}
+              selectedSet={selectedSet}
+              viewMode={viewMode}
+              sortMode={sortMode}
+              selectedItemId={selectedItemId}
+              commandScopes={command?.commandScopes}
+              onSortModeChange={setSortMode}
+              onSelectItem={setSelectedItemId}
+            />
+            )}
+
+            <FavouritesMobileBrowseRail
+              sets={sets}
+              selectedSetId={effectiveSelectedSetId}
+              viewMode={viewMode}
+              onSelectSet={setSelectedSetId}
+              onSelectViewMode={setViewMode}
+            />
           </div>
         </div>
-        <ItemWorkspace />
+        {selectedItem ? <ItemWorkspace item={selectedItem} onClose={() => setSelectedItemId(null)} /> : null}
       </div>
     </main>
   );
