@@ -4,7 +4,7 @@ import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search
 
 export default function ServicesLayout({ children }: { children: ReactNode }) {
   return (
-    <GlobalSearchShell initialMode="services" availableModeIds={["services"]} desktopSearchPlacement="hero">
+    <GlobalSearchShell initialMode="services" desktopSearchPlacement="hero">
       {children}
     </GlobalSearchShell>
   );

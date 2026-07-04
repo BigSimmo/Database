@@ -1,7 +1,18 @@
 "use client";
 
 import { type FormEvent, useState, useSyncExternalStore } from "react";
-import { Loader2, LogIn, LogOut, Mail, ShieldAlert } from "lucide-react";
+import {
+  ChevronRight,
+  Clock3,
+  FileText,
+  Loader2,
+  LogOut,
+  Mail,
+  ShieldAlert,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserRound,
+} from "lucide-react";
 
 import { AUTH_EMAIL_STORAGE_KEY, useAuthSession } from "@/lib/supabase/client";
 import {
@@ -47,6 +58,7 @@ export function AuthPanel() {
   const { status, error, isConfigured, signInWithEmail, signOut, session } = useAuthSession();
   const savedEmail = useSyncExternalStore(subscribeAuthEmail, getAuthEmailSnapshot, getServerAuthEmailSnapshot);
   const [draftEmail, setDraftEmail] = useState<string | null>(null);
+  const [providerNotice, setProviderNotice] = useState<string | null>(null);
   const email = draftEmail ?? savedEmail;
   const busy = status === "loading";
   const isExpired = status === "expired";
@@ -54,7 +66,12 @@ export function AuthPanel() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!email.trim()) return;
+    setProviderNotice(null);
     await signInWithEmail(email.trim());
+  }
+
+  function chooseProvider(provider: string) {
+    setProviderNotice(`${provider} sign-in is a placeholder for now. Continue with email to use this workspace.`);
   }
 
   if (!isConfigured) {
@@ -75,11 +92,18 @@ export function AuthPanel() {
 
   if (status === "authenticated") {
     return (
-      <div className={cn(panelSubtle, "p-3")}>
+      <div className={cn(panelSubtle, "p-3.5")}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-[color:var(--text)]">Signed in for private documents</p>
-            <p className={cn("mt-1 text-xs leading-5", textMuted)}>{session?.user.email ?? "Authenticated session"}</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+              <ShieldCheck className="h-4 w-4" />
+            </span>
+            <span className="min-w-0">
+              <p className="text-sm font-semibold text-[color:var(--text)]">Signed in for private documents</p>
+              <p className={cn("mt-1 text-xs leading-5", textMuted)}>
+                {session?.user.email ?? "Authenticated session"}
+              </p>
+            </span>
           </div>
           <button type="button" onClick={signOut} className={cn(floatingControl, "px-3 text-xs")}>
             <LogOut className="h-4 w-4" />
@@ -91,48 +115,133 @@ export function AuthPanel() {
   }
 
   return (
-    <form onSubmit={submit} className={cn(panelSubtle, "space-y-3 p-3")}>
-      <div className="flex items-start gap-3">
-        <LogIn className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--primary)]" />
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">
-            {isExpired ? "Sign-in link expired" : "Sign in for private documents"}
-          </p>
-          <p className={cn("mt-1 text-[15px] leading-6", textMuted)}>
-            {isExpired
-              ? "Send a fresh link if this one failed or already timed out."
-              : "Real-data search, upload, and source previews require a Supabase Auth session."}
-          </p>
+    <form
+      onSubmit={submit}
+      className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]"
+    >
+      <div className="border-b border-[color:var(--border)]/70 p-4 sm:p-5">
+        <div className="flex items-center gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] ring-1 ring-[color:var(--border)]">
+            <UserRound className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
+              {isExpired ? "Sign-in link expired" : "Create your Clinical Guide account"}
+            </p>
+            <p className={cn("mt-1 text-sm leading-5", textMuted)}>
+              {isExpired
+                ? "Send a fresh link if this one failed or timed out."
+                : "Save searches, source history, and clinical defaults. Do not enter PHI."}
+            </p>
+          </div>
         </div>
       </div>
-      <label className="block">
-        <span className={fieldLabel}>Email address</span>
-        <div className="relative">
-          <Mail className={fieldIcon} />
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setDraftEmail(event.target.value)}
-            placeholder="you@example.com"
-            className={fieldControlWithIcon}
-          />
+
+      <div className="space-y-3 p-4 sm:p-5">
+        <label className="block">
+          <span className={fieldLabel}>Email address</span>
+          <div className="relative">
+            <Mail className={fieldIcon} />
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setDraftEmail(event.target.value)}
+              placeholder="you@clinic.example"
+              className={fieldControlWithIcon}
+            />
+          </div>
+        </label>
+        <button type="submit" disabled={busy || !email.trim()} className={cn(primaryControl, "w-full")}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+          {isExpired ? "Send fresh link" : "Continue with email"}
+        </button>
+
+        <div className="flex items-center gap-3 py-1 text-xs font-medium text-[color:var(--text-soft)]">
+          <span className="h-px flex-1 bg-[color:var(--border)]" />
+          <span>or continue with</span>
+          <span className="h-px flex-1 bg-[color:var(--border)]" />
         </div>
-      </label>
-      <button type="submit" disabled={busy || !email.trim()} className={cn(primaryControl, "w-full")}>
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-        Send sign-in link
-      </button>
-      {error && (
-        <p
-          role="alert"
-          className={cn(
-            "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs",
-            textMuted,
-          )}
-        >
-          {error}
+
+        <div className="grid gap-2">
+          <ProviderButton provider="Apple" onClick={() => chooseProvider("Apple")} />
+          <ProviderButton provider="Google" onClick={() => chooseProvider("Google")} />
+          <ProviderButton provider="Microsoft" onClick={() => chooseProvider("Microsoft")} />
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] p-2 shadow-[var(--shadow-inset)]">
+          <AuthBenefit icon={SlidersHorizontal} label="Clinical defaults" />
+          <AuthBenefit icon={Clock3} label="Source history" />
+          <AuthBenefit icon={FileText} label="Saved sources" />
+        </div>
+
+        <p className="flex items-start gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
+          Accounts save preferences and search history. No PHI is required.
         </p>
-      )}
+
+        {(providerNotice || error) && (
+          <p
+            role="alert"
+            className={cn(
+              "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs leading-5",
+              textMuted,
+            )}
+          >
+            {providerNotice ?? error}
+          </p>
+        )}
+      </div>
     </form>
+  );
+}
+
+function ProviderButton({ provider, onClick }: { provider: "Apple" | "Google" | "Microsoft"; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+    >
+      <ProviderMark provider={provider} />
+      <span className="min-w-0 flex-1 truncate">Continue with {provider}</span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+    </button>
+  );
+}
+
+function ProviderMark({ provider }: { provider: "Apple" | "Google" | "Microsoft" }) {
+  if (provider === "Microsoft") {
+    return (
+      <span
+        className="grid h-7 w-7 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
+        aria-hidden="true"
+      >
+        <span className="bg-[#f25022]" />
+        <span className="bg-[#7fba00]" />
+        <span className="bg-[#00a4ef]" />
+        <span className="bg-[#ffb900]" />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-base font-bold leading-none shadow-[var(--shadow-inset)]",
+        provider === "Apple" ? "text-[color:var(--text-heading)]" : "text-[#4285f4]",
+      )}
+    >
+      {provider === "Apple" ? "A" : "G"}
+    </span>
+  );
+}
+
+function AuthBenefit({ icon: Icon, label }: { icon: typeof SlidersHorizontal; label: string }) {
+  return (
+    <span className="flex min-w-0 flex-col items-center gap-1 text-center text-[11px] font-semibold leading-4 text-[color:var(--text-muted)]">
+      <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" />
+      <span>{label}</span>
+    </span>
   );
 }

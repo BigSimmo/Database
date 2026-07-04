@@ -1,8 +1,18 @@
 "use client";
 
-import { useCallback, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import {
   BadgeCheck,
+  Check,
+  ChevronDown,
   Clock3,
   ExternalLink,
   FileText,
@@ -26,6 +36,15 @@ import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, chatComposerIconButton } from "@/components/ui-primitives";
 
 export type ModeActionSetId = "answer" | "documents" | "services" | "favourites" | "tools" | "differentials";
+export type ModeActionPlacement = "up" | "down";
+
+export type ModeActionModeOption = {
+  id: string;
+  label: string;
+  description?: string;
+  icon: LucideIcon;
+  disabled?: boolean;
+};
 
 export type ModeActionId =
   | "answer-quotes"
@@ -229,40 +248,62 @@ export function ModeActionPopup({
   open,
   title,
   titleIcon: TitleIcon,
+  subtitle,
   buttonLabel,
   items,
+  modeOptions,
+  selectedModeId,
   onOpenChange,
   onBeforeOpen,
   onAction,
+  onModeSelect,
+  onPlacementChange,
   triggerClassName,
   integrated = false,
 }: {
   open: boolean;
   title: string;
   titleIcon: LucideIcon;
+  subtitle?: string;
   buttonLabel: string;
   items: readonly ModeActionItem[];
+  modeOptions?: readonly ModeActionModeOption[];
+  selectedModeId?: string;
   onOpenChange: (open: boolean) => void;
   onBeforeOpen?: () => void;
   onAction: (actionId: ModeActionId) => void;
+  onModeSelect?: (modeId: string) => void;
+  onPlacementChange?: (placement: ModeActionPlacement) => void;
   triggerClassName?: string;
   integrated?: boolean;
 }) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const modeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [placement, setPlacement] = useState<ModeActionPlacement>("up");
+  const [surfaceMaxHeight, setSurfaceMaxHeight] = useState<number | null>(null);
+  const [bodyMaxHeight, setBodyMaxHeight] = useState<number | null>(null);
+  const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
+  const canSwitchMode = Boolean(modeOptions?.length && onModeSelect);
+  const selectedModeOption = modeOptions?.find((mode) => mode.id === selectedModeId);
 
   const closeAndRestoreFocus = useCallback(() => {
+    setModeSelectorOpen(false);
     onOpenChange(false);
     window.requestAnimationFrame(() => buttonRef.current?.focus());
-  }, [onOpenChange]);
+  }, [onOpenChange, setModeSelectorOpen]);
 
   useDismissableLayer({
     enabled: open,
     refs: [rootRef, surfaceRef],
     restoreFocusRef: buttonRef,
-    onDismiss: () => onOpenChange(false),
+    onDismiss: () => {
+      setModeSelectorOpen(false);
+      onOpenChange(false);
+    },
   });
 
   function focusActionItem(index: number) {
@@ -270,8 +311,33 @@ export function ModeActionPopup({
     itemRefs.current[nextIndex]?.focus();
   }
 
+  const updatePlacement = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const anchor = surfaceRef.current?.parentElement ?? rootRef.current?.parentElement ?? rootRef.current;
+    if (!anchor) return;
+
+    const viewport = window.visualViewport;
+    const viewportTop = viewport?.offsetTop ?? 0;
+    const viewportHeight = viewport?.height ?? window.innerHeight;
+    const viewportBottom = viewportTop + viewportHeight;
+    const rect = anchor.getBoundingClientRect();
+    const edgePadding = 12;
+    const availableAbove = Math.max(0, rect.top - viewportTop - edgePadding);
+    const availableBelow = Math.max(0, viewportBottom - rect.bottom - edgePadding);
+    const nextPlacement: ModeActionPlacement = availableBelow > availableAbove + 40 ? "down" : "up";
+    const available = nextPlacement === "up" ? availableAbove : availableBelow;
+    const nextSurfaceMaxHeight = Math.max(220, Math.floor(Math.min(available, viewportHeight - edgePadding * 2)));
+    const nextBodyMaxHeight = Math.max(156, nextSurfaceMaxHeight - 92);
+
+    setPlacement((current) => (current === nextPlacement ? current : nextPlacement));
+    setSurfaceMaxHeight((current) => (current === nextSurfaceMaxHeight ? current : nextSurfaceMaxHeight));
+    setBodyMaxHeight((current) => (current === nextBodyMaxHeight ? current : nextBodyMaxHeight));
+  }, []);
+
   function openWithFocus(index: number) {
     onBeforeOpen?.();
+    setModeSelectorOpen(false);
+    updatePlacement();
     onOpenChange(true);
     window.requestAnimationFrame(() => focusActionItem(index));
   }
@@ -302,8 +368,63 @@ export function ModeActionPopup({
   }
 
   function runActionAndClose(actionId: ModeActionId) {
+    setModeSelectorOpen(false);
     onOpenChange(false);
     onAction(actionId);
+  }
+
+  function focusModeOption(index: number) {
+    if (!modeOptions?.length) return;
+    const nextIndex = (index + modeOptions.length) % modeOptions.length;
+    modeOptionRefs.current[nextIndex]?.focus();
+  }
+
+  const selectedModeIndex = Math.max(0, modeOptions?.findIndex((mode) => mode.id === selectedModeId) ?? 0);
+
+  function openModeSelectorWithFocus(index: number) {
+    if (!canSwitchMode) return;
+    setModeSelectorOpen(true);
+    window.requestAnimationFrame(() => focusModeOption(index));
+  }
+
+  function handleModeButtonKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      openModeSelectorWithFocus(selectedModeIndex);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      openModeSelectorWithFocus(selectedModeIndex - 1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setModeSelectorOpen(false);
+    }
+  }
+
+  function handleModeOptionKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusModeOption(index + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusModeOption(index - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusModeOption(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      if (modeOptions?.length) focusModeOption(modeOptions.length - 1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setModeSelectorOpen(false);
+      window.requestAnimationFrame(() => modeButtonRef.current?.focus());
+    }
+  }
+
+  function selectMode(mode: ModeActionModeOption) {
+    if (mode.disabled) return;
+    onModeSelect?.(mode.id);
+    setModeSelectorOpen(false);
+    window.requestAnimationFrame(() => modeButtonRef.current?.focus());
   }
 
   const actionGridClass =
@@ -313,50 +434,143 @@ export function ModeActionPopup({
         ? "grid-cols-2 sm:grid-cols-3"
         : "grid-cols-2";
   const headerSubtitle =
-    title.toLowerCase() === "answer"
+    subtitle ||
+    (title.toLowerCase() === "answer"
       ? "Source-backed mode"
-      : items.find((item) => item.primary)?.description || items[0]?.description || "Mode actions";
+      : selectedModeOption?.description ||
+        items.find((item) => item.primary)?.description ||
+        items[0]?.description ||
+        "Mode actions");
 
   function assignActionRef(element: HTMLButtonElement | null, index: number) {
     itemRefs.current[index] = element;
   }
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePlacement();
+  }, [items.length, open, title, updatePlacement]);
+
+  useEffect(() => {
+    if (!open) return;
+    onPlacementChange?.(placement);
+  }, [onPlacementChange, open, placement]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    updatePlacement();
+    window.addEventListener("resize", updatePlacement);
+    window.addEventListener("scroll", updatePlacement, true);
+    window.visualViewport?.addEventListener("resize", updatePlacement);
+    window.visualViewport?.addEventListener("scroll", updatePlacement);
+    return () => {
+      window.removeEventListener("resize", updatePlacement);
+      window.removeEventListener("scroll", updatePlacement, true);
+      window.visualViewport?.removeEventListener("resize", updatePlacement);
+      window.visualViewport?.removeEventListener("scroll", updatePlacement);
+    };
+  }, [open, updatePlacement]);
+
+  const surfaceStyle = {
+    "--mode-action-max-height": surfaceMaxHeight ? `${surfaceMaxHeight}px` : undefined,
+    "--mode-action-body-max-height": bodyMaxHeight ? `${bodyMaxHeight}px` : undefined,
+  } as CSSProperties;
 
   return (
     <>
       {open ? (
         <div
           ref={surfaceRef}
+          data-placement={placement}
+          style={surfaceStyle}
           className={cn(
-            "absolute z-50 text-[color:var(--text)] motion-safe:animate-action-tray-in",
-            integrated
-              ? "inset-x-0 bottom-[calc(100%+0.65rem)]"
-              : "inset-x-0 bottom-[calc(100%+0.7rem)] sm:bottom-auto sm:top-[calc(100%+0.7rem)] sm:inset-x-auto sm:left-0",
+            "mode-action-surface absolute z-50 text-[color:var(--text)]",
+            integrated ? "inset-x-0" : "inset-x-0 sm:inset-x-auto sm:left-0",
+            placement === "up" ? "bottom-[calc(100%-1px)]" : "top-[calc(100%-1px)]",
             !integrated && (items.length <= 4 ? "sm:w-[min(22rem,100%)]" : "sm:w-[min(24rem,100%)]"),
           )}
         >
           <div
             className={cn(
-              "overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[0_18px_42px_rgb(15_37_48_/_16%)] ring-1 ring-white/45 dark:ring-white/10",
+              "mode-action-panel overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[0_18px_42px_rgb(15_37_48_/_16%)] ring-1 ring-white/45 dark:ring-white/10",
               integrated ? "rounded-[1.35rem] shadow-[0_20px_48px_rgb(15_37_48_/_18%)]" : "rounded-[1rem]",
             )}
           >
-            <div className="grid min-h-[4.1rem] grid-cols-[minmax(8.5rem,0.38fr)_minmax(0,1fr)_3.75rem] overflow-hidden border-b border-[color:var(--border)]/70 bg-[linear-gradient(90deg,color-mix(in_srgb,var(--clinical-accent-soft)_42%,var(--surface)_58%)_0%,color-mix(in_srgb,var(--surface-raised)_92%,var(--clinical-accent-soft)_8%)_100%)]">
-              <div className="flex min-w-0 items-center gap-3 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--clinical-accent)_82%,#ffffff_18%)_0%,color-mix(in_srgb,var(--clinical-accent)_68%,var(--primary-strong)_32%)_100%)] px-3.5 text-[color:var(--primary-contrast)] shadow-[inset_0_1px_0_rgb(255_255_255_/_22%)] sm:px-4">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/25 bg-white/10 text-white shadow-[var(--shadow-inset)]">
-                  <TitleIcon className="h-4.5 w-4.5" />
-                </span>
-                <span className="truncate text-base font-bold leading-none sm:text-lg">{title}</span>
+            <div className="mode-action-header border-b border-white/15">
+              <div className="mode-action-selector-shell">
+                <button
+                  type="button"
+                  ref={modeButtonRef}
+                  disabled={!canSwitchMode}
+                  aria-haspopup={canSwitchMode ? "menu" : undefined}
+                  aria-expanded={canSwitchMode ? modeSelectorOpen : undefined}
+                  aria-controls={modeSelectorOpen ? "mode-action-mode-menu" : undefined}
+                  onKeyDown={handleModeButtonKeyDown}
+                  onClick={() => canSwitchMode && setModeSelectorOpen((current) => !current)}
+                  className="mode-action-mode-button"
+                >
+                  <span className="mode-action-mode-icon">
+                    <TitleIcon className="h-4.5 w-4.5" />
+                  </span>
+                  <span className="min-w-0 truncate">{title}</span>
+                  {canSwitchMode ? (
+                    <ChevronDown
+                      className={cn("h-4.5 w-4.5 shrink-0 transition", modeSelectorOpen && "rotate-180")}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                </button>
+                {modeSelectorOpen && modeOptions?.length ? (
+                  <div
+                    id="mode-action-mode-menu"
+                    role="menu"
+                    aria-label="Choose search mode"
+                    className="mode-action-mode-menu polished-scroll"
+                  >
+                    {modeOptions.map((mode, index) => {
+                      const Icon = mode.icon;
+                      const active = mode.id === selectedModeId;
+                      return (
+                        <button
+                          key={mode.id}
+                          ref={(element) => {
+                            modeOptionRefs.current[index] = element;
+                          }}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={active}
+                          disabled={mode.disabled}
+                          onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
+                          onClick={() => selectMode(mode)}
+                          className={cn("mode-action-mode-option", active && "mode-action-mode-option-active")}
+                        >
+                          <span className="mode-action-mode-option-icon">
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-extrabold">{mode.label}</span>
+                            {mode.description ? (
+                              <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                                {mode.description}
+                              </span>
+                            ) : null}
+                          </span>
+                          {active ? <Check className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
-              <div className="flex min-w-0 items-center gap-3 border-l border-[color:var(--border)]/45 px-3 sm:px-5">
-                <span aria-hidden="true" className="hidden h-7 w-px bg-[color:var(--border)]/80 sm:block" />
-                <span className="truncate text-sm font-semibold text-[color:var(--text-heading)] sm:text-base">
-                  {headerSubtitle}
-                </span>
+              <div className="mode-action-header-summary">
+                <span aria-hidden="true" className="mode-action-header-divider" />
+                <span className="min-w-0 truncate">{headerSubtitle}</span>
               </div>
               <button
                 type="button"
                 onClick={closeAndRestoreFocus}
-                className="m-auto grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent)]/28 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="mode-action-close"
                 aria-label={`Close ${title.toLowerCase()} options`}
               >
                 <BadgeCheck className="h-4.5 w-4.5" />
@@ -367,7 +581,7 @@ export function ModeActionPopup({
               data-testid="daily-actions-menu"
               role="menu"
               aria-label={title}
-              className={cn("p-2.5", integrated && "p-3 sm:p-3.5")}
+              className={cn("mode-action-body polished-scroll p-2.5", integrated && "p-3 sm:p-3.5")}
             >
               <div className={cn("grid gap-2", actionGridClass)}>
                 {items.map((item, index) => {
@@ -400,14 +614,17 @@ export function ModeActionPopup({
           </div>
           {!integrated ? (
             <>
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute -bottom-[6px] left-8 h-3 w-3 rotate-45 border-b border-r border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[4px_4px_10px_rgb(15_37_48_/_5%)] sm:hidden"
-              />
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute -top-[6px] left-8 hidden h-3 w-3 rotate-45 border-l border-t border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[-4px_-4px_10px_rgb(15_37_48_/_5%)] sm:block"
-              />
+              {placement === "up" ? (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -bottom-[6px] left-8 h-3 w-3 rotate-45 border-b border-r border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[4px_4px_10px_rgb(15_37_48_/_5%)]"
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -top-[6px] left-8 h-3 w-3 rotate-45 border-l border-t border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[-4px_-4px_10px_rgb(15_37_48_/_5%)]"
+                />
+              )}
             </>
           ) : null}
         </div>
@@ -429,7 +646,13 @@ export function ModeActionPopup({
           title={buttonLabel}
           onKeyDown={handleTriggerKeyDown}
           onClick={() => {
-            if (!open) onBeforeOpen?.();
+            if (!open) {
+              onBeforeOpen?.();
+              setModeSelectorOpen(false);
+              updatePlacement();
+            } else {
+              setModeSelectorOpen(false);
+            }
             onOpenChange(!open);
           }}
         >

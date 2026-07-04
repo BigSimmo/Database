@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn, toolbarButton } from "@/components/ui-primitives";
 
+export type SheetMobileSize = "content" | "viewport";
+
 /**
  * Responsive overlay: a bottom sheet on mobile (rises from the bottom, safe-area
  * aware, drag-grip) and a centred dialog from `sm:` up. CSS-only animation, no
@@ -35,6 +37,7 @@ export function Sheet({
   bodyClassName,
   placement = "default",
   mobilePlacement = "bottom",
+  mobileSize = "content",
   portal = false,
 }: {
   open: boolean;
@@ -59,6 +62,7 @@ export function Sheet({
   bodyClassName?: string;
   placement?: "default" | "left";
   mobilePlacement?: "bottom" | "top" | "fullscreen";
+  mobileSize?: SheetMobileSize;
   portal?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -73,7 +77,13 @@ export function Sheet({
     const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const focusFrame = window.requestAnimationFrame(() => (initialFocusRef?.current ?? closeRef.current)?.focus());
+    const focusFrame = window.requestAnimationFrame(() => {
+      const focusTarget =
+        initialFocusRef?.current ??
+        panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]') ??
+        closeRef.current;
+      focusTarget?.focus({ preventScroll: true });
+    });
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -131,6 +141,7 @@ export function Sheet({
   const resolvedLabelledBy = labelledBy ?? (title ? titleId : undefined);
   const defaultSheetIsFullscreen = placement !== "left" && mobilePlacement === "fullscreen";
   const defaultSheetIsTopAligned = placement !== "left" && mobilePlacement === "top";
+  const defaultSheetUsesViewportSize = placement !== "left" && mobileSize === "viewport";
 
   const sheet = (
     <div
@@ -168,8 +179,16 @@ export function Sheet({
                   : cn(
                       "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
                       defaultSheetIsTopAligned
-                        ? "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in"
-                        : "max-h-[88dvh] rounded-t-2xl motion-safe:animate-sheet-up",
+                        ? cn(
+                            "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in",
+                            defaultSheetUsesViewportSize && "min-h-[calc(100dvh-2rem)] sm:min-h-0",
+                          )
+                        : cn(
+                            "rounded-t-2xl motion-safe:animate-sheet-up",
+                            defaultSheetUsesViewportSize
+                              ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
+                              : "max-h-[88dvh]",
+                          ),
                     ),
               ),
           "motion-reduce:animate-none",

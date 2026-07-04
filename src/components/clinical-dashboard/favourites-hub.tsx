@@ -1,9 +1,20 @@
 "use client";
 
-import { ArrowUpDown, ChevronDown, Filter, Folder, FolderInput, Heart, Plus, Search, X } from "lucide-react";
+import {
+  ArrowUpDown,
+  ChevronDown,
+  Filter,
+  Folder,
+  FolderInput,
+  Heart,
+  Plus,
+  Search,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
-import { ModeHomeHero } from "@/components/mode-home-template";
+import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, floatingControl, iconTilePremium, panelSubtle, primaryControl } from "@/components/ui-primitives";
 import {
   favouriteItems,
@@ -128,7 +139,7 @@ export function FavouritesHub({
         />
 
         {desktopComposerSlotId ? (
-          <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] sm:[&:not(:empty)]:block" />
+          <div id={desktopComposerSlotId} className="mode-home-composer-slot hidden w-full sm:[&:not(:empty)]:block" />
         ) : null}
 
         <div className="grid w-full max-w-md grid-cols-3 gap-2 text-left">
@@ -410,6 +421,8 @@ export function FavouritesHub({
           </section>
         </aside>
       </div>
+
+      <ModeHomeVerificationFooter icon={ShieldCheck} label="Saved clinical work" body="Local library" />
     </div>
   );
 }

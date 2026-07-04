@@ -2,68 +2,80 @@
 
 import Link from "next/link";
 import {
-  BookOpen,
   Brain,
+  ChevronDown,
   ChevronRight,
+  ClipboardCheck,
   ClipboardList,
-  Clock3,
   ExternalLink,
+  FileCheck2,
   FileText,
   Grid2X2,
-  ListChecks,
-  MoreVertical,
   Pill,
-  Pin,
-  PinOff,
   Plus,
   Search,
-  Send,
   ShieldCheck,
+  Sparkles,
   Star,
+  Users,
+  Waves,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
-import { ModeHomeHero } from "@/components/mode-home-template";
-import { Sheet } from "@/components/ui/sheet";
-import {
-  chatComposerIconButton,
-  chatComposerInput,
-  chatComposerShell,
-  chatSendButton,
-  cn,
-  textMuted,
-} from "@/components/ui-primitives";
+import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { cn } from "@/components/ui-primitives";
+
 type LauncherStatus = "ready" | "recent" | "review_due";
-type LauncherCategory = "clinical" | "admin" | "recent";
-type LauncherArea = "reference" | "assessment" | "care" | "coordination" | "personal";
+type LauncherArea = "assessment" | "reference" | "care" | "coordination" | "saved";
+type LauncherVariant = "standalone" | "dashboard-tools";
+type LauncherFilter = "all" | LauncherArea | "more";
 
 type LauncherApp = {
   id: string;
   title: string;
-  shortTitle?: string;
+  mobileTitle?: string;
   description: string;
+  bestFor: string;
   detail: string;
   href: string;
-  external: boolean;
+  external?: boolean;
   icon: LucideIcon;
-  category: LauncherCategory;
   area: LauncherArea;
-  workflow: string;
-  lastUsed: string;
   status: LauncherStatus;
   sourceBacked: boolean;
-  sourceToolId?: string;
-  relatedIds: string[];
-  quickActions: string[];
-  recentWorkflows: Array<{ title: string; date: string }>;
+  safetyFirst?: boolean;
+  highYield?: boolean;
+  actionLabel: string;
+  keywords: string[];
+  checkFirst: string[];
+  neededInput: string[];
+  output: string;
 };
 
-const statusStyles: Record<LauncherStatus, string> = {
-  ready: "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]",
-  recent: "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]",
-  review_due: "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
+type LauncherCopy = {
+  heading: string;
+  description: string;
+  searchAriaLabel: string;
+  searchPlaceholder: string;
+  openSelectedAriaLabel: string;
+  allSectionLabel: string;
+  allColumnLabel: string;
+  countNoun: string;
+  emptyTitle: string;
+  emptyBody: string;
+};
+
+const focusRing =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+const areaLabels: Record<LauncherArea, string> = {
+  assessment: "Assess",
+  reference: "Evidence",
+  care: "Treat",
+  coordination: "Coordinate",
+  saved: "Saved",
 };
 
 const statusLabels: Record<LauncherStatus, string> = {
@@ -72,720 +84,800 @@ const statusLabels: Record<LauncherStatus, string> = {
   review_due: "Review due",
 };
 
-const filterOptions = [
-  { id: "all", label: "All tools", icon: Grid2X2 },
-  { id: "pinned", label: "Pinned", icon: Pin },
-  { id: "review_due", label: "Review due", icon: Clock3 },
-  { id: "source_backed", label: "Source-backed", icon: ShieldCheck },
-] as const;
-
-const areaLabels: Record<LauncherArea, string> = {
-  reference: "Reference",
-  assessment: "Assessment",
-  care: "Treatment",
-  coordination: "Coordination",
-  personal: "Saved",
+const iconToneClasses: Record<LauncherArea | "safety" | "medication" | "differentials", string> = {
+  assessment: "border-cyan-200 bg-cyan-50 text-cyan-700",
+  reference: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  care: "border-sky-200 bg-sky-50 text-sky-700",
+  coordination: "border-teal-200 bg-teal-50 text-teal-700",
+  saved: "border-blue-200 bg-blue-50 text-blue-700",
+  safety: "border-red-200 bg-red-50 text-red-600",
+  medication: "border-amber-200 bg-amber-50 text-amber-600",
+  differentials: "border-violet-200 bg-violet-50 text-violet-700",
 };
 
 const launcherApps: LauncherApp[] = [
   {
-    id: "medication-prescribing",
-    area: "care",
-    sourceBacked: true,
-    title: "Medication Prescribing",
-    shortTitle: "Medication",
-    description: "Search, prescribe and review medications.",
-    detail: "Check prescribing context, monitoring, interactions, and medication-specific safety issues.",
-    href: "/?mode=prescribing",
-    external: false,
-    icon: Pill,
-    category: "clinical",
-    workflow: "Care planning",
-    lastUsed: "May 12, 2025",
-    status: "review_due",
-    sourceToolId: "medications",
-    relatedIds: ["documents", "services", "clinical-kb-search"],
-    quickActions: ["Create new prescription", "Browse formulary", "Review interactions", "Medication templates"],
-    recentWorkflows: [
-      { title: "Medication review - Sam T.", date: "May 12, 2025" },
-      { title: "Repeat prescription - Atorvastatin 20mg", date: "May 9, 2025" },
-      { title: "Renal dose screen", date: "May 8, 2025" },
-    ],
-  },
-  {
-    id: "documents",
-    area: "reference",
-    sourceBacked: true,
-    title: "Documents",
-    description: "Access and manage clinical documents.",
-    detail: "Search indexed PDFs, guidelines, policies, notes, and source documents.",
-    href: "/?mode=documents",
-    external: false,
-    icon: FileText,
-    category: "admin",
-    workflow: "Reference",
-    lastUsed: "May 10, 2025",
-    status: "ready",
-    relatedIds: ["clinical-kb-search", "services", "medication-prescribing"],
-    quickActions: ["Search documents", "Browse library", "Open source PDF", "Review indexed documents"],
-    recentWorkflows: [
-      { title: "Lithium monitoring guideline", date: "May 10, 2025" },
-      { title: "Safety plan source review", date: "May 9, 2025" },
-      { title: "Clozapine monitoring protocol", date: "May 7, 2025" },
-    ],
-  },
-  {
-    id: "services",
-    area: "coordination",
-    sourceBacked: true,
-    title: "Services",
-    description: "Review source-backed service records and access pathways.",
-    detail:
-      "Open service records with contact routes, eligibility, cost, referral criteria, verification, and source status.",
-    href: "/services",
-    external: false,
-    icon: ClipboardList,
-    category: "clinical",
-    workflow: "Referral",
-    lastUsed: "Today, 8:15 AM",
-    status: "review_due",
-    relatedIds: ["clinical-kb-search", "documents", "medication-prescribing"],
-    quickActions: ["Open services home", "Review referral criteria", "Copy contact pathway", "Check source status"],
-    recentWorkflows: [
-      { title: "13YARN referral pathway", date: "Today, 8:15 AM" },
-      { title: "Regional mental health service check", date: "May 12, 2025" },
-      { title: "Crisis support contact review", date: "May 10, 2025" },
-    ],
-  },
-  {
-    id: "forms",
-    area: "coordination",
-    sourceBacked: true,
-    title: "Forms",
-    description: "Find clinical forms and source-backed form pathways.",
-    detail: "Open the forms home for form search, readiness checks, pathway tasks, and source-backed records.",
-    href: "/forms",
-    external: false,
-    icon: FileText,
-    category: "admin",
-    workflow: "Forms",
-    lastUsed: "Today, 8:05 AM",
-    status: "ready",
-    relatedIds: ["services", "documents", "clinical-kb-search"],
-    quickActions: ["Open forms home", "Search forms", "Review readiness checks", "Browse form pathways"],
-    recentWorkflows: [
-      { title: "Assessment form pathway", date: "Today, 8:05 AM" },
-      { title: "Transfer form check", date: "May 12, 2025" },
-      { title: "Treatment form source review", date: "May 10, 2025" },
-    ],
-  },
-  {
     id: "clinical-kb-search",
-    area: "reference",
-    sourceBacked: true,
     title: "Clinical KB Search",
-    description: "Search the knowledge base content.",
-    detail: "Search the Clinical KB for source-backed guidance, answers, and evidence.",
+    mobileTitle: "Clinical KB",
+    description: "Ask source-backed clinical questions and move straight to evidence.",
+    bestFor: "Quick answers and guidance",
+    detail: "Ask source-backed clinical questions and move straight to evidence.",
     href: "/?mode=answer",
-    external: false,
     icon: Search,
-    category: "clinical",
-    workflow: "Reference",
-    lastUsed: "Today, 7:30 AM",
+    area: "assessment",
     status: "ready",
-    relatedIds: ["documents", "services", "medication-prescribing"],
-    quickActions: ["Ask clinical question", "Search indexed guidelines", "Open document scope", "Review sources"],
-    recentWorkflows: [
-      { title: "Lithium monitoring search", date: "Today, 7:30 AM" },
-      { title: "Safety plan search", date: "May 12, 2025" },
-      { title: "Clozapine source check", date: "May 10, 2025" },
-    ],
+    sourceBacked: true,
+    highYield: true,
+    actionLabel: "Ask",
+    keywords: ["answer", "ask", "source", "knowledge base", "clinical question", "search"],
+    checkFirst: ["Clinical question or PICO", "Patient context and setting", "Timeframe or guideline scope"],
+    neededInput: ["Clinical question", "Relevant patient context", "Optional source or document scope"],
+    output: "Concise answer, key points, citations, and source links.",
   },
   {
     id: "differentials",
-    area: "assessment",
-    sourceBacked: true,
     title: "Differentials",
-    description: "Build and compare diagnostic possibilities.",
-    detail: "Compare source-aware differentials, weigh must-not-miss risks, and open the presentation view.",
+    description: "Build and compare diagnostic possibilities with source-aware prompts.",
+    bestFor: "Broad or complex presentations",
+    detail: "Compare diagnostic possibilities, supporting features, red flags, and next-step questions.",
     href: "/differentials",
-    external: false,
     icon: Brain,
-    category: "clinical",
-    workflow: "Assessment",
-    lastUsed: "Today, 8:40 AM",
+    area: "assessment",
     status: "recent",
-    relatedIds: ["clinical-kb-search", "documents", "medication-prescribing"],
-    quickActions: [
-      "Compare differentials",
-      "Open presentation view",
-      "Review must-not-miss risks",
-      "Copy after review",
+    sourceBacked: true,
+    highYield: true,
+    actionLabel: "Compare",
+    keywords: ["compare", "diagnosis", "differential", "presentation", "risk"],
+    checkFirst: ["Red flags", "Key presenting features", "Important negatives"],
+    neededInput: ["Chief concern", "History and examination features", "Available observations or tests"],
+    output: "Ranked differentials, rationale, must-not-miss risks, and next steps.",
+  },
+  {
+    id: "documents",
+    title: "Documents",
+    mobileTitle: "Docs",
+    description: "Search indexed PDFs, policies, guidelines, pages, tables, and images.",
+    bestFor: "Trusted documents and pages",
+    detail: "Find the source document, page, table, image, or policy wording behind an answer.",
+    href: "/?mode=documents",
+    icon: FileText,
+    area: "reference",
+    status: "ready",
+    sourceBacked: true,
+    highYield: true,
+    actionLabel: "Search",
+    keywords: ["documents", "docs", "pdf", "policy", "guideline", "source", "pages"],
+    checkFirst: ["Document title or topic", "Local policy scope", "Page, table, or image need"],
+    neededInput: ["Source topic", "Optional document name", "Preferred date or local scope"],
+    output: "Matching documents, page context, snippets, and source links.",
+  },
+  {
+    id: "guidelines",
+    title: "Guidelines",
+    description: "Browse trusted guidelines and clinical pathways.",
+    bestFor: "Recommendations and standards",
+    detail: "Move from a clinical question to guideline wording, pathway steps, and source context.",
+    href: "/?mode=documents&q=guideline&focus=1",
+    icon: ShieldCheck,
+    area: "reference",
+    status: "ready",
+    sourceBacked: true,
+    highYield: true,
+    actionLabel: "Browse",
+    keywords: ["guidelines", "recommendations", "standards", "pathways"],
+    checkFirst: ["Guideline topic", "Population or setting", "Local policy relevance"],
+    neededInput: ["Condition or intervention", "Clinical setting", "Optional source preference"],
+    output: "Guideline matches, key recommendations, and linked source context.",
+  },
+  {
+    id: "risk-safety",
+    title: "Risk & Safety",
+    mobileTitle: "Safety",
+    description: "Check risks, contraindications, alerts, and safety guidance.",
+    bestFor: "Preventing harm",
+    detail: "Check risks, contraindications, and safety alerts before making clinical decisions.",
+    href: "/?mode=answer&q=safety%20check&focus=1",
+    icon: ShieldCheck,
+    area: "care",
+    status: "review_due",
+    sourceBacked: true,
+    safetyFirst: true,
+    actionLabel: "Open",
+    keywords: ["risk", "safety", "contraindications", "red flags", "alerts", "harm"],
+    checkFirst: [
+      "Allergies and adverse reactions",
+      "Drug-drug and drug-disease interactions",
+      "Dose adjustments and monitoring needs",
+      "Safety alerts and warnings",
     ],
-    recentWorkflows: [
-      { title: "Acute confusion comparison", date: "Today, 8:40 AM" },
-      { title: "Chest pain differentials", date: "May 12, 2025" },
-      { title: "Headache red flags", date: "May 9, 2025" },
+    neededInput: [
+      "Patient context and problem list",
+      "Current medications and doses",
+      "Allergies and prior reactions",
+      "Renal/hepatic function if relevant",
     ],
+    output: "Prioritized risks, alerts, and actionable recommendations with source links.",
+  },
+  {
+    id: "medication-prescribing",
+    title: "Medication Prescribing",
+    mobileTitle: "Prescribe",
+    description: "Review prescribing context, monitoring, interactions, and cautions.",
+    bestFor: "Safe and effective prescribing",
+    detail: "Review medication context, dosing, interactions, monitoring, and medication-specific cautions.",
+    href: "/?mode=prescribing",
+    icon: Pill,
+    area: "care",
+    status: "review_due",
+    sourceBacked: true,
+    safetyFirst: true,
+    actionLabel: "Prescribe",
+    keywords: ["medication", "medications", "prescribing", "dose", "monitoring", "interactions"],
+    checkFirst: ["Current medicines", "Contraindications", "Monitoring requirements"],
+    neededInput: ["Medicine and indication", "Dose and route if known", "Comorbidities and key labs"],
+    output: "Prescribing guidance, monitoring plan, cautions, and references.",
+  },
+  {
+    id: "services",
+    title: "Services",
+    description: "Open source-backed service records, referral routes, and eligibility.",
+    bestFor: "Referrals and coordination",
+    detail: "Open service records with referral routes, eligibility, source status, and access pathways.",
+    href: "/services",
+    icon: Users,
+    area: "coordination",
+    status: "ready",
+    sourceBacked: true,
+    highYield: true,
+    actionLabel: "Refer",
+    keywords: ["services", "referral", "eligibility", "pathway", "contact"],
+    checkFirst: ["Eligibility", "Referral route", "Service source status"],
+    neededInput: ["Patient location or catchment", "Clinical need", "Urgency and pathway requirements"],
+    output: "Referral pathway, eligibility notes, service record, and source link.",
+  },
+  {
+    id: "forms",
+    title: "Forms",
+    description: "Find clinical forms and source-backed readiness pathways.",
+    bestFor: "Forms and workflows",
+    detail: "Open form search, readiness checks, pathway tasks, and source-backed records.",
+    href: "/forms",
+    icon: FileCheck2,
+    area: "coordination",
+    status: "ready",
+    sourceBacked: true,
+    highYield: true,
+    actionLabel: "Open",
+    keywords: ["forms", "paperwork", "readiness", "pathway"],
+    checkFirst: ["Current form version", "Required fields", "Linked service pathway"],
+    neededInput: ["Form type", "Clinical pathway", "Patient or service context"],
+    output: "Relevant form, readiness tasks, and source-backed pathway details.",
+  },
+  {
+    id: "care-plans",
+    title: "Care plans",
+    description: "Create and review management plans with monitoring and follow-up.",
+    bestFor: "Ongoing care planning",
+    detail: "Structure care planning, review milestones, monitoring needs, and follow-up tasks.",
+    href: "/?mode=answer&q=care%20plan&focus=1",
+    icon: ClipboardCheck,
+    area: "care",
+    status: "ready",
+    sourceBacked: true,
+    highYield: true,
+    actionLabel: "Open",
+    keywords: ["care plan", "management", "follow-up", "monitoring"],
+    checkFirst: ["Goals of care", "Review date", "Monitoring responsibilities"],
+    neededInput: ["Diagnosis or working problem", "Current plan", "Follow-up timeframe"],
+    output: "Care-plan structure, review points, and monitoring prompts.",
+  },
+  {
+    id: "monitoring",
+    title: "Monitoring",
+    description: "Track and review key monitoring parameters and results.",
+    bestFor: "Ongoing monitoring",
+    detail: "Review monitoring intervals, parameters, alerts, and follow-up actions.",
+    href: "/?mode=answer&q=monitoring%20schedule&focus=1",
+    icon: Waves,
+    area: "care",
+    status: "ready",
+    sourceBacked: true,
+    highYield: true,
+    actionLabel: "Open",
+    keywords: ["monitoring", "results", "parameters", "schedule", "labs"],
+    checkFirst: ["Monitoring indication", "Last result date", "Thresholds and alerts"],
+    neededInput: ["Medication or condition", "Recent results", "Monitoring timeframe"],
+    output: "Monitoring schedule, thresholds, and review prompts.",
   },
   {
     id: "favourites",
-    area: "personal",
-    sourceBacked: false,
-    title: "Favourites",
-    description: "Return to saved clinical work and sources.",
-    detail: "Resume saved answers, pinned sources, and repeated workflows.",
+    title: "Saved workflows",
+    mobileTitle: "Saved",
+    description: "Return to saved clinical workspaces and repeated workflows.",
+    bestFor: "Repeated or complex work",
+    detail: "Resume saved answers, pinned sources, and repeated clinical workflows.",
     href: "/favourites",
-    external: false,
     icon: Star,
-    category: "recent",
-    workflow: "Saved",
-    lastUsed: "Today, 8:45 AM",
+    area: "saved",
     status: "recent",
-    relatedIds: ["clinical-kb-search", "services", "documents"],
-    quickActions: ["Resume saved work", "Open pinned sources", "Review recent workflows", "Manage pins"],
-    recentWorkflows: [
-      { title: "Saved: Lithium monitoring", date: "Today, 8:45 AM" },
-      { title: "Pinned: Safety plan", date: "May 12, 2025" },
-      { title: "Recent: Clozapine protocol", date: "May 10, 2025" },
-    ],
+    sourceBacked: false,
+    actionLabel: "View",
+    keywords: ["favourites", "favorites", "saved", "recent", "pinned"],
+    checkFirst: ["Saved context", "Last-used status", "Review markers"],
+    neededInput: ["Saved item or workflow name", "Optional source set", "Review context"],
+    output: "Saved workspace, pinned source, or recent workflow.",
   },
 ];
-
-const seedPinnedIds = ["clinical-kb-search", "services", "medication-prescribing", "documents"];
-
-const recentActivity = [
-  { id: "clinical-kb-search", label: "Clinical KB Search opened", date: "Today, 7:30 AM", icon: Search },
-  { id: "services", label: "13YARN referral pathway reviewed", date: "Today, 8:15 AM", icon: ClipboardList },
-  { id: "medication-prescribing", label: "Medication Prescribing reviewed", date: "May 12, 2025", icon: Pill },
-  { id: "documents", label: "Documents opened", date: "May 10, 2025", icon: FileText },
-  { id: "documents", label: "Saved items reviewed", date: "Today, 8:45 AM", icon: Star },
-] as const;
-
-export const applicationsLauncherItemCount = launcherApps.length;
-
-type LauncherVariant = "standalone" | "dashboard-tools";
-
-type LauncherCopy = {
-  heading: string;
-  description: string;
-  searchAriaLabel: string;
-  searchPlaceholder: string;
-  actionsAriaLabel: string;
-  openSelectedAriaLabel: string;
-  selectedLabel: string;
-  closeSelectedLabel: string;
-  optionsAriaLabel: string;
-  pinnedAriaLabel: string;
-  allSectionLabel: string;
-  allColumnLabel: string;
-  countNoun: string;
-  relatedHeading: string;
-  emptyTitle: string;
-  emptyBody: string;
-};
 
 const standaloneLauncherCopy: LauncherCopy = {
   heading: "Applications",
   description:
-    "Open the clinical applications and connected workflows you use for assessment, formulation, prescribing, documents, and saved workflows.",
+    "Open the clinical applications and connected workflows you use for assessment, prescribing, documents, and saved work.",
   searchAriaLabel: "Search applications",
   searchPlaceholder: "Search applications...",
-  actionsAriaLabel: "Open application actions",
   openSelectedAriaLabel: "Open selected application",
-  selectedLabel: "Selected application",
-  closeSelectedLabel: "Close selected application",
-  optionsAriaLabel: "Open application options",
-  pinnedAriaLabel: "Pinned applications",
   allSectionLabel: "All applications",
   allColumnLabel: "Application",
   countNoun: "applications",
-  relatedHeading: "Related apps",
   emptyTitle: "No applications match",
   emptyBody: "Clear the search or try another clinical workflow, app name, or category.",
 };
 
 const dashboardToolsLauncherCopy: LauncherCopy = {
-  heading: "Tools command center",
+  heading: "Tools",
   description:
     "Open the clinical tools and connected workflows you use for assessment, prescribing, documents, and saved work.",
   searchAriaLabel: "Search tools",
   searchPlaceholder: "Search tools...",
-  actionsAriaLabel: "Open tool actions",
   openSelectedAriaLabel: "Open selected tool",
-  selectedLabel: "Selected tool",
-  closeSelectedLabel: "Close selected tool",
-  optionsAriaLabel: "Open tool options",
-  pinnedAriaLabel: "Pinned tools",
   allSectionLabel: "All tools",
   allColumnLabel: "Tool",
   countNoun: "tools",
-  relatedHeading: "Related tools",
   emptyTitle: "No tools match",
   emptyBody: "Clear the search or try another clinical workflow, tool name, or category.",
 };
+
+const quickActions = [
+  { label: "Ask", desktopLabel: "Ask evidence", icon: Search, id: "clinical-kb-search" },
+  { label: "Compare", desktopLabel: "Compare", icon: Brain, id: "differentials" },
+  { label: "Prescribe", desktopLabel: "Prescribe", icon: Pill, id: "medication-prescribing" },
+  { label: "Safety", desktopLabel: "Safety check", icon: ShieldCheck, id: "risk-safety" },
+  { label: "Docs", desktopLabel: "Documents", icon: FileText, id: "documents" },
+  { label: "Refer", desktopLabel: "Refer", icon: Users, id: "services" },
+  { label: "Forms", desktopLabel: "Forms", icon: FileCheck2, id: "forms" },
+  { label: "More", desktopLabel: "More", icon: Sparkles, id: "favourites" },
+] as const;
+
+const desktopFilters: Array<{ id: LauncherFilter; label: string }> = [
+  { id: "all", label: "All tools" },
+  { id: "assessment", label: "Assess" },
+  { id: "reference", label: "Evidence" },
+  { id: "care", label: "Treat" },
+  { id: "coordination", label: "Coordinate" },
+  { id: "saved", label: "Saved" },
+];
+
+const mobileFilters: Array<{ id: LauncherFilter; label: string; hasMenu?: boolean }> = [
+  { id: "all", label: "All tools" },
+  { id: "assessment", label: "Assess" },
+  { id: "reference", label: "Evidence" },
+  { id: "care", label: "Treat" },
+  { id: "more", label: "More", hasMenu: true },
+];
+
+export const applicationsLauncherItemCount = launcherApps.length;
 
 function appById(id: string) {
   return launcherApps.find((app) => app.id === id) ?? launcherApps[0];
 }
 
-function StatusPill({ status }: { status: LauncherStatus }) {
+function initialToolId(query: string | undefined) {
+  const normalized = query?.trim().toLowerCase();
+  if (!normalized) return "risk-safety";
   return (
-    <span
-      className={cn(
-        "inline-flex min-h-6 items-center rounded-md border px-2 text-[11px] font-bold",
-        statusStyles[status],
-      )}
-    >
-      {statusLabels[status]}
-    </span>
+    launcherApps.find((app) =>
+      [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, app.area, ...app.keywords]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(normalized),
+    )?.id ?? "risk-safety"
   );
 }
 
-function StatsStrip() {
-  const stats = [
-    { label: "Tools", value: launcherApps.length, icon: Grid2X2 },
-    { label: "Review due", value: launcherApps.filter((app) => app.status === "review_due").length, icon: Clock3 },
-    { label: "Recent", value: launcherApps.filter((app) => app.status === "recent").length, icon: Star },
-  ];
-  return (
-    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3" aria-label="Tool overview">
-      {stats.map(({ label, value, icon: Icon }) => (
-        <div
-          key={label}
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 shadow-[var(--shadow-inset)]"
-        >
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-            <Icon className="h-4 w-4" aria-hidden />
-          </span>
-          <span className="text-left">
-            <span className="nums block text-sm font-bold leading-4 text-[color:var(--text-heading)]">{value}</span>
-            <span className="block text-[11px] font-semibold text-[color:var(--text-soft)]">{label}</span>
-          </span>
-        </div>
-      ))}
-    </div>
-  );
+function appIconTone(app: LauncherApp) {
+  if (app.id === "risk-safety") return iconToneClasses.safety;
+  if (app.id === "medication-prescribing") return iconToneClasses.medication;
+  if (app.id === "differentials" || app.id === "forms") return iconToneClasses.differentials;
+  return iconToneClasses[app.area];
 }
 
-function AppIcon({ app, compact = false }: { app: LauncherApp; compact?: boolean }) {
+function ToolIcon({ app, size = "md" }: { app: LauncherApp; size?: "sm" | "md" | "lg" }) {
   const Icon = app.icon;
   return (
     <span
       className={cn(
-        "grid shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
-        compact ? "h-9 w-9" : "h-11 w-11",
+        "grid shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
+        appIconTone(app),
+        size === "sm" && "h-9 w-9",
+        size === "md" && "h-12 w-12",
+        size === "lg" && "h-14 w-14",
       )}
     >
-      <Icon className={compact ? "h-4.5 w-4.5" : "h-5 w-5"} aria-hidden />
+      <Icon className={cn(size === "sm" ? "h-4.5 w-4.5" : size === "md" ? "h-6 w-6" : "h-7 w-7")} aria-hidden />
     </span>
   );
 }
 
-function LaunchLink({ app, compact = false, className }: { app: LauncherApp; compact?: boolean; className?: string }) {
-  const label = `Launch ${app.title}`;
-  const classes = cn(
-    "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-    compact && "min-h-9 px-3 text-xs",
-    className,
-  );
-
-  if (app.external) {
-    return (
-      <a href={app.href} target="_blank" rel="noopener noreferrer" aria-label={label} className={classes}>
-        Launch
-        <ExternalLink className="h-4 w-4" aria-hidden />
-      </a>
-    );
-  }
-
+function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "source" | "safety" | "high" }) {
   return (
-    <Link href={app.href} aria-label={label} className={classes}>
-      Launch
-      <ChevronRight className="h-4 w-4" aria-hidden />
-    </Link>
+    <span
+      className={cn(
+        "inline-flex min-h-6 items-center gap-1 rounded-md border px-2 text-[11px] font-bold leading-none",
+        tone === "source" && "border-emerald-200 bg-emerald-50 text-emerald-700",
+        tone === "safety" && "border-orange-200 bg-orange-50 text-orange-700",
+        tone === "high" && "border-blue-200 bg-blue-50 text-blue-700",
+        tone === "neutral" &&
+          "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+      )}
+    >
+      {tone === "source" ? <ShieldCheck className="h-3 w-3" aria-hidden /> : null}
+      {tone === "safety" ? <Sparkles className="h-3 w-3" aria-hidden /> : null}
+      {label}
+    </span>
   );
 }
 
-function HeaderFilter({
-  activeFilter,
-  onFilterChange,
+function ToolChips({ app, includeStatus = false }: { app: LauncherApp; includeStatus?: boolean }) {
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {includeStatus ? <StatusChip label={statusLabels[app.status]} /> : null}
+      {app.sourceBacked ? <StatusChip label="Source-backed" tone="source" /> : <StatusChip label="Private" />}
+      {app.safetyFirst ? (
+        <StatusChip label="Safety-first" tone="safety" />
+      ) : app.highYield ? (
+        <StatusChip label="High yield" tone="high" />
+      ) : null}
+    </span>
+  );
+}
+
+function ToolSearch({
+  value,
+  onChange,
+  onSubmit,
+  copy,
+  className,
 }: {
-  activeFilter: (typeof filterOptions)[number]["id"];
-  onFilterChange: (filter: (typeof filterOptions)[number]["id"]) => void;
+  value: string;
+  onChange: (query: string) => void;
+  onSubmit: () => void;
+  copy: LauncherCopy;
+  className?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2" role="group" aria-label="Tool filters">
-      {filterOptions.map((option) => {
-        const active = option.id === activeFilter;
-        const Icon = option.icon;
+    <form
+      role="search"
+      onSubmit={(event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+      className={cn(
+        "grid min-h-13 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
+        className,
+      )}
+    >
+      <span className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--clinical-accent)]">
+        <Plus className="h-4.5 w-4.5" aria-hidden />
+      </span>
+      <label className="min-w-0">
+        <span className="sr-only">{copy.searchAriaLabel}</span>
+        <input
+          data-testid="tools-local-search-input"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={copy.searchPlaceholder}
+          className="w-full min-w-0 bg-transparent text-sm font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none"
+        />
+      </label>
+      <button
+        type="submit"
+        aria-label={copy.openSelectedAriaLabel}
+        className={cn(
+          "mr-1 grid h-10 w-10 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)]",
+          focusRing,
+        )}
+      >
+        <Search className="h-4.5 w-4.5" aria-hidden />
+      </button>
+    </form>
+  );
+}
+
+function QuickActions({ onSelect, mobile }: { onSelect: (id: string) => void; mobile?: boolean }) {
+  return (
+    <section
+      aria-label="Quick tool shortcuts"
+      className={cn(mobile ? "grid grid-cols-4 gap-2" : "grid w-full grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6")}
+    >
+      {quickActions.slice(0, mobile ? 8 : 6).map((action) => {
+        const app = appById(action.id);
+        const Icon = action.icon;
         return (
           <button
-            key={option.id}
+            key={action.label}
             type="button"
-            aria-pressed={active}
-            onClick={() => onFilterChange(option.id)}
+            onClick={() => onSelect(action.id)}
             className={cn(
-              "inline-flex min-h-11 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition",
-              active
-                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+              "group border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-raised)]",
+              focusRing,
+              mobile
+                ? "grid h-14 min-w-0 place-items-center gap-0.5 rounded-lg px-1 py-1.5 text-center"
+                : "grid min-h-14 grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-3 rounded-lg px-3 py-2.5",
             )}
           >
-            <Icon className="h-3.5 w-3.5" aria-hidden />
-            {option.label}
+            <span
+              className={cn(
+                "grid place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
+                appIconTone(app),
+                mobile ? "h-7 w-7" : "h-9 w-9",
+              )}
+            >
+              <Icon className={mobile ? "h-4 w-4" : "h-5 w-5"} aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span
+                className={cn(
+                  "block truncate font-bold leading-tight text-[color:var(--text-heading)]",
+                  mobile ? "text-[10px]" : "text-sm",
+                )}
+              >
+                {mobile ? action.label : action.desktopLabel}
+              </span>
+              {!mobile ? (
+                <span className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                  {app.bestFor}
+                </span>
+              ) : null}
+            </span>
           </button>
         );
       })}
-    </div>
+    </section>
   );
 }
 
-function PinnedSection({
-  pinnedApps,
-  selectedId,
-  onSelect,
-  onTogglePin,
-  copy,
+function FilterTabs({
+  activeFilter,
+  onFilterChange,
 }: {
-  pinnedApps: LauncherApp[];
-  selectedId: string;
+  activeFilter: LauncherFilter;
+  onFilterChange: (filter: LauncherFilter) => void;
+}) {
+  return (
+    <>
+      <div className="hidden flex-wrap items-center gap-2 sm:flex" role="tablist" aria-label="Tool category">
+        {desktopFilters.map((filter) => {
+          const active = filter.id === activeFilter || (filter.id === "all" && activeFilter === "more");
+          return (
+            <button
+              key={filter.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onFilterChange(filter.id)}
+              className={cn(
+                "inline-flex min-h-9 items-center justify-center rounded-lg border px-4 text-xs font-bold transition",
+                active
+                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
+                  : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
+                focusRing,
+              )}
+            >
+              {filter.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex min-w-0 gap-1 overflow-x-auto pb-1 sm:hidden" role="tablist" aria-label="Tool category">
+        {mobileFilters.map((filter) => {
+          const active = filter.id === activeFilter || (filter.id === "all" && activeFilter === "saved");
+          return (
+            <button
+              key={filter.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onFilterChange(filter.id)}
+              className={cn(
+                "inline-flex min-h-7 shrink-0 items-center justify-center gap-0.5 rounded-lg border px-2 text-[9px] font-bold transition",
+                active
+                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
+                  : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
+                focusRing,
+              )}
+            >
+              {filter.label}
+              {filter.hasMenu ? <ChevronDown className="h-3 w-3" aria-hidden /> : null}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function ToolCard({
+  app,
+  selected,
+  onSelect,
+}: {
+  app: LauncherApp;
+  selected: boolean;
   onSelect: (id: string) => void;
-  onTogglePin: (id: string) => void;
-  copy: LauncherCopy;
+}) {
+  const externalProps = app.external ? { target: "_blank", rel: "noopener noreferrer" } : {};
+  return (
+    <a
+      href={app.href}
+      onClick={(event) => {
+        event.preventDefault();
+        onSelect(app.id);
+      }}
+      className={cn(
+        "group grid min-h-[9.25rem] grid-cols-[auto_minmax(0,1fr)_auto] gap-4 rounded-lg border bg-[color:var(--surface-lux)] p-4 text-left shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)] motion-reduce:hover:translate-y-0",
+        selected
+          ? app.id === "risk-safety"
+            ? "border-red-200 bg-red-50/45"
+            : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/50"
+          : "border-[color:var(--border)]",
+        focusRing,
+      )}
+      {...externalProps}
+    >
+      <ToolIcon app={app} size="lg" />
+      <span className="min-w-0">
+        <span className="block text-base font-extrabold leading-5 text-[color:var(--text-heading)]">{app.title}</span>
+        <span className="mt-2 line-clamp-2 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+          {app.description}
+        </span>
+        <span className="mt-3 block text-xs font-bold text-[color:var(--text-heading)]">
+          Best for: <span className="font-medium text-[color:var(--text-muted)]">{app.bestFor}</span>
+        </span>
+        <span className="mt-3 block">
+          <ToolChips app={app} />
+        </span>
+      </span>
+      <span className="self-end rounded-lg bg-[color:var(--clinical-accent)] px-3 py-2 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+        {app.actionLabel}
+        <ChevronRight className="ml-1 inline h-3.5 w-3.5" aria-hidden />
+      </span>
+    </a>
+  );
+}
+
+function MobileToolRow({
+  app,
+  selected,
+  onSelect,
+}: {
+  app: LauncherApp;
+  selected: boolean;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <a
+      href={app.href}
+      data-testid={`application-row-${app.id}`}
+      onClick={(event) => {
+        event.preventDefault();
+        onSelect(app.id);
+      }}
+      className={cn(
+        "grid min-h-[5.25rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-[color:var(--surface-lux)] px-3 py-3 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]",
+        selected
+          ? app.id === "risk-safety"
+            ? "border-red-200 bg-red-50/45"
+            : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55"
+          : "border-[color:var(--border)]",
+        focusRing,
+      )}
+    >
+      <ToolIcon app={app} size="sm" />
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-extrabold text-[color:var(--text-heading)]">{app.title}</span>
+        <span className="mt-1 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">
+          {app.description}
+        </span>
+      </span>
+      <span className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3 text-[11px] font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+        {app.actionLabel}
+        <ChevronRight className="ml-1 h-3 w-3" aria-hidden />
+      </span>
+    </a>
+  );
+}
+
+function DetailSection({
+  icon: Icon,
+  title,
+  children,
+  compact,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children: React.ReactNode;
+  compact?: boolean;
 }) {
   return (
     <section
-      aria-label={copy.pinnedAriaLabel}
-      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]"
+      className={cn(
+        "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]",
+        compact ? "p-3" : "p-4",
+      )}
     >
-      <div className="flex min-h-10 items-center justify-between border-b border-[color:var(--border)] px-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)]">
-          <Pin className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
-          Pinned
-        </div>
-        <span className="nums text-xs font-semibold text-[color:var(--text-soft)]">{pinnedApps.length} pinned</span>
+      <div className="flex items-center gap-2 text-sm font-extrabold text-[color:var(--text-heading)]">
+        <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden />
+        {title}
       </div>
-      <div className="divide-y divide-[color:var(--border)]">
-        {pinnedApps.map((app) => {
-          const selected = selectedId === app.id;
-          return (
-            <div
-              key={app.id}
-              className={cn(
-                "grid w-full grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] sm:gap-3",
-                selected && "bg-[color:var(--clinical-accent-soft)]/55",
-              )}
-            >
-              <button
-                type="button"
-                onClick={() => onSelect(app.id)}
-                className="contents text-left"
-                aria-label={`Select ${app.title}`}
-              >
-                <AppIcon app={app} compact />
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                    {app.title}
-                  </span>
-                  <span className={cn("hidden truncate text-xs sm:block", textMuted)}>{app.description}</span>
-                </span>
-              </button>
-              <StatusPill status={app.status} />
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onTogglePin(app.id);
-                }}
-                aria-label={`Unpin ${app.title}`}
-                className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--clinical-accent)]"
-              >
-                <PinOff className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
-          );
-        })}
+      <div className={cn("mt-2 text-sm leading-6 text-[color:var(--text-muted)]", compact && "text-xs leading-5")}>
+        {children}
       </div>
     </section>
   );
 }
 
-function ApplicationRow({
-  app,
-  selected,
-  pinned,
-  onSelect,
-  onTogglePin,
-}: {
-  app: LauncherApp;
-  selected: boolean;
-  pinned: boolean;
-  onSelect: (id: string) => void;
-  onTogglePin: (id: string) => void;
-}) {
+function DetailRows({ app }: { app: LauncherApp }) {
   return (
-    <div
-      className={cn(
-        "grid min-h-[72px] grid-cols-[auto_minmax(0,1fr)_7rem_6rem_5.5rem_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 py-3 transition first:border-t-0",
-        selected &&
-          "rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/55 shadow-[var(--glow-soft)]",
-        !selected && "hover:bg-[color:var(--surface-subtle)]",
-      )}
-      data-testid={`application-row-${app.id}`}
-      {...{ href: app.href }}
-    >
-      <button type="button" onClick={() => onSelect(app.id)} className="contents text-left">
-        <AppIcon app={app} compact />
-        <span className="min-w-0">
-          <span className="flex items-center gap-1.5">
-            <span className="truncate text-sm font-semibold text-[color:var(--text-heading)]">{app.title}</span>
-            {app.sourceBacked ? (
-              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-[color:var(--success)]" aria-label="Source-backed" />
-            ) : null}
-          </span>
-          <span className={cn("block truncate text-xs leading-5", textMuted)}>{app.description}</span>
-        </span>
-        <span className="nums text-xs font-semibold text-[color:var(--text-muted)]">{app.lastUsed}</span>
-        <StatusPill status={app.status} />
-      </button>
-      <LaunchLink app={app} compact />
-      <button
-        type="button"
-        onClick={() => onTogglePin(app.id)}
-        aria-label={`${pinned ? "Unpin" : "Pin"} ${app.title}`}
-        className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--clinical-accent)]"
-      >
-        <Pin className={cn("h-4 w-4", pinned && "fill-current text-[color:var(--clinical-accent)]")} aria-hidden />
-      </button>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <DetailSection icon={Search} title="Best for">
+        <p>{app.detail}</p>
+      </DetailSection>
+      <DetailSection icon={ShieldCheck} title="Check first">
+        <ul className="list-disc space-y-1 pl-4">
+          {app.checkFirst.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </DetailSection>
+      <DetailSection icon={ClipboardList} title="Needed input">
+        <ul className="list-disc space-y-1 pl-4">
+          {app.neededInput.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </DetailSection>
+      <DetailSection icon={Waves} title="Output">
+        <p>{app.output}</p>
+      </DetailSection>
     </div>
   );
 }
 
-function MobileApplicationRow({
-  app,
-  selected,
-  onSelect,
-}: {
-  app: LauncherApp;
-  selected: boolean;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(app.id)}
-      data-testid={`mobile-application-row-${app.id}`}
-      {...{ href: app.href }}
-      className={cn(
-        "grid min-h-[62px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 py-2.5 text-left first:border-t-0",
-        selected && "rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/60",
-      )}
-    >
-      <AppIcon app={app} compact />
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">{app.title}</span>
-        <span className="nums block truncate text-xs text-[color:var(--text-soft)]">{app.lastUsed}</span>
-      </span>
-      <span className="flex items-center gap-2">
-        <StatusPill status={app.status} />
-        <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
-      </span>
-    </button>
-  );
-}
+function DetailDialog({ app, open, onClose }: { app: LauncherApp; open: boolean; onClose: () => void }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
-function DetailPanel({
-  app,
-  pinned,
-  onTogglePin,
-  onClose,
-  headingId,
-  copy,
-  testId = "selected-application-panel",
-  variant = "inline",
-}: {
-  app: LauncherApp;
-  pinned: boolean;
-  onTogglePin: (id: string) => void;
-  onClose?: () => void;
-  headingId?: string;
-  copy: LauncherCopy;
-  testId?: string;
-  variant?: "inline" | "sheet";
-}) {
-  const related = app.relatedIds.map(appById);
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose, open]);
+
+  if (!open) return null;
 
   return (
-    <aside
-      data-testid={testId}
-      className={cn(
-        variant === "inline"
-          ? "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] lg:sticky lg:top-4"
-          : "bg-transparent p-0",
-      )}
-      aria-label={copy.selectedLabel}
+    <div
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/15 px-0 pt-8 backdrop-blur-[1px] sm:items-center sm:p-6"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <p id={headingId} className="text-sm font-semibold text-[color:var(--text-heading)]">
-          {copy.selectedLabel}
-        </p>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onTogglePin(app.id)}
-            aria-label={`${pinned ? "Unpin" : "Pin"} ${app.title}`}
-            className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:text-[color:var(--clinical-accent)]"
-          >
-            <Pin className={cn("h-4 w-4", pinned && "fill-current text-[color:var(--clinical-accent)]")} />
-          </button>
-          {onClose ? (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={copy.closeSelectedLabel}
-              className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              aria-label={copy.optionsAriaLabel}
-              className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled
-            >
-              <MoreVertical className="h-4 w-4" />
-              <span className="sr-only">Options unavailable</span>
-            </button>
-          )}
-        </div>
-      </div>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="selected-application-sheet-heading"
+        className="flex max-h-[76dvh] w-full flex-col overflow-hidden rounded-t-[1.75rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] sm:max-h-[calc(100dvh-4rem)] sm:w-[39rem] sm:rounded-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="mx-auto mt-3 h-1 w-9 shrink-0 rounded-full bg-[color:var(--border-strong)] sm:hidden" />
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-4 sm:p-6">
+          <div className="grid gap-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-start gap-3">
+                <ToolIcon app={app} size="md" />
+                <div className="min-w-0">
+                  <h2
+                    id="selected-application-sheet-heading"
+                    className="text-xl font-extrabold leading-7 text-[color:var(--text-heading)] sm:text-2xl"
+                  >
+                    {app.title}
+                  </h2>
+                  <div className="mt-2">
+                    <ToolChips app={app} />
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={`Close ${app.title}`}
+                className={cn(
+                  "grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
+                  focusRing,
+                )}
+              >
+                <X className="h-5 w-5" aria-hidden />
+              </button>
+            </div>
 
-      <div className="mt-4 flex items-start gap-3">
-        <AppIcon app={app} />
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold leading-7 text-[color:var(--text-heading)]">{app.title}</h2>
-          <p className={cn("mt-1 text-sm leading-5", textMuted)}>{app.description}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <StatusPill status={app.status} />
-            {app.sourceBacked ? (
-              <span className="inline-flex min-h-6 items-center gap-1 rounded-md border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-2 text-[11px] font-bold text-[color:var(--success)]">
-                <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
-                Source-backed
-              </span>
-            ) : null}
-            <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-[11px] font-semibold text-[color:var(--text-muted)]">
-              {areaLabels[app.area]}
-            </span>
+            <div className="sm:hidden">
+              <DetailSection icon={Search} title="Best for" compact>
+                <p>{app.detail}</p>
+              </DetailSection>
+              <div className="mt-3 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]">
+                {[
+                  { icon: ShieldCheck, label: "Check first" },
+                  { icon: ClipboardList, label: "Needed input" },
+                  { icon: Waves, label: "Output" },
+                ].map(({ icon: Icon, label }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 text-left first:border-t-0"
+                  >
+                    <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden />
+                    <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{label}</span>
+                    <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="hidden sm:block">
+              <DetailRows app={app} />
+            </div>
           </div>
         </div>
-      </div>
-
-      <LaunchLink app={app} className="mt-4 w-full" />
-
-      <section className="mt-4">
-        <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">Fast actions</h3>
-        <div className="mt-2 grid gap-2">
-          {[
-            { label: "Open recent work", icon: ListChecks, pinAction: false },
-            { label: "Review source status", icon: ShieldCheck, pinAction: false },
-            { label: pinned ? "Unpin from daily tools" : "Pin to daily tools", icon: Pin, pinAction: true },
-          ].map(({ label, icon: Icon, pinAction }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={pinAction ? () => onTogglePin(app.id) : undefined}
-              disabled={!pinAction}
-              className="grid min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-left text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
-              <span className="min-w-0 truncate">{label}</span>
-              <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
-            </button>
-          ))}
+        <div className="grid shrink-0 gap-3 border-t border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-5">
+          <Link
+            href={app.href}
+            target={app.external ? "_blank" : undefined}
+            rel={app.external ? "noopener noreferrer" : undefined}
+            className={cn(
+              "inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)]",
+              focusRing,
+            )}
+          >
+            {app.id === "risk-safety"
+              ? "Open safety check"
+              : app.actionLabel === "Ask"
+                ? "Ask a question"
+                : `${app.actionLabel} ${app.mobileTitle ?? app.title}`.trim()}
+            {app.external ? (
+              <ExternalLink className="h-4 w-4" aria-hidden />
+            ) : (
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            )}
+          </Link>
+          <Link
+            href={app.href}
+            className="inline-flex min-h-9 items-center justify-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)]"
+          >
+            View example
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+          </Link>
         </div>
       </section>
-
-      <section className="mt-5 border-t border-[color:var(--border)] pt-4">
-        <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">Overview</h3>
-        <p className={cn("mt-2 text-sm leading-6", textMuted)}>{app.detail}</p>
-      </section>
-
-      <section className="mt-5">
-        <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">Quick actions</h3>
-        <div className="mt-2 divide-y divide-[color:var(--border)] rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-          {app.quickActions.map((action) => (
-            <button
-              key={action}
-              type="button"
-              disabled
-              aria-label={`${action} coming soon`}
-              className="grid min-h-11 w-full cursor-not-allowed grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 text-left text-sm font-medium text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <ClipboardList className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
-              <span>{action}</span>
-              <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-5">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">Recent workflows</h3>
-          <span className="text-xs font-semibold text-[color:var(--clinical-accent)]">View all</span>
-        </div>
-        <div className="mt-2 space-y-2">
-          {app.recentWorkflows.slice(0, 4).map((workflow) => (
-            <div key={`${workflow.title}:${workflow.date}`} className="flex items-center justify-between gap-3 text-sm">
-              <span className="min-w-0 truncate text-[color:var(--text)]">{workflow.title}</span>
-              <span className="nums shrink-0 text-xs font-medium text-[color:var(--text-soft)]">{workflow.date}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-5">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">Recent activity</h3>
-          <span className="text-xs font-semibold text-[color:var(--clinical-accent)]">View all</span>
-        </div>
-        <div className="mt-2 space-y-2">
-          {recentActivity.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div key={item.label} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-sm">
-                <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
-                <span className="min-w-0 truncate text-[color:var(--text)]">{item.label}</span>
-                <span className="nums shrink-0 text-xs font-medium text-[color:var(--text-soft)]">{item.date}</span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="mt-5">
-        <h3 className="text-sm font-semibold text-[color:var(--clinical-accent)]">{copy.relatedHeading}</h3>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {related.map((relatedApp) => {
-            const Icon = relatedApp.icon;
-            return (
-              <Link
-                key={relatedApp.id}
-                href={relatedApp.href}
-                target={relatedApp.external ? "_blank" : undefined}
-                rel={relatedApp.external ? "noopener noreferrer" : undefined}
-                className="flex min-h-10 items-center gap-2 rounded-lg text-xs font-semibold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
-              >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                <span className="min-w-0 truncate">{relatedApp.shortTitle ?? relatedApp.title}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-    </aside>
+    </div>
   );
 }
 
@@ -803,305 +895,158 @@ export function ApplicationsLauncherWorkspace({
   query: controlledQuery,
   onQueryChange,
   desktopComposerSlotId,
-  showDetailPanel = true,
   className,
 }: ApplicationsLauncherWorkspaceProps) {
   const [uncontrolledQuery, setUncontrolledQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<(typeof filterOptions)[number]["id"]>("all");
-  const [selectedId, setSelectedId] = useState("clinical-kb-search");
-  const [pinnedIds, setPinnedIds] = useState(seedPinnedIds);
-  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
-  const [desktopViewport, setDesktopViewport] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
+  const [selectedId, setSelectedId] = useState(() => initialToolId(controlledQuery));
+  const [detailOpen, setDetailOpen] = useState(variant === "dashboard-tools");
   const isDashboardTools = variant === "dashboard-tools";
   const copy = isDashboardTools ? dashboardToolsLauncherCopy : standaloneLauncherCopy;
   const query = controlledQuery ?? uncontrolledQuery;
-
   const normalizedQuery = query.trim().toLowerCase();
-  const pinnedApps = pinnedIds.map(appById);
-  const selectedApp = appById(selectedId);
 
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {
       const matchesFilter =
         activeFilter === "all" ||
-        (activeFilter === "pinned"
-          ? pinnedIds.includes(app.id)
-          : activeFilter === "review_due"
-            ? app.status === "review_due"
-            : activeFilter === "source_backed"
-              ? app.sourceBacked
-              : true);
+        activeFilter === "more" ||
+        (activeFilter === "saved" ? app.area === "saved" : app.area === activeFilter);
       const matchesQuery =
         !normalizedQuery ||
-        [app.title, app.description, app.workflow, app.detail, areaLabels[app.area]].some((value) =>
-          value.toLowerCase().includes(normalizedQuery),
-        );
+        [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery);
       return matchesFilter && matchesQuery;
     });
-  }, [activeFilter, normalizedQuery, pinnedIds]);
+  }, [activeFilter, normalizedQuery]);
 
-  useEffect(() => {
-    if (!isDashboardTools) return undefined;
-    const media = window.matchMedia("(min-width: 1024px)");
-    const update = () => setDesktopViewport(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, [isDashboardTools]);
-
-  function togglePin(id: string) {
-    setPinnedIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [id, ...current]));
-  }
-
-  function selectApplication(id: string) {
-    setSelectedId(id);
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
-      setMobileDetailOpen(true);
-    }
-  }
+  const effectiveSelectedId = filteredApps.some((app) => app.id === selectedId)
+    ? selectedId
+    : (filteredApps[0]?.id ?? selectedId);
+  const selectedApp = appById(effectiveSelectedId);
 
   function updateQuery(nextQuery: string) {
-    if (controlledQuery === undefined) {
-      setUncontrolledQuery(nextQuery);
-    }
+    if (controlledQuery === undefined) setUncontrolledQuery(nextQuery);
     onQueryChange?.(nextQuery);
   }
 
-  function submitFooterSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const firstMatch = filteredApps[0];
-    if (firstMatch) selectApplication(firstMatch.id);
+  function openTool(id: string) {
+    setSelectedId(id);
+    setDetailOpen(true);
   }
 
-  const workspace = (
-    <>
-      {isDashboardTools ? (
-        <section className="mx-auto grid w-full max-w-5xl gap-4 pt-4 sm:pt-7">
-          <div className="grid justify-items-center gap-5 text-center sm:gap-6">
-            <ModeHomeHero
-              testId="tools-home"
-              title={copy.heading}
-              subtitle={copy.description}
-              icon={Grid2X2}
-              headingLevel={2}
-            />
-            {desktopComposerSlotId ? (
-              <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] lg:block" />
-            ) : null}
-          </div>
+  function submitSearch() {
+    if (filteredApps[0]) openTool(filteredApps[0].id);
+  }
 
-          <StatsStrip />
-
-          <div className="flex flex-col items-center gap-3">
-            <HeaderFilter activeFilter={activeFilter} onFilterChange={setActiveFilter} />
-            {normalizedQuery ? (
-              <button
-                type="button"
-                onClick={() => updateQuery("")}
-                className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-              >
-                <X className="h-3.5 w-3.5" aria-hidden />
-                Clear search
-              </button>
-            ) : null}
-          </div>
-        </section>
-      ) : (
-        <section className="mx-auto flex min-h-[14rem] max-w-3xl flex-col items-center justify-center px-5 py-7 text-center sm:min-h-[16rem] sm:py-8 lg:min-h-[17rem]">
-          <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-            <Grid2X2 className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
-          </span>
-          <h1 className="mt-4 text-3xl font-semibold tracking-normal text-[color:var(--text-heading)] sm:mt-5 sm:text-4xl">
+  return (
+    <main
+      data-testid={isDashboardTools ? "tools-hub" : "applications-launcher"}
+      className={cn(
+        "mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-8 text-[color:var(--text)] sm:px-6 lg:px-8",
+        "pb-[calc(12rem+env(safe-area-inset-bottom))] sm:pb-8",
+        isDashboardTools ? "pt-7 sm:pt-10 lg:pt-14" : "pt-8 sm:pt-10",
+        className,
+      )}
+    >
+      <section className="mx-auto grid max-w-5xl justify-items-center gap-5 text-center sm:gap-6">
+        <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
+          <Grid2X2 className="h-7 w-7 sm:h-8 sm:w-8" aria-hidden />
+        </span>
+        <div className="grid gap-2">
+          <h1 className="text-balance text-[2rem] font-extrabold leading-none tracking-normal text-[color:var(--text-heading)] sm:text-[2.7rem]">
             {copy.heading}
           </h1>
-          <p className="mt-3 max-w-xl text-[15px] leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
+          <p className="mx-auto max-w-xl text-pretty text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
             {copy.description}
           </p>
-          <div className="mt-6 flex flex-col items-center gap-4">
-            <StatsStrip />
-            <HeaderFilter activeFilter={activeFilter} onFilterChange={setActiveFilter} />
-          </div>
-          <form onSubmit={submitFooterSearch} className={cn(chatComposerShell, "mt-5 w-full max-w-2xl")}>
-            <button
-              type="button"
-              className={cn(chatComposerIconButton, "disabled:cursor-not-allowed")}
-              aria-label={copy.actionsAriaLabel}
-              title={copy.actionsAriaLabel}
-              disabled
-            >
-              <Plus className="h-5 w-5" />
-            </button>
-            <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
-              <input
-                value={query}
-                onChange={(event) => updateQuery(event.target.value)}
-                aria-label={copy.searchAriaLabel}
-                placeholder={copy.searchPlaceholder}
-                className={cn(chatComposerInput, "w-full min-w-0")}
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={filteredApps.length === 0}
-              className={chatSendButton}
-              aria-label={copy.openSelectedAriaLabel}
-            >
-              <Send className="h-4 w-4" />
-              <span className="sr-only">Open</span>
-            </button>
-          </form>
-        </section>
-      )}
-
-      <div
-        className={cn(
-          "mx-auto grid gap-4 pb-6 lg:items-start",
-          isDashboardTools
-            ? "w-full max-w-6xl lg:grid-cols-[minmax(0,1fr)_23rem]"
-            : "max-w-7xl px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_24rem]",
-        )}
-      >
-        <div className="min-w-0 space-y-4">
-          <PinnedSection
-            pinnedApps={pinnedApps}
-            selectedId={selectedId}
-            onSelect={selectApplication}
-            onTogglePin={togglePin}
-            copy={copy}
-          />
-
-          <section
-            aria-label={copy.allSectionLabel}
-            className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]"
-          >
-            <div className="flex min-h-12 items-center gap-2 border-b border-[color:var(--border)] px-3">
-              <BookOpen className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
-              <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">{copy.allSectionLabel}</h2>
-            </div>
-
-            <div className="hidden grid-cols-[auto_minmax(0,1fr)_7rem_6rem_5.5rem_auto] gap-3 px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)] lg:grid">
-              <span className="col-span-2">{copy.allColumnLabel}</span>
-              <span>Last used</span>
-              <span>Status</span>
-              <span>Action</span>
-              <span />
-            </div>
-
-            {filteredApps.length === 0 ? (
-              <div className="border-t border-[color:var(--border)] px-3 py-8 text-center">
-                <p className="text-sm font-semibold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>
-                <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>{copy.emptyBody}</p>
-              </div>
-            ) : (
-              <>
-                <div className="hidden lg:block">
-                  {filteredApps.map((app) => (
-                    <ApplicationRow
-                      key={app.id}
-                      app={app}
-                      selected={selectedId === app.id}
-                      pinned={pinnedIds.includes(app.id)}
-                      onSelect={selectApplication}
-                      onTogglePin={togglePin}
-                    />
-                  ))}
-                </div>
-
-                <div className="lg:hidden">
-                  {filteredApps.map((app) => (
-                    <MobileApplicationRow
-                      key={app.id}
-                      app={app}
-                      selected={selectedId === app.id}
-                      onSelect={selectApplication}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-
-            <p className="border-t border-[color:var(--border)] px-3 py-3 text-xs font-medium text-[color:var(--text-muted)]">
-              Showing {filteredApps.length > 0 ? "1" : "0"} to {filteredApps.length} of {launcherApps.length}{" "}
-              {copy.countNoun}
-            </p>
-          </section>
-
-          <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">Recent activity</h2>
-              <span className="text-xs font-semibold text-[color:var(--clinical-accent)]">View all</span>
-            </div>
-            <div className="grid gap-2 md:grid-cols-3">
-              {recentActivity.slice(0, 3).map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => selectApplication(item.id)}
-                    className="grid min-h-14 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
-                  >
-                    <Icon className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                        {item.label}
-                      </span>
-                      <span className="nums block truncate text-xs text-[color:var(--text-soft)]">{item.date}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
         </div>
 
-        {(!isDashboardTools || (showDetailPanel && desktopViewport)) && (
-          <div className="hidden lg:block">
-            <DetailPanel
-              app={selectedApp}
-              pinned={pinnedIds.includes(selectedId)}
-              onTogglePin={togglePin}
-              copy={copy}
+        {desktopComposerSlotId ? (
+          <>
+            <div
+              id={desktopComposerSlotId}
+              className="mode-home-composer-slot hidden w-full max-w-3xl sm:[&:not(:empty)]:block"
             />
-          </div>
+            <ToolSearch
+              value={query}
+              onChange={updateQuery}
+              onSubmit={submitSearch}
+              copy={copy}
+              className="w-full max-w-3xl sm:hidden"
+            />
+          </>
+        ) : (
+          <ToolSearch
+            value={query}
+            onChange={updateQuery}
+            onSubmit={submitSearch}
+            copy={copy}
+            className="w-full max-w-3xl"
+          />
         )}
-      </div>
 
-      <Sheet
-        open={mobileDetailOpen}
-        onClose={() => setMobileDetailOpen(false)}
-        labelledBy="selected-application-sheet-heading"
-        closeLabel={copy.closeSelectedLabel}
-        contentClassName="lg:hidden rounded-t-[1.75rem] bg-[color:var(--surface-lux)]"
-        bodyClassName="px-5 pb-6 pt-4 sm:px-5"
-        portal
-      >
-        <DetailPanel
-          app={selectedApp}
-          pinned={pinnedIds.includes(selectedId)}
-          onTogglePin={togglePin}
-          onClose={() => setMobileDetailOpen(false)}
-          headingId="selected-application-sheet-heading"
-          copy={copy}
-          testId="selected-application-sheet-panel"
-          variant="sheet"
-        />
-      </Sheet>
-    </>
+        <div className="w-full max-w-6xl">
+          <div className="hidden sm:block">
+            <QuickActions onSelect={openTool} />
+          </div>
+          <div className="sm:hidden">
+            <QuickActions onSelect={openTool} mobile />
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto mt-8 grid max-w-[86rem] gap-4 sm:mt-10">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="text-left">
+            <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{copy.allSectionLabel}</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+            <div className="hidden min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] sm:inline-flex">
+              Sort by
+              <span className="text-[color:var(--text-heading)]">A to Z</span>
+              <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+            </div>
+          </div>
+        </div>
+
+        {filteredApps.length === 0 ? (
+          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-10 text-center shadow-[var(--shadow-inset)]">
+            <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[color:var(--text-muted)]">{copy.emptyBody}</p>
+          </div>
+        ) : (
+          <>
+            <div className="hidden grid-cols-2 gap-4 lg:grid xl:grid-cols-3">
+              {filteredApps.map((app) => (
+                <ToolCard key={app.id} app={app} selected={effectiveSelectedId === app.id} onSelect={openTool} />
+              ))}
+            </div>
+            <div className="grid gap-3 lg:hidden">
+              {filteredApps.map((app) => (
+                <MobileToolRow key={app.id} app={app} selected={effectiveSelectedId === app.id} onSelect={openTool} />
+              ))}
+            </div>
+          </>
+        )}
+
+        <p className="sr-only">
+          Showing {filteredApps.length > 0 ? "1" : "0"} to {filteredApps.length} of {launcherApps.length}{" "}
+          {copy.countNoun}
+        </p>
+      </section>
+
+      {isDashboardTools ? (
+        <ModeHomeVerificationFooter icon={ShieldCheck} label="Clinical tools" body="Source-backed workflows" />
+      ) : null}
+
+      <DetailDialog app={selectedApp} open={detailOpen} onClose={() => setDetailOpen(false)} />
+    </main>
   );
-
-  if (isDashboardTools) {
-    return (
-      <div
-        data-testid="tools-hub"
-        className={cn("mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden sm:space-y-5", className)}
-      >
-        {workspace}
-      </div>
-    );
-  }
-
-  return <main className={cn("min-w-0 pb-8 text-[color:var(--text)] lg:pb-10", className)}>{workspace}</main>;
 }
 
 export function ApplicationsLauncherPage() {

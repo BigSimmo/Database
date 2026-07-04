@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { DocumentSearchMockupPage } from "@/components/document-search-mockups";
+import { MasterDocumentSearch } from "@/components/master-document-flow-mockups";
 
 export const metadata: Metadata = {
   title: "Document Search Command Mockup - Clinical KB",
@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function DocumentSearchCommandMockupRoute() {
-  return <DocumentSearchMockupPage variant="command" />;
+  return <MasterDocumentSearch />;
 }

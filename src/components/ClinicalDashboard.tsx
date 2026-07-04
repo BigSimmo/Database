@@ -9,12 +9,15 @@ import {
   BookOpen,
   CheckCircle2,
   ChevronDown,
+  ChevronRight,
   CircleUserRound,
+  Clock3,
   ClipboardCheck,
   Copy,
   ExternalLink,
   FileImage,
   FileText,
+  FolderOpen,
   Globe2,
   HelpCircle,
   Heart,
@@ -23,6 +26,7 @@ import {
   ListChecks,
   Loader2,
   LogOut,
+  Mail,
   LockKeyhole,
   Palette,
   PanelTop,
@@ -43,7 +47,16 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { type CSSProperties, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type FormEvent,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
 import {
   DocumentOrganizationBadges,
@@ -89,6 +102,7 @@ import {
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
+import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
@@ -2021,23 +2035,15 @@ function DocumentDrawer({
   }, [documents]);
 
   const isAdminMode = mode === "admin" && canManageDocuments;
-  const modeLabel =
-    mode === "recent"
-      ? "Recent documents"
-      : mode === "source"
-        ? "Source PDFs"
-        : mode === "admin"
-          ? statusFilterLabel(statusFilter)
-          : "Source library";
-  const modeSummary =
-    mode === "recent"
-      ? "Recently updated indexed sources."
-      : mode === "source"
-        ? "PDF source documents ready to open."
-        : mode === "admin"
-          ? "Document maintenance and indexing tools."
-          : "Search and open indexed clinical sources.";
   const filterValue = filter.toLowerCase();
+  const sourcePdfCount = useMemo(
+    () =>
+      documents.filter((document) => {
+        const typeText = `${document.file_type} ${document.file_name}`.toLowerCase();
+        return documentStatusMatchesFilter(document, statusFilter) && typeText.includes("pdf");
+      }).length,
+    [documents, statusFilter],
+  );
 
   const filtered = documents
     .filter((document) => {
@@ -2101,16 +2107,46 @@ function DocumentDrawer({
       if (mode !== "recent") return 0;
       return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
     });
+  const availableDocumentCount = mode === "source" ? sourcePdfCount : (pagination?.total ?? documents.length);
+  const statusTitle =
+    mode === "recent"
+      ? `${availableDocumentCount.toLocaleString()} recent source${availableDocumentCount === 1 ? "" : "s"}`
+      : mode === "source"
+        ? `${availableDocumentCount.toLocaleString()} source PDF${availableDocumentCount === 1 ? "" : "s"}`
+        : isAdminMode
+          ? `${statusFilterLabel(statusFilter)}: ${filtered.length.toLocaleString()} shown`
+          : `${availableDocumentCount.toLocaleString()} indexed source${availableDocumentCount === 1 ? "" : "s"}`;
+  const statusHelper =
+    availableDocumentCount === 0
+      ? mode === "recent"
+        ? "Recent source rows will appear here after indexing."
+        : mode === "source"
+          ? "Indexed PDF source rows will appear below."
+          : "Indexed source rows will appear below."
+      : mode === "recent"
+        ? "Continue reading from the most recently updated sources."
+        : mode === "source"
+          ? "Open original PDF source documents."
+          : "Search and filter to open indexed clinical sources.";
 
   return (
     <div className="space-y-3">
-      <div className={cn(panelSubtle, "flex flex-wrap items-center justify-between gap-2 p-3")}>
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">{modeLabel}</p>
-          <p className={cn("text-xs", textMuted)}>
-            {modeSummary} {filtered.length} matching document{filtered.length === 1 ? "" : "s"}.
-          </p>
+      <div
+        className={cn(
+          "grid min-h-[4.5rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
+          "sm:p-3.5",
+        )}
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+          <FileText className="h-4.5 w-4.5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-extrabold text-[color:var(--text-heading)]">{statusTitle}</p>
+          <p className={cn("mt-0.5 line-clamp-2 text-xs font-medium leading-5", textMuted)}>{statusHelper}</p>
         </div>
+        <span className="nums w-fit shrink-0 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+          {filtered.length.toLocaleString()} shown
+        </span>
       </div>
       <label className="relative block">
         <Search className={fieldIcon} />
@@ -2118,18 +2154,19 @@ function DocumentDrawer({
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           placeholder={mode === "source" ? "Find a source PDF" : "Find a document"}
+          data-sheet-autofocus={mode !== "admin" ? "true" : undefined}
           className={fieldControlWithIcon}
         />
       </label>
 
       {/* Dynamic Browse Library Filters */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         <div>
           <label className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]">Type</label>
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
             aria-label="Filter by document type"
           >
             <option value="all">All Types</option>
@@ -2145,7 +2182,7 @@ function DocumentDrawer({
           <select
             value={selectedSite}
             onChange={(e) => setSelectedSite(e.target.value)}
-            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
             aria-label="Filter by site"
           >
             <option value="all">All Sites</option>
@@ -2161,7 +2198,7 @@ function DocumentDrawer({
           <select
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}
-            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
             aria-label="Filter by topic"
           >
             <option value="all">All Topics</option>
@@ -2179,7 +2216,7 @@ function DocumentDrawer({
           <select
             value={selectedPopulation}
             onChange={(e) => setSelectedPopulation(e.target.value)}
-            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            className={cn(fieldControlPlain, "mt-1 h-10 text-xs font-semibold shadow-none sm:h-9")}
             aria-label="Filter by population"
           >
             <option value="all">All Populations</option>
@@ -2506,7 +2543,41 @@ export function SettingsDialog({
   onOpenGuide: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
   const currentThemeLabel = theme === "dark" ? "Dark" : "Light";
+  const auth = useAuthSession();
+  const [settingsEmail, setSettingsEmail] = useState("");
+  const [emailEntryOpen, setEmailEntryOpen] = useState(false);
+  const [settingsEmailAttempted, setSettingsEmailAttempted] = useState(false);
+  const [accountNotice, setAccountNotice] = useState<string | null>(null);
+  const settingsAuthBusy = auth.status === "loading";
+  const signedOutAccount = !identity.signedIn;
+
+  async function submitSettingsEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!settingsEmail.trim()) return;
+    setAccountNotice(null);
+    setSettingsEmailAttempted(true);
+    await auth.signInWithEmail(settingsEmail.trim());
+  }
+
+  function openSettingsEmailEntry() {
+    setEmailEntryOpen(true);
+    setAccountNotice(null);
+  }
+
+  function chooseSettingsProvider(provider: string) {
+    setAccountNotice(`${provider} sign-in is a placeholder for now. Continue with email to use this workspace.`);
+  }
+
+  useEffect(() => {
+    if (!emailEntryOpen) return;
+    const focusFrame = window.requestAnimationFrame(() => {
+      settingsEmailInputRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [emailEntryOpen]);
+
   const settingSections = [
     {
       title: "Account",
@@ -2606,7 +2677,7 @@ export function SettingsDialog({
           </nav>
         </aside>
 
-        <div className="mx-auto min-h-0 w-full max-w-[460px] overflow-y-auto px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-[max(2.45rem,calc(0.7rem+env(safe-area-inset-top)))] polished-scroll sm:px-5 lg:mx-0 lg:max-w-none lg:px-7 lg:pb-7 lg:pt-6">
+        <div className="mx-auto min-h-0 w-full max-w-[460px] overflow-y-auto bg-[color:var(--background)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-[max(2.45rem,calc(0.7rem+env(safe-area-inset-top)))] polished-scroll sm:px-5 lg:mx-0 lg:max-w-none lg:bg-transparent lg:px-7 lg:pb-7 lg:pt-6">
           <div className="mb-2 flex items-center justify-between gap-4 lg:mb-5">
             <div className="min-w-0">
               <h2
@@ -2621,34 +2692,143 @@ export function SettingsDialog({
             </span>
           </div>
 
-          <section className="rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-lux)_96%,transparent_4%)_0%,color-mix(in_srgb,var(--surface-lux)_88%,var(--background))_100%)] p-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.06),var(--shadow-inset)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.32),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:p-3.5 lg:shadow-[var(--shadow-inset)]">
+          <section className="rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.06),var(--shadow-inset)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.32),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:p-4 lg:shadow-[var(--shadow-inset)]">
+            <h3 className="mb-3 px-0.5 text-[15px] font-semibold leading-5 text-[color:var(--text-heading)]">
+              Clinical Guide account
+            </h3>
             <div className="flex items-center gap-3 lg:gap-3">
-              <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-sm font-bold leading-none text-[color:var(--clinical-accent)] ring-1 ring-[color:var(--clinical-accent)]/10 lg:h-11 lg:w-11">
-                {identity.initials}
+              <span
+                className={cn(
+                  "relative grid h-12 w-12 shrink-0 place-items-center rounded-full text-sm font-bold leading-none ring-1 lg:h-12 lg:w-12",
+                  signedOutAccount
+                    ? "bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] ring-[color:var(--border)]"
+                    : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] ring-[color:var(--clinical-accent)]/10",
+                )}
+              >
+                {signedOutAccount ? <UserRound className="h-5 w-5" /> : identity.initials}
                 {identity.signedIn ? (
                   <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
                 ) : null}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="mb-0.5 text-[11px] font-semibold leading-4 text-[color:var(--clinical-accent)] lg:hidden">
-                  Clinical context
-                </p>
-                <p className="truncate text-[15px] font-semibold leading-5 text-[color:var(--text-heading)] lg:text-[15px]">
+                <p className="truncate text-base font-semibold leading-6 text-[color:var(--text-heading)]">
                   {identity.displayName}
                 </p>
-                <p className="text-[12px] font-medium leading-4 text-[color:var(--text-muted)] lg:truncate lg:text-[13px] lg:leading-5">
-                  Consultant psychiatrist, Western Australia
+                <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                  {signedOutAccount ? "Sign in or create an account" : "Consultant psychiatrist, Western Australia"}
                 </p>
               </div>
-              <div className="hidden shrink-0 items-center gap-2 lg:flex">
-                <SettingsChip label="Private" />
-                <SettingsChip label="No PHI" />
-              </div>
+              {signedOutAccount ? (
+                <div className="hidden w-[220px] shrink-0 grid-cols-1 gap-2 lg:grid">
+                  <button
+                    type="button"
+                    onClick={openSettingsEmailEntry}
+                    className={cn(primaryControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
+                  >
+                    Create account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openSettingsEmailEntry}
+                    className={cn(floatingControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
+                  >
+                    Sign in
+                  </button>
+                </div>
+              ) : (
+                <div className="hidden shrink-0 items-center gap-2 lg:flex">
+                  <SettingsChip label="Private" />
+                  <SettingsChip label="No PHI" />
+                </div>
+              )}
             </div>
-            <SettingsClinicalContextStrip />
+
+            {signedOutAccount ? (
+              <div className="mt-4 grid gap-3">
+                <div className="grid grid-cols-2 gap-2 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={openSettingsEmailEntry}
+                    className={cn(primaryControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
+                  >
+                    Create account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openSettingsEmailEntry}
+                    className={cn(floatingControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
+                  >
+                    Sign in
+                  </button>
+                </div>
+
+                {emailEntryOpen ? (
+                  <form
+                    onSubmit={submitSettingsEmail}
+                    className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]"
+                  >
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
+                        Email address
+                      </span>
+                      <div className="relative">
+                        <Mail className={fieldIcon} />
+                        <input
+                          ref={settingsEmailInputRef}
+                          type="email"
+                          value={settingsEmail}
+                          onChange={(event) => setSettingsEmail(event.target.value)}
+                          placeholder="you@clinic.example"
+                          className={fieldControlWithIcon}
+                        />
+                      </div>
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={settingsAuthBusy || !settingsEmail.trim() || !auth.isConfigured}
+                      className={cn(primaryControl, "w-full")}
+                    >
+                      {settingsAuthBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                      Continue with email
+                    </button>
+                  </form>
+                ) : null}
+
+                <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
+                  <span className="h-px flex-1 bg-[color:var(--border)]" />
+                  <span>or continue with</span>
+                  <span className="h-px flex-1 bg-[color:var(--border)]" />
+                </div>
+
+                <div className="grid gap-2">
+                  <SettingsProviderRow provider="Apple" onClick={() => chooseSettingsProvider("Apple")} />
+                  <SettingsProviderRow provider="Google" onClick={() => chooseSettingsProvider("Google")} />
+                  <SettingsProviderRow provider="Microsoft" onClick={() => chooseSettingsProvider("Microsoft")} />
+                  <SettingsProviderRow provider="email" onClick={openSettingsEmailEntry} />
+                </div>
+
+                <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+                  <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
+                  Accounts save preferences and search history. Do not enter PHI.
+                </p>
+
+                {(accountNotice || !auth.isConfigured || (settingsEmailAttempted && auth.error)) && (
+                  <p
+                    role="alert"
+                    className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
+                  >
+                    {accountNotice ??
+                      (settingsEmailAttempted ? auth.error : null) ??
+                      "Supabase browser authentication is not configured for account sign-in."}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <SettingsClinicalContextStrip />
+            )}
           </section>
 
-          <div className="hidden lg:mt-4 lg:grid lg:grid-cols-3 lg:gap-3">
+          <div className={cn("hidden lg:mt-4 lg:grid-cols-3 lg:gap-3", signedOutAccount ? "lg:hidden" : "lg:grid")}>
             <SettingsSummaryTile icon={UserRound} label="Profile" value={identity.displayName} />
             <SettingsSummaryTile icon={Stethoscope} label="Clinical setup" value="WA, adults" emphasized />
             <SettingsSummaryTile icon={PanelTop} label="Default view" value="Ask" />
@@ -2698,6 +2878,62 @@ function SettingsChip({ label }: { label: string }) {
   return (
     <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-[11px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
       {label}
+    </span>
+  );
+}
+
+function SettingsProviderRow({
+  provider,
+  onClick,
+}: {
+  provider: "Apple" | "Google" | "Microsoft" | "email";
+  onClick: () => void;
+}) {
+  const label = provider === "email" ? "Use email instead" : provider;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+    >
+      {provider === "email" ? (
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+          <Mail className="h-4 w-4" />
+        </span>
+      ) : (
+        <SettingsProviderMark provider={provider} />
+      )}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+    </button>
+  );
+}
+
+function SettingsProviderMark({ provider }: { provider: "Apple" | "Google" | "Microsoft" }) {
+  if (provider === "Microsoft") {
+    return (
+      <span
+        className="grid h-7 w-7 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
+        aria-hidden="true"
+      >
+        <span className="bg-[#f25022]" />
+        <span className="bg-[#7fba00]" />
+        <span className="bg-[#00a4ef]" />
+        <span className="bg-[#ffb900]" />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-base font-bold leading-none shadow-[var(--shadow-inset)]",
+        provider === "Apple" ? "text-[color:var(--text-heading)]" : "text-[#4285f4]",
+      )}
+    >
+      {provider === "Apple" ? "A" : "G"}
     </span>
   );
 }
@@ -3399,6 +3635,7 @@ export function ClinicalDashboard({
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
@@ -3426,9 +3663,10 @@ export function ClinicalDashboard({
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
   const canRunSearch = explicitDemoMode || (hasReadyPublicSearchSetup(setupChecks) && canUsePrivateApis);
   const closeDashboardTransientSurfaces = useCallback(
-    (except?: "guide" | "settings" | "mobileSidebar" | "documents" | "upload") => {
+    (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
       if (except !== "settings") setSettingsOpen(false);
+      if (except !== "accountSetup") setAccountSetupOpen(false);
       if (except !== "mobileSidebar") setMobileSidebarOpen(false);
       if (except !== "documents") setDocumentsDrawerOpen(false);
       if (except !== "upload") setUploadDrawerOpen(false);
@@ -3446,6 +3684,16 @@ export function ClinicalDashboard({
   }, [closeDashboardTransientSurfaces]);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
+  const openAccountProfile = useCallback(() => {
+    if (sidebarIdentity.signedIn) {
+      closeDashboardTransientSurfaces("settings");
+      setSettingsOpen(true);
+      return;
+    }
+    closeDashboardTransientSurfaces("accountSetup");
+    setAccountSetupOpen(true);
+  }, [closeDashboardTransientSurfaces, sidebarIdentity.signedIn]);
+  const closeAccountSetup = useCallback(() => setAccountSetupOpen(false), []);
   const prefetchApplications = useCallback(() => {
     router.prefetch("/?mode=tools");
     router.prefetch("/favourites");
@@ -4463,6 +4711,14 @@ export function ClinicalDashboard({
       setMedicationSearchQuery(query);
       return;
     }
+    if (searchMode === "documents") {
+      const trimmedQuery = query.trim();
+      if (!trimmedQuery) return;
+      rememberRecentQuery(trimmedQuery);
+      const params = new URLSearchParams({ mode: "documents", q: trimmedQuery });
+      router.push(`/mockups/document-search-command?${params.toString()}`);
+      return;
+    }
     await executeSearch(query, searchMode, scopeFilters);
   }
 
@@ -4757,9 +5013,11 @@ export function ClinicalDashboard({
     setDocumentDrawerStatusFilter("indexed");
     setDocumentsDrawerMode(mode);
     setDocumentsDrawerOpen(true);
-    window.requestAnimationFrame(() => {
-      document.getElementById("dashboard-documents-drawer")?.scrollIntoView({ block: "start", behavior: "smooth" });
-    });
+    if (window.matchMedia("(min-width: 1024px)").matches) {
+      window.requestAnimationFrame(() => {
+        document.getElementById("dashboard-documents-drawer")?.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+    }
   }
 
   function openRecentDocuments() {
@@ -5180,15 +5438,13 @@ export function ClinicalDashboard({
           : "Source library";
   const documentsDrawerSummary = dashboardDataLoading
     ? "Loading indexed document status."
-    : indexedDocumentTotal
-      ? documentsDrawerMode === "recent"
-        ? `${indexedDocumentTotal.toLocaleString()} indexed sources, sorted by recent updates`
-        : documentsDrawerMode === "source"
-          ? "Open original PDF source documents"
-          : documentsDrawerIsAdmin
-            ? `${indexedDocumentTotal.toLocaleString()} indexed documents available`
-            : `${indexedDocumentTotal.toLocaleString()} indexed sources available`
-      : "No indexed documents yet.";
+    : documentsDrawerMode === "recent"
+      ? "Continue reading from recently updated sources."
+      : documentsDrawerMode === "source"
+        ? "Open original PDF source documents."
+        : documentsDrawerIsAdmin
+          ? `${indexedDocumentTotal.toLocaleString()} indexed documents available.`
+          : "Search and open indexed clinical sources.";
   const documentsDrawerMobileSummary = dashboardDataLoading
     ? "Loading library"
     : documentsDrawerMode === "recent"
@@ -5198,6 +5454,14 @@ export function ClinicalDashboard({
         : documentsDrawerIsAdmin
           ? "Admin"
           : "Library";
+  const DocumentsDrawerIcon =
+    documentsDrawerMode === "recent"
+      ? Clock3
+      : documentsDrawerMode === "source"
+        ? ExternalLink
+        : documentsDrawerIsAdmin
+          ? UploadCloud
+          : FolderOpen;
   const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Library and admin" : "Sources";
 
   return (
@@ -5223,6 +5487,7 @@ export function ClinicalDashboard({
         onPickRecent={pickRecentQuery}
         onOpenGuide={openGuide}
         onOpenSettings={openSettings}
+        onOpenAccount={openAccountProfile}
         theme={theme}
         onToggleTheme={toggleTheme}
         onPrefetchApplications={prefetchApplications}
@@ -5265,6 +5530,7 @@ export function ClinicalDashboard({
           queryInputAutoFocus={focusSearch}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
+          heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
         />
 
         <main
@@ -5505,6 +5771,25 @@ export function ClinicalDashboard({
                     mobileSummary={documentsDrawerMobileSummary}
                     open={documentsDrawerOpen}
                     onOpenChange={setDocumentsDrawerOpen}
+                    sheetBreakpoint="lg"
+                    sheetHeaderLeading={
+                      <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                        <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                    }
+                    sheetTitleAccessory={
+                      documentsDrawerIsAdmin ? (
+                        <span className="nums hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-bold text-[color:var(--text-muted)] sm:inline-flex">
+                          {indexedDocumentTotal.toLocaleString()} indexed
+                        </span>
+                      ) : null
+                    }
+                    sheetDescription={documentsDrawerSummary}
+                    sheetHeaderClassName="bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4"
+                    sheetCloseButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    sheetContentClassName="max-h-[min(82dvh,40rem)] sm:max-h-[min(88dvh,46rem)] sm:max-w-2xl lg:max-w-3xl"
+                    sheetBodyClassName="bg-[color:var(--surface-subtle)] p-3 sm:p-4"
+                    sheetChildrenClassName="space-y-3"
                   >
                     {documentsDrawerIsAdmin ? (
                       <LibraryHealthStrip
@@ -5695,6 +5980,7 @@ export function ClinicalDashboard({
           onSignOut={auth.signOut}
           onOpenGuide={openGuide}
         />
+        <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} />
         <ClinicalMobileSidebar
           open={mobileSidebarOpen}
           recentQueries={recentQueries}
@@ -5705,6 +5991,7 @@ export function ClinicalDashboard({
           onPickRecent={pickRecentQuery}
           onOpenGuide={openGuide}
           onOpenSettings={openSettings}
+          onOpenAccount={openAccountProfile}
           theme={theme}
           onToggleTheme={toggleTheme}
           onPrefetchApplications={prefetchApplications}

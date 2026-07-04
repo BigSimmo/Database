@@ -14,6 +14,42 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+function visibleGlobalSearchInput(page: Page) {
+  return page.locator('[data-testid="global-search-input"]:visible');
+}
+
+async function globalSearchComposerMetrics(page: Page, homeTestId?: string) {
+  return visibleGlobalSearchInput(page)
+    .first()
+    .evaluate((input, homeTestId) => {
+      const form = input.closest("form");
+      const pill = input.closest(".answer-footer-search-pill");
+      const home = homeTestId ? document.querySelector(`[data-testid="${homeTestId}"]`) : null;
+      if (!form) return null;
+
+      const formRect = form.getBoundingClientRect();
+      const homeRect = home?.getBoundingClientRect();
+      const style = window.getComputedStyle(form);
+
+      return {
+        formLeft: formRect.left,
+        formRight: formRect.right,
+        formTop: formRect.top,
+        formBottom: formRect.bottom,
+        formWidth: formRect.width,
+        formCenterX: formRect.left + formRect.width / 2,
+        formCenterY: formRect.top + formRect.height / 2,
+        homeLeft: homeRect?.left ?? null,
+        homeRight: homeRect?.right ?? null,
+        homeCenterX: homeRect ? homeRect.left + homeRect.width / 2 : null,
+        position: style.position,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        pillClassName: pill?.className?.toString() ?? "",
+      };
+    }, homeTestId);
+}
+
 async function expectVerticalSeparation(page: Page, upperSelector: string, lowerSelector: string, minimumGap = 8) {
   const metrics = await page.evaluate(
     ({ upperSelector, lowerSelector }) => {
@@ -157,7 +193,9 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Find a service" })).toBeVisible();
-    await expect(page.getByTestId("global-search-input")).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+    await expect(page.getByTestId("collapsed-account-settings")).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     const servicesHomeSearch = page.getByTestId("services-home").getByTestId("global-search-input");
     await expect(servicesHomeSearch).toBeVisible();
     const servicesSearchBox = await servicesHomeSearch.boundingBox();
@@ -166,7 +204,7 @@ test.describe("Clinical KB applications launcher", () => {
     expect(servicesHeadingBox).not.toBeNull();
     expect((servicesHeadingBox?.y ?? 0) + (servicesHeadingBox?.height ?? 0)).toBeLessThan(servicesSearchBox?.y ?? 0);
     expect((servicesSearchBox?.y ?? 0) + (servicesSearchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.62);
-    await expect(page.getByTestId("global-search-input")).toHaveValue("");
+    await expect(visibleGlobalSearchInput(page)).toHaveValue("");
     const servicesMenu = await openAppModeMenu(page, "Services");
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Answer\b/ })).toBeVisible();
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeVisible();
@@ -175,12 +213,16 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeVisible();
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeVisible();
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeVisible();
-    await servicesMenu.getByRole("menuitemradio", { name: /^Forms\b/ }).click();
-    await expect(page).toHaveURL(/\/forms$/);
+    await expect(async () => {
+      if (/\/forms$/.test(page.url())) return;
+      const menu = await openAppModeMenu(page, "Services");
+      await menu.getByRole("menuitemradio", { name: /^Forms\b/ }).click();
+      await expect(page).toHaveURL(/\/forms$/, { timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(page.getByTestId("forms-home")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toHaveValue("");
+    await expect(visibleGlobalSearchInput(page)).toHaveValue("");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -199,8 +241,8 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(page.getByTestId("forms-home")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toHaveCount(1);
-    await expect(page.getByTestId("global-search-input")).toHaveValue("");
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+    await expect(visibleGlobalSearchInput(page)).toHaveValue("");
 
     await gotoLauncher(page, "/forms");
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
@@ -213,8 +255,8 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toBeVisible();
     await expect(page.getByTestId("service-search-results")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toHaveCount(1);
-    await expect(page.getByTestId("global-search-input")).toHaveValue("");
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+    await expect(visibleGlobalSearchInput(page)).toHaveValue("");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -228,42 +270,101 @@ test.describe("Clinical KB applications launcher", () => {
     ] as const) {
       await gotoLauncher(page, home.path);
       await expect(page.getByTestId(home.testId)).toBeVisible();
-      await expect(page.getByTestId("global-search-input")).toHaveCount(1);
+      await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
 
-      const searchBox = await page.getByTestId("global-search-input").boundingBox();
+      const searchBox = await visibleGlobalSearchInput(page).boundingBox();
       const headingBox = await page.getByRole("heading", { level: 1, name: home.heading }).boundingBox();
       expect(searchBox).not.toBeNull();
       expect(headingBox).not.toBeNull();
       expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.72);
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
+      const metrics = await globalSearchComposerMetrics(page);
+      expect(metrics).not.toBeNull();
+      expect(metrics?.position).toBe("fixed");
+      expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390 - 8);
+      expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
       await expectNoPageHorizontalOverflow(page);
     }
   });
 
-  test("mode home routes lift the shared search into the hero on tablet", async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 1024 });
+  test("mode home routes center the shared search from tablet up", async ({ page }) => {
+    test.setTimeout(150_000);
 
-    for (const home of [
-      { path: "/services", testId: "services-home", heading: "Find a service" },
-      { path: "/forms", testId: "forms-home", heading: "What do you need from forms?" },
-      { path: "/differentials", testId: "differentials-home", heading: "Differentials" },
+    for (const viewport of [
+      { name: "tablet", width: 768, height: 1024 },
+      { name: "desktop", width: 1280, height: 900 },
     ] as const) {
-      await gotoLauncher(page, home.path);
-      await expect(page.getByTestId(home.testId)).toBeVisible();
-      await expect(page.getByTestId("global-search-input")).toHaveCount(1);
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
-      // From the tablet breakpoint up the composer is portaled into the hero
-      // (inside the mode-home container) rather than floated over the heading.
-      const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
-      await expect(heroSearch).toBeVisible();
+      for (const home of [
+        { path: "/services", testId: "services-home", heading: "Find a service" },
+        { path: "/forms", testId: "forms-home", heading: "What do you need from forms?" },
+        { path: "/differentials", testId: "differentials-home", heading: "Differentials" },
+      ] as const) {
+        await gotoLauncher(page, home.path);
+        await expect(page.getByTestId(home.testId)).toBeVisible();
+        await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
 
-      const searchBox = await heroSearch.boundingBox();
-      const headingBox = await page.getByRole("heading", { level: 1, name: home.heading }).boundingBox();
-      expect(searchBox).not.toBeNull();
-      expect(headingBox).not.toBeNull();
-      // Search sits below the heading with no overlap.
-      expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThanOrEqual(searchBox?.y ?? 0);
-      await expectNoPageHorizontalOverflow(page);
+        // From the tablet breakpoint up the composer is portaled into the hero
+        // (inside the mode-home container) rather than floated over the heading.
+        const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
+        await expect(heroSearch).toBeVisible();
+
+        const searchBox = await heroSearch.boundingBox();
+        const headingBox = await page.getByRole("heading", { level: 1, name: home.heading }).boundingBox();
+        expect(searchBox).not.toBeNull();
+        expect(headingBox).not.toBeNull();
+        // Search sits below the heading with no overlap.
+        expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThanOrEqual(searchBox?.y ?? 0);
+
+        const metrics = await globalSearchComposerMetrics(page, home.testId);
+        expect(metrics, `${home.path} at ${viewport.name}`).not.toBeNull();
+        expect(metrics?.position).not.toBe("fixed");
+        expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
+        expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(viewport.width - 16);
+        expect(metrics?.homeLeft).not.toBeNull();
+        expect(metrics?.homeRight).not.toBeNull();
+        expect(metrics?.homeCenterX).not.toBeNull();
+        expect(metrics?.formLeft ?? 0).toBeGreaterThanOrEqual((metrics?.homeLeft ?? 0) - 1);
+        expect(metrics?.formRight ?? 0).toBeLessThanOrEqual((metrics?.homeRight ?? viewport.width) + 1);
+        expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
+        await expectNoPageHorizontalOverflow(page);
+      }
+    }
+  });
+
+  test("search result and detail routes keep top search from tablet up", async ({ page }) => {
+    test.setTimeout(150_000);
+
+    for (const viewport of [
+      { name: "mobile", width: 390, height: 820 },
+      { name: "tablet", width: 768, height: 1024 },
+      { name: "desktop", width: 1280, height: 900 },
+    ] as const) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+      for (const route of ["/services?q=13YARN&focus=1&run=1", "/services/13yarn"] as const) {
+        await gotoLauncher(page, route);
+        await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible({ timeout: 20_000 });
+        await expect(visibleGlobalSearchInput(page), `${route} at ${viewport.name}`).toHaveCount(1, {
+          timeout: 20_000,
+        });
+
+        const metrics = await globalSearchComposerMetrics(page);
+        expect(metrics, `${route} at ${viewport.name}`).not.toBeNull();
+        expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
+        expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(viewport.width - 8);
+
+        if (viewport.width < 640) {
+          expect(metrics?.position).toBe("fixed");
+          expect(metrics?.formCenterY ?? 0).toBeGreaterThan(viewport.height * 0.72);
+        } else {
+          expect(metrics?.position).toBe("sticky");
+          expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
+        }
+
+        await expectNoPageHorizontalOverflow(page);
+      }
     }
   });
 
@@ -555,10 +656,9 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByRole("heading", { name: "Safety snapshot" }).first()).toBeVisible();
     await expect(page.getByText("Service details")).toHaveCount(0);
     await expect(page.getByText("Transport order")).toHaveCount(0);
-    await expect(page.getByText("Local only")).toBeVisible();
-    await expect(page.getByText("Offline ready")).toBeVisible();
+    await expect(page.getByText("Local content only")).toBeVisible();
     await expect(page.getByText("Source pending review").first()).toBeVisible();
-    await expect(page.locator("header").getByRole("button", { name: "Copy after review" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copy after review" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
 
     const tableScrolls = await page.getByTestId("differential-comparison-scroll").evaluate((element) => {

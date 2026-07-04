@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
+import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { recentQueryStorageKey, SettingsDialog } from "@/components/ClinicalDashboard";
 import {
   ClinicalDesktopSidebar,
@@ -47,6 +48,12 @@ type GlobalMockupSearchShellProps = {
   desktopSearchPlacement?: "default" | "hero";
   /** Hide the shared search composer on routes that provide their own search surface. */
   searchComposerVisible?: boolean;
+  /** Keep the global header/search while allowing a route to use the full desktop canvas. */
+  hideDesktopSidebar?: boolean;
+  /** Render only the mockup content when a design board needs a clean canvas. */
+  chromeVisible?: boolean;
+  /** Hide the shared mobile header when a route owns its phone navigation. */
+  mobileChromeVisible?: boolean;
 };
 
 export function GlobalMockupSearchShell(props: GlobalMockupSearchShellProps) {
@@ -74,6 +81,9 @@ function GlobalMockupSearchShellClient({
   availableModeIds,
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
+  hideDesktopSidebar = false,
+  chromeVisible = true,
+  mobileChromeVisible = true,
 }: GlobalMockupSearchShellProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -115,21 +125,27 @@ function GlobalMockupSearchShellClient({
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
-  const shouldRenderDashboardSearch = requestedRun && requestedQuery.length > 0;
+  const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
+  const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search");
+  const shouldRenderDashboardSearch =
+    hasSubmittedModeSearch && resolvedSearchMode !== "services" && !isDocumentSearchMockupRoute;
   const isFormsOnlyShell = availableModeIds?.length === 1 && availableModeIds[0] === "forms";
   const isStandaloneModeHome =
+    !hasSubmittedModeSearch &&
     !shouldRenderDashboardSearch &&
     ((searchMode === "services" && pathname === "/services") ||
       (searchMode === "forms" && pathname === "/forms") ||
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
+  const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
-  const effectiveSidebarWidth = effectiveSidebarCollapsed ? "5.25rem" : "20rem";
+  const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
 
   useEffect(() => {
@@ -188,17 +204,39 @@ function GlobalMockupSearchShellClient({
 
   function openGuide() {
     setSettingsOpen(false);
+    setAccountSetupOpen(false);
     setMobileMenuOpen(false);
     setGuideOpen(true);
   }
 
   function openSettings() {
     setGuideOpen(false);
+    setAccountSetupOpen(false);
     setMobileMenuOpen(false);
     setSettingsOpen(true);
   }
 
+  function openAccountProfile() {
+    setGuideOpen(false);
+    setMobileMenuOpen(false);
+    if (sidebarIdentity.signedIn) {
+      setAccountSetupOpen(false);
+      setSettingsOpen(true);
+      return;
+    }
+    setSettingsOpen(false);
+    setAccountSetupOpen(true);
+  }
+
   function navigateToMode(mode: AppModeId, options: { query?: string; run?: boolean; focus?: boolean } = {}) {
+    if (mode === "documents") {
+      const params = new URLSearchParams({ mode: "documents" });
+      const documentQuery = options.query?.trim();
+      if (documentQuery) params.set("q", documentQuery);
+      if (options.focus) params.set("focus", "1");
+      router.push(`/mockups/document-search-command?${params.toString()}`);
+      return;
+    }
     router.push(appModeHomeHref(mode, options));
   }
 
@@ -251,11 +289,23 @@ function GlobalMockupSearchShellClient({
     );
   }
 
+  if (!chromeVisible) {
+    return (
+      <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
+        <div id="main-content" tabIndex={-1} className="min-h-dvh min-w-0 overflow-x-hidden focus:outline-none">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
-        "min-h-dvh bg-[color:var(--background)] text-[color:var(--text)] lg:grid",
-        effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
+        "min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]",
+        shouldShowDesktopSidebar && "lg:grid",
+        shouldShowDesktopSidebar &&
+          (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
       )}
       style={
         {
@@ -263,67 +313,72 @@ function GlobalMockupSearchShellClient({
         } as CSSProperties
       }
     >
-      <div className="hidden lg:block">
-        <div className="sticky top-0 flex h-dvh min-h-0">
-          <ClinicalDesktopSidebar
-            collapsed={effectiveSidebarCollapsed}
-            collapseLocked={isDifferentialPresentationWorkflow}
-            recentQueries={recentQueries}
-            identity={sidebarIdentity}
-            activeMode={searchMode}
-            onCollapsedChange={setSidebarCollapsed}
-            onNewChat={startNewAnswerChat}
-            onPickRecent={pickRecentQuery}
-            onOpenGuide={openGuide}
-            onOpenSettings={openSettings}
-            theme={theme}
-            onToggleTheme={toggleTheme}
-            onPrefetchApplications={prefetchApplications}
-          />
+      {shouldShowDesktopSidebar ? (
+        <div className="hidden lg:block">
+          <div className="sticky top-0 flex h-dvh min-h-0">
+            <ClinicalDesktopSidebar
+              collapsed={effectiveSidebarCollapsed}
+              collapseLocked={isDifferentialPresentationWorkflow}
+              recentQueries={recentQueries}
+              identity={sidebarIdentity}
+              activeMode={searchMode}
+              onCollapsedChange={setSidebarCollapsed}
+              onNewChat={startNewAnswerChat}
+              onPickRecent={pickRecentQuery}
+              onOpenGuide={openGuide}
+              onOpenSettings={openSettings}
+              onOpenAccount={openAccountProfile}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+              onPrefetchApplications={prefetchApplications}
+            />
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="flex min-h-dvh min-w-0 flex-col">
-        <MasterSearchHeader
-          documents={[]}
-          documentTotal={0}
-          query={query}
-          searchMode={searchMode}
-          loading={false}
-          selectedDocumentIds={[]}
-          queryMode={queryMode}
-          scopeFilters={scopeFilters}
-          realDataReady
-          onQueryChange={setQuery}
-          onSearchModeChange={changeMode}
-          onAsk={submitSearch}
-          onClearQuery={() => setQuery("")}
-          onClearScope={() => undefined}
-          onQueryModeChange={setQueryMode}
-          onScopeFiltersChange={setScopeFilters}
-          onToggleScope={() => undefined}
-          onOpenUpload={() => router.push(`${appModeHomeHref("documents", { focus: true })}#sources`)}
-          onOpenEvidence={() => navigateToMode("answer", { focus: true })}
-          onNewChat={startNewChat}
-          onOpenMobileSidebar={() => setMobileMenuOpen(true)}
-          mobileLeadingAction={
-            pathname === "/differentials" && searchMode === "differentials" && requestedQuery ? "back" : "menu"
-          }
-          onMobileBack={() => {
-            setQuery("");
-            navigateToMode(searchMode, { focus: true });
-          }}
-          queryModeOptions={mockupQueryModeOptions}
-          queryInputRef={inputRef}
-          headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
-          mobileSearchPlacement="bottom"
-          desktopSearchPlacement={
-            (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
-          }
-          searchComposerVisible={shouldShowSearchComposer}
-          desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-          heroComposerFromTablet={isStandaloneModeHome}
-        />
+        <div className={cn(!mobileChromeVisible && "hidden lg:block")}>
+          <MasterSearchHeader
+            documents={[]}
+            documentTotal={0}
+            query={query}
+            searchMode={searchMode}
+            loading={false}
+            selectedDocumentIds={[]}
+            queryMode={queryMode}
+            scopeFilters={scopeFilters}
+            realDataReady
+            onQueryChange={setQuery}
+            onSearchModeChange={changeMode}
+            onAsk={submitSearch}
+            onClearQuery={() => setQuery("")}
+            onClearScope={() => undefined}
+            onQueryModeChange={setQueryMode}
+            onScopeFiltersChange={setScopeFilters}
+            onToggleScope={() => undefined}
+            onOpenUpload={() => router.push(`${appModeHomeHref("documents", { focus: true })}#sources`)}
+            onOpenEvidence={() => navigateToMode("answer", { focus: true })}
+            onNewChat={startNewChat}
+            onOpenMobileSidebar={() => setMobileMenuOpen(true)}
+            mobileLeadingAction={
+              pathname === "/differentials" && searchMode === "differentials" && requestedQuery ? "back" : "menu"
+            }
+            onMobileBack={() => {
+              setQuery("");
+              navigateToMode(searchMode, { focus: true });
+            }}
+            queryModeOptions={mockupQueryModeOptions}
+            queryInputRef={inputRef}
+            headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
+            mobileSearchPlacement="bottom"
+            desktopSearchPlacement={
+              (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
+            }
+            searchComposerVisible={shouldShowSearchComposer}
+            desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
+            heroComposerFromTablet={isStandaloneModeHome}
+          />
+        </div>
 
         <div
           id="main-content"
@@ -351,6 +406,7 @@ function GlobalMockupSearchShellClient({
         onSignOut={auth.signOut}
         onOpenGuide={openGuide}
       />
+      <AccountSetupDialog open={accountSetupOpen} onClose={() => setAccountSetupOpen(false)} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
         recentQueries={recentQueries}
@@ -361,6 +417,7 @@ function GlobalMockupSearchShellClient({
         onPickRecent={pickRecentQuery}
         onOpenGuide={openGuide}
         onOpenSettings={openSettings}
+        onOpenAccount={openAccountProfile}
         theme={theme}
         onToggleTheme={toggleTheme}
         onPrefetchApplications={prefetchApplications}

@@ -50,6 +50,8 @@ import {
   modeActionItemsFor,
   type ModeActionId,
   type ModeActionItem,
+  type ModeActionModeOption,
+  type ModeActionPlacement,
   type ModeActionSetId,
 } from "@/components/clinical-dashboard/mode-action-popup";
 import {
@@ -75,7 +77,8 @@ import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
 
-const mobileSheetMediaQuery = "(max-width: 639px)";
+const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
+const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
 // Standalone mode-home shells move the composer into the hero from the tablet
 // breakpoint up (see heroComposerFromTablet), so it sits in the middle of the
@@ -269,7 +272,9 @@ export function MasterSearchHeader({
   const [scopeFilter, setScopeFilter] = useState("");
   const [scopeOpen, setScopeOpen] = useState(false);
   const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
+  const [scopeSheetFullscreen, setScopeSheetFullscreen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const [actionMenuPlacement, setActionMenuPlacement] = useState<ModeActionPlacement>("up");
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
@@ -349,9 +354,21 @@ export function MasterSearchHeader({
     ? Math.max(0, selectedDocuments.length ? documents.length - selectedDocumentIds.length : documents.length)
     : Math.max(0, matchingDocuments.length - visibleScopeDocuments.length);
   const activeLabelFilterCount = labelScopeFilterFields.filter((field) => scopeFilters[field.key]?.length).length;
+  const activeQuickFilterCount =
+    (scopeFilters.sourceStatuses?.length ? 1 : 0) + (scopeFilters.locality ? 1 : 0) + activeLabelFilterCount;
   const submitLabel = trimmedQuery ? selectedSearch.submitBusyLabel : selectedSearch.submitIdleLabel;
   const queryPlaceholder = isAnswerFooterComposer ? "Ask Clinical Guide" : selectedSearch.placeholder;
   const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
+  const actionMenuModeOptions = useMemo<ModeActionModeOption[]>(
+    () =>
+      visibleAppModeOptions.map((mode) => ({
+        id: mode.id,
+        label: mode.label,
+        description: mode.id === "answer" ? "Source-backed mode" : mode.description,
+        icon: appModeIcons[mode.id],
+      })),
+    [visibleAppModeOptions],
+  );
   const actionMenuSetId: ModeActionSetId =
     searchMode === "services"
       ? "services"
@@ -367,17 +384,23 @@ export function MasterSearchHeader({
   const actionMenuItems =
     searchMode === "prescribing" ? medicationModeActionItems : modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
+  const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
   const useMobileBackControl = mobileLeadingAction === "back";
 
   function currentUsesScopeSheet() {
-    return window.matchMedia(mobileSheetMediaQuery).matches;
+    return window.matchMedia(scopeSheetMediaQuery).matches;
+  }
+
+  function currentUsesPhoneSearchLayout() {
+    return window.matchMedia(phoneSearchLayoutMediaQuery).matches;
   }
 
   function openScopePicker() {
     setActionMenuOpen(false);
     setModeMenuOpen(false);
     const nextUsesScopeSheet = currentUsesScopeSheet();
+    setScopeSheetFullscreen(currentUsesPhoneSearchLayout());
     setUsesScopeSheet(nextUsesScopeSheet);
     if (nextUsesScopeSheet) {
       setScopeSheetOpen(true);
@@ -510,6 +533,11 @@ export function MasterSearchHeader({
     if ("href" in mode && mode.href) window.location.assign(mode.href);
   }
 
+  function selectAppModeById(modeId: string) {
+    const mode = visibleAppModeOptions.find((option) => option.id === modeId);
+    if (mode) selectAppMode(mode);
+  }
+
   const selectedModeIndex = Math.max(
     0,
     visibleAppModeOptions.findIndex((mode) => mode.id === selectedAppMode.id),
@@ -568,14 +596,19 @@ export function MasterSearchHeader({
   }, []);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia(mobileSheetMediaQuery);
+    const scopeMediaQuery = window.matchMedia(scopeSheetMediaQuery);
+    const phoneMediaQuery = window.matchMedia(phoneSearchLayoutMediaQuery);
     const sync = () => {
-      setUsesScopeSheet(mediaQuery.matches);
-      setUsesPhoneSearchLayout(mediaQuery.matches);
+      setUsesScopeSheet(scopeMediaQuery.matches);
+      setUsesPhoneSearchLayout(phoneMediaQuery.matches);
     };
     sync();
-    mediaQuery.addEventListener("change", sync);
-    return () => mediaQuery.removeEventListener("change", sync);
+    scopeMediaQuery.addEventListener("change", sync);
+    phoneMediaQuery.addEventListener("change", sync);
+    return () => {
+      scopeMediaQuery.removeEventListener("change", sync);
+      phoneMediaQuery.removeEventListener("change", sync);
+    };
   }, []);
 
   useEffect(() => {
@@ -685,7 +718,7 @@ export function MasterSearchHeader({
               value={filterText(scopeFilters[field.key])}
               onChange={(event) => updateTextScopeFilter(field.key, event.target.value)}
               placeholder={field.placeholder}
-              className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
+              className="h-10 min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
             />
           </label>
         ))}
@@ -693,73 +726,237 @@ export function MasterSearchHeader({
     );
   }
 
+  function renderDocumentScopeSection() {
+    return (
+      <section className="min-w-0 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)]">
+        <div className="mb-3 grid min-h-[4.25rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--clinical-accent-soft)_72%,var(--surface-lux)_28%)_0%,var(--surface-lux)_72%)] p-3 shadow-[var(--shadow-inset)]">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+            <FileText className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-extrabold text-[color:var(--text-heading)]">{scopeSummary}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+              {selectedDocumentIds.length
+                ? "Only selected documents will be used for the next search."
+                : "Search all indexed documents unless you pin specific sources."}
+            </p>
+          </div>
+          <span className="nums shrink-0 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-extrabold text-[color:var(--clinical-accent)]">
+            {selectedDocumentIds.length ? `${selectedDocumentIds.length} picked` : loadedScopeSummary}
+          </span>
+        </div>
+        <div className="grid gap-2.5">
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
+            <input
+              ref={scopeFilterInputRef}
+              value={scopeFilter}
+              onChange={(event) => setScopeFilter(event.target.value)}
+              data-testid="document-scope-filter"
+              aria-label="Filter document scope"
+              placeholder="Filter documents by title or file"
+              className="h-11 w-full rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onClearScope}
+              className={cn(
+                shellChip,
+                selectedDocumentIds.length === 0
+                  ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                  : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+              )}
+            >
+              All documents
+            </button>
+            {scopeFilter ? (
+              <span className="nums rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 py-1 text-2xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+                {matchingDocuments.length} match{matchingDocuments.length === 1 ? "" : "es"}
+              </span>
+            ) : (
+              <span className="rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 py-1 text-2xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+                Recently updated first
+              </span>
+            )}
+          </div>
+          <div className="max-h-72 overflow-y-auto pr-1 polished-scroll">
+            <div className="grid gap-1.5">
+              {requireScopeFilter && visibleScopeDocuments.length === 0 ? (
+                <p className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-3 py-2 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+                  Type to filter {documents.length.toLocaleString()} loaded documents. Selected documents stay pinned
+                  here.
+                </p>
+              ) : null}
+              {visibleScopeDocuments.map((document) => {
+                const selected = selectedDocumentIds.includes(document.id);
+                return (
+                  <button
+                    key={document.id}
+                    type="button"
+                    onClick={() => onToggleScope(document.id)}
+                    title={cleanDisplayTitle(document.title)}
+                    className={cn(
+                      "grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
+                      selected
+                        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                        : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "grid h-5 w-5 place-items-center rounded-md border",
+                        selected
+                          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                          : "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)]",
+                      )}
+                      aria-hidden
+                    >
+                      {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>
+                      <span className="nums block truncate text-2xs font-medium text-[color:var(--text-soft)]">
+                        {documentScopeMeta(document)}
+                      </span>
+                      <DocumentTagCloud
+                        labels={document.labels}
+                        query={scopeFilter}
+                        limit={2}
+                        compact
+                        expandable={false}
+                        className="mt-1"
+                      />
+                    </span>
+                    {selected ? (
+                      <span className="rounded-md bg-[color:var(--clinical-accent-soft)] px-2 py-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
+                        In scope
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+              {!requireScopeFilter && visibleScopeDocuments.length === 0 && documents.length > 0 ? (
+                <p className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-3 py-2 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+                  No documents match that filter. Clear the filter or search by file name.
+                </p>
+              ) : null}
+            </div>
+          </div>
+          {hiddenScopeMatchCount > 0 ? (
+            <p className="nums px-1 text-xs font-medium text-[color:var(--text-soft)]">
+              {requireScopeFilter
+                ? `${loadedScopeSummary} documents. Type a title or file name to narrow the loaded list.`
+                : `Showing ${visibleScopeDocuments.length} of ${matchingDocuments.length}. Keep typing to narrow the list.`}
+            </p>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
+
   function renderScopeRows() {
     return (
       <div className="grid gap-3">
-        <section className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 sm:hidden">
-          <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
-            <p className={eyebrowText}>Refine search</p>
-            <span className="text-2xs font-semibold text-[color:var(--text-soft)]">Mode, status, labels</span>
-          </div>
-          <div className="grid gap-2">
-            <select
-              value={queryMode}
-              onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
-              aria-label="Clinical query mode"
-              className="h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-            >
-              {queryModeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+        {renderDocumentScopeSection()}
+        <details className="group min-w-0 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] sm:hidden">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold text-[color:var(--text-heading)]">
+            <span>Refine search</span>
+            <span className="flex items-center gap-2">
+              <span className="nums rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
+                {activeQuickFilterCount ? `${activeQuickFilterCount} active` : "Optional"}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-[color:var(--clinical-accent)] transition group-open:rotate-180" />
+            </span>
+          </summary>
+          <div className="grid gap-2.5 border-t border-[color:var(--border-lux)] p-3">
+            <label className="grid gap-1">
+              <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                Search intent
+              </span>
+              <select
+                value={queryMode}
+                onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
+                aria-label="Clinical query mode"
+                className="h-10 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              >
+                {queryModeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="grid grid-cols-2 gap-2">
-              <select
-                value={scopeFilters.sourceStatuses?.[0] ?? ""}
-                aria-label="Source status filter"
-                onChange={(event) =>
-                  onScopeFiltersChange({
-                    ...scopeFilters,
-                    sourceStatuses: event.target.value
-                      ? [event.target.value as NonNullable<SearchScopeFilters["sourceStatuses"]>[number]]
-                      : [],
-                  })
-                }
-                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-              >
-                <option value="">Any status</option>
-                <option value="current">Current</option>
-                <option value="review_due">Review due</option>
-                <option value="outdated">Outdated</option>
-                <option value="unknown">Unknown</option>
-              </select>
-              <select
-                value={scopeFilters.locality ?? ""}
-                aria-label="Locality filter"
-                onChange={(event) =>
-                  onScopeFiltersChange({
-                    ...scopeFilters,
-                    locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
-                  })
-                }
-                className="h-10 min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-              >
-                <option value="">Any locality</option>
-                <option value="local">Local only</option>
-                <option value="non_local">Non-local only</option>
-              </select>
+              <label className="grid gap-1">
+                <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  Status
+                </span>
+                <select
+                  value={scopeFilters.sourceStatuses?.[0] ?? ""}
+                  aria-label="Source status filter"
+                  onChange={(event) =>
+                    onScopeFiltersChange({
+                      ...scopeFilters,
+                      sourceStatuses: event.target.value
+                        ? [event.target.value as NonNullable<SearchScopeFilters["sourceStatuses"]>[number]]
+                        : [],
+                    })
+                  }
+                  className="h-10 min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                >
+                  <option value="">Any status</option>
+                  <option value="current">Current</option>
+                  <option value="review_due">Review due</option>
+                  <option value="outdated">Outdated</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+              </label>
+              <label className="grid gap-1">
+                <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  Locality
+                </span>
+                <select
+                  value={scopeFilters.locality ?? ""}
+                  aria-label="Locality filter"
+                  onChange={(event) =>
+                    onScopeFiltersChange({
+                      ...scopeFilters,
+                      locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
+                    })
+                  }
+                  className="h-10 min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                >
+                  <option value="">Any locality</option>
+                  <option value="local">Local only</option>
+                  <option value="non_local">Non-local only</option>
+                </select>
+              </label>
             </div>
-            {renderLabelScopeFilterGrid(true)}
-            <button
-              type="button"
-              onClick={() => onScopeFiltersChange({})}
-              className={cn(floatingControl, "min-h-9 px-3 text-xs")}
-            >
-              Clear refine filters
-            </button>
+            <details className="group rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)]">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold text-[color:var(--text-heading)]">
+                <span>Advanced labels</span>
+                <span className="flex items-center gap-2 text-2xs font-bold text-[color:var(--text-muted)]">
+                  {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, risk"}
+                  <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" aria-hidden="true" />
+                </span>
+              </summary>
+              <div className="grid gap-2 border-t border-[color:var(--border-lux)] p-2.5">
+                {renderLabelScopeFilterGrid(true)}
+              </div>
+            </details>
+            {activeQuickFilterCount ? (
+              <button
+                type="button"
+                onClick={() => onScopeFiltersChange({})}
+                className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+              >
+                Clear refine filters
+              </button>
+            ) : null}
           </div>
-        </section>
+        </details>
         <details className="group hidden min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5 sm:block">
           <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 px-0.5">
             <span className={eyebrowText}>Label filters</span>
@@ -779,121 +976,6 @@ export function MasterSearchHeader({
             </button>
           </div>
         </details>
-        <section className="min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5">
-          <div className="mb-2 flex min-h-7 items-center justify-between gap-2 px-0.5">
-            <p className={eyebrowText}>Document scope</p>
-            <span className="nums shrink-0 text-2xs font-semibold text-[color:var(--text-soft)]">
-              {selectedDocumentIds.length ? `${selectedDocumentIds.length} selected` : loadedScopeSummary}
-            </span>
-          </div>
-          <div className="space-y-2">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
-              <input
-                ref={scopeFilterInputRef}
-                value={scopeFilter}
-                onChange={(event) => setScopeFilter(event.target.value)}
-                data-testid="document-scope-filter"
-                aria-label="Filter document scope"
-                placeholder="Filter documents by title or file"
-                className="h-10 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25"
-              />
-            </label>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={onClearScope}
-                className={cn(
-                  shellChip,
-                  selectedDocumentIds.length === 0
-                    ? "border-[color:var(--primary)]/40 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                )}
-              >
-                All documents
-              </button>
-              {scopeFilter ? (
-                <span className="nums rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-2xs font-semibold text-[color:var(--text-muted)]">
-                  {matchingDocuments.length} match{matchingDocuments.length === 1 ? "" : "es"}
-                </span>
-              ) : (
-                <span className="rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-2xs font-semibold text-[color:var(--text-muted)]">
-                  Recently updated first
-                </span>
-              )}
-            </div>
-            <div className="max-h-72 overflow-y-auto pr-1 polished-scroll">
-              <div className="grid gap-1.5">
-                {requireScopeFilter && visibleScopeDocuments.length === 0 ? (
-                  <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm font-medium text-[color:var(--text-muted)]">
-                    Type to filter {documents.length.toLocaleString()} loaded documents. Selected documents stay pinned
-                    here.
-                  </p>
-                ) : null}
-                {visibleScopeDocuments.map((document) => {
-                  const selected = selectedDocumentIds.includes(document.id);
-                  return (
-                    <button
-                      key={document.id}
-                      type="button"
-                      onClick={() => onToggleScope(document.id)}
-                      title={cleanDisplayTitle(document.title)}
-                      className={cn(
-                        "grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
-                        selected
-                          ? "border-[color:var(--primary)]/40 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]"
-                          : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "grid h-5 w-5 place-items-center rounded-md border",
-                          selected
-                            ? "border-[color:var(--primary)]/50 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
-                            : "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)]",
-                        )}
-                        aria-hidden
-                      >
-                        {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>
-                        <span className="nums block truncate text-2xs font-medium text-[color:var(--text-soft)]">
-                          {documentScopeMeta(document)}
-                        </span>
-                        <DocumentTagCloud
-                          labels={document.labels}
-                          query={scopeFilter}
-                          limit={2}
-                          compact
-                          expandable={false}
-                          className="mt-1"
-                        />
-                      </span>
-                      {selected ? (
-                        <span className="rounded-md bg-[color:var(--primary-soft)] px-2 py-1 text-2xs font-bold text-[color:var(--primary-strong)]">
-                          In scope
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-                {!requireScopeFilter && visibleScopeDocuments.length === 0 ? (
-                  <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm font-medium text-[color:var(--text-muted)]">
-                    No documents match that filter. Clear the filter or search by file name.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            {hiddenScopeMatchCount > 0 ? (
-              <p className="nums px-1 text-xs font-medium text-[color:var(--text-soft)]">
-                {requireScopeFilter
-                  ? `${loadedScopeSummary} documents. Type a title or file name to narrow the loaded list.`
-                  : `Showing ${visibleScopeDocuments.length} of ${matchingDocuments.length}. Keep typing to narrow the list.`}
-              </p>
-            ) : null}
-          </div>
-        </section>
       </div>
     );
   }
@@ -1040,15 +1122,13 @@ export function MasterSearchHeader({
     const isDesktopHomeComposer = placement === "desktop-home";
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
-    const usesUniversalFooterStyle = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
-    // Every mode shows the universal footer chip row on its small-screen composer now;
-    // larger screens (sticky-top / hero composers) are untouched for now.
-    const showFooterSearchChips = usesUniversalFooterStyle;
-    // Answer keeps the send affordance everywhere (it's the one conversational compose
-    // mode). Every other mode swaps the magnifier for its own mode-identity glyph, but
-    // only on the small-screen floating composer — larger screens keep the magnifier.
-    const usesSendAffordance = usesAnswerFooterStyle;
-    const usesModeIdentityAffordance = usesUniversalFooterStyle && !usesSendAffordance;
+    const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
+    const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer;
+    const showFooterSearchChips = usesFooterChipLayout;
+    // The visible footer/hero composer chrome is universal; submit semantics still
+    // come from the active mode.
+    const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;
+    const usesModeIdentityAffordance = usesBottomComposerPlacement && !usesSendAffordance;
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const trustFooterChip = footerTrustChipFor(searchMode);
@@ -1066,43 +1146,42 @@ export function MasterSearchHeader({
         onSubmit={submit}
         className={cn(
           isDesktopHomeComposer
-            ? "mx-auto w-full max-w-2xl lg:max-w-3xl"
+            ? "universal-home-search-edge mx-auto w-full"
             : usesAnswerFooterStyle
               ? "floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto max-w-3xl lg:max-w-4xl"
               : usesMobileBottomStyle
                 ? cn(
-                    "document-mobile-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                    "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
                     // Hero-placement mode-homes (services/forms) portal the composer into
                     // the hero from sm up. Hide the default (non-portaled) composer at sm+
                     // so it never briefly flashes as an overlapping float over the hero
                     // before the portal activates; the mobile fixed-bottom slot still shows
                     // below sm. Other homes keep a sticky bar until the portal lifts it.
-                    isHeroDesktopComposer
-                      ? "sm:hidden"
-                      : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+                    isHeroDesktopComposer ? "sm:hidden" : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
                   )
-                : "sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto w-full max-w-3xl px-3 py-3 sm:px-4 lg:max-w-4xl",
-          usesUniversalFooterStyle && "answer-footer-search-edge flex flex-col items-center gap-2.5",
+                : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
+          usesBottomComposerPlacement && "answer-footer-search-edge",
+          usesFooterChipLayout && "flex flex-col items-center gap-2.5",
         )}
       >
+        {usesBottomComposerPlacement ? <div className="answer-footer-search-backdrop" aria-hidden="true" /> : null}
         <div
+          data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
           className={cn(
-            usesUniversalFooterStyle
-              ? cn(chatComposerShell, "answer-footer-search-pill relative w-full")
-              : cn(
-                  chatComposerShell,
-                  "relative w-full",
-                  isDesktopHomeComposer && "desktop-home-search-pill",
-                  usesMobileBottomStyle && "document-mobile-search-pill",
-                ),
+            chatComposerShell,
+            "answer-footer-search-pill relative z-10 w-full",
+            actionMenuOpen && "answer-footer-search-pill-open",
           )}
         >
           <ModeActionPopup
             open={actionMenuOpen}
             title={actionMenuTitle}
             titleIcon={SelectedAppModeIcon}
+            subtitle={actionMenuSubtitle}
             buttonLabel={actionMenuButtonLabel}
             items={actionMenuItems}
+            modeOptions={actionMenuModeOptions}
+            selectedModeId={selectedAppMode.id}
             onOpenChange={setActionMenuOpen}
             onBeforeOpen={() => {
               setUsesScopeSheet(currentUsesScopeSheet());
@@ -1110,8 +1189,10 @@ export function MasterSearchHeader({
               setScopeOpen(false);
             }}
             onAction={runModeAction}
-            triggerClassName={usesUniversalFooterStyle ? "answer-footer-search-action" : undefined}
-            integrated={usesUniversalFooterStyle}
+            onModeSelect={selectAppModeById}
+            onPlacementChange={setActionMenuPlacement}
+            triggerClassName="answer-footer-search-action"
+            integrated={usesFooterChipLayout}
           />
 
           {/* The clear button is a flex sibling (not absolutely positioned): the
@@ -1130,12 +1211,7 @@ export function MasterSearchHeader({
               }}
               aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
               placeholder={composerPlaceholder}
-              className={cn(
-                chatComposerInput,
-                "w-full min-w-0",
-                usesUniversalFooterStyle && "answer-footer-search-input",
-                isDesktopHomeComposer && "desktop-home-search-input",
-              )}
+              className={cn(chatComposerInput, "w-full min-w-0", "answer-footer-search-input")}
             />
             {query && (
               <button
@@ -1148,7 +1224,7 @@ export function MasterSearchHeader({
               </button>
             )}
           </label>
-          {usesUniversalFooterStyle ? <span className="answer-footer-search-divider" aria-hidden="true" /> : null}
+          <span className="answer-footer-search-divider" aria-hidden="true" />
           <button
             type="submit"
             disabled={!canAsk}
@@ -1159,7 +1235,7 @@ export function MasterSearchHeader({
                   ? selectedSearch.emptyTitle
                   : selectedSearch.readyTitle
             }
-            className={cn(chatSendButton, usesUniversalFooterStyle && "answer-footer-search-send")}
+            className={cn(chatSendButton, "answer-footer-search-send")}
             aria-label={selectedSearch.submitAriaLabel}
           >
             {loading ? (
@@ -1244,17 +1320,34 @@ export function MasterSearchHeader({
           description="Choose documents and filters for the next search."
           closeLabel="Close document scope"
           initialFocusRef={scopeFilterInputRef}
+          headerLeading={
+            <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+              <Filter className="h-5 w-5" aria-hidden="true" />
+            </span>
+          }
+          headerClassName="bg-[color:var(--surface-lux)] px-4 py-3 sm:px-5 sm:py-4"
+          closeButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          contentClassName={cn(
+            "bg-[color:var(--surface-lux)]",
+            scopeSheetFullscreen ? "max-h-dvh" : "max-h-[min(84dvh,42rem)]",
+            "sm:max-h-[min(88dvh,44rem)] sm:max-w-xl",
+          )}
+          bodyClassName={cn(
+            "p-3 sm:p-4",
+            scopeSheetFullscreen ? "bg-[color:var(--background)]" : "bg-[color:var(--surface-subtle)]",
+          )}
+          mobilePlacement={scopeSheetFullscreen ? "fullscreen" : "bottom"}
+          portal={scopeSheetFullscreen}
         >
           <div
             data-testid={usesScopeSheet ? "scope-command-popover" : undefined}
-            className="polished-scroll max-h-[min(70dvh,28rem)] overflow-y-auto overscroll-contain pr-1"
+            className={cn(
+              "grid gap-3",
+              usesScopeSheet && "polished-scroll max-h-[min(70dvh,28rem)] overflow-y-auto overscroll-contain pr-1",
+            )}
           >
-            <div className="mb-2 flex min-h-8 items-center justify-between px-1 text-xs font-semibold text-[color:var(--text-muted)]">
-              <span>Document scope</span>
-              <span className="nums">{scopeSummary}</span>
-            </div>
             {scopePreview ? (
-              <p className="mb-2 truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
+              <p className="truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
             ) : null}
             {renderScopeRows()}
           </div>
@@ -1354,7 +1447,7 @@ export function MasterSearchHeader({
                 id="app-mode-menu"
                 role="menu"
                 aria-label="Choose app mode"
-                className="fixed left-[max(0.5rem,var(--safe-area-left))] right-[max(0.5rem,var(--safe-area-right))] top-[calc(4.25rem+env(safe-area-inset-top))] z-50 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:absolute sm:left-0 sm:right-auto sm:top-[calc(100%+0.5rem)] sm:w-[min(21rem,calc(100vw-2rem))]"
+                className="polished-scroll fixed left-[max(0.5rem,var(--safe-area-left))] right-[max(0.5rem,var(--safe-area-right))] top-[calc(4.25rem+env(safe-area-inset-top))] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] overflow-y-auto rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:absolute sm:left-0 sm:right-auto sm:top-[calc(100%+0.5rem)] sm:w-[min(21rem,calc(100vw-2rem))]"
               >
                 {visibleAppModeOptions.map((mode, index) => {
                   const Icon = appModeIcons[mode.id];

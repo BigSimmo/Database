@@ -1,8 +1,8 @@
 "use client";
 
-import { Clipboard, ClipboardCheck, MessageSquareText, Search, Sparkles, UploadCloud } from "lucide-react";
+import { Clipboard, ClipboardCheck, MessageSquareText, Search, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
 
-import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { answerEmptyState, answerLoading, copyButton } from "@/lib/ui-copy";
 
@@ -73,6 +73,7 @@ export function AnswerEmptyState({
           onClick: onUploadDocument,
         },
       ]}
+      footer={<ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical Guide library" />}
     />
   );
 }

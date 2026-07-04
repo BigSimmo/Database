@@ -124,8 +124,8 @@ export function ModeHomeVerificationFooter({
   icon: LucideIcon;
   label: string;
   body: string;
-  verifiedCount: number;
-  totalCount: number;
+  verifiedCount?: number;
+  totalCount?: number;
 }) {
   return (
     <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 pt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
@@ -135,9 +135,11 @@ export function ModeHomeVerificationFooter({
       </span>
       <span aria-hidden="true">•</span>
       <span>{body}</span>
-      <span className="sr-only">
-        {verifiedCount} of {totalCount} records are locally verified.
-      </span>
+      {typeof verifiedCount === "number" && typeof totalCount === "number" ? (
+        <span className="sr-only">
+          {verifiedCount} of {totalCount} records are locally verified.
+        </span>
+      ) : null}
     </p>
   );
 }
@@ -202,26 +204,26 @@ export function ModeHomeTemplate({
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
 
       {desktopComposerSlotId ? (
-        <div id={desktopComposerSlotId} className="hidden w-full max-w-[52rem] sm:[&:not(:empty)]:block" />
+        <div id={desktopComposerSlotId} className="mode-home-composer-slot hidden w-full sm:[&:not(:empty)]:block" />
       ) : null}
 
       {actions.length ? (
         <section
           aria-label={actionsLabel}
-          className="grid w-full max-w-3xl overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] sm:gap-5 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none"
+          className="grid w-full max-w-3xl overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] lg:max-w-none lg:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] lg:gap-5 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
         >
           {actions.map((action, index) => {
             const ActionIcon = action.icon;
             const content = (
               <>
-                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-14 sm:w-14 sm:rounded-xl">
-                  <ActionIcon className="h-5 w-5 sm:h-7 sm:w-7" aria-hidden="true" />
+                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] lg:h-14 lg:w-14 lg:rounded-xl">
+                  <ActionIcon className="h-5 w-5 lg:h-7 lg:w-7" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-balance text-[0.98rem] font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] sm:text-[1.05rem]">
+                  <span className="block text-balance text-[0.98rem] font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] lg:text-[1.05rem]">
                     {action.title}
                   </span>
-                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-[0.9rem] sm:leading-6">
+                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] lg:text-[0.9rem] lg:leading-6">
                     {action.description}
                   </span>
                 </span>
@@ -232,8 +234,8 @@ export function ModeHomeTemplate({
               </>
             );
             const actionClassName = cn(
-              "mode-home-action group grid min-h-[4.8rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[8rem] sm:grid-cols-[3.5rem_minmax(0,1fr)_1.5rem] sm:gap-4 sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:px-5 sm:py-5 sm:shadow-[var(--shadow-card)] lg:min-h-[8.4rem] lg:px-6",
-              index > 0 && "border-t border-[color:var(--border)] sm:border-t-[color:var(--border)]",
+              "mode-home-action group grid min-h-[4.8rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 lg:min-h-[8.4rem] lg:grid-cols-[3.5rem_minmax(0,1fr)_1.5rem] lg:gap-4 lg:rounded-lg lg:border lg:border-[color:var(--border)] lg:px-6 lg:py-5 lg:shadow-[var(--shadow-card)]",
+              index > 0 && "border-t border-[color:var(--border)] lg:border-t-[color:var(--border)]",
             );
 
             if (action.href) {
