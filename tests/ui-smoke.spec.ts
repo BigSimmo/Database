@@ -682,22 +682,51 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("tablet shows icon rail without drawer trigger or expand control", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await mockDemoApi(page);
-    await gotoApp(page, "/?mode=services");
+    await gotoApp(page, "/?mode=answer");
+    await waitForDemoDashboardReady(page);
 
     await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
     await expect(page.locator("#clinical-tools-sidebar")).toHaveCount(0);
     await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Services", exact: true })).toHaveAttribute("href", "/services");
-    await expect(page.getByRole("link", { name: "Documents", exact: true })).toHaveAttribute(
-      "href",
-      "/?mode=documents",
-    );
-    await expect(page.getByRole("link", { name: "Medications", exact: true })).toHaveAttribute(
-      "href",
-      "/?mode=prescribing",
-    );
+
+    for (const tool of [
+      { name: "Answer", href: "/?mode=answer" },
+      { name: "Documents", href: "/?mode=documents" },
+      { name: "Services", href: "/services" },
+      { name: "Forms", href: "/forms" },
+      { name: "Favourites", href: "/favourites" },
+      { name: "Differentials", href: "/differentials" },
+      { name: "Medications", href: "/?mode=prescribing" },
+      { name: "Tools", href: "/?mode=tools" },
+    ] as const) {
+      await expect(page.getByRole("link", { name: tool.name, exact: true })).toHaveAttribute("href", tool.href);
+    }
+
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("tablet rail highlights the active tool for key routes", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await mockDemoApi(page);
+
+    for (const route of [
+      { path: "/?mode=answer", label: "Answer" },
+      { path: "/?mode=documents", label: "Documents" },
+      { path: "/favourites", label: "Favourites" },
+      { path: "/?mode=prescribing", label: "Medications" },
+    ] as const) {
+      await gotoApp(page, route.path);
+      if (route.path.includes("mode=answer")) {
+        await waitForDemoDashboardReady(page);
+      } else {
+        await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+      }
+
+      const activeLink = page.getByRole("link", { name: route.label, exact: true });
+      await expect(activeLink).toBeVisible();
+      await expect(activeLink).toHaveAttribute("aria-current", "page");
+    }
   });
 
   test("static agent guidance is available and documents mode avoids the app error boundary", async ({ page }) => {

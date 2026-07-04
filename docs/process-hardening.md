@@ -18,6 +18,7 @@ This document turns the current process review into phased, durable repo practic
 - Local scratch and visual-capture output are excluded from Prettier through `.prettierignore` so generated investigation files do not block the format gate.
 - Pull requests now include a clinical governance preflight for ingestion, answer generation, source rendering, privacy, production environment, and clinical-output changes.
 - Applications mode now has dedicated Playwright coverage in the UI gate.
+- `tests/ui-stress.spec.ts` uses a **1000px** desktop viewport (below `lg`) because scope and evidence open in sheets, not side panels, at that width; widening to ≥1024 exercises a different UI path.
 
 ## Phase 3 - Structural cleanup
 
