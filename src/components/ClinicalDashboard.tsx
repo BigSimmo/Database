@@ -5551,6 +5551,9 @@ export function ClinicalDashboard({
           mobileBottomSearchVariant={compactMobileBottomSearch ? "compact" : "default"}
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
           heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
+          // Phone-only: the header sits above the internally scrolling <main>,
+          // so hiding must collapse its layout space to hand it to content.
+          hideOnScroll={{ strategy: "collapse", containerRef: mainRef }}
         />
 
         <main
