@@ -225,6 +225,29 @@ async function openDailyActions(page: Page) {
   return menu;
 }
 
+async function openScopeControl(page: Page) {
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("listbox", { name: /search suggestions/i })
+    .waitFor({ state: "hidden", timeout: 5_000 })
+    .catch(() => undefined);
+
+  const composer = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
+
+  await expect(async () => {
+    await composer.click();
+    const scopeOption = page.getByRole("option", { name: /Scope sources/i });
+    if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await scopeOption.click();
+    } else {
+      const dailyActions = await openDailyActions(page);
+      await dailyActions.getByRole("menuitem", { name: /^Scope\b/ }).click({ force: true });
+    }
+    await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 10_000 });
+  }).toPass({ timeout: 20_000 });
+}
+
 test.describe("Clinical KB long-content stress coverage", () => {
   for (const viewport of [
     { name: "mobile", width: 320, height: 740 },
@@ -278,17 +301,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(page.getByLabel("Source-backed answer")).toBeVisible();
       await expect(page.getByTestId("plain-answer-response")).toBeVisible();
 
-      await page.keyboard.press("Escape");
-      await page.keyboard.press("Escape");
-      await page.keyboard.press("Escape");
-      await page
-        .getByRole("listbox", { name: /search suggestions/i })
-        .waitFor({ state: "hidden", timeout: 5_000 })
-        .catch(() => undefined);
-
-      const dailyActions = await openDailyActions(page);
-      await dailyActions.getByRole("menuitem", { name: /^Scope\b/ }).click({ force: true });
-      await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 10_000 });
+      await openScopeControl(page);
       const scopeContainer = page.getByTestId("scope-command-popover");
       await expect(
         scopeContainer.getByText(/Type to filter 24 (loaded )?documents\. Selected documents stay pinned here\./),

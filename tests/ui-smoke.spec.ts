@@ -1050,9 +1050,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // First open — use robust retry helper to handle async state update timing.
     await openDailyActions(page);
-    await page.mouse.click(640, 430);
-    await expect(dailyActionsMenu).toHaveCount(0);
-    await expect(dailyActionsTrigger).toHaveAttribute("aria-expanded", "false");
+    await expect(async () => {
+      if (await dailyActionsMenu.isVisible().catch(() => false)) {
+        // Top-left avoids integrated menu panels that can intercept center clicks in CI.
+        await page.mouse.click(8, 8);
+      }
+      await expect(dailyActionsMenu).toHaveCount(0);
+      await expect(dailyActionsTrigger).toHaveAttribute("aria-expanded", "false");
+    }).toPass({ timeout: 10_000 });
 
     // Second open - verify opening the mode menu closes the daily actions surface.
     await openDailyActions(page);
