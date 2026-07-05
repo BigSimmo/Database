@@ -50,15 +50,18 @@ async function expectDashboardUsable(page: Page) {
   await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
   await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
   await expect(page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')).toBeVisible();
-  await expect(page.locator('[data-testid="scope-trigger"]:visible')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible();
   await expectNoPageHorizontalOverflow(page);
 }
 
 async function openScopeControl(page: Page) {
-  const scopeTrigger = page.locator('[data-testid="scope-trigger"]:visible');
+  const actionMenu = page.getByRole("button", { name: "Open answer options" });
 
   await expect(async () => {
-    await scopeTrigger.click();
+    await actionMenu.click();
+    const actionsMenu = page.getByTestId("daily-actions-menu");
+    await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await actionsMenu.getByRole("menuitem", { name: "Scope sources" }).click();
     await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({
       timeout: uiAssertionTimeoutMs,
     });

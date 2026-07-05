@@ -40,7 +40,6 @@ type SiteMapData = {
 
 const routeDescriptions: Record<string, string> = {
   "/": "Main Clinical KB shell.",
-  "/applications": "Application and tool launcher.",
   "/differentials": "Differentials home and search surface.",
   "/differentials/diagnoses": "Diagnosis stream.",
   "/differentials/diagnoses/[slug]": "Differential diagnosis detail.",
@@ -97,7 +96,7 @@ const routeOwnershipRows = [
   ["Differentials", "src/app/differentials, src/lib/differentials.ts"],
   ["Medications", "src/app/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx"],
   ["Documents", "src/app/documents, src/lib/document-flow-routes.ts"],
-  ["Applications and tools", "src/app/applications, src/components/applications-launcher-page.tsx"],
+  ["Tools", "src/components/applications-launcher-page.tsx"],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
@@ -279,7 +278,7 @@ function renderModePageIndex() {
       mode: "Tools",
       home: appModeHomeHref("tools"),
       search: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
-      detail: "`/applications` launcher and tool detail panels inside tools mode.",
+      detail: "Tool launcher and detail panels inside dashboard tools mode (`/?mode=tools`).",
     },
   ]);
 }

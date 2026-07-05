@@ -1067,26 +1067,8 @@ function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
   );
 }
 
-function ToolsHub({
-  query,
-  onQueryChange,
-  desktopComposerSlotId,
-  showDetailPanel,
-}: {
-  query: string;
-  onQueryChange: (nextQuery: string) => void;
-  desktopComposerSlotId?: string;
-  showDetailPanel?: boolean;
-}) {
-  return (
-    <ApplicationsLauncherWorkspace
-      variant="dashboard-tools"
-      query={query}
-      onQueryChange={onQueryChange}
-      desktopComposerSlotId={desktopComposerSlotId}
-      showDetailPanel={showDetailPanel}
-    />
-  );
+function ToolsHub({ query, desktopComposerSlotId }: { query: string; desktopComposerSlotId?: string }) {
+  return <ApplicationsLauncherWorkspace query={query} desktopComposerSlotId={desktopComposerSlotId} />;
 }
 
 type MobileSectionFabItem = {
@@ -1587,7 +1569,7 @@ export function ClinicalDashboard({
   const activeModeSearch = appModeSearchConfig(searchMode);
   const activeModeResultKind = appModeResultKind(searchMode);
   const requestQueryMode = appModeQueryMode(searchMode, queryMode);
-  const requestedRun = searchParams.get("run") === "1";
+
   // Record matches come from the owner-scoped registry API (mock fixtures in
   // demo mode); ranking stays client-side so live-typing behaviour is
   // unchanged and the registry is fetched once per active mode.
@@ -2473,7 +2455,7 @@ export function ClinicalDashboard({
     urlDocumentSearchBootstrappedRef.current = true;
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [canRunSearch, answerThreadBootstrapped]);
 
   useEffect(() => {
@@ -3958,12 +3940,7 @@ export function ClinicalDashboard({
                     }}
                   />
                 ) : activeModeResultKind === "tools" ? (
-                  <ToolsHub
-                    query={query}
-                    onQueryChange={setQuery}
-                    desktopComposerSlotId={desktopHomeComposerSlotId}
-                    showDetailPanel={!requestedRun}
-                  />
+                  <ToolsHub query={query} desktopComposerSlotId={desktopHomeComposerSlotId} />
                 ) : activeModeResultKind === "favourites" ? (
                   <FavouritesHub
                     query={query}
