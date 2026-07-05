@@ -226,25 +226,34 @@ async function openDailyActions(page: Page) {
 }
 
 async function openScopeControl(page: Page) {
-  await page.keyboard.press("Escape");
-  await page.keyboard.press("Escape");
-  await page
-    .getByRole("listbox", { name: /search suggestions/i })
-    .waitFor({ state: "hidden", timeout: 5_000 })
-    .catch(() => undefined);
-
   const composer = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
+  const viewportWidth = page.viewportSize()?.width ?? 0;
+  const preferMenuPath = viewportWidth >= 640;
 
   await expect(async () => {
-    await composer.click();
-    const scopeOption = page.getByRole("option", { name: /Scope sources/i });
-    if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await scopeOption.click();
-    } else {
-      const dailyActions = await openDailyActions(page);
-      await dailyActions.getByRole("menuitem", { name: /^Scope\b/ }).click({ force: true });
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+    await page
+      .getByRole("listbox", { name: /search suggestions/i })
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .catch(() => undefined);
+
+    if (!preferMenuPath) {
+      await composer.click();
+      const scopeOption = page.getByRole("option", { name: /Scope sources/i });
+      if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await scopeOption.click();
+        if (await page.getByTestId("scope-command-popover").isVisible({ timeout: 2_000 }).catch(() => false)) {
+          return;
+        }
+      }
+      await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
     }
-    await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 10_000 });
+
+    const dailyActions = await openDailyActions(page);
+    await dailyActions.getByRole("menuitem", { name: /^Scope\b/ }).click({ force: true });
+    await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 20_000 });
 }
 
