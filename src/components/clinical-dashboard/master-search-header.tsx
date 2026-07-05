@@ -1165,7 +1165,8 @@ export function MasterSearchHeader({
     // Compact search views drop the chip row on phones so the pill can sit
     // flush with the bottom edge; the same actions stay reachable via the
     // integrated "+" menu.
-    const showFooterSearchChips = usesFooterChipLayout && !usesCompactMobileBottomStyle;
+    const showFooterSearchChips =
+      usesFooterChipLayout && !usesCompactMobileBottomStyle && searchMode !== "answer";
     // The visible footer/hero composer chrome is universal; submit semantics still
     // come from the active mode.
     const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;
