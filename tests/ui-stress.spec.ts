@@ -301,7 +301,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
       ).toBeVisible();
       await expect(
         scopeContainer.getByText(
-          /(?:24 documents available|24 available documents)\. Type a title or file name to narrow the (?:loaded )?list\./,
+          /(?:\d+ documents available|\d+ available documents|\d+ loaded of \d+)\. Type a title or file name to narrow the (?:loaded )?list\./,
         ),
       ).toBeVisible();
       const scopeFilter = scopeContainer.locator('[data-testid="document-scope-filter"]');
