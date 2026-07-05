@@ -181,9 +181,11 @@ function CommandDropdown({
               ) : null}
               {section.layout === "chips" ? (
                 <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5">
-                  <span className="text-xs font-semibold text-[color:var(--text-muted)]">
-                    Search &ldquo;{query}&rdquo; in
-                  </span>
+                  {query ? (
+                    <span className="text-xs font-semibold text-[color:var(--text-muted)]">
+                      Search &ldquo;{query}&rdquo; in
+                    </span>
+                  ) : null}
                   {section.items.map((item) => (
                     <div
                       key={item.id}
