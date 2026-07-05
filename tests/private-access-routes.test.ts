@@ -2296,7 +2296,7 @@ describe("private document API access", () => {
       }
       return ok([]);
     });
-    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+    client.rpc.mockImplementation(async (name: string) => {
       if (name === "search_document_chunks") return fail("missing rpc");
       if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
         return { data: [rateLimitRow()], error: null };
