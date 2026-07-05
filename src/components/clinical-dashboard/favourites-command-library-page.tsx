@@ -44,6 +44,7 @@ import {
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
+import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
 type FavouriteType = "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form";
 type ViewMode = FavouritesViewMode;
@@ -951,6 +952,11 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
                 </div>
               </div>
             </header>
+
+            <div
+              id={modeHomeDesktopComposerSlotId}
+              className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
+            />
 
             <div className="hidden lg:block">
               <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
