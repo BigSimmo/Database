@@ -459,6 +459,36 @@ describe("private document API access", () => {
     expect(client.calls[0].filters).not.toContainEqual({ column: "owner_id", value: userId });
   });
 
+  it("rate limits anonymous document read bursts", async () => {
+    const client = createSupabaseMock((call) => (call.table === "documents" ? ok([]) : ok([])));
+    mockRuntime(client);
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "consume_api_subject_rate_limit" && args?.p_bucket === "document_read") {
+        return {
+          data: [rateLimitRow({ limited: true, remaining: 0, retry_after_seconds: 30 })],
+          error: null,
+        };
+      }
+      if (name === "consume_api_rate_limit") {
+        return { data: [rateLimitRow()], error: null };
+      }
+      return ok([]);
+    });
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(request("/api/documents"));
+
+    expect(response.status).toBe(429);
+    expect(await payload(response)).toMatchObject({
+      error: "Document requests are rate limited. Try again shortly.",
+      retryAfterSeconds: 30,
+    });
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_subject_rate_limit",
+      expect.objectContaining({ p_bucket: "document_read" }),
+    );
+  });
+
   it("filters authenticated document listing by owner", async () => {
     const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
     const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
@@ -720,6 +750,45 @@ describe("private document API access", () => {
     expect(response.status).toBe(404);
     expect(await payload(response)).toEqual({ error: "Image not found." });
     expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("rate limits authenticated uploads before storage or database work", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "consume_api_rate_limit" && args?.p_bucket === "document_upload") {
+        return {
+          data: [rateLimitRow({ limited: true, limit_value: 12, remaining: 0, retry_after_seconds: 45 })],
+          error: null,
+        };
+      }
+      if (name === "consume_api_rate_limit") {
+        return { data: [rateLimitRow()], error: null };
+      }
+      return ok([]);
+    });
+    const { POST } = await import("../src/app/api/upload/route");
+    const formData = new FormData();
+    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(await payload(response)).toMatchObject({
+      error: "Upload is temporarily rate limited because too many requests were received. Retry shortly.",
+      retryAfterSeconds: 45,
+    });
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_bucket: "document_upload", p_owner_id: userId }),
+    );
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("stores uploaded documents with owner_id and a user-scoped storage path", async () => {

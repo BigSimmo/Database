@@ -4,6 +4,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env } from "@/lib/env";
 import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
+import {
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSubjectApiRateLimit,
+  rateLimitJsonResponse,
+} from "@/lib/api-rate-limit";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
@@ -85,6 +90,20 @@ export async function POST(request: Request) {
     supabase = createAdminClient();
     const adminSupabase = supabase;
     const user = await requireAuthenticatedUser(request, adminSupabase);
+
+    const rateLimit = await consumeSubjectApiRateLimit({
+      supabase: adminSupabase,
+      subject: { kind: "owner", ownerId: user.id },
+      bucket: "document_upload",
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse(
+        "Upload is temporarily rate limited because too many requests were received. Retry shortly.",
+        rateLimit,
+      );
+    }
+
     const formData = await request.formData().catch((cause) => {
       throw new PublicApiError("Invalid upload form data.", 400, {
         code: "invalid_form_data",

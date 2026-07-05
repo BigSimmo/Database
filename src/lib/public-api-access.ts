@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
 import type { createAdminClient } from "@/lib/supabase/admin";
+import {
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSubjectApiRateLimit,
+  type ApiRateLimitResult,
+} from "@/lib/api-rate-limit";
 import { getOptionalAuthenticatedUser } from "@/lib/supabase/auth";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -59,4 +64,18 @@ export async function publicAccessContext(request: Request, supabase: AdminClien
     ownerId: undefined,
     rateLimitSubject: { kind: "anonymous", subjectKey: anonymousApiSubjectKey(request) } satisfies RateLimitSubject,
   };
+}
+
+export async function enforceDocumentReadRateLimit(
+  request: Request,
+  supabase: AdminClient,
+): Promise<{ access: Awaited<ReturnType<typeof publicAccessContext>>; rateLimit: ApiRateLimitResult }> {
+  const access = await publicAccessContext(request, supabase);
+  const rateLimit = await consumeSubjectApiRateLimit({
+    supabase,
+    subject: access.rateLimitSubject,
+    bucket: "document_read",
+    allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+  });
+  return { access, rateLimit };
 }

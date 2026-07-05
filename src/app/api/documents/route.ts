@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { demoDocuments } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
-import { publicAccessContext, withOwnerReadScope } from "@/lib/public-api-access";
+import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
 import { parseRequestQuery, queryBoolean, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
@@ -131,7 +132,10 @@ export async function GET(request: Request) {
     } = parseRequestQuery(request, documentListQuerySchema, "Invalid document list query.");
 
     const supabase = createAdminClient();
-    const access = await publicAccessContext(request, supabase);
+    const { access, rateLimit } = await enforceDocumentReadRateLimit(request, supabase);
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
+    }
     let query = withOwnerReadScope(
       supabase.from("documents").select(DOCUMENT_LIST_COLUMNS, { count: "exact" }),
       access.ownerId,
