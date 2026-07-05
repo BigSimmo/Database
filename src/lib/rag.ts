@@ -6453,8 +6453,7 @@ async function answerQuestionWithScopeUncoalesced(
   // unchanged cache version) would bypass chooseAnswerRoute's refusal. Skipping the
   // cache lets the query flow to routing, which fails it closed to "unsupported".
   const adversarialQuery = hasAdversarialManipulationIntent(answerFocusQuery);
-  const indexingVersionAtRetrievalStart =
-    adversarialQuery || args.skipCache ? null : await cacheIndexingVersion(args);
+  const indexingVersionAtRetrievalStart = adversarialQuery || args.skipCache ? null : await cacheIndexingVersion(args);
   const cachedAnswer = adversarialQuery ? null : await getCachedAnswer(args, startedAt);
   if (cachedAnswer) {
     const cachedSources = annotateSearchResults(answerFocusQuery, cachedAnswer.sources ?? []);
