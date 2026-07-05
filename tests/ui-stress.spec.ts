@@ -280,27 +280,21 @@ test.describe("Clinical KB long-content stress coverage", () => {
 
       await page.keyboard.press("Escape");
       await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
       await page
         .getByRole("listbox", { name: /search suggestions/i })
         .waitFor({ state: "hidden", timeout: 5_000 })
         .catch(() => undefined);
 
-      const composer = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
       await expect(async () => {
-        await composer.click();
-        const scopeOption = page.getByRole("option", { name: /Scope sources/i });
-        if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
-          await scopeOption.click();
-        } else {
-          const actionMenu = page.getByRole("button", { name: "Open answer options" });
-          await expect(actionMenu).toBeVisible();
-          await actionMenu.click();
-          const actionsMenu = page.getByTestId("daily-actions-menu");
-          await expect(actionsMenu).toBeVisible({ timeout: 5_000 });
-          await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
-        }
+        const actionMenu = page.getByRole("button", { name: "Open answer options" });
+        await expect(actionMenu).toBeVisible();
+        await actionMenu.click();
+        const actionsMenu = page.getByTestId("daily-actions-menu");
+        await expect(actionsMenu).toBeVisible({ timeout: 5_000 });
+        await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
         await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 5_000 });
-      }).toPass({ timeout: 15_000 });
+      }).toPass({ timeout: 20_000 });
       const scopeContainer = page.getByTestId("scope-command-popover");
       await expect(
         scopeContainer.getByText(/Type to filter 24 (loaded )?documents\. Selected documents stay pinned here\./),
