@@ -51,21 +51,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!document) return NextResponse.json({ error: "Image not found." }, { status: 404 });
     if (
       !isCommittedGenerationMetadata({
-        rowMetadata: imageRef.metadata,
+        rowMetadata: image.metadata,
         committedGeneration: committedIndexGeneration(document.metadata),
       })
     ) {
       return NextResponse.json({ error: "Image not found." }, { status: 404 });
     }
-
-    const { data: image, error: imageError } = await supabase
-      .from("document_images")
-      .select("storage_path,mime_type,caption")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (imageError) throw new Error(imageError.message);
-    if (!image) return NextResponse.json({ error: "Image not found." }, { status: 404 });
 
     const signed = await supabase.storage
       .from(env.SUPABASE_IMAGE_BUCKET)

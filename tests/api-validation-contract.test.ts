@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const documentId = "11111111-1111-4111-8111-111111111111";
+const managedTestPort = 4298;
 
 type QueryError = { message: string };
 type QueryResult = { data: unknown; error: QueryError | null; count?: number | null };
@@ -203,6 +204,16 @@ function mockRuntime(client: ReturnType<typeof createSupabaseMock>) {
 
 function authenticatedRequest(path: string, init?: RequestInit) {
   return new Request(`http://localhost${path}`, {
+    ...init,
+    headers: {
+      authorization: "Bearer valid-token",
+      ...init?.headers,
+    },
+  });
+}
+
+function managedAuthenticatedRequest(path: string, init?: RequestInit) {
+  return new Request(`http://localhost:${managedTestPort}${path}`, {
     ...init,
     headers: {
       authorization: "Bearer valid-token",
@@ -453,7 +464,7 @@ describe("API validation contracts", () => {
     const formData = new FormData();
     formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
     const uploadResponse = await uploadRoute.POST(
-      authenticatedRequest("/api/upload", { method: "POST", body: formData }),
+      managedAuthenticatedRequest("/api/upload", { method: "POST", body: formData }),
     );
     expect(uploadResponse.status).toBe(500);
     expect(await payload(uploadResponse)).toEqual({ error: "Request failed." });
@@ -518,7 +529,7 @@ describe("API validation contracts", () => {
     formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
     formData.set("title", "x".repeat(181));
 
-    const response = await POST(authenticatedRequest("/api/upload", { method: "POST", body: formData }));
+    const response = await POST(managedAuthenticatedRequest("/api/upload", { method: "POST", body: formData }));
     const body = await payload(response);
 
     expect(response.status).toBe(400);
@@ -535,7 +546,7 @@ describe("API validation contracts", () => {
     formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
     formData.set("title", new File(["Guideline"], "title.txt", { type: "text/plain" }));
 
-    const response = await POST(authenticatedRequest("/api/upload", { method: "POST", body: formData }));
+    const response = await POST(managedAuthenticatedRequest("/api/upload", { method: "POST", body: formData }));
     const body = await payload(response);
 
     expect(response.status).toBe(400);
@@ -550,7 +561,7 @@ describe("API validation contracts", () => {
     const { POST } = await import("../src/app/api/upload/route");
 
     const response = await POST(
-      authenticatedRequest("/api/upload", {
+      managedAuthenticatedRequest("/api/upload", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ file: "nope" }),
@@ -570,7 +581,7 @@ describe("API validation contracts", () => {
     const { POST } = await import("../src/app/api/upload/route");
 
     const response = await POST(
-      authenticatedRequest("/api/upload", {
+      managedAuthenticatedRequest("/api/upload", {
         method: "POST",
         headers: { "content-type": "multipart/form-data; boundary=broken" },
         body: '--broken\r\nContent-Disposition: form-data; name="file"; filename="guideline.pdf"\r\n\r\n%PDF-1.7',

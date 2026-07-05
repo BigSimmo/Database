@@ -280,19 +280,10 @@ test.describe("Clinical KB long-content stress coverage", () => {
 
       const actionMenu = page.getByRole("button", { name: "Open answer options" });
       await page.keyboard.press("Escape");
-<<<<<<< Updated upstream
       await actionMenu.click();
       const actionsMenu = page.getByTestId("daily-actions-menu");
       await expect(actionsMenu).toBeVisible();
       await actionsMenu.getByRole("menuitem", { name: "Scope sources" }).click();
-=======
-      if (await scopeTrigger.isVisible().catch(() => false)) {
-        await scopeTrigger.click();
-      } else {
-        const dailyActions = await openDailyActions(page);
-        await dailyActions.getByRole("menuitem", { name: "Scope sources" }).click();
-      }
->>>>>>> Stashed changes
       const scopeContainer = page.getByTestId("scope-command-popover");
       await expect(scopeContainer).toBeVisible();
       await expect(scopeContainer).toBeVisible();

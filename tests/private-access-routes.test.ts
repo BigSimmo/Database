@@ -6,6 +6,7 @@ const documentId = "11111111-1111-4111-8111-111111111111";
 const otherDocumentId = "22222222-2222-4222-8222-222222222222";
 const imageId = "33333333-3333-4333-8333-333333333333";
 const token = "valid-token";
+const managedTestPort = 4298;
 
 type QueryError = { message: string };
 type QueryResult = { data: unknown; error: QueryError | null };
@@ -332,6 +333,16 @@ function authenticatedRequest(path: string, init?: RequestInit) {
   });
 }
 
+function managedAuthenticatedRequest(path: string, init?: RequestInit) {
+  return localPortRequest(managedTestPort, path, {
+    ...init,
+    headers: {
+      authorization: `Bearer ${token}`,
+      ...init?.headers,
+    },
+  });
+}
+
 function authenticatedCookieRequest(path: string, init?: RequestInit) {
   return request(path, {
     ...init,
@@ -416,7 +427,10 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toMatchObject({
+      error: "Use the ensured Clinical KB local URL before calling this API.",
+    });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -438,7 +452,10 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toMatchObject({
+      error: "Use the ensured Clinical KB local URL before calling this API.",
+    });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -740,7 +757,7 @@ describe("private document API access", () => {
     formData.set("title", "Guideline");
 
     const response = await POST(
-      authenticatedRequest("/api/upload", {
+      managedAuthenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
       }),
@@ -779,7 +796,7 @@ describe("private document API access", () => {
     formData.set("file", new File(["%PDF-1.7 revised"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
-      authenticatedRequest("/api/upload", {
+      managedAuthenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
       }),
@@ -812,7 +829,7 @@ describe("private document API access", () => {
     formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
-      authenticatedRequest("/api/upload", {
+      managedAuthenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
       }),
@@ -1897,7 +1914,7 @@ describe("private document API access", () => {
     formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
-      authenticatedRequest("/api/upload", {
+      managedAuthenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
       }),
@@ -1924,7 +1941,7 @@ describe("private document API access", () => {
     formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
-      authenticatedRequest("/api/upload", {
+      managedAuthenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
       }),
@@ -1967,7 +1984,7 @@ describe("private document API access", () => {
     formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
-      authenticatedRequest("/api/upload", {
+      managedAuthenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
       }),
@@ -3003,7 +3020,9 @@ describe("private document API access", () => {
     }));
     const client = createSupabaseMock();
     client.rpc.mockImplementation(async (name: string) =>
-      name === "consume_api_rate_limit" ? fail("limiter table unavailable") : ok([]),
+      name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
+        ? fail("limiter table unavailable")
+        : ok([]),
     );
     mockRuntime(client, { searchChunksWithTelemetry });
     const { POST } = await import("../src/app/api/search/route");
@@ -3034,13 +3053,20 @@ describe("private document API access", () => {
         retrieval_strategy: "text_fast_path",
       },
     }));
-    const client = createSupabaseMock();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return ok([{ id: documentId, metadata: {}, import_batch_id: null }]);
+      }
+      return ok([]);
+    });
     client.auth.admin.listUsers.mockResolvedValueOnce({
       data: { users: [{ id: userId, email: "clinician@example.test" }], nextPage: 0 },
       error: null,
     });
     client.rpc.mockImplementation(async (name: string) =>
-      name === "consume_api_rate_limit" ? fail("limiter table unavailable") : ok([]),
+      name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
+        ? fail("limiter table unavailable")
+        : ok([]),
     );
     mockRuntime(
       client,
@@ -3195,13 +3221,20 @@ describe("private document API access", () => {
       citations: [],
       sources: [],
     }));
-    const client = createSupabaseMock();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return ok([{ id: documentId, metadata: {}, import_batch_id: null }]);
+      }
+      return ok([]);
+    });
     client.auth.admin.listUsers.mockResolvedValueOnce({
       data: { users: [{ id: userId, email: "clinician@example.test" }], nextPage: 0 },
       error: null,
     });
     client.rpc.mockImplementation(async (name: string) =>
-      name === "consume_api_rate_limit" ? fail("limiter table unavailable") : ok([]),
+      name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
+        ? fail("limiter table unavailable")
+        : ok([]),
     );
     mockRuntime(client, { answerQuestionWithScope }, { localNoAuth: true, localOwnerEmail: "clinician@example.test" });
     const { POST } = await import("../src/app/api/answer/stream/route");
