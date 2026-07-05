@@ -127,6 +127,39 @@ set in `.env.local`.
   and TGA Software as a Medical Device screening where applicable.
 - See `docs/clinical-governance.md` for the deployment governance checklist.
 
+## Cursor Supabase MCP
+
+This repo ships workspace Supabase MCP config in `.cursor/mcp.json` and agent
+skills under `.cursor/skills/supabase*`. Use them for database inspection,
+advisors, and docs lookup — not as a replacement for committed migrations.
+
+1. Open **Cursor Settings → Tools & MCP** and enable the `supabase` server.
+2. Complete the one-time OAuth flow in your browser. Choose the Supabase org that
+   owns **Clinical KB Database** (`sjrfecxgysukkwxsowpy`).
+3. Reload the window, then verify with a prompt such as: _"List tables using
+   Supabase MCP."_
+4. Keep **manual tool-call approval** enabled. Review SQL and migration actions
+   before they run on live data.
+5. Run `npm run check:supabase-project` after any Supabase env or MCP config
+   change.
+
+Defaults in `.cursor/mcp.json`:
+
+- `project_ref=sjrfecxgysukkwxsowpy` — scoped to the live Clinical KB project
+  only
+- `read_only=true` — safer default for exploration and reviews
+
+Remove `read_only=true` from the MCP URL only when you intentionally need write
+access (for example `execute_sql` schema experiments). Prefer the Supabase CLI
+and committed migrations for durable schema changes.
+
+Cloud agents do not inherit desktop OAuth automatically. After merging this
+config, authenticate MCP in the environment where the cloud agent runs and start
+a fresh agent session.
+
+Never put `SUPABASE_SERVICE_ROLE_KEY` or other secrets into MCP config. The
+hosted Supabase MCP server uses OAuth, not repo secrets.
+
 ## Documentation
 
 - `docs/process-hardening.md` — verification gates, CI expectations, known limits

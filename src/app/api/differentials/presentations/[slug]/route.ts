@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { allowRateLimitInMemoryFallbackOnUnavailable, consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import {
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSubjectApiRateLimit,
+  rateLimitJsonResponse,
+} from "@/lib/api-rate-limit";
 import {
   deriveGovernanceFromSnapshot,
   normalizeDifferentialSlug,

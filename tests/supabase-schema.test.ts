@@ -38,6 +38,10 @@ const phase7RetrievalPerformanceMigration = readFileSync(
   new URL("../supabase/migrations/20260626020000_phase7_retrieval_rpc_performance.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const retrievalOwnerFilterSentinelMigration = readFileSync(
+  new URL("../supabase/migrations/20260705210000_retrieval_owner_filter_sentinel.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const atomicReindexMigration = readFileSync(
   new URL("../supabase/migrations/20260628000000_atomic_reindex_generation_commit.sql", import.meta.url),
   "utf8",
@@ -520,7 +524,13 @@ describe("Supabase schema Data API grants", () => {
 
   it("filters hybrid retrieval by owner inside Postgres", () => {
     expect(schema).toContain("owner_filter uuid default null");
-    expect(schema).toContain("and (owner_filter is null or d.owner_id = owner_filter)");
+    expect(schema).toContain(
+      "create or replace function public.retrieval_owner_matches(owner_filter uuid, row_owner_id uuid)",
+    );
+    expect(schema).toContain(
+      "when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null",
+    );
+    expect(schema).toContain("and public.retrieval_owner_matches(owner_filter, d.owner_id)");
     expect(schema).toContain("create or replace function public.match_document_chunks_text");
     expect(schema).toContain("create or replace function public.match_document_chunks_hybrid");
     expect(schema).toContain("rrf_score double precision");
@@ -787,6 +797,12 @@ describe("Supabase Preview replay guards", () => {
 
   it("drops match_document_chunks_text before phase 7 changes its OUT signature", () => {
     expect(phase7RetrievalPerformanceMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
+  });
+
+  it("drops match_document_chunks_text before retrieval owner sentinel rewrites it", () => {
+    expect(retrievalOwnerFilterSentinelMigration).toContain(
       "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
     );
   });

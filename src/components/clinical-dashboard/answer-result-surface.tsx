@@ -148,6 +148,11 @@ export function StagedAnswerResultSurface({
     setEvidenceInitialTab(null);
     restoreFocusToTrigger(evidenceTriggerRef);
   }
+  function handleQuoteFollowUp(quote: QuoteCard) {
+    setEvidenceOpen(false);
+    setEvidenceInitialTab(null);
+    onFollowUpQuote?.(quote);
+  }
   function openTableEvidence() {
     setClinicalNotesOpen(false);
     setSafetyFindingsOpen(false);
@@ -230,11 +235,13 @@ export function StagedAnswerResultSurface({
             ) : null}
 
             {followUpSuggestions?.length && onPickFollowUpSuggestion ? (
-              <AnswerFollowUpSuggestions
-                suggestions={followUpSuggestions}
-                onPick={onPickFollowUpSuggestion}
-                disabled={followUpSuggestionsDisabled}
-              />
+              <div className="hidden sm:block">
+                <AnswerFollowUpSuggestions
+                  suggestions={followUpSuggestions}
+                  onPick={onPickFollowUpSuggestion}
+                  disabled={followUpSuggestionsDisabled}
+                />
+              </div>
             ) : null}
           </div>
 
@@ -329,7 +336,7 @@ export function StagedAnswerResultSurface({
               copiedQuotes={copiedQuotes}
               onCopyQuotes={copyQuotes}
               onSubmitFeedback={onSubmitFeedback}
-              onFollowUpQuote={onFollowUpQuote}
+              onFollowUpQuote={handleQuoteFollowUp}
               onScopeDocument={onScopeDocument}
             />
           </Sheet>

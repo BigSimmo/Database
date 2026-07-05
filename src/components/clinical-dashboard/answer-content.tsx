@@ -36,6 +36,7 @@ import {
   sanitizeAnswerDisplayText,
 } from "@/components/clinical-dashboard/display-text";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
+import { SourcePreviewPopover } from "@/components/clinical-dashboard/source-preview-popover";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";

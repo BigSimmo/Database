@@ -75,13 +75,7 @@ const LABEL_LIST_COLUMNS = [
   "updated_at",
 ].join(",");
 
-const PUBLIC_SUMMARY_LIST_COLUMNS = [
-  "id",
-  "document_id",
-  "summary",
-  "clinical_specifics",
-  "generated_at",
-].join(",");
+const PUBLIC_SUMMARY_LIST_COLUMNS = ["id", "document_id", "summary", "clinical_specifics", "generated_at"].join(",");
 
 const SUMMARY_LIST_COLUMNS = [
   "id",
@@ -176,10 +170,7 @@ export async function GET(request: Request) {
 
     const effectiveIncludeMeta = access.authenticated ? includeMeta : false;
     const listColumns = access.authenticated ? DOCUMENT_LIST_COLUMNS : PUBLIC_DOCUMENT_LIST_COLUMNS;
-    let query = withOwnerReadScope(
-      supabase.from("documents").select(listColumns, { count: "exact" }),
-      access.ownerId,
-    )
+    let query = withOwnerReadScope(supabase.from("documents").select(listColumns, { count: "exact" }), access.ownerId)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 

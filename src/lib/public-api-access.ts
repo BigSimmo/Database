@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import type { createAdminClient } from "@/lib/supabase/admin";
-import { consumeSubjectApiRateLimit, allowRateLimitInMemoryFallbackOnUnavailable, type ApiRateLimitResult } from "@/lib/api-rate-limit";
+import {
+  consumeSubjectApiRateLimit,
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  type ApiRateLimitResult,
+} from "@/lib/api-rate-limit";
 import { getOptionalAuthenticatedUser } from "@/lib/supabase/auth";
 
 type AdminClient = ReturnType<typeof createAdminClient>;

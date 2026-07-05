@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { classifyDocumentOrganization } from "@/lib/document-organization";
 import { env } from "@/lib/env";
-import { requireOwnerScope } from "@/lib/owner-scope";
+import { retrievalOwnerFilter } from "@/lib/owner-scope";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import {
   buildCoveragePromptNote,
@@ -713,7 +713,7 @@ export async function fetchRelatedDocumentMetadata(args: {
 }) {
   const { data: rpcData, error: rpcError } = await args.supabase.rpc("get_related_document_metadata", {
     document_ids: args.documentIds,
-    owner_filter: args.ownerId ? requireOwnerScope(args.ownerId) : null,
+    owner_filter: retrievalOwnerFilter({ ownerId: args.ownerId, documentIds: args.documentIds }),
   });
 
   if (!rpcError) {
