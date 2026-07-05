@@ -515,10 +515,34 @@ async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean; mo
   }
 }
 
-// The document-scope control lives in the footer composer. It opens a desktop
-// popover or mobile sheet depending on the current viewport.
-function scopeTrigger(page: Page) {
-  return page.locator('[data-testid="scope-trigger"]:visible');
+// Scope opens from the command surface after answer submit and from the "+" menu on mode homes.
+async function openScopeControl(page: Page) {
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("listbox", { name: /search suggestions/i })
+    .waitFor({ state: "hidden", timeout: 5_000 })
+    .catch(() => undefined);
+
+  const composer = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
+
+  await expect(async () => {
+    await composer.click();
+    const scopeOption = page.getByRole("option", { name: /Scope sources/i });
+    if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await scopeOption.click();
+    } else {
+      const actionMenu = page.getByRole("button", { name: "Open answer options" });
+      await expect(actionMenu).toBeVisible();
+      await actionMenu.click();
+      const actionsMenu = page.getByTestId("daily-actions-menu");
+      await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
+      await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
+    }
+    await expect(page.getByTestId("scope-command-popover")).toBeVisible({
+      timeout: uiAssertionTimeoutMs,
+    });
+  }).toPass({ timeout: 15_000 });
 }
 
 async function expectMinTouchTarget(locator: Locator, minSize = 44) {
@@ -1026,9 +1050,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // First open — use robust retry helper to handle async state update timing.
     await openDailyActions(page);
-    await page.mouse.click(640, 430);
-    await expect(dailyActionsMenu).toHaveCount(0);
-    await expect(dailyActionsTrigger).toHaveAttribute("aria-expanded", "false");
+    await expect(async () => {
+      if (await dailyActionsMenu.isVisible().catch(() => false)) {
+        // Top-left avoids integrated menu panels that can intercept center clicks in CI.
+        await page.mouse.click(8, 8);
+      }
+      await expect(dailyActionsMenu).toHaveCount(0);
+      await expect(dailyActionsTrigger).toHaveAttribute("aria-expanded", "false");
+    }).toPass({ timeout: 10_000 });
 
     // Second open - verify opening the mode menu closes the daily actions surface.
     await openDailyActions(page);
@@ -1259,8 +1288,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(evidenceSheet).toHaveCount(0);
     await expect(evidenceDrawer).toBeFocused();
 
-    await scopeTrigger(page).click();
-    const scopePopover = page.locator('[data-testid="scope-command-popover"]:visible');
+    await openScopeControl(page);
+    const scopePopover = page.getByTestId("scope-command-popover");
     await expect(scopePopover).toBeVisible();
     const scopeFilter = scopePopover.locator('[data-testid="document-scope-filter"]');
     await expect(scopeFilter).toBeVisible();
@@ -1282,7 +1311,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(popoverMetrics.height).toBeLessThanOrEqual(Math.ceil(popoverMetrics.viewportHeight * 0.72));
     await page.keyboard.press("Escape");
     await expect(scopePopover).toBeHidden();
-    await expect(scopeTrigger(page)).toBeFocused();
+    await expect(page.getByTestId("global-search-input")).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1598,8 +1627,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites?q=lithium%20set");
 
-    const globalSearchInput = visibleQuestionInput(page);
+    const globalSearchInput = page.getByRole("combobox", { name: /Search saved favourites/ });
     await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
+    await expect(globalSearchInput).toBeVisible({ timeout: 30_000 });
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
     await expect(page.getByTestId("favourites-hub")).toBeVisible();

@@ -12,26 +12,8 @@ import { cn } from "@/components/ui-primitives";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { type AppModeId, appModeSearchConfig } from "@/lib/app-modes";
 
-export function ToolsHub({
-  query,
-  onQueryChange,
-  desktopComposerSlotId,
-  showDetailPanel,
-}: {
-  query: string;
-  onQueryChange: (nextQuery: string) => void;
-  desktopComposerSlotId?: string;
-  showDetailPanel?: boolean;
-}) {
-  return (
-    <ApplicationsLauncherWorkspace
-      variant="dashboard-tools"
-      query={query}
-      onQueryChange={onQueryChange}
-      desktopComposerSlotId={desktopComposerSlotId}
-      showDetailPanel={showDetailPanel}
-    />
-  );
+export function ToolsHub({ query, desktopComposerSlotId }: { query: string; desktopComposerSlotId?: string }) {
+  return <ApplicationsLauncherWorkspace query={query} desktopComposerSlotId={desktopComposerSlotId} />;
 }
 
 type MobileSectionFabItem = {
