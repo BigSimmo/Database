@@ -147,7 +147,23 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
       calls.push(call);
       return new QueryBuilder(call, resolve);
     }),
-    rpc: vi.fn(async () => ok([])),
+    rpc: vi.fn(async (name: string) => {
+      if (name === "consume_api_subject_rate_limit" || name === "consume_api_rate_limit") {
+        return {
+          data: [
+            {
+              limited: false,
+              limit_value: 100,
+              remaining: 99,
+              retry_after_seconds: 60,
+              reset_at: new Date(Date.now() + 60_000).toISOString(),
+            },
+          ],
+          error: null,
+        };
+      }
+      return ok([]);
+    }),
     storage: { from: storageFrom },
     storageMocks: { upload, remove, createSignedUrl, storageFrom },
   };

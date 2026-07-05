@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { allowRateLimitInMemoryFallbackOnUnavailable, consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import {
   deriveGovernanceFromSnapshot,
   rowGovernance,
@@ -14,7 +14,7 @@ import { ensureDifferentialsSeeded, loadDifferentialSnapshot } from "@/lib/diffe
 import { differentialRecords, searchDifferentialRecords, searchPresentationWorkflows } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { hasPublicApiAuthSignal, publicAccessContext } from "@/lib/public-api-access";
+import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
       });
     }
 
-    if (!hasPublicApiAuthSignal(request)) {
+    if (!shouldResolvePublicCatalogAccess(request)) {
       return differentialResponse({
         ...publicDifferentialPayload(kind, q, limit),
         publicAccess: true,
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
       supabase,
       subject: access.rateLimitSubject,
       bucket: "registry",
-      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Differential requests are rate limited. Try again shortly.", rateLimit);

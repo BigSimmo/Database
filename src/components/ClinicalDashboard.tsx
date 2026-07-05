@@ -53,7 +53,8 @@ import { type DocumentDeleteResult } from "@/components/DocumentManagementAction
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
-import { isLocalNoAuthMode } from "@/lib/env";
+import { isDeployedClinicalKb } from "@/lib/deployed-app";
+import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/env";
 import {
   appBackdrop,
   answerSurface,
@@ -1751,7 +1752,11 @@ export function ClinicalDashboard({
     process.env.NODE_ENV !== "production" && localProjectReady && hasReadyRequiredPublicSearchConfig(setupChecks);
   const canUsePrivateApis =
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
-  const canRunSearch = explicitDemoMode || canUsePublicSearchApis || canUseDegradedLocalSearchApis;
+  const canUploadDocuments =
+    canUsePrivateApis || (publicUploadsEnabled() && canUsePublicSearchApis);
+  const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
+  const canRunSearch =
+    explicitDemoMode || canUsePublicSearchApis || canUseDegradedLocalSearchApis || canAttemptDeployedPublicSearch;
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
@@ -1932,20 +1937,25 @@ export function ClinicalDashboard({
           const setupResponse = await fetch("/api/setup-status", { cache: "no-store" }).catch(() => null);
 
           if (!setupResponse) {
-            setApiUnavailable(true);
-            setSetupWarning("The local API is unavailable.");
-            return;
-          }
-
-          if (setupResponse.ok) {
+            if (isDeployedClinicalKb()) {
+              setSetupWarning("Setup status could not be loaded. You can still try search.");
+            } else {
+              setApiUnavailable(true);
+              setSetupWarning("The local API is unavailable.");
+              return;
+            }
+          } else if (setupResponse.ok) {
             const payload = (await setupResponse.json()) as SetupStatusPayload;
             setSetupChecks(payload.checks ?? fallbackSetupChecks);
             nextDemoMode = Boolean(payload.demoMode);
             routeIndexingActive = Boolean(payload.indexingActive);
             routePollDelayMs = shorterPollDelay(routePollDelayMs, payload.pollAfterMs);
             if (nextDemoMode) setDemoMode(true);
+          } else if (isDeployedClinicalKb()) {
+            setSetupWarning("Setup status could not be loaded. You can still try search.");
           } else {
             setApiUnavailable(true);
+            return;
           }
         }
 
@@ -2499,11 +2509,13 @@ export function ClinicalDashboard({
 
   function searchNetworkFailure(label: string) {
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
-    const localOrigin = typeof window !== "undefined" ? window.location.origin : "the local Clinical KB server";
+    const origin = typeof window !== "undefined" ? window.location.origin : "Clinical KB";
     return makeSearchError(
       offline
         ? `${label} could not run because the browser is offline.`
-        : `${label} could not reach Clinical KB at ${localOrigin}. The local server may still be starting or restarting; retry shortly or run npm run ensure.`,
+        : isDeployedClinicalKb()
+          ? `${label} could not reach Clinical KB at ${origin}. Check your connection and try again shortly.`
+          : `${label} could not reach Clinical KB at ${origin}. The local server may still be starting or restarting; retry shortly or run npm run ensure.`,
       undefined,
       true,
     );
@@ -3582,8 +3594,8 @@ export function ClinicalDashboard({
       </p>
     </UtilityDrawer>
   );
-  const showAuthPanel = !clientDemoMode && !canUsePrivateApis;
-  const showDegradedNotice = !isOnline || apiUnavailable;
+  const showAuthPanel = false;
+  const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const hasMobileBottomSearch = searchMode !== "answer";
   const showDesktopHomeComposer =
     !error &&
@@ -3614,7 +3626,6 @@ export function ClinicalDashboard({
   const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
-  const isDeployedApp = process.env.NODE_ENV === "production";
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -3622,7 +3633,7 @@ export function ClinicalDashboard({
       summary={
         !isOnline
           ? "Your browser is offline. Existing content may remain visible, but private search and uploads need network access."
-          : isDeployedApp
+          : isDeployedClinicalKb()
             ? "The app could not reach its API. Try again in a moment."
             : "The local API did not respond. Check the app server and setup status before retrying."
       }
@@ -3631,7 +3642,7 @@ export function ClinicalDashboard({
       <p className="text-[15px] leading-6 text-[color:var(--warning)]">
         {!isOnline
           ? "Reconnect before uploading documents, refreshing source URLs, or generating answers."
-          : isDeployedApp
+          : isDeployedClinicalKb()
             ? "The app will preserve the current view. If this keeps happening, check your connection and try again shortly."
             : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
       </p>
@@ -3661,7 +3672,7 @@ export function ClinicalDashboard({
     {
       id: "upload",
       label: "Upload",
-      summary: uploadReadOnlyMode || !canUsePrivateApis ? "Locked" : "Ready",
+      summary: uploadReadOnlyMode || !canUploadDocuments ? "Locked" : "Ready",
       panelId: "dashboard-upload-section",
       icon: UploadCloud,
     },
@@ -4241,7 +4252,7 @@ export function ClinicalDashboard({
                           <UploadPanel
                             onUploaded={handleUploadQueued}
                             demoMode={uploadReadOnlyMode}
-                            canUpload={canUsePrivateApis}
+                            canUpload={canUploadDocuments}
                             authorizationHeader={authorizationHeader}
                           />
                         </div>

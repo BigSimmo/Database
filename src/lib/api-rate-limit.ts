@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
+import { isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
 import type { RateLimitSubject } from "@/lib/public-api-access";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
+/** Prefer durable RPC rate limits; fall back to per-instance memory when the DB function is unavailable. */
+export function allowRateLimitInMemoryFallbackOnUnavailable() {
+  return isLocalNoAuthMode() || process.env.NODE_ENV === "production";
+}
+
 export type ApiRateLimitBucket =
-  "answer" | "search" | "document_summarize" | "document_reindex" | "bulk_reindex" | "registry";
+  | "answer"
+  | "search"
+  | "document_read"
+  | "document_summarize"
+  | "document_reindex"
+  | "bulk_reindex"
+  | "registry";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -17,6 +29,7 @@ export type ApiRateLimitResult = {
 const apiRateLimitDefaults = {
   answer: { limit: 30, windowSeconds: 60 },
   search: { limit: 240, windowSeconds: 60 },
+  document_read: { limit: 180, windowSeconds: 60 },
   document_summarize: { limit: 12, windowSeconds: 60 },
   document_reindex: { limit: 6, windowSeconds: 60 },
   bulk_reindex: { limit: 2, windowSeconds: 60 },
@@ -26,6 +39,7 @@ const apiRateLimitDefaults = {
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
   answer: { limit: 6, windowSeconds: 60 },
   search: { limit: 60, windowSeconds: 60 },
+  document_read: { limit: 45, windowSeconds: 60 },
 };
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
