@@ -1,5 +1,6 @@
 -- Codify live migration tighten_search_document_chunks_owner_scope (20260705133000).
 -- Fail closed: null p_owner_id may only search public documents (owner_id is null).
+-- Authenticated callers can search both owned and public documents without matching other owners' private rows.
 
 create or replace function public.search_document_chunks(
   p_document_id uuid,
@@ -68,6 +69,5 @@ as $$
   limit least(greatest(match_count, 1), 80);
 $$;
 
-revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
 revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
 grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;

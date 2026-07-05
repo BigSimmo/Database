@@ -528,7 +528,13 @@ describe("Supabase schema Data API grants", () => {
 
   it("filters hybrid retrieval by owner inside Postgres", () => {
     expect(schema).toContain("owner_filter uuid default null");
-    expect(schema).toContain("and (owner_filter is null or d.owner_id = owner_filter)");
+    expect(schema).toContain(
+      "create or replace function public.retrieval_owner_matches(owner_filter uuid, row_owner_id uuid)",
+    );
+    expect(schema).toContain(
+      "when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null",
+    );
+    expect(schema).toContain("and public.retrieval_owner_matches(owner_filter, d.owner_id)");
     expect(schema).toContain("create or replace function public.match_document_chunks_text");
     expect(schema).toContain("create or replace function public.match_document_chunks_hybrid");
     expect(schema).toContain("rrf_score double precision");
@@ -778,7 +784,6 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("index_aliases constant jsonb := jsonb_build_object(");
     expect(schema).toContain("jsonb_array_elements_text(index_aliases -> index_name)");
   });
-
   it("mirrors tightened search_document_chunks owner scope in schema and migration", () => {
     expect(searchDocumentChunksOwnerScopeMigration).toContain("(p_owner_id is null and d.owner_id is null)");
     expect(schema).toContain("create or replace function public.search_document_chunks(");
