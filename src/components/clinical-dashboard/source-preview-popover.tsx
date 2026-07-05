@@ -110,11 +110,12 @@ export function SourcePreviewPopover({
       event.preventDefault();
       event.stopPropagation();
       onClose();
+      window.requestAnimationFrame(() => anchorRef.current?.focus({ preventScroll: true }));
     }
 
     document.addEventListener("keydown", handleEscape, true);
     return () => document.removeEventListener("keydown", handleEscape, true);
-  }, [open, onClose]);
+  }, [anchorRef, open, onClose]);
 
   useEffect(() => {
     if (!open) return;

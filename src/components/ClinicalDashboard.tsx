@@ -3802,6 +3802,9 @@ export function ClinicalDashboard({
             void ask();
           }}
           onCrossModeSearch={crossModeSearch}
+          composerFollowUpSuggestions={searchMode === "answer" ? answerFollowUpSuggestions : undefined}
+          onPickComposerFollowUpSuggestion={handlePickFollowUpSuggestion}
+          composerFollowUpSuggestionsDisabled={loading}
           composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
           mobileBottomSearchVariant={compactMobileBottomSearch ? "compact" : "default"}
