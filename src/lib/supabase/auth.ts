@@ -143,20 +143,7 @@ export async function getOptionalAuthenticatedUser(
   request: Request,
   supabase: AdminClient,
 ): Promise<AuthenticatedUser | null> {
-<<<<<<< HEAD
   return resolveOptionalAuthenticatedUser(request, supabase);
-=======
-  const token = extractSessionAccessToken(request);
-  if (token) {
-    const { data, error } = await supabase.auth.getUser(token);
-    if (!error && data.user?.id) {
-      return { id: data.user.id };
-    }
-    // Invalid or expired Bearer token: fall through to cookie session, then anonymous.
-  }
-
-  return getUserFromRequestCookies(request);
->>>>>>> origin/cursor/fix-all-db-issues-5f13
 }
 
 // Retained for callers that only need a single token string.

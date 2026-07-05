@@ -7,11 +7,7 @@ import { jsonError } from "@/lib/http";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
-<<<<<<< HEAD
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
-=======
-import { publicAccessContext, withOwnerReadScope } from "@/lib/public-api-access";
->>>>>>> origin/cursor/fix-all-db-issues-5f13
 import { parseRouteParams } from "@/lib/validation/params";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
@@ -187,14 +183,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const { id } = parseRouteParams({ id: rawId }, documentSearchParamsSchema, "Invalid document id.");
     const supabase = createAdminClient();
-<<<<<<< HEAD
     const { access, rateLimit } = await enforceDocumentReadRateLimit(request, supabase);
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
     }
-=======
-    const access = await publicAccessContext(request, supabase);
->>>>>>> origin/cursor/fix-all-db-issues-5f13
     const { data: document, error: documentError } = await withOwnerReadScope(
       supabase.from("documents").select("id,metadata").eq("id", id),
       access.ownerId,

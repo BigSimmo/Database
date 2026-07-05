@@ -9,11 +9,7 @@ import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
-<<<<<<< HEAD
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
-=======
-import { publicAccessContext, withOwnerReadScope } from "@/lib/public-api-access";
->>>>>>> origin/cursor/fix-all-db-issues-5f13
 import { writeAuditLog } from "@/lib/audit";
 import { parseJsonBody } from "@/lib/validation/body";
 import { parseRouteParams } from "@/lib/validation/params";
@@ -286,14 +282,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const { id } = parseRouteParams({ id: rawId }, documentRouteParamsSchema, "Invalid document id.");
     const supabase = createAdminClient();
-<<<<<<< HEAD
     const { access, rateLimit } = await enforceDocumentReadRateLimit(request, supabase);
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
     }
-=======
-    const access = await publicAccessContext(request, supabase);
->>>>>>> origin/cursor/fix-all-db-issues-5f13
     const { data: document, error } = await withOwnerReadScope(
       supabase.from("documents").select("*").eq("id", id),
       access.ownerId,

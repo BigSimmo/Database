@@ -6,11 +6,7 @@ import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
-<<<<<<< HEAD
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
-=======
-import { publicAccessContext, withOwnerReadScope } from "@/lib/public-api-access";
->>>>>>> origin/cursor/fix-all-db-issues-5f13
 import { parseRequestQuery, queryBoolean, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
@@ -167,7 +163,6 @@ export async function GET(request: Request) {
     } = parseRequestQuery(request, documentListQuerySchema, "Invalid document list query.");
 
     const supabase = createAdminClient();
-<<<<<<< HEAD
     const { access, rateLimit } = await enforceDocumentReadRateLimit(request, supabase);
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
@@ -176,13 +171,6 @@ export async function GET(request: Request) {
     const effectiveIncludeMeta = access.authenticated ? includeMeta : false;
     const listColumns = access.authenticated ? DOCUMENT_LIST_COLUMNS : PUBLIC_DOCUMENT_LIST_COLUMNS;
     let query = withOwnerReadScope(supabase.from("documents").select(listColumns, { count: "exact" }), access.ownerId)
-=======
-    const access = await publicAccessContext(request, supabase);
-    let query = withOwnerReadScope(
-      supabase.from("documents").select(DOCUMENT_LIST_COLUMNS, { count: "exact" }),
-      access.ownerId,
-    )
->>>>>>> origin/cursor/fix-all-db-issues-5f13
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 

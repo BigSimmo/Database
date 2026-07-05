@@ -8,11 +8,7 @@ import { jsonError, PublicApiError } from "@/lib/http";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
-<<<<<<< HEAD
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
-=======
-import { publicAccessContext, withOwnerReadScope } from "@/lib/public-api-access";
->>>>>>> origin/cursor/fix-all-db-issues-5f13
 
 export const runtime = "nodejs";
 
@@ -37,14 +33,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!routeIdSchema.safeParse(id).success) throw new PublicApiError("Invalid image id.");
 
     const supabase = createAdminClient();
-<<<<<<< HEAD
     const { access, rateLimit } = await enforceDocumentReadRateLimit(_request, supabase);
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
     }
-=======
-    const access = await publicAccessContext(_request, supabase);
->>>>>>> origin/cursor/fix-all-db-issues-5f13
     const { data: image, error } = await supabase
       .from("document_images")
       .select("document_id,storage_path,mime_type,caption,metadata")

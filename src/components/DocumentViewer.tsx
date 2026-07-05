@@ -2256,7 +2256,6 @@ export function DocumentViewer({
     }
   }
 
-<<<<<<< HEAD
   const authViewerError =
     !canUsePrivateApis &&
     !clientDemoMode &&
@@ -2269,10 +2268,6 @@ export function DocumentViewer({
       : null;
   const effectiveLoadingDocument =
     !canUsePrivateApis && authStatus === "loading" && !authLoadingTimedOut && loadingDocument ? true : loadingDocument;
-=======
-  const authViewerError = null;
-  const effectiveLoadingDocument = loadingDocument;
->>>>>>> origin/cursor/fix-all-db-issues-5f13
   const effectiveViewerError = authViewerError ?? viewerError;
   const viewerState = effectiveLoadingDocument
     ? "loading"
