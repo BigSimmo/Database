@@ -515,20 +515,34 @@ async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean; mo
   }
 }
 
-// Document scope opens from the footer composer "+" menu.
+// Scope opens from the command surface after answer submit and from the "+" menu on mode homes.
 async function openScopeControl(page: Page) {
-  const actionMenu = page.getByRole("button", { name: "Open answer options" });
-  await expect(actionMenu).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("listbox", { name: /search suggestions/i })
+    .waitFor({ state: "hidden", timeout: 5_000 })
+    .catch(() => undefined);
+
+  const composer = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
 
   await expect(async () => {
-    await actionMenu.click();
-    const actionsMenu = page.getByTestId("daily-actions-menu");
-    await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
+    await composer.click();
+    const scopeOption = page.getByRole("option", { name: /Scope sources/i });
+    if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await scopeOption.click();
+    } else {
+      const actionMenu = page.getByRole("button", { name: "Open answer options" });
+      await expect(actionMenu).toBeVisible();
+      await actionMenu.click();
+      const actionsMenu = page.getByTestId("daily-actions-menu");
+      await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
+      await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
+    }
     await expect(page.getByTestId("scope-command-popover")).toBeVisible({
       timeout: uiAssertionTimeoutMs,
     });
-  }).toPass({ timeout: 10_000 });
+  }).toPass({ timeout: 15_000 });
 }
 
 async function expectMinTouchTarget(locator: Locator, minSize = 44) {
@@ -1292,7 +1306,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(popoverMetrics.height).toBeLessThanOrEqual(Math.ceil(popoverMetrics.viewportHeight * 0.72));
     await page.keyboard.press("Escape");
     await expect(scopePopover).toBeHidden();
-    await expect(page.getByRole("button", { name: "Open answer options" })).toBeFocused();
+    await expect(page.getByTestId("global-search-input")).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1608,7 +1622,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites?q=lithium%20set");
 
-    const globalSearchInput = page.getByRole("textbox", { name: "Search saved favourites" });
+    const globalSearchInput = page.getByRole("combobox", { name: /Search saved favourites/ });
     await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
     await expect(globalSearchInput).toBeVisible({ timeout: 30_000 });
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
