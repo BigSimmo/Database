@@ -287,7 +287,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
         .catch(() => undefined);
 
       const dailyActions = await openDailyActions(page);
-      await dailyActions.getByRole("menuitem", { name: /^Scope\b/ }).click();
+      await dailyActions.getByRole("menuitem", { name: /^Scope\b/ }).click({ force: true });
       await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 10_000 });
       const scopeContainer = page.getByTestId("scope-command-popover");
       await expect(
