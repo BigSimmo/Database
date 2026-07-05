@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
@@ -6,6 +6,7 @@ import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react"
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
+import { useCollapseWhenContentBelow } from "@/components/clinical-dashboard/use-collapse-when-content-below";
 import { NaturalLanguageAnswer, UserQuestionBubble } from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerSupportSummaryCard,
@@ -61,6 +62,7 @@ export function StagedAnswerResultSurface({
   followUpSuggestions,
   onPickFollowUpSuggestion,
   followUpSuggestionsDisabled = false,
+  scrollContainerRef,
 }: {
   answer: RagAnswer;
   query: string;
@@ -86,6 +88,7 @@ export function StagedAnswerResultSurface({
   followUpSuggestions?: string[];
   onPickFollowUpSuggestion?: (suggestion: string) => void;
   followUpSuggestionsDisabled?: boolean;
+  scrollContainerRef?: RefObject<HTMLElement | null>;
 }) {
   const noteCount = clinicalNotesCount(answer);
   const showClinicalNotes =
@@ -116,6 +119,8 @@ export function StagedAnswerResultSurface({
   const clinicalNotesTriggerRef = useRef<HTMLButtonElement>(null);
   const evidenceTriggerRef = useRef<HTMLButtonElement>(null);
   const safetyTriggerRef = useRef<HTMLButtonElement>(null);
+  const supportActionRowRef = useRef<HTMLDivElement>(null);
+  const belowContentSentinelRef = useRef<HTMLDivElement>(null);
   const copyQuotesTimerRef = useRef<number | null>(null);
   useEffect(() => {
     return () => {
@@ -180,8 +185,15 @@ export function StagedAnswerResultSurface({
     weakEvidence,
   });
   const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
-  const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
+  const evidenceTrustLabel = inlineEvidenceSummary.split(" ┬╖ ")[0] || "Review support";
   const showInlineSupportCard = Boolean(priority || showClinicalNotes || showEvidenceDrawer);
+  const showSupportActionRow = showClinicalNotes || showEvidenceDrawer;
+  const collapseActionRow = useCollapseWhenContentBelow({
+    containerRef: scrollContainerRef,
+    anchorRef: supportActionRowRef,
+    belowSentinelRef: belowContentSentinelRef,
+    disabled: !showSupportActionRow || !scrollContainerRef,
+  });
   const showLayoutAside = Boolean(centralTable);
 
   return (
@@ -222,6 +234,8 @@ export function StagedAnswerResultSurface({
                 clinicalTriggerRef={clinicalNotesTriggerRef}
                 evidenceTriggerRef={evidenceTriggerRef}
                 safetyTriggerRef={safetyTriggerRef}
+                actionRowRef={supportActionRowRef}
+                collapseActionRow={collapseActionRow}
                 safetyFindingsCount={safetyFindings.length}
                 onOpenClinicalNotes={openClinicalNotes}
                 onOpenEvidence={() => openEvidence(null)}
@@ -236,6 +250,12 @@ export function StagedAnswerResultSurface({
                 disabled={followUpSuggestionsDisabled}
               />
             ) : null}
+            <div
+              ref={belowContentSentinelRef}
+              data-testid="answer-support-below-sentinel"
+              className="h-0 w-0"
+              aria-hidden="true"
+            />
           </div>
 
           {centralTable ? (
@@ -309,8 +329,9 @@ export function StagedAnswerResultSurface({
                 <Layers className="h-3.5 w-3.5" />
               </span>
             }
-            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(88dvh,44rem)] sm:max-w-2xl"
+            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(88dvh,44rem)] sm:max-w-3xl"
             bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            desktopBackdropClassName="sm:bg-black/50"
             returnFocusRef={evidenceTriggerRef}
             portal
           >
