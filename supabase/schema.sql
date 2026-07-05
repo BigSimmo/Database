@@ -1903,6 +1903,20 @@ as $$
       nullif(coalesce(document_metadata, '{}'::jsonb)->>'index_generation_id', '');
 $$;
 
+create or replace function public.retrieval_owner_matches(owner_filter uuid, row_owner_id uuid)
+returns boolean
+language sql
+immutable
+parallel safe
+set search_path = public, pg_temp
+as $$
+  select case
+    when owner_filter is null then true
+    when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null
+    else row_owner_id = owner_filter
+  end;
+$$;
+
 create or replace function public.match_document_chunks(
   query_embedding extensions.vector(1536),
   match_count integer default 8,
@@ -1950,7 +1964,7 @@ as $$
   from public.document_chunks c
   join public.documents d on d.id = c.document_id
   where (document_filter is null or c.document_id = document_filter)
-    and (owner_filter is null or d.owner_id = owner_filter)
+    and public.retrieval_owner_matches(owner_filter, d.owner_id)
     and d.status = 'indexed'
     and public.is_committed_document_generation(c.index_generation_id, d.metadata)
     and 1 - (c.embedding <=> query_embedding) >= min_similarity
@@ -2018,7 +2032,7 @@ as $$
     join public.documents d on d.id = c.document_id
     cross join query
     where (document_filters is null or c.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and 1 - (c.embedding <=> query_embedding) >= min_similarity
@@ -2059,7 +2073,7 @@ as $$
     join public.documents d on d.id = c.document_id
     cross join query
     where (document_filters is null or c.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and c.search_tsv @@ query.tsq
@@ -2211,7 +2225,7 @@ as $$
     join public.documents d on d.id = m.document_id
     cross join query
     where (document_filters is null or m.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(m.metadata, d.metadata)
       and (1 - (m.embedding <=> query_embedding)) >= min_similarity
@@ -2231,7 +2245,7 @@ as $$
     join public.documents d on d.id = m.document_id
     cross join query
     where (document_filters is null or m.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(m.metadata, d.metadata)
       and m.search_tsv @@ query.tsq
@@ -2629,7 +2643,7 @@ as $$
       and coalesce(l.metadata->>'hidden', 'false') <> 'true'
     left join public.document_summaries s on s.document_id = d.id
     cross join query
-    where (owner_filter is null or d.owner_id = owner_filter)
+    where public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and (
         d.title_search_tsv @@ query.tsq
@@ -2703,7 +2717,7 @@ as $$
     join public.documents d on d.id = c.document_id
     cross join query
     where (document_filters is null or c.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
@@ -2836,7 +2850,7 @@ as $$
   cross join query
   where document_filters is not null
     and c.document_id = any(document_filters)
-    and (owner_filter is null or d.owner_id = owner_filter)
+    and public.retrieval_owner_matches(owner_filter, d.owner_id)
     and d.status = 'indexed'
     and public.is_committed_document_generation(c.index_generation_id, d.metadata)
     and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
@@ -2948,7 +2962,7 @@ as $$
         )
         from public.document_labels l
         where l.document_id = d.id
-          and (owner_filter is null or l.owner_id = owner_filter)
+          and public.retrieval_owner_matches(owner_filter, l.owner_id)
           and coalesce(l.metadata->>'review_status', 'new') <> 'hidden'
           and coalesce(l.metadata->>'hidden', 'false') <> 'true'
       ),
@@ -2958,13 +2972,13 @@ as $$
       select s.summary
       from public.document_summaries s
       where s.document_id = d.id
-        and (owner_filter is null or s.owner_id = owner_filter)
+        and public.retrieval_owner_matches(owner_filter, s.owner_id)
       order by s.generated_at desc
       limit 1
     ) as summary
   from public.documents d
   where d.id = any(document_ids)
-    and (owner_filter is null or d.owner_id = owner_filter);
+    and public.retrieval_owner_matches(owner_filter, d.owner_id);
 $$;
 
 create or replace function public.match_document_table_facts_text(
@@ -3045,7 +3059,7 @@ as $$
     join public.documents d on d.id = f.document_id
     cross join query
     where (document_filters is null or f.document_id = any(document_filters))
-      and (owner_filter is null or f.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, f.owner_id)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(f.metadata, d.metadata)
       and (
@@ -3100,7 +3114,7 @@ as $$
     from public.document_embedding_fields f
     join public.documents d on d.id = f.document_id
     where (document_filters is null or f.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(f.metadata, d.metadata)
       and f.source_chunk_id is not null
@@ -3114,7 +3128,7 @@ as $$
     join public.documents d on d.id = f.document_id
     cross join query
     where (document_filters is null or f.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(f.metadata, d.metadata)
       and f.source_chunk_id is not null
@@ -4034,7 +4048,7 @@ as $$
     cross join query
     where d.status = 'indexed'
       and (document_filters is null or u.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and public.is_committed_artifact_generation(u.metadata, d.metadata)
       and u.source_chunk_id is not null
       and (u.search_tsv @@ query.tsq or u.normalized_terms && query.terms)

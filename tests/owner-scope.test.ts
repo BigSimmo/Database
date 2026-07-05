@@ -27,3 +27,12 @@ describe("requireOwnerScope (fail-closed owner scoping)", () => {
     expect(() => requireOwnerScope(null)).toThrow(/tenant/);
   });
 });
+
+describe("retrievalOwnerFilter", () => {
+  it("returns the public sentinel for anonymous production global search", async () => {
+    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false, isLocalNoAuthMode: () => false }));
+    vi.stubEnv("NODE_ENV", "production");
+    const { retrievalOwnerFilter, PUBLIC_OWNER_FILTER_SENTINEL } = await import("../src/lib/owner-scope");
+    expect(retrievalOwnerFilter({ allowGlobalSearch: true })).toBe(PUBLIC_OWNER_FILTER_SENTINEL);
+  });
+});

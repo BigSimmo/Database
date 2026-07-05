@@ -22,7 +22,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import {
   chatComposerIconButton,
@@ -31,6 +31,7 @@ import {
   chatSendButton,
   cn,
 } from "@/components/ui-primitives";
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -492,74 +493,12 @@ function matchesScopes(row: MatchRow, activeScopes: string[]) {
   return activeScopes.every((scope) => row.scopes.includes(scope));
 }
 
-function subscribeReducedMotion(onChange: () => void) {
-  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
-
-function usePrefersReducedMotion() {
-  return useSyncExternalStore(
-    subscribeReducedMotion,
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    () => false,
-  );
-}
-
 /* ------------------------------------------------------------------ */
-/* Layer 1 — context hint row with rotating examples                   */
+/* Layer 1 — context hint row with compact example chips               */
 /* ------------------------------------------------------------------ */
 
 function ContextHintRow({ mode, onPickExample }: { mode: ModeConfig; onPickExample: (example: string) => void }) {
-  const reducedMotion = usePrefersReducedMotion();
-  const [index, setIndex] = useState(0);
-
-  // The demo remounts per mode (key={mode.id}), so index starts at 0 for each mode.
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setIndex((current) => (current + 1) % mode.examples.length);
-    }, 4500);
-    return () => window.clearInterval(timer);
-  }, [mode]);
-
-  const example = mode.examples[index % mode.examples.length];
-  const ModeIcon = mode.icon;
-
-  return (
-    <div className="flex min-h-8 items-center gap-2 px-1 text-xs font-semibold text-[color:var(--text-muted)]">
-      <span className="inline-flex shrink-0 items-center gap-1.5">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-          <ModeIcon className="h-3 w-3" />
-        </span>
-        Searching {mode.label.toLowerCase()}
-      </span>
-      <span aria-hidden className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--border-strong)]" />
-      <span className="flex min-w-0 items-center gap-1.5 overflow-hidden" aria-live="polite">
-        <span className="shrink-0 text-[color:var(--text-soft)]">Try:</span>
-        <button
-          key={example}
-          type="button"
-          onClick={() => onPickExample(example)}
-          className={cn(
-            "truncate rounded-md px-1 py-0.5 text-left font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
-            focusRing,
-            !reducedMotion && "motion-safe:animate-[fadeIn_360ms_ease]",
-          )}
-          style={!reducedMotion ? { animationName: "universal-command-fade" } : undefined}
-        >
-          {example}
-        </button>
-      </span>
-      <span className="ml-auto hidden shrink-0 items-center gap-1 text-2xs font-bold text-[color:var(--text-soft)] lg:inline-flex">
-        Press
-        <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 py-0.5 font-mono text-2xs shadow-[var(--shadow-inset)]">
-          /
-        </kbd>
-        to search
-      </span>
-      <style>{`@keyframes universal-command-fade { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }`}</style>
-    </div>
-  );
+  return <AnswerSuggestionChips suggestions={mode.examples} onPick={onPickExample} label="Examples" layout="scroll" />;
 }
 
 /* ------------------------------------------------------------------ */

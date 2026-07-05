@@ -325,7 +325,7 @@ export function ModeActionPopup({
     setIntegratedSurfaceLayout(null);
     onOpenChange(false);
     window.requestAnimationFrame(() => buttonRef.current?.focus());
-  }, [onOpenChange]);
+  }, [onOpenChange, setIntegratedSurfaceLayout, setModeSelectorOpen]);
 
   useDismissableLayer({
     enabled: open,

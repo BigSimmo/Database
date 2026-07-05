@@ -1,5 +1,5 @@
--- Promote locally reviewed indexed documents to the public corpus (owner_id IS NULL)
--- so anonymous callers can list, preview, search, and use them in RAG.
+-- Promote all remaining indexed owned documents to the public corpus (owner_id IS NULL)
+-- regardless of clinical_validation_status, so anonymous callers can access the full indexed corpus.
 
 begin;
 
@@ -17,7 +17,6 @@ with promoted as (
     updated_at = now()
   where d.status = 'indexed'
     and d.owner_id is not null
-    and coalesce(d.metadata->>'clinical_validation_status', 'unverified') in ('locally_reviewed', 'approved')
   returning d.id, d.owner_id as previous_owner_id
 )
 select id, previous_owner_id from promoted;
@@ -43,12 +42,12 @@ from promoted_public_documents pd
 where dmc.document_id = pd.id;
 
 update public.document_table_facts dtf
-set owner_id = null
+set owner_id = null, updated_at = now()
 from promoted_public_documents pd
 where dtf.document_id = pd.id;
 
 update public.document_embedding_fields def
-set owner_id = null
+set owner_id = null, updated_at = now()
 from promoted_public_documents pd
 where def.document_id = pd.id;
 
