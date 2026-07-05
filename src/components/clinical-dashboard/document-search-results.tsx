@@ -727,7 +727,12 @@ function RecordRegistryNotice({ status, mode }: { status: RegistryRequestStatus;
     status === "loading"
       ? { Icon: Loader2, spin: true, tone: "info" as const, text: `Loading your ${noun} registry...` }
       : status === "unauthorized"
-        ? { Icon: Shield, spin: false, tone: "warning" as const, text: `Your session expired. Sign in again to search your private ${noun} registry.` }
+        ? {
+            Icon: Shield,
+            spin: false,
+            tone: "warning" as const,
+            text: `Your session expired. Sign in again to search your private ${noun} registry.`,
+          }
         : {
             Icon: ShieldAlert,
             spin: false,

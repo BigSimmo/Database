@@ -34,10 +34,11 @@ function computePopoverLayout(anchor: HTMLElement) {
   const placement: PopoverPlacement =
     availableBelow >= availableAbove + 40 || availableBelow >= minPopoverHeight ? "below" : "above";
   const available =
-    placement === "below"
-      ? Math.max(0, availableBelow - anchorGap)
-      : Math.max(0, availableAbove - anchorGap);
-  const maxHeight = Math.max(minPopoverHeight, Math.floor(Math.min(available, viewportHeight - edgePadding * 2, 22 * 16)));
+    placement === "below" ? Math.max(0, availableBelow - anchorGap) : Math.max(0, availableAbove - anchorGap);
+  const maxHeight = Math.max(
+    minPopoverHeight,
+    Math.floor(Math.min(available, viewportHeight - edgePadding * 2, 22 * 16)),
+  );
   const maxWidth = Math.min(36 * 16, viewportWidth - edgePadding * 2);
   const preferredLeft = rect.left;
   const left = Math.max(

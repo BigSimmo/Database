@@ -916,8 +916,7 @@ export function ApplicationsLauncherWorkspace({
     queryKey: (controlledQuery ?? "").trim().toLowerCase(),
     id: initialToolId(controlledQuery),
   }));
-  const selectedId =
-    detailOpen || selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
+  const selectedId = detailOpen || selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
 
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {
