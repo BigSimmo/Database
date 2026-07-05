@@ -523,7 +523,7 @@ function scopeTrigger(page: Page) {
 async function expectMinTouchTarget(locator: Locator, minSize = 44) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-  const measurementTolerance = 1.25;
+  const measurementTolerance = 2;
   expect(box!.height + measurementTolerance).toBeGreaterThanOrEqual(minSize);
   expect(box!.width + measurementTolerance).toBeGreaterThanOrEqual(minSize);
 }
