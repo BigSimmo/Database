@@ -42,10 +42,7 @@ async function promoteBatch(supabase: Awaited<ReturnType<typeof loadAdminClient>
   if (ids.length === 0) return;
 
   const updatedAt = new Date().toISOString();
-  const { data: documents, error: fetchError } = await supabase
-    .from("documents")
-    .select("id, metadata")
-    .in("id", ids);
+  const { data: documents, error: fetchError } = await supabase.from("documents").select("id, metadata").in("id", ids);
   if (fetchError) throw new Error(fetchError.message);
 
   await Promise.all(
