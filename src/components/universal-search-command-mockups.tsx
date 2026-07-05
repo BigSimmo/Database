@@ -498,14 +498,7 @@ function matchesScopes(row: MatchRow, activeScopes: string[]) {
 /* ------------------------------------------------------------------ */
 
 function ContextHintRow({ mode, onPickExample }: { mode: ModeConfig; onPickExample: (example: string) => void }) {
-  return (
-    <AnswerSuggestionChips
-      suggestions={mode.examples}
-      onPick={onPickExample}
-      label="Examples"
-      layout="scroll"
-    />
-  );
+  return <AnswerSuggestionChips suggestions={mode.examples} onPick={onPickExample} label="Examples" layout="scroll" />;
 }
 
 /* ------------------------------------------------------------------ */

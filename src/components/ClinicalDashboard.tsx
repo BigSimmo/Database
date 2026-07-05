@@ -43,15 +43,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import {
-  type CSSProperties,
-  type FormEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type CSSProperties, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
 import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
@@ -209,10 +201,7 @@ import {
   type SourceGovernanceWarning,
 } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
-import {
-  type SmartDocumentTag,
-  type SmartDocumentTagFacet,
-} from "@/lib/document-tags";
+import { type SmartDocumentTag, type SmartDocumentTagFacet } from "@/lib/document-tags";
 import type {
   ClinicalDocument,
   DocumentMatch,
@@ -4196,7 +4185,9 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
-                : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                : answer && answerFollowUpSuggestions.length > 0
+                  ? "mb-[calc(11.5rem+env(safe-area-inset-bottom))] sm:mb-24"
+                  : "mb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? compactMobileBottomSearch
                   ? differentialsCompareAddonActive

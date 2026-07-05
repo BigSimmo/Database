@@ -27,11 +27,7 @@ export function AnswerSuggestionChips({
   return (
     <div
       data-testid={testId}
-      className={cn(
-        "answer-suggestion-row",
-        layout === "scroll" && "answer-suggestion-row-scroll",
-        className,
-      )}
+      className={cn("answer-suggestion-row", layout === "scroll" && "answer-suggestion-row-scroll", className)}
     >
       {label ? <span className="answer-suggestion-label shrink-0">{label}</span> : null}
       <div

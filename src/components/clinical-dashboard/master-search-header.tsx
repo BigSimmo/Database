@@ -1237,6 +1237,7 @@ export function MasterSearchHeader({
             onPick={onPickComposerFollowUpSuggestion}
             disabled={composerFollowUpSuggestionsDisabled}
             testId="answer-composer-follow-up-suggestions"
+            layout="scroll"
             className="answer-suggestion-row-composer-followups relative z-10 w-full sm:hidden"
           />
         ) : null}

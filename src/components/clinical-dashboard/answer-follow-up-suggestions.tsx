@@ -8,12 +8,14 @@ export function AnswerFollowUpSuggestions({
   disabled = false,
   className,
   testId = "answer-follow-up-suggestions",
+  layout = "wrap",
 }: {
   suggestions: string[];
   onPick: (suggestion: string) => void;
   disabled?: boolean;
   className?: string;
   testId?: string;
+  layout?: "wrap" | "scroll";
 }) {
   return (
     <AnswerSuggestionChips
@@ -22,7 +24,7 @@ export function AnswerFollowUpSuggestions({
       disabled={disabled}
       label="Try next"
       testId={testId}
-      layout="wrap"
+      layout={layout}
       className={className}
     />
   );
