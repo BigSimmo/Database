@@ -61,8 +61,8 @@ async function openScopeControl(page: Page) {
     await actionMenu.click();
     const actionsMenu = page.getByTestId("daily-actions-menu");
     await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await actionsMenu.getByRole("menuitem", { name: "Scope sources" }).click();
-    await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({
+    await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
+    await expect(page.getByTestId("scope-command-popover")).toBeVisible({
       timeout: uiAssertionTimeoutMs,
     });
   }).toPass({ timeout: 10_000 });

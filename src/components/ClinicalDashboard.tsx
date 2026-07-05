@@ -2442,7 +2442,6 @@ export function ClinicalDashboard({
     urlDocumentSearchBootstrappedRef.current = true;
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.
-
   }, [canRunSearch, answerThreadBootstrapped]);
 
   useEffect(() => {
