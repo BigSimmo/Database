@@ -93,7 +93,11 @@ rag = rag.replace(
 for (const fn of ["searchTableFactCandidates", "searchEmbeddingFieldCandidates", "searchIndexUnitCandidates"]) {
   rag = rag.replace(
     new RegExp(`async function ${fn}\\([\\s\\S]*?documentIds\\?: string\\[\\];\\n  matchCount: number;`),
-    (m) => m.replace("documentIds?: string[];\n  matchCount: number;", "documentIds?: string[];\n  allowGlobalSearch?: boolean;\n  matchCount: number;"),
+    (m) =>
+      m.replace(
+        "documentIds?: string[];\n  matchCount: number;",
+        "documentIds?: string[];\n  allowGlobalSearch?: boolean;\n  matchCount: number;",
+      ),
   );
 }
 if (!rag.includes('else documentQuery = documentQuery.is("owner_id", null);')) {
@@ -156,10 +160,22 @@ $$;
 create or replace function public.match_document_chunks(`,
   );
 }
-schema = schema.replaceAll("(owner_filter is null or d.owner_id = owner_filter)", "public.retrieval_owner_matches(owner_filter, d.owner_id)");
-schema = schema.replaceAll("(owner_filter is null or l.owner_id = owner_filter)", "public.retrieval_owner_matches(owner_filter, l.owner_id)");
-schema = schema.replaceAll("(owner_filter is null or s.owner_id = owner_filter)", "public.retrieval_owner_matches(owner_filter, s.owner_id)");
-schema = schema.replaceAll("(owner_filter is null or f.owner_id = owner_filter)", "public.retrieval_owner_matches(owner_filter, f.owner_id)");
+schema = schema.replaceAll(
+  "(owner_filter is null or d.owner_id = owner_filter)",
+  "public.retrieval_owner_matches(owner_filter, d.owner_id)",
+);
+schema = schema.replaceAll(
+  "(owner_filter is null or l.owner_id = owner_filter)",
+  "public.retrieval_owner_matches(owner_filter, l.owner_id)",
+);
+schema = schema.replaceAll(
+  "(owner_filter is null or s.owner_id = owner_filter)",
+  "public.retrieval_owner_matches(owner_filter, s.owner_id)",
+);
+schema = schema.replaceAll(
+  "(owner_filter is null or f.owner_id = owner_filter)",
+  "public.retrieval_owner_matches(owner_filter, f.owner_id)",
+);
 fs.writeFileSync("supabase/schema.sql", schema);
 
 const names = [

@@ -1441,14 +1441,7 @@ function stableHash(value: string) {
 export function retrievalPlanCacheQuery(
   args: Pick<
     SearchChunksArgs,
-    | "query"
-    | "documentId"
-    | "documentIds"
-    | "ownerId"
-    | "queryMode"
-    | "topK"
-    | "minSimilarity"
-    | "forceEmbedding"
+    "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "topK" | "minSimilarity" | "forceEmbedding"
   >,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
@@ -5488,7 +5481,10 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.shared_cache_miss_reason = sharedCached.reason;
   }
 
-  if (!args.forceEmbedding && shouldApplyUnsupportedSearchShortCircuit(retrievalQuery, queryAnalysis, ragAliasExpansions)) {
+  if (
+    !args.forceEmbedding &&
+    shouldApplyUnsupportedSearchShortCircuit(retrievalQuery, queryAnalysis, ragAliasExpansions)
+  ) {
     // Item 10 follow-up (RC6): a typo can make an on-topic query ("schizophrenai management") look
     // unsupported and short-circuit before any layer runs. Before giving up, trigram-correct the
     // query against the known clinical-term vocabulary; if it changes, re-run the whole retrieval

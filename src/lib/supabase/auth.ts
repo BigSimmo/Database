@@ -63,10 +63,7 @@ function extractSessionAccessToken(request: Request): string | null {
   return extractBearerAccessToken(request) ?? extractCookieSessionAccessToken(request);
 }
 
-async function getUserFromAccessToken(
-  supabase: AdminClient,
-  token: string,
-): Promise<AuthenticatedUser | null> {
+async function getUserFromAccessToken(supabase: AdminClient, token: string): Promise<AuthenticatedUser | null> {
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user?.id) return null;
   return { id: data.user.id };

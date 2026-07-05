@@ -4,13 +4,21 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env, publicUploadsEnabled, publicWorkspaceOwnerId } from "@/lib/env";
 import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
-import { allowRateLimitInMemoryFallbackOnUnavailable, consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import {
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSubjectApiRateLimit,
+  rateLimitJsonResponse,
+} from "@/lib/api-rate-limit";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
-import { assertSafeLocalProjectRequest, localProjectOriginErrorResponse, UnsafeLocalProjectOriginError } from "@/lib/local-project-guard";
+import {
+  assertSafeLocalProjectRequest,
+  localProjectOriginErrorResponse,
+  UnsafeLocalProjectOriginError,
+} from "@/lib/local-project-guard";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
 import { optionalFormText, parseFormDataFields } from "@/lib/validation/form-data";

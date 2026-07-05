@@ -892,7 +892,8 @@ describe("private document API access", () => {
         const inserted = call.insertPayload as { id: string; owner_id: string; storage_path: string };
         return ok({ id: inserted.id, owner_id: inserted.owner_id, storage_path: inserted.storage_path });
       }
-      if (call.table === "ingestion_jobs" && call.operation === "insert") return ok({ id: "job-1", document_id: documentId });
+      if (call.table === "ingestion_jobs" && call.operation === "insert")
+        return ok({ id: "job-1", document_id: documentId });
       return ok([]);
     });
     mockRuntime(client, undefined, { publicUploadsEnabled: true, publicWorkspaceOwnerId: publicOwnerId });

@@ -189,9 +189,7 @@ export function UploadPanel({
     }
     if (!canUpload) {
       changeStatus(
-        demoMode
-          ? demoUploadReadOnlyMessage
-          : "Uploads are unavailable until this public workspace is configured.",
+        demoMode ? demoUploadReadOnlyMessage : "Uploads are unavailable until this public workspace is configured.",
       );
       return;
     }
