@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -1355,8 +1355,8 @@ function SettingsClinicalContextStrip() {
       <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0 truncate">
         Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
-        <span className="px-1 text-[color:var(--text-soft)]">·</span> WA{" "}
-        <span className="px-1 text-[color:var(--text-soft)]">·</span> No PHI
+        <span className="px-1 text-[color:var(--text-soft)]">┬╖</span> WA{" "}
+        <span className="px-1 text-[color:var(--text-soft)]">┬╖</span> No PHI
       </span>
     </div>
   );
@@ -3252,7 +3252,7 @@ export function ClinicalDashboard({
         throw new Error("Search did not return usable results.");
       }
 
-      // M10: discard a stale response — a newer search owns the UI state.
+      // M10: discard a stale response ΓÇö a newer search owns the UI state.
       if (requestId === searchRequestSeqRef.current) {
         applySearchResult(successfulPayload, trimmedQuery);
         if (successfulPayload.kind === "answer") {
@@ -3320,10 +3320,10 @@ export function ClinicalDashboard({
     if (!autoRunSearch || !trimmedQuery || !canAutoRunMode || loading) return;
     if (searchMode === "answer" && !answerThreadBootstrapped) return;
     // Once an answer is on screen, composer edits are follow-up drafts and must
-    // only run on explicit submit — not on every query keystroke while run=1
+    // only run on explicit submit ΓÇö not on every query keystroke while run=1
     // keeps autoRunSearch enabled from the URL.
     if (searchMode === "answer" && answer) return;
-    // After reload, the URL query matches the restored latest turn — do not
+    // After reload, the URL query matches the restored latest turn ΓÇö do not
     // archive it again into a duplicate prior turn.
     if (searchMode === "answer" && latestAnswerQuery?.trim() === trimmedQuery) {
       autoRunSearchSignatureRef.current = `${searchMode}:${trimmedQuery}`;
@@ -4489,6 +4489,7 @@ export function ClinicalDashboard({
                         followUpSuggestions={answerFollowUpSuggestions}
                         onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
                         followUpSuggestionsDisabled={loading}
+                        scrollContainerRef={mainRef}
                       />
                     </>
                   ) : null

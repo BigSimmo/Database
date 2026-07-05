@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { type RefObject, useState } from "react";
@@ -151,6 +151,8 @@ export function AnswerSupportSummaryCard({
   clinicalTriggerRef,
   evidenceTriggerRef,
   safetyTriggerRef,
+  actionRowRef,
+  collapseActionRow = false,
   safetyFindingsCount = 0,
   onOpenClinicalNotes,
   onOpenEvidence,
@@ -164,6 +166,8 @@ export function AnswerSupportSummaryCard({
   clinicalTriggerRef?: RefObject<HTMLButtonElement | null>;
   evidenceTriggerRef?: RefObject<HTMLButtonElement | null>;
   safetyTriggerRef?: RefObject<HTMLButtonElement | null>;
+  actionRowRef?: RefObject<HTMLDivElement | null>;
+  collapseActionRow?: boolean;
   safetyFindingsCount?: number;
   onOpenClinicalNotes: () => void;
   onOpenEvidence: () => void;
@@ -238,48 +242,66 @@ export function AnswerSupportSummaryCard({
       {supportRowCount > 0 ? (
         <div
           className={cn(
-            "grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]",
-            supportRowCount === 2 && "sm:grid-cols-2 sm:divide-x sm:divide-y-0",
+            "max-sm:grid max-sm:transition-[grid-template-rows] max-sm:duration-200 max-sm:ease-out motion-reduce:max-sm:transition-none",
+            collapseActionRow ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
           )}
         >
-          {clinicalAvailable ? (
-            <button
-              ref={clinicalTriggerRef}
-              id="answer-clinical-notes-drawer-mobile-trigger"
-              data-testid="answer-clinical-notes-trigger"
-              type="button"
-              onClick={onOpenClinicalNotes}
-              className={supportButtonClass}
-              aria-label="Open clinical notes"
+          <div
+            ref={actionRowRef}
+            data-testid="answer-support-action-row"
+            data-collapsed={collapseActionRow ? "true" : "false"}
+            className={cn("max-sm:min-h-0 max-sm:overflow-hidden", collapseActionRow && "max-sm:pointer-events-none")}
+            aria-hidden={collapseActionRow || undefined}
+          >
+            <div
+              className={cn(
+                "grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]",
+                supportRowCount === 2 && "sm:grid-cols-2 sm:divide-x sm:divide-y-0",
+              )}
+              {...(collapseActionRow ? { inert: true } : {})}
             >
-              <ClipboardCheck className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Clinical notes</span>
-                <span className={cn("mt-1 block truncate text-xs", textMuted)}>
-                  {clinicalCount} note{clinicalCount === 1 ? "" : "s"}
-                </span>
-              </span>
-              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-            </button>
-          ) : null}
-          {evidenceAvailable ? (
-            <button
-              ref={evidenceTriggerRef}
-              id="answer-evidence-drawer-mobile-trigger"
-              data-testid="answer-evidence-trigger"
-              type="button"
-              onClick={onOpenEvidence}
-              className={supportButtonClass}
-              aria-label="Open evidence"
-            >
-              <Layers className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence</span>
-                <span className={cn("mt-1 block truncate text-xs", textMuted)}>{evidenceSummary}</span>
-              </span>
-              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-            </button>
-          ) : null}
+              {clinicalAvailable ? (
+                <button
+                  ref={clinicalTriggerRef}
+                  id="answer-clinical-notes-drawer-mobile-trigger"
+                  data-testid="answer-clinical-notes-trigger"
+                  type="button"
+                  onClick={onOpenClinicalNotes}
+                  className={supportButtonClass}
+                  aria-label="Open clinical notes"
+                  tabIndex={collapseActionRow ? -1 : undefined}
+                >
+                  <ClipboardCheck className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Clinical notes</span>
+                    <span className={cn("mt-1 block truncate text-xs", textMuted)}>
+                      {clinicalCount} note{clinicalCount === 1 ? "" : "s"}
+                    </span>
+                  </span>
+                  <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+                </button>
+              ) : null}
+              {evidenceAvailable ? (
+                <button
+                  ref={evidenceTriggerRef}
+                  id="answer-evidence-drawer-mobile-trigger"
+                  data-testid="answer-evidence-trigger"
+                  type="button"
+                  onClick={onOpenEvidence}
+                  className={supportButtonClass}
+                  aria-label="Open evidence"
+                  tabIndex={collapseActionRow ? -1 : undefined}
+                >
+                  <Layers className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence</span>
+                    <span className={cn("mt-1 block truncate text-xs", textMuted)}>{evidenceSummary}</span>
+                  </span>
+                  <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
       ) : null}
     </section>
@@ -505,7 +527,7 @@ function clinicalNoteHeuristicTitle(value: string) {
   ) {
     return "Escalation triggers";
   }
-  if (/\blithium levels?\b/.test(lower) && /\b(5\s*(?:to|-|–)\s*7|dose change|stable|days?)\b/.test(lower)) {
+  if (/\blithium levels?\b/.test(lower) && /\b(5\s*(?:to|-|ΓÇô)\s*7|dose change|stable|days?)\b/.test(lower)) {
     return "Lithium level timing";
   }
   if (/\b(lithium level|serum lithium|trough level)\b/.test(lower)) return "Lithium level check";
@@ -540,7 +562,7 @@ function clinicalNoteTitleFromItem(item: string, section: ClinicalDetailSection,
     }
     return title;
   }
-  const dashIndex = text.search(/\s[-–]\s/);
+  const dashIndex = text.search(/\s[-ΓÇô]\s/);
   if (dashIndex > 8 && dashIndex < 54) return text.slice(0, dashIndex).trim();
   if (section.items.length === 1 && section.title.length <= 42) return section.title;
   const words = text
@@ -565,7 +587,7 @@ function clinicalNoteDetailFromItem(item: string, title: string) {
   if (lowerText.startsWith(`${normalizedTitle}:`)) {
     return sentenceCaseClinicalNoteDetail(text.slice(title.length + 1).trim());
   }
-  if (lowerText.startsWith(`${normalizedTitle} -`) || lowerText.startsWith(`${normalizedTitle} –`)) {
+  if (lowerText.startsWith(`${normalizedTitle} -`) || lowerText.startsWith(`${normalizedTitle} ΓÇô`)) {
     return sentenceCaseClinicalNoteDetail(text.slice(title.length + 2).trim());
   }
   if (text === title) return "Review linked source context before using this note.";
@@ -1018,7 +1040,7 @@ export function compactEvidenceSummary(
     countParts.push(`${sourceCount} source${sourceCount === 1 ? "" : "s"}`);
   }
 
-  return [support, ...countParts].join(" · ");
+  return [support, ...countParts].join(" ┬╖ ");
 }
 
 export type EvidenceTabName = "Claims" | "Quotes" | "Tables" | "Images" | "Gaps";
@@ -1198,7 +1220,7 @@ function RenderModelSourceList({
                     {cleanDisplayTitle(source.title)}
                   </p>
                   <p className={cn("mt-1 text-xs", textMuted)}>
-                    p.{source.page_number ?? "n/a"} · {sourceStatusLabel(metadata)} · {source.sourceStrength} support
+                    p.{source.page_number ?? "n/a"} ┬╖ {sourceStatusLabel(metadata)} ┬╖ {source.sourceStrength} support
                   </p>
                 </div>
                 <ExternalLink className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
@@ -1319,7 +1341,7 @@ export const simpleClinicalTableProps = {
 
 function compactEvidenceCell(value: string | null | undefined, max = 140) {
   const text = value ? value.replace(/\s+/g, " ").trim() : "";
-  return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
+  return text.length > max ? `${text.slice(0, max - 1).trim()}ΓÇª` : text;
 }
 
 export function evidenceMapRowsFromRenderModel(renderModel: AnswerRenderModel): AnswerEvidenceMapRow[] {
