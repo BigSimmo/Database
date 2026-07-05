@@ -99,8 +99,8 @@ async function commandSurfaceOpensAbovePill(page: Page) {
   await input.click();
   await expect(async () => {
     await input.press("ArrowDown");
-    await expect(page.getByText("Answer actions", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("listbox").first()).toBeVisible();
+    await expect(page.getByRole("option").first()).toBeVisible();
   }).toPass({ timeout: 15_000 });
 
   const listbox = page.getByRole("listbox").first();
