@@ -143,6 +143,7 @@ async function mockLocalProjectIdentity(page: Page) {
 }
 
 async function mockPrivateUnauthenticatedApi(page: Page) {
+  await mockLocalProjectIdentity(page);
   await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
       json: { demoMode: false, checks: readySetupChecks },
@@ -705,6 +706,36 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expectNoPageHorizontalOverflow(page);
     });
   }
+
+  test("anonymous user can see enabled live search without a forced sign-in gate", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockPrivateUnauthenticatedApi(page);
+    await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
+      await route.fulfill({ json: { results: [], telemetry: { retrieval_strategy: "text_fast_path" } } });
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
+    await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
+    await expect(page.getByTestId("global-search-input")).toBeEnabled();
+  });
+
+  test("anonymous mobile user can search without a forced sign-in gate", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockPrivateUnauthenticatedApi(page);
+    await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
+      await route.fulfill({ json: { results: [], telemetry: { retrieval_strategy: "text_fast_path" } } });
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
+    await expect(page.getByText("Service unavailable")).toHaveCount(0);
+    await expect(page.getByText("API unavailable")).toHaveCount(0);
+    await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
+    await expect(page.getByTestId("global-search-input")).toBeEnabled();
+  });
 
   test("desktop sidebar mode sync and accessibility affordances stay coherent", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });

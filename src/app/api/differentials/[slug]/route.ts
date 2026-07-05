@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { allowRateLimitInMemoryFallbackOnUnavailable, consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import {
   deriveGovernanceFromSnapshot,
   normalizeDifferentialSlug,
@@ -14,7 +14,7 @@ import { ensureDifferentialsSeeded, loadDifferentialSnapshot } from "@/lib/diffe
 import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { hasPublicApiAuthSignal, publicAccessContext } from "@/lib/public-api-access";
+import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery } from "@/lib/validation/query";
@@ -63,7 +63,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       });
     }
 
-    if (!hasPublicApiAuthSignal(request)) {
+    if (!shouldResolvePublicCatalogAccess(request)) {
       const snapshot = loadDifferentialSnapshot();
       const governance = deriveGovernanceFromSnapshot(snapshot);
       if (kind === "presentation") {
@@ -91,7 +91,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       supabase,
       subject: access.rateLimitSubject,
       bucket: "registry",
-      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Differential requests are rate limited. Try again shortly.", rateLimit);

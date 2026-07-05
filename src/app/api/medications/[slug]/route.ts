@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { allowRateLimitInMemoryFallbackOnUnavailable, consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { getMedicationRecord } from "@/lib/medication-snapshot";
@@ -12,7 +12,7 @@ import {
   rowToMedicationRecord,
   type MedicationRecordRow,
 } from "@/lib/medication-records";
-import { hasPublicApiAuthSignal, publicAccessContext } from "@/lib/public-api-access";
+import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -56,7 +56,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       });
     }
 
-    if (!hasPublicApiAuthSignal(request)) {
+    if (!shouldResolvePublicCatalogAccess(request)) {
       const payload = publicMedicationDetailPayload(normalizedSlug);
       if (!payload) return notFoundResponse(normalizedSlug);
       return medicationResponse({
@@ -72,7 +72,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       supabase,
       subject: access.rateLimitSubject,
       bucket: "registry",
-      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Medication requests are rate limited. Try again shortly.", rateLimit);

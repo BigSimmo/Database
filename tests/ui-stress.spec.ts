@@ -278,11 +278,13 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(page.getByLabel("Source-backed answer")).toBeVisible();
       await expect(page.getByTestId("plain-answer-response")).toBeVisible();
 
-      const scopeTrigger = page.locator('[data-testid="scope-trigger"]:visible');
+      const actionMenu = page.getByRole("button", { name: "Open answer options" });
       await page.keyboard.press("Escape");
-      await scopeTrigger.click();
+      await actionMenu.click();
+      const actionsMenu = page.getByTestId("daily-actions-menu");
+      await expect(actionsMenu).toBeVisible();
+      await actionsMenu.getByRole("menuitem", { name: "Scope sources" }).click();
       const scopeContainer = page.getByTestId("scope-command-popover");
-      await expect(scopeContainer).toBeVisible();
       await expect(scopeContainer).toBeVisible();
       await expect(
         scopeContainer.getByText(/Type to filter 24 (loaded )?documents\. Selected documents stay pinned here\./),

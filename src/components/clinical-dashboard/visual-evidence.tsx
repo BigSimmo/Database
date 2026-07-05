@@ -29,7 +29,6 @@ import {
   evidenceTabOrder,
   QuoteCards,
   simpleClinicalTableProps,
-  VerificationWorkspace,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { QueryCoverageChips } from "@/components/clinical-dashboard/relevance";
 import {

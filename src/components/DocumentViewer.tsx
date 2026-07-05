@@ -1923,11 +1923,21 @@ export function DocumentViewer({
   const [viewerModeInitialized] = useState(true);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
+  const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
   const localNoAuthMode = isLocalNoAuthMode();
   const clientDemoMode = localNoAuthMode || serverDemoMode;
   const canViewSourceDocuments = localProjectReady;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
+
+  useEffect(() => {
+    if (authStatus !== "loading") {
+      const resetId = window.setTimeout(() => setAuthLoadingTimedOut(false), 0);
+      return () => window.clearTimeout(resetId);
+    }
+    const timeoutId = window.setTimeout(() => setAuthLoadingTimedOut(true), 4_000);
+    return () => window.clearTimeout(timeoutId);
+  }, [authStatus]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !viewerModeInitialized || hasExplicitPdfViewerMode) return;
@@ -2090,9 +2100,17 @@ export function DocumentViewer({
           setTableFacts([]);
           setChunks([]);
           setIndexHealth(null);
-          setViewerError(
-            detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.",
-          );
+          const message =
+            detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.";
+          if (!canUsePrivateApis && !clientDemoMode && message === "Document not found.") {
+            setViewerError(
+              isConfigured
+                ? "Sign in to open private source documents."
+                : "Supabase browser authentication is not configured for private source documents.",
+            );
+          } else {
+            setViewerError(message);
+          }
         }
 
         if (signedUrlResult.status === "fulfilled") {
@@ -2153,7 +2171,7 @@ export function DocumentViewer({
 
   useEffect(() => {
     const query = sourceSearch.trim();
-    if (!canUsePrivateApis || query.length < 2) {
+    if (!canViewSourceDocuments || query.length < 2) {
       const reset = window.setTimeout(() => {
         setDocumentSearchResults([]);
         setSearchingDocument(false);
@@ -2195,7 +2213,7 @@ export function DocumentViewer({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [authorizationHeader, canUsePrivateApis, clientDemoMode, documentId, markSessionExpired, sourceSearch]);
+  }, [authorizationHeader, canViewSourceDocuments, clientDemoMode, documentId, markSessionExpired, sourceSearch]);
 
   useEffect(() => {
     const updateOnline = () => setIsOnline(navigator.onLine);
@@ -2238,8 +2256,20 @@ export function DocumentViewer({
     }
   }
 
-  const authViewerError = null;
-  const effectiveLoadingDocument = loadingDocument;
+  const authViewerError =
+    !canUsePrivateApis &&
+    !clientDemoMode &&
+    !loadingDocument &&
+    !document &&
+    (authStatus !== "loading" || authLoadingTimedOut) &&
+    (viewerError === "Sign in to open private source documents." ||
+      viewerError === "Supabase browser authentication is not configured for private source documents.")
+      ? viewerError
+      : null;
+  const effectiveLoadingDocument =
+    !canUsePrivateApis && authStatus === "loading" && !authLoadingTimedOut && loadingDocument
+      ? true
+      : loadingDocument;
   const effectiveViewerError = authViewerError ?? viewerError;
   const viewerState = effectiveLoadingDocument
     ? "loading"
