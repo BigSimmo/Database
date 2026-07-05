@@ -11,6 +11,8 @@ const envSchema = z.object({
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
   LOCAL_NO_AUTH_OWNER_ID: z.string().optional(),
+  PUBLIC_WORKSPACE_OWNER_ID: z.string().uuid().optional(),
+  NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED: z.enum(["true", "false"]).optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
@@ -191,4 +193,12 @@ export function isLocalNoAuthMode() {
   const serverNoAuth = typeof window === "undefined" && env.LOCAL_NO_AUTH === "true";
 
   return process.env.NODE_ENV !== "production" && (publicNoAuth || serverNoAuth);
+}
+
+export function publicWorkspaceOwnerId() {
+  return env.PUBLIC_WORKSPACE_OWNER_ID?.trim() || null;
+}
+
+export function publicUploadsEnabled() {
+  return env.NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED === "true";
 }

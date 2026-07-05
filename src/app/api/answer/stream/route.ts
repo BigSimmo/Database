@@ -2,7 +2,7 @@ import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
-import { consumeSubjectApiRateLimit, type ApiRateLimitResult } from "@/lib/api-rate-limit";
+import { allowRateLimitInMemoryFallbackOnUnavailable, consumeSubjectApiRateLimit, type ApiRateLimitResult } from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
@@ -232,7 +232,7 @@ export async function POST(request: Request) {
       supabase,
       subject: access.rateLimitSubject,
       bucket: "answer",
-      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
 

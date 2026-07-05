@@ -31,6 +31,7 @@ import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
 import { medicationMatchesCommandScopes } from "@/lib/search-command-surface";
+import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
 
 type MedicationPrescribingWorkspaceProps = {
@@ -414,9 +415,13 @@ function StatusNotice({
 }: Pick<MedicationPrescribingWorkspaceProps, "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning">) {
   if (realDataReady && !authUnavailable && !apiUnavailable && !setupWarning) return null;
   const message = authUnavailable
-    ? "Private medication search is waiting for sign-in."
+    ? isDeployedClinicalKb()
+      ? "Sign in to search your private medication library."
+      : "Private medication search is waiting for sign-in."
     : apiUnavailable
-      ? "Medication search is using the local mockup while the API is unavailable."
+      ? isDeployedClinicalKb()
+        ? "Medication search is temporarily unavailable. Try again shortly."
+        : "Medication search is using the local mockup while the API is unavailable."
       : setupWarning || "Medication search setup is still warming up.";
 
   return (

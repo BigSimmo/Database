@@ -188,7 +188,11 @@ export function UploadPanel({
       return;
     }
     if (!canUpload) {
-      changeStatus("Sign in before uploading private guideline files.");
+      changeStatus(
+        demoMode
+          ? demoUploadReadOnlyMessage
+          : "Uploads are unavailable until this public workspace is configured.",
+      );
       return;
     }
 
@@ -202,7 +206,7 @@ export function UploadPanel({
     setUploading(true);
     changeStatus(
       files.length === 1
-        ? "Uploading private document to Supabase Storage..."
+        ? "Uploading document to Supabase Storage..."
         : `Uploading 1 of ${files.length}: ${files[0].name}`,
     );
 
@@ -226,8 +230,8 @@ export function UploadPanel({
     if (failures.length === 0) {
       changeStatus(
         files.length === 1
-          ? "Successfully uploaded private document to storage queue."
-          : `Successfully uploaded ${files.length} private documents.`,
+          ? "Successfully uploaded document to storage queue."
+          : `Successfully uploaded ${files.length} documents.`,
       );
       if (input) input.value = "";
       onUploaded();

@@ -2,13 +2,14 @@ import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { env } from "@/lib/env";
+import { env, publicUploadsEnabled, publicWorkspaceOwnerId } from "@/lib/env";
 import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
 import { optionalFormText, parseFormDataFields } from "@/lib/validation/form-data";
 
@@ -84,7 +85,11 @@ export async function POST(request: Request) {
   try {
     supabase = createAdminClient();
     const adminSupabase = supabase;
-    const user = await requireAuthenticatedUser(request, adminSupabase);
+    const access = await publicAccessContext(request, adminSupabase);
+    const uploadOwnerId = access.ownerId ?? (publicUploadsEnabled() ? publicWorkspaceOwnerId() : null);
+    if (!uploadOwnerId) {
+      return NextResponse.json({ error: "Public uploads are not configured for this workspace." }, { status: 503 });
+    }
     const formData = await request.formData().catch((cause) => {
       throw new PublicApiError("Invalid upload form data.", 400, {
         code: "invalid_form_data",
@@ -107,7 +112,7 @@ export async function POST(request: Request) {
 
     const documentId = randomUUID();
     const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
-    const storagePath = `${user.id}/documents/${documentId}/${safeName}`;
+    const storagePath = `${uploadOwnerId}/documents/${documentId}/${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     // The declared MIME type is client-supplied; verify the real byte signature
     // before persisting a clinical document.
@@ -117,7 +122,7 @@ export async function POST(request: Request) {
     const { data: duplicate, error: duplicateError } = await adminSupabase
       .from("documents")
       .select("id,title,file_name,status,page_count,chunk_count,image_count,created_at")
-      .eq("owner_id", user.id)
+      .eq("owner_id", uploadOwnerId)
       .eq("content_hash", contentHash)
       .maybeSingle();
 
@@ -147,7 +152,7 @@ export async function POST(request: Request) {
     };
     const namePlan = await planDocumentName({
       supabase: namingSupabase,
-      ownerId: user.id,
+      ownerId: uploadOwnerId,
       fileName: file.name,
       requestedTitle: uploadMetadata.title,
       contentHash,
@@ -160,7 +165,7 @@ export async function POST(request: Request) {
       .from("documents")
       .insert({
         id: documentId,
-        owner_id: user.id,
+        owner_id: uploadOwnerId,
         title,
         description,
         file_name: file.name,
@@ -178,7 +183,7 @@ export async function POST(request: Request) {
           review_date: null,
           uploaded_at: uploadedAt,
           indexed_at: null,
-          uploaded_by: user.id,
+          uploaded_by: uploadOwnerId,
           original_file_name: namePlan.originalFileName,
           original_title: namePlan.originalTitle,
           smart_title_base: namePlan.baseTitle,
@@ -202,7 +207,7 @@ export async function POST(request: Request) {
         insertedDocumentOwnerId = null;
         return duplicateUploadResponse({
           supabase,
-          ownerId: user.id,
+          ownerId: uploadOwnerId,
           contentHash,
           storagePath: uploadedPath,
         });
@@ -210,7 +215,7 @@ export async function POST(request: Request) {
       throw new Error(documentError.message);
     }
     insertedDocumentId = documentId;
-    insertedDocumentOwnerId = user.id;
+    insertedDocumentOwnerId = uploadOwnerId;
 
     const { data: job, error: jobError } = await supabase
       .from("ingestion_jobs")
@@ -230,7 +235,7 @@ export async function POST(request: Request) {
         .from("documents")
         .delete()
         .eq("id", documentId)
-        .eq("owner_id", user.id);
+        .eq("owner_id", uploadOwnerId);
       if (rollbackDocumentError) {
         throw new Error(
           `Failed to enqueue ingestion job: ${jobError.message}; rollback failed: ${rollbackDocumentError.message}`,
@@ -242,7 +247,7 @@ export async function POST(request: Request) {
     }
 
     await writeAuditLog(supabase, {
-      ownerId: user.id,
+      ownerId: uploadOwnerId,
       action: "document_upload",
       resourceType: "document",
       resourceId: documentId,

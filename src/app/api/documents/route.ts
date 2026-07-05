@@ -1,14 +1,32 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { demoDocuments } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
-import { publicAccessContext, withOwnerReadScope } from "@/lib/public-api-access";
+import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
 import { parseRequestQuery, queryBoolean, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
+
+const PUBLIC_DOCUMENT_LIST_COLUMNS = [
+  "id",
+  "owner_id",
+  "title",
+  "description",
+  "file_name",
+  "file_type",
+  "file_size",
+  "status",
+  "page_count",
+  "chunk_count",
+  "image_count",
+  "metadata",
+  "created_at",
+  "updated_at",
+].join(",");
 
 const DOCUMENT_LIST_COLUMNS = [
   "id",
@@ -32,6 +50,18 @@ const DOCUMENT_LIST_COLUMNS = [
   "updated_at",
 ].join(",");
 
+const PUBLIC_LABEL_LIST_COLUMNS = [
+  "id",
+  "document_id",
+  "label",
+  "label_type",
+  "source",
+  "confidence",
+  "metadata",
+  "created_at",
+  "updated_at",
+].join(",");
+
 const LABEL_LIST_COLUMNS = [
   "id",
   "document_id",
@@ -43,6 +73,14 @@ const LABEL_LIST_COLUMNS = [
   "metadata",
   "created_at",
   "updated_at",
+].join(",");
+
+const PUBLIC_SUMMARY_LIST_COLUMNS = [
+  "id",
+  "document_id",
+  "summary",
+  "clinical_specifics",
+  "generated_at",
 ].join(",");
 
 const SUMMARY_LIST_COLUMNS = [
@@ -131,9 +169,15 @@ export async function GET(request: Request) {
     } = parseRequestQuery(request, documentListQuerySchema, "Invalid document list query.");
 
     const supabase = createAdminClient();
-    const access = await publicAccessContext(request, supabase);
+    const { access, rateLimit } = await enforceDocumentReadRateLimit(request, supabase);
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
+    }
+
+    const effectiveIncludeMeta = access.authenticated ? includeMeta : false;
+    const listColumns = access.authenticated ? DOCUMENT_LIST_COLUMNS : PUBLIC_DOCUMENT_LIST_COLUMNS;
     let query = withOwnerReadScope(
-      supabase.from("documents").select(DOCUMENT_LIST_COLUMNS, { count: "exact" }),
+      supabase.from("documents").select(listColumns, { count: "exact" }),
       access.ownerId,
     )
       .order("created_at", { ascending: false })
@@ -162,13 +206,15 @@ export async function GET(request: Request) {
       hasMore: count === null ? documents.length === limit : offset + documents.length < count,
     };
 
-    if (documentIds.length === 0 || !includeMeta) {
+    if (documentIds.length === 0 || !effectiveIncludeMeta) {
       return documentsResponse({ documents, pagination }, indexing);
     }
 
+    const labelColumns = access.authenticated ? LABEL_LIST_COLUMNS : PUBLIC_LABEL_LIST_COLUMNS;
+    const summaryColumns = access.authenticated ? SUMMARY_LIST_COLUMNS : PUBLIC_SUMMARY_LIST_COLUMNS;
     const [labelsResult, summariesResult] = await Promise.all([
-      supabase.from("document_labels").select(LABEL_LIST_COLUMNS).in("document_id", documentIds),
-      supabase.from("document_summaries").select(SUMMARY_LIST_COLUMNS).in("document_id", documentIds),
+      supabase.from("document_labels").select(labelColumns).in("document_id", documentIds),
+      supabase.from("document_summaries").select(summaryColumns).in("document_id", documentIds),
     ]);
 
     if (labelsResult.error) throw new Error(labelsResult.error.message);
