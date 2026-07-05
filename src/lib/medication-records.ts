@@ -27,7 +27,11 @@ export function deriveGovernanceFromSections(record: MedicationRecord): {
   validation_status: MedicationValidationStatus;
 } {
   const sourceSection = record.sections.find((section) => section.type === "src");
-  const sourceText = sourceSection?.rows.map((row) => row.val).join(" ").toLowerCase() ?? "";
+  const sourceText =
+    sourceSection?.rows
+      .map((row) => row.val)
+      .join(" ")
+      .toLowerCase() ?? "";
   const sourceStatus: MedicationSourceStatus = sourceText.includes("checked")
     ? "current"
     : sourceText.includes("review")

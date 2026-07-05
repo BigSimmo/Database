@@ -188,9 +188,7 @@ describe("medications API", () => {
   });
 
   it("scopes medication queries to the authenticated owner", async () => {
-    const client = createSupabaseMock((call) =>
-      call.table === "medication_records" ? ok([medicationRow()]) : ok([]),
-    );
+    const client = createSupabaseMock((call) => (call.table === "medication_records" ? ok([medicationRow()]) : ok([])));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/medications/route");
 

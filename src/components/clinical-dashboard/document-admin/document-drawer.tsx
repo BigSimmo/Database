@@ -1025,7 +1025,6 @@ export function DocumentDrawer({
   );
 }
 
-
 export type DocumentDrawerMode = "recent" | "library" | "source" | "admin";
 export type DocumentDrawerStatusFilter = "all" | "indexed" | "indexing" | "failed";
 

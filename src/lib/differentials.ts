@@ -100,11 +100,7 @@ export function differentialStaticParams() {
 
 function expandQueryTokens(query: string) {
   const aliases = differentialSearchAliases();
-  const tokens = query
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean);
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const expanded = new Set(tokens);
   for (const token of tokens) {
     for (const alias of aliases[token] ?? []) expanded.add(alias);

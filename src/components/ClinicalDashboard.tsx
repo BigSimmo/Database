@@ -645,7 +645,6 @@ function VisualEvidenceStrip({
   );
 }
 
-
 const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
   Claims: CheckCircle2,
   Quotes: Quote,
@@ -774,7 +773,6 @@ function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
     </div>
   );
 }
-
 
 function MobileEvidenceTabPanel({
   tab,

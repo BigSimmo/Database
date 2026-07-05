@@ -1,10 +1,6 @@
 import differentialSnapshot from "../../data/differentials-snapshot.json";
 
-import {
-  diagnosisToRow,
-  presentationToRow,
-  type DifferentialRecordInsert,
-} from "@/lib/differential-records";
+import { diagnosisToRow, presentationToRow, type DifferentialRecordInsert } from "@/lib/differential-records";
 import type { DifferentialSnapshot } from "@/lib/differential-snapshot";
 
 let cachedSnapshot: DifferentialSnapshot | null = null;

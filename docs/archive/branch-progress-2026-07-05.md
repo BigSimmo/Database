@@ -5,8 +5,8 @@ Archived from the working tree on 2026-07-05. This is a frozen inventory of the 
 ## Branch state at archive time
 
 - Branch: `codex/pr-258-header-only-final`
-- HEAD: `065d95f9a` — *fix: allow curated public medication API access and simplify search scope.*
-- PR: [#261](https://github.com/BigSimmo/Database/pull/261) — *Import WA psychiatric services catalogue and clinical registry snapshots*
+- HEAD: `065d95f9a` — _fix: allow curated public medication API access and simplify search scope._
+- PR: [#261](https://github.com/BigSimmo/Database/pull/261) — _Import WA psychiatric services catalogue and clinical registry snapshots_
 - Upstream: `origin/codex/pr-258-header-only-final` (in sync)
 - Worktrees: primary at `C:/Dev/Apps/Database`; detached copies at `Database-main-test` (`main`) and `Database-pr249` (`codex/pr-249-force-embedding`)
 

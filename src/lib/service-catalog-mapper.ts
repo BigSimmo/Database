@@ -318,7 +318,8 @@ export function catalogToServiceRecord(service: CatalogService): ServiceRecord {
     tags: flattenTags(service),
     catchments: buildCatchments(service),
     catalogueLabel: service.sections[0] ?? "Catalogue service",
-    navigatorQuery: cleanField(service.search_text) ?? `${service.name} ${service.provider} ${service.region_catchment}`,
+    navigatorQuery:
+      cleanField(service.search_text) ?? `${service.name} ${service.provider} ${service.region_catchment}`,
     source: buildSource(service),
   };
 }

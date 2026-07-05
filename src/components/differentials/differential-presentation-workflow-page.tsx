@@ -368,9 +368,7 @@ function HighestUrgencyPanel({
             <li key={candidate.record.slug}>{candidate.record.title}</li>
           ))}
         </ul>
-        <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
-          {workflow.highestUrgencyNote}
-        </p>
+        <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">{workflow.highestUrgencyNote}</p>
       </div>
     </section>
   );
@@ -575,11 +573,7 @@ function MobileTabs({ workflow }: { workflow: DifferentialPresentationWorkflow }
         return (
           <Link
             key={item}
-            href={
-              active
-                ? `/differentials/presentations/${workflow.id}`
-                : `/differentials/diagnoses/${firstCandidate}`
-            }
+            href={active ? `/differentials/presentations/${workflow.id}` : `/differentials/diagnoses/${firstCandidate}`}
             aria-current={active ? "page" : undefined}
             className={cn(
               "min-h-11 border-b-2 px-1 py-3",

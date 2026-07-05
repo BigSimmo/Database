@@ -138,7 +138,6 @@ const accessBadges: ClinicalBadgeItem[] = [
   { label: "Item 8357W", tone: "neutral" },
 ];
 
-
 const detailRows: DetailRow[] = [
   {
     label: "Prescribing answer",
@@ -684,7 +683,11 @@ function MedicationResults({
               }
 
               return (
-                <article key={result.id} data-testid={`medication-result-${result.id}-desktop`} className={rowClassName}>
+                <article
+                  key={result.id}
+                  data-testid={`medication-result-${result.id}-desktop`}
+                  className={rowClassName}
+                >
                   {rowContent}
                 </article>
               );

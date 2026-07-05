@@ -87,7 +87,11 @@ function DetailTile({
       >
         {value}
       </p>
-      {meta ? <p className="mt-0.5 text-3xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">{meta}</p> : null}
+      {meta ? (
+        <p className="mt-0.5 text-3xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+          {meta}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -95,7 +99,10 @@ function DetailTile({
 function SectionCard({ section }: { section: MedicationSection }) {
   const Icon = sectionIcons[section.type] || ClipboardList;
   return (
-    <details className="group scroll-mt-16 border-b border-[color:var(--border)] last:border-b-0" open={section.type === "summary" || section.type === "dose"}>
+    <details
+      className="group scroll-mt-16 border-b border-[color:var(--border)] last:border-b-0"
+      open={section.type === "summary" || section.type === "dose"}
+    >
       <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-left text-sm-minus font-semibold text-[color:var(--text-heading)] [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 items-center gap-2">
           <Icon className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden="true" />
@@ -108,9 +115,14 @@ function SectionCard({ section }: { section: MedicationSection }) {
       </summary>
       <div className="space-y-2 px-3 pb-3">
         {section.rows.map((row) => (
-          <div key={`${section.title}-${row.key}`} className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5">
+          <div
+            key={`${section.title}-${row.key}`}
+            className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5"
+          >
             <p className="text-xs font-semibold text-[color:var(--text-heading)]">{row.key}</p>
-            <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-[color:var(--text-muted)]">{row.val.replace(/\*\*/g, "")}</p>
+            <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-[color:var(--text-muted)]">
+              {row.val.replace(/\*\*/g, "")}
+            </p>
             {row.tags?.length ? (
               <div className="mt-2 flex flex-wrap gap-1">
                 {row.tags.map((tag) => (
@@ -178,7 +190,13 @@ function MedicationRecordDetail({ record }: { record: MedicationRecord }) {
 
           <section className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
             {tiles.map((tile) => (
-              <DetailTile key={tile.label} label={tile.label} value={tile.value} meta={tile.meta} danger={tile.danger} />
+              <DetailTile
+                key={tile.label}
+                label={tile.label}
+                value={tile.value}
+                meta={tile.meta}
+                danger={tile.danger}
+              />
             ))}
           </section>
 
@@ -210,7 +228,9 @@ function MedicationRecordDetail({ record }: { record: MedicationRecord }) {
 
           <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)]">
             {activeSections.length ? (
-              activeSections.map((section) => <SectionCard key={`${section.type}-${section.title}`} section={section} />)
+              activeSections.map((section) => (
+                <SectionCard key={`${section.type}-${section.title}`} section={section} />
+              ))
             ) : (
               <p className="px-3 py-4 text-sm text-[color:var(--text-muted)]">No sections in this view.</p>
             )}
@@ -225,8 +245,12 @@ function MedicationRecordDetail({ record }: { record: MedicationRecord }) {
             <div className="divide-y divide-[color:var(--border)]">
               {record.quick.map((row) => (
                 <div key={row.label} className="px-3 py-2.5">
-                  <p className="text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{row.label}</p>
-                  <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">{row.value.replace(/\*\*/g, "")}</p>
+                  <p className="text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                    {row.label}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+                    {row.value.replace(/\*\*/g, "")}
+                  </p>
                 </div>
               ))}
             </div>
@@ -239,8 +263,13 @@ function MedicationRecordDetail({ record }: { record: MedicationRecord }) {
               </div>
               <div className="grid grid-cols-2 gap-2 p-3">
                 {record.stats.map((stat) => (
-                  <div key={stat.label} className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2">
-                    <p className="text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{stat.label}</p>
+                  <div
+                    key={stat.label}
+                    className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
+                  >
+                    <p className="text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                      {stat.label}
+                    </p>
                     <p className="mt-1 text-sm-minus font-semibold text-[color:var(--text-heading)]">{stat.value}</p>
                   </div>
                 ))}

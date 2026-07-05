@@ -12,11 +12,7 @@ import {
   rowToMedicationRecord,
   type MedicationRecordRow,
 } from "@/lib/medication-records";
-import {
-  medicationToSearchResult,
-  rankMedicationRecords,
-  type MedicationSearchMatch,
-} from "@/lib/medications";
+import { medicationToSearchResult, rankMedicationRecords, type MedicationSearchMatch } from "@/lib/medications";
 import { hasPublicApiAuthSignal, publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";

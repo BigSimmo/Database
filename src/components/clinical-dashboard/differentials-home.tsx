@@ -91,11 +91,13 @@ const primaryActions: DifferentialAction[] = [
   },
 ];
 
-const recentDifferentials: RecentDifferential[] = differentialScenarioPresets().slice(0, 5).map((preset) => ({
-  label: preset.query.replace(/\bdifferential diagnosis\b/i, "").trim() || preset.query,
-  query: preset.query.includes("differential") ? preset.query : `${preset.query} differential diagnosis`,
-  icon: BrainCircuit,
-}));
+const recentDifferentials: RecentDifferential[] = differentialScenarioPresets()
+  .slice(0, 5)
+  .map((preset) => ({
+    label: preset.query.replace(/\bdifferential diagnosis\b/i, "").trim() || preset.query,
+    query: preset.query.includes("differential") ? preset.query : `${preset.query} differential diagnosis`,
+    icon: BrainCircuit,
+  }));
 
 const candidateIconBySlug: Array<[string, LucideIcon]> = [
   ["substance", FlaskConical],

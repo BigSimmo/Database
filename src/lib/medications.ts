@@ -126,9 +126,18 @@ export function medicationSearchText(record: MedicationRecord) {
   const quickText = record.quick.map((row) => `${row.label} ${row.value}`).join(" ");
   const statText = record.stats.map((stat) => `${stat.label} ${stat.value}`).join(" ");
   return normalizeSearchText(
-    [record.name, record.slug, record.class, record.subclass, record.category, record.tag, record.schedule, sectionText, quickText, statText].join(
-      " ",
-    ),
+    [
+      record.name,
+      record.slug,
+      record.class,
+      record.subclass,
+      record.category,
+      record.tag,
+      record.schedule,
+      sectionText,
+      quickText,
+      statText,
+    ].join(" "),
   );
 }
 
@@ -205,7 +214,9 @@ export function rankMedicationRecords(records: MedicationRecord[], query: string
       const matchedTerms = terms.filter((term) => text.includes(term));
       const titleMatches = terms.filter((term) => title.includes(term) || slug.includes(term));
       const taxonomyMatches = terms.filter((term) => taxonomy.includes(term));
-      const compactTitleMatch = compactQuery.length >= 4 && (compactText.includes(compactQuery) || title.replace(/\s+/g, "").includes(compactQuery));
+      const compactTitleMatch =
+        compactQuery.length >= 4 &&
+        (compactText.includes(compactQuery) || title.replace(/\s+/g, "").includes(compactQuery));
 
       let score = 0;
       score += titleMatches.length * 8;
@@ -230,7 +241,8 @@ export function rankMedicationRecords(records: MedicationRecord[], query: string
 }
 
 export function medicationIdentityBadges(record: MedicationRecord) {
-  const badges: Array<{ label: string; tone?: "clinical" | "success" | "danger" | "warning" | "neutral" | "info" }> = [];
+  const badges: Array<{ label: string; tone?: "clinical" | "success" | "danger" | "warning" | "neutral" | "info" }> =
+    [];
   if (record.tag) badges.push({ label: record.tag, tone: "neutral" });
   if (record.schedule) badges.push({ label: record.schedule, tone: record.schedule === "S8" ? "danger" : "info" });
   const brand = firstRowValue(record, "form", "brand");

@@ -8,13 +8,7 @@ import {
 } from "@/lib/document-tags";
 import type { DocumentLabel, DocumentLabelType } from "@/lib/types";
 import type { SmartDocumentTagQualityIssueKind, SmartDocumentTagTier } from "@/lib/document-tags";
-import {
-  toneDanger,
-  toneInfo,
-  toneNeutral,
-  toneSuccess,
-  toneWarning,
-} from "@/components/ui-primitives";
+import { toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
 
 export const tagQualityTone: Record<SmartDocumentTagQualityIssueKind, string> = {
   noisy: toneDanger,
@@ -79,5 +73,5 @@ export function labelTypeDisplay(value: DocumentLabelType) {
 }
 
 export type LabelReviewMutationBody =
-  { labelId: string; action: "approve" | "hide" | "restore" } | { label: string; label_type: DocumentLabelType };
-
+  | { labelId: string; action: "approve" | "hide" | "restore" }
+  | { label: string; label_type: DocumentLabelType };

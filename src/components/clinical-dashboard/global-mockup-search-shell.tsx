@@ -285,8 +285,7 @@ function GlobalMockupSearchShellClient({
 
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard =
-    !isMedicationDetailRoute &&
-    (isHomeRoute || (shouldRenderDashboardSearch && !shouldRenderFormsSearchResults));
+    !isMedicationDetailRoute && (isHomeRoute || (shouldRenderDashboardSearch && !shouldRenderFormsSearchResults));
 
   if (shouldRenderClinicalDashboard) {
     return (

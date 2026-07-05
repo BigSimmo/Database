@@ -1,10 +1,6 @@
 import { formRecords } from "@/lib/forms";
 import { buildDefaultFormRows, buildDefaultServiceRows, defaultServiceRecords } from "@/lib/registry-fixtures";
-import {
-  type RegistryRecordInsert,
-  type RegistryRecordKind,
-  type RegistryRecordRow,
-} from "@/lib/registry-records";
+import { type RegistryRecordInsert, type RegistryRecordKind, type RegistryRecordRow } from "@/lib/registry-records";
 
 // Type-only reference to the admin client so this module carries no runtime
 // dependency on the Supabase admin singleton — the CLI can import the row

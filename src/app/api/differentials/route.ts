@@ -11,11 +11,7 @@ import {
   type DifferentialRecordRow,
 } from "@/lib/differential-records";
 import { ensureDifferentialsSeeded, loadDifferentialSnapshot } from "@/lib/differential-seed";
-import {
-  differentialRecords,
-  searchDifferentialRecords,
-  searchPresentationWorkflows,
-} from "@/lib/differentials";
+import { differentialRecords, searchDifferentialRecords, searchPresentationWorkflows } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { hasPublicApiAuthSignal, publicAccessContext } from "@/lib/public-api-access";

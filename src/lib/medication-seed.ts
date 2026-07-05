@@ -7,10 +7,7 @@ export function buildMedicationSeedRows(ownerId: string): MedicationRecordInsert
   return buildDefaultMedicationRows(ownerId);
 }
 
-export async function ensureMedicationsSeeded(
-  supabase: AdminClient,
-  ownerId: string,
-): Promise<MedicationRecordRow[]> {
+export async function ensureMedicationsSeeded(supabase: AdminClient, ownerId: string): Promise<MedicationRecordRow[]> {
   const rows = buildMedicationSeedRows(ownerId);
   const { data, error } = await supabase
     .from("medication_records")

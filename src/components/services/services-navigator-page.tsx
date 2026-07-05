@@ -41,10 +41,13 @@ function text(value: string | null | undefined, fallback = "Confirm locally") {
 }
 
 function chipTone(tone: ServiceStatusChip["tone"] | undefined | null) {
-  if (tone === "danger") return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
+  if (tone === "danger")
+    return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
   if (tone === "info") return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
-  if (tone === "warning") return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-  if (tone === "success") return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
+  if (tone === "warning")
+    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
+  if (tone === "success")
+    return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
   return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 }
 
@@ -98,7 +101,12 @@ function Stepper() {
             {number}
           </span>
           <span className="min-w-0">
-            <span className={cn("block text-sm font-bold", index === 0 ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-heading)]")}>
+            <span
+              className={cn(
+                "block text-sm font-bold",
+                index === 0 ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-heading)]",
+              )}
+            >
               {title}
             </span>
             <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">{body}</span>
@@ -183,9 +191,13 @@ function ServiceCard({
         </span>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="min-w-0 text-lg font-bold leading-tight text-[color:var(--text-heading)] max-sm:text-base">{service.title}</h3>
+            <h3 className="min-w-0 text-lg font-bold leading-tight text-[color:var(--text-heading)] max-sm:text-base">
+              {service.title}
+            </h3>
             {rank <= 2 ? (
-              <span className="rounded-full bg-[color:var(--clinical-accent)] px-2.5 py-1 text-2xs font-bold text-[color:var(--clinical-accent-contrast)]">Best fit</span>
+              <span className="rounded-full bg-[color:var(--clinical-accent)] px-2.5 py-1 text-2xs font-bold text-[color:var(--clinical-accent-contrast)]">
+                Best fit
+              </span>
             ) : null}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -203,7 +215,13 @@ function ServiceCard({
           className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           aria-label={selected ? `Remove ${service.title} from selected services` : `Save ${service.title}`}
         >
-          <Bookmark className={cn("h-5 w-5", selected && "fill-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]")} aria-hidden />
+          <Bookmark
+            className={cn(
+              "h-5 w-5",
+              selected && "fill-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]",
+            )}
+            aria-hidden
+          />
         </button>
       </div>
       <div className="mt-3 grid min-w-0 grid-cols-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] md:grid-cols-4">
@@ -298,7 +316,11 @@ function RightRail({
       <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
-          <button className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]" type="button" onClick={onClearSelected}>
+          <button
+            className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
+            type="button"
+            onClick={onClearSelected}
+          >
             Clear
           </button>
         </div>
@@ -315,7 +337,9 @@ function RightRail({
                 {index + 1}
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">{service.title}</span>
+                <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">
+                  {service.title}
+                </span>
                 <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
                   {text(service.cost, "Cost pending")} - {text(service.source?.status, "Source pending")}
                 </span>
@@ -328,7 +352,10 @@ function RightRail({
       <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Checklist</h3>
-          <button className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]" type="button">
+          <button
+            className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
+            type="button"
+          >
             Edit
           </button>
         </div>
@@ -343,14 +370,20 @@ function RightRail({
             </div>
           ))}
         </div>
-        <button className="mt-4 inline-flex min-h-9 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]" type="button">
+        <button
+          className="mt-4 inline-flex min-h-9 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
+          type="button"
+        >
           Review details <ArrowRight className="h-4 w-4" aria-hidden />
         </button>
       </section>
       <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Source confidence</h3>
-          <button className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]" type="button">
+          <button
+            className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
+            type="button"
+          >
             View details
           </button>
         </div>

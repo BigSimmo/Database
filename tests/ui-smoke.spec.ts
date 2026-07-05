@@ -3,10 +3,7 @@ import { expect, test, type Locator, type Page } from "playwright/test";
 import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { deriveGovernanceFromSections } from "../src/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
-import {
-  medicationToSearchResult,
-  rankMedicationRecords,
-} from "../src/lib/medications";
+import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
 
 const dashboardViewports = [
   { name: "small-mobile", width: 320, height: 720 },
@@ -40,10 +37,9 @@ async function expectSingleMedicationPage(page: Page) {
   // to exactly one before asserting visibility — a genuine permanent double-render
   // still fails toHaveCount(1), so this does not mask a real regression.
   await page
-    .waitForResponse(
-      (response) => response.url().includes("/api/medications/acamprosate") && response.ok(),
-      { timeout: 30_000 },
-    )
+    .waitForResponse((response) => response.url().includes("/api/medications/acamprosate") && response.ok(), {
+      timeout: 30_000,
+    })
     .catch(() => undefined);
   const medicationPage = page.getByTestId("medication-page-acamprosate");
   await expect(medicationPage).toHaveCount(1, { timeout: 30_000 });

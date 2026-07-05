@@ -125,7 +125,10 @@ function splitNameSummary(line: string): { name: string; summary: string; redFla
       .split(/[,;]/)
       .map((item) => item.trim())
       .filter(Boolean);
-    remainder = remainder.slice(0, redFlagMatch.index).trim().replace(/\.\s*$/, "");
+    remainder = remainder
+      .slice(0, redFlagMatch.index)
+      .trim()
+      .replace(/\.\s*$/, "");
   }
   return { name, summary: remainder, redFlags };
 }
@@ -143,7 +146,12 @@ function parseEntryHeader(content: string) {
 
 function parseEntryTitle(content: string) {
   const afterHeader = content.replace(/^===\s*.+?\s*===\s*\n/m, "");
-  return afterHeader.split("\n").find((line) => line.trim())?.trim() ?? "Untitled presentation";
+  return (
+    afterHeader
+      .split("\n")
+      .find((line) => line.trim())
+      ?.trim() ?? "Untitled presentation"
+  );
 }
 
 function parseOptionsSection(content: string): ParsedOption[] {
@@ -177,8 +185,7 @@ export function parseEntryFile(content: string, fileName?: string): ParsedPresen
       ? "primary-psychiatric"
       : "mixed";
   const population = splitSection(content, "Population") || "general";
-  const triageRationale =
-    splitSection(content, "TRIAGE RATIONALE") || splitSection(content, "PURPOSE") || title;
+  const triageRationale = splitSection(content, "TRIAGE RATIONALE") || splitSection(content, "PURPOSE") || title;
   const mustNotMissRaw = splitSection(content, "MUST NOT MISS");
   const mustNotMiss = mustNotMissRaw.includes("\n")
     ? bulletItems(mustNotMissRaw)
@@ -223,10 +230,7 @@ function selectedCandidateCount(total: number) {
   return Math.min(6, Math.max(3, Math.ceil(total * 0.45)));
 }
 
-function buildCandidateComparison(
-  option: ParsedOption,
-  presentation: ParsedPresentation,
-): Record<string, string> {
+function buildCandidateComparison(option: ParsedOption, presentation: ParsedPresentation): Record<string, string> {
   return {
     "why-it-fits": option.summary || option.name,
     "what-argues-against": presentation.mimics.slice(0, 2).join("; ") || "Review locally.",
@@ -255,9 +259,7 @@ function buildPresentationWorkflow(parsed: ParsedPresentation): DifferentialPres
     totalCount: parsed.options.length,
     safetySnapshot: {
       summary: parsed.clinicalHinge,
-      tags: parsed.mustNotMiss.slice(0, 4).length
-        ? parsed.mustNotMiss.slice(0, 4)
-        : ["Review must-not-miss causes"],
+      tags: parsed.mustNotMiss.slice(0, 4).length ? parsed.mustNotMiss.slice(0, 4) : ["Review must-not-miss causes"],
     },
     criteria: COMPARISON_CRITERIA,
     candidates,
@@ -387,7 +389,11 @@ function mergeDiagnosisRecords(existing: DifferentialRecord, incoming: Different
       primary.related.map((node: DifferentialMapNode) => node.id),
       secondary.related.map((node: DifferentialMapNode) => node.id),
     )
-      .map((id) => primary.related.find((node: DifferentialMapNode) => node.id === id) ?? secondary.related.find((node: DifferentialMapNode) => node.id === id))
+      .map(
+        (id) =>
+          primary.related.find((node: DifferentialMapNode) => node.id === id) ??
+          secondary.related.find((node: DifferentialMapNode) => node.id === id),
+      )
       .filter((node): node is NonNullable<typeof node> => Boolean(node))
       .slice(0, 8),
     currentPresentation: unionItems(primary.currentPresentation, secondary.currentPresentation).slice(0, 6),
