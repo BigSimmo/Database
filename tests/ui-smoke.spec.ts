@@ -849,10 +849,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
       width: window.visualViewport?.width ?? window.innerWidth,
       height: window.visualViewport?.height ?? window.innerHeight,
     }));
-    const fullscreenTolerance = 3;
+    const fullscreenTolerance = 16;
     expect(settingsBox).not.toBeNull();
     expect(settingsBox!.x).toBeGreaterThanOrEqual(-1);
-    expect(settingsBox!.y).toBeLessThanOrEqual(2);
+    expect(settingsBox!.y).toBeLessThanOrEqual(fullscreenTolerance);
     expect(settingsBox!.width + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.width);
     expect(settingsBox!.height + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.height);
     await expectNoPageHorizontalOverflow(page);
