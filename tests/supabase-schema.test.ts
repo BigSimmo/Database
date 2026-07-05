@@ -38,6 +38,10 @@ const phase7RetrievalPerformanceMigration = readFileSync(
   new URL("../supabase/migrations/20260626020000_phase7_retrieval_rpc_performance.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const retrievalOwnerFilterSentinelMigration = readFileSync(
+  new URL("../supabase/migrations/20260705210000_retrieval_owner_filter_sentinel.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const atomicReindexMigration = readFileSync(
   new URL("../supabase/migrations/20260628000000_atomic_reindex_generation_commit.sql", import.meta.url),
   "utf8",
@@ -793,6 +797,12 @@ describe("Supabase Preview replay guards", () => {
 
   it("drops match_document_chunks_text before phase 7 changes its OUT signature", () => {
     expect(phase7RetrievalPerformanceMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
+  });
+
+  it("drops match_document_chunks_text before retrieval owner sentinel rewrites it", () => {
+    expect(retrievalOwnerFilterSentinelMigration).toContain(
       "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
     );
   });
