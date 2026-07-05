@@ -289,6 +289,7 @@ export function ModeActionPopup({
   integrated = false,
   integratedChipRow = true,
   triggerRef,
+  dismissIgnoreRefs,
 }: {
   open: boolean;
   title: string;
@@ -308,6 +309,8 @@ export function ModeActionPopup({
   /** When false, the integrated menu skips the footer chip-row clearance offset. */
   integratedChipRow?: boolean;
   triggerRef?: RefObject<HTMLButtonElement | null>;
+  /** Header-owned controls (e.g. app mode trigger) that must stay clickable above the portaled menu. */
+  dismissIgnoreRefs?: readonly RefObject<HTMLElement | null>[];
 }) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -331,7 +334,7 @@ export function ModeActionPopup({
 
   useDismissableLayer({
     enabled: open,
-    refs: [rootRef, surfaceRef],
+    refs: [rootRef, surfaceRef, ...(dismissIgnoreRefs ?? [])],
     restoreFocusRef: buttonRef,
     onDismiss: () => {
       setModeSelectorOpen(false);

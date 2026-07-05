@@ -1146,6 +1146,7 @@ export function MasterSearchHeader({
               triggerRef={actionMenuTriggerRef}
               integrated={usesFooterChipLayout}
               integratedChipRow={false}
+              dismissIgnoreRefs={[modeMenuRef]}
             />
 
             {/* The clear button is a flex sibling (not absolutely positioned): the
@@ -1332,7 +1333,10 @@ export function MasterSearchHeader({
 
           <div
             ref={modeMenuRef}
-            className={cn("relative z-40 min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
+            className={cn(
+              "relative z-[60] min-w-0",
+              isWorkflowHeader ? "justify-self-start" : "justify-self-center",
+            )}
           >
             <button
               ref={modeButtonRef}
