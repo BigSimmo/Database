@@ -930,26 +930,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("private mode unauthenticated dashboard gates real-mode search", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     const answerRequests: string[] = [];
-    await page.route(/\/api\/local-project-id$/, async (route) => {
-      await route.fulfill({
-        json: {
-          appName: "Clinical KB",
-          projectId: "test-project",
-          identityPath: "/api/local-project-id",
-          localServer: {
-            currentUrl: "http://localhost:4298",
-            currentPort: 4298,
-            projectPortStart: 4298,
-            projectPortEnd: 53210,
-            safeLocalOrigin: false,
-            requestOrigin: null,
-            requestReferer: null,
-            unsafeLocalCaller: "http://localhost:3000",
-          },
-        },
-      });
-    });
+    const unsafeLocalProjectPayload = {
+      appName: "Clinical KB",
+      projectId: "test-project",
+      identityPath: "/api/local-project-id",
+      localServer: {
+        currentUrl: "http://localhost:4298",
+        currentPort: 4298,
+        projectPortStart: 4298,
+        projectPortEnd: 53210,
+        safeLocalOrigin: false,
+        requestOrigin: null,
+        requestReferer: null,
+        unsafeLocalCaller: "http://localhost:3000",
+      },
+    };
     await mockPrivateUnauthenticatedApi(page);
+    await page.route(/\/api\/local-project-id$/, async (route) => {
+      await route.fulfill({ json: unsafeLocalProjectPayload });
+    });
     await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
       answerRequests.push(route.request().url());
       await route.fulfill({ status: 401, json: { error: "Authentication required." } });
