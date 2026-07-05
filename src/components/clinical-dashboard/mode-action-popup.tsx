@@ -400,10 +400,7 @@ export function ModeActionPopup({
 
     if (integrated) {
       const maxSurfaceWidth = Math.min(window.innerWidth - edgePadding * 2, 400);
-      const surfaceLeft = Math.max(
-        edgePadding,
-        Math.min(rect.left, window.innerWidth - maxSurfaceWidth - edgePadding),
-      );
+      const surfaceLeft = Math.max(edgePadding, Math.min(rect.left, window.innerWidth - maxSurfaceWidth - edgePadding));
       setIntegratedSurfaceLayout({
         placement: nextPlacement,
         left: surfaceLeft,
@@ -583,11 +580,7 @@ export function ModeActionPopup({
       className={cn(
         "mode-action-surface z-50 text-[color:var(--text)]",
         integrated && integratedSurfaceLayout ? "fixed" : "absolute",
-        integrated && integratedSurfaceLayout
-          ? null
-          : integrated
-            ? "inset-x-0"
-            : "inset-x-0 sm:inset-x-auto sm:left-0",
+        integrated && integratedSurfaceLayout ? null : integrated ? "inset-x-0" : "inset-x-0 sm:inset-x-auto sm:left-0",
         !integrated || !integratedSurfaceLayout
           ? placement === "up"
             ? "bottom-[calc(100%+0.875rem)]"
@@ -598,143 +591,143 @@ export function ModeActionPopup({
         !integrated && (items.length <= 4 ? "sm:w-[min(22rem,100%)]" : "sm:w-[min(24rem,100%)]"),
       )}
     >
-          <div
-            className={cn(
-              "mode-action-panel overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[0_18px_42px_rgb(15_37_48_/_16%)] ring-1 ring-white/45 dark:ring-white/10",
-              integrated ? "rounded-[1.35rem] shadow-[0_20px_48px_rgb(15_37_48_/_18%)]" : "rounded-[1rem]",
-            )}
-          >
-            <div className="mode-action-header border-b border-white/15">
-              <div className="mode-action-selector-shell">
-                <button
-                  type="button"
-                  ref={modeButtonRef}
-                  disabled={!canSwitchMode}
-                  aria-haspopup={canSwitchMode ? "menu" : undefined}
-                  aria-expanded={canSwitchMode ? modeSelectorOpen : undefined}
-                  aria-controls={modeSelectorOpen ? "mode-action-mode-menu" : undefined}
-                  onKeyDown={handleModeButtonKeyDown}
-                  onClick={() => canSwitchMode && setModeSelectorOpen((current) => !current)}
-                  className="mode-action-mode-button"
-                >
-                  <span className="mode-action-mode-icon">
-                    <TitleIcon className="h-4.5 w-4.5" />
-                  </span>
-                  <span className="min-w-0 truncate">{title}</span>
-                  {canSwitchMode ? (
-                    <ChevronDown
-                      className={cn("h-4.5 w-4.5 shrink-0 transition", modeSelectorOpen && "rotate-180")}
-                      aria-hidden="true"
-                    />
-                  ) : null}
-                </button>
-                {modeSelectorOpen && modeOptions?.length ? (
-                  <div
-                    id="mode-action-mode-menu"
-                    role="menu"
-                    aria-label="Choose search mode"
-                    className="mode-action-mode-menu polished-scroll"
-                  >
-                    {modeOptions.map((mode, index) => {
-                      const Icon = mode.icon;
-                      const active = mode.id === selectedModeId;
-                      return (
-                        <button
-                          key={mode.id}
-                          ref={(element) => {
-                            modeOptionRefs.current[index] = element;
-                          }}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={active}
-                          disabled={mode.disabled}
-                          onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
-                          onClick={() => selectMode(mode)}
-                          className={cn("mode-action-mode-option", active && "mode-action-mode-option-active")}
-                        >
-                          <span className="mode-action-mode-option-icon">
-                            <Icon className="h-4 w-4" />
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-extrabold">{mode.label}</span>
-                            {mode.description ? (
-                              <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
-                                {mode.description}
-                              </span>
-                            ) : null}
-                          </span>
-                          {active ? <Check className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </div>
-              <div className="mode-action-header-summary">
-                <span aria-hidden="true" className="mode-action-header-divider" />
-                <span className="min-w-0 truncate">{headerSubtitle}</span>
-              </div>
-              <button
-                type="button"
-                onClick={closeAndRestoreFocus}
-                className="mode-action-close"
-                aria-label={`Close ${title.toLowerCase()} options`}
-              >
-                <BadgeCheck className="h-4.5 w-4.5" />
-              </button>
-            </div>
-            <div
-              id="daily-actions-sheet"
-              data-testid="daily-actions-menu"
-              role="menu"
-              aria-label={title}
-              className={cn("mode-action-body polished-scroll p-2.5", integrated && "p-3 sm:p-3.5")}
+      <div
+        className={cn(
+          "mode-action-panel overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[0_18px_42px_rgb(15_37_48_/_16%)] ring-1 ring-white/45 dark:ring-white/10",
+          integrated ? "rounded-[1.35rem] shadow-[0_20px_48px_rgb(15_37_48_/_18%)]" : "rounded-[1rem]",
+        )}
+      >
+        <div className="mode-action-header border-b border-white/15">
+          <div className="mode-action-selector-shell">
+            <button
+              type="button"
+              ref={modeButtonRef}
+              disabled={!canSwitchMode}
+              aria-haspopup={canSwitchMode ? "menu" : undefined}
+              aria-expanded={canSwitchMode ? modeSelectorOpen : undefined}
+              aria-controls={modeSelectorOpen ? "mode-action-mode-menu" : undefined}
+              onKeyDown={handleModeButtonKeyDown}
+              onClick={() => canSwitchMode && setModeSelectorOpen((current) => !current)}
+              className="mode-action-mode-button"
             >
-              <div className={cn("grid gap-2", actionGridClass)}>
-                {items.map((item, index) => {
-                  const Icon = item.icon;
+              <span className="mode-action-mode-icon">
+                <TitleIcon className="h-4.5 w-4.5" />
+              </span>
+              <span className="min-w-0 truncate">{title}</span>
+              {canSwitchMode ? (
+                <ChevronDown
+                  className={cn("h-4.5 w-4.5 shrink-0 transition", modeSelectorOpen && "rotate-180")}
+                  aria-hidden="true"
+                />
+              ) : null}
+            </button>
+            {modeSelectorOpen && modeOptions?.length ? (
+              <div
+                id="mode-action-mode-menu"
+                role="menu"
+                aria-label="Choose search mode"
+                className="mode-action-mode-menu polished-scroll"
+              >
+                {modeOptions.map((mode, index) => {
+                  const Icon = mode.icon;
+                  const active = mode.id === selectedModeId;
                   return (
                     <button
-                      key={item.id}
-                      ref={(element) => assignActionRef(element, index)}
+                      key={mode.id}
+                      ref={(element) => {
+                        modeOptionRefs.current[index] = element;
+                      }}
                       type="button"
-                      role="menuitem"
-                      onKeyDown={(event) => handleItemKeyDown(event, index)}
-                      onClick={() => runActionAndClose(item.id)}
-                      className={cn(
-                        "group grid min-h-[4.6rem] place-items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-2 text-center shadow-[var(--shadow-inset)] transition motion-safe:duration-150 sm:min-h-[4.85rem]",
-                        "hover:border-[color:var(--clinical-accent)]/32 hover:bg-[color:var(--clinical-accent-soft)]/24 active:scale-[0.985]",
-                        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                      )}
+                      role="menuitemradio"
+                      aria-checked={active}
+                      disabled={mode.disabled}
+                      onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
+                      onClick={() => selectMode(mode)}
+                      className={cn("mode-action-mode-option", active && "mode-action-mode-option-active")}
                     >
-                      <span className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-heading)] transition group-hover:text-[color:var(--clinical-accent)]">
-                        <Icon className="h-5 w-5" />
+                      <span className="mode-action-mode-option-icon">
+                        <Icon className="h-4 w-4" />
                       </span>
-                      <span className="max-w-full text-balance text-xs font-bold leading-4 text-[color:var(--text-heading)]">
-                        {item.shortLabel ?? item.label}
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-extrabold">{mode.label}</span>
+                        {mode.description ? (
+                          <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                            {mode.description}
+                          </span>
+                        ) : null}
                       </span>
+                      {active ? <Check className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
                     </button>
                   );
                 })}
               </div>
-            </div>
+            ) : null}
           </div>
-          {!integrated ? (
-            <>
-              {placement === "up" ? (
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute -bottom-[6px] left-8 h-3 w-3 rotate-45 border-b border-r border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[4px_4px_10px_rgb(15_37_48_/_5%)]"
-                />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute -top-[6px] left-8 h-3 w-3 rotate-45 border-l border-t border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[-4px_-4px_10px_rgb(15_37_48_/_5%)]"
-                />
-              )}
-            </>
-          ) : null}
+          <div className="mode-action-header-summary">
+            <span aria-hidden="true" className="mode-action-header-divider" />
+            <span className="min-w-0 truncate">{headerSubtitle}</span>
+          </div>
+          <button
+            type="button"
+            onClick={closeAndRestoreFocus}
+            className="mode-action-close"
+            aria-label={`Close ${title.toLowerCase()} options`}
+          >
+            <BadgeCheck className="h-4.5 w-4.5" />
+          </button>
         </div>
+        <div
+          id="daily-actions-sheet"
+          data-testid="daily-actions-menu"
+          role="menu"
+          aria-label={title}
+          className={cn("mode-action-body polished-scroll p-2.5", integrated && "p-3 sm:p-3.5")}
+        >
+          <div className={cn("grid gap-2", actionGridClass)}>
+            {items.map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  ref={(element) => assignActionRef(element, index)}
+                  type="button"
+                  role="menuitem"
+                  onKeyDown={(event) => handleItemKeyDown(event, index)}
+                  onClick={() => runActionAndClose(item.id)}
+                  className={cn(
+                    "group grid min-h-[4.6rem] place-items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-2 text-center shadow-[var(--shadow-inset)] transition motion-safe:duration-150 sm:min-h-[4.85rem]",
+                    "hover:border-[color:var(--clinical-accent)]/32 hover:bg-[color:var(--clinical-accent-soft)]/24 active:scale-[0.985]",
+                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  )}
+                >
+                  <span className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-heading)] transition group-hover:text-[color:var(--clinical-accent)]">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="max-w-full text-balance text-xs font-bold leading-4 text-[color:var(--text-heading)]">
+                    {item.shortLabel ?? item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      {!integrated ? (
+        <>
+          {placement === "up" ? (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-[6px] left-8 h-3 w-3 rotate-45 border-b border-r border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[4px_4px_10px_rgb(15_37_48_/_5%)]"
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -top-[6px] left-8 h-3 w-3 rotate-45 border-l border-t border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[-4px_-4px_10px_rgb(15_37_48_/_5%)]"
+            />
+          )}
+        </>
+      ) : null}
+    </div>
   ) : null;
 
   return (
