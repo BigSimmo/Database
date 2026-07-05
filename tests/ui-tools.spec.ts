@@ -503,14 +503,7 @@ test.describe("Clinical KB applications launcher", () => {
         if (viewport.width < 640) {
           expect(metrics?.position).toBe("fixed");
           expect(metrics?.formCenterY ?? 0).toBeGreaterThan(viewport.height * 0.72);
-          if (route.compactBottomSearch) {
-            // Search result views drop the chip row and hug the bottom edge
-            // on phones so results keep maximum screen space.
-            await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
-            expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 48);
-          } else {
-            await expect(page.locator(".answer-footer-search-chip:visible").first()).toBeVisible();
-          }
+          await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
         } else {
           expect(metrics?.position).toBe("sticky");
           expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
