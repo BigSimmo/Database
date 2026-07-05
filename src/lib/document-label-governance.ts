@@ -381,8 +381,6 @@ export function buildDocumentLabelGovernanceReport(documents: LabelGovernanceDoc
     analytics,
     qaSample,
     relevanceChecks,
-    passed:
-      analytics.blockingQualityIssues.length === 0 &&
-      relevanceChecks.every((check) => check.passed),
+    passed: analytics.blockingQualityIssues.length === 0 && relevanceChecks.every((check) => check.passed),
   };
 }
