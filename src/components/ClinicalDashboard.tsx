@@ -4082,6 +4082,7 @@ export function ClinicalDashboard({
                         followUpSuggestions={answerFollowUpSuggestions}
                         onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
                         followUpSuggestionsDisabled={loading}
+                        scrollContainerRef={mainRef}
                       />
                     </>
                   ) : null
