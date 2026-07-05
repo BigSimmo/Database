@@ -124,7 +124,7 @@ describe("production anonymous retrieval scope", () => {
     vi.unstubAllEnvs();
   });
 
-  it("fails closed in production when anonymous global retrieval omits owner scope", async () => {
+  it("rejects anonymous global retrieval without allowGlobalSearch in production", async () => {
     vi.doUnmock("@/lib/rag");
     vi.stubEnv("NODE_ENV", "production");
     vi.doMock("@/lib/env", () => ({
@@ -160,9 +160,49 @@ describe("production anonymous retrieval scope", () => {
     await expect(
       searchChunksWithTelemetry({
         query: "clozapine monitoring",
-        allowGlobalSearch: true,
       }),
     ).rejects.toThrow(/ownerId|tenant/i);
+  });
+
+  it("scopes anonymous global retrieval to public documents when allowGlobalSearch is true", async () => {
+    vi.doUnmock("@/lib/rag");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        OPENAI_API_KEY: "sk-test",
+        RAG_PROVIDER_MODE: "offline",
+        RAG_SEARCH_CACHE_TTL_MS: 0,
+        RAG_ANSWER_CACHE_TTL_MS: 0,
+      },
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+      requestedOpenAIAnswerModels: () => ({ fast: "gpt-test", strong: "gpt-test" }),
+    }));
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: vi.fn(() => ({
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              is: vi.fn(() => ({
+                order: vi.fn(() => ({
+                  limit: vi.fn(async () => ({ data: [], error: null })),
+                })),
+              })),
+            })),
+          })),
+        })),
+        rpc: vi.fn(async () => ({ data: [], error: null })),
+      })),
+    }));
+
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag");
+    const result = await searchChunksWithTelemetry({
+      query: "clozapine monitoring",
+      allowGlobalSearch: true,
+    });
+
+    expect(result.results).toEqual([]);
+    expect(result.telemetry).toBeDefined();
   });
 });
 
