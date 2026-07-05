@@ -628,6 +628,27 @@ describe("clinical search query normalization", () => {
     expect(hasStructuredThresholdEvidence(tableResult)).toBe(true);
   });
 
+  it("treats retrieval synopsis text as dose evidence support", () => {
+    const synopsisResult = result({
+      title: "Medication chart",
+      content: "Administrative note only.",
+      retrieval_synopsis: "Lorazepam 1 mg IM route with repeat dose review guidance.",
+    });
+
+    expect(hasDoseEvidenceSupport(synopsisResult)).toBe(true);
+    expect(
+      rankClinicalResults("What dose and route are shown for lorazepam?", [
+        result({
+          id: "generic-higher-score",
+          title: "Medication overview",
+          content: "Administrative review note only.",
+          hybrid_score: 0.72,
+        }),
+        { ...synopsisResult, id: "synopsis-dose", hybrid_score: 0.58 },
+      ])[0].id,
+    ).toBe("synopsis-dose");
+  });
+
   it("detects structured threshold support from index units and table images", () => {
     expect(
       hasStructuredThresholdEvidence(

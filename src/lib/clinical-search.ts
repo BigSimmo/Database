@@ -1,4 +1,5 @@
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import { clinicalResultEvidenceHaystack } from "@/lib/clinical-evidence-haystack";
 import { expandClinicalVocabularyText } from "@/lib/clinical-vocabulary";
 import { freshnessDecayPenalty, rankingConfig } from "@/lib/ranking-config";
 import type {
@@ -720,30 +721,14 @@ function evidenceDensityBoost(result: SearchResult, tokens: string[]) {
 }
 
 export function hasDoseEvidenceSupport(result: SearchResult) {
-  const haystack = `${result.section_heading ?? ""} ${result.content} ${(result.table_facts ?? [])
-    .map(
-      (fact) =>
-        `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.clinical_parameter ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`,
-    )
-    .join(" ")} ${(result.memory_cards ?? []).map((card) => `${card.title} ${card.content}`).join(" ")} ${(
-    result.images ?? []
-  )
-    .map((image) => `${image.tableTextSnippet ?? ""} ${image.caption ?? ""} ${image.tableTitle ?? ""}`)
-    .join(" ")}`.toLowerCase();
+  const haystack = clinicalResultEvidenceHaystack(result);
   return /\b(?:dose|dosage|dosing|mg|mcg|microgram|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer\w*|titration|titrate|frequency|maximum|tablet|injection|antipsychotic|benzodiazepine|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
     haystack,
   );
 }
 
 function hasMedicationDoseAmountEvidence(result: SearchResult) {
-  const haystack = `${result.section_heading ?? ""} ${result.content} ${(result.table_facts ?? [])
-    .map(
-      (fact) =>
-        `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.clinical_parameter ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`,
-    )
-    .join(" ")} ${(result.images ?? [])
-    .map((image) => `${image.tableTextSnippet ?? ""} ${image.caption ?? ""} ${image.tableTitle ?? ""}`)
-    .join(" ")}`.toLowerCase();
+  const haystack = clinicalResultEvidenceHaystack(result);
   return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(haystack);
 }
 
