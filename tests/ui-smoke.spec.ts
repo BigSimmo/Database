@@ -515,10 +515,20 @@ async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean; mo
   }
 }
 
-// The document-scope control lives in the footer composer. It opens a desktop
-// popover or mobile sheet depending on the current viewport.
-function scopeTrigger(page: Page) {
-  return page.locator('[data-testid="scope-trigger"]:visible');
+// Document scope opens from the footer composer "+" menu.
+async function openScopeControl(page: Page) {
+  const actionMenu = page.getByRole("button", { name: "Open answer options" });
+  await expect(actionMenu).toBeVisible();
+
+  await expect(async () => {
+    await actionMenu.click();
+    const actionsMenu = page.getByTestId("daily-actions-menu");
+    await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await actionsMenu.getByRole("menuitem", { name: "Scope sources" }).click();
+    await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({
+      timeout: uiAssertionTimeoutMs,
+    });
+  }).toPass({ timeout: 10_000 });
 }
 
 async function expectMinTouchTarget(locator: Locator, minSize = 44) {
@@ -1259,7 +1269,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(evidenceSheet).toHaveCount(0);
     await expect(evidenceDrawer).toBeFocused();
 
-    await scopeTrigger(page).click();
+    await openScopeControl(page);
     const scopePopover = page.locator('[data-testid="scope-command-popover"]:visible');
     await expect(scopePopover).toBeVisible();
     const scopeFilter = scopePopover.locator('[data-testid="document-scope-filter"]');
@@ -1282,7 +1292,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(popoverMetrics.height).toBeLessThanOrEqual(Math.ceil(popoverMetrics.viewportHeight * 0.72));
     await page.keyboard.press("Escape");
     await expect(scopePopover).toBeHidden();
-    await expect(scopeTrigger(page)).toBeFocused();
+    await expect(page.getByRole("button", { name: "Open answer options" })).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
   });
 
