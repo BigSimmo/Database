@@ -9,12 +9,13 @@ import {
   sourceWarningsForRagQualityAnswer,
   type RagQualityResult,
 } from "../scripts/eval-quality";
-import type { GoldenRetrievalResult } from "../scripts/eval-retrieval";
+import { evaluateGoldenRetrievalCase, type GoldenRetrievalResult } from "../scripts/eval-retrieval";
 
 function retrievalResult(overrides: Partial<GoldenRetrievalResult> = {}): GoldenRetrievalResult {
   const base: GoldenRetrievalResult = {
     id: "retrieval-1",
     query: "What ANC threshold should withhold clozapine?",
+    forceEmbedding: false,
     expectedQueryClass: "table_threshold",
     actualQueryClass: "table_threshold",
     expectedDocumentSubstrings: ["clozapine.pdf"],
@@ -166,6 +167,8 @@ describe("eval quality reporting", () => {
       structured_threshold_text_match: 1,
     });
     expect(report.retrieval.summary.second_stage_rerank_rate).toBe(0.5);
+    expect(report.retrieval.summary.force_embedding_case_count).toBe(0);
+    expect(report.retrieval.summary.force_embedding_failure_count).toBe(0);
     expect(report.rag.summary.unsupported_correct_rate).toBe(0);
     expect(report.rag.summary.numeric_grounding_failure_rate).toBeCloseTo(0.3333, 4);
     expect(report.rag.summary.source_governance_danger_failure_rate).toBeCloseTo(0.3333, 4);
@@ -177,6 +180,53 @@ describe("eval quality reporting", () => {
         expect.stringContaining("RAG numeric_grounding_failure_rate"),
         expect.stringContaining("RAG source_governance_danger_failure_rate"),
       ]),
+    );
+  });
+
+  it("fails forced-embedding retrieval cases that return from cache, coverage, or lexical paths", () => {
+    const result = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "vector-regression",
+        query: "How is panic disorder managed?",
+        expectedQueryClass: "broad_summary",
+        expectedDocumentSubstrings: [],
+        expectedContentTerms: [],
+        topK: 8,
+        expectTableEvidence: false,
+        forceEmbedding: true,
+      },
+      results: [],
+      telemetry: {
+        query_class: "broad_summary",
+        retrieval_strategy: "text_fast_path",
+        embedding_skipped: true,
+        embedding_skip_reason: "strong_document_text_score",
+        text_fast_path_reason: "strong_document_text_score",
+        text_candidate_budget: 32,
+        text_candidate_count: 5,
+        vector_candidate_count: 0,
+        retrieval_layer_counts: { text_candidates: 5 },
+        coverage_gate_decision: "accepted",
+        coverage_gate_reason: "document_title_evidence_gate",
+        second_stage_rerank_used: false,
+      },
+      latencyMs: 10,
+    });
+
+    expect(result.forceEmbedding).toBe(true);
+    expect(result.failures).toEqual(
+      expect.arrayContaining([
+        "forceEmbedding expected embedding to run",
+        "forceEmbedding returned lexical strategy text_fast_path",
+        "forceEmbedding returned coverage gate",
+        "forceEmbedding found no vector-layer candidates",
+      ]),
+    );
+    const report = buildEvalQualityReport({ retrievalResults: [result], ragResults: [] });
+    expect(report.retrieval.summary.force_embedding_case_count).toBe(1);
+    expect(report.retrieval.summary.force_embedding_failure_count).toBe(1);
+    expect(report.blocking_threshold_failures).toEqual(
+      expect.arrayContaining([expect.stringContaining("retrieval force_embedding_failure_count 1 above 0")]),
     );
   });
 
