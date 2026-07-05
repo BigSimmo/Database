@@ -73,5 +73,4 @@ export function labelTypeDisplay(value: DocumentLabelType) {
 }
 
 export type LabelReviewMutationBody =
-  | { labelId: string; action: "approve" | "hide" | "restore" }
-  | { label: string; label_type: DocumentLabelType };
+  { labelId: string; action: "approve" | "hide" | "restore" } | { label: string; label_type: DocumentLabelType };
