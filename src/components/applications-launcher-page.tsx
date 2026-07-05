@@ -816,14 +816,15 @@ export function ApplicationsLauncherWorkspace({
 }: ApplicationsLauncherWorkspaceProps) {
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
   const composerSlotId = desktopComposerSlotId ?? modeHomeDesktopComposerSlotId;
-  const [selectedId, setSelectedId] = useState(() => initialToolId(query));
   const [detailOpen, setDetailOpen] = useState(false);
   const copy = toolsLauncherCopy;
   const normalizedQuery = query.trim().toLowerCase();
-
-  useEffect(() => {
-    setSelectedId((current) => initialToolId(query) || current);
-  }, [query]);
+  const queryDerivedId = useMemo(() => initialToolId(query), [query]);
+  const [selection, setSelection] = useState({
+    queryKey: normalizedQuery,
+    id: initialToolId(query),
+  });
+  const selectedId = selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
 
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {
@@ -848,7 +849,7 @@ export function ApplicationsLauncherWorkspace({
   const selectedApp = appById(effectiveSelectedId);
 
   function openTool(id: string) {
-    setSelectedId(id);
+    setSelection({ queryKey: normalizedQuery, id });
     setDetailOpen(true);
   }
 
@@ -950,4 +951,8 @@ export function ApplicationsLauncherWorkspace({
       <DetailDialog app={selectedApp} open={detailOpen} onClose={() => setDetailOpen(false)} />
     </main>
   );
+}
+
+export function ApplicationsLauncherPage() {
+  return <ApplicationsLauncherWorkspace />;
 }
