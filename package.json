@@ -47,6 +47,7 @@
     "governance:release": "npm run check:document-label-coverage && npm run check:document-label-governance && npm run audit:source-governance:release",
     "check:document-label-coverage": "tsx scripts/check-document-label-coverage.ts",
     "check:document-label-governance": "tsx scripts/check-document-label-governance.ts",
+    "check:retrieval-owner-migration": "tsx scripts/check-retrieval-owner-migration.ts",
     "backfill:gold-labels": "tsx scripts/backfill-gold-document-labels.ts",
     "backfill:smart-v2-labels": "npm run classify:documents -- --all-owners --limit 5000 --only-missing-smart-v2",
     "tags:backfill": "tsx scripts/backfill-document-tags.ts",

@@ -43,12 +43,12 @@ from promoted_public_documents pd
 where dmc.document_id = pd.id;
 
 update public.document_table_facts dtf
-set owner_id = null, updated_at = now()
+set owner_id = null
 from promoted_public_documents pd
 where dtf.document_id = pd.id;
 
 update public.document_embedding_fields def
-set owner_id = null, updated_at = now()
+set owner_id = null
 from promoted_public_documents pd
 where def.document_id = pd.id;
 

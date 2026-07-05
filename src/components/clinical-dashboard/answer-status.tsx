@@ -1,7 +1,8 @@
 "use client";
 
-import { Clipboard, ClipboardCheck, MessageSquareText, Search, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
+import { Clipboard, ClipboardCheck, MessageSquareText, ShieldCheck } from "lucide-react";
 
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { answerEmptyState, answerLoading, copyButton } from "@/lib/ui-copy";
@@ -34,7 +35,7 @@ export function CopyButton({
 }
 
 export function AnswerEmptyState({
-  onPickSample,
+  onPickSample: _onPickSample,
   onSearchDocuments,
   onUploadDocument,
   desktopComposerSlotId,
@@ -44,6 +45,21 @@ export function AnswerEmptyState({
   onUploadDocument: () => void;
   desktopComposerSlotId?: string;
 }) {
+  const quickActions = [
+    answerEmptyState.starters.searchDocuments.title,
+    answerEmptyState.starters.uploadDocument.title,
+  ];
+
+  function handleQuickAction(action: string) {
+    if (action === answerEmptyState.starters.searchDocuments.title) {
+      onSearchDocuments();
+      return;
+    }
+    if (action === answerEmptyState.starters.uploadDocument.title) {
+      onUploadDocument();
+    }
+  }
+
   return (
     <ModeHomeTemplate
       testId="answer-empty-state"
@@ -53,27 +69,19 @@ export function AnswerEmptyState({
       headingLevel={2}
       desktopComposerSlotId={desktopComposerSlotId}
       actionsLabel={answerEmptyState.starterActionsLabel}
-      actions={[
-        {
-          title: answerEmptyState.starters.ask.title,
-          description: answerEmptyState.starters.ask.description,
-          icon: Sparkles,
-          onClick: () => onPickSample(answerEmptyState.starters.ask.samplePrompt),
-        },
-        {
-          title: answerEmptyState.starters.searchDocuments.title,
-          description: answerEmptyState.starters.searchDocuments.description,
-          icon: Search,
-          onClick: onSearchDocuments,
-        },
-        {
-          title: answerEmptyState.starters.uploadDocument.title,
-          description: answerEmptyState.starters.uploadDocument.description,
-          icon: UploadCloud,
-          onClick: onUploadDocument,
-        },
-      ]}
-      footer={<ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical Guide library" />}
+      actions={[]}
+      footer={
+        <div className="grid w-full gap-3">
+          <AnswerSuggestionChips
+            suggestions={quickActions}
+            onPick={handleQuickAction}
+            label={answerEmptyState.quickActionsLabel}
+            layout="wrap"
+            className="justify-center"
+          />
+          <ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical Guide library" />
+        </div>
+      }
     />
   );
 }
