@@ -263,3 +263,13 @@ After completing `upload`, summarize the current branch and worktree state, whet
 - When a repeated repo-specific workflow is discovered, update this file or ask the user whether it should be remembered.
 
 <!-- END:codex-productivity-defaults -->
+
+## Cursor Cloud specific instructions
+
+Durable notes for Cloud Agents. Standard commands live in `README.md` and `package.json`; only non-obvious caveats are captured here.
+
+- Runtime: the app hard-requires Node 24.x / npm 11.x (`engine-strict`, and `scripts/dev-free-port.mjs` exits on any other major). Node 24 is installed via nvm and symlinked into `/usr/local/cargo/bin` (first entry in `PATH`) so `node`/`npm` resolve to v24 in every shell. If a shell ever resolves `/exec-daemon/node` (v22) instead, prepend `"$HOME/.nvm/versions/node/v24.18.0/bin"` to `PATH`.
+- No live credentials in this environment: no Supabase or OpenAI keys are set. `.env.local` sets `NEXT_PUBLIC_DEMO_MODE=true` (+ `RAG_PROVIDER_MODE=offline`), and in development `isDemoMode()` (`src/lib/env.ts`) auto-enables when Supabase config is absent. Answer/search/documents routes serve the synthetic in-memory corpus from `src/lib/demo-data.ts` and `public/demo-documents/` — good enough to exercise the core ask→cited-answer flow end-to-end.
+- What will NOT run without real secrets: `npm run worker` (ingestion), Supabase edge functions, and the ops/eval/governance/backfill scripts (they call `requireServerEnv()`/`requireOpenAIEnv()`). `npm run check:supabase-project` and `verify:release` also fail without live Supabase + OpenAI. Do not treat those failures as environment regressions.
+- Dev server: `npm run dev` selects a stable per-project localhost port (e.g. `4461`), binds `0.0.0.0`, and prints the exact URL. Never assume port 3000/3001/3002. `npm run ensure` starts/verifies it in the background.
+- Verification without secrets: `npm run lint`, `npm run typecheck`, and `npm run test` (vitest) all pass offline. `npm run verify:cheap` also runs `check:runtime` + `sitemap:check` and is safe offline.
