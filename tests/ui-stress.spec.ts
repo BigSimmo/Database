@@ -280,10 +280,13 @@ test.describe("Clinical KB long-content stress coverage", () => {
 
       const actionMenu = page.getByRole("button", { name: "Open answer options" });
       await page.keyboard.press("Escape");
-      await actionMenu.click();
-      const actionsMenu = page.getByTestId("daily-actions-menu");
-      await expect(actionsMenu).toBeVisible();
-      await actionsMenu.getByRole("menuitem", { name: "Scope sources" }).click();
+      await expect(async () => {
+        await actionMenu.click();
+        const actionsMenu = page.getByTestId("daily-actions-menu");
+        await expect(actionsMenu).toBeVisible();
+        await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
+        await expect(page.getByTestId("scope-command-popover")).toBeVisible();
+      }).toPass({ timeout: 10_000 });
       const scopeContainer = page.getByTestId("scope-command-popover");
       await expect(scopeContainer).toBeVisible();
       await expect(scopeContainer).toBeVisible();

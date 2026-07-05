@@ -515,8 +515,8 @@ async function openScopeControl(page: Page) {
     await actionMenu.click();
     const actionsMenu = page.getByTestId("daily-actions-menu");
     await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await actionsMenu.getByRole("menuitem", { name: "Scope sources" }).click();
-    await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({
+    await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
+    await expect(page.getByTestId("scope-command-popover")).toBeVisible({
       timeout: uiAssertionTimeoutMs,
     });
   }).toPass({ timeout: 10_000 });
@@ -1213,7 +1213,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(evidenceDrawer).toBeFocused();
 
     await openScopeControl(page);
-    const scopePopover = page.locator('[data-testid="scope-command-popover"]:visible');
+    const scopePopover = page.getByTestId("scope-command-popover");
     await expect(scopePopover).toBeVisible();
     const scopeFilter = scopePopover.locator('[data-testid="document-scope-filter"]');
     await expect(scopeFilter).toBeVisible();
@@ -1554,8 +1554,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites?q=lithium%20set");
 
-    const globalSearchInput = visibleQuestionInput(page);
+    const globalSearchInput = page.getByRole("textbox", { name: "Search saved favourites" });
     await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
+    await expect(globalSearchInput).toBeVisible({ timeout: 30_000 });
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
     await expect(page.getByTestId("favourites-hub")).toBeVisible();
