@@ -392,7 +392,6 @@ export function MobileEvidenceSheetContent({
   answer,
   sources,
   renderModel,
-  query,
   visualEvidence,
   answerEvidenceMapRows,
   sourceGovernanceWarnings,
@@ -408,7 +407,6 @@ export function MobileEvidenceSheetContent({
   answer: RagAnswer;
   sources: SearchResult[];
   renderModel: AnswerRenderModel;
-  query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   sourceGovernanceWarnings: SourceGovernanceWarning[];
