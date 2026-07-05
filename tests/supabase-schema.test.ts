@@ -100,6 +100,10 @@ const liveDatabaseDriftMigration = readFileSync(
   new URL("../supabase/migrations/20260705220000_reconcile_live_database_drift.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const searchDocumentChunksOwnerScopeMigration = readFileSync(
+  new URL("../supabase/migrations/20260705133000_tighten_search_document_chunks_owner_scope.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");

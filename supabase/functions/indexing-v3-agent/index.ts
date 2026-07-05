@@ -1882,11 +1882,7 @@ async function updateAgentJobStatus(
   error: string | null = null,
   nextRunAt: string | null = null,
 ): Promise<void> {
-<<<<<<< HEAD
-  const rows = await sql<Array<{ ok: boolean }>>`
-=======
   const rows = await sql<JobStatusRpcResult[]>`
->>>>>>> f7b0edbee (fix(edge): use JobStatusRpcResult for JSONB status RPC parsing)
     select *
     from public.update_indexing_v3_agent_job_status(
       ${job.document_id}::uuid,
