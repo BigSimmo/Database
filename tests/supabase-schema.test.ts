@@ -72,6 +72,14 @@ const clinicalRegistryRecordsMigration = readFileSync(
   new URL("../supabase/migrations/20260703020000_clinical_registry_records.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const medicationRecordsMigration = readFileSync(
+  new URL("../supabase/migrations/20260705010000_medication_records.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const registryCatalogPayloadMigration = readFileSync(
+  new URL("../supabase/migrations/20260705030000_registry_catalog_payload.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -691,6 +699,30 @@ describe("Supabase schema Data API grants", () => {
       expect(sql).toContain('create policy "registry records service role all"');
       expect(sql).toContain('create policy "registry record sources service role all"');
     }
+  });
+
+  it("defines the medication records table identically in migration and schema", () => {
+    for (const sql of [schema, medicationRecordsMigration]) {
+      expect(sql).toContain("create table if not exists public.medication_records");
+      expect(sql).toContain("owner_id uuid not null references auth.users(id) on delete cascade");
+      expect(sql).toContain("stats jsonb not null default '[]'::jsonb");
+      expect(sql).toContain("sections jsonb not null default '[]'::jsonb");
+      expect(sql).toContain("quick jsonb not null default '[]'::jsonb");
+      expect(sql).toContain("unique (owner_id, slug)");
+      expect(sql).toContain("create index if not exists medication_records_owner_name_idx");
+      expect(sql).toContain("create trigger medication_records_updated_at");
+      expect(sql).toContain("alter table public.medication_records enable row level security");
+      expect(sql).toContain("revoke all on public.medication_records from anon, authenticated");
+      expect(sql).toContain("grant select, insert, update, delete on table public.medication_records to service_role");
+      expect(sql).toContain('create policy "medication records service role all"');
+    }
+  });
+
+  it("adds catalog_payload to clinical registry records", () => {
+    expect(schema).toContain("catalog_payload jsonb not null default '{}'::jsonb");
+    expect(registryCatalogPayloadMigration).toContain(
+      "add column if not exists catalog_payload jsonb not null default '{}'::jsonb",
+    );
   });
 });
 

@@ -434,7 +434,7 @@ export function ServicesNavigatorPage() {
         <>
           <div
             id={modeHomeDesktopComposerSlotId}
-            className="mode-home-composer-slot hidden w-full min-w-0 sm:[&:not(:empty)]:block"
+            className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
           />
           <Stepper />
           <div className="lg:hidden">

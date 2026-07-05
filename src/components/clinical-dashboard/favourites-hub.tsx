@@ -169,7 +169,7 @@ export function FavouritesHub({
         />
 
         {desktopComposerSlotId ? (
-          <div id={desktopComposerSlotId} className="mode-home-composer-slot hidden w-full sm:[&:not(:empty)]:block" />
+          <div id={desktopComposerSlotId} className="mode-home-composer-slot hidden w-full [&:not(:empty)]:block" />
         ) : null}
 
         <div className="grid w-full max-w-md grid-cols-3 gap-2 text-left">

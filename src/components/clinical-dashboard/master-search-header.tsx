@@ -82,7 +82,7 @@ const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
 // Standalone mode-home shells move the composer into the hero from the tablet
 // breakpoint up (see heroComposerFromTablet), so it sits in the middle of the
 // hero exactly like desktop instead of floating over the heading.
-const tabletHomeComposerMediaQuery = "(min-width: 640px)";
+const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 
 const medicationModeActionItems: readonly ModeActionItem[] = [
@@ -671,7 +671,7 @@ export function MasterSearchHeader({
     host.style.display = "contents";
 
     const mediaQuery = window.matchMedia(
-      heroComposerFromTablet ? tabletHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
+      heroComposerFromTablet ? modeHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
     );
     let frame: number | null = null;
     let retryTimeout: number | null = null;

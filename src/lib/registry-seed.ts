@@ -1,11 +1,10 @@
 import { formRecords } from "@/lib/forms";
+import { buildDefaultFormRows, buildDefaultServiceRows, defaultServiceRecords } from "@/lib/registry-fixtures";
 import {
-  recordToRow,
   type RegistryRecordInsert,
   type RegistryRecordKind,
   type RegistryRecordRow,
 } from "@/lib/registry-records";
-import { serviceRecords } from "@/lib/services";
 
 // Type-only reference to the admin client so this module carries no runtime
 // dependency on the Supabase admin singleton — the CLI can import the row
@@ -16,14 +15,14 @@ type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminC
 /** The curated default registry fixtures for a kind — the same set the CLI
  *  seeds and the API falls back to when an owner has no records yet. */
 export function defaultRegistryRecords(kind: RegistryRecordKind) {
-  return kind === "form" ? formRecords : serviceRecords;
+  return kind === "form" ? formRecords : defaultServiceRecords();
 }
 
 /** Build insertable rows for an owner from the default fixtures. Shared by the
  *  CLI (`scripts/seed-registry-records.ts`) and the lazy API auto-seed so both
  *  map fixtures → rows identically. */
 export function buildDefaultRegistryRows(ownerId: string, kind: RegistryRecordKind): RegistryRecordInsert[] {
-  return defaultRegistryRecords(kind).map((record) => recordToRow(record, ownerId, kind));
+  return kind === "form" ? buildDefaultFormRows(ownerId) : buildDefaultServiceRows(ownerId);
 }
 
 /**

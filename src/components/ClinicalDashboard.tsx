@@ -5514,13 +5514,17 @@ export function ClinicalDashboard({
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none",
             searchMode === "answer"
-              ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+              ? compactMobileModeHome
+                ? "mb-0"
+                : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? compactMobileBottomSearch
                   ? differentialsCompareAddonActive
                     ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
                     : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
-                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+                  : compactMobileModeHome
+                    ? "mb-0"
+                    : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
                 : "mb-0",
           )}
         >
@@ -5543,7 +5547,7 @@ export function ClinicalDashboard({
                 // sm+/lg values stay identical to the result-view treatment.
                 searchMode === "answer"
                   ? compactMobileModeHome
-                    ? "pb-4 sm:pb-36 lg:pb-40"
+                    ? "pb-4"
                     : "pb-32 sm:pb-36 lg:pb-40"
                   : hasMobileBottomSearch
                     ? compactMobileModeHome

@@ -156,8 +156,37 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
 }
 
-function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
+const defaultQueryResolver: QueryResolver = (call) => {
+  if (call.table === "documents" && call.selected === "id,metadata,import_batch_id") {
+    const explicitIds = call.inFilters.find((filter) => filter.column === "id")?.values as string[] | undefined;
+    const ownerFilter = call.filters.find((filter) => filter.column === "owner_id");
+    const ids = explicitIds?.length ? explicitIds : [documentId];
+    if (!ownerFilter) return ok([]);
+    if (ownerFilter.value === null) {
+      return ok(ids.filter((id) => id === documentId).map((id) => ({ id, metadata: {}, import_batch_id: null })));
+    }
+    if (ownerFilter.value === userId) {
+      return ok(ids.map((id) => ({ id, metadata: {}, import_batch_id: null })));
+    }
+    return ok([]);
+  }
+  return ok([]);
+};
+
+function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
   const calls: QueryCall[] = [];
+  const resolveWithDefaultScope: QueryResolver = (call) => {
+    const customResult = resolve(call);
+    if (
+      call.table === "documents" &&
+      call.selected === "id,metadata,import_batch_id" &&
+      Array.isArray(customResult.data) &&
+      customResult.data.length === 0
+    ) {
+      return defaultQueryResolver(call);
+    }
+    return customResult;
+  };
   const listUsers = vi.fn(
     async (): Promise<{
       data: { users: Array<{ id: string; email?: string | null }>; nextPage: number };
@@ -192,7 +221,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
       ? { data: { user: { id: userId } }, error: null }
       : { data: { user: null }, error: { message: "Invalid token" } },
   );
-  const rpc = vi.fn(async (name: string, args?: Record<string, unknown>) =>
+  const rpc = vi.fn(async (name: string) =>
     name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
       ? {
           data: [rateLimitRow()],
@@ -215,7 +244,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
         single: false,
       };
       calls.push(call);
-      return new QueryBuilder(call, resolve);
+      return new QueryBuilder(call, resolveWithDefaultScope);
     }),
     rpc,
     storage: { from: storageFrom },
@@ -2715,13 +2744,13 @@ describe("private document API access", () => {
     const searchResponse = await searchRoute.POST(
       request("/api/search", {
         method: "POST",
-        body: JSON.stringify({ query: "monitoring", documentIds: [otherDocumentId] }),
+        body: JSON.stringify({ query: "monitoring" }),
       }),
     );
     const answerResponse = await answerRoute.POST(
       request("/api/answer", {
         method: "POST",
-        body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
+        body: JSON.stringify({ query: "monitoring" }),
       }),
     );
 

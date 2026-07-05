@@ -120,7 +120,8 @@ async function consumeAnonymousApiRateLimit(args: {
   windowSeconds: number;
   allowInMemoryFallbackOnUnavailable?: boolean;
 }): Promise<ApiRateLimitResult> {
-  const { data, error } = await args.supabase.rpc("consume_api_subject_rate_limit", {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (args.supabase as any).rpc("consume_api_subject_rate_limit", {
     p_subject_key: args.subjectKey,
     p_bucket: args.bucket,
     p_limit: args.limit,

@@ -64,6 +64,7 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
+    const publicOnly = !access.authenticated && !isLocalNoAuthMode();
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
     const scope = await resolveSearchScope({
       supabase,
       ownerId: access.ownerId,
+      publicOnly,
       documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
       filters: body.filters,
     });

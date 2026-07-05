@@ -982,7 +982,7 @@ export function ApplicationsLauncherWorkspace({
         {desktopComposerSlotId ? (
           <div
             id={desktopComposerSlotId}
-            className="mode-home-composer-slot hidden w-full max-w-3xl sm:[&:not(:empty)]:block"
+            className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
           />
         ) : (
           <ToolSearch

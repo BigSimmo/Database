@@ -1495,8 +1495,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("favourites-active-filters")).toBeVisible();
 
     await page.getByRole("button", { name: "Start a new chat" }).click();
-    await expect(page).toHaveURL(/\/favourites\?focus=1$/);
-    await expect(page.getByRole("button", { name: "Mode Favourites" })).toBeVisible();
+    await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
+    await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toBeFocused();
   });
 

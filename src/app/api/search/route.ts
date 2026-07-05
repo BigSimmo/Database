@@ -65,9 +65,10 @@ function isSourceLibrarySearchMode(mode: SearchRequestBody["mode"]) {
   return mode === "documents" || mode === "differentials";
 }
 
-function scopedSearchKey(body: SearchRequestBody, ownerId?: string | null) {
+function scopedSearchKey(body: SearchRequestBody, ownerId?: string | null, publicOnly = false) {
   return JSON.stringify({
     ownerId: ownerId ?? undefined,
+    publicOnly,
     query: body.query.toLowerCase().replace(/\s+/g, " ").trim(),
     topK: body.topK ?? null,
     documentId: body.documentId ?? null,
@@ -627,6 +628,7 @@ async function buildScopedSearchPayload(
   body: SearchRequestBody,
   supabase: ReturnType<typeof createAdminClient>,
   ownerId?: string | null,
+  publicOnly = false,
 ) {
   const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const effectiveQueryClass =
@@ -634,6 +636,7 @@ async function buildScopedSearchPayload(
   const scope = await resolveSearchScope({
     supabase,
     ownerId: ownerId ?? undefined,
+    publicOnly,
     documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
     filters: body.filters,
   });
@@ -884,6 +887,7 @@ export async function POST(request: Request) {
     supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
     ownerId = access.ownerId ?? null;
+    const publicOnly = !access.authenticated && !isLocalNoAuthMode();
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -898,9 +902,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const key = scopedSearchKey(body, ownerId);
+    const key = scopedSearchKey(body, ownerId, publicOnly);
     const { payload, coalesced } = await coalesceScopedSearch(key, () =>
-      buildScopedSearchPayload(body, supabase!, ownerId),
+      buildScopedSearchPayload(body, supabase!, ownerId, publicOnly),
     );
     return NextResponse.json({
       ...payload,

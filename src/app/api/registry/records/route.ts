@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
 import {
   deriveGovernanceColumns,
@@ -15,7 +16,7 @@ import {
 import { ensureRegistrySeeded } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceSearchMatch } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
@@ -50,33 +51,39 @@ function matchesPayload(matches: ServiceSearchMatch[]) {
   return matches.map((match) => ({ record: match.service, score: match.score, reasons: match.reasons }));
 }
 
+function publicRegistryPayload(kind: RegistryRecordKind, q: string | undefined, limit: number) {
+  const records = kind === "form" ? formRecords : serviceRecords;
+  const governance = Object.fromEntries(
+    records.map((record) => {
+      const derived = deriveGovernanceColumns(record);
+      return [record.slug, { sourceStatus: derived.source_status, validationStatus: derived.validation_status }];
+    }),
+  );
+  return {
+    records,
+    matches: q ? matchesPayload(rankRecords(kind, records, q, limit)) : undefined,
+    total: records.length,
+    governance,
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const { kind, q, limit } = parseRequestQuery(request, registryListQuerySchema, "Invalid registry query.");
 
     if (isDemoMode() || isLocalNoAuthMode()) {
-      const records = kind === "form" ? formRecords : serviceRecords;
-      const governance = Object.fromEntries(
-        records.map((record) => {
-          const derived = deriveGovernanceColumns(record);
-          return [record.slug, { sourceStatus: derived.source_status, validationStatus: derived.validation_status }];
-        }),
-      );
       return registryResponse({
-        records,
-        matches: q ? matchesPayload(rankRecords(kind, records, q, limit)) : undefined,
-        total: records.length,
-        governance,
+        ...publicRegistryPayload(kind, q, limit),
         demoMode: true,
       });
     }
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const access = await publicAccessContext(request, supabase);
 
-    const rateLimit = await consumeApiRateLimit({
+    const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
-      ownerId: user.id,
+      subject: access.rateLimitSubject,
       bucket: "registry",
       allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
     });
@@ -84,11 +91,18 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("Registry requests are rate limited. Try again shortly.", rateLimit);
     }
 
+    if (!access.ownerId) {
+      return registryResponse({
+        ...publicRegistryPayload(kind, q, limit),
+        publicAccess: true,
+      });
+    }
+
     const fetchRecords = async () => {
       const { data, error } = await supabase
         .from("clinical_registry_records")
         .select("*")
-        .eq("owner_id", user.id)
+        .eq("owner_id", access.ownerId)
         .eq("kind", kind)
         .order("title")
         .limit(REGISTRY_MAX_RECORDS);
@@ -104,9 +118,9 @@ export async function GET(request: Request) {
       // the re-read stays outside the try so a genuine read failure still
       // surfaces as an error rather than a misleading empty registry.
       try {
-        await ensureRegistrySeeded(supabase, user.id, kind);
+        await ensureRegistrySeeded(supabase, access.ownerId, kind);
       } catch (seedError) {
-        console.error(`[registry] auto-seed failed for owner ${user.id} (${kind})`, seedError);
+        console.error(`[registry] auto-seed failed for owner ${access.ownerId} (${kind})`, seedError);
       }
       rows = await fetchRecords();
     }
