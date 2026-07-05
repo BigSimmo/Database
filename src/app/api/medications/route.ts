@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { defaultMedicationRecords, ensureMedicationsSeeded } from "@/lib/medication-seed";
@@ -17,8 +17,9 @@ import {
   rankMedicationRecords,
   type MedicationSearchMatch,
 } from "@/lib/medications";
+import { hasPublicApiAuthSignal, publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
@@ -48,37 +49,50 @@ function matchesPayload(matches: MedicationSearchMatch[]) {
   }));
 }
 
+function publicMedicationPayload(q: string | undefined, limit: number) {
+  const records = defaultMedicationRecords();
+  const governance = Object.fromEntries(
+    records.map((record) => [
+      record.slug,
+      {
+        sourceStatus: medicationSourceStatus("current"),
+        validationStatus: medicationValidationStatus("locally_reviewed"),
+      },
+    ]),
+  );
+  const matches = q ? rankMedicationRecords(records, q, limit) : undefined;
+  return {
+    records,
+    matches: matches ? matchesPayload(matches) : undefined,
+    total: records.length,
+    governance,
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const { q, limit } = parseRequestQuery(request, medicationListQuerySchema, "Invalid medication query.");
 
     if (isDemoMode() || isLocalNoAuthMode()) {
-      const records = defaultMedicationRecords();
-      const governance = Object.fromEntries(
-        records.map((record) => [
-          record.slug,
-          {
-            sourceStatus: medicationSourceStatus("current"),
-            validationStatus: medicationValidationStatus("locally_reviewed"),
-          },
-        ]),
-      );
-      const matches = q ? rankMedicationRecords(records, q, limit) : undefined;
       return medicationResponse({
-        records,
-        matches: matches ? matchesPayload(matches) : undefined,
-        total: records.length,
-        governance,
+        ...publicMedicationPayload(q, limit),
         demoMode: true,
       });
     }
 
-    const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    if (!hasPublicApiAuthSignal(request)) {
+      return medicationResponse({
+        ...publicMedicationPayload(q, limit),
+        publicAccess: true,
+      });
+    }
 
-    const rateLimit = await consumeApiRateLimit({
+    const supabase = createAdminClient();
+    const access = await publicAccessContext(request, supabase);
+
+    const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
-      ownerId: user.id,
+      subject: access.rateLimitSubject,
       bucket: "registry",
       allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
     });
@@ -86,11 +100,18 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("Medication requests are rate limited. Try again shortly.", rateLimit);
     }
 
+    if (!access.ownerId) {
+      return medicationResponse({
+        ...publicMedicationPayload(q, limit),
+        publicAccess: true,
+      });
+    }
+
     const fetchRecords = async () => {
       const { data, error } = await supabase
         .from("medication_records")
         .select("*")
-        .eq("owner_id", user.id)
+        .eq("owner_id", access.ownerId)
         .order("name")
         .limit(MEDICATION_MAX_RECORDS);
       if (error) throw new Error(error.message);
@@ -100,9 +121,9 @@ export async function GET(request: Request) {
     let rows = await fetchRecords();
     if (rows.length === 0) {
       try {
-        await ensureMedicationsSeeded(supabase, user.id);
+        await ensureMedicationsSeeded(supabase, access.ownerId);
       } catch (seedError) {
-        console.error(`[medications] auto-seed failed for owner ${user.id}`, seedError);
+        console.error(`[medications] auto-seed failed for owner ${access.ownerId}`, seedError);
       }
       rows = await fetchRecords();
     }

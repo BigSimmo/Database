@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClinicalSourceMetadata, DocumentLabelType } from "@/lib/types";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
-import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 
 const labelTypes = [
   "site",
@@ -190,7 +189,7 @@ export async function resolveSearchScope(args: {
   const explicitIds = unique(args.documentIds ?? []);
   const activeFilterCount = activeScopeFilterCount(filters);
   const warnings: string[] = [];
-  const publicOnly = args.publicOnly || (!args.ownerId && !isLocalNoAuthMode() && !isDemoMode());
+  const publicOnly = args.publicOnly ?? !args.ownerId;
 
   if (activeFilterCount === 0 && !publicOnly && !(args.ownerId && explicitIds.length)) {
     return {
