@@ -90,7 +90,7 @@ async function commandSurfaceOpensAbovePill(page: Page) {
   await expect(input).toBeVisible();
   // Phone footer-dock placement is applied after the header's media-query effect.
   // Opening the command surface before that settles leaves the dropdown on the
-  // inline placement (hidden below lg) even though the hint row is already visible.
+  // inline placement (hidden below lg) even though the footer composer is visible.
   await page.waitForFunction(
     () => Boolean(document.querySelector("form.answer-footer-search-dock, form.answer-footer-search-edge")),
     undefined,
@@ -99,7 +99,7 @@ async function commandSurfaceOpensAbovePill(page: Page) {
   await input.click();
   await expect(async () => {
     await input.press("ArrowDown");
-    await expect(page.getByText("Examples", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Answer actions", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("listbox").first()).toBeVisible();
   }).toPass({ timeout: 15_000 });
 

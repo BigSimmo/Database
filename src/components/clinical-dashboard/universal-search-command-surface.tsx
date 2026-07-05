@@ -8,7 +8,6 @@ import {
   type ModeActionId,
   type ModeActionSetId,
 } from "@/components/clinical-dashboard/mode-action-popup";
-import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -53,29 +52,6 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
 }
 
 export type CommandSurfacePlacement = "bottom-dock" | "inline";
-
-function ContextHintRow({
-  examples,
-  onPickExample,
-  placement,
-}: {
-  modeId: AppModeId;
-  examples: string[];
-  onPickExample: (example: string) => void;
-  placement: CommandSurfacePlacement;
-}) {
-  const visibilityClass = placement === "bottom-dock" ? "flex" : "hidden lg:flex";
-
-  return (
-    <AnswerSuggestionChips
-      suggestions={examples}
-      onPick={onPickExample}
-      label="Examples"
-      layout="scroll"
-      className={visibilityClass}
-    />
-  );
-}
 
 function ScopeChipRow({
   scopes,
@@ -349,32 +325,6 @@ export function UniversalSearchCommandSurface({
             ),
           })),
         });
-      } else if (modeId === "answer" && config.examples.length) {
-        built.push({
-          key: "examples",
-          heading: "Examples",
-          layout: "chips",
-          items: config.examples.map((example) => ({
-            id: nextId(),
-            label: example,
-            onSelect: () => {
-              onDropdownOpenChange(false);
-              onQueryChange(example);
-              onFocusSearchInput?.();
-            },
-            render: (active) => (
-              <span
-                className={cn(
-                  "answer-suggestion-chip",
-                  active &&
-                    "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-                )}
-              >
-                {example}
-              </span>
-            ),
-          })),
-        });
       }
     } else {
       const suggestions = filteredSuggestions(config, trimmedQuery);
@@ -492,7 +442,6 @@ export function UniversalSearchCommandSurface({
     modeId,
     onCrossMode,
     onDropdownOpenChange,
-    onFocusSearchInput,
     onPickRecent,
     onQueryChange,
     onRunModeAction,
@@ -582,16 +531,6 @@ export function UniversalSearchCommandSurface({
         placement === "bottom-dock" ? "gap-1" : "gap-2",
       )}
     >
-      <ContextHintRow
-        modeId={modeId}
-        examples={config.examples}
-        placement={placement}
-        onPickExample={(example) => {
-          onQueryChange(example);
-          onDropdownOpenChange(true);
-          onFocusSearchInput?.();
-        }}
-      />
       <div
         className="relative w-full"
         onKeyDownCapture={(event) => {
