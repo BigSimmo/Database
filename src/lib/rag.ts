@@ -2341,6 +2341,7 @@ async function fetchBestDocumentLookupChunks(args: {
   query: string;
   limit: number;
   ownerId?: string;
+  allowGlobalSearch?: boolean;
 }) {
   const terms = documentLookupChunkTerms(args.query);
   const { data: rpcChunks, error: rpcError } = await args.supabase.rpc("match_document_lookup_chunks_text", {
