@@ -1500,6 +1500,7 @@ export function ClinicalDashboard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const mainRef = useRef<HTMLElement>(null);
+  const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
@@ -3793,6 +3794,7 @@ export function ClinicalDashboard({
           // Phone-only: the header sits above the internally scrolling <main>,
           // so hiding must collapse its layout space to hand it to content.
           hideOnScroll={{ strategy: "collapse", containerRef: mainRef }}
+          onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
         />
 
         <main
@@ -3809,13 +3811,15 @@ export function ClinicalDashboard({
                   ? "mb-[calc(11.5rem+env(safe-area-inset-bottom))] sm:mb-24"
                   : "mb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
-                ? compactMobileBottomSearch
-                  ? differentialsCompareAddonActive
-                    ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
-                    : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
-                  : compactMobileModeHome
-                    ? "mb-0"
-                    : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+                ? bottomSearchScrollHidden
+                  ? "mb-0 sm:mb-0"
+                  : compactMobileBottomSearch
+                    ? differentialsCompareAddonActive
+                      ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
+                      : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
+                    : compactMobileModeHome
+                      ? "mb-0"
+                      : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
                 : "mb-0",
           )}
         >
