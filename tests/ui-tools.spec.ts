@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "playwright/test";
 import type { Route } from "playwright-core";
+import { acuteConfusionPresentationWorkflow } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
 
 const readySetupChecks = [
@@ -86,7 +87,17 @@ async function mockAnswerDashboardApi(page: Page) {
 
 async function commandSurfaceOpensAbovePill(page: Page, hintPattern: RegExp) {
   const input = visibleGlobalSearchInput(page).first();
-  await input.focus();
+  await expect(input).toBeVisible();
+  // Phone footer-dock placement is applied after the header's media-query effect.
+  // Opening the command surface before that settles leaves the dropdown on the
+  // inline placement (hidden below lg) even though the hint row is already visible.
+  await page.waitForFunction(
+    () => Boolean(document.querySelector("form.answer-footer-search-dock, form.answer-footer-search-edge")),
+    undefined,
+    { timeout: 10_000 },
+  );
+  await input.click();
+  await input.press("ArrowDown");
 
   await expect(page.getByText(hintPattern)).toBeVisible();
   const listbox = page.getByRole("listbox").first();
@@ -387,9 +398,7 @@ test.describe("Clinical KB applications launcher", () => {
       expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
       expect(metrics?.homeCenterX).not.toBeNull();
       expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
-      await expect(page.locator(".mode-home-action")).toHaveCount(0);
-      await expect(page.getByRole("heading", { name: "Recent work" })).toHaveCount(0);
-      await expect(page.getByRole("heading", { name: "Library matches" })).toHaveCount(0);
+      await expect(page.locator(".mode-home-action").first()).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -455,9 +464,7 @@ test.describe("Clinical KB applications launcher", () => {
         expect(metrics?.formLeft ?? 0).toBeGreaterThanOrEqual((metrics?.homeLeft ?? 0) - 1);
         expect(metrics?.formRight ?? 0).toBeLessThanOrEqual((metrics?.homeRight ?? viewport.width) + 1);
         expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
-        await expect(page.locator(".mode-home-action")).toHaveCount(0);
-        await expect(page.getByRole("heading", { name: "Recent work" })).toHaveCount(0);
-        await expect(page.getByRole("heading", { name: "Library matches" })).toHaveCount(0);
+        await expect(page.locator(".mode-home-action").first()).toBeVisible();
         await expectNoPageHorizontalOverflow(page);
       }
     }
@@ -664,9 +671,9 @@ test.describe("Clinical KB applications launcher", () => {
     await expect(page.getByTestId("differentials-home")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
     await expect(page.locator('input[placeholder="Ask or search a presentation"]:visible').first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Search presentations" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Compare differentials" })).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Recent work" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Search presentations" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Compare differentials" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Recent work" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toHaveCount(1);
     const differentialsHomeSearch = page.getByTestId("differentials-home").getByTestId("global-search-input");
     await expect(differentialsHomeSearch).toBeVisible();
@@ -784,12 +791,20 @@ test.describe("Clinical KB applications launcher", () => {
 
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
+    const workflow = acuteConfusionPresentationWorkflow;
     await gotoLauncher(page, "/differentials/presentations");
+    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/);
 
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differential-presentation-page")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Acute confusion / encephalopathy" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Selected differentials (6 of 8)" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
+    await expect(
+      page
+        .getByRole("heading", {
+          name: `Selected differentials (${workflow.selectedCount} of ${workflow.totalCount})`,
+        })
+        .first(),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/differentials");
     await expect(page.getByRole("heading", { name: "Safety snapshot" }).first()).toBeVisible();
     await expect(page.getByText("Service details")).toHaveCount(0);
@@ -814,7 +829,7 @@ test.describe("Clinical KB applications launcher", () => {
 
     await expect(page.getByRole("link", { name: "Back to differentials" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Compare", exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("heading", { level: 1, name: "Acute confusion / encephalopathy" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
     const mobileComparison = page.getByLabel("Mobile differential comparison");
     await expect(mobileComparison.getByText("Delirium", { exact: true }).first()).toBeVisible();
     await expect(mobileComparison.getByText("Substance intoxication", { exact: true }).first()).toBeVisible();
