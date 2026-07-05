@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildClinicalTextSearchQuery, classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { logger } from "@/lib/logger";
-import { requireOwnerScope } from "@/lib/owner-scope";
+import { retrievalOwnerFilter } from "@/lib/owner-scope";
 import {
   buildDocumentIndexUnitInputs,
   countDocumentIndexUnitsByType,
@@ -823,11 +823,11 @@ export async function fetchMemoryCardsForQuery(args: {
         match_count: args.matchCount ?? 32,
         min_similarity: 0.1,
         document_filters: args.documentIds?.length ? args.documentIds : null,
-        owner_filter: args.ownerId
-          ? requireOwnerScope(args.ownerId)
-          : args.documentIds?.length
-            ? null
-            : (requireOwnerScope(args.ownerId) ?? null),
+        owner_filter: retrievalOwnerFilter({
+          ownerId: args.ownerId,
+          documentIds: args.documentIds,
+          allowGlobalSearch: !args.ownerId && !args.documentIds?.length,
+        }),
       });
 
       if (error) {
