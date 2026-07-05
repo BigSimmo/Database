@@ -1179,6 +1179,7 @@ export function MasterSearchHeader({
               triggerClassName="answer-footer-search-action"
               triggerRef={scopeSummaryRef}
               integrated={usesFooterChipLayout}
+              integratedChipRow={showFooterSearchChips}
             />
 
             {/* The clear button is a flex sibling (not absolutely positioned): the

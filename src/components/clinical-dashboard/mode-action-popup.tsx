@@ -10,6 +10,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type Ref,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   BadgeCheck,
   Check,
@@ -38,6 +39,30 @@ import { cn, chatComposerIconButton } from "@/components/ui-primitives";
 
 export type ModeActionSetId = "answer" | "documents" | "services" | "favourites" | "tools" | "differentials";
 export type ModeActionPlacement = "up" | "down";
+
+type IntegratedSurfaceLayout = {
+  placement: ModeActionPlacement;
+  left: number;
+  width: number;
+  top?: number;
+  bottom?: number;
+};
+
+function integratedActionGridColumns(itemCount: number) {
+  if (itemCount >= 6) return 2;
+  if (itemCount >= 3) return 2;
+  return 2;
+}
+
+function estimateIntegratedMenuHeights(itemCount: number, integrated: boolean) {
+  const rows = Math.ceil(itemCount / integratedActionGridColumns(itemCount));
+  const rowHeight = 74;
+  const rowGap = 8;
+  const bodyPadding = integrated ? 24 : 20;
+  const minBodyHeight = rows * rowHeight + Math.max(0, rows - 1) * rowGap + bodyPadding;
+  const headerHeight = 92;
+  return { minBodyHeight, minSurfaceHeight: minBodyHeight + headerHeight, headerHeight };
+}
 
 export type ModeActionModeOption = {
   id: string;
@@ -272,6 +297,7 @@ export function ModeActionPopup({
   triggerClassName,
   triggerRef,
   integrated = false,
+  integratedChipRow = true,
 }: {
   open: boolean;
   title: string;
@@ -289,6 +315,8 @@ export function ModeActionPopup({
   triggerClassName?: string;
   triggerRef?: Ref<HTMLButtonElement>;
   integrated?: boolean;
+  /** When false, the integrated menu skips the footer chip-row clearance offset. */
+  integratedChipRow?: boolean;
 }) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -299,6 +327,7 @@ export function ModeActionPopup({
   const [placement, setPlacement] = useState<ModeActionPlacement>("up");
   const [surfaceMaxHeight, setSurfaceMaxHeight] = useState<number | null>(null);
   const [bodyMaxHeight, setBodyMaxHeight] = useState<number | null>(null);
+  const [integratedSurfaceLayout, setIntegratedSurfaceLayout] = useState<IntegratedSurfaceLayout | null>(null);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
   const canSwitchMode = Boolean(modeOptions?.length && onModeSelect);
   const selectedModeOption = modeOptions?.find((mode) => mode.id === selectedModeId);
@@ -326,7 +355,7 @@ export function ModeActionPopup({
 
   const updatePlacement = useCallback(() => {
     if (typeof window === "undefined") return;
-    const anchor = surfaceRef.current?.parentElement ?? rootRef.current?.parentElement ?? rootRef.current;
+    const anchor = buttonRef.current ?? rootRef.current?.parentElement ?? rootRef.current;
     if (!anchor) return;
 
     const viewport = window.visualViewport;
@@ -337,20 +366,56 @@ export function ModeActionPopup({
     const edgePadding = 12;
     const availableAbove = Math.max(0, rect.top - viewportTop - edgePadding);
     const availableBelow = Math.max(0, viewportBottom - rect.bottom - edgePadding);
-    const nextPlacement: ModeActionPlacement = availableBelow > availableAbove + 40 ? "down" : "up";
+    const { minBodyHeight, minSurfaceHeight, headerHeight } = estimateIntegratedMenuHeights(items.length, integrated);
     const detachedUpOffset = 16;
-    const detachedDownOffset = integrated ? 72 : 14;
-    const available =
-      nextPlacement === "up"
-        ? Math.max(0, availableAbove - detachedUpOffset)
-        : Math.max(0, availableBelow - detachedDownOffset);
+    const integratedDownOffset = integratedChipRow ? 58 : 14;
+    const detachedDownOffset = integrated ? integratedDownOffset : 14;
+    const spaceAbove = Math.max(0, availableAbove - detachedUpOffset);
+    const spaceBelow = Math.max(0, availableBelow - detachedDownOffset);
+
+    let nextPlacement: ModeActionPlacement;
+    if (integrated) {
+      const canFitAbove = spaceAbove >= minSurfaceHeight;
+      const canFitBelow = spaceBelow >= minSurfaceHeight;
+      if (canFitAbove && !canFitBelow) {
+        nextPlacement = "up";
+      } else if (canFitBelow && !canFitAbove) {
+        nextPlacement = "down";
+      } else {
+        // In-flow hero composers sit above page content; opening upward avoids
+        // clipping inside scroll containers and the dead space below centred homes.
+        nextPlacement = spaceBelow > spaceAbove + 80 ? "down" : "up";
+      }
+    } else {
+      nextPlacement = availableBelow > availableAbove + 40 ? "down" : "up";
+    }
+
+    const available = nextPlacement === "up" ? spaceAbove : spaceBelow;
     const nextSurfaceMaxHeight = Math.max(220, Math.floor(Math.min(available, viewportHeight - edgePadding * 2)));
-    const nextBodyMaxHeight = Math.max(156, nextSurfaceMaxHeight - 92);
+    const nextBodyMaxHeight = Math.max(156, nextSurfaceMaxHeight - headerHeight);
 
     setPlacement((current) => (current === nextPlacement ? current : nextPlacement));
     setSurfaceMaxHeight((current) => (current === nextSurfaceMaxHeight ? current : nextSurfaceMaxHeight));
     setBodyMaxHeight((current) => (current === nextBodyMaxHeight ? current : nextBodyMaxHeight));
-  }, [integrated]);
+
+    if (integrated) {
+      const maxSurfaceWidth = Math.min(window.innerWidth - edgePadding * 2, 400);
+      const surfaceLeft = Math.max(
+        edgePadding,
+        Math.min(rect.left, window.innerWidth - maxSurfaceWidth - edgePadding),
+      );
+      setIntegratedSurfaceLayout({
+        placement: nextPlacement,
+        left: surfaceLeft,
+        width: maxSurfaceWidth,
+        ...(nextPlacement === "up"
+          ? { bottom: window.innerHeight - rect.top + 14 }
+          : { top: rect.bottom + integratedDownOffset }),
+      });
+    } else {
+      setIntegratedSurfaceLayout(null);
+    }
+  }, [integrated, integratedChipRow, items.length]);
 
   function openWithFocus(index: number) {
     onBeforeOpen?.();
@@ -470,6 +535,11 @@ export function ModeActionPopup({
   }, [items.length, open, title, updatePlacement]);
 
   useEffect(() => {
+    if (open) return;
+    setIntegratedSurfaceLayout(null);
+  }, [open]);
+
+  useEffect(() => {
     if (!open) return;
     onPlacementChange?.(placement);
   }, [onPlacementChange, open, placement]);
@@ -493,26 +563,41 @@ export function ModeActionPopup({
   const surfaceStyle = {
     "--mode-action-max-height": surfaceMaxHeight ? `${surfaceMaxHeight}px` : undefined,
     "--mode-action-body-max-height": bodyMaxHeight ? `${bodyMaxHeight}px` : undefined,
+    ...(integrated && integratedSurfaceLayout
+      ? {
+          left: `${integratedSurfaceLayout.left}px`,
+          width: `${integratedSurfaceLayout.width}px`,
+          ...(integratedSurfaceLayout.top !== undefined ? { top: `${integratedSurfaceLayout.top}px` } : {}),
+          ...(integratedSurfaceLayout.bottom !== undefined ? { bottom: `${integratedSurfaceLayout.bottom}px` } : {}),
+        }
+      : {}),
   } as CSSProperties;
 
-  return (
-    <>
-      {open ? (
-        <div
-          ref={surfaceRef}
-          data-placement={placement}
-          style={surfaceStyle}
-          className={cn(
-            "mode-action-surface absolute z-50 text-[color:var(--text)]",
-            integrated ? "inset-x-0" : "inset-x-0 sm:inset-x-auto sm:left-0",
-            placement === "up"
-              ? "bottom-[calc(100%+0.875rem)]"
-              : integrated
-                ? "top-[calc(100%+3.65rem)]"
-                : "top-[calc(100%+0.875rem)]",
-            !integrated && (items.length <= 4 ? "sm:w-[min(22rem,100%)]" : "sm:w-[min(24rem,100%)]"),
-          )}
-        >
+  const integratedDownOffsetClass = integratedChipRow ? "top-[calc(100%+3.65rem)]" : "top-[calc(100%+0.875rem)]";
+
+  const actionSurface = open ? (
+    <div
+      ref={surfaceRef}
+      data-placement={placement}
+      style={surfaceStyle}
+      className={cn(
+        "mode-action-surface z-50 text-[color:var(--text)]",
+        integrated && integratedSurfaceLayout ? "fixed" : "absolute",
+        integrated && integratedSurfaceLayout
+          ? null
+          : integrated
+            ? "inset-x-0"
+            : "inset-x-0 sm:inset-x-auto sm:left-0",
+        !integrated || !integratedSurfaceLayout
+          ? placement === "up"
+            ? "bottom-[calc(100%+0.875rem)]"
+            : integrated
+              ? integratedDownOffsetClass
+              : "top-[calc(100%+0.875rem)]"
+          : null,
+        !integrated && (items.length <= 4 ? "sm:w-[min(22rem,100%)]" : "sm:w-[min(24rem,100%)]"),
+      )}
+    >
           <div
             className={cn(
               "mode-action-panel overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[0_18px_42px_rgb(15_37_48_/_16%)] ring-1 ring-white/45 dark:ring-white/10",
@@ -650,7 +735,13 @@ export function ModeActionPopup({
             </>
           ) : null}
         </div>
-      ) : null}
+  ) : null;
+
+  return (
+    <>
+      {integrated && open && typeof document !== "undefined"
+        ? createPortal(actionSurface, document.body)
+        : actionSurface}
 
       <div ref={rootRef} className="relative shrink-0">
         <button
