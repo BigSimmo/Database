@@ -221,14 +221,33 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
       ? { data: { user: { id: userId } }, error: null }
       : { data: { user: null }, error: { message: "Invalid token" } },
   );
-  const rpc = vi.fn(async (name: string) =>
-    name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
-      ? {
-          data: [rateLimitRow()],
-          error: null,
-        }
-      : ok([]),
-  );
+  const subjectRateLimitCounts = new Map<string, number>();
+  const rpc = vi.fn(async (name: string, args?: Record<string, unknown>) => {
+    if (name === "consume_api_rate_limit") {
+      return {
+        data: [rateLimitRow()],
+        error: null,
+      };
+    }
+    if (name === "consume_api_subject_rate_limit") {
+      const bucket = String(args?.p_bucket ?? "");
+      const limit = Number(args?.p_limit ?? 100);
+      const key = `${String(args?.p_subject_key ?? "unknown")}:${bucket}`;
+      const count = (subjectRateLimitCounts.get(key) ?? 0) + 1;
+      subjectRateLimitCounts.set(key, count);
+      return {
+        data: [
+          rateLimitRow({
+            limited: count > limit,
+            limit_value: limit,
+            remaining: Math.max(limit - count, 0),
+          }),
+        ],
+        error: null,
+      };
+    }
+    return ok([]);
+  });
   const client = {
     auth: { getUser, admin: { listUsers } },
     calls,
