@@ -100,6 +100,10 @@ const liveDatabaseDriftMigration = readFileSync(
   new URL("../supabase/migrations/20260705220000_reconcile_live_database_drift.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const searchDocumentChunksOwnerScopeMigration = readFileSync(
+  new URL("../supabase/migrations/20260705133000_tighten_search_document_chunks_owner_scope.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -773,6 +777,16 @@ describe("Supabase schema Data API grants", () => {
     expect(searchHealthIndexesMigration).toContain("'document_pages_document_id_page_number_key'");
     expect(schema).toContain("index_aliases constant jsonb := jsonb_build_object(");
     expect(schema).toContain("jsonb_array_elements_text(index_aliases -> index_name)");
+  });
+
+  it("mirrors tightened search_document_chunks owner scope in schema and migration", () => {
+    expect(searchDocumentChunksOwnerScopeMigration).toContain(
+      "(p_owner_id is null and d.owner_id is null)",
+    );
+    expect(schema).toContain("create or replace function public.search_document_chunks(");
+    expect(schema).toContain(
+      "revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated",
+    );
   });
 });
 
