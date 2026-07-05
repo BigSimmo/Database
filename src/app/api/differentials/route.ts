@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { allowRateLimitInMemoryFallbackOnUnavailable, consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import {
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSubjectApiRateLimit,
+  rateLimitJsonResponse,
+} from "@/lib/api-rate-limit";
 import {
   deriveGovernanceFromSnapshot,
   rowGovernance,

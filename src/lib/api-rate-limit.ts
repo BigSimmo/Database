@@ -10,13 +10,7 @@ export function allowRateLimitInMemoryFallbackOnUnavailable() {
 }
 
 export type ApiRateLimitBucket =
-  | "answer"
-  | "search"
-  | "document_read"
-  | "document_summarize"
-  | "document_reindex"
-  | "bulk_reindex"
-  | "registry";
+  "answer" | "search" | "document_read" | "document_summarize" | "document_reindex" | "bulk_reindex" | "registry";
 
 export type ApiRateLimitResult = {
   limited: boolean;
