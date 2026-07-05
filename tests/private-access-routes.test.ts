@@ -7,6 +7,13 @@ const otherDocumentId = "22222222-2222-4222-8222-222222222222";
 const imageId = "33333333-3333-4333-8333-333333333333";
 const token = "valid-token";
 
+function matchesOwnerReadScope(call: QueryCall, ownerId: string) {
+  return (
+    call.orFilters.some((filter) => filter.includes(`owner_id.eq.${ownerId}`)) ||
+    call.filters.some((filter) => filter.column === "owner_id" && filter.value === ownerId)
+  );
+}
+
 type QueryError = { message: string };
 type QueryResult = { data: unknown; error: QueryError | null };
 type QueryFilter = { column: string; value: unknown };
@@ -315,7 +322,7 @@ function mockRuntime(
 }
 
 function request(path: string, init?: RequestInit) {
-  return new Request(`http://localhost${path}`, init);
+  return new Request(`http://localhost:4298${path}`, init);
 }
 
 function localPortRequest(port: number, path: string, init?: RequestInit) {
@@ -416,7 +423,10 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toMatchObject({
+      error: "Use the ensured Clinical KB local URL before calling this API.",
+    });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -438,7 +448,10 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toMatchObject({
+      error: "Use the ensured Clinical KB local URL before calling this API.",
+    });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -536,8 +549,12 @@ describe("private document API access", () => {
 
   it("allows document signed URLs only for owned documents", async () => {
     const client = createSupabaseMock((call) => {
-      if (call.table === "documents" && call.filters.some((filter) => filter.value === userId)) {
-        return ok({ storage_path: `${userId}/documents/${documentId}/source.pdf`, file_type: "application/pdf" });
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
+        return ok({
+          storage_path: `${userId}/documents/${documentId}/source.pdf`,
+          file_type: "application/pdf",
+          status: "indexed",
+        });
       }
       return ok(null);
     });
@@ -624,7 +641,7 @@ describe("private document API access", () => {
           metadata: { index_generation_id: "generation-a" },
         });
       }
-      if (call.table === "documents" && call.filters.some((filter) => filter.value === userId)) {
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
         return ok({ id: documentId, metadata: { index_generation_id: "generation-a" } });
       }
       return ok(null);
@@ -653,7 +670,7 @@ describe("private document API access", () => {
           metadata: { index_generation_id: "generation-a" },
         });
       }
-      if (call.table === "documents" && call.filters.some((filter) => filter.value === userId)) {
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
         return ok({ id: documentId, metadata: {} });
       }
       return ok(null);
@@ -682,7 +699,7 @@ describe("private document API access", () => {
           metadata: { index_generation_id: "generation-new" },
         });
       }
-      if (call.table === "documents" && call.filters.some((filter) => filter.value === userId)) {
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
         return ok({ id: documentId, metadata: { index_generation_id: "generation-old" } });
       }
       return ok(null);

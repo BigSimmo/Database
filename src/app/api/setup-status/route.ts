@@ -410,10 +410,14 @@ async function readSetupStatusPayload() {
 }
 
 export async function GET(request: Request) {
-  const identity = localProjectRequestIdentityPayload(request);
-  if (!identity.localServer.safeLocalOrigin) {
-    return unsafeLocalProjectResponse(identity);
-  }
+  try {
+    const identity = localProjectRequestIdentityPayload(request);
+    if (!identity.localServer.safeLocalOrigin) {
+      return unsafeLocalProjectResponse(identity);
+    }
 
-  return setupStatusResponse(await readSetupStatusPayload());
+    return setupStatusResponse(await readSetupStatusPayload());
+  } catch (error) {
+    return jsonError(error);
+  }
 }
