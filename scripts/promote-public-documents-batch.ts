@@ -25,7 +25,6 @@ async function fetchBatchIds(supabase: Awaited<ReturnType<typeof loadAdminClient
     .select("id")
     .eq("status", "indexed")
     .not("owner_id", "is", null)
-    .in("metadata->>clinical_validation_status", ["locally_reviewed", "approved"])
     .limit(BATCH_SIZE);
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => row.id as string);
