@@ -322,6 +322,7 @@ export function ModeActionPopup({
 
   const closeAndRestoreFocus = useCallback(() => {
     setModeSelectorOpen(false);
+    setIntegratedSurfaceLayout(null);
     onOpenChange(false);
     window.requestAnimationFrame(() => buttonRef.current?.focus());
   }, [onOpenChange, setModeSelectorOpen]);
@@ -332,6 +333,7 @@ export function ModeActionPopup({
     restoreFocusRef: buttonRef,
     onDismiss: () => {
       setModeSelectorOpen(false);
+      setIntegratedSurfaceLayout(null);
       onOpenChange(false);
     },
   });
@@ -437,6 +439,7 @@ export function ModeActionPopup({
 
   function runActionAndClose(actionId: ModeActionId) {
     setModeSelectorOpen(false);
+    setIntegratedSurfaceLayout(null);
     onOpenChange(false);
     onAction(actionId);
   }
@@ -518,11 +521,6 @@ export function ModeActionPopup({
     if (!open) return;
     updatePlacement();
   }, [items.length, open, title, updatePlacement]);
-
-  useEffect(() => {
-    if (open) return;
-    setIntegratedSurfaceLayout(null);
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
