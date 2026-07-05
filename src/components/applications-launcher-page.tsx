@@ -885,10 +885,7 @@ export function ApplicationsLauncherWorkspace({
         </div>
 
         {composerSlotId ? (
-          <div
-            id={composerSlotId}
-            className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
-          />
+          <div id={composerSlotId} className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block" />
         ) : null}
 
         <div className="w-full max-w-6xl" data-testid="tools-shortcuts">
