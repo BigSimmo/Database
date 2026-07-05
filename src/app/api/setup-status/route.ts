@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { env, isDemoMode } from "@/lib/env";
 import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
@@ -409,27 +408,11 @@ async function readSetupStatusPayload() {
   }
 }
 
-async function requireProductionSetupStatusAuth(request: Request) {
-  const identity = localProjectRequestIdentityPayload(request);
-  if (process.env.NODE_ENV !== "production" || identity.localServer.currentUrl) {
-    return identity;
-  }
-  await requireAuthenticatedUser(request, createAdminClient());
-  return identity;
-}
-
 export async function GET(request: Request) {
-  try {
-    const identity = await requireProductionSetupStatusAuth(request);
-    if (!identity.localServer.safeLocalOrigin) {
-      return unsafeLocalProjectResponse(identity);
-    }
-
-    return setupStatusResponse(await readSetupStatusPayload());
-  } catch (error) {
-    if (error instanceof AuthenticationError) {
-      return unauthorizedResponse(error);
-    }
-    throw error;
+  const identity = localProjectRequestIdentityPayload(request);
+  if (!identity.localServer.safeLocalOrigin) {
+    return unsafeLocalProjectResponse(identity);
   }
+
+  return setupStatusResponse(await readSetupStatusPayload());
 }
