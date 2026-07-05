@@ -25,6 +25,12 @@ export type DocumentNameSupabase = {
       ) => {
         limit: (count: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
       };
+      is: (
+        column: "owner_id",
+        value: null,
+      ) => {
+        limit: (count: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
+      };
     };
   };
 };
@@ -164,7 +170,7 @@ function uniqueTitle(
 
 export async function planDocumentName(args: {
   supabase?: DocumentNameSupabase;
-  ownerId: string;
+  ownerId: string | null;
   fileName: string;
   requestedTitle?: string | null;
   contentHash?: string | null;
@@ -180,11 +186,10 @@ export async function planDocumentName(args: {
   } else {
     if (!args.supabase) throw new Error("supabase client or existingDocs is required");
     const supabase = args.supabase as DocumentNameSupabase;
-    const { data, error } = await supabase
-      .from("documents")
-      .select("id,title,file_name,content_hash,metadata")
-      .eq("owner_id", args.ownerId)
-      .limit(1000);
+    const { data, error } = await (args.ownerId === null
+      ? supabase.from("documents").select("id,title,file_name,content_hash,metadata").is("owner_id", null)
+      : supabase.from("documents").select("id,title,file_name,content_hash,metadata").eq("owner_id", args.ownerId)
+    ).limit(1000);
     if (error) throw new Error(error.message);
     documents = Array.isArray(data) ? (data as ExistingDocumentName[]) : [];
   }

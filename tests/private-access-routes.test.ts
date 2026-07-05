@@ -884,12 +884,12 @@ describe("private document API access", () => {
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
   });
 
-  it("uploads anonymous documents to the configured public workspace owner", async () => {
+  it("uploads anonymous documents as public rows with a public storage path", async () => {
     const publicOwnerId = "99999999-9999-4999-8999-999999999999";
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
       if (call.table === "documents" && call.operation === "insert") {
-        const inserted = call.insertPayload as { id: string; owner_id: string; storage_path: string };
+        const inserted = call.insertPayload as { id: string; owner_id: string | null; storage_path: string };
         return ok({ id: inserted.id, owner_id: inserted.owner_id, storage_path: inserted.storage_path });
       }
       if (call.table === "ingestion_jobs" && call.operation === "insert") return ok({ id: "job-1", document_id: documentId });
@@ -909,11 +909,12 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(201);
     expect(client.auth.getUser).not.toHaveBeenCalled();
-    expect(
-      client.calls.find((call) => call.table === "documents" && call.operation === "insert")?.insertPayload,
-    ).toMatchObject({
-      owner_id: publicOwnerId,
+    const insertPayload = client.calls.find((call) => call.table === "documents" && call.operation === "insert")
+      ?.insertPayload as { owner_id: string | null; storage_path: string };
+    expect(insertPayload).toMatchObject({
+      owner_id: null,
     });
+    expect(insertPayload.storage_path).toMatch(/^public\/documents\/[0-9a-f-]+\/guideline\.pdf$/);
   });
 
   it("stores uploaded documents with owner_id and a user-scoped storage path", async () => {

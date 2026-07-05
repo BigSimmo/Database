@@ -1349,6 +1349,19 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
+        {hasScopeFooterChip && !showFooterSearchChips ? (
+          <button
+            type="button"
+            ref={scopeSummaryRef}
+            data-testid="scope-trigger"
+            onClick={openScopePicker}
+            className="sr-only"
+            aria-expanded={usesScopeSheet ? scopeSheetOpen : scopeOpen}
+            aria-label="Open source scope"
+          >
+            {footerScopeLabel}
+          </button>
+        ) : null}
         {showFooterSearchChips && (trustFooterChip || hasScopeFooterChip || secondaryFooterChip) ? (
           <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">
             {trustFooterChip ? (

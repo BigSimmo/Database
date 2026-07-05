@@ -37,9 +37,16 @@ function isContentHashDuplicateError(error: unknown) {
   );
 }
 
+function withDocumentOwnerFilter<T extends { eq(column: string, value: unknown): T; is(column: string, value: null): T }>(
+  query: T,
+  ownerId: string | null,
+): T {
+  return ownerId === null ? query.is("owner_id", null) : query.eq("owner_id", ownerId);
+}
+
 async function duplicateUploadResponse(args: {
   supabase: ReturnType<typeof createAdminClient>;
-  ownerId: string;
+  ownerId: string | null;
   contentHash: string;
   storagePath: string | null;
 }) {
@@ -55,12 +62,14 @@ async function duplicateUploadResponse(args: {
     }
   }
 
-  const { data: duplicate, error: duplicateError } = await args.supabase
-    .from("documents")
-    .select("id,title,file_name,status,page_count,chunk_count,image_count,created_at")
-    .eq("owner_id", args.ownerId)
-    .eq("content_hash", args.contentHash)
-    .maybeSingle();
+  const duplicateQuery = withDocumentOwnerFilter(
+    args.supabase
+      .from("documents")
+      .select("id,title,file_name,status,page_count,chunk_count,image_count,created_at")
+      .eq("content_hash", args.contentHash),
+    args.ownerId,
+  );
+  const { data: duplicate, error: duplicateError } = await duplicateQuery.maybeSingle();
 
   if (duplicateError) throw new Error(duplicateError.message);
   if (!duplicate?.id) {
@@ -89,10 +98,13 @@ export async function POST(request: Request) {
     supabase = createAdminClient();
     const adminSupabase = supabase;
     const access = await publicAccessContext(request, adminSupabase);
-    const uploadOwnerId = access.ownerId ?? (publicUploadsEnabled() ? publicWorkspaceOwnerId() : null);
-    if (!uploadOwnerId) {
+    const publicUploadReady = !access.ownerId && publicUploadsEnabled() && publicWorkspaceOwnerId();
+    if (!access.ownerId && !publicUploadReady) {
       return NextResponse.json({ error: "Public uploads are not configured for this workspace." }, { status: 503 });
     }
+    const documentOwnerId = access.ownerId ?? null;
+    const auditOwnerId = access.ownerId ?? publicWorkspaceOwnerId()!;
+    const storageOwnerPrefix = access.ownerId ?? "public";
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase: adminSupabase,
@@ -129,19 +141,20 @@ export async function POST(request: Request) {
 
     const documentId = randomUUID();
     const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
-    const storagePath = `${uploadOwnerId}/documents/${documentId}/${safeName}`;
+    const storagePath = `${storageOwnerPrefix}/documents/${documentId}/${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     // The declared MIME type is client-supplied; verify the real byte signature
     // before persisting a clinical document.
     assertFileContentSignature(file.type, buffer);
     const contentHash = createHash("sha256").update(buffer).digest("hex");
 
-    const { data: duplicate, error: duplicateError } = await adminSupabase
-      .from("documents")
-      .select("id,title,file_name,status,page_count,chunk_count,image_count,created_at")
-      .eq("owner_id", uploadOwnerId)
-      .eq("content_hash", contentHash)
-      .maybeSingle();
+    const { data: duplicate, error: duplicateError } = await withDocumentOwnerFilter(
+      adminSupabase
+        .from("documents")
+        .select("id,title,file_name,status,page_count,chunk_count,image_count,created_at")
+        .eq("content_hash", contentHash),
+      documentOwnerId,
+    ).maybeSingle();
 
     if (duplicateError) throw new Error(duplicateError.message);
     if (duplicate?.id) {
@@ -169,7 +182,7 @@ export async function POST(request: Request) {
     };
     const namePlan = await planDocumentName({
       supabase: namingSupabase,
-      ownerId: uploadOwnerId,
+      ownerId: documentOwnerId,
       fileName: file.name,
       requestedTitle: uploadMetadata.title,
       contentHash,
@@ -182,7 +195,7 @@ export async function POST(request: Request) {
       .from("documents")
       .insert({
         id: documentId,
-        owner_id: uploadOwnerId,
+        owner_id: documentOwnerId,
         title,
         description,
         file_name: file.name,
@@ -200,7 +213,7 @@ export async function POST(request: Request) {
           review_date: null,
           uploaded_at: uploadedAt,
           indexed_at: null,
-          uploaded_by: uploadOwnerId,
+          uploaded_by: auditOwnerId,
           original_file_name: namePlan.originalFileName,
           original_title: namePlan.originalTitle,
           smart_title_base: namePlan.baseTitle,
@@ -224,7 +237,7 @@ export async function POST(request: Request) {
         insertedDocumentOwnerId = null;
         return duplicateUploadResponse({
           supabase,
-          ownerId: uploadOwnerId,
+          ownerId: documentOwnerId,
           contentHash,
           storagePath: uploadedPath,
         });
@@ -232,7 +245,7 @@ export async function POST(request: Request) {
       throw new Error(documentError.message);
     }
     insertedDocumentId = documentId;
-    insertedDocumentOwnerId = uploadOwnerId;
+    insertedDocumentOwnerId = documentOwnerId;
 
     const { data: job, error: jobError } = await supabase
       .from("ingestion_jobs")
@@ -248,11 +261,10 @@ export async function POST(request: Request) {
       .single();
 
     if (jobError) {
-      const { error: rollbackDocumentError } = await supabase
-        .from("documents")
-        .delete()
-        .eq("id", documentId)
-        .eq("owner_id", uploadOwnerId);
+      const { error: rollbackDocumentError } = await withDocumentOwnerFilter(
+        supabase.from("documents").delete().eq("id", documentId),
+        documentOwnerId,
+      );
       if (rollbackDocumentError) {
         throw new Error(
           `Failed to enqueue ingestion job: ${jobError.message}; rollback failed: ${rollbackDocumentError.message}`,
@@ -264,7 +276,7 @@ export async function POST(request: Request) {
     }
 
     await writeAuditLog(supabase, {
-      ownerId: uploadOwnerId,
+      ownerId: auditOwnerId,
       action: "document_upload",
       resourceType: "document",
       resourceId: documentId,
@@ -273,13 +285,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ document, job }, { status: 201 });
   } catch (error) {
-    if (insertedDocumentId && insertedDocumentOwnerId && supabase) {
+    if (insertedDocumentId && supabase) {
       try {
-        const { error: cleanupDeleteError } = await supabase
-          .from("documents")
-          .delete()
-          .eq("id", insertedDocumentId)
-          .eq("owner_id", insertedDocumentOwnerId);
+        const { error: cleanupDeleteError } = await withDocumentOwnerFilter(
+          supabase.from("documents").delete().eq("id", insertedDocumentId),
+          insertedDocumentOwnerId,
+        );
         if (cleanupDeleteError) {
           logger.error("Upload cleanup failed; document row may be orphaned", {
             documentId: insertedDocumentId,

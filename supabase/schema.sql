@@ -1913,7 +1913,7 @@ as $
   select case
     when owner_filter is null then true
     when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null
-    else row_owner_id = owner_filter
+    else row_owner_id = owner_filter or row_owner_id is null
   end;
 $;
 

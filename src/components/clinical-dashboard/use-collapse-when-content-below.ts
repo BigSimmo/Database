@@ -6,8 +6,8 @@ import { useEffect, useState, useSyncExternalStore, type RefObject } from "react
 // phone/tablet seam. Collapse only ever runs below the sm breakpoint.
 const phoneMediaQuery = "(max-width: 639px)";
 
-// Reserved height for the fixed answer footer composer (pill + chips + safe area).
-const defaultComposerInsetPx = 132;
+// Reserved height for the fixed answer footer composer (pill + safe area).
+const defaultComposerInsetPx = 88;
 // Small tolerance so the row hides just before it visually overlaps the composer.
 const dockBandThresholdPx = 12;
 
