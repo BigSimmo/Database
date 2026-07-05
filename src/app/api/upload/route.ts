@@ -6,6 +6,11 @@ import { env, publicUploadsEnabled, publicWorkspaceOwnerId } from "@/lib/env";
 import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
+import {
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSubjectApiRateLimit,
+  rateLimitJsonResponse,
+} from "@/lib/api-rate-limit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -90,6 +95,20 @@ export async function POST(request: Request) {
     if (!uploadOwnerId) {
       return NextResponse.json({ error: "Public uploads are not configured for this workspace." }, { status: 503 });
     }
+
+    const rateLimit = await consumeSubjectApiRateLimit({
+      supabase: adminSupabase,
+      subject: access.rateLimitSubject,
+      bucket: "document_upload",
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse(
+        "Document upload is temporarily rate limited because too many requests were received. Retry shortly.",
+        rateLimit,
+      );
+    }
+
     const formData = await request.formData().catch((cause) => {
       throw new PublicApiError("Invalid upload form data.", 400, {
         code: "invalid_form_data",
