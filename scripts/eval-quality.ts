@@ -44,6 +44,7 @@ type EvalQualityArgs = {
   retrievalOnly: boolean;
   ragOnly: boolean;
   skipPreflight: boolean;
+  forceEmbedding: boolean;
 };
 
 export type RagQualityResult = {
@@ -149,6 +150,7 @@ function parseArgs(argv: string[]): EvalQualityArgs {
     retrievalOnly: false,
     ragOnly: false,
     skipPreflight: false,
+    forceEmbedding: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -173,6 +175,10 @@ function parseArgs(argv: string[]): EvalQualityArgs {
     }
     if (token === "--skip-preflight") {
       args.skipPreflight = true;
+      continue;
+    }
+    if (token === "--force-embedding") {
+      args.forceEmbedding = true;
       continue;
     }
 
@@ -475,6 +481,11 @@ export function buildEvalQualityReport(args: {
         `retrieval content_recall_at_5 ${retrievalSummary.content_recall_at_5} below ${qualityThresholds.retrievalContentRecallAt5}`,
       );
     }
+    if (retrievalSummary.force_embedding_failure_count > 0) {
+      thresholdFailures.push(
+        `retrieval force_embedding_failure_count ${retrievalSummary.force_embedding_failure_count} above 0`,
+      );
+    }
     if (governance.stale_rate > qualityThresholds.staleTopResultRate) {
       thresholdFailures.push(
         `top-result stale_rate ${governance.stale_rate} above ${qualityThresholds.staleTopResultRate}`,
@@ -663,6 +674,8 @@ ${markdownTable([
 ## Retrieval Decision Metrics
 
 ${markdownTable([
+  ["Force-embedding cases", retrieval.force_embedding_case_count],
+  ["Force-embedding failures", retrieval.force_embedding_failure_count],
   ["Embedding skipped rate", retrieval.embedding_skipped_rate],
   ["Median text candidate budget", retrieval.median_text_candidate_budget],
   ["Second-stage rerank rate", retrieval.second_stage_rerank_rate],
@@ -727,6 +740,7 @@ async function runRetrievalQualityCases(args: {
   ownerId?: string;
   limit?: number;
   query?: string;
+  forceEmbedding?: boolean;
   supabase: Awaited<ReturnType<typeof loadAdminClient>>;
 }) {
   const [{ searchChunksWithTelemetry }, capturedCases] = await Promise.all([
@@ -753,6 +767,7 @@ async function runRetrievalQualityCases(args: {
         topK: testCase.topK,
         minSimilarity: 0.12,
         skipCache: true,
+        forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
       }),
     );
     const latencyMs =

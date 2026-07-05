@@ -47,6 +47,7 @@ type EvalArgs = {
 export type GoldenRetrievalResult = {
   id: string;
   query: string;
+  forceEmbedding: boolean;
   expectedQueryClass: string;
   actualQueryClass: string | null;
   expectedDocumentSubstrings: string[];
@@ -468,6 +469,11 @@ export function evaluateGoldenRetrievalCase(args: {
   const tableEvidenceFoundAtK = hasTableEvidence(args.results, topK);
   const actualQueryClass = args.telemetry.query_class ?? null;
   const failures: string[] = [];
+  const vectorLayerCount = Object.entries(args.telemetry.retrieval_layer_counts ?? {}).reduce(
+    (sum, [layer, count]) =>
+      ["embedding_fields", "index_units", "hybrid_vector", "vector_fallback"].includes(layer) ? sum + count : sum,
+    0,
+  );
   const hitAtK =
     documentHitsAtK.missing.length === 0 &&
     contentHitsAtK.missing.length === 0 &&
@@ -485,10 +491,23 @@ export function evaluateGoldenRetrievalCase(args: {
   if (args.testCase.expectTableEvidence && !tableEvidenceFound) {
     failures.push("expected table evidence in top 5");
   }
+  if (args.testCase.forceEmbedding) {
+    if (args.telemetry.embedding_skipped) failures.push("forceEmbedding expected embedding to run");
+    if (args.telemetry.retrieval_strategy === "search_cache") failures.push("forceEmbedding served search cache");
+    if (
+      args.telemetry.retrieval_strategy === "text_fast_path" ||
+      args.telemetry.retrieval_strategy === "document_lookup_fast_path"
+    ) {
+      failures.push(`forceEmbedding returned lexical strategy ${args.telemetry.retrieval_strategy}`);
+    }
+    if (args.telemetry.coverage_gate_decision === "accepted") failures.push("forceEmbedding returned coverage gate");
+    if (vectorLayerCount <= 0) failures.push("forceEmbedding found no vector-layer candidates");
+  }
 
   return {
     id: args.testCase.id,
     query: args.testCase.query,
+    forceEmbedding: args.testCase.forceEmbedding ?? false,
     expectedQueryClass: args.testCase.expectedQueryClass,
     actualQueryClass,
     expectedDocumentSubstrings: args.testCase.expectedDocumentSubstrings,
@@ -560,6 +579,7 @@ export function summarizeGoldenRetrievalResults(results: GoldenRetrievalResult[]
     }
     return counts;
   }, {});
+  const forceEmbeddingResults = results.filter((result) => result.forceEmbedding);
   return {
     case_count: results.length,
     document_recall_at_5: Number(
@@ -588,6 +608,8 @@ export function summarizeGoldenRetrievalResults(results: GoldenRetrievalResult[]
     embedding_skip_reason_counts: embeddingSkipReasonCounts,
     text_fast_path_reason_counts: textFastPathReasonCounts,
     retrieval_layer_counts: layerCounts,
+    force_embedding_case_count: forceEmbeddingResults.length,
+    force_embedding_failure_count: forceEmbeddingResults.filter((result) => result.failures.length > 0).length,
     median_text_candidate_budget: percentile(textCandidateBudgets, 50),
     second_stage_rerank_rate: Number(
       (results.filter((result) => result.secondStageRerankUsed).length / Math.max(results.length, 1)).toFixed(4),
@@ -661,6 +683,8 @@ function printHumanSummary(summary: ReturnType<typeof summarizeGoldenRetrievalRe
   console.log(`  retrieval_strategy_counts=${JSON.stringify(summary.retrieval_strategy_counts)}`);
   console.log(`  retrieval_plan_counts=${JSON.stringify(summary.retrieval_plan_counts)}`);
   console.log(`  retrieval_layer_counts=${JSON.stringify(summary.retrieval_layer_counts)}`);
+  console.log(`  force_embedding_case_count=${summary.force_embedding_case_count}`);
+  console.log(`  force_embedding_failure_count=${summary.force_embedding_failure_count}`);
   console.log(`  embedding_skipped_rate=${summary.embedding_skipped_rate}`);
   console.log(`  embedding_skip_reason_counts=${JSON.stringify(summary.embedding_skip_reason_counts)}`);
   console.log(`  text_fast_path_reason_counts=${JSON.stringify(summary.text_fast_path_reason_counts)}`);
