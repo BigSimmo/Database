@@ -286,15 +286,9 @@ test.describe("Clinical KB long-content stress coverage", () => {
         .waitFor({ state: "hidden", timeout: 5_000 })
         .catch(() => undefined);
 
-      await expect(async () => {
-        const actionMenu = page.getByRole("button", { name: "Open answer options" });
-        await expect(actionMenu).toBeVisible();
-        await actionMenu.click();
-        const actionsMenu = page.getByTestId("daily-actions-menu");
-        await expect(actionsMenu).toBeVisible({ timeout: 5_000 });
-        await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
-        await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 5_000 });
-      }).toPass({ timeout: 20_000 });
+      const dailyActions = await openDailyActions(page);
+      await dailyActions.getByRole("menuitem", { name: /^Scope\b/ }).click();
+      await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 10_000 });
       const scopeContainer = page.getByTestId("scope-command-popover");
       await expect(
         scopeContainer.getByText(/Type to filter 24 (loaded )?documents\. Selected documents stay pinned here\./),
