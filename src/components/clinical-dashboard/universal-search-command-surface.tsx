@@ -16,6 +16,7 @@ import {
   type ModeActionId,
   type ModeActionSetId,
 } from "@/components/clinical-dashboard/mode-action-popup";
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -92,29 +93,43 @@ function ContextHintRow({
   const ModeIcon = appModeIcons[modeId];
 
   useEffect(() => {
+    if (modeId === "answer") return;
     const timer = window.setInterval(() => {
       setIndex((current) => (current + 1) % examples.length);
     }, 4500);
     return () => window.clearInterval(timer);
-  }, [examples]);
+  }, [examples, modeId]);
 
   const example = examples[index % examples.length];
+  const visibilityClass = placement === "bottom-dock" ? "flex" : "hidden lg:flex";
+
+  if (modeId === "answer") {
+    return (
+      <AnswerSuggestionChips
+        suggestions={examples}
+        onPick={onPickExample}
+        label="Examples"
+        layout="scroll"
+        className={visibilityClass}
+      />
+    );
+  }
 
   return (
     <div
       className={cn(
-        "min-h-8 items-center gap-2 px-1 text-xs font-semibold text-[color:var(--text-muted)]",
-        placement === "bottom-dock" ? "flex" : "hidden lg:flex",
+        "min-h-6 items-center gap-1 px-1 text-xs font-semibold text-[color:var(--text-muted)]",
+        visibilityClass,
       )}
     >
-      <span className="inline-flex shrink-0 items-center gap-1.5">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-          <ModeIcon className="h-3 w-3" />
+      <span className="inline-flex shrink-0 items-center gap-1">
+        <span className="grid h-4 w-4 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+          <ModeIcon className="h-2.5 w-2.5" />
         </span>
         Searching {mode.label.toLowerCase()}
       </span>
       <span aria-hidden className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--border-strong)]" />
-      <span className="flex min-w-0 items-center gap-1.5 overflow-hidden" aria-live="polite">
+      <span className="flex min-w-0 items-center gap-1 overflow-hidden" aria-live="polite">
         <span className="shrink-0 text-[color:var(--text-soft)]">Try:</span>
         <button
           key={example}
@@ -410,6 +425,32 @@ export function UniversalSearchCommandSurface({
             ),
           })),
         });
+      } else if (modeId === "answer" && config.examples.length) {
+        built.push({
+          key: "examples",
+          heading: "Examples",
+          layout: "chips",
+          items: config.examples.map((example) => ({
+            id: nextId(),
+            label: example,
+            onSelect: () => {
+              onDropdownOpenChange(false);
+              onQueryChange(example);
+              onFocusSearchInput?.();
+            },
+            render: (active) => (
+              <span
+                className={cn(
+                  "answer-suggestion-chip",
+                  active &&
+                    "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+                )}
+              >
+                {example}
+              </span>
+            ),
+          })),
+        });
       }
     } else {
       const suggestions = filteredSuggestions(config, trimmedQuery);
@@ -527,6 +568,7 @@ export function UniversalSearchCommandSurface({
     modeId,
     onCrossMode,
     onDropdownOpenChange,
+    onFocusSearchInput,
     onPickRecent,
     onQueryChange,
     onRunModeAction,
@@ -610,7 +652,12 @@ export function UniversalSearchCommandSurface({
   }
 
   return (
-    <div className="universal-command-surface relative z-10 flex w-full flex-col gap-2">
+    <div
+      className={cn(
+        "universal-command-surface relative z-10 flex w-full flex-col",
+        placement === "bottom-dock" ? "gap-1" : "gap-2",
+      )}
+    >
       <ContextHintRow
         modeId={modeId}
         examples={config.examples}
