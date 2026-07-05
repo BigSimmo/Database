@@ -636,6 +636,7 @@ describe("clinical search query normalization", () => {
     });
 
     expect(hasDoseEvidenceSupport(synopsisResult)).toBe(true);
+    expect(hasNumericOrTableEvidence(synopsisResult)).toBe(true);
     expect(
       rankClinicalResults("What dose and route are shown for lorazepam?", [
         result({

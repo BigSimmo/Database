@@ -1425,9 +1425,15 @@ async function getCachedAnswer(
 async function setCachedAnswer(
   args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
   answer: RagAnswer,
+  options?: { indexingVersionAtRetrievalStart?: string | null },
 ): Promise<void> {
   if (args.skipCache) return;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return;
+
+  if (options?.indexingVersionAtRetrievalStart) {
+    const currentIndexingVersion = await cacheIndexingVersion(args);
+    if (currentIndexingVersion !== options.indexingVersionAtRetrievalStart) return;
+  }
 
   const indexingVersion = await cacheIndexingVersion(args);
   const key = scopedAnswerCacheKey(args);
@@ -6447,6 +6453,8 @@ async function answerQuestionWithScopeUncoalesced(
   // unchanged cache version) would bypass chooseAnswerRoute's refusal. Skipping the
   // cache lets the query flow to routing, which fails it closed to "unsupported".
   const adversarialQuery = hasAdversarialManipulationIntent(answerFocusQuery);
+  const indexingVersionAtRetrievalStart =
+    adversarialQuery || args.skipCache ? null : await cacheIndexingVersion(args);
   const cachedAnswer = adversarialQuery ? null : await getCachedAnswer(args, startedAt);
   if (cachedAnswer) {
     const cachedSources = annotateSearchResults(answerFocusQuery, cachedAnswer.sources ?? []);
@@ -6474,7 +6482,7 @@ async function answerQuestionWithScopeUncoalesced(
   }
   const sharedCachedAnswer = adversarialQuery ? null : await getSharedCachedAnswer(args, startedAt);
   if (sharedCachedAnswer) {
-    await setCachedAnswer(args, sharedCachedAnswer);
+    await setCachedAnswer(args, sharedCachedAnswer, { indexingVersionAtRetrievalStart });
     const cachedSources = annotateSearchResults(answerFocusQuery, sharedCachedAnswer.sources ?? []);
     const cachedRelevance = sharedCachedAnswer.relevance ?? buildEvidenceRelevance(answerFocusQuery, cachedSources);
     await args.onProgress?.({
@@ -6801,7 +6809,7 @@ async function answerQuestionWithScopeUncoalesced(
         },
       });
 
-    await setCachedAnswer(args, finalizedAnswer);
+    await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
     return finalizedAnswer;
   }
 
@@ -6904,7 +6912,7 @@ async function answerQuestionWithScopeUncoalesced(
         },
       });
 
-    await setCachedAnswer(args, finalizedAnswer);
+    await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
     return finalizedAnswer;
   }
 
@@ -7494,7 +7502,7 @@ ${qualityRetryInstruction}`
         },
       });
 
-    await setCachedAnswer(args, answer);
+    await setCachedAnswer(args, answer, { indexingVersionAtRetrievalStart });
     return answer;
   } catch (error) {
     const relatedDocuments = await relatedDocumentsPromise;
@@ -7642,7 +7650,7 @@ ${qualityRetryInstruction}`
         },
       });
 
-    await setCachedAnswer(args, fallbackAnswer);
+    await setCachedAnswer(args, fallbackAnswer, { indexingVersionAtRetrievalStart });
     return fallbackAnswer;
   }
 }

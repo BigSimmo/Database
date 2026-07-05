@@ -747,13 +747,13 @@ export function hasNumericOrTableEvidence(result: SearchResult) {
   ) {
     return true;
   }
-  const content = `${result.section_heading ?? ""} ${result.content}`;
+  const haystack = clinicalResultEvidenceHaystack(result);
   // number + clinical unit, or an explicit threshold/range token.
-  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|g|ml|mmol|mol|units?|%|x10\^?9|\/l|cells?)\b/i.test(content)
+  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|g|ml|mmol|mol|units?|%|x10\^?9|\/l|cells?)\b/i.test(haystack)
     ? true
-    : /\b\d/.test(content) &&
+    : /\b\d/.test(haystack) &&
         /\b(?:threshold|cut[\s-]?off|withhold|cease|range|level|anc|wbc|fbc|neutrophil|titrat|maximum|max\b)/i.test(
-          content,
+          haystack,
         );
 }
 

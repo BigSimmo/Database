@@ -551,20 +551,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       imagePaths,
     });
 
-    try {
-      await deleteDocumentIndexTraceRows({ supabase, ownerId: user.id, documentId: id, chunkIds });
-    } catch (traceCleanupError) {
-      const message = traceCleanupError instanceof Error ? traceCleanupError.message : "Index trace cleanup failed.";
-      const ledgerWarning = await updateStorageCleanupJob({
-        supabase,
-        cleanupJobId,
-        status: "failed",
-        storageRemoved: 0,
-        warnings: [message],
-      });
-      throw new Error(ledgerWarning ? `${message}; ${ledgerWarning}` : message);
-    }
-
     const { data: lateActiveJobs, error: lateActiveJobsError } = await loadActiveJobs();
     if (lateActiveJobsError) throw new Error(lateActiveJobsError.message);
     if ((lateActiveJobs ?? []).length > 0) {
@@ -578,6 +564,20 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         warnings: [message],
       });
       throw new PublicApiError(ledgerWarning ? `${message}; ${ledgerWarning}` : message, 409);
+    }
+
+    try {
+      await deleteDocumentIndexTraceRows({ supabase, ownerId: user.id, documentId: id, chunkIds });
+    } catch (traceCleanupError) {
+      const message = traceCleanupError instanceof Error ? traceCleanupError.message : "Index trace cleanup failed.";
+      const ledgerWarning = await updateStorageCleanupJob({
+        supabase,
+        cleanupJobId,
+        status: "failed",
+        storageRemoved: 0,
+        warnings: [message],
+      });
+      throw new Error(ledgerWarning ? `${message}; ${ledgerWarning}` : message);
     }
 
     const { error: deleteError } = await supabase.from("documents").delete().eq("id", id).eq("owner_id", user.id);
