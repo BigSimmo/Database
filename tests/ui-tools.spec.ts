@@ -126,7 +126,7 @@ function launcherLaunchLink(page: Page, title: string) {
   return page.getByRole("link", { name: `Launch ${title}` }).first();
 }
 
-async function gotoLauncher(page: Page, path = "/applications") {
+async function gotoLauncher(page: Page, path = "/?mode=tools") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 }
@@ -208,20 +208,20 @@ async function openAppModeMenu(page: Page, currentMode: string) {
   return menu;
 }
 
-test.describe("Clinical KB applications launcher", () => {
+test.describe("Clinical KB tools launcher", () => {
   test.describe.configure({ timeout: 60_000 });
 
   for (const viewport of [
     { name: "mobile", width: 390, height: 820 },
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
-    test(`applications launcher is usable at ${viewport.name}`, async ({ page }) => {
+    test(`tools launcher is usable at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await gotoLauncher(page);
 
-      await expect(page.getByRole("heading", { level: 1, name: "Applications" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Quick tool shortcuts" })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "All applications" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "All tools" })).toBeVisible();
       if (viewport.name === "mobile") {
         await page.getByTestId("application-row-medication-prescribing").click();
         const selectedSheet = page.getByRole("dialog", { name: "Medication Prescribing" });
@@ -237,8 +237,9 @@ test.describe("Clinical KB applications launcher", () => {
         await expect(launcherLaunchLink(page, "Clinical KB Search")).toHaveAttribute("href", "/?mode=answer");
       }
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
-      await expect(page.getByPlaceholder("Search applications...")).toBeVisible();
-      await expect(page.getByLabel("Open selected application")).toBeVisible();
+      await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+      await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
+      await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     });
   }
@@ -263,7 +264,7 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
 
-    await page.getByLabel("Search applications").fill("medication");
+    await visibleGlobalSearchInput(page).fill("medication");
 
     await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
     await expect(page.getByTestId("application-card-documents")).toBeHidden();
@@ -377,9 +378,10 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 390, height: 820 });
 
     for (const home of [
-      { path: "/services", testId: "services-home", heading: "Find a service" },
-      { path: "/forms", testId: "forms-home", heading: "What do you need from forms?" },
-      { path: "/differentials", testId: "differentials-home", heading: "Differentials" },
+      { path: "/?mode=answer", testId: "answer-empty-state", heading: "How can I help?", headingLevel: 2 },
+      { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
+      { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
+      { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
     ] as const) {
       await gotoLauncher(page, home.path);
       await expect(page.getByTestId(home.testId)).toBeVisible();
@@ -389,7 +391,9 @@ test.describe("Clinical KB applications launcher", () => {
       await expect(heroSearch).toBeVisible();
 
       const searchBox = await heroSearch.boundingBox();
-      const headingBox = await page.getByRole("heading", { level: 1, name: home.heading }).boundingBox();
+      const headingBox = await page
+        .getByRole("heading", { level: home.headingLevel, name: home.heading })
+        .boundingBox();
       expect(searchBox).not.toBeNull();
       expect(headingBox).not.toBeNull();
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
@@ -401,6 +405,7 @@ test.describe("Clinical KB applications launcher", () => {
       expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
       expect(metrics?.homeCenterX).not.toBeNull();
       expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
+      await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
       await expect(page.locator(".mode-home-action").first()).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     }
@@ -438,9 +443,10 @@ test.describe("Clinical KB applications launcher", () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
       for (const home of [
-        { path: "/services", testId: "services-home", heading: "Find a service" },
-        { path: "/forms", testId: "forms-home", heading: "What do you need from forms?" },
-        { path: "/differentials", testId: "differentials-home", heading: "Differentials" },
+        { path: "/?mode=answer", testId: "answer-empty-state", heading: "How can I help?", headingLevel: 2 },
+        { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
+        { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
+        { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
       ] as const) {
         await gotoLauncher(page, home.path);
         await expect(page.getByTestId(home.testId)).toBeVisible();
@@ -452,7 +458,9 @@ test.describe("Clinical KB applications launcher", () => {
         await expect(heroSearch).toBeVisible();
 
         const searchBox = await heroSearch.boundingBox();
-        const headingBox = await page.getByRole("heading", { level: 1, name: home.heading }).boundingBox();
+        const headingBox = await page
+          .getByRole("heading", { level: home.headingLevel, name: home.heading })
+          .boundingBox();
         expect(searchBox).not.toBeNull();
         expect(headingBox).not.toBeNull();
         // Search sits below the heading with no overlap.
@@ -503,13 +511,9 @@ test.describe("Clinical KB applications launcher", () => {
         if (viewport.width < 640) {
           expect(metrics?.position).toBe("fixed");
           expect(metrics?.formCenterY ?? 0).toBeGreaterThan(viewport.height * 0.72);
+          await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
           if (route.compactBottomSearch) {
-            // Search result views drop the chip row and hug the bottom edge
-            // on phones so results keep maximum screen space.
-            await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
             expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 48);
-          } else {
-            await expect(page.locator(".answer-footer-search-chip:visible").first()).toBeVisible();
           }
         } else {
           expect(metrics?.position).toBe("sticky");
