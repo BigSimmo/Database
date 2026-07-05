@@ -524,7 +524,7 @@ export function ModeActionPopup({
 
   useEffect(() => {
     if (open) return;
-    setIntegratedSurfaceLayout(null);
+    queueMicrotask(() => setIntegratedSurfaceLayout(null));
   }, [open]);
 
   useEffect(() => {
