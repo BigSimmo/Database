@@ -1022,7 +1022,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await openDailyActions(page);
     await page.mouse.click(640, 430);
     await expect(dailyActionsMenu).toHaveCount(0);
-    await expect(dailyActionsTrigger).toHaveAttribute("aria-expanded", "false");
+    await expect(async () => {
+      const trigger = page.getByRole("button", { name: "Open answer options" });
+      await expect(trigger).toBeVisible();
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    }).toPass({ timeout: 10_000 });
 
     // Second open - verify opening the mode menu closes the daily actions surface.
     await openDailyActions(page);
