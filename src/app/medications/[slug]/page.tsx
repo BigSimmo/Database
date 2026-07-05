@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
 import { MedicationRecordPage } from "@/components/clinical-dashboard/medication-record-page";
-import { getMedicationRecord, loadMedicationSnapshot } from "@/lib/medications";
+import { getMedicationRecord, loadMedicationSnapshot } from "@/lib/medication-snapshot";
 
 type MedicationPageProps = {
   params: Promise<{
@@ -31,7 +30,6 @@ export async function generateMetadata({ params }: MedicationPageProps): Promise
 
 export default async function MedicationPage({ params }: MedicationPageProps) {
   const { slug } = await params;
-  if (!getMedicationRecord(slug)) notFound();
 
   return <MedicationRecordPage slug={slug} />;
 }

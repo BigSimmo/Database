@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { getMedicationRecord } from "@/lib/medications";
+import { getMedicationRecord } from "@/lib/medication-snapshot";
 import { ensureMedicationsSeeded } from "@/lib/medication-seed";
 import {
   deriveGovernanceFromSections,

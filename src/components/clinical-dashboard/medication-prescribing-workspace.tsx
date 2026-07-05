@@ -31,7 +31,6 @@ import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
 import { medicationMatchesCommandScopes } from "@/lib/search-command-surface";
-import type { MedicationSearchResult } from "@/lib/medications";
 import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
 
 type MedicationPrescribingWorkspaceProps = {
@@ -616,7 +615,7 @@ function MedicationResults({
       {catalog.loading ? (
         <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogue…</p>
       ) : catalog.error ? (
-        <p className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-3 py-2 text-sm text-[color:var(--danger-text)]">
+        <p className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger)]">
           {catalog.error}
         </p>
       ) : null}

@@ -1,4 +1,4 @@
-import { loadMedicationSnapshot } from "@/lib/medications";
+import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
 import { recordToRow } from "@/lib/medication-records";
 
 export function defaultMedicationRecords() {

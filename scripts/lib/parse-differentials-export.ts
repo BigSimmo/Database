@@ -88,10 +88,10 @@ function optionSlug(name: string) {
 }
 
 function mapUrgency(raw: string): DifferentialRecord["status"] {
-  const normalized = raw.trim().toLowerCase();
-  if (normalized === "emergent") return "emergent";
-  if (normalized === "urgent") return "urgent";
-  if (normalized === "standard") return "routine";
+  const normalized = raw.trim().toLowerCase().split(/\r?\n/)[0].trim();
+  if (normalized.startsWith("emergent")) return "emergent";
+  if (normalized.startsWith("urgent")) return "urgent";
+  if (normalized.startsWith("standard") || normalized.startsWith("routine")) return "routine";
   return "routine";
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { getMedicationRecord, loadMedicationSnapshot, rankMedicationRecords } from "@/lib/medications";
+import { getMedicationRecord, loadMedicationSnapshot } from "@/lib/medication-snapshot";
+import { rankMedicationRecords } from "@/lib/medications";
 
 describe("medications catalogue", () => {
   it("loads the full reviewed export snapshot", () => {

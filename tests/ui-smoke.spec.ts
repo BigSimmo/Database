@@ -1,6 +1,12 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
+import { deriveGovernanceFromSections } from "../src/lib/medication-records";
+import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
+import {
+  medicationToSearchResult,
+  rankMedicationRecords,
+} from "../src/lib/medications";
 
 const dashboardViewports = [
   { name: "small-mobile", width: 320, height: 720 },
@@ -34,9 +40,15 @@ async function expectSingleMedicationPage(page: Page) {
   // to two <main> elements and trip Playwright strict mode. Wait for it to settle
   // to exactly one before asserting visibility — a genuine permanent double-render
   // still fails toHaveCount(1), so this does not mask a real regression.
-  const medicationPage = page.getByTestId("acamprosate-medication-page");
-  await expect(medicationPage).toHaveCount(1);
-  await expect(medicationPage).toBeVisible();
+  await page
+    .waitForResponse(
+      (response) => response.url().includes("/api/medications/acamprosate") && response.ok(),
+      { timeout: 30_000 },
+    )
+    .catch(() => undefined);
+  const medicationPage = page.getByTestId("medication-page-acamprosate");
+  await expect(medicationPage).toHaveCount(1, { timeout: 30_000 });
+  await expect(medicationPage).toBeVisible({ timeout: 30_000 });
 }
 
 function visibleQuestionInput(page: Page) {
@@ -217,6 +229,48 @@ async function mockDemoApi(page: Page, options: { answerOverride?: DemoAnswerOve
           nextOffset: demoDocuments.length,
           hasMore: false,
         },
+      },
+    });
+  });
+  await page.route(/\/api\/medications(?:\/([^/?]+))?(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const slug = url.pathname.match(/\/api\/medications\/([^/]+)$/)?.[1];
+    if (slug) {
+      const record = getMedicationRecord(decodeURIComponent(slug));
+      if (!record) {
+        await route.fulfill({ status: 404, json: { error: `No medication found for "${slug}".` } });
+        return;
+      }
+      const governance = deriveGovernanceFromSections(record);
+      await route.fulfill({
+        json: {
+          record,
+          governance: {
+            sourceStatus: governance.source_status,
+            validationStatus: governance.validation_status,
+          },
+          demoMode: true,
+        },
+      });
+      return;
+    }
+
+    const query = url.searchParams.get("q")?.trim() || undefined;
+    const limit = Number(url.searchParams.get("limit") ?? "50");
+    const records = loadMedicationSnapshot();
+    const matches = query ? rankMedicationRecords(records, query, limit) : undefined;
+    await route.fulfill({
+      json: {
+        records,
+        matches: matches?.map((match) => ({
+          medication: match.medication,
+          result: medicationToSearchResult(match),
+          score: match.score,
+          reasons: match.reasons,
+        })),
+        total: records.length,
+        governance: {},
+        demoMode: true,
       },
     });
   });

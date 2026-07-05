@@ -3173,7 +3173,7 @@ describe("private document API access", () => {
     const response = await POST(
       localPortRequest(4298, "/api/answer/stream", {
         method: "POST",
-        body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
+        body: JSON.stringify({ query: "monitoring", documentId: documentId }),
       }),
     );
     const body = await response.text();

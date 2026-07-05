@@ -98,12 +98,6 @@ function mockRuntime(client: ReturnType<typeof createSupabaseMock>, options: { d
   }));
 }
 
-function authedRequest(path: string) {
-  return new Request(`http://localhost${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-}
-
 function request(path: string) {
   return new Request(`http://localhost${path}`);
 }

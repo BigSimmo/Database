@@ -501,7 +501,6 @@ export function MobileEvidenceSheetContent({
                 <MobileEvidenceTabPanel
                   tab={tab}
                   renderModel={renderModel}
-                  query={query}
                   visualEvidence={visualEvidence}
                   answerEvidenceMapRows={answerEvidenceMapRows}
                   copiedQuotes={copiedQuotes}
@@ -562,7 +561,6 @@ export function MobileEvidenceSheetContent({
 function MobileEvidenceTabPanel({
   tab,
   renderModel,
-  query,
   visualEvidence,
   answerEvidenceMapRows,
   copiedQuotes,
@@ -572,7 +570,6 @@ function MobileEvidenceTabPanel({
 }: {
   tab: EvidenceTabName;
   renderModel: AnswerRenderModel;
-  query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   copiedQuotes: boolean;
@@ -635,134 +632,4 @@ function MobileEvidenceTabPanel({
   return <EvidenceGapsPanel warnings={renderModel.warnings} />;
 }
 
-function UnifiedEvidenceDrawerContent({
-  answer,
-  renderModel,
-  query,
-  visualEvidence,
-  answerEvidenceMapRows,
-  pendingFeedback,
-  copiedQuotes,
-  onCopyQuotes,
-  onSubmitFeedback,
-  onFollowUpQuote,
-  onScopeDocument,
-}: {
-  answer: RagAnswer;
-  renderModel: AnswerRenderModel;
-  query: string;
-  visualEvidence: VisualEvidenceCard[];
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  pendingFeedback: AnswerFeedbackType | null;
-  copiedQuotes: boolean;
-  onCopyQuotes: () => void;
-  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  const order = evidenceTabOrder(answer, renderModel);
-
-  return (
-    <div className="space-y-4">
-      <VerificationWorkspace
-        renderModel={renderModel}
-        query={query}
-        answerEvidenceMapRows={answerEvidenceMapRows}
-        pendingFeedback={pendingFeedback}
-        onSubmitFeedback={onSubmitFeedback}
-        onScopeDocument={onScopeDocument}
-      />
-
-      <div className="flex flex-wrap gap-1.5" aria-label="Evidence sections">
-        {order.map((item) => (
-          <span key={item} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
-            {item}
-          </span>
-        ))}
-      </div>
-
-      {order.map((section) => {
-        if (section === "Claims") {
-          return (
-            <section key={section} className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Claims</p>
-              <EvidenceClaimsList rows={answerEvidenceMapRows} renderModel={renderModel} />
-            </section>
-          );
-        }
-
-        if (section === "Tables") {
-          return (
-            <section key={section} className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tables</p>
-              {visualEvidence.some((item) => item.accessibleTableMarkdown || item.tableRows?.length) ? (
-                <div className="grid gap-2">
-                  {visualEvidence
-                    .filter((item) => item.accessibleTableMarkdown || item.tableRows?.length)
-                    .slice(0, 3)
-                    .map((item) => (
-                      <div key={item.id} className={cn(tableCard, "p-3")}>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-[color:var(--text-heading)]">
-                            {compactClinicalTableCaption(item)}
-                          </p>
-                          <span className={cn(metadataPill, "text-[11px]")}>p.{item.page_number ?? "n/a"}</span>
-                        </div>
-                        <div className={cn(tableMicroActionRow, "mt-2 border-t-0 px-0")}>
-                          <Link href={item.viewer_href} className={chatMicroAction}>
-                            Expand
-                          </Link>
-                          <Link href={item.viewer_href} className={chatMicroAction}>
-                            Source
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <EmptyState icon={ListChecks} title={emptyStates.tablesUsed.title} body={emptyStates.tablesUsed.body} />
-              )}
-            </section>
-          );
-        }
-
-        if (section === "Images") {
-          return (
-            <section key={section} className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Images</p>
-              <UtilityDrawer
-                icon={FileImage}
-                title={`Images ${visualEvidence.length}`}
-                summary="Open to view table images, PDF page crops, and figures."
-                mobileSummary={`${visualEvidence.length} images`}
-              >
-                <VisualEvidenceStrip evidence={visualEvidence} embedded />
-              </UtilityDrawer>
-            </section>
-          );
-        }
-
-        if (section === "Quotes") {
-          return (
-            <section key={section} className="space-y-2">
-              <QuoteCards
-                quotes={renderModel.quoteCards}
-                copiedQuotes={copiedQuotes}
-                onCopyQuotes={onCopyQuotes}
-                onFollowUp={onFollowUpQuote}
-                onScopeDocument={onScopeDocument}
-              />
-            </section>
-          );
-        }
-
-        return (
-          <section key={section} className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Gaps</p>
-            <EvidenceGapsPanel warnings={renderModel.warnings} />
-          </section>
-        );
-      })}
-    </div>
-  );
-}
+// UnifiedEvidenceDrawerContent was removed as it was defined but never used.

@@ -1,6 +1,3 @@
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
-
 export type MedicationPatientMetadata = {
   factors?: string[];
   action?: string;
@@ -68,10 +65,6 @@ export type MedicationSearchResult = {
   href: string;
 };
 
-const SNAPSHOT_PATH = path.resolve(process.cwd(), "data/medications-snapshot.json");
-
-let cachedSnapshot: MedicationRecord[] | null = null;
-
 export function normalizeMedicationSlug(value: string) {
   return value.trim().toLowerCase();
 }
@@ -86,7 +79,7 @@ export function normalizeSearchText(value: string) {
     .trim();
 }
 
-function normalizeRecord(record: MedicationRecord): MedicationRecord {
+export function normalizeRecord(record: MedicationRecord): MedicationRecord {
   return {
     ...record,
     slug: normalizeMedicationSlug(record.slug),
@@ -101,21 +94,6 @@ function normalizeRecord(record: MedicationRecord): MedicationRecord {
     sections: Array.isArray(record.sections) ? record.sections : [],
     quick: Array.isArray(record.quick) ? record.quick : [],
   };
-}
-
-export function loadMedicationSnapshot(): MedicationRecord[] {
-  if (cachedSnapshot) return cachedSnapshot;
-  if (!existsSync(SNAPSHOT_PATH)) {
-    throw new Error(`Medication snapshot missing at ${SNAPSHOT_PATH}. Run npm run medications:import first.`);
-  }
-  const raw = JSON.parse(readFileSync(SNAPSHOT_PATH, "utf8")) as MedicationRecord[];
-  cachedSnapshot = raw.map(normalizeRecord).sort((left, right) => left.name.localeCompare(right.name));
-  return cachedSnapshot;
-}
-
-export function getMedicationRecord(slug: string): MedicationRecord | undefined {
-  const normalized = normalizeMedicationSlug(slug);
-  return loadMedicationSnapshot().find((record) => record.slug === normalized);
 }
 
 function sectionByType(record: MedicationRecord, type: string) {

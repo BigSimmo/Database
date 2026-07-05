@@ -102,7 +102,6 @@ function likelihoodTag(likelihood: DifferentialRecord["related"][number]["likeli
 function SectionRow({ section }: { section: DifferentialSection }) {
   const Icon = sectionIcons[section.tone];
   const meta = rowMeta[section.tone];
-  const badgeLabel = String(section.items.length);
   return (
     <article className="group grid min-h-[4.25rem] grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 last:border-b-0 sm:min-h-[4.75rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_9rem_5.5rem_2rem] sm:px-4 sm:py-3">
       <span

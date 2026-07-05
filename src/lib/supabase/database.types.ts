@@ -1983,6 +1983,21 @@ export type Database = {
     }
     Functions: {
       analyze_rag_tables: { Args: never; Returns: undefined }
+      consume_api_subject_rate_limit: {
+        Args: {
+          p_subject_key: string
+          p_bucket: string
+          p_limit: number
+          p_window_seconds: number
+        }
+        Returns: {
+          limited: boolean
+          limit_value: number
+          remaining: number
+          retry_after_seconds: number
+          reset_at: string
+        }[]
+      }
       chunk_image_metadata: {
         Args: { chunk_image_ids: string[] }
         Returns: Json

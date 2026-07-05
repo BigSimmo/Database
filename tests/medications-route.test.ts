@@ -124,6 +124,8 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { li
 
 function mockRuntime(client: ReturnType<typeof createSupabaseMock>, options: { demoMode?: boolean } = {}) {
   vi.resetModules();
+  vi.doUnmock("@/lib/supabase/auth");
+  vi.doUnmock("@/lib/supabase/admin");
   vi.doMock("@/lib/env", () => ({
     env: {},
     isDemoMode: () => Boolean(options.demoMode),
