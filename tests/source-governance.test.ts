@@ -150,7 +150,7 @@ describe("source governance warnings", () => {
     expect(hasDangerSourceGovernanceWarning(warnings)).toBe(false);
   });
 
-  it("keeps routine review metadata notes out of frontend-visible governance warnings", () => {
+  it("surfaces review_due and unverified warnings to the frontend", () => {
     const warnings = sourceGovernanceWarnings({
       results: [
         result({
@@ -183,7 +183,9 @@ describe("source governance warnings", () => {
     expect(warnings.map((warning) => warning.code)).toEqual(
       expect.arrayContaining(["review_due_source", "unverified_source"]),
     );
-    expect(frontendSourceGovernanceWarnings(warnings)).toEqual([]);
+    expect(frontendSourceGovernanceWarnings(warnings).map((warning) => warning.code)).toEqual(
+      expect.arrayContaining(["review_due_source", "unverified_source"]),
+    );
   });
 
   it("surfaces only clinically material warnings to the frontend", () => {
@@ -204,8 +206,7 @@ describe("source governance warnings", () => {
     const visibleCodes = frontendSourceGovernanceWarnings(warnings).map((warning) => warning.code);
 
     expect(visibleCodes).toEqual(expect.arrayContaining(["weak_evidence", "outdated_source", "poor_extraction"]));
-    expect(visibleCodes).not.toContain("review_due_source");
-    expect(visibleCodes).not.toContain("unverified_source");
+    expect(visibleCodes).toContain("unverified_source");
     expect(visibleCodes).not.toContain("non_local_source");
   });
 

@@ -121,10 +121,10 @@ export async function POST(request: Request) {
   try {
     if (isDemoMode()) return NextResponse.json({ error: "Bulk edits are unavailable in demo mode." }, { status: 400 });
 
-    const parsed = await parseJsonBody(request, bulkMetadataSchema, "Bulk edit payload is invalid.");
-
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
+
+    const parsed = await parseJsonBody(request, bulkMetadataSchema, "Bulk edit payload is invalid.");
     const ids = Array.from(new Set(parsed.documentIds));
 
     const { data: documents, error: documentsError } = await supabase

@@ -145,6 +145,7 @@ const DocumentDrawer = dynamic(
 );
 
 import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clinical-dashboard/document-search-results";
+import { SourceReviewQueuePanel } from "@/components/clinical-dashboard/source-review-queue-panel";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
@@ -187,8 +188,14 @@ import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
+  serializeSourceGovernanceWarning,
   type SourceGovernanceWarning,
 } from "@/lib/source-governance";
+import {
+  invalidateSearchRequests,
+  isLatestSearchRequest,
+  type SearchRequestToken,
+} from "@/lib/search-request-token";
 import {
   type SmartDocumentTag,
   type SmartDocumentTagFacet,
@@ -2650,7 +2657,11 @@ export function ClinicalDashboard({
   // resolve out of order; only the latest request may commit answer/sources/
   // error/loading state, or a stale response would display one query's answer
   // under another query's composer text.
-  const searchRequestSeqRef = useRef(0);
+  const searchRequestSeqRef = useRef<SearchRequestToken>(0);
+
+  function invalidateInFlightSearchRequests() {
+    searchRequestSeqRef.current = invalidateSearchRequests(searchRequestSeqRef.current);
+  }
 
   function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
     if (payload.kind === "documents") {
@@ -2714,7 +2725,8 @@ export function ClinicalDashboard({
     // library, whose single `document_labels.in(<all ids>)` request produces an
     // over-long PostgREST URL that fails on large corpora. Corpus search runs
     // unscoped (like Documents); users opt into label filters explicitly.
-    const requestId = ++searchRequestSeqRef.current;
+    const requestId = invalidateSearchRequests(searchRequestSeqRef.current);
+    searchRequestSeqRef.current = requestId;
 
     setSearchMode(targetMode);
     // Answer mode keeps the composer as the draft source until a successful
@@ -2768,7 +2780,7 @@ export function ClinicalDashboard({
     // must also be discarded once a newer search takes over, or a slow stale
     // request repaints the progress banner under the newer query.
     const onProgress = (message: string | null) => {
-      if (requestId === searchRequestSeqRef.current) setAnswerProgress(message);
+      if (isLatestSearchRequest(requestId, searchRequestSeqRef.current)) setAnswerProgress(message);
     };
     setLoading(true);
     setError(null);
@@ -2842,7 +2854,7 @@ export function ClinicalDashboard({
       }
 
       // M10: discard a stale response — a newer search owns the UI state.
-      if (requestId === searchRequestSeqRef.current) {
+      if (isLatestSearchRequest(requestId, searchRequestSeqRef.current)) {
         applySearchResult(successfulPayload, trimmedQuery);
         if (successfulPayload.kind === "answer") {
           // The composer is a draft box in a conversation: clear it so the
@@ -2861,11 +2873,11 @@ export function ClinicalDashboard({
         }
       }
     } catch (requestError) {
-      if (requestId === searchRequestSeqRef.current) {
+      if (isLatestSearchRequest(requestId, searchRequestSeqRef.current)) {
         setError(requestError instanceof Error ? requestError.message : "Search failed");
       }
     } finally {
-      if (requestId === searchRequestSeqRef.current) {
+      if (isLatestSearchRequest(requestId, searchRequestSeqRef.current)) {
         setLoading(false);
         setAnswerProgress(null);
       }
@@ -2933,6 +2945,7 @@ export function ClinicalDashboard({
   }
 
   function crossModeSearch(mode: AppModeId, crossQuery: string) {
+    invalidateInFlightSearchRequests();
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setCommandScopes([]);
@@ -2992,7 +3005,7 @@ export function ClinicalDashboard({
           sourceChunkIds,
           citedChunkIds,
           sourceFiles,
-          sourceGovernanceWarnings: sourceGovernanceWarnings.map((warning) => warning.message),
+          sourceGovernanceWarnings: sourceGovernanceWarnings.map(serializeSourceGovernanceWarning),
           unverifiedNumericTokens: answer.unverifiedNumericTokens ?? [],
         }),
       });
@@ -3068,6 +3081,7 @@ export function ClinicalDashboard({
       return;
     }
 
+    invalidateInFlightSearchRequests();
     setQuery(trimmedSearchText);
     setSearchMode(targetMode);
     setModeSearchSubmitted(true);
@@ -3085,17 +3099,26 @@ export function ClinicalDashboard({
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
     if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode);
 
+    const requestId = invalidateSearchRequests(searchRequestSeqRef.current);
+    searchRequestSeqRef.current = requestId;
+
     try {
       const shortcutQueryMode = appModeQueryMode(targetMode, queryMode);
       const payload = await runWithRetries(() =>
         requestSourceLibrarySearch(trimmedSearchText, sourceLibraryMode, filtersOverride, shortcutQueryMode),
       );
-      applySearchResult(payload);
+      if (isLatestSearchRequest(requestId, searchRequestSeqRef.current)) {
+        applySearchResult(payload);
+      }
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Document search failed");
+      if (isLatestSearchRequest(requestId, searchRequestSeqRef.current)) {
+        setError(requestError instanceof Error ? requestError.message : "Document search failed");
+      }
     } finally {
-      setLoading(false);
-      setAnswerProgress(null);
+      if (isLatestSearchRequest(requestId, searchRequestSeqRef.current)) {
+        setLoading(false);
+        setAnswerProgress(null);
+      }
     }
   }
 
@@ -3184,6 +3207,7 @@ export function ClinicalDashboard({
   }
 
   function selectSearchMode(mode: AppModeId) {
+    invalidateInFlightSearchRequests();
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setQuery("");
@@ -3227,6 +3251,7 @@ export function ClinicalDashboard({
   }
 
   function startNewChat() {
+    invalidateInFlightSearchRequests();
     modeChangeFromUiRef.current = true;
     const href = appModeHomeHref("answer", { focus: true });
     setQuery("");
@@ -4297,6 +4322,7 @@ export function ClinicalDashboard({
                             onReindex={reindexDocument}
                             onEnrich={enrichDocument}
                           />
+                          <SourceReviewQueuePanel sources={sources} />
                         </div>
                       </div>
                     </UtilityDrawer>

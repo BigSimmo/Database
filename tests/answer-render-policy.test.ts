@@ -155,6 +155,24 @@ describe("answer render policy", () => {
     const model = buildAnswerRenderModel(
       answer({
         confidence: "medium",
+        sources: [
+          source({
+            source_metadata: {
+              source_title: "Current local source",
+              publisher: "WA Health",
+              jurisdiction: "Australia/WA",
+              version: null,
+              publication_date: null,
+              review_date: "2026-01-01T00:00:00.000Z",
+              uploaded_at: null,
+              indexed_at: null,
+              uploaded_by: null,
+              document_status: "current",
+              clinical_validation_status: "locally_reviewed",
+              extraction_quality: "good",
+            },
+          }),
+        ],
         quoteCards: [quote(), quote({ quote: "another exact quote" })],
         visualEvidence: [visual(), visual({ id: "image-2", image_id: "img-2" })],
         relatedDocuments: [related(), related({ document_id: "related-doc-2", title: "Second related" })],
@@ -169,6 +187,7 @@ describe("answer render policy", () => {
     expect(model.relatedDocuments).toHaveLength(0);
     expect(model.evidenceRows).toHaveLength(1);
     expect(model.copyText).toContain("Verify against linked source documents");
+    expect(model.copyText).toContain("Provenance:");
   });
 
   it("deduplicates high-confidence evidence channels and caps optional blocks", () => {

@@ -94,6 +94,7 @@ function sourceToneClass(form: FormRecord) {
   const status = form.source?.status?.toLowerCase() ?? "";
   if (form.verification?.locallyVerified || status.includes("checked") || status.includes("verified"))
     return toneSuccess;
+  if (status.includes("outdated") || status.includes("invalid") || status.includes("withdrawn")) return toneDanger;
   if (status.includes("required") || status.includes("review")) return toneWarning;
   return toneNeutral;
 }

@@ -8,7 +8,7 @@ ceiling 0.2) to 0.5398 in the afternoon run. The jump is not corpus decay: the r
 review-flagged sources are no longer buried and the metric now reports the true corpus state surfacing in
 golden-case top results. The bounded debt acceptance in
 `docs/release-source-metadata-debt-2026-06-30.json` was re-accepted at a 0.6 ceiling (expiry unchanged,
-2026-07-31) on the condition that the documents below are clinically reviewed first.
+2026-08-31) on the condition that the documents below are clinically reviewed first.
 
 Corpus context (live DB, 2026-07-02): 2,065 indexed documents — 1,397 current/locally_reviewed, 481
 `review_due`, 132 `unknown` status, 130 `unverified` validation, 0 outdated, 0 poor-extraction.

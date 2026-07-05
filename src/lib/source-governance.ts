@@ -52,9 +52,15 @@ export function isDangerSourceGovernanceMessage(message: string) {
 
 const frontendVisibleWarningCodes = new Set<SourceGovernanceWarning["code"]>([
   "outdated_source",
+  "review_due_source",
+  "unverified_source",
   "poor_extraction",
   "weak_evidence",
 ]);
+
+export function serializeSourceGovernanceWarning(warning: SourceGovernanceWarning) {
+  return `${warning.code}:${warning.severity}:${warning.message}`;
+}
 
 function isLocalMetadataText(value: string) {
   return /\b(?:wa|western australia|perth|north metropolitan|east metropolitan|south metropolitan|health service)\b/i.test(

@@ -23,6 +23,7 @@ import {
   chatMicroAction,
   cn,
   sourceCapsule,
+  statusDotDanger,
   statusDotMuted,
   statusDotReady,
   statusDotReview,
@@ -35,9 +36,16 @@ import {
   comparableAnswerText,
   sanitizeAnswerDisplayText,
 } from "@/components/clinical-dashboard/display-text";
+import { SourcePreviewPopover } from "@/components/clinical-dashboard/source-preview-popover";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
-import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
+import {
+  extractionQualityLabel,
+  normalizeSourceMetadata,
+  sourceStatusLabel,
+  sourceStatusNeedsAttention,
+  validationStatusShortLabel,
+} from "@/lib/source-metadata";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
 import {
   frontendSourceGovernanceWarnings,
@@ -260,8 +268,15 @@ function sourceCapsuleText({
 
 export function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined) {
   if (!metadata) return statusDotMuted;
+  if (metadata.document_status === "outdated" || metadata.extraction_quality === "poor") return statusDotDanger;
+  if (
+    metadata.document_status === "review_due" ||
+    metadata.clinical_validation_status === "unverified" ||
+    metadata.extraction_quality === "partial"
+  ) {
+    return statusDotReview;
+  }
   if (metadata.document_status === "current") return statusDotReady;
-  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") return statusDotReview;
   return statusDotMuted;
 }
 
@@ -282,7 +297,14 @@ function sourceBadgeLabel(index: number) {
 }
 
 function sourceBadgeToneClass(metadata: ReturnType<typeof normalizeSourceMetadata>, index: number) {
-  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") {
+  if (metadata.document_status === "outdated" || metadata.extraction_quality === "poor") {
+    return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
+  }
+  if (
+    metadata.document_status === "review_due" ||
+    metadata.clinical_validation_status === "unverified" ||
+    metadata.extraction_quality === "partial"
+  ) {
     return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
   }
   if (index === 0) {
@@ -302,6 +324,10 @@ function sourceSupportLabel(source: CapsulePreviewSource, index: number) {
 function sourceStatusShortLabel(metadata: ReturnType<typeof normalizeSourceMetadata>) {
   if (metadata.document_status === "review_due") return "Review due";
   if (metadata.document_status === "outdated") return "Outdated";
+  if (metadata.clinical_validation_status === "unverified") return validationStatusShortLabel(metadata);
+  if (metadata.extraction_quality === "partial" || metadata.extraction_quality === "poor") {
+    return extractionQualityLabel(metadata);
+  }
   if (metadata.document_status === "current") return "Current";
   return sourceStatusLabel(metadata);
 }
@@ -380,9 +406,10 @@ function SourcePreviewContent({
   showHeader?: boolean;
 }) {
   const primaryPreviewSource = previewSources[0] ?? null;
-  const reviewDueSource = previewSources.find(
-    (source) => source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated",
-  );
+  const attentionSource = previewSources.find((source) => sourceStatusNeedsAttention(source.metadata));
+  const attentionIsDanger =
+    attentionSource?.metadata.document_status === "outdated" ||
+    attentionSource?.metadata.extraction_quality === "poor";
 
   return (
     <>
@@ -447,8 +474,11 @@ function SourcePreviewContent({
                   <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
                   <span
                     className={
-                      source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated"
-                        ? "font-semibold text-[color:var(--warning)]"
+                      sourceStatusNeedsAttention(source.metadata)
+                        ? source.metadata.document_status === "outdated" ||
+                          source.metadata.extraction_quality === "poor"
+                          ? "font-semibold text-[color:var(--danger)]"
+                          : "font-semibold text-[color:var(--warning)]"
                         : undefined
                     }
                   >
@@ -500,12 +530,16 @@ function SourcePreviewContent({
         <span
           className={cn(
             "inline-flex min-h-8 items-center gap-1.5",
-            reviewDueSource ? "text-[color:var(--warning)]" : "text-[color:var(--success)]",
+            attentionSource
+              ? attentionIsDanger
+                ? "text-[color:var(--danger)]"
+                : "text-[color:var(--warning)]"
+              : "text-[color:var(--success)]",
           )}
         >
-          {reviewDueSource ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-          {reviewDueSource
-            ? `${sourceBadgeLabel(previewSources.indexOf(reviewDueSource))} review due`
+          {attentionSource ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+          {attentionSource
+            ? `${sourceBadgeLabel(previewSources.indexOf(attentionSource))} ${sourceStatusShortLabel(attentionSource.metadata)}`
             : "Sources current"}
         </span>
         {primaryPreviewSource ? (
@@ -579,6 +613,7 @@ export function NaturalLanguageAnswer({
       ref={sourceCapsuleRef}
       className={cn(sourceCapsule, "w-fit")}
       aria-label="Open answer sources"
+      aria-haspopup="dialog"
       aria-expanded={sourcePreviewOpen}
       onClick={() => {
         if (canOpenSourcePreview) setSourcePreviewOpen((current) => !current);
@@ -594,7 +629,12 @@ export function NaturalLanguageAnswer({
       ) : (
         capsuleText
       )}
-      {canOpenSourcePreview ? <ChevronDown className="h-3.5 w-3.5" /> : null}
+      {canOpenSourcePreview ? (
+        <ChevronDown
+          className={cn("h-3.5 w-3.5 transition-transform", sourcePreviewOpen && "rotate-180")}
+          aria-hidden
+        />
+      ) : null}
     </button>
   );
 
@@ -658,10 +698,11 @@ export function NaturalLanguageAnswer({
           </section>
         ) : null}
         {sourceCapsuleButton}
-        {sourcePreviewOpen && canOpenSourcePreview && !usePreviewSheet ? (
-          <div
-            data-testid="source-capsule-preview"
-            className="max-h-[22rem] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
+        {canOpenSourcePreview && !usePreviewSheet ? (
+          <SourcePreviewPopover
+            open={sourcePreviewOpen}
+            onClose={() => setSourcePreviewOpen(false)}
+            anchorRef={sourceCapsuleRef}
           >
             <SourcePreviewContent
               previewSources={previewSources}
@@ -669,7 +710,7 @@ export function NaturalLanguageAnswer({
               copiedQuote={copiedSourceQuote}
               onCopyQuote={copySourceQuote}
             />
-          </div>
+          </SourcePreviewPopover>
         ) : null}
         <Sheet
           open={sourcePreviewOpen && canOpenSourcePreview && usePreviewSheet}

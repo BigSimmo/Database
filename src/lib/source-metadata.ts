@@ -58,6 +58,24 @@ export function validationStatusLabel(metadata?: ClinicalSourceMetadata | null) 
   return "Not locally validated";
 }
 
+export function validationStatusShortLabel(metadata?: ClinicalSourceMetadata | null) {
+  const status = metadata?.clinical_validation_status ?? "unverified";
+  if (status === "approved") return "Approved";
+  if (status === "locally_reviewed") return "Locally reviewed";
+  return "Unverified";
+}
+
+export function sourceStatusNeedsAttention(metadata?: ClinicalSourceMetadata | null) {
+  const source = metadata ?? normalizeSourceMetadata(null);
+  return (
+    source.document_status === "review_due" ||
+    source.document_status === "outdated" ||
+    source.clinical_validation_status === "unverified" ||
+    source.extraction_quality === "poor" ||
+    source.extraction_quality === "partial"
+  );
+}
+
 export function extractionQualityLabel(metadata?: ClinicalSourceMetadata | null) {
   const status = metadata?.extraction_quality ?? "unknown";
   if (status === "good") return "Good extraction";

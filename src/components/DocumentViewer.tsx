@@ -1914,7 +1914,6 @@ export function DocumentViewer({
   const [documentSearchError, setDocumentSearchError] = useState<string | null>(null);
   const [reviewingTableFactId, setReviewingTableFactId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
-  const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [useNativePdfViewer, setUseNativePdfViewer] = useState(() => getInitialPdfViewerMode().useNativePdfViewer);
@@ -1927,6 +1926,7 @@ export function DocumentViewer({
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
   const localNoAuthMode = isLocalNoAuthMode();
   const clientDemoMode = localNoAuthMode || serverDemoMode;
+  const canViewSourceDocuments = localProjectReady;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
 
   useEffect(() => {
@@ -2002,10 +2002,10 @@ export function DocumentViewer({
   }, [isConfigured]);
 
   useEffect(() => {
-    if (!canUsePrivateApis && authStatus === "loading") {
+    if (!canViewSourceDocuments && authStatus === "loading") {
       return () => undefined;
     }
-    if (!canUsePrivateApis) {
+    if (!canViewSourceDocuments) {
       return () => undefined;
     }
 
@@ -2141,7 +2141,7 @@ export function DocumentViewer({
   }, [
     authStatus,
     authorizationHeader,
-    canUsePrivateApis,
+    canViewSourceDocuments,
     clientDemoMode,
     documentId,
     chunkId,
@@ -2208,15 +2208,6 @@ export function DocumentViewer({
     };
   }, []);
 
-  useEffect(() => {
-    if (canUsePrivateApis || authStatus !== "loading") {
-      return () => undefined;
-    }
-
-    const timeout = window.setTimeout(() => setAuthLoadingTimedOut(true), 3000);
-    return () => window.clearTimeout(timeout);
-  }, [authStatus, canUsePrivateApis]);
-
   async function summarize() {
     if (!canSummarizeDocument) {
       setSummaryError("Load a source document before summarising.");
@@ -2247,15 +2238,8 @@ export function DocumentViewer({
     }
   }
 
-  const authViewerError =
-    !canUsePrivateApis && (authStatus !== "loading" || authLoadingTimedOut)
-      ? isConfigured
-        ? "Sign in to open private source documents."
-        : "Supabase browser authentication is not configured for private source documents."
-      : null;
-  const effectiveLoadingDocument = !canUsePrivateApis
-    ? authStatus === "loading" && !authLoadingTimedOut && loadingDocument
-    : loadingDocument;
+  const authViewerError = null;
+  const effectiveLoadingDocument = loadingDocument;
   const effectiveViewerError = authViewerError ?? viewerError;
   const viewerState = effectiveLoadingDocument
     ? "loading"

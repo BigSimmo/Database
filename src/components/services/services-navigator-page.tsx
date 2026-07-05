@@ -436,7 +436,7 @@ export function ServicesNavigatorPage() {
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
   const registry = useRegistryRecords("service");
   const searchableRecords =
-    registry.status === "ready" ? registry.records : registry.status === "loading" ? [] : serviceRecords;
+    registry.status === "ready" ? registry.records : serviceRecords;
   const matches = useMemo(() => {
     const ranked = rankServiceRecords(searchableRecords, query);
     return ranked.length ? ranked.map((match) => match.service) : query.trim() ? [] : searchableRecords;

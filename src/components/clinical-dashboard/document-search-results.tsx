@@ -24,7 +24,6 @@ import {
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
-import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -727,7 +726,7 @@ function RecordRegistryNotice({ status, mode }: { status: RegistryRequestStatus;
     status === "loading"
       ? { Icon: Loader2, spin: true, tone: "info" as const, text: `Loading your ${noun} registry...` }
       : status === "unauthorized"
-        ? { Icon: Shield, spin: false, tone: "warning" as const, text: `Your session expired. Sign in again to search your private ${noun} registry.` }
+        ? { Icon: Shield, spin: false, tone: "warning" as const, text: `Sign in to search your ${noun} registry.` }
         : {
             Icon: ShieldAlert,
             spin: false,
@@ -835,11 +834,9 @@ export function DocumentSearchResultsPanel({
   }
 
   const unavailableMessage = apiUnavailable
-    ? isDeployedClinicalKb()
-      ? "Clinical KB could not be reached. Check your connection and try again shortly."
-      : "The local API is unavailable. Check the app server before searching documents."
+    ? "The local API is unavailable. Check the app server before searching documents."
     : authUnavailable
-      ? "Your session expired. Sign in again to view private indexed documents."
+      ? "Sign in or enable local no-auth mode before listing private indexed documents."
       : !realDataReady
         ? setupWarning || "Complete the search setup before using Documents mode."
         : null;

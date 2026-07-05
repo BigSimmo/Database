@@ -1,4 +1,5 @@
 import { citationFromResult, citationIdentity, documentCitationHref, formatCitationLabel } from "@/lib/citations";
+import { clipboardProvenanceLine, normalizeSourceMetadata } from "@/lib/source-metadata";
 import type {
   BestSourceRecommendation,
   Citation,
@@ -517,10 +518,15 @@ export function formatAnswerRenderCopyText(args: {
   warnings: string[];
 }) {
   const sourceLines = args.primarySources.length
-    ? args.primarySources.map(
-        (source, index) =>
+    ? args.primarySources.map((source, index) => {
+        const provenance = source.sourceMetadata
+          ? clipboardProvenanceLine(normalizeSourceMetadata(source.sourceMetadata))
+          : null;
+        return [
           `${index + 1}. ${source.label} | ${describeSourceStrengthForCopy(source.sourceStrength)} | ${source.href}`,
-      )
+          ...(provenance ? [`   Provenance: ${provenance}`] : []),
+        ].join("\n");
+      })
     : ["No policy-approved sources were attached."];
   const warningLines = args.warnings.length ? args.warnings.map((warning) => `- ${warning}`) : ["- None"];
 
