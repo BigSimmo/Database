@@ -935,38 +935,25 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
           onSelectViewMode={setViewMode}
         />
         <div className="min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 lg:px-7">
-          <div className="mx-auto grid min-w-0 max-w-[70rem] gap-4 lg:gap-3">
+          <div className="mx-auto grid min-w-0 max-w-[70rem] gap-4">
             <header>
               <div className="flex min-w-0 items-start gap-3">
-                <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] lg:hidden">
+                <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                   <Heart className="h-4.5 w-4.5" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-balance text-2xl font-black leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-3xl">
                     Favourites command library
                   </h1>
-                  <p className="mt-1 text-pretty text-sm font-semibold leading-6 text-[color:var(--text-muted)] lg:hidden">
+                  <p className="mt-1 text-pretty text-sm font-semibold leading-6 text-[color:var(--text-muted)]">
                     Your saved clinical knowledge, sets and searches - action-ready and source-backed.
                   </p>
                 </div>
               </div>
             </header>
 
-            <div className="lg:hidden">
-              <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
-            </div>
             <div className="hidden lg:block">
-              <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
-                <SearchResultsHeaderBand
-                  modeId="favourites"
-                  query={query}
-                  matchCount={scopedItems.length}
-                  className="rounded-none border-0 shadow-none"
-                />
-                <p className="border-t border-[color:var(--border)] px-3 py-2.5 text-pretty text-sm font-semibold leading-6 text-[color:var(--text-muted)]">
-                  Your saved clinical knowledge, sets and searches - action-ready and source-backed.
-                </p>
-              </div>
+              <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
             </div>
 
             <ActiveFilterChips

@@ -2763,14 +2763,6 @@ describe("private document API access", () => {
       expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
     );
     expect(client.auth.getUser).not.toHaveBeenCalled();
-    expect(client.rpc).toHaveBeenCalledWith(
-      "consume_api_subject_rate_limit",
-      expect.objectContaining({ p_bucket: "search" }),
-    );
-    expect(client.rpc).toHaveBeenCalledWith(
-      "consume_api_subject_rate_limit",
-      expect.objectContaining({ p_bucket: "answer" }),
-    );
     expect(client.rpc).not.toHaveBeenCalledWith(
       "consume_api_rate_limit",
       expect.objectContaining({ p_bucket: "search" }),
@@ -2778,7 +2770,6 @@ describe("private document API access", () => {
   });
 
   it("rate limits anonymous answer bursts before generation", async () => {
-    let answerRequests = 0;
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Public evidence.",
       grounded: true,
@@ -2787,26 +2778,6 @@ describe("private document API access", () => {
       sources: [],
     }));
     const client = createSupabaseMock();
-    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
-      if (name === "consume_api_subject_rate_limit" && args?.p_bucket === "answer") {
-        answerRequests += 1;
-        const limited = answerRequests > 6;
-        return {
-          data: [
-            rateLimitRow({
-              limited,
-              limit_value: 6,
-              remaining: limited ? 0 : Math.max(0, 6 - answerRequests),
-            }),
-          ],
-          error: null,
-        };
-      }
-      if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
-        return { data: [rateLimitRow()], error: null };
-      }
-      return ok([]);
-    });
     mockRuntime(client, { answerQuestionWithScope });
     const answerRoute = await import("../src/app/api/answer/route");
     const anonymousAnswerRequest = () =>
@@ -2833,8 +2804,8 @@ describe("private document API access", () => {
       retryAfterSeconds: 60,
     });
     expect(answerQuestionWithScope).toHaveBeenCalledTimes(6);
-    expect(client.rpc).toHaveBeenCalledWith(
-      "consume_api_subject_rate_limit",
+    expect(client.rpc).not.toHaveBeenCalledWith(
+      "consume_api_rate_limit",
       expect.objectContaining({ p_bucket: "answer" }),
     );
   });

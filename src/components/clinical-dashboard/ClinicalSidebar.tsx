@@ -368,7 +368,9 @@ function ClinicalCollapsedRail({
           </Link>
         ) : (
           <>
-            <span className={cn("grid place-items-center lg:hidden", collapsedSidebarControl)} aria-hidden>
+            {/* Tablet: the expanded panel does not exist below lg, so show a
+                static brand mark instead of a dead expand control. */}
+            <span className={cn("hidden md:grid lg:hidden", collapsedSidebarControl)} aria-hidden="true">
               <BrandMark className="h-7 w-7" />
             </span>
             <button
@@ -378,8 +380,8 @@ function ClinicalCollapsedRail({
               aria-label="Expand sidebar"
               title="Expand sidebar"
             >
-              <BrandMark className="h-7 w-7 lg:group-hover:hidden lg:group-focus-visible:hidden" />
-              <PanelLeftOpen className="hidden h-4.5 w-4.5 lg:group-hover:block lg:group-focus-visible:block" />
+              <BrandMark className="h-7 w-7 group-hover:hidden group-focus-visible:hidden" />
+              <PanelLeftOpen className="hidden h-4.5 w-4.5 group-hover:block group-focus-visible:block" />
             </button>
           </>
         )}

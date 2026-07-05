@@ -17,15 +17,16 @@ import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } f
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, floatingControl, iconTilePremium, panelSubtle, primaryControl } from "@/components/ui-primitives";
+import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import {
   favouriteItems,
   favouriteSets,
   favouriteTabs,
+  favouriteTypeCount,
   type FavouriteItem,
   type FavouriteSet,
   type FavouriteTabId,
 } from "@/components/clinical-dashboard/favourites-prototype-data";
-import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 
 function favouriteMatchesQuery(value: { title: string; meta?: string; set?: string; keywords: string }, query: string) {
   const normalized = query.trim().toLowerCase();
@@ -54,8 +55,8 @@ export function FavouritesHub({
   const allFavouriteItems = useMemo(() => [...favouriteItems, ...savedRegistryFavourites], [savedRegistryFavourites]);
   const allFavouriteSets = useMemo(() => {
     const savedSetTitles = new Set(favouriteSets.map((set) => set.title));
-    const dynamicSets = Array.from(new Set(savedRegistryFavourites.map((item) => item.set)))
-      .filter((title) => title && !savedSetTitles.has(title))
+    const dynamicSets: FavouriteSet[] = Array.from(new Set(savedRegistryFavourites.map((item) => item.set)))
+      .filter((title): title is string => Boolean(title) && !savedSetTitles.has(title))
       .map((title) => ({
         id: title
           .toLowerCase()

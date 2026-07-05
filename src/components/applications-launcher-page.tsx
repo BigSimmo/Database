@@ -835,14 +835,15 @@ function DetailDialog({ app, open, onClose }: { app: LauncherApp; open: boolean;
                   { icon: ClipboardList, label: "Needed input" },
                   { icon: Waves, label: "Output" },
                 ].map(({ icon: Icon, label }) => (
-                  <div
+                  <button
                     key={label}
-                    className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 first:border-t-0"
+                    type="button"
+                    className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 text-left first:border-t-0"
                   >
                     <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden />
                     <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{label}</span>
-                    <span className="text-2xs font-semibold text-[color:var(--text-soft)]">Soon</span>
-                  </div>
+                    <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
+                  </button>
                 ))}
               </div>
             </div>
@@ -1018,9 +1019,7 @@ export function ApplicationsLauncherWorkspace({
             <div className="hidden min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] sm:inline-flex">
               Sort by
               <span className="text-[color:var(--text-heading)]">A to Z</span>
-              <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-3xs font-bold uppercase">
-                Soon
-              </span>
+              <ChevronDown className="h-3.5 w-3.5" aria-hidden />
             </div>
           </div>
         </div>

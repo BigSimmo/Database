@@ -466,7 +466,6 @@ function MedicationHome({
       pills={medicationCapabilities.map((item) => ({
         label: item.label,
         icon: item.icon,
-        onClick: () => onSuggestedSearch(`${item.label.toLowerCase()} prescribing`),
       }))}
       footer={
         <div className="grid gap-3">
@@ -592,9 +591,6 @@ function MedicationResults({
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-3 py-0 sm:py-2">
-      <div className="lg:hidden">
-        <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} compact />
-      </div>
       <div className="hidden lg:block">
         <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} />
       </div>

@@ -8,8 +8,7 @@ import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search
 export function DocumentsLayoutClient({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isDocumentSearchRoute = pathname === "/documents/search";
-  const documentViewerOwnsMobileChrome = pathname.startsWith("/documents/") && pathname !== "/documents/search";
-  const documentFlowOwnsMobileChrome = pathname.startsWith("/documents/source") || documentViewerOwnsMobileChrome;
+  const documentFlowOwnsMobileChrome = pathname.startsWith("/documents/source");
 
   return (
     <GlobalSearchShell

@@ -735,6 +735,7 @@ export function MasterSearchHeader({
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setActionMenuOpen(false);
+    setCommandDropdownOpen(false);
     onAsk();
   }
 
@@ -1195,7 +1196,7 @@ export function MasterSearchHeader({
           isDesktopHomeComposer
             ? "universal-home-search-edge mx-auto w-full"
             : usesAnswerFooterStyle
-              ? "floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto max-w-3xl lg:max-w-4xl"
+              ? "floating-composer-edge dashboard-composer-edge z-40 mx-auto max-w-3xl max-sm:fixed max-sm:bottom-0 sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))] sm:z-20 lg:fixed lg:bottom-0 lg:top-auto lg:max-w-4xl"
               : usesMobileBottomStyle
                 ? cn(
                     "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
