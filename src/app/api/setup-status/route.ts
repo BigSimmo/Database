@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { env, isDemoMode } from "@/lib/env";
+import { jsonError } from "@/lib/http";
 import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";

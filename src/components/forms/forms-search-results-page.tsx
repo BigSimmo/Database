@@ -582,11 +582,11 @@ export function FormsSearchResultsPage(props: FormsSearchResultsPageProps) {
 function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const command = useSearchCommand();
   const registry = useRegistryRecords("form");
-  const registryReady = registry.status === "ready";
-  const matches = useMemo(
-    () => (registryReady ? rankFormRecords(registry.records, query) : []),
-    [registryReady, registry.records, query],
+  const searchableRecords = useMemo(
+    () => (registry.status === "ready" ? registry.records : formRecords),
+    [registry.records, registry.status],
   );
+  const matches = useMemo(() => rankFormRecords(searchableRecords, query), [searchableRecords, query]);
   const scopedMatches = useMemo(() => {
     const scopes = command?.commandScopes ?? [];
     if (!scopes.length) return matches;
@@ -598,28 +598,24 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
       <main className="mx-auto grid w-full max-w-7xl gap-3 px-4 pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6">
         <div className="grid gap-3 lg:gap-5">
           <RegistryStatusNotice status={registry.status} />
-          {registryReady ? (
+          <div className="hidden lg:block">
+            <SearchResultsHeaderBand modeId="forms" query={query} matchCount={scopedMatches.length} />
+          </div>
+          {query.trim() && scopedMatches.length === 0 ? (
+            <SearchResultsEmptyState modeId="forms" query={query} onClearScopes={command?.onClearScopes} />
+          ) : (
             <>
-              <div className="hidden lg:block">
-                <SearchResultsHeaderBand modeId="forms" query={query} matchCount={scopedMatches.length} />
+              <div className="overflow-x-auto">
+                <ResultTabs formsCount={scopedMatches.length} />
               </div>
-              {query.trim() && scopedMatches.length === 0 ? (
-                <SearchResultsEmptyState modeId="forms" query={query} onClearScopes={command?.onClearScopes} />
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <ResultTabs formsCount={scopedMatches.length} />
-                  </div>
-                  <div className="hidden lg:block">
-                    <ResultsTable matches={scopedMatches} />
-                  </div>
-                  <div className="lg:hidden">
-                    <MobileCards matches={scopedMatches} />
-                  </div>
-                </>
-              )}
+              <div className="hidden lg:block">
+                <ResultsTable matches={scopedMatches} />
+              </div>
+              <div className="lg:hidden">
+                <MobileCards matches={scopedMatches} />
+              </div>
             </>
-          ) : null}
+          )}
           <div className="hidden lg:block">
             <PathwayPanel />
           </div>

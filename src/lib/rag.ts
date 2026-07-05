@@ -2069,9 +2069,7 @@ function assertGlobalSearchAllowed(args: SearchChunksArgs) {
   }
 }
 
-function ownerScopeForDocumentFilteredRetrieval(ownerId: string | undefined, documentIds: string[] | undefined) {
-  if (ownerId) return requireOwnerScope(ownerId);
-  if (documentIds?.length) return undefined;
+function ownerScopeForDocumentFilteredRetrieval(ownerId: string | undefined, _documentIds: string[] | undefined) {
   return requireOwnerScope(ownerId);
 }
 

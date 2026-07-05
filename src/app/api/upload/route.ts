@@ -9,6 +9,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { assertSafeLocalProjectRequest, localProjectOriginErrorResponse, UnsafeLocalProjectOriginError } from "@/lib/local-project-guard";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
 import { optionalFormText, parseFormDataFields } from "@/lib/validation/form-data";
 
@@ -82,6 +83,7 @@ export async function POST(request: Request) {
   let insertedDocumentOwnerId: string | null = null;
 
   try {
+    assertSafeLocalProjectRequest(request);
     supabase = createAdminClient();
     const adminSupabase = supabase;
     const user = await requireAuthenticatedUser(request, adminSupabase);
@@ -297,6 +299,9 @@ export async function POST(request: Request) {
 
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
+    }
+    if (error instanceof UnsafeLocalProjectOriginError) {
+      return localProjectOriginErrorResponse(error);
     }
 
     return jsonError(error);

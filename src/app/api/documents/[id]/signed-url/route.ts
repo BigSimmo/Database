@@ -34,12 +34,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const supabase = createAdminClient();
     const access = await publicAccessContext(_request, supabase);
     const { data: document, error } = await withOwnerReadScope(
-      supabase.from("documents").select("storage_path,file_type").eq("id", id),
+      supabase.from("documents").select("storage_path,file_type,status").eq("id", id),
       access.ownerId,
     ).maybeSingle();
 
     if (error) throw new Error(error.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    if (document.status && document.status !== "indexed") {
+      return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    }
 
     const storage = supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET);
     const signed = shouldDownload
