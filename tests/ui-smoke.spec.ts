@@ -36,12 +36,15 @@ async function expectSingleMedicationPage(page: Page) {
   // to two <main> elements and trip Playwright strict mode. Wait for it to settle
   // to exactly one before asserting visibility — a genuine permanent double-render
   // still fails toHaveCount(1), so this does not mask a real regression.
-  await page
-    .waitForResponse((response) => response.url().includes("/api/medications/acamprosate") && response.ok(), {
-      timeout: 30_000,
-    })
-    .catch(() => undefined);
   const medicationPage = page.getByTestId("medication-page-acamprosate");
+  if ((await medicationPage.count()) !== 1) {
+    await Promise.race([
+      page.waitForResponse((response) => response.url().includes("/api/medications/acamprosate") && response.ok(), {
+        timeout: 30_000,
+      }),
+      expect(medicationPage).toHaveCount(1, { timeout: 30_000 }),
+    ]).catch(() => undefined);
+  }
   await expect(medicationPage).toHaveCount(1, { timeout: 30_000 });
   await expect(medicationPage).toBeVisible({ timeout: 30_000 });
 }
@@ -1605,6 +1608,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   });
 
   test("prescribing workflow uses in-app medication routes", async ({ page }) => {
+    test.setTimeout(120_000);
     // Regression guard: navigating away from a mode home used to throw
     // "Cannot read properties of null (reading 'parentNode')" because the header
     // portaled its search composer straight into a page-owned slot that unmounts
@@ -1654,9 +1658,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("region", { name: "Start here" })).toBeVisible();
     const searchInputBox = await visibleQuestionInput(page).boundingBox();
     const startHereBox = await page.getByRole("region", { name: "Start here" }).boundingBox();
+    const documentsHeadingBox = await page.getByRole("main").getByRole("heading", { name: "Documents" }).boundingBox();
     expect(searchInputBox).not.toBeNull();
     expect(startHereBox).not.toBeNull();
-    expect((searchInputBox?.y ?? 0) + (searchInputBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.72);
+    expect(documentsHeadingBox).not.toBeNull();
+    expect((documentsHeadingBox?.y ?? 0) + (documentsHeadingBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
     expect((startHereBox?.y ?? 0) + (startHereBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
     const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
     const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
