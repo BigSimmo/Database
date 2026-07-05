@@ -637,6 +637,22 @@ test.describe("Clinical KB applications launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("phone bottom search dock hides while scrolling down on search results", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoLauncher(page, "/forms?q=transport&focus=1&run=1");
+
+    await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
+    const dock = page.locator("form.answer-footer-search-dock");
+    await expect(dock).toBeVisible();
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+
+    await page.evaluate(() => window.scrollTo({ top: 120, behavior: "auto" }));
+    await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+
+    await page.evaluate(() => window.scrollTo({ top: 60, behavior: "auto" }));
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+  });
+
   test("mode toggle keeps forms separate from services", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/?mode=answer");

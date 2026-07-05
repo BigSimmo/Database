@@ -131,6 +131,7 @@ function GlobalMockupSearchShellClient({
   const [accountSetupOpen, setAccountSetupOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
+  const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
@@ -408,6 +409,7 @@ function GlobalMockupSearchShellClient({
             // Phone-only: the document scrolls here and the header is sticky,
             // so a translate overlay hides it with zero layout shift.
             hideOnScroll={{ strategy: "overlay" }}
+            onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
             queryInputAutoFocus={searchParams.get("focus") === "1"}
           />
         </div>
@@ -422,11 +424,13 @@ function GlobalMockupSearchShellClient({
             "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex-1 sm:min-h-[calc(100dvh-4rem)]",
             !shouldShowSearchComposer
               ? "pb-8"
-              : searchMode === "answer"
-                ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
-                : useCompactBottomSearch
-                  ? "pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-8"
-                  : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
+              : bottomSearchScrollHidden
+                ? "pb-8 sm:pb-8"
+                : searchMode === "answer"
+                  ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
+                  : useCompactBottomSearch
+                    ? "pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-8"
+                    : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
           <ClientHydrationBoundary
