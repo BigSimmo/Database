@@ -148,6 +148,11 @@ export function StagedAnswerResultSurface({
     setEvidenceInitialTab(null);
     restoreFocusToTrigger(evidenceTriggerRef);
   }
+  function handleQuoteFollowUp(quote: QuoteCard) {
+    setEvidenceOpen(false);
+    setEvidenceInitialTab(null);
+    onFollowUpQuote?.(quote);
+  }
   function openTableEvidence() {
     setClinicalNotesOpen(false);
     setSafetyFindingsOpen(false);
@@ -329,7 +334,7 @@ export function StagedAnswerResultSurface({
               copiedQuotes={copiedQuotes}
               onCopyQuotes={copyQuotes}
               onSubmitFeedback={onSubmitFeedback}
-              onFollowUpQuote={onFollowUpQuote}
+              onFollowUpQuote={handleQuoteFollowUp}
               onScopeDocument={onScopeDocument}
             />
           </Sheet>

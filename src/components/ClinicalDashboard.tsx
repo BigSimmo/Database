@@ -3196,7 +3196,10 @@ export function ClinicalDashboard({
   }
 
   function handleFollowUpQuote(quote: QuoteCard) {
-    stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
+    setQuery(createQuoteFollowUp(quote));
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => focusComposerInput(), 120);
+    });
   }
 
   function handlePickFollowUpSuggestion(suggestion: string) {
