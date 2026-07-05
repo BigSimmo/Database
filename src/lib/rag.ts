@@ -34,6 +34,7 @@ import {
 import { env, isDemoMode, isLocalNoAuthMode, requestedOpenAIAnswerModels } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { queryCacheKeyForStorage, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
+import { ragCacheKeyMatchesOwner } from "@/lib/rag-cache-utils";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
@@ -743,7 +744,7 @@ function deriveConfidence(
   if (acceptedCitations.length === 0 || results.length === 0) return "unsupported";
   const citedIds = new Set(acceptedCitations.map((citation) => citation.chunk_id));
   const citedResults = results.filter((result) => citedIds.has(result.id));
-  const strongest = citedResults.reduce((max, result) => Math.max(max, result.similarity), 0);
+  const strongest = citedResults.reduce((max, result) => Math.max(max, scoreValue(result)), 0);
   if (strongest >= 0.82 && acceptedCitations.length >= 2) return "high";
   if (strongest >= 0.64) return "medium";
   return "low";
@@ -1133,9 +1134,9 @@ function fallbackReasonFromRouting(reason?: string | null) {
   );
 }
 
-const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer }>();
+const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer; indexingVersion: string }>();
 const answerInflight = new Map<string, Promise<RagAnswer>>();
-const searchCache = new Map<string, { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry }>();
+const searchCache = new Map<string, { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry; indexingVersion: string }>();
 const ragCacheDependencyVersion = "rag-cache-v12";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
@@ -1389,10 +1390,10 @@ function cloneAnswer(answer: RagAnswer) {
   return structuredClone(answer);
 }
 
-function getCachedAnswer(
+async function getCachedAnswer(
   args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
   startedAt: number,
-) {
+): Promise<RagAnswer | null> {
   if (args.skipCache) return null;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return null;
 
@@ -1400,6 +1401,11 @@ function getCachedAnswer(
   const cached = answerCache.get(key);
   if (!cached) return null;
   if (cached.expiresAt <= Date.now()) {
+    answerCache.delete(key);
+    return null;
+  }
+  const indexingVersion = await cacheIndexingVersion(args);
+  if (cached.indexingVersion !== indexingVersion) {
     answerCache.delete(key);
     return null;
   }
@@ -1413,17 +1419,19 @@ function getCachedAnswer(
   return answer;
 }
 
-function setCachedAnswer(
+async function setCachedAnswer(
   args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
   answer: RagAnswer,
-) {
+): Promise<void> {
   if (args.skipCache) return;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return;
 
+  const indexingVersion = await cacheIndexingVersion(args);
   const key = scopedAnswerCacheKey(args);
   answerCache.set(key, {
     expiresAt: Date.now() + env.RAG_ANSWER_CACHE_TTL_MS,
     answer: cloneAnswer(answer),
+    indexingVersion,
   });
 
   while (answerCache.size > env.RAG_ANSWER_CACHE_SIZE) {
@@ -1492,17 +1500,22 @@ function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelem
   };
 }
 
-function getCachedSearch(
+async function getCachedSearch(
   args: SearchChunksArgs,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
-): { results: SearchResult[]; telemetry: SearchTelemetry } | null {
+): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return null;
 
   const key = scopedSearchCacheKey(args, queryClass, queryVariants);
   const cached = searchCache.get(key);
   if (!cached) return null;
   if (cached.expiresAt <= Date.now()) {
+    searchCache.delete(key);
+    return null;
+  }
+  const indexingVersion = await cacheIndexingVersion(args);
+  if (cached.indexingVersion !== indexingVersion) {
     searchCache.delete(key);
     return null;
   }
@@ -1524,20 +1537,22 @@ function getCachedSearch(
   };
 }
 
-function setCachedSearch(
+async function setCachedSearch(
   args: SearchChunksArgs,
   results: SearchResult[],
   telemetry: SearchTelemetry,
   queryVariants: string[] = [],
-) {
+): Promise<void> {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
   const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
 
+  const indexingVersion = await cacheIndexingVersion(args);
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
     results: cloneSearchResults(results),
     telemetry: { ...cacheTelemetry },
+    indexingVersion,
   });
 
   while (searchCache.size > env.RAG_SEARCH_CACHE_SIZE) {
@@ -1842,19 +1857,18 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
     return;
   }
 
-  const prefix = `${ownerId}|`;
   const sharedCacheOwnerId = ownerId === "anonymous" ? null : ownerId;
   for (const key of answerCache.keys()) {
-    if (key.startsWith(prefix)) answerCache.delete(key);
+    if (ragCacheKeyMatchesOwner(key, ownerId)) answerCache.delete(key);
   }
   for (const key of answerInflight.keys()) {
-    if (key.startsWith(prefix) || key.includes(`|${ownerId}|`)) answerInflight.delete(key);
+    if (ragCacheKeyMatchesOwner(key, ownerId)) answerInflight.delete(key);
   }
   for (const key of searchCache.keys()) {
-    if (key.startsWith(prefix)) searchCache.delete(key);
+    if (ragCacheKeyMatchesOwner(key, ownerId)) searchCache.delete(key);
   }
   for (const key of cacheIndexingVersionCache.keys()) {
-    if (key.startsWith(prefix)) cacheIndexingVersionCache.delete(key);
+    if (ragCacheKeyMatchesOwner(key, ownerId)) cacheIndexingVersionCache.delete(key);
   }
   void (async () => {
     try {
@@ -5466,11 +5480,11 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
 
   const queryVariants = buildRetrievalQueryVariants(retrievalQuery, queryAnalysis, ragAliases);
   telemetry.retrieval_query_variant_count = queryVariants.length;
-  const cached = getCachedSearch(args, queryClassification.queryClass, queryVariants);
+  const cached = await getCachedSearch(args, queryClassification.queryClass, queryVariants);
   if (cached) return cached;
   const sharedCached = await getSharedCachedSearch(args, queryClassification.queryClass, queryVariants);
   if (sharedCached?.kind === "hit") {
-    setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants);
+    await setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants);
     return { results: sharedCached.results, telemetry: sharedCached.telemetry };
   }
   if (sharedCached?.kind === "miss") {
@@ -5498,7 +5512,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.embedding_skip_reason = "unsupported_short_circuit";
     telemetry.retrieval_strategy = "unsupported_short_circuit";
     recordSearchScoreTelemetry(telemetry, []);
-    setCachedSearch(args, [], telemetry, queryVariants);
+    await setCachedSearch(args, [], telemetry, queryVariants);
     return { results: [] as SearchResult[], telemetry };
   }
 
@@ -5566,7 +5580,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       markEmbeddingSkippedByTextFastPath(telemetry, baseTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      setCachedSearch(args, textFastResults, telemetry, queryVariants);
+      await setCachedSearch(args, textFastResults, telemetry, queryVariants);
       return { results: textFastResults, telemetry };
     }
 
@@ -5609,7 +5623,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       markEmbeddingSkippedByTextFastPath(telemetry, boostedTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      setCachedSearch(args, textFastResults, telemetry, queryVariants);
+      await setCachedSearch(args, textFastResults, telemetry, queryVariants);
       return { results: textFastResults, telemetry };
     }
   }
@@ -5718,7 +5732,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         );
         telemetry.retrieval_strategy = "document_lookup_fast_path";
         recordSearchScoreTelemetry(telemetry, documentLookupResults);
-        setCachedSearch(args, documentLookupResults, telemetry, queryVariants);
+        await setCachedSearch(args, documentLookupResults, telemetry, queryVariants);
         return { results: documentLookupResults, telemetry };
       }
       textFastResults = mergeSearchResults(documentLookupResults, textFastResults);
@@ -5741,7 +5755,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     if (!args.forceEmbedding && coverageGate.accepted) {
       telemetry.retrieval_strategy = coverageGate.strategy;
       recordSearchScoreTelemetry(telemetry, coverageGateResults);
-      setCachedSearch(args, coverageGateResults, telemetry, queryVariants);
+      await setCachedSearch(args, coverageGateResults, telemetry, queryVariants);
       return { results: coverageGateResults, telemetry };
     }
     textFastResults = mergeSearchResults(coverageGateResults, textFastResults);
@@ -5913,7 +5927,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
     telemetry.retrieval_strategy = "hybrid";
     recordSearchScoreTelemetry(telemetry, results);
-    setCachedSearch(args, results, telemetry, queryVariants);
+    await setCachedSearch(args, results, telemetry, queryVariants);
     return { results, telemetry };
   }
 
@@ -5993,7 +6007,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
   telemetry.retrieval_strategy = "vector_fallback";
   recordSearchScoreTelemetry(telemetry, results);
-  setCachedSearch(args, results, telemetry, queryVariants);
+  await setCachedSearch(args, results, telemetry, queryVariants);
   return { results, telemetry };
 }
 
@@ -6432,7 +6446,7 @@ async function answerQuestionWithScopeUncoalesced(
   // unchanged cache version) would bypass chooseAnswerRoute's refusal. Skipping the
   // cache lets the query flow to routing, which fails it closed to "unsupported".
   const adversarialQuery = hasAdversarialManipulationIntent(answerFocusQuery);
-  const cachedAnswer = adversarialQuery ? null : getCachedAnswer(args, startedAt);
+  const cachedAnswer = adversarialQuery ? null : await getCachedAnswer(args, startedAt);
   if (cachedAnswer) {
     const cachedSources = annotateSearchResults(answerFocusQuery, cachedAnswer.sources ?? []);
     const cachedRelevance = cachedAnswer.relevance ?? buildEvidenceRelevance(answerFocusQuery, cachedSources);
@@ -6459,7 +6473,7 @@ async function answerQuestionWithScopeUncoalesced(
   }
   const sharedCachedAnswer = adversarialQuery ? null : await getSharedCachedAnswer(args, startedAt);
   if (sharedCachedAnswer) {
-    setCachedAnswer(args, sharedCachedAnswer);
+    await setCachedAnswer(args, sharedCachedAnswer);
     const cachedSources = annotateSearchResults(answerFocusQuery, sharedCachedAnswer.sources ?? []);
     const cachedRelevance = sharedCachedAnswer.relevance ?? buildEvidenceRelevance(answerFocusQuery, cachedSources);
     await args.onProgress?.({
@@ -6786,7 +6800,7 @@ async function answerQuestionWithScopeUncoalesced(
         },
       });
 
-    setCachedAnswer(args, finalizedAnswer);
+    await setCachedAnswer(args, finalizedAnswer);
     return finalizedAnswer;
   }
 
@@ -6889,7 +6903,7 @@ async function answerQuestionWithScopeUncoalesced(
         },
       });
 
-    setCachedAnswer(args, finalizedAnswer);
+    await setCachedAnswer(args, finalizedAnswer);
     return finalizedAnswer;
   }
 
@@ -7479,7 +7493,7 @@ ${qualityRetryInstruction}`
         },
       });
 
-    setCachedAnswer(args, answer);
+    await setCachedAnswer(args, answer);
     return answer;
   } catch (error) {
     const relatedDocuments = await relatedDocumentsPromise;
@@ -7627,7 +7641,7 @@ ${qualityRetryInstruction}`
         },
       });
 
-    setCachedAnswer(args, fallbackAnswer);
+    await setCachedAnswer(args, fallbackAnswer);
     return fallbackAnswer;
   }
 }

@@ -35,7 +35,7 @@ import { assessDocumentIndexQuality } from "../src/lib/index-quality";
 import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai";
 import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers } from "../src/lib/privacy";
 import { isAtomicReindexCandidate } from "../src/lib/reindex-pipeline";
-import { invalidateRagCachesForOwner } from "../src/lib/rag";
+import { invalidateRagCachesForDocumentMutation } from "../src/lib/rag";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { probeSupabaseHealth } from "../src/lib/supabase/health";
 import type { Json, TablesInsert, TablesUpdate } from "../src/lib/supabase/database.types";
@@ -216,7 +216,7 @@ async function completeJob(job: JobRow, stage: string) {
     p_stage: stage,
   });
   if (!error) {
-    invalidateRagCachesForOwner(job.documents.owner_id);
+    invalidateRagCachesForDocumentMutation(job.documents.owner_id ?? "anonymous");
     return;
   }
   if (!isMissingSchemaError(error)) throw supabaseStageError("complete ingestion job", error);
@@ -231,7 +231,7 @@ async function completeJob(job: JobRow, stage: string) {
   });
   await markSupersededSiblingJobs(job);
   await updateBatch(job.batch_id);
-  invalidateRagCachesForOwner(job.documents.owner_id);
+  invalidateRagCachesForDocumentMutation(job.documents.owner_id ?? "anonymous");
 }
 
 async function completeStrictEnrichmentJob(job: JobRow) {

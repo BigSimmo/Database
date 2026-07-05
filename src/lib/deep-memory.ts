@@ -699,11 +699,11 @@ export async function upsertDocumentDeepMemory(args: {
   // delete then insert without any intervening network dependency (M11).
   await args.supabase.from("document_memory_cards").delete().eq("document_id", args.document.id);
   await args.supabase.from("document_sections").delete().eq("document_id", args.document.id);
-  await args.supabase
+  const { error: indexUnitDeleteError } = await args.supabase
     .from("document_index_units")
     .delete()
-    .eq("document_id", args.document.id)
-    .then(undefined, () => undefined);
+    .eq("document_id", args.document.id);
+  if (indexUnitDeleteError) throw new Error(indexUnitDeleteError.message);
 
   const { data: insertedSections, error: sectionError } = await args.supabase
     .from("document_sections")
