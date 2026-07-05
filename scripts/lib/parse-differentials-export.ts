@@ -1,0 +1,507 @@
+import type {
+  DifferentialComparisonCandidate,
+  DifferentialComparisonCriterion,
+  DifferentialMapNode,
+  DifferentialPresentationWorkflow,
+  DifferentialRecord,
+  DifferentialRedFlagFlow,
+  DifferentialScenarioPreset,
+  DifferentialSection,
+  DifferentialSnapshot,
+} from "@/lib/differential-snapshot";
+
+export type ParsedOption = {
+  slug: string;
+  name: string;
+  summary: string;
+  redFlags: string[];
+};
+
+export type ParsedPresentation = {
+  entryId: string;
+  slug: string;
+  title: string;
+  status: "emergent" | "urgent" | "routine";
+  axis: "organic" | "primary-psychiatric" | "mixed";
+  population: string;
+  triageRationale: string;
+  mustNotMiss: string[];
+  mimics: string[];
+  clinicalHinge: string;
+  immediateActions: string[];
+  investigations: string[];
+  options: ParsedOption[];
+  source: string;
+  tags: string[];
+};
+
+const COMPARISON_CRITERIA: DifferentialComparisonCriterion[] = [
+  { id: "why-it-fits", title: "Why it fits", tone: "fit" },
+  { id: "what-argues-against", title: "What argues against", tone: "overlap" },
+  { id: "must-not-miss", title: "Must-not-miss", tone: "warning" },
+  { id: "bedside-question", title: "Bedside question", tone: "question" },
+  { id: "immediate-action", title: "Immediate action", tone: "action" },
+  { id: "investigations", title: "Investigations", tone: "test" },
+  { id: "mimics-overlap", title: "Mimics / overlap", tone: "overlap" },
+];
+
+const PRESENTATION_SLUG_OVERRIDES: Record<string, string> = {
+  "1": "acute-confusion-encephalopathy",
+};
+
+const OPTION_SLUG_OVERRIDES: Record<string, string> = {
+  delirium: "delirium",
+  "substance intoxication": "substance-intoxication",
+  "substance withdrawal": "substance-withdrawal",
+  "post-ictal state": "post-ictal-confusion",
+  "post-ictal confusion": "post-ictal-confusion",
+  "post-ictal state / seizure-related confusion": "post-ictal-confusion",
+  "wernicke encephalopathy": "wernicke-encephalopathy",
+  "hepatic encephalopathy": "hepatic-encephalopathy",
+  "meningitis / encephalitis": "meningitis-encephalitis",
+  "meningitis encephalitis": "meningitis-encephalitis",
+  pneumonia: "pneumonia",
+  "thyroid disease": "thyroid-disease",
+};
+
+const URGENCY_RANK: Record<DifferentialRecord["status"], number> = {
+  emergent: 3,
+  urgent: 2,
+  routine: 1,
+};
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeKey(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function optionSlug(name: string) {
+  const fullKey = normalizeKey(name.split("—")[0]?.split("–")[0]?.trim() ?? name);
+  const key = normalizeKey(name.split("/")[0]?.split("—")[0]?.split("–")[0]?.trim() ?? name);
+  return OPTION_SLUG_OVERRIDES[fullKey] ?? OPTION_SLUG_OVERRIDES[key] ?? slugify(fullKey);
+}
+
+function mapUrgency(raw: string): DifferentialRecord["status"] {
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "emergent") return "emergent";
+  if (normalized === "urgent") return "urgent";
+  if (normalized === "standard") return "routine";
+  return "routine";
+}
+
+function splitSection(content: string, label: string) {
+  const pattern = new RegExp(`^${label}:\\s*`, "im");
+  const match = content.match(pattern);
+  if (!match || match.index === undefined) return "";
+  const start = match.index + match[0].length;
+  const rest = content.slice(start);
+  const nextHeader = rest.search(/\n[A-Z][A-Z /&-]+:\s*\n|\nOPTIONS:\s*\n|\nSOURCE:\s*\n/);
+  return (nextHeader >= 0 ? rest.slice(0, nextHeader) : rest).trim();
+}
+
+function bulletItems(section: string) {
+  return section
+    .split("\n")
+    .map((line) => line.replace(/^\s*[-•]\s*/, "").trim())
+    .filter(Boolean);
+}
+
+function splitNameSummary(line: string): { name: string; summary: string; redFlags: string[] } {
+  const cleaned = line.replace(/^\d+\.\s*/, "").trim();
+  // Split on em/en dash only — not hyphen, so names like "Post-ictal confusion" stay intact.
+  const dashMatch = cleaned.match(/^(.+?)\s*(?:—|–)\s*(.+)$/);
+  const name = (dashMatch?.[1] ?? cleaned).trim();
+  let remainder = (dashMatch?.[2] ?? "").trim();
+  let redFlags: string[] = [];
+  const redFlagMatch = remainder.match(/(?:Red flags?:)\s*(.+)$/i);
+  if (redFlagMatch) {
+    redFlags = redFlagMatch[1]
+      .split(/[,;]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    remainder = remainder.slice(0, redFlagMatch.index).trim().replace(/\.\s*$/, "");
+  }
+  return { name, summary: remainder, redFlags };
+}
+
+function parseEntryHeader(content: string) {
+  const headerMatch = content.match(/^===\s*(.+?)\s*===\s*\n/m);
+  const header = headerMatch?.[1]?.trim() ?? "";
+  const entryMatch = header.match(/ENTRY\s+(\d+[A-Z]?)/i);
+  if (entryMatch) return entryMatch[1]!.toUpperCase();
+  const appendixMatch = header.match(/APPENDIX\s+([A-Z0-9]+)/i);
+  if (appendixMatch) return `A${appendixMatch[1]}`;
+  if (/trap/i.test(header)) return "TRAP";
+  return header ? slugify(header) : "unknown";
+}
+
+function parseEntryTitle(content: string) {
+  const afterHeader = content.replace(/^===\s*.+?\s*===\s*\n/m, "");
+  return afterHeader.split("\n").find((line) => line.trim())?.trim() ?? "Untitled presentation";
+}
+
+function parseOptionsSection(content: string): ParsedOption[] {
+  const optionsBlock = splitSection(content, "OPTIONS");
+  if (!optionsBlock) return [];
+  return optionsBlock
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^\d+\./.test(line))
+    .map((line) => {
+      const parsed = splitNameSummary(line);
+      return {
+        slug: optionSlug(parsed.name),
+        name: parsed.name,
+        summary: parsed.summary,
+        redFlags: parsed.redFlags,
+      };
+    });
+}
+
+export function parseEntryFile(content: string, fileName?: string): ParsedPresentation {
+  const entryIdFromFile = fileName?.match(/^(\d+)/)?.[1] ?? "";
+  const entryId = parseEntryHeader(content) || entryIdFromFile || "unknown";
+  const title = parseEntryTitle(content);
+  const slug = PRESENTATION_SLUG_OVERRIDES[entryId] ?? slugify(title);
+  const status = mapUrgency(splitSection(content, "Urgency") || "routine");
+  const axisRaw = splitSection(content, "Axis").toLowerCase();
+  const axis: ParsedPresentation["axis"] = axisRaw.includes("organic")
+    ? "organic"
+    : axisRaw.includes("psych")
+      ? "primary-psychiatric"
+      : "mixed";
+  const population = splitSection(content, "Population") || "general";
+  const triageRationale =
+    splitSection(content, "TRIAGE RATIONALE") || splitSection(content, "PURPOSE") || title;
+  const mustNotMissRaw = splitSection(content, "MUST NOT MISS");
+  const mustNotMiss = mustNotMissRaw.includes("\n")
+    ? bulletItems(mustNotMissRaw)
+    : mustNotMissRaw
+        .split(/[,;]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+  const mimicsRaw = splitSection(content, "MIMICS");
+  const mimics = mimicsRaw.includes("\n")
+    ? bulletItems(mimicsRaw)
+    : mimicsRaw
+        .split(/[,;]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+  const clinicalHinge = splitSection(content, "CLINICAL HINGE") || triageRationale;
+  const immediateActions = bulletItems(splitSection(content, "IMMEDIATE ACTIONS"));
+  const investigations = bulletItems(splitSection(content, "INVESTIGATIONS"));
+  const options = parseOptionsSection(content);
+  const source = splitSection(content, "SOURCE") || `Entry ${entryId}`;
+
+  return {
+    entryId,
+    slug,
+    title,
+    status,
+    axis,
+    population,
+    triageRationale,
+    mustNotMiss,
+    mimics,
+    clinicalHinge,
+    immediateActions,
+    investigations,
+    options,
+    source,
+    tags: [axis, population, status].filter(Boolean),
+  };
+}
+
+function selectedCandidateCount(total: number) {
+  if (total <= 3) return total;
+  return Math.min(6, Math.max(3, Math.ceil(total * 0.45)));
+}
+
+function buildCandidateComparison(
+  option: ParsedOption,
+  presentation: ParsedPresentation,
+): Record<string, string> {
+  return {
+    "why-it-fits": option.summary || option.name,
+    "what-argues-against": presentation.mimics.slice(0, 2).join("; ") || "Review locally.",
+    "must-not-miss": option.redFlags.join(", ") || presentation.mustNotMiss.slice(0, 3).join(", "),
+    "bedside-question": presentation.clinicalHinge,
+    "immediate-action": presentation.immediateActions.slice(0, 2).join(" ") || "Stabilise and reassess.",
+    investigations: presentation.investigations.slice(0, 6).join(", ") || "Guided by presentation.",
+    "mimics-overlap": presentation.mimics.slice(0, 4).join(", ") || "Review overlap locally.",
+  };
+}
+
+function buildPresentationWorkflow(parsed: ParsedPresentation): DifferentialPresentationWorkflow {
+  const selectedCount = selectedCandidateCount(parsed.options.length);
+  const candidates: DifferentialComparisonCandidate[] = parsed.options.map((option, index) => ({
+    slug: option.slug,
+    selected: index < selectedCount,
+    comparison: buildCandidateComparison(option, parsed),
+  }));
+
+  return {
+    id: parsed.slug,
+    title: parsed.title,
+    status: parsed.status,
+    subtitle: parsed.triageRationale,
+    selectedCount,
+    totalCount: parsed.options.length,
+    safetySnapshot: {
+      summary: parsed.clinicalHinge,
+      tags: parsed.mustNotMiss.slice(0, 4).length
+        ? parsed.mustNotMiss.slice(0, 4)
+        : ["Review must-not-miss causes"],
+    },
+    criteria: COMPARISON_CRITERIA,
+    candidates,
+    reviewChecklist: [
+      "Stabilise and rule out immediate threats",
+      "Assess for reversible causes",
+      "Investigate and treat precipitants",
+      "Reassess and refine differential",
+      "Document and handoff",
+    ],
+    highestUrgencyNote: "Safety first. Act early.",
+    sourceStatus: {
+      label: "Source pending review",
+      version: "v10 | Local content only",
+      lastUpdated: "Pending review",
+    },
+  };
+}
+
+function diagnosisSections(option: ParsedOption, presentation: ParsedPresentation): DifferentialSection[] {
+  return [
+    {
+      id: "why-it-fits",
+      title: "Why it fits",
+      summary: option.summary || option.name,
+      items: [option.summary || option.name, presentation.clinicalHinge].filter(Boolean),
+      tone: "fit",
+    },
+    {
+      id: "must-not-miss",
+      title: "Must-not-miss",
+      summary: option.redFlags.join(", ") || presentation.mustNotMiss.join(", "),
+      items: option.redFlags.length ? option.redFlags : presentation.mustNotMiss,
+      tone: "warning",
+    },
+    {
+      id: "bedside-question",
+      title: "Bedside question",
+      summary: presentation.clinicalHinge,
+      items: [presentation.clinicalHinge],
+      tone: "question",
+    },
+    {
+      id: "immediate-action",
+      title: "Immediate action",
+      summary: presentation.immediateActions.join(" "),
+      items: presentation.immediateActions,
+      tone: "action",
+    },
+    {
+      id: "investigations",
+      title: "Investigations",
+      summary: presentation.investigations.join(", "),
+      items: presentation.investigations,
+      tone: "test",
+    },
+    {
+      id: "mimics-overlap",
+      title: "Mimics / overlap",
+      summary: presentation.mimics.join(", "),
+      items: presentation.mimics,
+      tone: "overlap",
+    },
+  ];
+}
+
+function buildDiagnosisRecord(option: ParsedOption, presentation: ParsedPresentation): DifferentialRecord {
+  return {
+    slug: option.slug,
+    title: option.name.split("/")[0]?.trim() || option.name,
+    status: presentation.status,
+    subtitle: option.summary || presentation.triageRationale,
+    clinicalHinge: presentation.clinicalHinge,
+    safetySnapshot: {
+      summary: option.redFlags.join(", ") || presentation.clinicalHinge,
+      tags: option.redFlags.slice(0, 4),
+    },
+    sections: diagnosisSections(option, presentation),
+    related: presentation.options
+      .filter((candidate) => candidate.slug !== option.slug)
+      .slice(0, 6)
+      .map((candidate) => ({
+        id: candidate.slug,
+        label: candidate.name.split("/")[0]?.trim() || candidate.name,
+        likelihood: "possible" as const,
+        note: candidate.summary,
+      })),
+    currentPresentation: [presentation.title, ...presentation.mustNotMiss.slice(0, 2)],
+    investigations: presentation.investigations,
+    immediateActions: presentation.immediateActions,
+  };
+}
+
+function mergeDiagnosisRecords(existing: DifferentialRecord, incoming: DifferentialRecord): DifferentialRecord {
+  const preferIncoming = URGENCY_RANK[incoming.status] >= URGENCY_RANK[existing.status];
+  const primary = preferIncoming ? incoming : existing;
+  const secondary = preferIncoming ? existing : incoming;
+
+  const mergeText = (left: string, right: string) => {
+    if (!left.trim()) return right;
+    if (!right.trim()) return left;
+    return left.length >= right.length ? left : right;
+  };
+
+  const unionItems = (left: string[], right: string[]) => [...new Set([...left, ...right].filter(Boolean))];
+
+  return {
+    ...primary,
+    subtitle: mergeText(primary.subtitle, secondary.subtitle),
+    clinicalHinge: mergeText(primary.clinicalHinge, secondary.clinicalHinge),
+    safetySnapshot: {
+      summary: mergeText(primary.safetySnapshot.summary, secondary.safetySnapshot.summary),
+      tags: unionItems(primary.safetySnapshot.tags, secondary.safetySnapshot.tags).slice(0, 6),
+    },
+    sections: primary.sections.map((section: DifferentialSection, index: number) => {
+      const other = secondary.sections[index];
+      if (!other) return section;
+      return {
+        ...section,
+        summary: mergeText(section.summary, other.summary),
+        items: unionItems(section.items, other.items).slice(0, 8),
+      };
+    }),
+    investigations: unionItems(primary.investigations, secondary.investigations),
+    immediateActions: unionItems(primary.immediateActions, secondary.immediateActions),
+    related: unionItems(
+      primary.related.map((node: DifferentialMapNode) => node.id),
+      secondary.related.map((node: DifferentialMapNode) => node.id),
+    )
+      .map((id) => primary.related.find((node: DifferentialMapNode) => node.id === id) ?? secondary.related.find((node: DifferentialMapNode) => node.id === id))
+      .filter((node): node is NonNullable<typeof node> => Boolean(node))
+      .slice(0, 8),
+    currentPresentation: unionItems(primary.currentPresentation, secondary.currentPresentation).slice(0, 6),
+  };
+}
+
+export function parseScenarioPresets(markdown: string): DifferentialScenarioPreset[] {
+  const sections = markdown.split(/(?:^|\n)##\s+/).filter(Boolean);
+  return sections.map((section, index) => {
+    const lines = section.split("\n");
+    const titleLine = lines[0]?.trim() ?? `Preset ${index + 1}`;
+    const query = section.match(/\*\*Query:\*\*\s*`([^`]+)`/)?.[1]?.trim() ?? titleLine;
+    const signals =
+      section
+        .match(/\*\*Signals:\*\*\s*(.+)/)?.[1]
+        ?.split(",")
+        .map((item) => item.trim())
+        .filter(Boolean) ?? [];
+    const entryIds =
+      section
+        .match(/\*\*Entries:\*\*([\s\S]*?)(?:\n##|\n---|$)/)?.[1]
+        ?.split("\n")
+        .map((line) => line.match(/Entry\s+(\d+[A-Z]?)/i)?.[1]?.toUpperCase())
+        .filter((value): value is string => Boolean(value)) ?? [];
+    const presentationSlugs = entryIds.map((entryId) => PRESENTATION_SLUG_OVERRIDES[entryId] ?? slugify(entryId));
+    return {
+      id: slugify(titleLine),
+      query,
+      signals,
+      entryIds,
+      presentationSlugs,
+    };
+  });
+}
+
+export function parseRedFlagFlows(markdown: string): DifferentialRedFlagFlow[] {
+  const sections = markdown.split(/(?:^|\n)##\s+/).filter(Boolean);
+  return sections.map((section, index) => {
+    const title = section.split("\n")[0]?.trim() ?? `Flow ${index + 1}`;
+    const entryId = section.match(/Entry\s+(\d+[A-Z]?)/i)?.[1]?.toUpperCase() ?? "";
+    const presentationSlug = PRESENTATION_SLUG_OVERRIDES[entryId] ?? slugify(entryId || title);
+    const bedsideQuestions =
+      section.match(/\*\*Bedside questions:\*\*\s*(.+)/)?.[1]?.trim() ??
+      section.match(/Bedside questions:\*\*\s*(.+)/)?.[1]?.trim() ??
+      "";
+    const keyRedFlags =
+      section.match(/\*\*Key red flags across options:\*\*\s*(.+)/)?.[1]?.trim() ??
+      section.match(/Key red flags across options:\*\*\s*(.+)/)?.[1]?.trim() ??
+      "";
+    return {
+      id: slugify(title),
+      title,
+      entryId,
+      presentationSlug,
+      bedsideQuestions,
+      keyRedFlags,
+    };
+  });
+}
+
+export function parseSearchAliases(markdown: string): Record<string, string[]> {
+  const aliases: Record<string, string[]> = {};
+  for (const line of markdown.split("\n")) {
+    const match = line.match(/^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|$/);
+    if (!match || match[1]?.includes("Token") || match[1]?.includes("---")) continue;
+    const token = match[1].trim().toLowerCase();
+    const values = match[2]
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+    if (token && values.length) aliases[token] = values;
+  }
+  return aliases;
+}
+
+function parseGovernance(markdown: string) {
+  const version = markdown.match(/\|\s*Version\s*\|\s*([^|]+?)\s*\|/)?.[1]?.trim() ?? "v10";
+  const reviewStatus = markdown.match(/\|\s*Review status\s*\|\s*([^|]+?)\s*\|/)?.[1]?.trim() ?? "Pending review";
+  const sourceTitle = markdown.match(/\|\s*Source title\s*\|\s*([^|]+?)\s*\|/)?.[1]?.trim() ?? "Differentials";
+  return { version, reviewStatus, sourceTitle };
+}
+
+export function buildDifferentialSnapshot(input: {
+  entryFiles: Array<{ name: string; content: string }>;
+  tagIndexMarkdown?: string;
+  presetsMarkdown: string;
+  flowsMarkdown: string;
+  aliasesMarkdown: string;
+  governanceMarkdown: string;
+}): DifferentialSnapshot {
+  const parsedPresentations = input.entryFiles.map(({ name, content }) => parseEntryFile(content, pathBasename(name)));
+  const presentations = parsedPresentations.map(buildPresentationWorkflow);
+
+  const diagnosisMap = new Map<string, DifferentialRecord>();
+  for (const parsed of parsedPresentations) {
+    for (const option of parsed.options) {
+      const record = buildDiagnosisRecord(option, parsed);
+      const existing = diagnosisMap.get(record.slug);
+      diagnosisMap.set(record.slug, existing ? mergeDiagnosisRecords(existing, record) : record);
+    }
+  }
+
+  return {
+    version: parseGovernance(input.governanceMarkdown).version,
+    exportedAt: new Date().toISOString().slice(0, 10),
+    presentations,
+    diagnoses: [...diagnosisMap.values()].sort((left, right) => left.title.localeCompare(right.title)),
+    presets: parseScenarioPresets(input.presetsMarkdown),
+    redFlagFlows: parseRedFlagFlows(input.flowsMarkdown),
+    searchAliases: parseSearchAliases(input.aliasesMarkdown),
+    governance: parseGovernance(input.governanceMarkdown),
+  };
+}
+
+function pathBasename(value: string) {
+  return value.split(/[/\\]/).pop() ?? value;
+}

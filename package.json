@@ -58,6 +58,8 @@
     "check:type-scale": "node scripts/check-type-scale.mjs",
     "recover:ingestion": "tsx scripts/recover-ingestion-queue.ts",
     "registry:seed": "tsx scripts/seed-registry-records.ts",
+    "differentials:import": "tsx scripts/import-differentials-export.ts",
+    "differentials:seed": "tsx scripts/seed-differential-records.ts",
     "reindex": "tsx scripts/reindex.ts",
     "reindex:health": "tsx scripts/reindex-health.ts",
     "reindex:cleanup-staged": "tsx scripts/cleanup-abandoned-reindex-generations.ts",

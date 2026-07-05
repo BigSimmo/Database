@@ -32,6 +32,7 @@ import { appModeHomeHref } from "@/lib/app-modes";
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import {
   acuteConfusionPresentationWorkflow,
+  differentialScenarioPresets,
   getDifferentialRecord,
   type DifferentialRecord,
 } from "@/lib/differentials";
@@ -90,13 +91,11 @@ const primaryActions: DifferentialAction[] = [
   },
 ];
 
-const recentDifferentials: RecentDifferential[] = [
-  { label: "Acute confusion", query: "acute confusion differential diagnosis", icon: BrainCircuit },
-  { label: "Delirium", query: "delirium differential diagnosis", icon: FlaskConical },
-  { label: "Substance withdrawal", query: "substance withdrawal differential diagnosis", icon: FlaskConical },
-  { label: "QT risk", query: "QT prolongation differential diagnosis", icon: Activity },
-  { label: "Capacity", query: "capacity assessment differential diagnosis", icon: Stethoscope },
-];
+const recentDifferentials: RecentDifferential[] = differentialScenarioPresets().slice(0, 5).map((preset) => ({
+  label: preset.query.replace(/\bdifferential diagnosis\b/i, "").trim() || preset.query,
+  query: preset.query.includes("differential") ? preset.query : `${preset.query} differential diagnosis`,
+  icon: BrainCircuit,
+}));
 
 const candidateIconBySlug: Array<[string, LucideIcon]> = [
   ["substance", FlaskConical],
@@ -213,7 +212,7 @@ function buildDifferentialResults(): DifferentialResult[] {
       id: workflow.id,
       title: workflow.title,
       subtitle: "Acute presentation with fluctuating course, inattention, or disorientation.",
-      href: routeWithQuery("/differentials/presentations", "acute confusion"),
+      href: `/differentials/presentations/${workflow.id}`,
       status: workflow.status,
       selected: true,
       matchLabel: "Best match",

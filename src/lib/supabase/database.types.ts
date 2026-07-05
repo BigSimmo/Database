@@ -219,6 +219,66 @@ export type Database = {
         }
         Relationships: []
       }
+      differential_records: {
+        Row: {
+          clinical_hinge: string | null
+          created_at: string
+          id: string
+          kind: string
+          last_reviewed_at: string | null
+          owner_id: string
+          payload: Json
+          review_due_at: string | null
+          slug: string
+          source: Json
+          source_status: string
+          status: string
+          subtitle: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          validation_status: string
+        }
+        Insert: {
+          clinical_hinge?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          last_reviewed_at?: string | null
+          owner_id: string
+          payload?: Json
+          review_due_at?: string | null
+          slug: string
+          source?: Json
+          source_status?: string
+          status: string
+          subtitle?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          validation_status?: string
+        }
+        Update: {
+          clinical_hinge?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          last_reviewed_at?: string | null
+          owner_id?: string
+          payload?: Json
+          review_due_at?: string | null
+          slug?: string
+          source?: Json
+          source_status?: string
+          status?: string
+          subtitle?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          validation_status?: string
+        }
+        Relationships: []
+      }
       document_chunks: {
         Row: {
           anchor_id: string | null
