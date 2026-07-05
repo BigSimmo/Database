@@ -113,7 +113,6 @@ describe("public access deep checks", () => {
     expect(body.checks.openaiConfig).toBe("ok");
     expect(body.checks.supabase).toBe("unauthorized");
   });
-
 });
 
 describe("production anonymous retrieval scope", () => {

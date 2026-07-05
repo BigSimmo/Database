@@ -44,8 +44,9 @@ export async function GET(request: Request) {
     }
   }
 
-  const ready =
-    !Object.values(checks).some((value) => value === "missing" || value === "error" || value === "unauthorized");
+  const ready = !Object.values(checks).some(
+    (value) => value === "missing" || value === "error" || value === "unauthorized",
+  );
 
   return NextResponse.json(
     {
