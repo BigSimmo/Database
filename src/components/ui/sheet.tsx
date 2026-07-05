@@ -39,6 +39,7 @@ export function Sheet({
   mobilePlacement = "bottom",
   mobileSize = "content",
   portal = false,
+  desktopBackdropClassName,
 }: {
   open: boolean;
   onClose: () => void;
@@ -64,6 +65,7 @@ export function Sheet({
   mobilePlacement?: "bottom" | "top" | "fullscreen";
   mobileSize?: SheetMobileSize;
   portal?: boolean;
+  desktopBackdropClassName?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -147,6 +149,7 @@ export function Sheet({
     <div
       className={cn(
         "fixed inset-0 z-[100] flex bg-black/45 backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
+        desktopBackdropClassName,
         placement !== "left" && "motion-safe:animate-overlay-in",
         placement === "left"
           ? "items-stretch justify-start"
@@ -175,9 +178,9 @@ export function Sheet({
             ? "h-full max-h-dvh max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 pt-safe sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
             : cn(
                 defaultSheetIsFullscreen
-                  ? "h-dvh max-h-dvh rounded-none border-0 motion-safe:animate-pop-in sm:max-w-none sm:rounded-none lg:h-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-[color:var(--border-lux)] lg:pb-0"
+                  ? "h-dvh max-h-dvh rounded-none border-0 motion-safe:animate-pop-in sm:max-w-none sm:rounded-none lg:h-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-[color:var(--border-lux)] lg:pb-0 lg:motion-safe:animate-dialog-rise"
                   : cn(
-                      "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-pop-in",
+                      "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-dialog-rise",
                       defaultSheetIsTopAligned
                         ? cn(
                             "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in",

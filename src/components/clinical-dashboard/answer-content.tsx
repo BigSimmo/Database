@@ -658,10 +658,11 @@ export function NaturalLanguageAnswer({
           </section>
         ) : null}
         {sourceCapsuleButton}
-        {sourcePreviewOpen && canOpenSourcePreview && !usePreviewSheet ? (
-          <div
-            data-testid="source-capsule-preview"
-            className="max-h-[22rem] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
+        {canOpenSourcePreview && !usePreviewSheet ? (
+          <SourcePreviewPopover
+            open={sourcePreviewOpen}
+            onClose={() => setSourcePreviewOpen(false)}
+            anchorRef={sourceCapsuleRef}
           >
             <SourcePreviewContent
               previewSources={previewSources}
@@ -669,7 +670,7 @@ export function NaturalLanguageAnswer({
               copiedQuote={copiedSourceQuote}
               onCopyQuote={copySourceQuote}
             />
-          </div>
+          </SourcePreviewPopover>
         ) : null}
         <Sheet
           open={sourcePreviewOpen && canOpenSourcePreview && usePreviewSheet}

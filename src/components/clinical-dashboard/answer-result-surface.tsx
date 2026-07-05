@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
@@ -309,8 +309,9 @@ export function StagedAnswerResultSurface({
                 <Layers className="h-3.5 w-3.5" />
               </span>
             }
-            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(88dvh,44rem)] sm:max-w-2xl"
+            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(88dvh,44rem)] sm:max-w-3xl"
             bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            desktopBackdropClassName="sm:bg-black/50"
             returnFocusRef={evidenceTriggerRef}
             portal
           >

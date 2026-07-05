@@ -1436,20 +1436,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
       await expectMinTouchTarget(sourceCapsule);
       await sourceCapsule.click();
-      const sourceSurface = viewport.sheet
-        ? page.getByRole("dialog", { name: "Sources" })
-        : page.getByTestId("source-capsule-preview");
+      const sourceSurface = page.getByRole("dialog", { name: "Sources" });
       await expect(sourceSurface).toBeVisible();
       await expect(sourceSurface.getByTestId("source-capsule-preview-row").first()).toHaveAttribute(
         "href",
         /\/documents\/.+chunk=/,
       );
       await expectMinTouchTarget(sourceSurface.getByTestId("source-capsule-preview-row").first());
-      if (viewport.sheet) {
-        await page.keyboard.press("Escape");
-        await expect(sourceSurface).toHaveCount(0);
-        await expect(sourceCapsule).toBeFocused();
-      } else {
+      await page.keyboard.press("Escape");
+      await expect(sourceSurface).toHaveCount(0);
+      await expect(sourceCapsule).toBeFocused();
+      if (!viewport.sheet) {
+        await sourceCapsule.click();
+        await expect(sourceSurface).toBeVisible();
         await sourceCapsule.click();
         await expect(sourceSurface).toHaveCount(0);
       }
