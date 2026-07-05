@@ -269,6 +269,7 @@ export function UniversalSearchCommandSurface({
   onFocusSearchInput,
   onListboxIdReady,
   placement = "inline",
+  requiresTypedQueryToOpen = false,
   children,
 }: {
   modeId: AppModeId;
@@ -287,13 +288,13 @@ export function UniversalSearchCommandSurface({
   onFocusSearchInput?: () => void;
   onListboxIdReady?: (listboxId: string) => void;
   placement?: CommandSurfacePlacement;
+  requiresTypedQueryToOpen?: boolean;
   children: ReactNode;
 }) {
   const config = searchCommandSurfaceConfig(modeId);
   const listboxId = useId();
   const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
-  const requiresTypedQueryToOpen = placement === "bottom-dock";
   const composerFocusedRef = useRef(false);
   const mode = appModeDefinition(modeId);
 

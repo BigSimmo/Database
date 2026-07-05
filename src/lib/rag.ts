@@ -5940,7 +5940,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         owner_filter: ownerScopeForDocumentFilteredRetrieval(
           args.ownerId,
           documentFilter ? [documentFilter] : undefined,
-          documentFilter ? undefined : args.allowGlobalSearch,
+          args.allowGlobalSearch,
         ),
       });
 

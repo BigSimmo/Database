@@ -1248,6 +1248,7 @@ export function MasterSearchHeader({
           recentQueries={recentQueries}
           commandScopes={commandScopes}
           placement={commandSurfacePlacement}
+          requiresTypedQueryToOpen={usesPhoneFooterDock}
           dropdownOpen={commandDropdownOpen}
           onDropdownOpenChange={setCommandDropdownOpen}
           onQueryChange={onQueryChange}
