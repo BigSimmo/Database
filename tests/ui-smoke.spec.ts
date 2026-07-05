@@ -1,5 +1,6 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
+import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { deriveGovernanceFromSections } from "../src/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
@@ -549,6 +550,23 @@ async function openMobileClinicalGuideMenu(page: Page) {
 async function waitForDemoDashboardReady(page: Page) {
   await expect(visibleQuestionInput(page)).toBeEnabled();
   await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible({ timeout: 30000 });
+}
+
+async function waitForPersistedAnswerThread(page: Page, minPriorTurns = 1) {
+  await expect
+    .poll(async () =>
+      page.evaluate((storageKey) => {
+        try {
+          const raw = window.localStorage.getItem(storageKey);
+          if (!raw) return 0;
+          const parsed = JSON.parse(raw) as { priorTurns?: unknown[] };
+          return Array.isArray(parsed.priorTurns) ? parsed.priorTurns.length : 0;
+        } catch {
+          return 0;
+        }
+      }, answerThreadStorageKey),
+    )
+    .toBeGreaterThanOrEqual(minPriorTurns);
 }
 
 async function openGuide(page: Page) {
@@ -1243,9 +1261,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\?mode=answer&q=what\+about\+renal\+impairment\%3F&run=1/);
     await expectNoPageHorizontalOverflow(page);
 
+    await waitForPersistedAnswerThread(page, 1);
     await page.reload();
     await waitForDemoDashboardReady(page);
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
+    await expect(async () => {
+      await expect(page.getByTestId("user-question-bubble")).toHaveCount(2);
+    }).toPass({ timeout: 15_000 });
     await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
     await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(followUp);
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
