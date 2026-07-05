@@ -35,6 +35,7 @@ export function hasSessionCookieSignal(request: Request) {
   return cookieHeader.includes("sb-");
 }
 
+<<<<<<< HEAD
 export function hasBearerAuthAttempt(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";
   return /^Bearer\s+\S+/i.test(authorization);
@@ -59,6 +60,16 @@ type OwnerScopedQuery<T> = {
 /** Scope reads to public rows (owner_id IS NULL) and, when signed in, the caller's owned rows. */
 export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, ownerId: string | undefined): T {
   if (ownerId) return query.or(`owner_id.eq.${ownerId},owner_id.is.null`);
+=======
+type OwnerScopedQuery<T> = {
+  eq(column: string, value: unknown): T;
+  is(column: string, value: null): T;
+};
+
+/** Scope document reads to the authenticated owner or public (owner_id IS NULL) rows. */
+export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, ownerId: string | undefined): T {
+  if (ownerId) return query.eq("owner_id", ownerId);
+>>>>>>> origin/cursor/fix-all-db-issues-5f13
   return query.is("owner_id", null);
 }
 

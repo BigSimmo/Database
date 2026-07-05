@@ -8,7 +8,11 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+<<<<<<< HEAD
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
+=======
+import { hasPublicApiAuthSignal, publicAccessContext } from "@/lib/public-api-access";
+>>>>>>> origin/cursor/fix-all-db-issues-5f13
 import { rankFormRecords, formRecords } from "@/lib/forms";
 import {
   deriveGovernanceColumns,
@@ -82,7 +86,11 @@ export async function GET(request: Request) {
       });
     }
 
+<<<<<<< HEAD
     if (!shouldResolvePublicCatalogAccess(request)) {
+=======
+    if (!hasPublicApiAuthSignal(request)) {
+>>>>>>> origin/cursor/fix-all-db-issues-5f13
       return registryResponse({
         ...publicRegistryPayload(kind, q, limit),
         publicAccess: true,

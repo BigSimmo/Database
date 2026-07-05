@@ -69,4 +69,5 @@ as $$
   limit least(greatest(match_count, 1), 80);
 $$;
 
+revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
 grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;
