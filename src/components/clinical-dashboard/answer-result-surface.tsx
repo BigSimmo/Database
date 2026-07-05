@@ -329,7 +329,15 @@ export function StagedAnswerResultSurface({
               copiedQuotes={copiedQuotes}
               onCopyQuotes={copyQuotes}
               onSubmitFeedback={onSubmitFeedback}
-              onFollowUpQuote={onFollowUpQuote}
+              onFollowUpQuote={
+                onFollowUpQuote
+                  ? (quote) => {
+                      setEvidenceOpen(false);
+                      setEvidenceInitialTab(null);
+                      onFollowUpQuote(quote);
+                    }
+                  : undefined
+              }
               onScopeDocument={onScopeDocument}
             />
           </Sheet>
