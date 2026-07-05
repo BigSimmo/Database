@@ -398,7 +398,8 @@ export function ServicesNavigatorPage() {
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
   const registry = useRegistryRecords("service");
-  const searchableRecords = registry.status === "ready" ? registry.records : serviceRecords;
+  const searchableRecords =
+    registry.status === "ready" ? registry.records : registry.status === "loading" ? [] : serviceRecords;
   const matches = useMemo(() => {
     const ranked = rankServiceRecords(searchableRecords, query);
     return ranked.length ? ranked.map((match) => match.service) : query.trim() ? [] : searchableRecords;
@@ -437,10 +438,10 @@ export function ServicesNavigatorPage() {
             className="mode-home-composer-slot hidden w-full min-w-0 sm:[&:not(:empty)]:block"
           />
           <Stepper />
-          <div className="lg:hidden">
-            <SearchResultsHeaderBand modeId="services" query={query} matchCount={scopedMatches.length} compact />
+          <div className="xl:hidden">
+            <SearchResultsHeaderBand modeId="services" query={query} matchCount={scopedMatches.length} />
           </div>
-          <div className="hidden lg:block">
+          <div className="hidden xl:block">
             <SearchResultsHeaderBand modeId="services" query={query} matchCount={scopedMatches.length} />
           </div>
         </>
@@ -486,22 +487,16 @@ export function ServicesNavigatorPage() {
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button
-                  className="inline-flex min-h-10 w-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm font-bold text-[color:var(--text-heading)] shadow-sm sm:min-h-11 sm:w-auto sm:px-4 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-10 w-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-[#061740] shadow-sm transition hover:border-[#b8dedb] hover:bg-[#f8fcfc] sm:min-h-11 sm:w-auto sm:px-4"
                   type="button"
-                  disabled
-                  aria-disabled
-                  title="Soon"
                   aria-label="Open service filters"
                 >
                   <SlidersHorizontal className="h-4 w-4" aria-hidden />
                   <span className="hidden sm:inline">Filters</span>
                 </button>
                 <button
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-sm sm:min-h-11 sm:px-4 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-[#061740] shadow-sm transition hover:border-[#b8dedb] hover:bg-[#f8fcfc] sm:min-h-11 sm:px-4"
                   type="button"
-                  disabled
-                  aria-disabled
-                  title="Soon"
                 >
                   Sort <ChevronDown className="h-4 w-4" aria-hidden />
                 </button>

@@ -44,8 +44,6 @@ import {
   sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
-
-const disabledControlClass = "cursor-not-allowed opacity-60";
 import {
   buildSmartDocumentTagFacetIndex,
   filterDocumentsBySmartTagFacetIndex,
@@ -377,12 +375,9 @@ function SearchResultsHeader({ resultLabel, trimmedQuery }: { resultLabel: strin
       </div>
       <button
         type="button"
-        disabled
-        title="Coming soon"
         className={cn(
           floatingControl,
-          disabledControlClass,
-          "min-h-11 shrink-0 gap-2 rounded-lg px-3 text-sm text-[color:var(--text-soft)]",
+          "min-h-11 shrink-0 gap-2 rounded-lg px-3 text-sm text-[color:var(--text-heading)]",
         )}
       >
         <SlidersHorizontal className="h-4 w-4" />
@@ -842,9 +837,9 @@ export function DocumentSearchResultsPanel({
     ? "The local API is unavailable. Check the app server before searching documents."
     : authUnavailable
       ? "Sign in or enable local no-auth mode before listing private indexed documents."
-      : null;
-  void realDataReady;
-  void setupWarning;
+      : !realDataReady
+        ? setupWarning || "Complete the search setup before using Documents mode."
+        : null;
   const resultLabel = (() => {
     if (loading) {
       return showRecordMatches

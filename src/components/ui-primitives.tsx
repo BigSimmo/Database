@@ -125,8 +125,6 @@ export const searchResultsSection =
   "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]";
 export const searchFocusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-/** Shared disabled styling for non-functional demo controls. */
-export const disabledControlClass = "cursor-not-allowed opacity-60";
 
 export type SemanticChipTone = "danger" | "info" | "warning" | "success" | "neutral";
 

@@ -4,9 +4,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
-import { recentQueryStorageKey } from "@/components/ClinicalDashboard";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
+import { recentQueryStorageKey, SettingsDialog } from "@/components/ClinicalDashboard";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   ClinicalDesktopSidebar,
@@ -153,8 +152,6 @@ function GlobalMockupSearchShellClient({
       (searchMode === "forms" && pathname === "/forms") ||
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials"));
-  /** Favourites needs library/results visible above the fold — skip hero composer there. */
-  const useHeroModeHome = isStandaloneModeHome && searchMode !== "favourites";
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
@@ -217,6 +214,7 @@ function GlobalMockupSearchShellClient({
 
   function openGuide() {
     setSettingsOpen(false);
+    setAccountSetupOpen(false);
     setMobileMenuOpen(false);
     setGuideOpen(true);
   }
@@ -268,9 +266,8 @@ function GlobalMockupSearchShellClient({
   function startNewAnswerChat() {
     setQuery("");
     setMobileMenuOpen(false);
-    // On standalone mode routes (favourites, services, etc.) keep the user in
-    // that workspace and only clear the query — same as sidebar "New chat".
-    navigateToMode(searchMode === "answer" ? "answer" : searchMode, { focus: true });
+    setSearchMode("answer");
+    navigateToMode("answer", { focus: true });
   }
 
   function pickRecentQuery(recentQuery: string) {
@@ -399,18 +396,17 @@ function GlobalMockupSearchShellClient({
             // Submitted searches that stay in the shell (services results) are
             // result views: compact the phone bottom composer so results keep
             // maximum screen space. Mode homes keep the chip-row layout.
-            mobileBottomSearchVariant={
-              useCompactBottomSearch || (isStandaloneModeHome && searchMode === "favourites") ? "compact" : "default"
-            }
+            mobileBottomSearchVariant={useCompactBottomSearch ? "compact" : "default"}
             desktopSearchPlacement={
-              (desktopSearchPlacement === "hero" || isFormsOnlyShell) && useHeroModeHome ? "hero" : "default"
+              (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
             }
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-            heroComposerFromTablet={useHeroModeHome}
+            heroComposerFromTablet={isStandaloneModeHome}
             // Phone-only: the document scrolls here and the header is sticky,
             // so a translate overlay hides it with zero layout shift.
             hideOnScroll={{ strategy: "overlay" }}
+            queryInputAutoFocus={searchParams.get("focus") === "1"}
           />
         </div>
 
