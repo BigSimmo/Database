@@ -1286,6 +1286,7 @@ export function MasterSearchHeader({
               onPlacementChange={setActionMenuPlacement}
               triggerClassName="answer-footer-search-action"
               integrated={usesFooterChipLayout}
+              integratedChipRow={showFooterSearchChips}
             />
 
             {/* The clear button is a flex sibling (not absolutely positioned): the
