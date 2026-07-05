@@ -180,6 +180,13 @@ function mockRuntime(client: ReturnType<typeof createSupabaseMock>) {
   vi.doMock("@/lib/supabase/auth", () => ({
     AuthenticationError: class AuthenticationError extends Error {},
     requireAuthenticatedUser,
+    getOptionalAuthenticatedUser: vi.fn(async (request: Request) => {
+      const authorization = request.headers.get("authorization") ?? "";
+      if (/^Bearer\s+\S+/i.test(authorization)) return { id: userId };
+      const cookieHeader = request.headers.get("cookie") ?? "";
+      if (cookieHeader.includes("sb-")) return { id: userId };
+      return null;
+    }),
     unauthorizedResponse: () =>
       new Response(JSON.stringify({ error: "Authentication required." }), {
         status: 401,

@@ -4,7 +4,8 @@ import { demoDocuments } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
+import { publicAccessContext, withOwnerReadScope } from "@/lib/public-api-access";
 import { parseRequestQuery, queryBoolean, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
@@ -130,11 +131,11 @@ export async function GET(request: Request) {
     } = parseRequestQuery(request, documentListQuerySchema, "Invalid document list query.");
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
-    let query = supabase
-      .from("documents")
-      .select(DOCUMENT_LIST_COLUMNS, { count: "exact" })
-      .eq("owner_id", user.id)
+    const access = await publicAccessContext(request, supabase);
+    let query = withOwnerReadScope(
+      supabase.from("documents").select(DOCUMENT_LIST_COLUMNS, { count: "exact" }),
+      access.ownerId,
+    )
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 

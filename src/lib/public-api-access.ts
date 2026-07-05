@@ -33,6 +33,17 @@ export function hasPublicApiAuthSignal(request: Request) {
   return cookieHeader.includes("sb-");
 }
 
+type OwnerScopedQuery<T> = {
+  eq(column: string, value: unknown): T;
+  is(column: string, value: null): T;
+};
+
+/** Scope document reads to the authenticated owner or public (owner_id IS NULL) rows. */
+export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, ownerId: string | undefined): T {
+  if (ownerId) return query.eq("owner_id", ownerId);
+  return query.is("owner_id", null);
+}
+
 export async function publicAccessContext(request: Request, supabase: AdminClient) {
   const user = await getOptionalAuthenticatedUser(request, supabase);
   if (user) {

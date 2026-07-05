@@ -198,11 +198,8 @@ describe("registry records API", () => {
     expect(payload.records.some((record) => record.slug === "13yarn")).toBe(true);
     expect(payload.matches?.[0]?.record.slug).toBe("13yarn");
     expect(client.from).not.toHaveBeenCalled();
-    expect(client.rpc).toHaveBeenCalledWith(
-      "consume_api_subject_rate_limit",
-      expect.objectContaining({ p_bucket: "registry" }),
-    );
-    expect(client.rpc).not.toHaveBeenCalledWith("consume_api_rate_limit", expect.anything());
+    expect(client.rpc).not.toHaveBeenCalled();
+    expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid kind with a validation error", async () => {
@@ -311,11 +308,8 @@ describe("registry records API", () => {
     expect(payload.record.slug).toBe("13yarn");
     expect(payload.linkedDocuments).toEqual([]);
     expect(client.from).not.toHaveBeenCalled();
-    expect(client.rpc).toHaveBeenCalledWith(
-      "consume_api_subject_rate_limit",
-      expect.objectContaining({ p_bucket: "registry" }),
-    );
-    expect(client.rpc).not.toHaveBeenCalledWith("consume_api_rate_limit", expect.anything());
+    expect(client.rpc).not.toHaveBeenCalled();
+    expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 
   it("returns 404 for an unknown slug", async () => {
