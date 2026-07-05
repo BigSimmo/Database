@@ -2154,10 +2154,7 @@ export function ClinicalDashboard({
   useEffect(() => {
     const previous = prevAuthStatusRef.current;
     prevAuthStatusRef.current = authStatus;
-    if (
-      (authStatus === "signed_out" || authStatus === "expired") &&
-      previous === "authenticated"
-    ) {
+    if ((authStatus === "signed_out" || authStatus === "expired") && previous === "authenticated") {
       resetAnswerThread();
       setAnswer(null);
       setSources([]);
