@@ -1892,7 +1892,7 @@ async function updateAgentJobStatus(
     )
   `;
   const result = parseJobStatusRpcResult(rows[0], "update_indexing_v3_agent_job_status");
-  if (!result?.ok) {
+  if (!result.ok) {
     throw new Error(`Failed to update indexing_v3_agent_jobs status to ${status} for document ${job.document_id}`);
   }
 }

@@ -2930,6 +2930,9 @@ as $$
   limit least(greatest(match_count, 1), 80);
 $$;
 
+revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
+grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;
+
 create or replace function public.get_related_document_metadata(
   document_ids uuid[],
   owner_filter uuid default null
@@ -3787,8 +3790,6 @@ revoke execute on function public.claim_indexing_v3_agent_jobs(text, integer, in
 grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role;
 revoke execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) from public, anon, authenticated;
 grant execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) to service_role;
-revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
-grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;
 revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated;
 grant execute on function public.invoke_indexing_v3_agent(integer) to service_role;
 
