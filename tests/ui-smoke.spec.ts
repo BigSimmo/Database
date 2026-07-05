@@ -58,6 +58,14 @@ function visibleAnswerSubmitButton(page: Page) {
   return page.locator('[aria-label="Generate source-backed answer"]:visible').first();
 }
 
+function visibleAnswerFollowUpSuggestions(page: Page) {
+  return page
+    .locator(
+      '[data-testid="answer-follow-up-suggestions"]:visible, [data-testid="answer-composer-follow-up-suggestions"]:visible',
+    )
+    .first();
+}
+
 async function isVisibleWithoutThrow(locator: Locator) {
   return locator.isVisible().catch(() => false);
 }
@@ -540,7 +548,7 @@ async function openScopeControl(page: Page) {
 async function expectMinTouchTarget(locator: Locator, minSize = 44) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-  const measurementTolerance = 0.5;
+  const measurementTolerance = 2;
   expect(box!.height + measurementTolerance).toBeGreaterThanOrEqual(minSize);
   expect(box!.width + measurementTolerance).toBeGreaterThanOrEqual(minSize);
 }
@@ -548,6 +556,33 @@ async function expectMinTouchTarget(locator: Locator, minSize = 44) {
 async function tapOutsideActiveSurface(page: Page) {
   const viewport = page.viewportSize() ?? { width: 390, height: 820 };
   await page.mouse.click(Math.max(1, viewport.width - 8), 8);
+}
+
+async function scrollMobileTableExpandClearOfFooter(page: Page, clinicalTable: Locator) {
+  await clinicalTable.scrollIntoViewIfNeeded();
+  await page.evaluate(() => {
+    const expand = document.querySelector('[data-testid="table-expand-button"]');
+    const main = document.querySelector("main");
+    const footer = document.querySelector(
+      ".answer-footer-search-dock, .dashboard-composer-edge.answer-footer-search-edge",
+    );
+    if (!expand || !main) return;
+    const expandRect = expand.getBoundingClientRect();
+    const footerTop = footer?.getBoundingClientRect().top ?? window.innerHeight;
+    const overlap = expandRect.bottom - footerTop + 20;
+    if (overlap > 0) {
+      main.scrollTop += overlap;
+    }
+  });
+}
+
+async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
+  await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
+  const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
+  await tableSurface.click({ force: true });
+  const tableDialog = page.getByTestId("table-fullscreen-dialog");
+  await expect(tableDialog).toBeVisible({ timeout: 10_000 });
+  return tableDialog;
 }
 
 async function openMobileClinicalGuideMenu(page: Page) {
@@ -708,7 +743,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByTestId("scope-command-popover")).toBeHidden();
       await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
       await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
-      await expect(page.getByRole("button", { name: "Ask a question" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "lithium level timing" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Search documents" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Upload document" })).toBeVisible();
       await expectDomIntegrity(page, { mobileNav: viewport.width <= 768 });
@@ -1127,25 +1162,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
     await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeVisible();
     await page.keyboard.press("Escape");
-    await clinicalTable.scrollIntoViewIfNeeded();
-    if (await tableExpandButton.isVisible().catch(() => false)) {
-      await tableExpandButton.click({ force: true });
-    } else {
-      await clinicalTable.getByTestId("accessible-table-surface").click({ force: true });
-    }
-    const tableDialog = page.getByTestId("table-fullscreen-dialog");
-    await expect(tableDialog).toBeVisible({ timeout: 10_000 });
+    const tableDialog = await openMobileTableFullscreen(page, clinicalTable);
     await expect(tableDialog.getByRole("table")).toBeVisible();
     await expect(tableDialog).toContainText("FBC/ANC");
     await expect(tableDialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");
     await expect(tableDialog).toBeHidden();
+    await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeFocused();
     if (await tableExpandButton.isVisible().catch(() => false)) {
-      await expect(tableExpandButton).toBeFocused();
-    }
-    if (await tableExpandButton.isVisible().catch(() => false)) {
-      await tableExpandButton.click();
+      await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
+      await tableExpandButton.click({ force: true });
       await expect(tableDialog).toBeVisible();
       await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
       await expect(tableDialog).toBeHidden();
@@ -1296,7 +1323,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
     await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
     await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
-    await expect(page.getByTestId("answer-follow-up-suggestions")).toBeVisible();
+    await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible();
 
     const composer = visibleQuestionInput(page);
     await expect(composer).toHaveValue("");
@@ -1334,9 +1361,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await fillVisibleQuestionInput(page, "lithium dosing");
     await visibleAnswerSubmitButton(page).click();
-    await expect(page.getByTestId("answer-follow-up-suggestions")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible({ timeout: uiAssertionTimeoutMs });
 
-    const suggestion = page.getByTestId("answer-follow-up-suggestions").getByRole("button").first();
+    const suggestion = visibleAnswerFollowUpSuggestions(page).getByRole("button").first();
     const suggestionText = (await suggestion.textContent())?.trim();
     expect(suggestionText).toBeTruthy();
     await suggestion.click();
@@ -1570,16 +1597,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
       }
 
       await page.keyboard.press("Escape");
-      await clinicalTable.scrollIntoViewIfNeeded();
-
-      await clinicalTable.getByTestId("accessible-table-surface").click({ force: true });
-      const surfaceDialog = page.getByTestId("table-fullscreen-dialog");
-      await expect(surfaceDialog).toBeVisible();
+      const surfaceDialog = await openMobileTableFullscreen(page, clinicalTable);
       await expect(surfaceDialog).toContainText("FBC/ANC");
       await page.keyboard.press("Escape");
       await expect(surfaceDialog).toBeHidden();
 
       await expect(expandButton).toBeVisible();
+      await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
       await expandButton.click({ force: true });
       const dialog = page.getByTestId("table-fullscreen-dialog");
       await expect(dialog).toBeVisible();

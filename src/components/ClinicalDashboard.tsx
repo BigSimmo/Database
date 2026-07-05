@@ -3177,7 +3177,10 @@ export function ClinicalDashboard({
   }
 
   function handleFollowUpQuote(quote: QuoteCard) {
-    stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
+    setQuery(createQuoteFollowUp(quote));
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => focusComposerInput(), 120);
+    });
   }
 
   function handlePickFollowUpSuggestion(suggestion: string) {
@@ -3768,6 +3771,9 @@ export function ClinicalDashboard({
             void ask();
           }}
           onCrossModeSearch={crossModeSearch}
+          composerFollowUpSuggestions={searchMode === "answer" ? answerFollowUpSuggestions : undefined}
+          onPickComposerFollowUpSuggestion={handlePickFollowUpSuggestion}
+          composerFollowUpSuggestionsDisabled={loading}
           composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
           mobileBottomSearchVariant={compactMobileBottomSearch ? "compact" : "default"}
@@ -3791,7 +3797,9 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
-                : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                : answer && answerFollowUpSuggestions.length > 0
+                  ? "mb-[calc(11.5rem+env(safe-area-inset-bottom))] sm:mb-24"
+                  : "mb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? compactMobileBottomSearch
                   ? differentialsCompareAddonActive

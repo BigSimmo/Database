@@ -16,6 +16,7 @@ export const answerEmptyState = {
   heading: "How can I help?",
   subheading: "Ask a clinical question or search your documents.",
   starterActionsLabel: "Starter actions",
+  quickActionsLabel: "Quick actions",
   starters: {
     ask: {
       title: "Ask a question",
