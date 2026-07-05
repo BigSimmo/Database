@@ -127,6 +127,18 @@ describe("retrieval query variants", () => {
     expect(textCandidateBudgetForQueryClass("unsupported_or_general", 12)).toBe(24);
   });
 
+  it("keeps forced-embedding retrieval out of the ordinary search cache key", () => {
+    const baseArgs = {
+      query: "How is panic disorder managed?",
+      topK: 8,
+      minSimilarity: 0.12,
+    };
+
+    expect(retrievalPlanCacheQuery(baseArgs, "broad_summary")).not.toBe(
+      retrievalPlanCacheQuery({ ...baseArgs, forceEmbedding: true }, "broad_summary"),
+    );
+  });
+
   it("allows direct document title hits to skip embedding retrieval", () => {
     expect(
       decideTextFastPath(

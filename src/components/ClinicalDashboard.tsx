@@ -1,18 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   AlertCircle,
   Bell,
   BookOpen,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   CircleUserRound,
   Clock3,
-  Copy,
   ExternalLink,
   FileImage,
   FileText,
@@ -21,7 +18,6 @@ import {
   HelpCircle,
   Heart,
   Keyboard,
-  Layers,
   ListChecks,
   Loader2,
   LogOut,
@@ -29,7 +25,6 @@ import {
   LockKeyhole,
   Palette,
   PanelTop,
-  Plus,
   Quote,
   RefreshCw,
   Search,
@@ -45,69 +40,33 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import {
-  type CSSProperties,
-  type FormEvent,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { AccessibleTable } from "@/components/AccessibleTable";
-import {
-  DocumentOrganizationBadges,
-  documentDisplayTitle,
-  documentOrganizationProfile,
-} from "@/components/DocumentOrganizationBadges";
-import { DocumentTagCloud } from "@/components/DocumentTagCloud";
-import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
+import { type CSSProperties, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
-import { formatCompactCitationLabel } from "@/lib/citations";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
-import { isLocalNoAuthMode } from "@/lib/env";
+import { isDeployedClinicalKb } from "@/lib/deployed-app";
+import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/env";
 import {
   appBackdrop,
   answerSurface,
-  chatMicroAction,
-  clinicalDivider,
   cn,
-  EmptyState,
-  fieldControlPlain,
   fieldControlWithIcon,
   fieldIcon,
   floatingControl,
-  iconTilePremium,
-  metadataPill,
-  panelSubtle,
   primaryControl,
-  SourceProvenance,
-  SourceStatusBadge,
-  sourceCard,
-  subtleStatusPill,
-  tableCard,
-  tableCardHeader,
-  tableMicroActionRow,
   textMuted,
-  toneDanger,
-  toneInfo,
-  toneNeutral,
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
-import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
-import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
-import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import {
   type SidebarIdentity,
   deriveSidebarIdentity,
@@ -126,45 +85,18 @@ import {
   type SetupCheck,
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/DocumentManagerPanel";
-import {
-  GuideDialog,
-  GuideTrigger,
-  SectionHeading,
-  UtilityDrawer,
-} from "@/components/clinical-dashboard/dashboard-shell";
-import {
-  cleanDisplayTitle,
-  sanitizeAnswerDisplayText,
-  sanitizeDisplayText,
-} from "@/components/clinical-dashboard/display-text";
+import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import {
   NaturalLanguageAnswer,
   ScopeAndGovernanceNotice,
-  SourceImage,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
 import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
-import {
-  AnswerFeedbackPanel,
-  AnswerSafetyNotice,
-  AnswerSupportSummaryCard,
-  answerHasCentralTable,
-  answerSupportPriority,
-  ClinicalNotesChecklistPanel,
-  clinicalNotesCount,
-  clinicalNotesDisplayCountForAnswer,
-  compactEvidenceSummary,
-  type EvidenceTabName,
-  simpleClinicalTableProps,
-  evidenceMapRowsFromRenderModel,
-  evidenceTabCount,
-  evidenceTabOrder,
-  QuoteCards,
-  SafetyFindingsListContent,
-} from "@/components/clinical-dashboard/evidence-panels";
+import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-panels";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { emptyStates, errorCopy } from "@/lib/ui-copy";
+import { errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 import {
   DrawerGroupLabel,
@@ -198,7 +130,7 @@ const DocumentDrawer = dynamic(
 );
 
 import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clinical-dashboard/document-search-results";
-import { isWeakRelevance, QueryCoverageChips } from "@/components/clinical-dashboard/relevance";
+import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
   isRetryableError,
@@ -236,21 +168,13 @@ import {
   maxStoredAnswerTurns,
   savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
-import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
-import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
+import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
   type SourceGovernanceWarning,
 } from "@/lib/source-governance";
-import { smartEvidenceTags } from "@/lib/evidence-tags";
-import {
-  tagSearchText,
-  type SmartDocumentTag,
-  type SmartDocumentTagFacet,
-  type SmartDocumentTagTier,
-  type SmartDocumentTagQualityIssueKind,
-} from "@/lib/document-tags";
+import { type SmartDocumentTag, type SmartDocumentTagFacet } from "@/lib/document-tags";
 import type {
   ClinicalDocument,
   DocumentMatch,
@@ -263,19 +187,12 @@ import type {
   RelatedDocument,
   SearchResult,
   SearchScopeSummary,
-  VisualEvidenceCard,
   ClinicalQueryMode,
   DocumentLabel,
-  DocumentLabelType,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import {
-  createQuoteFollowUp,
-  type AnswerEvidenceMapRow,
-  type AnswerViewMode,
-  shouldPollForUpdates,
-} from "@/lib/ward-output";
+import { createQuoteFollowUp, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
 
 export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 export const mobileSectionFabMediaQuery =
@@ -487,367 +404,6 @@ async function readAnswerStream(response: Response, onProgress: (message: string
 function normalizeNavigationHash(hash: string) {
   return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
 }
-
-function compactClinicalTableCaption(item: VisualEvidenceCard) {
-  const raw = item.tableTitle || item.tableLabel || item.caption || "Clinical table";
-  const cleaned = sourceTextForCompactDisplay(raw)
-    .replace(/\btable\s+\d+\s*[:.-]?\s*/i, "")
-    .replace(/\b(?:page|p\.)\s*\d+\b/gi, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-  const caption = cleaned || "Clinical table";
-  return caption.length <= 72 ? caption : `${caption.slice(0, 69).trim()}...`;
-}
-
-function visualEvidenceHeader(item: VisualEvidenceCard) {
-  const titleSource = [item.tableLabel, item.tableTitle].filter(Boolean).join(" · ");
-  const titleText = sourceTextForCompactDisplay(titleSource).trim();
-  const captionText = sourceTextForCompactDisplay(item.caption ?? "").trim();
-  const normalizedTitle = titleText.toLowerCase();
-  const normalizedCaption = captionText.toLowerCase();
-  const isDuplicateCaption =
-    Boolean(normalizedCaption) &&
-    (normalizedCaption.startsWith(normalizedTitle) || normalizedCaption === normalizedTitle);
-  return {
-    title: titleText || captionText || "Visual evidence",
-    caption: isDuplicateCaption ? null : captionText,
-  };
-}
-
-function VisualEvidenceStrip({
-  evidence,
-  collapsed = false,
-  embedded = false,
-}: {
-  evidence: VisualEvidenceCard[];
-  collapsed?: boolean;
-  embedded?: boolean;
-}) {
-  function looksLikeTableText(value?: string | null) {
-    return Boolean(value?.includes("|") && value.split("|").filter((cell) => cell.trim()).length >= 3);
-  }
-
-  if (collapsed) {
-    return (
-      <section id="images" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
-        <UtilityDrawer
-          icon={FileImage}
-          title="Nearby visual evidence"
-          summary="Nearby source support only."
-          mobileSummary={`${evidence.length} visuals`}
-        >
-          <VisualEvidenceStrip evidence={evidence} embedded />
-        </UtilityDrawer>
-      </section>
-    );
-  }
-
-  const content = (
-    <>
-      <SectionHeading
-        icon={FileImage}
-        title="Tables and diagrams"
-        description="Clinical tables, diagrams, and images from indexed documents."
-        hideDescriptionOnMobile
-        compactMobile
-      />
-      {evidence.length === 0 ? (
-        <EmptyState icon={FileImage} title={emptyStates.indexedVisuals.title} body={emptyStates.indexedVisuals.body} />
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {evidence.map((item) => {
-            const tableMarkdown = item.accessibleTableMarkdown?.trim()
-              ? item.accessibleTableMarkdown
-              : looksLikeTableText(item.tableTextSnippet)
-                ? item.tableTextSnippet
-                : null;
-            const hasStructuredTable = Boolean(tableMarkdown || item.tableRows?.length || item.tableColumns?.length);
-            const tableCaption = compactClinicalTableCaption(item);
-            const sourceHeader = visualEvidenceHeader(item);
-            const displayLabels = smartEvidenceTags(
-              item.labels,
-              [[item.tableLabel, item.tableTitle].filter(Boolean).join(": "), item.caption, item.tableTextSnippet]
-                .filter(Boolean)
-                .join(" "),
-            );
-            return (
-              <figure key={item.id} className={cn(sourceCard, "overflow-hidden p-2.5 sm:p-3")}>
-                <div className="rounded-lg bg-[color:var(--surface-inset)] p-2.5 sm:p-3">
-                  <SourceImage
-                    endpoint={item.signed_url_endpoint}
-                    caption={sourceHeader.caption || sourceHeader.title}
-                  />
-                </div>
-                <figcaption className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
-                  {!hasStructuredTable ? <p className="font-semibold">{sourceHeader.title}</p> : null}
-                  {!hasStructuredTable && sourceHeader.caption ? <p>{sourceHeader.caption}</p> : null}
-                  <AccessibleTable
-                    caption={tableCaption}
-                    markdown={tableMarkdown}
-                    rows={item.tableRows}
-                    columns={item.tableColumns}
-                    {...simpleClinicalTableProps}
-                    clinicalOnly
-                    dialogTitle={tableCaption || "Clinical table"}
-                  />
-                  {!hasStructuredTable && item.tableTextSnippet ? (
-                    <p className={cn("line-clamp-3 text-sm leading-6", textMuted)}>
-                      {sourceTextForCompactDisplay(item.tableTextSnippet)}
-                    </p>
-                  ) : null}
-                  {displayLabels.length ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {displayLabels.map((label) => (
-                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </figcaption>
-                <div
-                  className={cn(
-                    "mt-2 flex flex-wrap items-center justify-between gap-2 pt-3 text-xs sm:mt-3 sm:gap-3",
-                    clinicalDivider,
-                  )}
-                >
-                  <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
-                    {formatCompactCitationLabel(item)}
-                  </span>
-                  <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
-                    {cleanDisplayTitle(item.title)}, page {item.page_number ?? "n/a"}
-                  </span>
-                  {item.image_type && (
-                    <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
-                      {item.image_type.replaceAll("_", " ")}
-                    </span>
-                  )}
-                  {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
-                  <Link href={item.viewer_href} className={cn(floatingControl, "min-h-[44px] px-4 text-xs")}>
-                    <ExternalLink className="h-4 w-4" />
-                    Open source
-                  </Link>
-                </div>
-              </figure>
-            );
-          })}
-        </div>
-      )}
-    </>
-  );
-
-  if (embedded) return <div className="space-y-3">{content}</div>;
-
-  return (
-    <section id="images" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
-      {content}
-    </section>
-  );
-}
-
-const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
-  Claims: CheckCircle2,
-  Quotes: Quote,
-  Tables: ListChecks,
-  Images: FileImage,
-  Gaps: AlertCircle,
-};
-
-function supportDotClass(supportLevel: string) {
-  const normalized = supportLevel.toLowerCase();
-  if (normalized.includes("unsupported") || normalized.includes("none")) return "bg-[color:var(--danger)]";
-  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby")) {
-    return "bg-[color:var(--warning)]";
-  }
-  return "bg-[color:var(--clinical-accent)]";
-}
-
-function supportLabel(supportLevel: string) {
-  const normalized = supportLevel.toLowerCase();
-  if (normalized.includes("unsupported") || normalized.includes("none")) return "Unsupported";
-  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby"))
-    return "Partial";
-  return "Direct";
-}
-
-function claimRowsForEvidencePanel(rows: AnswerEvidenceMapRow[], renderModel: AnswerRenderModel) {
-  if (rows.length) return rows.slice(0, 6);
-  return renderModel.primarySources.slice(0, 6).map((source, index) => ({
-    id: source.id,
-    section: source.label || cleanDisplayTitle(source.title || source.file_name) || `Source ${index + 1}`,
-    detail: source.snippet || source.reason || "Open source passage to review the cited evidence.",
-    supportLevel: source.sourceStrength === "none" ? "partial" : source.sourceStrength,
-    citationCount: 1,
-    sourceStatus:
-      source.sourceStrength === "none" ? "Source requires review" : `${source.sourceStrength} source support`,
-    bestSourceLabel: source.label,
-    bestLinkedPassage: source.snippet || source.reason,
-    href: source.href,
-  }));
-}
-
-function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[]; renderModel: AnswerRenderModel }) {
-  const claimRows = claimRowsForEvidencePanel(rows, renderModel);
-  const directCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Direct").length;
-  const partialCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Partial").length;
-
-  if (!claimRows.length) {
-    return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
-  }
-
-  return (
-    <div data-testid="evidence-claims-panel" className="space-y-3">
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text-heading)]">Claims checked</p>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-semibold text-[color:var(--text-muted)]">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--clinical-accent)]" />
-              Direct
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--warning)]" />
-              Partial
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--danger)]" />
-              Unsupported
-            </span>
-          </div>
-        </div>
-        <p className="shrink-0 text-xs font-semibold text-[color:var(--text-muted)]">
-          {directCount} direct <span className="mx-1">·</span> {partialCount} partial
-        </p>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-        {claimRows.map((row, index) => (
-          <Link
-            key={`${row.id}:${index}`}
-            href={row.href ?? "#"}
-            data-testid={row.href ? "evidence-map-open-source" : undefined}
-            aria-disabled={!row.href}
-            className={cn(
-              "grid min-h-[76px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 text-left last:border-b-0 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
-              !row.href && "pointer-events-none",
-            )}
-            aria-label={`Open source for ${row.section}`}
-          >
-            <span className="grid h-7 w-7 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)]" />
-            <span className={cn("h-2.5 w-2.5 rounded-full", supportDotClass(row.supportLevel))} />
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{row.section}</span>
-              <span className={cn("mt-1 line-clamp-2 block text-xs leading-5", textMuted)}>
-                {row.detail || row.bestLinkedPassage || row.bestSourceLabel}
-              </span>
-            </span>
-            <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
-  if (!warnings.length) {
-    return (
-      <EmptyState icon={CheckCircle2} title="No evidence gaps" body="No source gaps were attached to this answer." />
-    );
-  }
-
-  return (
-    <div className="grid gap-2">
-      {warnings.map((warning, index) => (
-        <article
-          key={`${warning}:${index}`}
-          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 p-3"
-        >
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-[color:var(--warning)]">Gap {index + 1}</p>
-            <p className="mt-1 text-sm leading-6 text-[color:var(--text)]">{warning}</p>
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function MobileEvidenceTabPanel({
-  tab,
-  renderModel,
-  visualEvidence,
-  answerEvidenceMapRows,
-  copiedQuotes,
-  onCopyQuotes,
-  onFollowUpQuote,
-  onScopeDocument,
-}: {
-  tab: EvidenceTabName;
-  renderModel: AnswerRenderModel;
-  visualEvidence: VisualEvidenceCard[];
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  copiedQuotes: boolean;
-  onCopyQuotes: () => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  if (tab === "Claims") {
-    return <EvidenceClaimsList rows={answerEvidenceMapRows} renderModel={renderModel} />;
-  }
-
-  if (tab === "Tables") {
-    const tableEvidence = visualEvidence.filter((item) => item.accessibleTableMarkdown || item.tableRows?.length);
-    return tableEvidence.length ? (
-      <div className="grid gap-2">
-        {tableEvidence.slice(0, 4).map((item, index) => (
-          <article key={item.id} className={cn(sourceCard, "grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 p-3")}>
-            <span className={iconTilePremium}>
-              <ListChecks className="h-4 w-4" />
-            </span>
-            <div className="min-w-0">
-              <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">
-                {compactClinicalTableCaption(item)}
-              </p>
-              <p className={cn("mt-1 text-xs", textMuted)}>
-                Table {index + 1} · p.{item.page_number ?? "n/a"}
-              </p>
-            </div>
-            <Link href={item.viewer_href} className={chatMicroAction} aria-label={`Open table source ${index + 1}`}>
-              <ExternalLink className="h-3.5 w-3.5" />
-            </Link>
-          </article>
-        ))}
-      </div>
-    ) : (
-      <EmptyState icon={ListChecks} title={emptyStates.tablesUsed.title} body={emptyStates.tablesUsed.body} />
-    );
-  }
-
-  if (tab === "Images") {
-    return visualEvidence.length ? (
-      <VisualEvidenceStrip evidence={visualEvidence} embedded />
-    ) : (
-      <EmptyState icon={FileImage} title={emptyStates.imagesUsed.title} body={emptyStates.imagesUsed.body} />
-    );
-  }
-
-  if (tab === "Quotes") {
-    return (
-      <QuoteCards
-        quotes={renderModel.quoteCards}
-        copiedQuotes={copiedQuotes}
-        onCopyQuotes={onCopyQuotes}
-        onFollowUp={onFollowUpQuote}
-        onScopeDocument={onScopeDocument}
-      />
-    );
-  }
-
-  return <EvidenceGapsPanel warnings={renderModel.warnings} />;
-}
-
 /**
  * A completed Q&A exchange kept on screen after a newer answer arrives, so
  * Answer mode reads as a conversation thread instead of replacing each result.
@@ -2174,7 +1730,10 @@ export function ClinicalDashboard({
     process.env.NODE_ENV !== "production" && localProjectReady && hasReadyRequiredPublicSearchConfig(setupChecks);
   const canUsePrivateApis =
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
-  const canRunSearch = explicitDemoMode || canUsePublicSearchApis || canUseDegradedLocalSearchApis;
+  const canUploadDocuments = canUsePrivateApis || (publicUploadsEnabled() && canUsePublicSearchApis);
+  const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
+  const canRunSearch =
+    explicitDemoMode || canUsePublicSearchApis || canUseDegradedLocalSearchApis || canAttemptDeployedPublicSearch;
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
@@ -2355,20 +1914,25 @@ export function ClinicalDashboard({
           const setupResponse = await fetch("/api/setup-status", { cache: "no-store" }).catch(() => null);
 
           if (!setupResponse) {
-            setApiUnavailable(true);
-            setSetupWarning("The local API is unavailable.");
-            return;
-          }
-
-          if (setupResponse.ok) {
+            if (isDeployedClinicalKb()) {
+              setSetupWarning("Setup status could not be loaded. You can still try search.");
+            } else {
+              setApiUnavailable(true);
+              setSetupWarning("The local API is unavailable.");
+              return;
+            }
+          } else if (setupResponse.ok) {
             const payload = (await setupResponse.json()) as SetupStatusPayload;
             setSetupChecks(payload.checks ?? fallbackSetupChecks);
             nextDemoMode = Boolean(payload.demoMode);
             routeIndexingActive = Boolean(payload.indexingActive);
             routePollDelayMs = shorterPollDelay(routePollDelayMs, payload.pollAfterMs);
             if (nextDemoMode) setDemoMode(true);
+          } else if (isDeployedClinicalKb()) {
+            setSetupWarning("Setup status could not be loaded. You can still try search.");
           } else {
             setApiUnavailable(true);
+            return;
           }
         }
 
@@ -2922,11 +2486,13 @@ export function ClinicalDashboard({
 
   function searchNetworkFailure(label: string) {
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
-    const localOrigin = typeof window !== "undefined" ? window.location.origin : "the local Clinical KB server";
+    const origin = typeof window !== "undefined" ? window.location.origin : "Clinical KB";
     return makeSearchError(
       offline
         ? `${label} could not run because the browser is offline.`
-        : `${label} could not reach Clinical KB at ${localOrigin}. The local server may still be starting or restarting; retry shortly or run npm run ensure.`,
+        : isDeployedClinicalKb()
+          ? `${label} could not reach Clinical KB at ${origin}. Check your connection and try again shortly.`
+          : `${label} could not reach Clinical KB at ${origin}. The local server may still be starting or restarting; retry shortly or run npm run ensure.`,
       undefined,
       true,
     );
@@ -4005,21 +3571,21 @@ export function ClinicalDashboard({
       </p>
     </UtilityDrawer>
   );
-  const showAuthPanel = !clientDemoMode && !canUsePrivateApis;
-  const showDegradedNotice = !isOnline || apiUnavailable;
+  const showAuthPanel = false;
+  const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const hasMobileBottomSearch = searchMode !== "answer";
   const showDesktopHomeComposer =
-    !loading &&
     !error &&
-    ((activeModeResultKind === "answer" && !answer && !modeSearchSubmitted) ||
-      (searchMode === "documents" &&
-        activeModeResultKind === "documents" &&
-        documentMatches.length === 0 &&
-        !modeSearchSubmitted) ||
-      (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
-      (activeModeResultKind === "differentials" && !modeSearchSubmitted) ||
+    (activeModeResultKind === "tools" ||
       activeModeResultKind === "favourites" ||
-      activeModeResultKind === "tools");
+      (!loading &&
+        ((activeModeResultKind === "answer" && !answer && !modeSearchSubmitted) ||
+          (searchMode === "documents" &&
+            activeModeResultKind === "documents" &&
+            documentMatches.length === 0 &&
+            !modeSearchSubmitted) ||
+          (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
+          (activeModeResultKind === "differentials" && !modeSearchSubmitted))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   // Favourites and Tools are content-rich hubs: they share the centred hero but
   // stay top-aligned so their lists start in a stable position.
@@ -4044,14 +3610,18 @@ export function ClinicalDashboard({
       summary={
         !isOnline
           ? "Your browser is offline. Existing content may remain visible, but private search and uploads need network access."
-          : "The local API did not respond. Check the app server and setup status before retrying."
+          : isDeployedClinicalKb()
+            ? "The app could not reach its API. Try again in a moment."
+            : "The local API did not respond. Check the app server and setup status before retrying."
       }
       mobileSummary={!isOnline ? "Offline" : "API unavailable"}
     >
       <p className="text-[15px] leading-6 text-[color:var(--warning)]">
         {!isOnline
           ? "Reconnect before uploading documents, refreshing source URLs, or generating answers."
-          : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
+          : isDeployedClinicalKb()
+            ? "The app will preserve the current view. If this keeps happening, check your connection and try again shortly."
+            : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
       </p>
     </UtilityDrawer>
   );
@@ -4079,7 +3649,7 @@ export function ClinicalDashboard({
     {
       id: "upload",
       label: "Upload",
-      summary: uploadReadOnlyMode || !canUsePrivateApis ? "Locked" : "Ready",
+      summary: uploadReadOnlyMode || !canUploadDocuments ? "Locked" : "Ready",
       panelId: "dashboard-upload-section",
       icon: UploadCloud,
     },
@@ -4659,7 +4229,7 @@ export function ClinicalDashboard({
                           <UploadPanel
                             onUploaded={handleUploadQueued}
                             demoMode={uploadReadOnlyMode}
-                            canUpload={canUsePrivateApis}
+                            canUpload={canUploadDocuments}
                             authorizationHeader={authorizationHeader}
                           />
                         </div>

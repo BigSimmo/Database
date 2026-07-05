@@ -92,10 +92,10 @@ export function ServicesHomePage() {
     ) : registry.status === "unauthorized" ? (
       <ModeHomeStatusNotice
         icon={ShieldAlert}
-        title="Sign in required"
-        body="Sign in to open private service records and referral pathways."
+        title="Session expired"
+        body="Your session expired. Sign in again to open private service records and referral pathways."
         actionHref="/"
-        actionLabel="Go to sign in"
+        actionLabel="Open account setup"
       />
     ) : registry.status === "error" ? (
       <ModeHomeStatusNotice

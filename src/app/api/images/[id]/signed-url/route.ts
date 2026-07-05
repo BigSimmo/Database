@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { getDemoImage } from "@/lib/demo-data";
 import { env } from "@/lib/env";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
+import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
 
 export const runtime = "nodejs";
 
@@ -31,7 +33,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!routeIdSchema.safeParse(id).success) throw new PublicApiError("Invalid image id.");
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(_request, supabase);
+    const { access, rateLimit } = await enforceDocumentReadRateLimit(_request, supabase);
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
+    }
     const { data: image, error } = await supabase
       .from("document_images")
       .select("document_id,storage_path,mime_type,caption,metadata")
@@ -41,12 +46,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (error) throw new Error(error.message);
     if (!image) return NextResponse.json({ error: "Image not found." }, { status: 404 });
 
-    const { data: document, error: documentError } = await supabase
-      .from("documents")
-      .select("id,metadata")
-      .eq("id", image.document_id)
-      .eq("owner_id", user.id)
-      .maybeSingle();
+    const { data: document, error: documentError } = await withOwnerReadScope(
+      supabase.from("documents").select("id,metadata").eq("id", image.document_id),
+      access.ownerId,
+    ).maybeSingle();
 
     if (documentError) throw new Error(documentError.message);
     if (!document) return NextResponse.json({ error: "Image not found." }, { status: 404 });
