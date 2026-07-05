@@ -16,11 +16,10 @@ const topRevealOffset = 8;
 const minimumDelta = 4;
 
 /** Pure scroll-direction evaluation used by the hook; exported for unit tests. */
-export function computeScrollHideUpdate(params: {
-  offset: number;
+export function computeScrollHideUpdate(params: { offset: number; lastOffset: number; currentlyHidden: boolean }): {
+  hidden: boolean;
   lastOffset: number;
-  currentlyHidden: boolean;
-}): { hidden: boolean; lastOffset: number } {
+} {
   const { offset, lastOffset, currentlyHidden } = params;
   // Ignore iOS rubber-band overscroll at the top.
   if (offset < 0) return { hidden: currentlyHidden, lastOffset };
