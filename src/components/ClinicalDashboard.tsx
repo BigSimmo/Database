@@ -3586,17 +3586,17 @@ export function ClinicalDashboard({
   const showDegradedNotice = !isOnline || apiUnavailable;
   const hasMobileBottomSearch = searchMode !== "answer";
   const showDesktopHomeComposer =
-    !loading &&
     !error &&
-    ((activeModeResultKind === "answer" && !answer && !modeSearchSubmitted) ||
-      (searchMode === "documents" &&
-        activeModeResultKind === "documents" &&
-        documentMatches.length === 0 &&
-        !modeSearchSubmitted) ||
-      (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
-      (activeModeResultKind === "differentials" && !modeSearchSubmitted) ||
+    (activeModeResultKind === "tools" ||
       activeModeResultKind === "favourites" ||
-      activeModeResultKind === "tools");
+      (!loading &&
+        ((activeModeResultKind === "answer" && !answer && !modeSearchSubmitted) ||
+          (searchMode === "documents" &&
+            activeModeResultKind === "documents" &&
+            documentMatches.length === 0 &&
+            !modeSearchSubmitted) ||
+          (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
+          (activeModeResultKind === "differentials" && !modeSearchSubmitted))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   // Favourites and Tools are content-rich hubs: they share the centred hero but
   // stay top-aligned so their lists start in a stable position.
@@ -3614,6 +3614,7 @@ export function ClinicalDashboard({
   const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
+  const isDeployedApp = process.env.NODE_ENV === "production";
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -3621,14 +3622,18 @@ export function ClinicalDashboard({
       summary={
         !isOnline
           ? "Your browser is offline. Existing content may remain visible, but private search and uploads need network access."
-          : "The local API did not respond. Check the app server and setup status before retrying."
+          : isDeployedApp
+            ? "The app could not reach its API. Try again in a moment."
+            : "The local API did not respond. Check the app server and setup status before retrying."
       }
       mobileSummary={!isOnline ? "Offline" : "API unavailable"}
     >
       <p className="text-[15px] leading-6 text-[color:var(--warning)]">
         {!isOnline
           ? "Reconnect before uploading documents, refreshing source URLs, or generating answers."
-          : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
+          : isDeployedApp
+            ? "The app will preserve the current view. If this keeps happening, check your connection and try again shortly."
+            : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
       </p>
     </UtilityDrawer>
   );
