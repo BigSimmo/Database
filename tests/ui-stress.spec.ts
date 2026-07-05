@@ -243,7 +243,12 @@ async function openScopeControl(page: Page) {
       const scopeOption = page.getByRole("option", { name: /Scope sources/i });
       if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await scopeOption.click();
-        if (await page.getByTestId("scope-command-popover").isVisible({ timeout: 2_000 }).catch(() => false)) {
+        if (
+          await page
+            .getByTestId("scope-command-popover")
+            .isVisible({ timeout: 2_000 })
+            .catch(() => false)
+        ) {
           return;
         }
       }
