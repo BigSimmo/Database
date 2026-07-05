@@ -318,7 +318,6 @@ export function StagedAnswerResultSurface({
               answer={answer}
               sources={sources}
               renderModel={renderModel}
-              query={query}
               visualEvidence={renderModel.visualEvidence}
               answerEvidenceMapRows={answerEvidenceMapRows}
               sourceGovernanceWarnings={sourceGovernanceWarnings}
