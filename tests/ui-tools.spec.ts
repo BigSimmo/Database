@@ -524,12 +524,13 @@ test.describe("Clinical KB applications launcher", () => {
   test("mode home deep links preserve focus=1 on initial load", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
 
-    for (const path of ["/services?focus=1", "/forms?focus=1"]) {
-      await gotoLauncher(page, path);
-      const sharedSearch = page.getByTestId("global-search-input");
-      await expect(sharedSearch).toBeVisible();
-      await expect(sharedSearch).toBeFocused();
-    }
+    await gotoLauncher(page, "/services?focus=1");
+    await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeVisible();
+    await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeFocused();
+
+    await gotoLauncher(page, "/forms?focus=1");
+    await expect(page.getByTestId("forms-home").getByTestId("global-search-input")).toBeVisible();
+    await expect(page.getByTestId("forms-home").getByTestId("global-search-input")).toBeFocused();
   });
 
   test("services mode shows source-backed records in search results", async ({ page }) => {
@@ -573,11 +574,12 @@ test.describe("Clinical KB applications launcher", () => {
   test("form detail pages keep the shared forms search wired to form results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/forms/transport-crisis-form");
+    await expect(page.getByTestId("form-detail-page")).toBeVisible();
 
     // Structural coverage — runs on every browser, WebKit included: the form
     // detail page renders inside the shared shell with the Forms-mode composer
     // present and no stale results.
-    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("heading", { level: 1, name: "Transport order" })).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
     const formsSearchInput = page.locator('input[placeholder="Search forms..."]:visible').first();

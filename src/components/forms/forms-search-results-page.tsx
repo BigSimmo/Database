@@ -539,8 +539,8 @@ function RegistryStatusNotice({ status }: { status: RegistryRequestStatus }) {
             icon: Shield,
             spin: false,
             tone: "warning",
-            text: "Sign in to search your forms registry.",
-            action: { href: "/", label: "Go to sign in" },
+            text: "Your session expired. Sign in again to search your private forms registry.",
+            action: { href: "/", label: "Open account setup" },
           }
         : {
             icon: ShieldAlert,

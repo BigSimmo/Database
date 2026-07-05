@@ -80,6 +80,10 @@ const registryCatalogPayloadMigration = readFileSync(
   new URL("../supabase/migrations/20260705030000_registry_catalog_payload.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const searchHealthIndexesMigration = readFileSync(
+  new URL("../supabase/migrations/20260705180000_reconcile_search_health_indexes.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const ragQueriesRetentionMigration = readFileSync(
   new URL("../supabase/migrations/20260629060603_rag_queries_retention.sql", import.meta.url),
   "utf8",
@@ -738,6 +742,17 @@ describe("Supabase schema Data API grants", () => {
     expect(registryCatalogPayloadMigration).toContain(
       "add column if not exists catalog_payload jsonb not null default '{}'::jsonb",
     );
+  });
+
+  it("reconciles search_schema_health index drift with canonical creates and live aliases", () => {
+    expect(searchHealthIndexesMigration).toContain("create index if not exists documents_title_trgm_idx");
+    expect(searchHealthIndexesMigration).toContain("create index if not exists document_labels_label_trgm_idx");
+    expect(searchHealthIndexesMigration).toContain("create index if not exists rag_retrieval_logs_miss_idx");
+    expect(searchHealthIndexesMigration).toContain("index_aliases constant jsonb := jsonb_build_object(");
+    expect(searchHealthIndexesMigration).toContain("'documents_title_search_tsv_idx'");
+    expect(searchHealthIndexesMigration).toContain("'document_pages_document_id_page_number_key'");
+    expect(schema).toContain("index_aliases constant jsonb := jsonb_build_object(");
+    expect(schema).toContain("jsonb_array_elements_text(index_aliases -> index_name)");
   });
 });
 

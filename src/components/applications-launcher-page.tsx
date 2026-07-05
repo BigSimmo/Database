@@ -906,12 +906,17 @@ export function ApplicationsLauncherWorkspace({
 }: ApplicationsLauncherWorkspaceProps) {
   const [uncontrolledQuery, setUncontrolledQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
-  const [selectedId, setSelectedId] = useState(() => initialToolId(controlledQuery));
   const isDashboardTools = variant === "dashboard-tools";
   const [detailOpen, setDetailOpen] = useState(!isDashboardTools && showDetailPanel === true);
   const copy = isDashboardTools ? dashboardToolsLauncherCopy : standaloneLauncherCopy;
   const query = controlledQuery ?? uncontrolledQuery;
   const normalizedQuery = query.trim().toLowerCase();
+  const queryDerivedId = useMemo(() => initialToolId(query), [query]);
+  const [selection, setSelection] = useState(() => ({
+    queryKey: (controlledQuery ?? "").trim().toLowerCase(),
+    id: initialToolId(controlledQuery),
+  }));
+  const selectedId = selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
 
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {
@@ -941,7 +946,7 @@ export function ApplicationsLauncherWorkspace({
   }
 
   function openTool(id: string) {
-    setSelectedId(id);
+    setSelection({ queryKey: normalizedQuery, id });
     setDetailOpen(true);
   }
 

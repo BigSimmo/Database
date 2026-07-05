@@ -14,7 +14,11 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag-provider";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
-import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import {
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSubjectApiRateLimit,
+  rateLimitJsonResponse,
+} from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -893,7 +897,7 @@ export async function POST(request: Request) {
       supabase,
       subject: access.rateLimitSubject,
       bucket: "search",
-      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
       return rateLimitJsonResponse(

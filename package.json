@@ -68,6 +68,8 @@
     "reindex:cleanup-staged": "tsx scripts/cleanup-abandoned-reindex-generations.ts",
     "supabase:recovery-status": "tsx scripts/supabase-recovery-status.ts",
     "promote:query-misses": "tsx scripts/promote-query-misses.ts",
+    "promote:public-documents": "tsx scripts/promote-public-documents.ts",
+    "promote:public-documents:batch": "tsx scripts/promote-public-documents-batch.ts",
     "eval:rag": "node scripts/run-eval-safe.mjs scripts/eval-rag.ts",
     "eval:answer-quality": "node scripts/run-eval-safe.mjs scripts/eval-answer-quality.ts",
     "eval:quality": "node scripts/run-eval-safe.mjs scripts/eval-quality.ts",

@@ -51,6 +51,10 @@ function check(id: SetupCheckId, label: string, status: SetupCheckStatus, detail
   return { id, label, status, detail };
 }
 
+function projectSetupCheckStatus(status: ReturnType<typeof checkSupabaseProjectConfig>["status"]) {
+  return status === "ready" || status === "warning" ? "ready" : "needs_setup";
+}
+
 async function readSupabaseAvailability(supabase: AdminClient | null) {
   if (!requiredSupabaseEnvPresent || !supabaseProjectCanBeQueried || !supabase) return null;
   const now = Date.now();
@@ -296,7 +300,7 @@ async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
       check(
         "project",
         "Clinical KB Database target",
-        supabaseProjectCheck.status === "ready" ? "ready" : "needs_setup",
+        projectSetupCheckStatus(supabaseProjectCheck.status),
         formatSupabaseProjectCheck(supabaseProjectCheck),
       ),
       check(
@@ -353,7 +357,7 @@ async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
     check(
       "project",
       "Clinical KB Database target",
-      supabaseProjectCheck.status === "ready" ? "ready" : "needs_setup",
+      projectSetupCheckStatus(supabaseProjectCheck.status),
       formatSupabaseProjectCheck(supabaseProjectCheck),
     ),
     schema,

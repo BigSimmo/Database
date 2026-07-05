@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import {
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSubjectApiRateLimit,
+  rateLimitJsonResponse,
+} from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { publicAccessContext } from "@/lib/public-api-access";
+import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
 import {
   deriveGovernanceColumns,
@@ -78,6 +82,13 @@ export async function GET(request: Request) {
       });
     }
 
+    if (!shouldResolvePublicCatalogAccess(request)) {
+      return registryResponse({
+        ...publicRegistryPayload(kind, q, limit),
+        publicAccess: true,
+      });
+    }
+
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
 
@@ -85,7 +96,7 @@ export async function GET(request: Request) {
       supabase,
       subject: access.rateLimitSubject,
       bucket: "registry",
-      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Registry requests are rate limited. Try again shortly.", rateLimit);

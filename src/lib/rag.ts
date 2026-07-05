@@ -1456,6 +1456,7 @@ export function retrievalPlanCacheQuery(
     `mode:${modeKey(args)}`,
     `topK:${args.topK ?? 8}`,
     `min:${args.minSimilarity ?? 0.15}`,
+    `forceEmbedding:${args.forceEmbedding ? "1" : "0"}`,
     `rag:${ragDeepMemoryVersion}`,
     `force:${args.forceEmbedding ? 1 : 0}`,
   ].join("|");
@@ -1554,7 +1555,7 @@ type SharedCacheMissReason =
 function sharedCacheSelector(
   supabase: ReturnType<typeof createAdminClient>,
   kind: SharedCacheKind,
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "forceEmbedding">,
   indexingVersion: string,
   normalizedQuery: string = queryCacheKeyForStorage(normalizedCacheQuery(`${modeKey(args)} ${args.query}`)),
 ) {
@@ -1719,7 +1720,10 @@ async function getSharedCachedSearch(
 }
 
 async function getSharedCachedAnswer(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
+  args: Pick<
+    SearchChunksArgs,
+    "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode" | "forceEmbedding"
+  >,
   startedAt: number,
 ) {
   if (args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return null;
@@ -1752,7 +1756,7 @@ async function getSharedCachedAnswer(
 
 async function replaceSharedCacheRow(
   kind: SharedCacheKind,
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "forceEmbedding">,
   payload: unknown,
   ttlMs: number,
   normalizedQuery: string = queryCacheKeyForStorage(normalizedCacheQuery(`${modeKey(args)} ${args.query}`)),
@@ -1804,7 +1808,10 @@ function setSharedCachedSearch(
 }
 
 function setSharedCachedAnswer(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
+  args: Pick<
+    SearchChunksArgs,
+    "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode" | "forceEmbedding"
+  >,
   answer: RagAnswer,
 ) {
   if (args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return;
@@ -5386,6 +5393,9 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   // When the provider is source-only (offline mode, or auto mode without a usable key) we must
   // never call OpenAI for embeddings; retrieval falls back to the lexical text-fast-path only.
   const sourceOnlyRetrieval = isSourceOnlyMode();
+  if (args.forceEmbedding && sourceOnlyRetrieval) {
+    throw new Error("forceEmbedding requires embedding-capable retrieval; source-only mode cannot exercise vectors.");
+  }
   // A3: shared across every withMemoryBoostedCandidates call in this request so the same
   // owner/query memory cards are fetched at most once per (query, embedding-present, count).
   const memoryCardCache: MemoryCardCache = new Map();
@@ -5463,7 +5473,10 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.shared_cache_miss_reason = sharedCached.reason;
   }
 
-  if (shouldApplyUnsupportedSearchShortCircuit(retrievalQuery, queryAnalysis, ragAliasExpansions)) {
+  if (
+    !args.forceEmbedding &&
+    shouldApplyUnsupportedSearchShortCircuit(retrievalQuery, queryAnalysis, ragAliasExpansions)
+  ) {
     // Item 10 follow-up (RC6): a typo can make an on-topic query ("schizophrenai management") look
     // unsupported and short-circuit before any layer runs. Before giving up, trigram-correct the
     // query against the known clinical-term vocabulary; if it changes, re-run the whole retrieval
@@ -5722,7 +5735,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       telemetry,
     });
     const coverageGate = evaluateEvidenceCoverageGate(args.query, coverageGateResults, queryClassification.queryClass);
-    applyCoverageGateTelemetry(telemetry, coverageGate, coverageGate.accepted);
+    applyCoverageGateTelemetry(telemetry, coverageGate, !args.forceEmbedding && coverageGate.accepted);
     if (!args.forceEmbedding && coverageGate.accepted) {
       telemetry.retrieval_strategy = coverageGate.strategy;
       recordSearchScoreTelemetry(telemetry, coverageGateResults);
@@ -5752,7 +5765,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     } catch (error) {
       // In auto mode a failed embedding call (e.g. quota exhausted) degrades to the lexical
       // results already gathered rather than failing the whole search. "openai" mode rethrows.
-      if (!allowsAutoDegrade()) throw error;
+      if (args.forceEmbedding || !allowsAutoDegrade()) throw error;
       telemetry.embedding_skipped = true;
       telemetry.embedding_skip_reason = sourceOnlyReason(error);
       telemetry.vector_skipped_reason = classifyProviderFailure(error);
@@ -5854,10 +5867,14 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     latencyMs: hybridResult.latencyMs,
     topScore: layerTopScore((hybridData ?? []) as SearchResult[]),
   });
+  const vectorCandidates = mergeSearchResults(
+    mergeSearchResults((hybridData ?? []) as SearchResult[], embeddingFieldCandidates),
+    indexUnitCandidates,
+  );
 
   if (!hybridError) {
     const rerankStartedAt = Date.now();
-    const merged = mergeSearchResults((hybridData ?? []) as SearchResult[], textFastResults);
+    const merged = args.forceEmbedding ? vectorCandidates : mergeSearchResults(vectorCandidates, textFastResults);
     const mergedWithMetadata = await attachDocumentRankingMetadata(supabase, merged, args.ownerId);
     const memoryBoost = await withMemoryBoostedCandidates({
       supabase,
@@ -5918,7 +5935,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       return (data ?? []) as SearchResult[];
     }),
   ).catch((error) => {
-    if (textFastResults.length > 0) return [] as SearchResult[][];
+    if (!args.forceEmbedding && textFastResults.length > 0) return [] as SearchResult[][];
     throw error;
   });
   const fallbackLatencyMs = Date.now() - fallbackRpcStartedAt;
@@ -5930,9 +5947,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   });
 
   const rerankStartedAt = Date.now();
+  const fallbackVectorCandidates = mergeSearchResults(
+    mergeSearchResults(resultSets.flat(), embeddingFieldCandidates),
+    indexUnitCandidates,
+  );
   const mergedWithMetadata = await attachDocumentRankingMetadata(
     supabase,
-    mergeSearchResults(resultSets.flat(), textFastResults),
+    args.forceEmbedding ? fallbackVectorCandidates : mergeSearchResults(fallbackVectorCandidates, textFastResults),
     args.ownerId,
   );
   const memoryBoost = await withMemoryBoostedCandidates({

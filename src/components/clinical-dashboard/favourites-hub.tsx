@@ -22,7 +22,6 @@ import {
   favouriteItems,
   favouriteSets,
   favouriteTabs,
-  favouriteTypeCount,
   type FavouriteItem,
   type FavouriteSet,
   type FavouriteTabId,

@@ -2396,6 +2396,15 @@ declare
     'rag_retrieval_logs_miss_idx',
     'rag_retrieval_logs_strategy_idx'
   ];
+  -- Verified live equivalents: same table/column intent, different migration-era name.
+  index_aliases constant jsonb := jsonb_build_object(
+    'documents_title_trgm_idx', jsonb_build_array('documents_title_search_tsv_idx', 'documents_title_search_idx'),
+    'document_chunks_content_trgm_idx', jsonb_build_array('document_chunks_search_tsv_idx', 'document_chunks_search_idx'),
+    'document_table_facts_owner_document_page_idx', jsonb_build_array('document_table_facts_owner_idx'),
+    'document_pages_document_idx', jsonb_build_array('document_pages_document_id_page_number_key'),
+    'document_sections_document_idx', jsonb_build_array('document_sections_document_id_idx'),
+    'rag_retrieval_logs_owner_created_idx', jsonb_build_array('rag_retrieval_logs_owner_id_idx')
+  );
 begin
   select t.oid, n.nspname
   into vector_type_oid, vector_schema
@@ -2454,6 +2463,19 @@ begin
       where ns.nspname = 'public'
         and c.relname = index_name
         and c.relkind = 'i'
+    )
+    and not (
+      index_aliases ? index_name
+      and exists (
+        select 1
+        from pg_class c
+        join pg_namespace ns on ns.oid = c.relnamespace
+        where ns.nspname = 'public'
+          and c.relkind = 'i'
+          and c.relname in (
+            select jsonb_array_elements_text(index_aliases -> index_name)
+          )
+      )
     ) then
       missing := array_append(missing, index_name);
     end if;
