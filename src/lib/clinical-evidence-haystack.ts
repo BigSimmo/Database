@@ -3,13 +3,7 @@ import type { SearchResult } from "@/lib/types";
 export function clinicalImageEvidenceHaystack(images: SearchResult["images"]) {
   return (images ?? [])
     .map((image) =>
-      [
-        image.tableTextSnippet,
-        image.accessibleTableMarkdown,
-        image.caption,
-        image.tableTitle,
-        image.tableLabel,
-      ]
+      [image.tableTextSnippet, image.accessibleTableMarkdown, image.caption, image.tableTitle, image.tableLabel]
         .filter(Boolean)
         .join(" "),
     )

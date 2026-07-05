@@ -762,9 +762,7 @@ describe("Supabase schema Data API grants", () => {
   it("surfaces stale commit generation RPCs through search_schema_health", () => {
     for (const sql of [schema, searchSchemaHealthM13GuardMigration]) {
       expect(sql).toContain("commit_fn_def := pg_get_functiondef(");
-      expect(sql).toContain(
-        "commit_document_index_generation.preserve_legacy_artifacts_migration",
-      );
+      expect(sql).toContain("commit_document_index_generation.preserve_legacy_artifacts_migration");
       expect(sql).toContain("from public.document_chunks replacement");
     }
   });

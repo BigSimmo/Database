@@ -507,7 +507,12 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     // generation of image objects after the storage paths were enumerated,
     // orphaning them permanently.
     async function loadActiveJobs() {
-      return supabase.from("ingestion_jobs").select("id,status").eq("document_id", id).in("status", ["pending", "processing"]).limit(1);
+      return supabase
+        .from("ingestion_jobs")
+        .select("id,status")
+        .eq("document_id", id)
+        .in("status", ["pending", "processing"])
+        .limit(1);
     }
 
     const { data: activeJobs, error: activeJobsError } = await loadActiveJobs();
@@ -563,7 +568,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { data: lateActiveJobs, error: lateActiveJobsError } = await loadActiveJobs();
     if (lateActiveJobsError) throw new Error(lateActiveJobsError.message);
     if ((lateActiveJobs ?? []).length > 0) {
-      const message = "Document gained pending or processing indexing work during delete. Stop or wait for the worker before deleting.";
+      const message =
+        "Document gained pending or processing indexing work during delete. Stop or wait for the worker before deleting.";
       const ledgerWarning = await updateStorageCleanupJob({
         supabase,
         cleanupJobId,

@@ -1136,7 +1136,10 @@ function fallbackReasonFromRouting(reason?: string | null) {
 
 const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer; indexingVersion: string }>();
 const answerInflight = new Map<string, Promise<RagAnswer>>();
-const searchCache = new Map<string, { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry; indexingVersion: string }>();
+const searchCache = new Map<
+  string,
+  { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry; indexingVersion: string }
+>();
 const ragCacheDependencyVersion = "rag-cache-v12";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
