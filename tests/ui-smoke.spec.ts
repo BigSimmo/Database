@@ -515,12 +515,6 @@ async function expectDomIntegrity(page: Page, options: { mobileNav?: boolean; mo
   }
 }
 
-// The document-scope control lives in the footer composer. It opens a desktop
-// popover or mobile sheet depending on the current viewport.
-function scopeTrigger(page: Page) {
-  return page.locator('[data-testid="scope-trigger"]:visible');
-}
-
 async function expectMinTouchTarget(locator: Locator, minSize = 44) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
