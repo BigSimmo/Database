@@ -97,9 +97,12 @@ async function commandSurfaceOpensAbovePill(page: Page, hintPattern: RegExp) {
     { timeout: 10_000 },
   );
   await input.click();
-  await input.press("ArrowDown");
+  await expect(async () => {
+    await input.press("ArrowDown");
+    await expect(page.getByText(hintPattern)).toBeVisible();
+    await expect(page.getByRole("listbox").first()).toBeVisible();
+  }).toPass({ timeout: 15_000 });
 
-  await expect(page.getByText(hintPattern)).toBeVisible();
   const listbox = page.getByRole("listbox").first();
   await expect(listbox).toBeVisible();
 
@@ -407,6 +410,8 @@ test.describe("Clinical KB applications launcher", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
+    await expect(visibleGlobalSearchInput(page).first()).toBeVisible();
+    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
     await commandSurfaceOpensAbovePill(page, /Searching services/i);
     await expectNoPageHorizontalOverflow(page);
   });

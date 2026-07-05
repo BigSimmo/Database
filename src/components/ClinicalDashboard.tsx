@@ -2156,14 +2156,14 @@ export function ClinicalDashboard({
     prevAuthStatusRef.current = authStatus;
     if (
       (authStatus === "signed_out" || authStatus === "expired") &&
-      (previous === "authenticated" || previous === "loading")
+      previous === "authenticated"
     ) {
       resetAnswerThread();
       setAnswer(null);
       setSources([]);
       latestAnswerTurnRef.current = null;
     }
-  }, [authStatus]);
+  }, [authStatus, resetAnswerThread]);
   const supabaseEnvStatus = setupChecks.find((check) => check.id === "env")?.status;
   const browserAuthUnavailableDemoFallback = !auth.isConfigured && supabaseEnvStatus !== "ready";
   const localNoAuthMode = isLocalNoAuthMode();
