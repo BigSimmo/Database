@@ -436,7 +436,7 @@ export function ServicesNavigatorPage() {
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
   const registry = useRegistryRecords("service");
   const searchableRecords = useMemo(
-    () => (registry.status === "ready" ? registry.records : registry.status === "loading" ? [] : serviceRecords),
+    () => (registry.status === "ready" ? registry.records : serviceRecords),
     [registry.records, registry.status],
   );
   const matches = useMemo(() => {

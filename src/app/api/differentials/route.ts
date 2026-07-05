@@ -81,7 +81,7 @@ export async function GET(request: Request) {
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
       subject: access.rateLimitSubject,
-      bucket: "registry",
+      bucket: "differentials",
       allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
     });
     if (rateLimit.limited) {

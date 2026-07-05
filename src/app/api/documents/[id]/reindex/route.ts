@@ -16,6 +16,7 @@ import {
   isAtomicReindexCandidate,
   isCommittedGenerationMetadata,
 } from "@/lib/reindex-pipeline";
+import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBodyOrDefault } from "@/lib/validation/body";
@@ -174,6 +175,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         images: committedImages,
         summary: enrichment.summary.summary,
       });
+      invalidateRagCachesForDocumentMutation(user.id);
       return NextResponse.json({
         mode,
         enrichment,

@@ -4,7 +4,9 @@ import type { RateLimitSubject } from "@/lib/public-api-access";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 export type ApiRateLimitBucket =
-  "answer" | "search" | "document_summarize" | "document_reindex" | "bulk_reindex" | "registry";
+  "answer" | "search" | "document_summarize" | "document_reindex" | "bulk_reindex" | "registry"
+  | "medications"
+  | "differentials";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -21,6 +23,8 @@ const apiRateLimitDefaults = {
   document_reindex: { limit: 6, windowSeconds: 60 },
   bulk_reindex: { limit: 2, windowSeconds: 60 },
   registry: { limit: 120, windowSeconds: 60 },
+  medications: { limit: 120, windowSeconds: 60 },
+  differentials: { limit: 120, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {

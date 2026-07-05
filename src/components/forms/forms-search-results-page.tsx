@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useMemo } from "react";
 
-import { rankFormRecords, type FormSearchMatch } from "@/lib/forms";
+import { formRecords, rankFormRecords, type FormSearchMatch } from "@/lib/forms";
 import { useRegistryRecords, type RegistryRequestStatus } from "@/lib/use-registry-records";
 import {
   cn,

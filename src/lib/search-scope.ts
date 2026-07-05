@@ -191,7 +191,7 @@ export async function resolveSearchScope(args: {
   const warnings: string[] = [];
   const publicOnly = args.publicOnly ?? !args.ownerId;
 
-  if (activeFilterCount === 0 && !publicOnly && !(args.ownerId && explicitIds.length)) {
+  if (activeFilterCount === 0 && !publicOnly && !explicitIds.length && args.ownerId) {
     return {
       documentIds: explicitIds.length ? explicitIds : undefined,
       filters,
