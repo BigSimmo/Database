@@ -40,15 +40,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import {
-  type CSSProperties,
-  type FormEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type CSSProperties, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
@@ -92,15 +84,8 @@ import {
   type SetupCheck,
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/DocumentManagerPanel";
-import {
-  GuideDialog,
-  GuideTrigger,
-  UtilityDrawer,
-} from "@/components/clinical-dashboard/dashboard-shell";
-import {
-  sanitizeAnswerDisplayText,
-  sanitizeDisplayText,
-} from "@/components/clinical-dashboard/display-text";
+import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import {
   NaturalLanguageAnswer,
   ScopeAndGovernanceNotice,
@@ -188,10 +173,7 @@ import {
   groupSourceGovernanceWarnings,
   type SourceGovernanceWarning,
 } from "@/lib/source-governance";
-import {
-  type SmartDocumentTag,
-  type SmartDocumentTagFacet,
-} from "@/lib/document-tags";
+import { type SmartDocumentTag, type SmartDocumentTagFacet } from "@/lib/document-tags";
 import type {
   ClinicalDocument,
   DocumentMatch,
@@ -209,11 +191,7 @@ import type {
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import {
-  createQuoteFollowUp,
-  type AnswerViewMode,
-  shouldPollForUpdates,
-} from "@/lib/ward-output";
+import { createQuoteFollowUp, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
 
 export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 export const mobileSectionFabMediaQuery =
@@ -2455,7 +2433,6 @@ export function ClinicalDashboard({
     urlDocumentSearchBootstrappedRef.current = true;
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.
-
   }, [canRunSearch, answerThreadBootstrapped]);
 
   useEffect(() => {

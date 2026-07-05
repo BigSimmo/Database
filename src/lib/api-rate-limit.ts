@@ -4,7 +4,12 @@ import type { RateLimitSubject } from "@/lib/public-api-access";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 export type ApiRateLimitBucket =
-  "answer" | "search" | "document_summarize" | "document_reindex" | "bulk_reindex" | "registry"
+  | "answer"
+  | "search"
+  | "document_summarize"
+  | "document_reindex"
+  | "bulk_reindex"
+  | "registry"
   | "medications"
   | "differentials";
 
