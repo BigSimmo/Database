@@ -2396,6 +2396,15 @@ declare
     'rag_retrieval_logs_miss_idx',
     'rag_retrieval_logs_strategy_idx'
   ];
+  -- Verified live equivalents: same table/column intent, different migration-era name.
+  index_aliases constant jsonb := jsonb_build_object(
+    'documents_title_trgm_idx', jsonb_build_array('documents_title_search_tsv_idx', 'documents_title_search_idx'),
+    'document_chunks_content_trgm_idx', jsonb_build_array('document_chunks_search_tsv_idx', 'document_chunks_search_idx'),
+    'document_table_facts_owner_document_page_idx', jsonb_build_array('document_table_facts_owner_idx'),
+    'document_pages_document_idx', jsonb_build_array('document_pages_document_id_page_number_key'),
+    'document_sections_document_idx', jsonb_build_array('document_sections_document_id_idx'),
+    'rag_retrieval_logs_owner_created_idx', jsonb_build_array('rag_retrieval_logs_owner_id_idx')
+  );
 begin
   select t.oid, n.nspname
   into vector_type_oid, vector_schema
@@ -2454,6 +2463,19 @@ begin
       where ns.nspname = 'public'
         and c.relname = index_name
         and c.relkind = 'i'
+    )
+    and not (
+      index_aliases ? index_name
+      and exists (
+        select 1
+        from pg_class c
+        join pg_namespace ns on ns.oid = c.relnamespace
+        where ns.nspname = 'public'
+          and c.relkind = 'i'
+          and c.relname in (
+            select jsonb_array_elements_text(index_aliases -> index_name)
+          )
+      )
     ) then
       missing := array_append(missing, index_name);
     end if;
@@ -2825,6 +2847,73 @@ $$;
 revoke execute on function public.match_document_lookup_chunks_text(text, uuid[], integer, uuid) from public, anon, authenticated;
 grant execute on function public.match_document_lookup_chunks_text(text, uuid[], integer, uuid) to service_role;
 
+create or replace function public.search_document_chunks(
+  p_document_id uuid,
+  p_query text,
+  match_count integer default 20,
+  p_owner_id uuid default null
+)
+returns table (
+  id uuid,
+  page_number integer,
+  chunk_index integer,
+  section_heading text,
+  content text,
+  image_ids uuid[],
+  text_rank real,
+  trigram_score real
+)
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  with normalized as (
+    select
+      websearch_to_tsquery('english', coalesce(p_query, '')) as query_tsv,
+      lower(trim(coalesce(p_query, ''))) as query_text
+  ),
+  tokens as (
+    select distinct token
+    from normalized,
+      lateral regexp_split_to_table(normalized.query_text, '\s+') as token
+    where length(token) >= 3
+  )
+  select
+    c.id,
+    c.page_number,
+    c.chunk_index,
+    c.section_heading,
+    c.content,
+    c.image_ids,
+    ts_rank_cd(c.search_tsv, normalized.query_tsv)::real as text_rank,
+    similarity(lower(coalesce(c.section_heading, '') || ' ' || c.content), normalized.query_text)::real as trigram_score
+  from public.document_chunks c
+  join public.documents d on d.id = c.document_id
+  cross join normalized
+  where c.document_id = p_document_id
+    and d.status = 'indexed'
+    and (
+      (p_owner_id is null and d.owner_id is null)
+      or (p_owner_id is not null and (d.owner_id is null or d.owner_id = p_owner_id))
+    )
+    and (
+      c.search_tsv @@ normalized.query_tsv
+      or lower(coalesce(c.section_heading, '') || ' ' || c.content) % normalized.query_text
+      or lower(coalesce(c.section_heading, '') || ' ' || c.content) like '%' || normalized.query_text || '%'
+      or exists (
+        select 1
+        from tokens t
+        where lower(coalesce(c.section_heading, '') || ' ' || c.content) like '%' || t.token || '%'
+          or lower(coalesce(c.section_heading, '') || ' ' || c.content) % t.token
+      )
+    )
+  order by
+    ts_rank_cd(c.search_tsv, normalized.query_tsv) desc,
+    similarity(lower(coalesce(c.section_heading, '') || ' ' || c.content), normalized.query_text) desc,
+    c.chunk_index asc
+  limit least(greatest(match_count, 1), 80);
+$$;
+
 create or replace function public.get_related_document_metadata(
   document_ids uuid[],
   owner_filter uuid default null
@@ -3053,6 +3142,31 @@ as $$
   from ranked
   order by hybrid_score desc, similarity desc, text_rank desc
   limit match_count;
+$$;
+
+create or replace function public.match_document_embedding_fields_text(
+  query_text text, match_count integer default 16, min_text_rank double precision default 0.0,
+  document_filters uuid[] default null, owner_filter uuid default null
+)
+returns table (
+  id uuid, document_id uuid, source_chunk_id uuid, field_type text, content text, text_rank double precision
+)
+language sql stable set search_path = public, extensions, pg_temp
+as $$
+  with q as (select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq),
+  ranked as (
+    select f.id, f.document_id, f.source_chunk_id, f.field_type, f.content,
+      ts_rank_cd(f.search_tsv, q.tsq)::double precision as text_rank
+    from public.document_embedding_fields f
+    join public.documents d on d.id = f.document_id
+    cross join q
+    where f.source_chunk_id is not null
+      and (document_filters is null or f.document_id = any(document_filters))
+      and (owner_filter is null or d.owner_id = owner_filter)
+      and d.status = 'indexed' and f.search_tsv @@ q.tsq
+  )
+  select * from ranked where text_rank >= min_text_rank
+  order by text_rank desc, id limit match_count;
 $$;
 
 create or replace view public.document_strict_gate_status
@@ -3655,6 +3769,10 @@ grant usage, select on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
 revoke execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) from public, anon, authenticated;
 grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role;
+revoke execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) from public, anon, authenticated;
+grant execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) to service_role;
+revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
+grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;
 revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated;
 grant execute on function public.invoke_indexing_v3_agent(integer) to service_role;
 
@@ -4116,6 +4234,41 @@ comment on index public.documents_indexing_v3_agent_claim_idx is
 
 comment on table public.indexing_v3_agent_jobs is
   'Dedicated worker-state table for the v3 indexing / enrichment agent. Replaces JSONB state in documents.metadata. claim_indexing_v3_agent_jobs uses SKIP LOCKED here; update_indexing_v3_agent_job_status completes/fails a job. See migration 20260702190000 for transition notes.';
+
+create table if not exists public.rag_visual_eval_cases (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete set null,
+  document_id uuid references public.documents(id) on delete set null,
+  case_name text not null, query text not null,
+  expected_unit_types text[] not null default '{}'::text[],
+  expected_terms text[] not null default '{}'::text[],
+  expected_image_type text, active boolean not null default true,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists rag_visual_eval_cases_doc_idx on public.rag_visual_eval_cases(document_id, active);
+create index if not exists rag_visual_eval_cases_owner_id_idx on public.rag_visual_eval_cases(owner_id);
+
+create table if not exists public.rag_visual_eval_runs (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.rag_visual_eval_cases(id) on delete cascade,
+  document_id uuid references public.documents(id) on delete set null,
+  passed boolean not null, top_hit boolean not null, matched_count integer not null default 0,
+  hit_payload jsonb not null default '{}'::jsonb, run_metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists rag_visual_eval_runs_case_id_idx on public.rag_visual_eval_runs(case_id);
+create index if not exists rag_visual_eval_runs_document_id_idx on public.rag_visual_eval_runs(document_id);
+
+alter table public.rag_visual_eval_cases enable row level security;
+alter table public.rag_visual_eval_runs enable row level security;
+drop policy if exists "rag visual eval cases service role all" on public.rag_visual_eval_cases;
+create policy "rag visual eval cases service role all" on public.rag_visual_eval_cases for all to service_role using (true) with check (true);
+drop policy if exists "rag visual eval runs service role all" on public.rag_visual_eval_runs;
+create policy "rag visual eval runs service role all" on public.rag_visual_eval_runs for all to service_role using (true) with check (true);
+grant select, insert, update, delete on table public.rag_visual_eval_cases to service_role;
+grant select, insert, update, delete on table public.rag_visual_eval_runs to service_role;
 
 -- Curated clinical registry backing the Services and Forms modes: structured
 -- records (contacts, eligibility, referral pathways, criteria) for real WA

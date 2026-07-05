@@ -376,14 +376,18 @@ afterEach(() => {
 });
 
 describe("private document API access", () => {
-  it("still requires a valid token even when local no-auth mode is enabled", async () => {
-    const client = createSupabaseMock();
+  it("lists public documents without auth in local no-auth mode", async () => {
+    const documents = [{ id: documentId, owner_id: null, title: "Public guideline" }];
+    const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
     mockRuntime(client, undefined, { localNoAuth: true });
     const { GET } = await import("../src/app/api/documents/route");
 
     const response = await GET(localPortRequest(4298, "/api/documents"));
+    const body = await payload(response);
 
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(200);
+    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 
@@ -398,28 +402,17 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(client.auth.getUser).toHaveBeenCalledTimes(1);
   });
-  it("rejects local no-auth private calls from unmanaged localhost ports before Supabase access", async () => {
+  it("rejects local no-auth upload calls from unmanaged localhost ports before Supabase access", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, undefined, { localNoAuth: true });
-    const { GET } = await import("../src/app/api/documents/route");
+    const { POST } = await import("../src/app/api/upload/route");
+    const formData = new FormData();
+    formData.set("file", new File(["hello"], "guideline.txt", { type: "text/plain" }));
 
-    const response = await GET(localPortRequest(3000, "/api/documents"));
-
-    expect(response.status).toBe(401);
-    expect(client.auth.getUser).not.toHaveBeenCalled();
-    expect(client.from).not.toHaveBeenCalled();
-  });
-
-  it("rejects managed-port private calls with stale localhost referers before Supabase access", async () => {
-    const client = createSupabaseMock();
-    mockRuntime(client, undefined, { localNoAuth: true });
-    const { GET } = await import("../src/app/api/documents/route");
-
-    const response = await GET(
-      localPortRequest(4298, "/api/documents", {
-        headers: {
-          referer: "http://localhost:3000/",
-        },
+    const response = await POST(
+      localPortRequest(3000, "/api/upload", {
+        method: "POST",
+        body: formData,
       }),
     );
 
@@ -428,66 +421,42 @@ describe("private document API access", () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it("resolves local no-auth owner from documents before listing auth users", async () => {
-    const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
-    const client = createSupabaseMock((call) => {
-      if (call.table === "documents" && call.selected === "owner_id") {
-        return ok({ owner_id: userId });
-      }
-      if (call.table === "documents") {
-        return ok(documents);
-      }
-      return ok([]);
-    });
+  it("rejects managed-port upload calls with stale localhost referers before Supabase access", async () => {
+    const client = createSupabaseMock();
     mockRuntime(client, undefined, { localNoAuth: true });
-    const { GET } = await import("../src/app/api/documents/route");
+    const { POST } = await import("../src/app/api/upload/route");
+    const formData = new FormData();
+    formData.set("file", new File(["hello"], "guideline.txt", { type: "text/plain" }));
 
-    const response = await GET(localPortRequest(4298, "/api/documents"));
-    const body = await payload(response);
+    const response = await POST(
+      localPortRequest(4298, "/api/upload", {
+        method: "POST",
+        headers: {
+          referer: "http://localhost:3000/",
+        },
+        body: formData,
+      }),
+    );
 
     expect(response.status).toBe(401);
-    expect(body).toEqual({ error: "Authentication required." });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it("resolves configured local no-auth owner email before document fallback", async () => {
-    const documents = [{ id: documentId, owner_id: userId, title: "Configured owner document" }];
-    const client = createSupabaseMock((call) => {
-      if (call.table === "documents" && call.selected === "owner_id") {
-        return ok({ owner_id: otherUserId });
-      }
-      if (call.table === "documents") {
-        return ok(documents);
-      }
-      return ok([]);
-    });
-    client.auth.admin.listUsers.mockResolvedValueOnce({
-      data: { users: [{ id: userId, email: "clinician@example.test" }], nextPage: 0 },
-      error: null,
-    });
-    mockRuntime(client, undefined, { localNoAuth: true, localOwnerEmail: "clinician@example.test" });
-    const { GET } = await import("../src/app/api/documents/route");
-
-    const response = await GET(localPortRequest(4298, "/api/documents"));
-    const body = await payload(response);
-
-    expect(response.status).toBe(401);
-    expect(body).toEqual({ error: "Authentication required." });
-    expect(client.auth.admin.listUsers).not.toHaveBeenCalled();
-    expect(client.from).not.toHaveBeenCalled();
-  });
-
-  it("rejects unauthenticated document listing", async () => {
-    const client = createSupabaseMock();
+  it("lists public documents for unauthenticated callers", async () => {
+    const documents = [{ id: documentId, owner_id: null, title: "Public guideline", status: "indexed" }];
+    const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/documents/route");
 
-    const response = await GET(request("/api/documents"));
+    const response = await GET(request("/api/documents?includeMeta=false"));
+    const body = await payload(response);
 
-    expect(response.status).toBe(401);
-    expect(await payload(response)).toEqual({ error: "Authentication required." });
-    expect(client.from).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(body.documents).toEqual(documents);
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
+    expect(client.calls[0].filters).not.toContainEqual({ column: "owner_id", value: userId });
   });
 
   it("filters authenticated document listing by owner", async () => {
@@ -594,6 +563,48 @@ describe("private document API access", () => {
     const { GET } = await import("../src/app/api/documents/[id]/signed-url/route");
 
     const response = await GET(authenticatedRequest(`/api/documents/${otherDocumentId}/signed-url`), {
+      params: Promise.resolve({ id: otherDocumentId }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(await payload(response)).toEqual({ error: "Document not found." });
+    expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("allows anonymous signed URLs for public documents", async () => {
+    const client = createSupabaseMock((call) => {
+      if (
+        call.table === "documents" &&
+        call.filters.some((filter) => filter.column === "owner_id" && filter.value === null)
+      ) {
+        return ok({ storage_path: "public/documents/guideline.pdf", file_type: "application/pdf" });
+      }
+      return ok(null);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/signed-url/route");
+
+    const response = await GET(request(`/api/documents/${documentId}/signed-url`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.url).toContain("public/documents/guideline.pdf");
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("rejects anonymous signed URLs for private documents", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.filters.some((filter) => filter.column === "owner_id")) {
+        return ok(null);
+      }
+      return ok(null);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/signed-url/route");
+
+    const response = await GET(request(`/api/documents/${otherDocumentId}/signed-url`), {
       params: Promise.resolve({ id: otherDocumentId }),
     });
 
@@ -2785,6 +2796,41 @@ describe("private document API access", () => {
     expect(client.rpc).not.toHaveBeenCalledWith(
       "consume_api_rate_limit",
       expect.objectContaining({ p_bucket: "search" }),
+    );
+  });
+
+  it("degrades invalid bearer tokens to anonymous search scope", async () => {
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: {
+        search_cache_hit: false,
+        text_fast_path_latency_ms: 0,
+        embedding_skipped: true,
+        embedding_latency_ms: 0,
+        embedding_cache_hit: false,
+        supabase_rpc_latency_ms: 0,
+        rerank_latency_ms: 0,
+        retrieval_strategy: "text_fast_path",
+      },
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const searchRoute = await import("../src/app/api/search/route");
+
+    const response = await searchRoute.POST(
+      request("/api/search", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer expired-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ query: "monitoring" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
     );
   });
 

@@ -108,7 +108,6 @@
     "pdfjs-dist": "^6.1.200",
     "pdfkit": "^0.19.1",
     "postcss": "^8.5.15",
-    "postgres": "3.4.9",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "zod": "^4.4.3"

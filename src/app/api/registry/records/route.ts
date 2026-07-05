@@ -4,7 +4,7 @@ import { z } from "zod";
 import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { publicAccessContext } from "@/lib/public-api-access";
+import { hasPublicApiAuthSignal, publicAccessContext } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
 import {
   deriveGovernanceColumns,
@@ -75,6 +75,13 @@ export async function GET(request: Request) {
       return registryResponse({
         ...publicRegistryPayload(kind, q, limit),
         demoMode: true,
+      });
+    }
+
+    if (!hasPublicApiAuthSignal(request)) {
+      return registryResponse({
+        ...publicRegistryPayload(kind, q, limit),
+        publicAccess: true,
       });
     }
 

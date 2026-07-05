@@ -128,10 +128,10 @@ export async function getOptionalAuthenticatedUser(
   const token = extractSessionAccessToken(request);
   if (token) {
     const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data.user?.id) {
-      throw new AuthenticationError();
+    if (!error && data.user?.id) {
+      return { id: data.user.id };
     }
-    return { id: data.user.id };
+    // Invalid or expired Bearer token: fall through to cookie session, then anonymous.
   }
 
   return getUserFromRequestCookies(request);
