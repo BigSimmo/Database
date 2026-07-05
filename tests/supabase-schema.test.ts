@@ -80,6 +80,18 @@ const registryCatalogPayloadMigration = readFileSync(
   new URL("../supabase/migrations/20260705030000_registry_catalog_payload.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const ragQueriesRetentionMigration = readFileSync(
+  new URL("../supabase/migrations/20260629060603_rag_queries_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ragQueriesRetentionDuplicateMigration = readFileSync(
+  new URL("../supabase/migrations/20260629100000_rag_queries_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ragRetrievalLogsRetentionMigration = readFileSync(
+  new URL("../supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -746,5 +758,30 @@ describe("RC9 — lexical text path must not fabricate a cosine similarity", () 
     expect(schema).toMatch(
       /least\(0\.5, [0-9.]+ \+ \(least\(ranked\.text_rank, 1\) \* [0-9.]+\)\)::double precision as hybrid_score/,
     );
+  });
+});
+
+describe("Supabase Preview replay guards", () => {
+  it("keeps retrieval_synopsis when adding lexical_score to match_document_chunks_text", () => {
+    expect(lexicalScoreMigration).toContain("retrieval_synopsis text");
+    expect(lexicalScoreMigration).toContain("c.retrieval_synopsis");
+    expect(lexicalScoreMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
+  });
+
+  it("drops match_document_chunks_text before phase 7 changes its OUT signature", () => {
+    expect(phase7RetrievalPerformanceMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
+  });
+
+  it("guards pg_cron retention schedules for preview branches without cron.job", () => {
+    for (const sql of [ragQueriesRetentionMigration, ragRetrievalLogsRetentionMigration]) {
+      expect(sql).toContain("to_regnamespace('cron')");
+      expect(sql).not.toMatch(/select cron\.unschedule\(jobid\) from cron\.job/);
+      expect(sql).not.toMatch(/select cron\.schedule\(/);
+    }
+    expect(ragQueriesRetentionDuplicateMigration).toMatch(/select 1;/);
   });
 });
