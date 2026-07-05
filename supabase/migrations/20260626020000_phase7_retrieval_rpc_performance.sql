@@ -132,7 +132,12 @@ $$;
 revoke execute on function public.search_schema_health() from public, anon, authenticated;
 grant execute on function public.search_schema_health() to service_role;
 
--- Avoid dropping match_document_chunks_text here; CREATE OR REPLACE below updates it in place and preserves existing privileges.
+-- match_document_chunks_text gains retrieval_synopsis again in this migration's OUT
+-- signature (20260617000000 kept lexical_score but omitted retrieval_synopsis on
+-- replay). PostgreSQL rejects CREATE OR REPLACE when OUT columns change, so drop
+-- first even though grants are re-applied below.
+
+drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid);
 
 create or replace function public.match_document_chunks_text(
   query_text text,

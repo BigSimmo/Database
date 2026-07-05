@@ -567,6 +567,9 @@ describe("Supabase schema Data API grants", () => {
     expect(phase7RetrievalPerformanceMigration).toContain("limit least(greatest(match_count * 2, 32), 96)");
     expect(phase7RetrievalPerformanceMigration).toContain("and (owner_filter is null or f.owner_id = owner_filter)");
     expect(phase7RetrievalPerformanceMigration).toContain("and (owner_filter is null or u.owner_id = owner_filter)");
+    expect(phase7RetrievalPerformanceMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
     expect(schema).toContain("limit greatest(match_count * 6, 48)"); // chunks hybrid
     expect(schema).toContain("limit greatest(match_count * 3, 48)"); // index units hybrid
     expect(schema).toContain("limit greatest(match_count * 3, 32)"); // embedding fields hybrid
