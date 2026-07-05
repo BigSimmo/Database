@@ -1172,7 +1172,8 @@ export function MasterSearchHeader({
     // Compact search views drop the chip row on phones so the pill can sit
     // flush with the bottom edge; the same actions stay reachable via the
     // integrated "+" menu.
-    const showFooterSearchChips = usesFooterChipLayout && !usesCompactMobileBottomStyle;
+    const showFooterSearchChips =
+      usesFooterChipLayout && !usesCompactMobileBottomStyle && searchMode !== "answer";
     // The visible footer/hero composer chrome is universal; submit semantics still
     // come from the active mode.
     const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;
@@ -1369,6 +1370,19 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
+        {hasScopeFooterChip && !showFooterSearchChips ? (
+          <button
+            type="button"
+            ref={scopeSummaryRef}
+            data-testid="scope-trigger"
+            onClick={openScopePicker}
+            className="sr-only"
+            aria-expanded={usesScopeSheet ? scopeSheetOpen : scopeOpen}
+            aria-label="Open source scope"
+          >
+            {footerScopeLabel}
+          </button>
+        ) : null}
         {showFooterSearchChips && (trustFooterChip || hasScopeFooterChip || secondaryFooterChip) ? (
           <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">
             {trustFooterChip ? (

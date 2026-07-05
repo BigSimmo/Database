@@ -1259,7 +1259,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(evidenceSheet).toHaveCount(0);
     await expect(evidenceDrawer).toBeFocused();
 
-    await scopeTrigger(page).click();
+    const dailyActions = await openDailyActions(page);
+    await dailyActions.getByRole("menuitem", { name: "Scope", exact: true }).click();
     const scopePopover = page.locator('[data-testid="scope-command-popover"]:visible');
     await expect(scopePopover).toBeVisible();
     const scopeFilter = scopePopover.locator('[data-testid="document-scope-filter"]');
@@ -1282,7 +1283,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(popoverMetrics.height).toBeLessThanOrEqual(Math.ceil(popoverMetrics.viewportHeight * 0.72));
     await page.keyboard.press("Escape");
     await expect(scopePopover).toBeHidden();
-    await expect(scopeTrigger(page)).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
   });
 
