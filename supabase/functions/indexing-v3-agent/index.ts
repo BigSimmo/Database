@@ -1882,8 +1882,9 @@ async function updateAgentJobStatus(
   error: string | null = null,
   nextRunAt: string | null = null,
 ): Promise<void> {
-  const rows = await sql<unknown[]>`
-    select public.update_indexing_v3_agent_job_status(
+  const rows = await sql<JobStatusRpcResult[]>`
+    select *
+    from public.update_indexing_v3_agent_job_status(
       ${job.document_id}::uuid,
       ${status}::text,
       ${error}::text,
