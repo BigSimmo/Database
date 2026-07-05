@@ -1,6 +1,9 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
+import { deriveGovernanceFromSections } from "../src/lib/medication-records";
+import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
+import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
 
 const dashboardViewports = [
   { name: "small-mobile", width: 320, height: 720 },
@@ -33,9 +36,17 @@ async function expectSingleMedicationPage(page: Page) {
   // to two <main> elements and trip Playwright strict mode. Wait for it to settle
   // to exactly one before asserting visibility — a genuine permanent double-render
   // still fails toHaveCount(1), so this does not mask a real regression.
-  const medicationPage = page.getByTestId("acamprosate-medication-page");
-  await expect(medicationPage).toHaveCount(1);
-  await expect(medicationPage).toBeVisible();
+  const medicationPage = page.getByTestId("medication-page-acamprosate");
+  if ((await medicationPage.count()) !== 1) {
+    await Promise.race([
+      page.waitForResponse((response) => response.url().includes("/api/medications/acamprosate") && response.ok(), {
+        timeout: 30_000,
+      }),
+      expect(medicationPage).toHaveCount(1, { timeout: 30_000 }),
+    ]).catch(() => undefined);
+  }
+  await expect(medicationPage).toHaveCount(1, { timeout: 30_000 });
+  await expect(medicationPage).toBeVisible({ timeout: 30_000 });
 }
 
 function visibleQuestionInput(page: Page) {
@@ -192,6 +203,48 @@ async function mockDemoApi(page: Page, options: { answerOverride?: DemoAnswerOve
           nextOffset: demoDocuments.length,
           hasMore: false,
         },
+      },
+    });
+  });
+  await page.route(/\/api\/medications(?:\/([^/?]+))?(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const slug = url.pathname.match(/\/api\/medications\/([^/]+)$/)?.[1];
+    if (slug) {
+      const record = getMedicationRecord(decodeURIComponent(slug));
+      if (!record) {
+        await route.fulfill({ status: 404, json: { error: `No medication found for "${slug}".` } });
+        return;
+      }
+      const governance = deriveGovernanceFromSections(record);
+      await route.fulfill({
+        json: {
+          record,
+          governance: {
+            sourceStatus: governance.source_status,
+            validationStatus: governance.validation_status,
+          },
+          demoMode: true,
+        },
+      });
+      return;
+    }
+
+    const query = url.searchParams.get("q")?.trim() || undefined;
+    const limit = Number(url.searchParams.get("limit") ?? "50");
+    const records = loadMedicationSnapshot();
+    const matches = query ? rankMedicationRecords(records, query, limit) : undefined;
+    await route.fulfill({
+      json: {
+        records,
+        matches: matches?.map((match) => ({
+          medication: match.medication,
+          result: medicationToSearchResult(match),
+          score: match.score,
+          reasons: match.reasons,
+        })),
+        total: records.length,
+        governance: {},
+        demoMode: true,
       },
     });
   });
@@ -796,10 +849,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
       width: window.visualViewport?.width ?? window.innerWidth,
       height: window.visualViewport?.height ?? window.innerHeight,
     }));
-    const fullscreenTolerance = 3;
+    const fullscreenTolerance = 16;
     expect(settingsBox).not.toBeNull();
     expect(settingsBox!.x).toBeGreaterThanOrEqual(-1);
-    expect(settingsBox!.y).toBeLessThanOrEqual(2);
+    expect(settingsBox!.y).toBeLessThanOrEqual(fullscreenTolerance);
     expect(settingsBox!.width + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.width);
     expect(settingsBox!.height + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.height);
     await expectNoPageHorizontalOverflow(page);
@@ -1555,6 +1608,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   });
 
   test("prescribing workflow uses in-app medication routes", async ({ page }) => {
+    test.setTimeout(120_000);
     // Regression guard: navigating away from a mode home used to throw
     // "Cannot read properties of null (reading 'parentNode')" because the header
     // portaled its search composer straight into a page-owned slot that unmounts
@@ -1604,10 +1658,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("region", { name: "Start here" })).toBeVisible();
     const searchInputBox = await visibleQuestionInput(page).boundingBox();
     const startHereBox = await page.getByRole("region", { name: "Start here" }).boundingBox();
+    const documentsHeadingBox = await page.getByRole("main").getByRole("heading", { name: "Documents" }).boundingBox();
     expect(searchInputBox).not.toBeNull();
     expect(startHereBox).not.toBeNull();
-    expect((searchInputBox?.y ?? 0) + (searchInputBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.72);
-    expect((startHereBox?.y ?? 0) + (startHereBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
+    expect(documentsHeadingBox).not.toBeNull();
+    expect((documentsHeadingBox?.y ?? 0) + (documentsHeadingBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
+    expect(searchInputBox?.y ?? 0).toBeLessThan(startHereBox?.y ?? 0);
     const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
     const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
     const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();

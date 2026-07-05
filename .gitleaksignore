@@ -4,3 +4,7 @@
 # The current tip no longer matches the rule, but this historical commit is
 # still scanned on every PR run.
 92cd8ac656800a0db504bdf9559bd9b30b52212c:tests/privacy.test.ts:generic-api-key:32
+# False positives in medication indication labels ("key": "...") detected by
+# generic-api-key rule on historical commit content scanned in PR history.
+27121756b10df6d93841ebf48b0f1991e0144a1f:data/medications-snapshot.json:generic-api-key:22253
+27121756b10df6d93841ebf48b0f1991e0144a1f:data/medications-snapshot.json:generic-api-key:47690

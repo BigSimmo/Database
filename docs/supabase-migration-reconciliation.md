@@ -43,6 +43,16 @@ Before applying pending migrations to live:
 2. Run `npm run supabase:recovery-status` and confirm Supabase is healthy.
 3. Apply only through the normal migration workflow; update `supabase/schema.sql` when the migration changes canonical schema shape.
 
+## Supabase Preview / fresh replay rules
+
+GitHub Supabase Preview replays the full migration chain on branch databases. Keep these invariants so preview stays green:
+
+- When a set-returning function gains or loses an OUT column, `drop function ...` before `create or replace` (PostgreSQL SQLSTATE `42P13` otherwise).
+- Do not assume `pg_cron` exists on preview branches; guard `cron.schedule` / `cron.job` access with `to_regnamespace('cron') is not null` inside a `DO` block (SQLSTATE `42P01` otherwise).
+- Duplicate migration stems that already ran on live should be neutralized as documented no-ops rather than re-appplied.
+
+Regression tests for these guards live in `tests/supabase-schema.test.ts` under "Supabase Preview replay guards".
+
 ## Verification Commands
 
 ```powershell

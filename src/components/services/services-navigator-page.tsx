@@ -41,11 +41,14 @@ function text(value: string | null | undefined, fallback = "Confirm locally") {
 }
 
 function chipTone(tone: ServiceStatusChip["tone"] | undefined | null) {
-  if (tone === "danger") return "border-red-200 bg-red-50 text-red-700";
-  if (tone === "info") return "border-sky-200 bg-sky-50 text-sky-700";
-  if (tone === "warning") return "border-orange-200 bg-orange-50 text-orange-700";
-  if (tone === "success") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  return "border-slate-200 bg-slate-50 text-slate-600";
+  if (tone === "danger")
+    return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
+  if (tone === "info") return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
+  if (tone === "warning")
+    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
+  if (tone === "success")
+    return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
+  return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 }
 
 function serviceChipLabel(chip: ServiceStatusChip) {
@@ -79,7 +82,7 @@ function metricCounts(records: ServiceRecord[]) {
 
 function Stepper() {
   return (
-    <div className="hidden rounded-lg border border-slate-200 bg-white p-3 shadow-sm lg:grid lg:grid-cols-4 lg:gap-3">
+    <div className="hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)] lg:grid lg:grid-cols-4 lg:gap-3">
       {[
         ["1", "Search", "Find services"],
         ["2", "Shortlist", "Pick best options"],
@@ -90,16 +93,23 @@ function Stepper() {
           <span
             className={cn(
               "grid h-9 w-9 place-items-center rounded-full border text-sm font-bold",
-              index === 0 ? "border-[#007a78] bg-[#007a78] text-white" : "border-slate-300 bg-white text-slate-500",
+              index === 0
+                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-[color:var(--text-soft)]",
             )}
           >
             {number}
           </span>
           <span className="min-w-0">
-            <span className={cn("block text-sm font-bold", index === 0 ? "text-[#007a78]" : "text-[#061740]")}>
+            <span
+              className={cn(
+                "block text-sm font-bold",
+                index === 0 ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-heading)]",
+              )}
+            >
               {title}
             </span>
-            <span className="block truncate text-xs font-semibold text-slate-500">{body}</span>
+            <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">{body}</span>
           </span>
         </div>
       ))}
@@ -137,15 +147,15 @@ function Metric({
   return (
     <div
       className={cn(
-        "grid min-h-[66px] min-w-0 grid-cols-[1.8rem_minmax(0,1fr)] items-center gap-2 overflow-hidden border-l border-t border-slate-200 px-3 py-2",
+        "grid min-h-[66px] min-w-0 grid-cols-[1.8rem_minmax(0,1fr)] items-center gap-2 overflow-hidden border-l border-t border-[color:var(--border)] px-3 py-2",
         className,
       )}
     >
-      <Icon className="h-5 w-5 text-[#00669a]" aria-hidden />
+      <Icon className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
       <span className="min-w-0">
-        <span className="block text-[11px] font-semibold leading-4 text-slate-500">{label}</span>
-        <span className="block truncate text-sm font-bold leading-5 text-[#061740]">{value}</span>
-        <span className="block truncate text-[11px] font-medium leading-4 text-slate-500">{detail}</span>
+        <span className="block text-2xs font-semibold leading-4 text-[color:var(--text-soft)]">{label}</span>
+        <span className="block truncate text-sm font-bold leading-5 text-[color:var(--text-heading)]">{value}</span>
+        <span className="block truncate text-2xs font-medium leading-4 text-[color:var(--text-soft)]">{detail}</span>
       </span>
     </div>
   );
@@ -169,19 +179,25 @@ function ServiceCard({
     <article
       data-testid={`service-search-result-${service.slug}`}
       className={cn(
-        "rounded-lg border bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.045)]",
-        rank <= 2 ? "border-[#58a7ff] ring-1 ring-[#58a7ff]/35" : "border-slate-200",
+        "rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]",
+        rank <= 2
+          ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent-border)]/35"
+          : "border-[color:var(--border)]",
       )}
     >
       <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-3">
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-[#007a78] text-sm font-bold text-white">
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)]">
           {rank}
         </span>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="min-w-0 text-lg font-bold leading-tight text-[#071844] max-sm:text-base">{service.title}</h3>
+            <h3 className="min-w-0 text-lg font-bold leading-tight text-[color:var(--text-heading)] max-sm:text-base">
+              {service.title}
+            </h3>
             {rank <= 2 ? (
-              <span className="rounded-full bg-[#007a78] px-2.5 py-1 text-[11px] font-bold text-white">Best fit</span>
+              <span className="rounded-full bg-[color:var(--clinical-accent)] px-2.5 py-1 text-2xs font-bold text-[color:var(--clinical-accent-contrast)]">
+                Best fit
+              </span>
             ) : null}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -189,20 +205,26 @@ function ServiceCard({
               <Chip key={`${service.slug}-${chip.label}`} chip={chip} />
             ))}
           </div>
-          <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
+          <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
             {text(service.subtitle ?? service.bestUse, "Open the record for referral details.")}
           </p>
         </div>
         <button
           type="button"
           onClick={() => onToggleSelected(service.slug)}
-          className="grid h-9 w-9 place-items-center rounded-lg text-[#061740] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a78]"
+          className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           aria-label={selected ? `Remove ${service.title} from selected services` : `Save ${service.title}`}
         >
-          <Bookmark className={cn("h-5 w-5", selected && "fill-[#007a78] text-[#007a78]")} aria-hidden />
+          <Bookmark
+            className={cn(
+              "h-5 w-5",
+              selected && "fill-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]",
+            )}
+            aria-hidden
+          />
         </button>
       </div>
-      <div className="mt-3 grid min-w-0 grid-cols-2 overflow-hidden rounded-lg border border-slate-200 bg-white md:grid-cols-4">
+      <div className="mt-3 grid min-w-0 grid-cols-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] md:grid-cols-4">
         <Metric
           icon={Phone}
           label="Route / contact"
@@ -238,7 +260,7 @@ function ServiceCard({
             <span
               key={`${service.slug}-${tag}`}
               className={cn(
-                "rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600",
+                "rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--text-muted)]",
                 tagIndex > 2 ? "max-sm:hidden" : "",
               )}
             >
@@ -250,7 +272,7 @@ function ServiceCard({
           <Link
             href={`/services/${service.slug}`}
             aria-label={`Open ${service.title}`}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-[#061740] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a78]"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
             Open
@@ -258,7 +280,7 @@ function ServiceCard({
           <button
             type="button"
             onClick={() => onToggleSelected(service.slug)}
-            className="inline-flex h-9 min-w-[94px] items-center justify-center gap-1.5 rounded-lg bg-[#007a78] px-3 text-xs font-bold text-white shadow-[0_8px_18px_rgba(0,122,120,0.18)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a78]"
+            className="inline-flex h-9 min-w-[94px] items-center justify-center gap-1.5 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <Check className="h-4 w-4" aria-hidden />
             {selected ? "Selected" : "Select"}
@@ -282,105 +304,120 @@ function RightRail({
 }) {
   const counts = metricCounts(matches);
   const rows: Array<[string, number, LucideIcon, string]> = [
-    ["Meets", counts.meets, CircleCheck, "text-emerald-600"],
-    ["Caution", counts.cautions, CircleAlert, "text-orange-500"],
-    ["Does not meet", counts.rejects, CircleX, "text-red-600"],
-    ["Source verified", counts.verified, CircleCheck, "text-emerald-600"],
-    ["Local confirmation", counts.localConfirmation, CircleAlert, "text-orange-500"],
+    ["Meets", counts.meets, CircleCheck, "text-[color:var(--success)]"],
+    ["Caution", counts.cautions, CircleAlert, "text-[color:var(--warning)]"],
+    ["Does not meet", counts.rejects, CircleX, "text-[color:var(--danger)]"],
+    ["Source verified", counts.verified, CircleCheck, "text-[color:var(--success)]"],
+    ["Local confirmation", counts.localConfirmation, CircleAlert, "text-[color:var(--warning)]"],
   ];
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-lg font-bold text-[#071844]">Referral decision</h3>
-          <button className="text-xs font-bold text-blue-600" type="button" onClick={onClearSelected}>
+          <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
+          <button
+            className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
+            type="button"
+            onClick={onClearSelected}
+          >
             Clear
           </button>
         </div>
-        <p className="mt-3 text-sm font-bold text-[#071844]">Selected services ({selected.length})</p>
+        <p className="mt-3 text-sm font-bold text-[color:var(--text-heading)]">Selected services ({selected.length})</p>
         <div className="mt-3 grid gap-2">
           {selected.map((service, index) => (
             <button
               key={service.slug}
               type="button"
               onClick={() => onToggleSelected(service.slug)}
-              className="grid min-h-16 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-left"
+              className="grid min-h-16 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-[#007a78] text-xs font-bold text-white">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-bold text-[color:var(--clinical-accent-contrast)]">
                 {index + 1}
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-bold text-[#071844]">{service.title}</span>
-                <span className="block truncate text-[11px] font-semibold text-slate-500">
+                <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">
+                  {service.title}
+                </span>
+                <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
                   {text(service.cost, "Cost pending")} - {text(service.source?.status, "Source pending")}
                 </span>
               </span>
-              <X className="h-4 w-4 text-slate-500" aria-hidden />
+              <X className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
             </button>
           ))}
         </div>
       </section>
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[#071844]">Checklist</h3>
-          <button className="text-xs font-bold text-blue-600" type="button">
+          <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Checklist</h3>
+          <button
+            className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
+            type="button"
+          >
             Edit
           </button>
         </div>
-        <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-600">
+        <div className="mt-4 grid gap-3 text-sm font-semibold text-[color:var(--text-muted)]">
           {rows.map(([label, count, Icon, color]) => (
             <div key={label} className="flex items-center justify-between gap-3">
               <span className="inline-flex items-center gap-2">
                 <Icon className={cn("h-4 w-4", color)} aria-hidden />
                 {label}
               </span>
-              <span className="font-bold text-[#071844]">{count}</span>
+              <span className="font-bold text-[color:var(--text-heading)]">{count}</span>
             </div>
           ))}
         </div>
-        <button className="mt-4 inline-flex min-h-9 items-center gap-2 text-sm font-bold text-blue-600" type="button">
+        <button
+          className="mt-4 inline-flex min-h-9 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
+          type="button"
+        >
           Review details <ArrowRight className="h-4 w-4" aria-hidden />
         </button>
       </section>
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[#071844]">Source confidence</h3>
-          <button className="text-xs font-bold text-blue-600" type="button">
+          <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Source confidence</h3>
+          <button
+            className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
+            type="button"
+          >
             View details
           </button>
         </div>
-        <div className="mt-4 grid h-3 grid-cols-[3fr_3fr_1fr_1fr] overflow-hidden rounded-full bg-slate-100">
-          <span className="bg-emerald-600" />
-          <span className="bg-orange-500" />
-          <span className="bg-red-600" />
-          <span className="bg-slate-300" />
+        <div className="mt-4 grid h-3 grid-cols-[3fr_3fr_1fr_1fr] overflow-hidden rounded-full bg-[color:var(--surface-inset)]">
+          <span className="bg-[color:var(--success)]" />
+          <span className="bg-[color:var(--warning)]" />
+          <span className="bg-[color:var(--danger)]" />
+          <span className="bg-[color:var(--border-strong)]" />
         </div>
-        <div className="mt-3 grid grid-cols-4 text-center text-xs font-semibold text-slate-500">
+        <div className="mt-3 grid grid-cols-4 text-center text-xs font-semibold text-[color:var(--text-soft)]">
           <span>
             High
             <br />
-            <b className="text-[#071844]">{counts.high}</b>
+            <b className="text-[color:var(--text-heading)]">{counts.high}</b>
           </span>
           <span>
             Medium
             <br />
-            <b className="text-[#071844]">{counts.medium}</b>
+            <b className="text-[color:var(--text-heading)]">{counts.medium}</b>
           </span>
           <span>
             Low
             <br />
-            <b className="text-[#071844]">{counts.low}</b>
+            <b className="text-[color:var(--text-heading)]">{counts.low}</b>
           </span>
           <span>
             Unknown
             <br />
-            <b className="text-[#071844]">{counts.unknown}</b>
+            <b className="text-[color:var(--text-heading)]">{counts.unknown}</b>
           </span>
         </div>
       </section>
       <button
-        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#007a78] text-sm font-bold text-white shadow-[0_12px_24px_rgba(0,122,120,0.18)]"
+        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         type="button"
       >
         Compare selected ({selected.length})
@@ -429,13 +466,13 @@ export function ServicesNavigatorPage() {
   return (
     <SearchResultsLayout
       testId="services-navigator"
-      canvasClassName="bg-[#f8fbfd] text-[#061740]"
+      canvasClassName="bg-[color:var(--background)] text-[color:var(--text)]"
       resultsLabel="Referral services"
       header={
         <>
           <div
             id={modeHomeDesktopComposerSlotId}
-            className="mode-home-composer-slot hidden w-full min-w-0 sm:[&:not(:empty)]:block"
+            className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
           />
           <Stepper />
           <div className="xl:hidden">
@@ -464,20 +501,20 @@ export function ServicesNavigatorPage() {
         />
       ) : (
         <>
-          <div className="overflow-hidden rounded-lg border border-[#d7e7f0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-            <div className="flex min-w-0 items-start justify-between gap-2 bg-[linear-gradient(90deg,#f3fbfb_0%,#ffffff_62%)] p-3 sm:gap-3 sm:p-4">
+          <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]">
+            <div className="flex min-w-0 items-start justify-between gap-2 bg-[color:var(--surface-chrome)] p-3 sm:gap-3 sm:p-4">
               <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 sm:grid-cols-[3.25rem_minmax(0,1fr)]">
-                <span className="hidden h-12 w-12 place-items-center rounded-lg border border-[#b8dedb] bg-[#e6f6f4] text-[#007a78] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] sm:grid">
+                <span className="hidden h-12 w-12 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] sm:grid">
                   <span className="text-lg font-extrabold leading-none sm:text-xl">{scopedMatches.length}</span>
                 </span>
                 <div className="min-w-0">
-                  <p className="hidden text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#007a78] sm:block">
+                  <p className="hidden text-3xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] sm:block">
                     Referral matches
                   </p>
-                  <h1 className="text-[1.45rem] font-extrabold leading-tight tracking-tight text-[#071844] sm:mt-0.5 sm:text-3xl">
+                  <h1 className="text-[1.45rem] font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:mt-0.5 sm:text-3xl">
                     {scopedMatches.length} referral {scopedMatches.length === 1 ? "match" : "matches"}
                   </h1>
-                  <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-slate-600 max-sm:max-w-[14rem]">
+                  <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)] max-sm:max-w-[14rem]">
                     <span className="sm:hidden">Best fit for crisis, ATSI-specific phone referral.</span>
                     <span className="hidden sm:inline">
                       Ranked for crisis support, ATSI-specific access, and phone referral.
@@ -502,7 +539,7 @@ export function ServicesNavigatorPage() {
                 </button>
               </div>
             </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-slate-100 px-3 py-2 sm:px-4 sm:py-2.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-[color:var(--border)] px-3 py-2 sm:px-4 sm:py-2.5">
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 overflow-hidden">
                 {["Best fit", "Crisis", "ATSI-specific", "Phone referral", "Free", "WA"].map((chip, index) => (
                   <button
@@ -510,11 +547,11 @@ export function ServicesNavigatorPage() {
                     type="button"
                     onClick={() => applyServiceQuery(index === 0 ? defaultQuery : chip)}
                     className={cn(
-                      "min-h-8 rounded-full border px-3 text-xs font-bold transition hover:-translate-y-px hover:shadow-sm",
+                      "min-h-8 rounded-full border px-3 text-xs font-bold transition hover:-translate-y-px hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                       index > 2 ? "max-sm:hidden" : "",
                       index === 0
-                        ? "border-[#007a78] bg-[#007a78] text-white shadow-[0_5px_12px_rgba(0,122,120,0.16)]"
-                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                        ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[0_5px_12px_rgba(0,122,120,0.16)]"
+                        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
                     )}
                   >
                     {chip}
@@ -524,7 +561,7 @@ export function ServicesNavigatorPage() {
               <button
                 type="button"
                 onClick={() => setLocalQuery({ urlQuery, value: "" })}
-                className="min-h-8 shrink-0 rounded-full px-2 text-xs font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-700 max-sm:hidden"
+                className="min-h-8 shrink-0 rounded-full px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent-hover)] max-sm:hidden"
               >
                 Clear all
               </button>

@@ -132,12 +132,52 @@ export async function consumeSubjectApiRateLimit(args: {
   }
 
   const defaults = anonymousApiRateLimitDefaults[args.bucket] ?? apiRateLimitDefaults[args.bucket];
-  return consumeInMemoryApiRateLimit({
-    ownerId: args.subject.subjectKey,
-    bucket: args.bucket,
-    limit: args.limit ?? defaults.limit,
-    windowSeconds: args.windowSeconds ?? defaults.windowSeconds,
+  const limit = args.limit ?? defaults.limit;
+  const windowSeconds = args.windowSeconds ?? defaults.windowSeconds;
+  const { data, error } = await args.supabase.rpc("consume_api_subject_rate_limit", {
+    p_subject_key: args.subject.subjectKey,
+    p_bucket: args.bucket,
+    p_limit: limit,
+    p_window_seconds: windowSeconds,
   });
+
+  if (error) {
+    if (args.allowInMemoryFallbackOnUnavailable) {
+      console.warn("Durable anonymous API rate limit check unavailable; using local in-memory fallback.", {
+        bucket: args.bucket,
+        code: error.code,
+        message: error.message,
+      });
+      return consumeInMemoryApiRateLimit({
+        ownerId: args.subject.subjectKey,
+        bucket: args.bucket,
+        limit,
+        windowSeconds,
+      });
+    }
+    throw new ApiRateLimitUnavailableError();
+  }
+
+  const row = parseRateLimitRow(data);
+  if (!row || typeof row.limited !== "boolean") {
+    if (args.allowInMemoryFallbackOnUnavailable) {
+      return consumeInMemoryApiRateLimit({
+        ownerId: args.subject.subjectKey,
+        bucket: args.bucket,
+        limit,
+        windowSeconds,
+      });
+    }
+    throw new ApiRateLimitUnavailableError();
+  }
+
+  return {
+    limited: row.limited,
+    limit: Number(row.limit_value ?? limit),
+    remaining: Number(row.remaining ?? 0),
+    retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? windowSeconds)),
+    resetAt: String(row.reset_at ?? new Date(Date.now() + windowSeconds * 1000).toISOString()),
+  };
 }
 
 function consumeInMemoryApiRateLimit({

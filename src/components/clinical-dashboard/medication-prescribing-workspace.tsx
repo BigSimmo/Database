@@ -29,6 +29,7 @@ import { useMemo, useState } from "react";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
+import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
 import { medicationMatchesCommandScopes } from "@/lib/search-command-surface";
 import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
 
@@ -135,50 +136,6 @@ const accessBadges: ClinicalBadgeItem[] = [
   { label: "Campral", tone: "neutral", icon: Pill },
   { label: "PBS streamlined", tone: "success" },
   { label: "Item 8357W", tone: "neutral" },
-];
-
-const medicationResults: MedicationResult[] = [
-  {
-    id: "acamprosate",
-    name: "Acamprosate",
-    indication: "Alcohol abstinence maintenance",
-    match: "Exact renal dose match",
-    dose: "666 mg TID",
-    ceiling: "1,998 mg/day",
-    action: "Check renal function; avoid if serum creatinine >120 micromol/L.",
-    tone: "teal",
-    href: "/medications/acamprosate",
-  },
-  {
-    id: "naltrexone",
-    name: "Naltrexone",
-    indication: "Alcohol use disorder treatment",
-    match: "Good clinical fit",
-    dose: "50 mg daily",
-    ceiling: "50 mg/day",
-    action: "Check opioid use; risk of precipitated withdrawal.",
-    tone: "blue",
-  },
-  {
-    id: "disulfiram",
-    name: "Disulfiram",
-    indication: "Alcohol use disorder treatment",
-    match: "Caution fit",
-    dose: "250 mg daily",
-    ceiling: "500 mg/day",
-    action: "Counsel on alcohol reaction; check liver function.",
-    tone: "slate",
-  },
-  {
-    id: "baclofen",
-    name: "Baclofen",
-    indication: "Alcohol use disorder treatment (off-label)",
-    match: "Lower clinical fit",
-    dose: "5 mg TID",
-    ceiling: "80 mg/day",
-    action: "Specialist use; reduce dose in renal impairment; monitor sedation.",
-    tone: "slate",
-  },
 ];
 
 const detailRows: DetailRow[] = [
@@ -608,13 +565,27 @@ function MedicationResults({
   "query" | "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning"
 >) {
   const command = useSearchCommand();
+  const catalog = useMedicationCatalog(query);
   const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
   const visibleMedicationResults = useMemo(() => {
-    const filtered = medicationResults.filter((result) => resultMatchesFilter(result, activeFilter));
+    const sourceResults =
+      catalog.data?.matches?.map((match) => match.result) ??
+      (catalog.data?.records ?? []).slice(0, 12).map((record) => ({
+        id: record.slug,
+        name: record.name,
+        indication: record.subclass || record.category,
+        match: "Catalogue match",
+        dose: "See reference",
+        ceiling: "See reference",
+        action: "Open full prescribing reference.",
+        tone: "slate" as const,
+        href: `/medications/${record.slug}`,
+      }));
+    const filtered = sourceResults.filter((result) => resultMatchesFilter(result, activeFilter));
     const scopes = command?.commandScopes ?? [];
     if (!scopes.length) return filtered;
     return filtered.filter((result) => medicationMatchesCommandScopes(result, scopes));
-  }, [activeFilter, command?.commandScopes]);
+  }, [activeFilter, catalog.data, command?.commandScopes]);
   const resultCount = visibleMedicationResults.length;
 
   return (
@@ -636,77 +607,94 @@ function MedicationResults({
 
       <FilterStrip activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
-      <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] md:block">
-        <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] px-4 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
-          <span>Medication</span>
-          <span>Dose</span>
-          <span>Ceiling</span>
-          <span>Prescribing action</span>
-          <span className="sr-only">Open</span>
-        </div>
-        <div className="divide-y divide-[color:var(--border)]">
-          {visibleMedicationResults.map((result) => {
-            const selected = result.id === "acamprosate";
-            const rowClassName = cn(
-              "grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
-              selected
-                ? "bg-[color:var(--clinical-accent-soft)]/35 ring-1 ring-inset ring-[color:var(--clinical-accent)]/35"
-                : result.href
-                  ? "hover:bg-[color:var(--surface-subtle)]"
-                  : "cursor-default opacity-80",
-            );
-            const rowContent = (
-              <>
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <ResultToneIcon result={result} />
-                  <span className="min-w-0">
-                    <span className="block truncate text-base-minus font-semibold text-[color:var(--text-heading)]">
-                      {result.name}
-                    </span>
-                    <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
-                      {result.indication}
-                    </span>
-                    <span className="mt-1 flex flex-wrap gap-1">
-                      <ResultMatchBadge result={result} />
-                    </span>
-                  </span>
-                </span>
-                <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{result.dose}</span>
-                <DoseCeiling value={result.ceiling} />
-                <span className="text-sm-minus font-medium leading-[1.4] text-[color:var(--text-heading)]">
-                  {result.action}
-                </span>
-                {result.href ? (
-                  <ChevronRight className="h-4 w-4 justify-self-end text-[color:var(--text-soft)]" aria-hidden="true" />
-                ) : (
-                  <span className="justify-self-end text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                    Soon
-                  </span>
-                )}
-              </>
-            );
+      {catalog.loading ? (
+        <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogue…</p>
+      ) : catalog.error ? (
+        <p className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger)]">
+          {catalog.error}
+        </p>
+      ) : null}
 
-            if (result.href) {
+      {!catalog.loading && !catalog.error ? (
+        <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] md:block">
+          <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] px-4 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+            <span>Medication</span>
+            <span>Dose</span>
+            <span>Ceiling</span>
+            <span>Prescribing action</span>
+            <span className="sr-only">Open</span>
+          </div>
+          <div className="divide-y divide-[color:var(--border)]">
+            {visibleMedicationResults.map((result) => {
+              const selected = result.id === "acamprosate";
+              const rowClassName = cn(
+                "grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
+                selected
+                  ? "bg-[color:var(--clinical-accent-soft)]/35 ring-1 ring-inset ring-[color:var(--clinical-accent)]/35"
+                  : result.href
+                    ? "hover:bg-[color:var(--surface-subtle)]"
+                    : "cursor-default opacity-80",
+              );
+              const rowContent = (
+                <>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <ResultToneIcon result={result} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-base-minus font-semibold text-[color:var(--text-heading)]">
+                        {result.name}
+                      </span>
+                      <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                        {result.indication}
+                      </span>
+                      <span className="mt-1 flex flex-wrap gap-1">
+                        <ResultMatchBadge result={result} />
+                      </span>
+                    </span>
+                  </span>
+                  <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{result.dose}</span>
+                  <DoseCeiling value={result.ceiling} />
+                  <span className="text-sm-minus font-medium leading-[1.4] text-[color:var(--text-heading)]">
+                    {result.action}
+                  </span>
+                  {result.href ? (
+                    <ChevronRight
+                      className="h-4 w-4 justify-self-end text-[color:var(--text-soft)]"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <span className="justify-self-end text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                      Soon
+                    </span>
+                  )}
+                </>
+              );
+
+              if (result.href) {
+                return (
+                  <Link
+                    key={result.id}
+                    href={result.href}
+                    data-testid={`medication-result-${result.id}-desktop`}
+                    className={rowClassName}
+                  >
+                    {rowContent}
+                  </Link>
+                );
+              }
+
               return (
-                <Link
+                <article
                   key={result.id}
-                  href={result.href}
                   data-testid={`medication-result-${result.id}-desktop`}
                   className={rowClassName}
                 >
                   {rowContent}
-                </Link>
+                </article>
               );
-            }
-
-            return (
-              <article key={result.id} data-testid={`medication-result-${result.id}-desktop`} className={rowClassName}>
-                {rowContent}
-              </article>
-            );
-          })}
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="grid gap-2 md:hidden">
         {visibleMedicationResults.map((result) => {

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "playwright/test";
 import type { Route } from "playwright-core";
+import { acuteConfusionPresentationWorkflow } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
 
 const readySetupChecks = [
@@ -86,7 +87,17 @@ async function mockAnswerDashboardApi(page: Page) {
 
 async function commandSurfaceOpensAbovePill(page: Page, hintPattern: RegExp) {
   const input = visibleGlobalSearchInput(page).first();
-  await input.focus();
+  await expect(input).toBeVisible();
+  // Phone footer-dock placement is applied after the header's media-query effect.
+  // Opening the command surface before that settles leaves the dropdown on the
+  // inline placement (hidden below lg) even though the hint row is already visible.
+  await page.waitForFunction(
+    () => Boolean(document.querySelector("form.answer-footer-search-dock, form.answer-footer-search-edge")),
+    undefined,
+    { timeout: 10_000 },
+  );
+  await input.click();
+  await input.press("ArrowDown");
 
   await expect(page.getByText(hintPattern)).toBeVisible();
   const listbox = page.getByRole("listbox").first();
@@ -359,7 +370,7 @@ test.describe("Clinical KB applications launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("mode home routes keep the shared search at the bottom on mobile", async ({ page }) => {
+  test("mode home routes center the shared search on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
 
     for (const home of [
@@ -371,27 +382,31 @@ test.describe("Clinical KB applications launcher", () => {
       await expect(page.getByTestId(home.testId)).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
 
-      const searchBox = await visibleGlobalSearchInput(page).boundingBox();
+      const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
+      await expect(heroSearch).toBeVisible();
+
+      const searchBox = await heroSearch.boundingBox();
       const headingBox = await page.getByRole("heading", { level: 1, name: home.heading }).boundingBox();
       expect(searchBox).not.toBeNull();
       expect(headingBox).not.toBeNull();
-      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.72);
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-      const metrics = await globalSearchComposerMetrics(page);
+      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(820 * 0.72);
+      const metrics = await globalSearchComposerMetrics(page, home.testId);
       expect(metrics).not.toBeNull();
-      expect(metrics?.position).toBe("fixed");
-      expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390);
+      expect(metrics?.position).not.toBe("fixed");
+      expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390 - 16);
       expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
-      // Mode homes keep the footer chip row under the pill on phones.
-      await expect(page.locator(".answer-footer-search-chip:visible").first()).toBeVisible();
+      expect(metrics?.homeCenterX).not.toBeNull();
+      expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
+      await expect(page.locator(".mode-home-action").first()).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     }
   });
 
   test("phone bottom-dock search opens the command surface above the pill", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
-    await gotoLauncher(page, "/services");
-    await expect(page.getByTestId("services-home")).toBeVisible();
+    await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
+    await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     await commandSurfaceOpensAbovePill(page, /Searching services/i);
     await expectNoPageHorizontalOverflow(page);
   });
@@ -449,6 +464,7 @@ test.describe("Clinical KB applications launcher", () => {
         expect(metrics?.formLeft ?? 0).toBeGreaterThanOrEqual((metrics?.homeLeft ?? 0) - 1);
         expect(metrics?.formRight ?? 0).toBeLessThanOrEqual((metrics?.homeRight ?? viewport.width) + 1);
         expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
+        await expect(page.locator(".mode-home-action").first()).toBeVisible();
         await expectNoPageHorizontalOverflow(page);
       }
     }
@@ -775,12 +791,20 @@ test.describe("Clinical KB applications launcher", () => {
 
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
+    const workflow = acuteConfusionPresentationWorkflow;
     await gotoLauncher(page, "/differentials/presentations");
+    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/);
 
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differential-presentation-page")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Acute confusion / encephalopathy" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Selected differentials (6 of 8)" }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
+    await expect(
+      page
+        .getByRole("heading", {
+          name: `Selected differentials (${workflow.selectedCount} of ${workflow.totalCount})`,
+        })
+        .first(),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/differentials");
     await expect(page.getByRole("heading", { name: "Safety snapshot" }).first()).toBeVisible();
     await expect(page.getByText("Service details")).toHaveCount(0);
@@ -805,7 +829,7 @@ test.describe("Clinical KB applications launcher", () => {
 
     await expect(page.getByRole("link", { name: "Back to differentials" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Compare", exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("heading", { level: 1, name: "Acute confusion / encephalopathy" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
     const mobileComparison = page.getByLabel("Mobile differential comparison");
     await expect(mobileComparison.getByText("Delirium", { exact: true }).first()).toBeVisible();
     await expect(mobileComparison.getByText("Substance intoxication", { exact: true }).first()).toBeVisible();

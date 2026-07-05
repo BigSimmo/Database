@@ -25,6 +25,14 @@ export function anonymousApiSubjectKey(request: Request) {
   return `anon:${createHash("sha256").update(source).digest("hex").slice(0, 32)}`;
 }
 
+export function hasPublicApiAuthSignal(request: Request) {
+  const authorization = request.headers.get("authorization") ?? "";
+  if (/^Bearer\s+\S+/i.test(authorization)) return true;
+
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  return cookieHeader.includes("sb-");
+}
+
 export async function publicAccessContext(request: Request, supabase: AdminClient) {
   const user = await getOptionalAuthenticatedUser(request, supabase);
   if (user) {

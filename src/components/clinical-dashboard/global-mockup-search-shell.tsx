@@ -283,7 +283,9 @@ function GlobalMockupSearchShellClient({
     navigateToMode(mode, { query: crossQuery, focus: true, run: true });
   }
 
-  const shouldRenderClinicalDashboard = isHomeRoute || (shouldRenderDashboardSearch && !shouldRenderFormsSearchResults);
+  const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
+  const shouldRenderClinicalDashboard =
+    !isMedicationDetailRoute && (isHomeRoute || (shouldRenderDashboardSearch && !shouldRenderFormsSearchResults));
 
   if (shouldRenderClinicalDashboard) {
     return (

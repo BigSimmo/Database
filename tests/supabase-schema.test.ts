@@ -72,6 +72,26 @@ const clinicalRegistryRecordsMigration = readFileSync(
   new URL("../supabase/migrations/20260703020000_clinical_registry_records.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const medicationRecordsMigration = readFileSync(
+  new URL("../supabase/migrations/20260705010000_medication_records.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const registryCatalogPayloadMigration = readFileSync(
+  new URL("../supabase/migrations/20260705030000_registry_catalog_payload.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ragQueriesRetentionMigration = readFileSync(
+  new URL("../supabase/migrations/20260629060603_rag_queries_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ragQueriesRetentionDuplicateMigration = readFileSync(
+  new URL("../supabase/migrations/20260629100000_rag_queries_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ragRetrievalLogsRetentionMigration = readFileSync(
+  new URL("../supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -559,6 +579,9 @@ describe("Supabase schema Data API grants", () => {
     expect(phase7RetrievalPerformanceMigration).toContain("limit least(greatest(match_count * 2, 32), 96)");
     expect(phase7RetrievalPerformanceMigration).toContain("and (owner_filter is null or f.owner_id = owner_filter)");
     expect(phase7RetrievalPerformanceMigration).toContain("and (owner_filter is null or u.owner_id = owner_filter)");
+    expect(phase7RetrievalPerformanceMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
     expect(schema).toContain("limit greatest(match_count * 6, 48)"); // chunks hybrid
     expect(schema).toContain("limit greatest(match_count * 3, 48)"); // index units hybrid
     expect(schema).toContain("limit greatest(match_count * 3, 32)"); // embedding fields hybrid
@@ -692,6 +715,30 @@ describe("Supabase schema Data API grants", () => {
       expect(sql).toContain('create policy "registry record sources service role all"');
     }
   });
+
+  it("defines the medication records table identically in migration and schema", () => {
+    for (const sql of [schema, medicationRecordsMigration]) {
+      expect(sql).toContain("create table if not exists public.medication_records");
+      expect(sql).toContain("owner_id uuid not null references auth.users(id) on delete cascade");
+      expect(sql).toContain("stats jsonb not null default '[]'::jsonb");
+      expect(sql).toContain("sections jsonb not null default '[]'::jsonb");
+      expect(sql).toContain("quick jsonb not null default '[]'::jsonb");
+      expect(sql).toContain("unique (owner_id, slug)");
+      expect(sql).toContain("create index if not exists medication_records_owner_name_idx");
+      expect(sql).toContain("create trigger medication_records_updated_at");
+      expect(sql).toContain("alter table public.medication_records enable row level security");
+      expect(sql).toContain("revoke all on public.medication_records from anon, authenticated");
+      expect(sql).toContain("grant select, insert, update, delete on table public.medication_records to service_role");
+      expect(sql).toContain('create policy "medication records service role all"');
+    }
+  });
+
+  it("adds catalog_payload to clinical registry records", () => {
+    expect(schema).toContain("catalog_payload jsonb not null default '{}'::jsonb");
+    expect(registryCatalogPayloadMigration).toContain(
+      "add column if not exists catalog_payload jsonb not null default '{}'::jsonb",
+    );
+  });
 });
 
 describe("RC9 — lexical text path must not fabricate a cosine similarity", () => {
@@ -711,5 +758,30 @@ describe("RC9 — lexical text path must not fabricate a cosine similarity", () 
     expect(schema).toMatch(
       /least\(0\.5, [0-9.]+ \+ \(least\(ranked\.text_rank, 1\) \* [0-9.]+\)\)::double precision as hybrid_score/,
     );
+  });
+});
+
+describe("Supabase Preview replay guards", () => {
+  it("keeps retrieval_synopsis when adding lexical_score to match_document_chunks_text", () => {
+    expect(lexicalScoreMigration).toContain("retrieval_synopsis text");
+    expect(lexicalScoreMigration).toContain("c.retrieval_synopsis");
+    expect(lexicalScoreMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
+  });
+
+  it("drops match_document_chunks_text before phase 7 changes its OUT signature", () => {
+    expect(phase7RetrievalPerformanceMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
+  });
+
+  it("guards pg_cron retention schedules for preview branches without cron.job", () => {
+    for (const sql of [ragQueriesRetentionMigration, ragRetrievalLogsRetentionMigration]) {
+      expect(sql).toContain("to_regnamespace('cron')");
+      expect(sql).not.toMatch(/select cron\.unschedule\(jobid\) from cron\.job/);
+      expect(sql).not.toMatch(/select cron\.schedule\(/);
+    }
+    expect(ragQueriesRetentionDuplicateMigration).toMatch(/select 1;/);
   });
 });

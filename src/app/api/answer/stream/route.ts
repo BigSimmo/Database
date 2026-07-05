@@ -98,7 +98,7 @@ function logStreamError(error: unknown) {
   });
 }
 
-function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) {
+function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, publicOnly = false) {
   const encoder = new TextEncoder();
 
   return new Response(
@@ -116,6 +116,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
             : await resolveSearchScope({
                 supabase: createAdminClient(),
                 ownerId,
+                publicOnly,
                 documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
                 filters: body.filters,
               });
@@ -225,6 +226,7 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
+    const publicOnly = !access.authenticated && !isLocalNoAuthMode();
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -234,7 +236,7 @@ export async function POST(request: Request) {
     });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
 
-    return streamAnswer(body, access.ownerId, request.signal);
+    return streamAnswer(body, access.ownerId, request.signal, publicOnly);
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse(error);

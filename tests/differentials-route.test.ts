@@ -1,0 +1,165 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const token = "valid-token";
+
+type QueryError = { message: string };
+type QueryResult = { data: unknown; error: QueryError | null };
+type QueryFilter = { column: string; value: unknown };
+type QueryCall = {
+  table: string;
+  filters: QueryFilter[];
+  inFilters: Array<{ column: string; values: unknown[] }>;
+  maybeSingle: boolean;
+  upsert?: boolean;
+  upsertRows?: unknown[];
+  head?: boolean;
+};
+type QueryResolver = (call: QueryCall) => QueryResult;
+
+function ok(data: unknown): QueryResult {
+  return { data, error: null };
+}
+
+class QueryBuilder implements PromiseLike<QueryResult> {
+  constructor(
+    private readonly call: QueryCall,
+    private readonly resolver: QueryResolver,
+  ) {}
+
+  select(_columns?: string, options?: { count?: string; head?: boolean }) {
+    if (options?.head) this.call.head = true;
+    return this;
+  }
+
+  eq(column: string, value: unknown) {
+    this.call.filters.push({ column, value });
+    return this;
+  }
+
+  in(column: string, values: unknown[]) {
+    this.call.inFilters.push({ column, values });
+    return this;
+  }
+
+  order() {
+    return this;
+  }
+
+  limit() {
+    return this;
+  }
+
+  upsert(rows: unknown) {
+    this.call.upsert = true;
+    this.call.upsertRows = Array.isArray(rows) ? rows : [rows];
+    return this;
+  }
+
+  maybeSingle() {
+    this.call.maybeSingle = true;
+    return Promise.resolve(this.resolver(this.call));
+  }
+
+  then<TResult1 = QueryResult, TResult2 = never>(
+    onfulfilled?: ((value: QueryResult) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ): PromiseLike<TResult1 | TResult2> {
+    return Promise.resolve(this.resolver(this.call)).then(onfulfilled, onrejected);
+  }
+}
+
+function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
+  const from = vi.fn((table: string) => {
+    const call: QueryCall = { table, filters: [], inFilters: [], maybeSingle: false };
+    return new QueryBuilder(call, resolve);
+  });
+  return {
+    from,
+    auth: {
+      getUser: vi.fn(async (receivedToken?: string) =>
+        receivedToken === token
+          ? { data: { user: { id: userId } }, error: null }
+          : { data: { user: null }, error: { message: "Invalid token" } },
+      ),
+    },
+    rpc: vi.fn(async () => ok([{ limited: false, limit_value: 120, remaining: 119, retry_after_seconds: 60 }])),
+  };
+}
+
+function mockRuntime(client: ReturnType<typeof createSupabaseMock>, options: { demoMode?: boolean } = {}) {
+  vi.resetModules();
+  vi.doMock("@/lib/env", () => ({
+    isDemoMode: () => Boolean(options.demoMode),
+    isLocalNoAuthMode: () => Boolean(options.demoMode),
+  }));
+  vi.doMock("@/lib/supabase/admin", () => ({
+    createAdminClient: () => client,
+  }));
+}
+
+function request(path: string) {
+  return new Request(`http://localhost${path}`);
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.resetModules();
+});
+
+describe("differentials API routes", () => {
+  it("serves delirium from snapshot in demo mode", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/differentials/[slug]/route");
+
+    const response = await GET(request("/api/differentials/delirium?kind=diagnosis"), {
+      params: Promise.resolve({ slug: "delirium" }),
+    });
+    const payload = (await response.json()) as { record?: { slug: string }; demoMode?: boolean };
+
+    expect(response.status).toBe(200);
+    expect(payload.demoMode).toBe(true);
+    expect(payload.record?.slug).toBe("delirium");
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("serves acute confusion presentation workflow in demo mode", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/differentials/presentations/[slug]/route");
+
+    const response = await GET(request("/api/differentials/presentations/acute-confusion-encephalopathy"), {
+      params: Promise.resolve({ slug: "acute-confusion-encephalopathy" }),
+    });
+    const payload = (await response.json()) as {
+      workflow?: { id: string };
+      candidates?: Array<{ slug: string; record: { slug: string } }>;
+      demoMode?: boolean;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.demoMode).toBe(true);
+    expect(payload.workflow?.id).toBe("acute-confusion-encephalopathy");
+    expect(payload.candidates?.length).toBeGreaterThan(0);
+    expect(payload.candidates?.every((candidate) => candidate.record.slug === candidate.slug)).toBe(true);
+  });
+
+  it("lists diagnosis records in demo mode", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/differentials/route");
+
+    const response = await GET(request("/api/differentials?kind=diagnosis&limit=10"));
+    const payload = (await response.json()) as {
+      records?: Array<{ slug: string }>;
+      total?: number;
+      demoMode?: boolean;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.demoMode).toBe(true);
+    expect((payload.total ?? 0) > 100).toBe(true);
+    expect(payload.records?.length).toBeGreaterThan(0);
+  });
+});

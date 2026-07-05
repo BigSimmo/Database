@@ -159,8 +159,6 @@ import {
   evidenceMapRowsFromRenderModel,
   evidenceTabCount,
   evidenceTabOrder,
-  formatQuoteCardsForClipboard,
-  primaryVisualTable,
   QuoteCards,
   SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
@@ -255,7 +253,6 @@ import {
 } from "@/lib/document-tags";
 import type {
   ClinicalDocument,
-  BestSourceRecommendation,
   DocumentMatch,
   EvidenceRelevance,
   ImportBatch,
@@ -264,7 +261,6 @@ import type {
   RagAnswer,
   AnswerSection,
   RelatedDocument,
-  EvidenceSummary,
   SearchResult,
   SearchScopeSummary,
   VisualEvidenceCard,
@@ -649,58 +645,6 @@ function VisualEvidenceStrip({
   );
 }
 
-function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
-  const tableMarkdown = item.accessibleTableMarkdown?.trim() ? item.accessibleTableMarkdown : null;
-  const title = compactClinicalTableCaption(item);
-
-  return (
-    <section className={cn(tableCard, "max-w-lg")} aria-label="Inline table preview">
-      <div
-        className={cn(
-          tableCardHeader,
-          "flex min-h-10 items-center justify-between gap-2 bg-[color:var(--surface)] py-2",
-        )}
-      >
-        <span className="hidden min-w-0 truncate sm:inline">{title}</span>
-        <span className="min-w-0 truncate sm:hidden">{title}</span>
-        <div className="flex shrink-0 items-center gap-1 sm:hidden" aria-label="Table actions">
-          <Link
-            href={item.viewer_href}
-            className={cn(chatMicroAction, "min-h-11 min-w-11 justify-center px-0")}
-            aria-label="Open table source"
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Link>
-        </div>
-      </div>
-      <div className="p-1.5 sm:p-2">
-        <AccessibleTable
-          caption={title}
-          markdown={tableMarkdown}
-          rows={item.tableRows}
-          columns={item.tableColumns}
-          compact
-          expandOnMobile
-          previewRows={3}
-          hidePreviewCaption
-          hidePreviewRowCount
-          densePreview
-          clinicalOnly
-          dialogTitle={item.tableTitle || item.caption || title}
-        />
-      </div>
-      <div className={cn(tableMicroActionRow, "hidden sm:flex")}>
-        <Link href={item.viewer_href} className={chatMicroAction}>
-          Expand
-        </Link>
-        <Link href={item.viewer_href} className={chatMicroAction}>
-          Source
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
   Claims: CheckCircle2,
   Quotes: Quote,
@@ -826,174 +770,6 @@ function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
           </div>
         </article>
       ))}
-    </div>
-  );
-}
-
-function MobileEvidenceSheetContent({
-  answer,
-  sources,
-  renderModel,
-  visualEvidence,
-  answerEvidenceMapRows,
-  sourceGovernanceWarnings,
-  demoMode,
-  initialTab,
-  pendingFeedback,
-  copiedQuotes,
-  onCopyQuotes,
-  onSubmitFeedback,
-  onFollowUpQuote,
-  onScopeDocument,
-}: {
-  answer: RagAnswer;
-  sources: SearchResult[];
-  renderModel: AnswerRenderModel;
-  visualEvidence: VisualEvidenceCard[];
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  sourceGovernanceWarnings: SourceGovernanceWarning[];
-  demoMode: boolean;
-  initialTab?: EvidenceTabName | null;
-  pendingFeedback: AnswerFeedbackType | null;
-  copiedQuotes: boolean;
-  onCopyQuotes: () => void;
-  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  const order = evidenceTabOrder(answer, renderModel);
-  const [selectedTab, setSelectedTab] = useState<EvidenceTabName | null>(() => initialTab ?? null);
-  const activeTab = selectedTab && order.includes(selectedTab) ? selectedTab : order[0];
-  const panelIdFor = (tab: EvidenceTabName) => `mobile-evidence-panel-${tab.toLowerCase()}`;
-  const [added, setAdded] = useState(false);
-  const primarySourceHref = renderModel.primarySources[0]?.href;
-  async function copyEvidence() {
-    if (renderModel.quoteCards.length) {
-      onCopyQuotes();
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(renderModel.copyText);
-    } catch {
-      // Clipboard writes can fail in locked-down browsers; keep the panel usable.
-    }
-  }
-
-  return (
-    <div data-testid="mobile-evidence-sheet" className="min-w-0 space-y-4 overflow-hidden">
-      <div className="-mx-1 overflow-x-auto pb-1 polished-scroll" role="presentation">
-        <div
-          data-testid="mobile-evidence-tabs"
-          role="tablist"
-          aria-label="Evidence sections"
-          className="flex min-w-max gap-1 px-1"
-        >
-          {order.map((tab) => {
-            const selected = tab === activeTab;
-            const Icon = evidenceTabIconMap[tab];
-            const count = evidenceTabCount({
-              tab,
-              sources,
-              visualEvidence,
-              answerEvidenceMapRows,
-              renderModel,
-            });
-            return (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                aria-controls={panelIdFor(tab)}
-                id={`mobile-evidence-tab-${tab.toLowerCase()}`}
-                data-testid={`mobile-evidence-tab-${tab.toLowerCase()}`}
-                onClick={() => setSelectedTab(tab)}
-                className={cn(
-                  "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition",
-                  selected
-                    ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {tab}
-                {count ? <span className="nums text-[11px] opacity-80">{count}</span> : null}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="min-h-[220px]">
-        {order.map((tab) => {
-          const selected = tab === activeTab;
-          return (
-            <div
-              key={tab}
-              id={panelIdFor(tab)}
-              role="tabpanel"
-              aria-labelledby={`mobile-evidence-tab-${tab.toLowerCase()}`}
-              data-testid={`mobile-evidence-panel-${tab.toLowerCase()}`}
-              hidden={!selected}
-              className="min-h-[220px]"
-            >
-              {selected ? (
-                <MobileEvidenceTabPanel
-                  tab={tab}
-                  renderModel={renderModel}
-                  visualEvidence={visualEvidence}
-                  answerEvidenceMapRows={answerEvidenceMapRows}
-                  copiedQuotes={copiedQuotes}
-                  onCopyQuotes={onCopyQuotes}
-                  onFollowUpQuote={onFollowUpQuote}
-                  onScopeDocument={onScopeDocument}
-                />
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-      <ScopeAndGovernanceNotice scope={null} warnings={sourceGovernanceWarnings} />
-      <AnswerSafetyNotice
-        demoMode={demoMode}
-        weakEvidence={renderModel.trust !== "high"}
-        retrievalDiagnostics={answer.retrievalDiagnostics}
-      />
-      <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
-      <div className="sticky bottom-0 -mx-3 mt-auto border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-2.5 py-1.5 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
-        <div className="grid grid-cols-3 divide-x divide-[color:var(--border)] bg-[color:var(--surface)]">
-          {primarySourceHref ? (
-            <Link
-              href={primarySourceHref}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Source
-            </Link>
-          ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
-              <ExternalLink className="h-3.5 w-3.5" />
-              Source
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => void copyEvidence()}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
-          >
-            <Copy className="h-3.5 w-3.5" />
-            {copiedQuotes ? "Copied" : "Copy"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setAdded(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {added ? "Added" : "Add"}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -2308,13 +2084,13 @@ export function ClinicalDashboard({
       mainRef.current?.scrollTo({ top: mainRef.current?.scrollHeight ?? 0, behavior: "auto" });
     });
   }, [answer]);
-  function resetAnswerThread() {
+  const resetAnswerThread = useCallback(() => {
     setPriorAnswerTurns([]);
     setLatestAnswerQuery(null);
     setCollapsedTurnIds(new Set());
     setShowEarlierTurns(false);
     clearPersistedAnswerThread();
-  }
+  }, []);
   function toggleAnswerTurnCollapsed(turnId: string) {
     setCollapsedTurnIds((current) => {
       const next = new Set(current);
@@ -2323,7 +2099,7 @@ export function ClinicalDashboard({
       return next;
     });
   }
-  function clearDifferentialModeResultState() {
+  const clearDifferentialModeResultState = useCallback(() => {
     resetAnswerThread();
     setAnswer(null);
     setSources([]);
@@ -2334,7 +2110,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setError(null);
     setAnswerProgress(null);
-  }
+  }, [resetAnswerThread]);
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
   const [sourceGovernanceWarnings, setSourceGovernanceWarnings] = useState<SourceGovernanceWarning[]>([]);
@@ -3074,7 +2850,7 @@ export function ClinicalDashboard({
       if (shouldFocusComposer) focusComposerInput();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [searchParams]);
+  }, [searchParams, clearDifferentialModeResultState]);
 
   useEffect(() => {
     if (urlSearchBootstrappedRef.current) return;
@@ -3094,7 +2870,7 @@ export function ClinicalDashboard({
       if (shouldFocusComposer) focusComposerInput();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [clearDifferentialModeResultState]);
 
   useEffect(() => {
     if (urlDocumentSearchBootstrappedRef.current) return;
@@ -3538,6 +3314,8 @@ export function ClinicalDashboard({
     }
     await executeSearch(query, searchMode, scopeFilters);
   }
+  const askRef = useRef(ask);
+  askRef.current = ask;
 
   useEffect(() => {
     const trimmedQuery = query.trim();
@@ -3557,7 +3335,7 @@ export function ClinicalDashboard({
     const signature = `${searchMode}:${trimmedQuery}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
-    void ask();
+    void askRef.current();
   }, [autoRunSearch, canRunSearch, loading, query, searchMode, answer, answerThreadBootstrapped, latestAnswerQuery]);
 
   function pickRecentQuery(recentQuery: string) {
@@ -4463,13 +4241,17 @@ export function ClinicalDashboard({
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none",
             searchMode === "answer"
-              ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+              ? compactMobileModeHome
+                ? "mb-0"
+                : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? compactMobileBottomSearch
                   ? differentialsCompareAddonActive
                     ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
                     : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
-                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+                  : compactMobileModeHome
+                    ? "mb-0"
+                    : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
                 : "mb-0",
           )}
         >
@@ -4492,7 +4274,7 @@ export function ClinicalDashboard({
                 // sm+/lg values stay identical to the result-view treatment.
                 searchMode === "answer"
                   ? compactMobileModeHome
-                    ? "pb-4 sm:pb-36 lg:pb-40"
+                    ? "pb-4"
                     : "pb-32 sm:pb-36 lg:pb-40"
                   : hasMobileBottomSearch
                     ? compactMobileModeHome

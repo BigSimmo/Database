@@ -16,13 +16,20 @@ comment on table public.rag_retrieval_logs is
    by the pg_cron job "purge-rag-retrieval-logs". Adjust the retention window
    by changing the interval in that cron job definition.';
 
--- Register the nightly purge cron job.
--- cron.schedule is idempotent on the job name; re-running this migration is safe.
-select cron.schedule(
-  'purge-rag-retrieval-logs',
-  '0 3 * * *',   -- 03:00 UTC daily
-  $$
-    delete from public.rag_retrieval_logs
-    where created_at < now() - interval '90 days';
-  $$
-);
+-- Register the nightly purge cron job when pg_cron is available.
+do $cron$
+begin
+  if to_regnamespace('cron') is null then
+    return;
+  end if;
+
+  perform cron.schedule(
+    'purge-rag-retrieval-logs',
+    '0 3 * * *',
+    $job$
+      delete from public.rag_retrieval_logs
+      where created_at < now() - interval '90 days';
+    $job$
+  );
+end
+$cron$;

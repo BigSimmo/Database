@@ -713,7 +713,7 @@ export async function fetchRelatedDocumentMetadata(args: {
 }) {
   const { data: rpcData, error: rpcError } = await args.supabase.rpc("get_related_document_metadata", {
     document_ids: args.documentIds,
-    owner_filter: requireOwnerScope(args.ownerId) ?? null,
+    owner_filter: args.ownerId ? requireOwnerScope(args.ownerId) : null,
   });
 
   if (!rpcError) {

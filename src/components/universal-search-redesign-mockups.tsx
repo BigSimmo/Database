@@ -11,7 +11,6 @@ import {
   Plus,
   Search,
   Send,
-  SlidersHorizontal,
   Table2,
   X,
 } from "lucide-react";

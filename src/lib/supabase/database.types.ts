@@ -123,6 +123,7 @@ export type Database = {
       clinical_registry_records: {
         Row: {
           best_use: string | null
+          catalog_payload: Json
           catalogue_label: string | null
           catchments: string[]
           contacts: Json
@@ -155,6 +156,7 @@ export type Database = {
         }
         Insert: {
           best_use?: string | null
+          catalog_payload?: Json
           catalogue_label?: string | null
           catchments?: string[]
           contacts?: Json
@@ -187,6 +189,7 @@ export type Database = {
         }
         Update: {
           best_use?: string | null
+          catalog_payload?: Json
           catalogue_label?: string | null
           catchments?: string[]
           contacts?: Json
@@ -216,6 +219,66 @@ export type Database = {
           updated_at?: string
           validation_status?: string
           verification?: Json
+        }
+        Relationships: []
+      }
+      differential_records: {
+        Row: {
+          clinical_hinge: string | null
+          created_at: string
+          id: string
+          kind: string
+          last_reviewed_at: string | null
+          owner_id: string
+          payload: Json
+          review_due_at: string | null
+          slug: string
+          source: Json
+          source_status: string
+          status: string
+          subtitle: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          validation_status: string
+        }
+        Insert: {
+          clinical_hinge?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          last_reviewed_at?: string | null
+          owner_id: string
+          payload?: Json
+          review_due_at?: string | null
+          slug: string
+          source?: Json
+          source_status?: string
+          status: string
+          subtitle?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          validation_status?: string
+        }
+        Update: {
+          clinical_hinge?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          last_reviewed_at?: string | null
+          owner_id?: string
+          payload?: Json
+          review_due_at?: string | null
+          slug?: string
+          source?: Json
+          source_status?: string
+          status?: string
+          subtitle?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          validation_status?: string
         }
         Relationships: []
       }
@@ -1332,6 +1395,72 @@ export type Database = {
           },
         ]
       }
+      medication_records: {
+        Row: {
+          accent: string | null
+          category: string | null
+          class: string | null
+          created_at: string
+          id: string
+          last_reviewed_at: string | null
+          name: string
+          owner_id: string
+          quick: Json
+          review_due_at: string | null
+          schedule: string | null
+          sections: Json
+          slug: string
+          source_status: string
+          stats: Json
+          subclass: string | null
+          tag: string | null
+          updated_at: string
+          validation_status: string
+        }
+        Insert: {
+          accent?: string | null
+          category?: string | null
+          class?: string | null
+          created_at?: string
+          id?: string
+          last_reviewed_at?: string | null
+          name: string
+          owner_id: string
+          quick?: Json
+          review_due_at?: string | null
+          schedule?: string | null
+          sections?: Json
+          slug: string
+          source_status?: string
+          stats?: Json
+          subclass?: string | null
+          tag?: string | null
+          updated_at?: string
+          validation_status?: string
+        }
+        Update: {
+          accent?: string | null
+          category?: string | null
+          class?: string | null
+          created_at?: string
+          id?: string
+          last_reviewed_at?: string | null
+          name?: string
+          owner_id?: string
+          quick?: Json
+          review_due_at?: string | null
+          schedule?: string | null
+          sections?: Json
+          slug?: string
+          source_status?: string
+          stats?: Json
+          subclass?: string | null
+          tag?: string | null
+          updated_at?: string
+          validation_status?: string
+        }
+        Relationships: []
+      }
       rag_aliases: {
         Row: {
           alias: string
@@ -1854,6 +1983,21 @@ export type Database = {
     }
     Functions: {
       analyze_rag_tables: { Args: never; Returns: undefined }
+      consume_api_subject_rate_limit: {
+        Args: {
+          p_subject_key: string
+          p_bucket: string
+          p_limit: number
+          p_window_seconds: number
+        }
+        Returns: {
+          limited: boolean
+          limit_value: number
+          remaining: number
+          retry_after_seconds: number
+          reset_at: string
+        }[]
+      }
       chunk_image_metadata: {
         Args: { chunk_image_ids: string[] }
         Returns: Json
@@ -1951,21 +2095,6 @@ export type Database = {
           p_bucket: string
           p_limit: number
           p_owner_id: string
-          p_window_seconds: number
-        }
-        Returns: {
-          limit_value: number
-          limited: boolean
-          remaining: number
-          reset_at: string
-          retry_after_seconds: number
-        }[]
-      }
-      consume_api_subject_rate_limit: {
-        Args: {
-          p_bucket: string
-          p_limit: number
-          p_subject_key: string
           p_window_seconds: number
         }
         Returns: {

@@ -112,7 +112,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { li
       : { data: { user: null }, error: { message: "Invalid token" } },
   );
   const rpc = vi.fn(async (name: string) =>
-    name === "consume_api_rate_limit"
+    name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
       ? {
           data: [
             {
@@ -182,15 +182,27 @@ describe("registry records API", () => {
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 
-  it("rejects unauthenticated list requests outside demo mode", async () => {
+  it("serves curated public records for unauthenticated list requests outside demo mode", async () => {
     const client = createSupabaseMock();
     mockRuntime(client);
     const { GET } = await import("../src/app/api/registry/records/route");
 
-    const response = await GET(request("/api/registry/records?kind=service"));
-
-    expect(response.status).toBe(401);
+    const response = await GET(request("/api/registry/records?kind=service&q=yarn"));
+    const payload = (await response.json()) as {
+      records: Array<{ slug: string }>;
+      matches?: Array<{ record: { slug: string } }>;
+      publicAccess?: boolean;
+    };
+    expect(response.status).toBe(200);
+    expect(payload.publicAccess).toBe(true);
+    expect(payload.records.some((record) => record.slug === "13yarn")).toBe(true);
+    expect(payload.matches?.[0]?.record.slug).toBe("13yarn");
     expect(client.from).not.toHaveBeenCalled();
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_subject_rate_limit",
+      expect.objectContaining({ p_bucket: "registry" }),
+    );
+    expect(client.rpc).not.toHaveBeenCalledWith("consume_api_rate_limit", expect.anything());
   });
 
   it("rejects an invalid kind with a validation error", async () => {
@@ -278,6 +290,32 @@ describe("registry records API", () => {
     }
     const recordCall = client.calls.find((call) => call.table === "clinical_registry_records");
     expect(recordCall?.filters).toContainEqual({ column: "slug", value: "13yarn" });
+  });
+
+  it("serves curated public detail records for unauthenticated requests outside demo mode", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/[slug]/route");
+
+    const response = await GET(request("/api/registry/records/13YARN?kind=service"), {
+      params: Promise.resolve({ slug: "13YARN" }),
+    });
+    const payload = (await response.json()) as {
+      record: { slug: string };
+      linkedDocuments: unknown[];
+      publicAccess?: boolean;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.publicAccess).toBe(true);
+    expect(payload.record.slug).toBe("13yarn");
+    expect(payload.linkedDocuments).toEqual([]);
+    expect(client.from).not.toHaveBeenCalled();
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_subject_rate_limit",
+      expect.objectContaining({ p_bucket: "registry" }),
+    );
+    expect(client.rpc).not.toHaveBeenCalledWith("consume_api_rate_limit", expect.anything());
   });
 
   it("returns 404 for an unknown slug", async () => {

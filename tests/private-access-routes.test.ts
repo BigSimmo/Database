@@ -156,8 +156,37 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
 }
 
-function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
+const defaultQueryResolver: QueryResolver = (call) => {
+  if (call.table === "documents" && call.selected === "id,metadata,import_batch_id") {
+    const explicitIds = call.inFilters.find((filter) => filter.column === "id")?.values as string[] | undefined;
+    const ownerFilter = call.filters.find((filter) => filter.column === "owner_id");
+    const ids = explicitIds?.length ? explicitIds : [documentId];
+    if (!ownerFilter) return ok([]);
+    if (ownerFilter.value === null) {
+      return ok(ids.filter((id) => id === documentId).map((id) => ({ id, metadata: {}, import_batch_id: null })));
+    }
+    if (ownerFilter.value === userId) {
+      return ok(ids.map((id) => ({ id, metadata: {}, import_batch_id: null })));
+    }
+    return ok([]);
+  }
+  return ok([]);
+};
+
+function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
   const calls: QueryCall[] = [];
+  const resolveWithDefaultScope: QueryResolver = (call) => {
+    const customResult = resolve(call);
+    if (
+      call.table === "documents" &&
+      call.selected === "id,metadata,import_batch_id" &&
+      Array.isArray(customResult.data) &&
+      customResult.data.length === 0
+    ) {
+      return defaultQueryResolver(call);
+    }
+    return customResult;
+  };
   const listUsers = vi.fn(
     async (): Promise<{
       data: { users: Array<{ id: string; email?: string | null }>; nextPage: number };
@@ -192,14 +221,33 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
       ? { data: { user: { id: userId } }, error: null }
       : { data: { user: null }, error: { message: "Invalid token" } },
   );
-  const rpc = vi.fn(async (name: string) =>
-    name === "consume_api_rate_limit"
-      ? {
-          data: [rateLimitRow()],
-          error: null,
-        }
-      : ok([]),
-  );
+  const subjectRateLimitCounts = new Map<string, number>();
+  const rpc = vi.fn(async (name: string, args?: Record<string, unknown>) => {
+    if (name === "consume_api_rate_limit") {
+      return {
+        data: [rateLimitRow()],
+        error: null,
+      };
+    }
+    if (name === "consume_api_subject_rate_limit") {
+      const bucket = String(args?.p_bucket ?? "");
+      const limit = Number(args?.p_limit ?? 100);
+      const key = `${String(args?.p_subject_key ?? "unknown")}:${bucket}`;
+      const count = (subjectRateLimitCounts.get(key) ?? 0) + 1;
+      subjectRateLimitCounts.set(key, count);
+      return {
+        data: [
+          rateLimitRow({
+            limited: count > limit,
+            limit_value: limit,
+            remaining: Math.max(limit - count, 0),
+          }),
+        ],
+        error: null,
+      };
+    }
+    return ok([]);
+  });
   const client = {
     auth: { getUser, admin: { listUsers } },
     calls,
@@ -215,7 +263,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
         single: false,
       };
       calls.push(call);
-      return new QueryBuilder(call, resolve);
+      return new QueryBuilder(call, resolveWithDefaultScope);
     }),
     rpc,
     storage: { from: storageFrom },
@@ -2715,13 +2763,13 @@ describe("private document API access", () => {
     const searchResponse = await searchRoute.POST(
       request("/api/search", {
         method: "POST",
-        body: JSON.stringify({ query: "monitoring", documentIds: [otherDocumentId] }),
+        body: JSON.stringify({ query: "monitoring" }),
       }),
     );
     const answerResponse = await answerRoute.POST(
       request("/api/answer", {
         method: "POST",
-        body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
+        body: JSON.stringify({ query: "monitoring" }),
       }),
     );
 
@@ -3115,7 +3163,7 @@ describe("private document API access", () => {
     const response = await POST(
       localPortRequest(4298, "/api/answer/stream", {
         method: "POST",
-        body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
+        body: JSON.stringify({ query: "monitoring", documentId: documentId }),
       }),
     );
     const body = await response.text();
