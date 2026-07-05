@@ -5,6 +5,7 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -346,7 +347,13 @@ export function UniversalSearchCommandSurface({
   const listboxId = useId();
   const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
+  const requiresTypedQueryToOpen = placement === "bottom-dock";
+  const composerFocusedRef = useRef(false);
   const mode = appModeDefinition(modeId);
+
+  function canOpenDropdownNow() {
+    return !requiresTypedQueryToOpen || trimmedQuery.length > 0;
+  }
 
   const showSafetyBanner =
     modeId === "differentials" && differentialRedFlagTerms.some((term) => trimmedQuery.toLowerCase().includes(term));
@@ -548,12 +555,14 @@ export function UniversalSearchCommandSurface({
   function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
+      if (!canOpenDropdownNow()) return;
       onDropdownOpenChange(true);
       setActiveIndex((current) => (current + 1) % Math.max(flatItems.length, 1));
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
+      if (!canOpenDropdownNow()) return;
       onDropdownOpenChange(true);
       setActiveIndex((current) => (current <= 0 ? flatItems.length - 1 : current - 1));
       return;
@@ -584,6 +593,16 @@ export function UniversalSearchCommandSurface({
   useEffect(() => {
     onListboxIdReady?.(listboxId);
   }, [listboxId, onListboxIdReady]);
+
+  useEffect(() => {
+    if (requiresTypedQueryToOpen && composerFocusedRef.current && trimmedQuery.length > 0) {
+      onDropdownOpenChange(true);
+    }
+    if (requiresTypedQueryToOpen && trimmedQuery.length === 0) {
+      onDropdownOpenChange(false);
+      setActiveIndex(-1);
+    }
+  }, [requiresTypedQueryToOpen, trimmedQuery, onDropdownOpenChange]);
 
   useEffect(() => {
     function handleSlashFocus(event: KeyboardEvent) {
@@ -628,8 +647,14 @@ export function UniversalSearchCommandSurface({
             handleComposerKeyDown(event as unknown as ReactKeyboardEvent<HTMLInputElement>);
           }
         }}
-        onFocusCapture={() => onDropdownOpenChange(true)}
+        onFocusCapture={() => {
+          composerFocusedRef.current = true;
+          if (canOpenDropdownNow()) {
+            onDropdownOpenChange(true);
+          }
+        }}
         onBlurCapture={(event) => {
+          composerFocusedRef.current = false;
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
             onDropdownOpenChange(false);
             setActiveIndex(-1);

@@ -97,14 +97,19 @@ async function commandSurfaceOpensAbovePill(page: Page, hintPattern: RegExp) {
     { timeout: 10_000 },
   );
   await input.click();
+  await input.fill("");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await input.press("ArrowDown");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+
+  await input.fill("li");
   await expect(async () => {
-    await input.press("ArrowDown");
-    await expect(page.getByText(hintPattern)).toBeVisible();
     await expect(page.getByRole("listbox").first()).toBeVisible();
   }).toPass({ timeout: 15_000 });
 
   const listbox = page.getByRole("listbox").first();
   await expect(listbox).toBeVisible();
+  await expect(page.getByText(hintPattern).first()).toBeVisible();
 
   const geometry = await page.evaluate(() => {
     const pill = document.querySelector(".answer-footer-search-pill");
