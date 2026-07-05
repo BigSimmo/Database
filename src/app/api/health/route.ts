@@ -1,24 +1,34 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { env, isDemoMode } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Liveness/readiness probe for load balancers and uptime monitors. It reports
-// whether the server is configured to operate for real (Supabase + OpenAI present)
-// and, with ?deep=1, whether Supabase is actually reachable. The payload exposes only
-// boolean configuration presence and operational status — never secret values.
+function allowDeepHealthProbe(request: Request): boolean {
+  const secret = env.HEALTH_DEEP_PROBE_SECRET;
+  if (!secret) return false;
+  const token = request.headers.get("x-health-deep-token");
+  if (!token) return false;
+  const expected = Buffer.from(secret);
+  const received = Buffer.from(token);
+  if (expected.length !== received.length) return false;
+  return timingSafeEqual(expected, received);
+}
+
 export async function GET(request: Request) {
   const deep = new URL(request.url).searchParams.get("deep") === "1";
   const supabaseConfigured = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const checks: Record<string, "ok" | "missing" | "error" | "skipped"> = {
+  const checks: Record<string, "ok" | "missing" | "error" | "skipped" | "unauthorized"> = {
     supabaseConfig: supabaseConfigured ? "ok" : "missing",
     openaiConfig: env.OPENAI_API_KEY ? "ok" : "missing",
   };
 
   if (deep) {
-    if (supabaseConfigured && !isDemoMode()) {
+    if (!allowDeepHealthProbe(request)) {
+      checks.supabase = "unauthorized";
+    } else if (supabaseConfigured && !isDemoMode()) {
       try {
         const [{ createAdminClient }, { probeSupabaseHealth }] = await Promise.all([
           import("@/lib/supabase/admin"),
@@ -34,7 +44,8 @@ export async function GET(request: Request) {
     }
   }
 
-  const ready = !Object.values(checks).includes("missing") && !Object.values(checks).includes("error");
+  const ready =
+    !Object.values(checks).some((value) => value === "missing" || value === "error" || value === "unauthorized");
 
   return NextResponse.json(
     {

@@ -7,6 +7,8 @@ const envSchema = z.object({
   SUPABASE_PROJECT_REF: z.string().optional(),
   SUPABASE_PROJECT_NAME: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_DB_URL: z.string().url().optional(),
+  HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
   NEXT_PUBLIC_LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),

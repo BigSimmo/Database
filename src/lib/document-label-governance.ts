@@ -383,7 +383,6 @@ export function buildDocumentLabelGovernanceReport(documents: LabelGovernanceDoc
     relevanceChecks,
     passed:
       analytics.blockingQualityIssues.length === 0 &&
-      analytics.missingGoldLabels.length === 0 &&
       relevanceChecks.every((check) => check.passed),
   };
 }

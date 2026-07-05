@@ -96,6 +96,10 @@ const ragRetrievalLogsRetentionMigration = readFileSync(
   new URL("../supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const liveDatabaseDriftMigration = readFileSync(
+  new URL("../supabase/migrations/20260705220000_reconcile_live_database_drift.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -742,6 +746,22 @@ describe("Supabase schema Data API grants", () => {
     expect(registryCatalogPayloadMigration).toContain(
       "add column if not exists catalog_payload jsonb not null default '{}'::jsonb",
     );
+  });
+
+  it("reconciles live database drift for embedding-field text RPC and rag visual eval tables", () => {
+    for (const sql of [schema, liveDatabaseDriftMigration]) {
+      expect(sql).toContain("create or replace function public.match_document_embedding_fields_text");
+      expect(sql).toContain("create table if not exists public.rag_visual_eval_cases");
+      expect(sql).toContain("create table if not exists public.rag_visual_eval_runs");
+      expect(sql).toContain('create policy "rag visual eval cases service role all"');
+      expect(sql).toContain('create policy "rag visual eval runs service role all"');
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) from public, anon, authenticated",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) to service_role",
+      );
+    }
   });
 
   it("reconciles search_schema_health index drift with canonical creates and live aliases", () => {
