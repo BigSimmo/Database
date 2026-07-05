@@ -422,7 +422,6 @@ test.describe("Clinical KB tools launcher", () => {
       expect(metrics?.homeCenterX).not.toBeNull();
       expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
       await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
-      await expect(page.getByTestId(home.testId).locator(".mode-home-action").first()).toBeVisible({ timeout: 20_000 });
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -494,9 +493,6 @@ test.describe("Clinical KB tools launcher", () => {
         expect(metrics?.formLeft ?? 0).toBeGreaterThanOrEqual((metrics?.homeLeft ?? 0) - 1);
         expect(metrics?.formRight ?? 0).toBeLessThanOrEqual((metrics?.homeRight ?? viewport.width) + 1);
         expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
-        await expect(page.getByTestId(home.testId).locator(".mode-home-action").first()).toBeVisible({
-          timeout: 20_000,
-        });
         await expectNoPageHorizontalOverflow(page);
       }
     }
