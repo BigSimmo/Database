@@ -10,10 +10,13 @@ async function main() {
     process.exit(1);
   }
 
-  const { data: sentinelCheck, error: sentinelError } = await supabase.rpc("retrieval_owner_matches" as never, {
-    owner_filter: SENTINEL,
-    row_owner_id: null,
-  } as never);
+  const { data: sentinelCheck, error: sentinelError } = await supabase.rpc(
+    "retrieval_owner_matches" as never,
+    {
+      owner_filter: SENTINEL,
+      row_owner_id: null,
+    } as never,
+  );
 
   if (sentinelError) {
     console.error(
