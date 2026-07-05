@@ -1022,16 +1022,6 @@ export function MasterSearchHeader({
     const usesCompactMobileBottomStyle = usesMobileBottomStyle && mobileBottomSearchVariant === "compact";
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
     const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer;
-<<<<<<< Updated upstream
-=======
-    // Compact search views drop the chip row on phones so the pill can sit
-    // flush with the bottom edge; the same actions stay reachable via the
-    // integrated "+" menu.
-    const showFooterSearchChips =
-      usesFooterChipLayout &&
-      !usesCompactMobileBottomStyle &&
-      !(isDesktopHomeComposer && usesPhoneSearchLayout);
->>>>>>> Stashed changes
     // The visible footer/hero composer chrome is universal; submit semantics still
     // come from the active mode.
     const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;

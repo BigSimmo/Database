@@ -64,15 +64,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  async redirects() {
-    return [
-      {
-        source: "/applications",
-        destination: "/?mode=tools",
-        permanent: true,
-      },
-    ];
-  },
 };
 
 export default nextConfig;
