@@ -322,9 +322,10 @@ export function ModeActionPopup({
 
   const closeAndRestoreFocus = useCallback(() => {
     setModeSelectorOpen(false);
+    setIntegratedSurfaceLayout(null);
     onOpenChange(false);
     window.requestAnimationFrame(() => buttonRef.current?.focus());
-  }, [onOpenChange, setModeSelectorOpen]);
+  }, [onOpenChange]);
 
   useDismissableLayer({
     enabled: open,
@@ -332,6 +333,7 @@ export function ModeActionPopup({
     restoreFocusRef: buttonRef,
     onDismiss: () => {
       setModeSelectorOpen(false);
+      setIntegratedSurfaceLayout(null);
       onOpenChange(false);
     },
   });
@@ -437,6 +439,7 @@ export function ModeActionPopup({
 
   function runActionAndClose(actionId: ModeActionId) {
     setModeSelectorOpen(false);
+    setIntegratedSurfaceLayout(null);
     onOpenChange(false);
     onAction(actionId);
   }
