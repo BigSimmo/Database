@@ -3309,18 +3309,10 @@ export function ClinicalDashboard({
       return;
     }
 
-    const drawer = document.getElementById("answer-evidence-drawer") as HTMLDetailsElement | null;
-    if (!drawer) {
-      setActionNotice({
-        tone: "warning",
-        message: "Evidence appears after a source-backed answer is generated.",
-      });
-      return;
-    }
-    drawer.scrollIntoView({ block: "start", behavior: "smooth" });
-    if (!drawer.open) {
-      drawer.querySelector<HTMLElement>("summary")?.click();
-    }
+    setActionNotice({
+      tone: "warning",
+      message: "Evidence appears after a source-backed answer is generated.",
+    });
   }
 
   function navigateMobileSection(href: string, options: { updateHistory?: boolean } = {}) {
