@@ -2062,9 +2062,9 @@ function assertGlobalSearchAllowed(args: SearchChunksArgs) {
   }
 }
 
-function ownerScopeForDocumentFilteredRetrieval(ownerId: string | undefined, documentIds: string[] | undefined) {
+function ownerScopeForDocumentFilteredRetrieval(ownerId: string | undefined, allowGlobalSearch?: boolean) {
   if (ownerId) return requireOwnerScope(ownerId);
-  if (documentIds?.length) return undefined;
+  if (allowGlobalSearch) return undefined;
   return requireOwnerScope(ownerId);
 }
 
@@ -2193,6 +2193,7 @@ async function searchTextChunkCandidates(args: {
   queryVariants: string[];
   ownerId?: string;
   documentIds?: string[];
+  allowGlobalSearch?: boolean;
   matchCount: number;
 }) {
   const runChunkText = async (queryText: string, matchCount: number) => {
@@ -2200,7 +2201,7 @@ async function searchTextChunkCandidates(args: {
       query_text: queryText,
       match_count: matchCount,
       document_filters: args.documentIds ?? undefined,
-      owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds),
+      owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.allowGlobalSearch),
     });
     return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
   };
@@ -2347,13 +2348,14 @@ async function fetchBestDocumentLookupChunks(args: {
   query: string;
   limit: number;
   ownerId?: string;
+  allowGlobalSearch?: boolean;
 }) {
   const terms = documentLookupChunkTerms(args.query);
   const { data: rpcChunks, error: rpcError } = await args.supabase.rpc("match_document_lookup_chunks_text", {
     query_text: args.query,
     document_filters: args.documentIds ?? undefined,
     match_count: Math.max(args.limit * 3, 24),
-    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds),
+    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.allowGlobalSearch),
   });
   if (!rpcError && rpcChunks?.length) {
     const ranked = (rpcChunks as DocumentLookupChunkRow[])
@@ -2800,6 +2802,7 @@ async function searchTableFactCandidates(args: {
   queryVariants?: string[];
   ownerId?: string;
   documentIds?: string[];
+  allowGlobalSearch?: boolean;
   matchCount: number;
 }) {
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
@@ -2812,7 +2815,7 @@ async function searchTableFactCandidates(args: {
         query_text: variant,
         match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
         document_filters: args.documentIds ?? undefined,
-        owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds),
+        owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.allowGlobalSearch),
       });
       if (error || !data?.length) return [] as TableFactRpcRow[];
       return data as TableFactRpcRow[];
@@ -2851,6 +2854,7 @@ async function searchEmbeddingFieldCandidates(args: {
   queryEmbedding: number[];
   ownerId?: string;
   documentIds?: string[];
+  allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
 }) {
@@ -2860,7 +2864,7 @@ async function searchEmbeddingFieldCandidates(args: {
     match_count: args.matchCount,
     min_similarity: 0.12,
     document_filters: args.documentIds ?? undefined,
-    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds),
+    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.allowGlobalSearch),
   });
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -2901,6 +2905,7 @@ async function searchIndexUnitCandidates(args: {
   queryEmbedding: number[];
   ownerId?: string;
   documentIds?: string[];
+  allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
 }) {
@@ -2910,7 +2915,7 @@ async function searchIndexUnitCandidates(args: {
     match_count: args.matchCount,
     min_similarity: 0.1,
     document_filters: args.documentIds ?? undefined,
-    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds),
+    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.allowGlobalSearch),
   });
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -5525,6 +5530,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     queryVariants,
     ownerId: args.ownerId,
     documentIds: documentFilterList,
+    allowGlobalSearch: args.allowGlobalSearch,
     matchCount: textCandidateCount,
   });
   telemetry.text_candidate_count = textData.length;
@@ -5623,6 +5629,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       queryVariants,
       ownerId: args.ownerId,
       documentIds: documentFilterList,
+      allowGlobalSearch: args.allowGlobalSearch,
       matchCount: Math.min(candidateCount, 48),
     });
     const tableFactLatencyMs = Date.now() - tableFactStartedAt;
@@ -5803,6 +5810,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         queryEmbedding: embedding,
         ownerId: args.ownerId,
         documentIds: documentFilterList,
+        allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 48),
         telemetry,
       });
@@ -5816,6 +5824,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         queryEmbedding: embedding,
         ownerId: args.ownerId,
         documentIds: documentFilterList,
+        allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 64),
         telemetry,
       });
@@ -5829,7 +5838,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         match_count: candidateCount,
         min_similarity: minSimilarity,
         document_filters: documentFilterList ?? undefined,
-        owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, documentFilterList),
+        owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.allowGlobalSearch),
       });
       return { data, error, latencyMs: Date.now() - startedAt };
     })(),
@@ -5927,7 +5936,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         document_filter: documentFilter ?? undefined,
         owner_filter: ownerScopeForDocumentFilteredRetrieval(
           args.ownerId,
-          documentFilter ? [documentFilter] : undefined,
+          documentFilter ? undefined : args.allowGlobalSearch,
         ),
       });
 

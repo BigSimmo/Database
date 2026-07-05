@@ -49,7 +49,7 @@ describe("public access deep checks", () => {
         request: new Request("http://localhost/api/documents/bulk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "delete", documentIds: [publicDocumentId] }),
+          body: JSON.stringify({ documentIds: [publicDocumentId], metadata: { sourceStatus: "current" } }),
         }),
       },
       {
@@ -98,6 +98,7 @@ describe("public access deep checks", () => {
         NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
         SUPABASE_SERVICE_ROLE_KEY: "super-secret-service-role-key",
         OPENAI_API_KEY: "sk-super-secret-openai-key",
+        HEALTH_DEEP_PROBE_SECRET: undefined,
       },
       isDemoMode: () => false,
     }));
@@ -110,6 +111,7 @@ describe("public access deep checks", () => {
     expect(serialized).not.toContain("sk-super-secret-openai-key");
     expect(body.checks.supabaseConfig).toBe("ok");
     expect(body.checks.openaiConfig).toBe("ok");
+    expect(body.checks.supabase).toBe("unauthorized");
   });
 });
 
@@ -160,7 +162,6 @@ describe("production anonymous retrieval scope", () => {
     await expect(
       searchChunksWithTelemetry({
         query: "clozapine monitoring",
-        allowGlobalSearch: true,
       }),
     ).rejects.toThrow(/ownerId|tenant/i);
   });
