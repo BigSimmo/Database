@@ -1276,10 +1276,11 @@ summary::-webkit-details-marker {
 
 .answer-suggestion-chip {
   display: inline-flex;
-  max-width: 100%;
+  max-width: min(100%, 18rem);
   min-height: 1.75rem;
   flex-shrink: 0;
   align-items: center;
+  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
@@ -1289,6 +1290,8 @@ summary::-webkit-details-marker {
   font-weight: 600;
   line-height: 1.25rem;
   text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition:
     border-color 160ms ease,
     background-color 160ms ease,
@@ -1307,6 +1310,10 @@ summary::-webkit-details-marker {
 
 .answer-footer-search-edge .answer-suggestion-row {
   padding-inline: 0.25rem;
+}
+
+.answer-footer-search-edge .answer-suggestion-row-composer-followups {
+  margin-bottom: -0.125rem;
 }
 
 @media (min-width: 640px) {

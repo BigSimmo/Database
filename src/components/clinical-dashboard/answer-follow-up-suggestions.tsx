@@ -6,10 +6,14 @@ export function AnswerFollowUpSuggestions({
   suggestions,
   onPick,
   disabled = false,
+  className,
+  testId = "answer-follow-up-suggestions",
 }: {
   suggestions: string[];
   onPick: (suggestion: string) => void;
   disabled?: boolean;
+  className?: string;
+  testId?: string;
 }) {
   return (
     <AnswerSuggestionChips
@@ -17,8 +21,9 @@ export function AnswerFollowUpSuggestions({
       onPick={onPick}
       disabled={disabled}
       label="Try next"
-      testId="answer-follow-up-suggestions"
+      testId={testId}
       layout="wrap"
+      className={className}
     />
   );
 }

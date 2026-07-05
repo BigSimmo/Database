@@ -58,6 +58,14 @@ function visibleAnswerSubmitButton(page: Page) {
   return page.locator('[aria-label="Generate source-backed answer"]:visible').first();
 }
 
+function visibleAnswerFollowUpSuggestions(page: Page) {
+  return page
+    .locator(
+      '[data-testid="answer-follow-up-suggestions"]:visible, [data-testid="answer-composer-follow-up-suggestions"]:visible',
+    )
+    .first();
+}
+
 async function isVisibleWithoutThrow(locator: Locator) {
   return locator.isVisible().catch(() => false);
 }
@@ -683,7 +691,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByTestId("scope-command-popover")).toBeHidden();
       await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
       await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
-      await expect(page.getByRole("button", { name: "Ask a question" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "lithium level timing" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Search documents" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Upload document" })).toBeVisible();
       await expectDomIntegrity(page, { mobileNav: viewport.width <= 768 });
@@ -1242,7 +1250,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
     await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
     await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
-    await expect(page.getByTestId("answer-follow-up-suggestions")).toBeVisible();
+    await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible();
 
     const composer = visibleQuestionInput(page);
     await expect(composer).toHaveValue("");
@@ -1280,9 +1288,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await fillVisibleQuestionInput(page, "lithium dosing");
     await visibleAnswerSubmitButton(page).click();
-    await expect(page.getByTestId("answer-follow-up-suggestions")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible({ timeout: uiAssertionTimeoutMs });
 
-    const suggestion = page.getByTestId("answer-follow-up-suggestions").getByRole("button").first();
+    const suggestion = visibleAnswerFollowUpSuggestions(page).getByRole("button").first();
     const suggestionText = (await suggestion.textContent())?.trim();
     expect(suggestionText).toBeTruthy();
     await suggestion.click();

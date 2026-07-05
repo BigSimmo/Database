@@ -12,7 +12,6 @@ import {
   ChevronRight,
   CircleUserRound,
   Clock3,
-  Copy,
   ExternalLink,
   FileImage,
   FileText,
@@ -29,7 +28,6 @@ import {
   LockKeyhole,
   Palette,
   PanelTop,
-  Plus,
   Quote,
   RefreshCw,
   Search,
@@ -48,7 +46,6 @@ import {
 import {
   type CSSProperties,
   type FormEvent,
-  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -56,12 +53,6 @@ import {
   useState,
 } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
-import {
-  DocumentOrganizationBadges,
-  documentDisplayTitle,
-  documentOrganizationProfile,
-} from "@/components/DocumentOrganizationBadges";
-import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { formatCompactCitationLabel } from "@/lib/citations";
@@ -75,39 +66,25 @@ import {
   clinicalDivider,
   cn,
   EmptyState,
-  fieldControlPlain,
   fieldControlWithIcon,
   fieldIcon,
   floatingControl,
   iconTilePremium,
   metadataPill,
-  panelSubtle,
   primaryControl,
-  SourceProvenance,
-  SourceStatusBadge,
   sourceCard,
-  subtleStatusPill,
-  tableCard,
-  tableCardHeader,
-  tableMicroActionRow,
   textMuted,
-  toneDanger,
-  toneInfo,
-  toneNeutral,
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
-import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
-import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
-import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import {
   type SidebarIdentity,
   deriveSidebarIdentity,
@@ -145,22 +122,10 @@ import {
 } from "@/components/clinical-dashboard/answer-content";
 import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
 import {
-  AnswerFeedbackPanel,
-  AnswerSafetyNotice,
-  AnswerSupportSummaryCard,
-  answerHasCentralTable,
-  answerSupportPriority,
-  ClinicalNotesChecklistPanel,
-  clinicalNotesCount,
-  clinicalNotesDisplayCountForAnswer,
-  compactEvidenceSummary,
   type EvidenceTabName,
   simpleClinicalTableProps,
   evidenceMapRowsFromRenderModel,
-  evidenceTabCount,
-  evidenceTabOrder,
   QuoteCards,
-  SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
@@ -245,11 +210,8 @@ import {
 } from "@/lib/source-governance";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import {
-  tagSearchText,
   type SmartDocumentTag,
   type SmartDocumentTagFacet,
-  type SmartDocumentTagTier,
-  type SmartDocumentTagQualityIssueKind,
 } from "@/lib/document-tags";
 import type {
   ClinicalDocument,
@@ -266,7 +228,6 @@ import type {
   VisualEvidenceCard,
   ClinicalQueryMode,
   DocumentLabel,
-  DocumentLabelType,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -644,14 +605,6 @@ function VisualEvidenceStrip({
     </section>
   );
 }
-
-const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
-  Claims: CheckCircle2,
-  Quotes: Quote,
-  Tables: ListChecks,
-  Images: FileImage,
-  Gaps: AlertCircle,
-};
 
 function supportDotClass(supportLevel: string) {
   const normalized = supportLevel.toLowerCase();
@@ -4217,6 +4170,9 @@ export function ClinicalDashboard({
             void ask();
           }}
           onCrossModeSearch={crossModeSearch}
+          composerFollowUpSuggestions={searchMode === "answer" ? answerFollowUpSuggestions : undefined}
+          onPickComposerFollowUpSuggestion={handlePickFollowUpSuggestion}
+          composerFollowUpSuggestionsDisabled={loading}
           composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
           mobileBottomSearchVariant={compactMobileBottomSearch ? "compact" : "default"}

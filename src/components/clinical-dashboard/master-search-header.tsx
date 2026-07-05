@@ -42,6 +42,7 @@ import {
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import {
   ModeActionPopup,
   modeActionItemsFor,
@@ -195,6 +196,9 @@ export function MasterSearchHeader({
   onCommandScopesChange,
   onPickRecent,
   onCrossModeSearch,
+  composerFollowUpSuggestions,
+  onPickComposerFollowUpSuggestion,
+  composerFollowUpSuggestionsDisabled = false,
   headerVariant = "default",
   mobileSearchPlacement = "default",
   mobileBottomSearchVariant = "default",
@@ -242,6 +246,9 @@ export function MasterSearchHeader({
   onCommandScopesChange?: (scopes: string[]) => void;
   onPickRecent?: (query: string) => void;
   onCrossModeSearch?: (modeId: AppModeId, query: string) => void;
+  composerFollowUpSuggestions?: string[];
+  onPickComposerFollowUpSuggestion?: (suggestion: string) => void;
+  composerFollowUpSuggestionsDisabled?: boolean;
   headerVariant?: "default" | "workflow";
   mobileSearchPlacement?: "default" | "bottom";
   /** "compact" drops the phone footer chip row and hugs the bottom edge —
@@ -1219,6 +1226,18 @@ export function MasterSearchHeader({
           <div
             id={mobileBottomSearchAddonSlotId}
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
+          />
+        ) : null}
+        {usesPhoneFooterDock &&
+        searchMode === "answer" &&
+        composerFollowUpSuggestions?.length &&
+        onPickComposerFollowUpSuggestion ? (
+          <AnswerFollowUpSuggestions
+            suggestions={composerFollowUpSuggestions}
+            onPick={onPickComposerFollowUpSuggestion}
+            disabled={composerFollowUpSuggestionsDisabled}
+            testId="answer-composer-follow-up-suggestions"
+            className="answer-suggestion-row-composer-followups relative z-10 w-full sm:hidden"
           />
         ) : null}
         <UniversalSearchCommandSurface

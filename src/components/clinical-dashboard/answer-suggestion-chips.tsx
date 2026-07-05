@@ -33,18 +33,14 @@ export function AnswerSuggestionChips({
         className,
       )}
     >
-      {label ? (
-        <span className="answer-suggestion-label shrink-0" aria-hidden="true">
-          {label}
-        </span>
-      ) : null}
+      {label ? <span className="answer-suggestion-label shrink-0">{label}</span> : null}
       <div
         className={cn(
           "answer-suggestion-chips",
           layout === "scroll" ? "answer-suggestion-chips-scroll" : "answer-suggestion-chips-wrap",
         )}
-        role="group"
-        aria-label={label ? `${label} suggestions` : "Suggested questions"}
+        role={label ? undefined : "group"}
+        aria-label={label ? undefined : "Suggested questions"}
       >
         {suggestions.map((suggestion) => (
           <button

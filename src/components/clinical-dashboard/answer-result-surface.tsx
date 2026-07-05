@@ -230,11 +230,13 @@ export function StagedAnswerResultSurface({
             ) : null}
 
             {followUpSuggestions?.length && onPickFollowUpSuggestion ? (
-              <AnswerFollowUpSuggestions
-                suggestions={followUpSuggestions}
-                onPick={onPickFollowUpSuggestion}
-                disabled={followUpSuggestionsDisabled}
-              />
+              <div className="hidden sm:block">
+                <AnswerFollowUpSuggestions
+                  suggestions={followUpSuggestions}
+                  onPick={onPickFollowUpSuggestion}
+                  disabled={followUpSuggestionsDisabled}
+                />
+              </div>
             ) : null}
           </div>
 

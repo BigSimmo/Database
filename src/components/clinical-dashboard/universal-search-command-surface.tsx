@@ -6,7 +6,6 @@ import {
   useId,
   useMemo,
   useState,
-  useSyncExternalStore,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
@@ -29,20 +28,6 @@ import {
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-
-function subscribeReducedMotion(onChange: () => void) {
-  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
-
-function usePrefersReducedMotion() {
-  return useSyncExternalStore(
-    subscribeReducedMotion,
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    () => false,
-  );
-}
 
 type DropdownItem = {
   id: string;
@@ -77,7 +62,6 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
 export type CommandSurfacePlacement = "bottom-dock" | "inline";
 
 function ContextHintRow({
-  modeId,
   examples,
   onPickExample,
   placement,
@@ -87,71 +71,16 @@ function ContextHintRow({
   onPickExample: (example: string) => void;
   placement: CommandSurfacePlacement;
 }) {
-  const reducedMotion = usePrefersReducedMotion();
-  const [index, setIndex] = useState(0);
-  const mode = appModeDefinition(modeId);
-  const ModeIcon = appModeIcons[modeId];
-
-  useEffect(() => {
-    if (modeId === "answer") return;
-    const timer = window.setInterval(() => {
-      setIndex((current) => (current + 1) % examples.length);
-    }, 4500);
-    return () => window.clearInterval(timer);
-  }, [examples, modeId]);
-
-  const example = examples[index % examples.length];
   const visibilityClass = placement === "bottom-dock" ? "flex" : "hidden lg:flex";
 
-  if (modeId === "answer") {
-    return (
-      <AnswerSuggestionChips
-        suggestions={examples}
-        onPick={onPickExample}
-        label="Examples"
-        layout="scroll"
-        className={visibilityClass}
-      />
-    );
-  }
-
   return (
-    <div
-      className={cn(
-        "min-h-6 items-center gap-1 px-1 text-xs font-semibold text-[color:var(--text-muted)]",
-        visibilityClass,
-      )}
-    >
-      <span className="inline-flex shrink-0 items-center gap-1">
-        <span className="grid h-4 w-4 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-          <ModeIcon className="h-2.5 w-2.5" />
-        </span>
-        Searching {mode.label.toLowerCase()}
-      </span>
-      <span aria-hidden className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--border-strong)]" />
-      <span className="flex min-w-0 items-center gap-1 overflow-hidden" aria-live="polite">
-        <span className="shrink-0 text-[color:var(--text-soft)]">Try:</span>
-        <button
-          key={example}
-          type="button"
-          onClick={() => onPickExample(example)}
-          className={cn(
-            "truncate rounded-md px-1 py-0.5 text-left font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
-            focusRing,
-            !reducedMotion && "motion-safe:animate-[universal-command-fade_360ms_ease]",
-          )}
-        >
-          {example}
-        </button>
-      </span>
-      <span className="ml-auto hidden shrink-0 items-center gap-1 text-2xs font-bold text-[color:var(--text-soft)] xl:inline-flex">
-        Press
-        <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 py-0.5 font-mono text-2xs shadow-[var(--shadow-inset)]">
-          /
-        </kbd>
-        to search
-      </span>
-    </div>
+    <AnswerSuggestionChips
+      suggestions={examples}
+      onPick={onPickExample}
+      label="Examples"
+      layout="scroll"
+      className={visibilityClass}
+    />
   );
 }
 
