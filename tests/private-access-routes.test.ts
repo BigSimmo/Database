@@ -436,8 +436,10 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(503);
-    expect(await payload(response)).toEqual({ error: "Public uploads are not configured for this workspace." });
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toMatchObject({
+      error: "Use the ensured Clinical KB local URL before calling this API.",
+    });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -459,8 +461,10 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(503);
-    expect(await payload(response)).toEqual({ error: "Public uploads are not configured for this workspace." });
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toMatchObject({
+      error: "Use the ensured Clinical KB local URL before calling this API.",
+    });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });

@@ -4,11 +4,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env, publicUploadsEnabled, publicWorkspaceOwnerId } from "@/lib/env";
 import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
+import { allowRateLimitInMemoryFallbackOnUnavailable, consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
+import { assertSafeLocalProjectRequest, localProjectOriginErrorResponse, UnsafeLocalProjectOriginError } from "@/lib/local-project-guard";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
 import { optionalFormText, parseFormDataFields } from "@/lib/validation/form-data";
@@ -83,6 +85,7 @@ export async function POST(request: Request) {
   let insertedDocumentOwnerId: string | null = null;
 
   try {
+    assertSafeLocalProjectRequest(request);
     supabase = createAdminClient();
     const adminSupabase = supabase;
     const access = await publicAccessContext(request, adminSupabase);
@@ -90,6 +93,20 @@ export async function POST(request: Request) {
     if (!uploadOwnerId) {
       return NextResponse.json({ error: "Public uploads are not configured for this workspace." }, { status: 503 });
     }
+
+    const rateLimit = await consumeSubjectApiRateLimit({
+      supabase: adminSupabase,
+      subject: access.rateLimitSubject,
+      bucket: "document_upload",
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse(
+        "Upload is temporarily rate limited because too many requests were received. Retry shortly.",
+        rateLimit,
+      );
+    }
+
     const formData = await request.formData().catch((cause) => {
       throw new PublicApiError("Invalid upload form data.", 400, {
         code: "invalid_form_data",
@@ -302,6 +319,9 @@ export async function POST(request: Request) {
 
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
+    }
+    if (error instanceof UnsafeLocalProjectOriginError) {
+      return localProjectOriginErrorResponse(error);
     }
 
     return jsonError(error);

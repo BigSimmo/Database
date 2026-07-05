@@ -2357,6 +2357,7 @@ async function fetchBestDocumentLookupChunks(args: {
   query: string;
   limit: number;
   ownerId?: string;
+  allowGlobalSearch?: boolean;
 }) {
   const terms = documentLookupChunkTerms(args.query);
   const { data: rpcChunks, error: rpcError } = await args.supabase.rpc("match_document_lookup_chunks_text", {
@@ -5816,6 +5817,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         queryEmbedding: embedding,
         ownerId: args.ownerId,
         documentIds: documentFilterList,
+        allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 48),
         telemetry,
       });
@@ -5829,6 +5831,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         queryEmbedding: embedding,
         ownerId: args.ownerId,
         documentIds: documentFilterList,
+        allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 64),
         telemetry,
       });
