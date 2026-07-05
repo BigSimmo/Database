@@ -2372,6 +2372,7 @@ declare
     'match_document_memory_cards_hybrid'
   ];
   rpc_name text;
+  commit_fn_def text;
   required_indexes constant text[] := array[
     'documents_title_trgm_idx',
     'document_chunks_content_trgm_idx',
@@ -2501,6 +2502,22 @@ begin
           missing := array_append(missing, rpc_name || '.execution:' || SQLSTATE);
       end;
     end loop;
+  end if;
+
+  -- Audit M13: live DB must include the preserve-legacy-artifacts guard from
+  -- 20260702000000_commit_generation_preserve_legacy_artifacts.sql.
+  commit_fn_def := pg_get_functiondef(
+    to_regprocedure(
+      'public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb)'
+    )
+  );
+  if commit_fn_def is null then
+    missing := array_append(missing, 'commit_document_index_generation.signature');
+  elsif position('from public.document_chunks replacement' in commit_fn_def) = 0 then
+    missing := array_append(
+      missing,
+      'commit_document_index_generation.preserve_legacy_artifacts_migration'
+    );
   end if;
 
   select public.detect_legacy_ivfflat_indexes() into legacy_ivfflat_indexes;

@@ -84,6 +84,10 @@ const searchHealthIndexesMigration = readFileSync(
   new URL("../supabase/migrations/20260705180000_reconcile_search_health_indexes.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const searchSchemaHealthM13GuardMigration = readFileSync(
+  new URL("../supabase/migrations/20260706010000_search_schema_health_m13_guard.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const ragQueriesRetentionMigration = readFileSync(
   new URL("../supabase/migrations/20260629060603_rag_queries_retention.sql", import.meta.url),
   "utf8",
@@ -753,6 +757,16 @@ describe("Supabase schema Data API grants", () => {
     expect(searchHealthIndexesMigration).toContain("'document_pages_document_id_page_number_key'");
     expect(schema).toContain("index_aliases constant jsonb := jsonb_build_object(");
     expect(schema).toContain("jsonb_array_elements_text(index_aliases -> index_name)");
+  });
+
+  it("surfaces stale commit generation RPCs through search_schema_health", () => {
+    for (const sql of [schema, searchSchemaHealthM13GuardMigration]) {
+      expect(sql).toContain("commit_fn_def := pg_get_functiondef(");
+      expect(sql).toContain(
+        "commit_document_index_generation.preserve_legacy_artifacts_migration",
+      );
+      expect(sql).toContain("from public.document_chunks replacement");
+    }
   });
 });
 

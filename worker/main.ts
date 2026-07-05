@@ -438,6 +438,9 @@ async function commitDocumentIndexGeneration(args: {
   pages: ReturnType<typeof buildDocumentPageRows>;
   quality: ReturnType<typeof buildIndexQualityPayload>;
 }) {
+  // Audit L9: p_image_count is searchable-only (insertedImages excludes
+  // audit-retained non-searchable rows). Retrieval filters searchable=true, so
+  // the persisted count intentionally differs from extracted_image_count.
   const { error } = await supabase.rpc("commit_document_index_generation", {
     p_document_id: args.documentId,
     p_index_generation_id: args.indexGenerationId,
