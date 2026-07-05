@@ -7,13 +7,13 @@ language sql
 immutable
 parallel safe
 set search_path = public, pg_temp
-as $
+as $$
   select case
     when owner_filter is null then true
     when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null
     else row_owner_id = owner_filter
   end;
-$;
+$$;
 
 create or replace function public.match_document_chunks(
   query_embedding extensions.vector(1536),
