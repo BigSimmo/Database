@@ -319,7 +319,7 @@ export function MasterSearchHeader({
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
-  const scopeSummaryRef = useRef<HTMLButtonElement | null>(null);
+  const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
   const selectedDocumentIdSet = useMemo(() => new Set(selectedDocumentIds), [selectedDocumentIds]);
   const documentById = useMemo(() => new Map(documents.map((document) => [document.id, document])), [documents]);
@@ -625,12 +625,12 @@ export function MasterSearchHeader({
 
   const closeScope = useCallback((restoreFocus = false) => {
     setScopeOpen(false);
-    if (restoreFocus) scopeSummaryRef.current?.focus();
+    if (restoreFocus) actionMenuTriggerRef.current?.focus();
   }, []);
 
   const closeScopeSheet = useCallback(() => {
     setScopeSheetOpen(false);
-    window.requestAnimationFrame(() => scopeSummaryRef.current?.focus());
+    window.requestAnimationFrame(() => actionMenuTriggerRef.current?.focus());
   }, []);
 
   useEffect(() => {
@@ -729,8 +729,8 @@ export function MasterSearchHeader({
 
   useDismissableLayer({
     enabled: scopeOpen,
-    refs: [scopePopoverRef, scopeSummaryRef],
-    restoreFocusRef: scopeSummaryRef,
+    refs: [scopePopoverRef, actionMenuTriggerRef],
+    restoreFocusRef: actionMenuTriggerRef,
     onDismiss: dismissScope,
   });
 
@@ -1227,6 +1227,7 @@ export function MasterSearchHeader({
           description="Choose documents and filters for the next search."
           closeLabel="Close document scope"
           initialFocusRef={scopeFilterInputRef}
+          returnFocusRef={actionMenuTriggerRef}
           headerLeading={
             <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <Filter className="h-5 w-5" aria-hidden="true" />
