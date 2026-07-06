@@ -1371,10 +1371,7 @@ export function MasterSearchHeader({
 
           <div
             ref={modeMenuRef}
-            className={cn(
-              "relative z-[60] min-w-0",
-              isWorkflowHeader ? "justify-self-start" : "justify-self-center",
-            )}
+            className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
           >
             <button
               ref={modeButtonRef}
