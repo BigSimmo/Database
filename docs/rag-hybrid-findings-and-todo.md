@@ -92,9 +92,10 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
      Note: this only affects the **panel**; the answer-retrieval path (`searchChunksWithTelemetry`) has
      no per-doc cap and doesn't need one — the comparison gate already enforces ≥2 distinct docs, and
      single-topic queries _should_ be able to draw multiple chunks from the best document.
-   - ⏳ **Synthetic text similarity (RC9)** `least(0.95, 0.56 + text_rank*0.39)` still feeds coverage
-     gates that assume a real cosine — gate text-only paths on `text_rank`/`rrf` instead. (Cleanest
-     remaining ranking-correctness item.)
+   - 🔧 **Synthetic text similarity (RC9)** — superseded; see item 21 (2026-07-07 audit): the SQL
+     formula is gone (`match_document_chunks_text` returns similarity 0), the three remaining
+     app-side fabricators are tagged, and the fabricated-"high"-confidence defect is fixed;
+     only the telemetry-gated threshold recalibration remains.
    - ⏳ **Source-strength as a filter not just a penalty (RC8)**; **threshold floors (RC5)**;
      **rerank trigger (RC10)** — see item 4's note (marginal without a chunk-level eval metric).
    - ⏳ **Differentials flowchart-action boost (dropped in the PR #120 merge).** The codex/RAG_FIX
@@ -216,7 +217,17 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
       management" — chunk-present but no title topic) keep the legacy memoized-LLM behaviour.
     - ⏳ Still hard-coded (lower priority now the trigram path exists): moving `synonymGroups` /
       `domainAliasGroups` / `medicationAliasGroups` into `rag_aliases`; generalising the special-case
-      rewrites off `RagQueryClass`.
+      rewrites off `RagQueryClass`. **Design constraint (2026-07-07):** this is NOT a plain seed
+      migration. The groups are consumed inside the synchronous deterministic analyzer
+      (`analyzeClinicalQuery`), which must keep working in demo mode and in unit tests without a
+      DB, while `rag_aliases` rows flow through a different mechanism (`fetchEnabledRagAliases` →
+      retrieval query variants + the unsupported-short-circuit alias guard). Seeding the same
+      groups into `rag_aliases` while the in-code groups remain would double-expand variants and
+      change short-circuit behaviour corpus-wide — a behavior change needing its own golden +
+      rag-only eval run, not a data chore. Deferred from the 2026-07-07 retrieval-correctness
+      branch for that reason; do it as a dedicated eval-gated change (either an async analyzer
+      vocabulary refactor, or DB-only expansion with the in-code groups retired from the variant
+      path in the same change).
 
 ## P2 — offline/fallback remainder (Workstream F)
 
@@ -256,10 +267,23 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     regression class (governance metadata weighting selection ordering) is only guarded by the
     manual PR checklist because `eval:retrieval:quality` needs live keys. Investigate a
     keys-free structural test (e.g. assert selection sort inputs exclude governance fields).
-21. ⏳ **Recalibrate gates for synthetic text-only similarity (RC9 residual).** Text-fast-path
-    results now carry `similarity_origin: "synthetic_text"` telemetry; once enough data exists,
-    recalibrate `evaluateEvidenceCoverageGate` / text-fast-path thresholds against real cosine
-    distributions instead of the `least(0.95, 0.56 + text_rank*0.39)` proxy.
+21. ⏳ **Recalibrate gates for synthetic text-only similarity (RC9 residual) — audited 2026-07-07,
+    scope reduced.** Full consumer audit on `claude/retrieval-correctness`: the headline
+    `least(0.95, 0.56 + text_rank*0.39)` proxy NO LONGER EXISTS — `match_document_chunks_text`
+    already returns `similarity = 0` with hybrid capped at 0.5 and the lexical signal isolated in
+    `lexical_score` (codified in schema.sql with the "do not fabricate" comment). What remains
+    synthetic are three app-side fabricators, all tagged `similarity_origin: "synthetic_text"`:
+    the document-lookup fast path (0.58 + documentScore, hybrid ≤ 0.94), memory-card chunk loader
+    (0.58 + confidence·0.28, hybrid ≤ 0.89), and table-fact signal matches. Their consumers:
+    `evaluateEvidenceCoverageGate` / `shouldReturnTextFastPath` / `chooseAnswerRoute` /
+    `shouldUseExtractiveAnswer` (thresholds 0.32–0.76 — the fabricated 0.58 floor is
+    deliberately load-bearing there, always paired with structural checks like
+    `directTitleSupport`; re-gating them on native signals is the deferred recalibration and
+    must not be attempted without the telemetry distributions), `buildRetrievalDiagnostics`
+    (topScore < 0.5 weak gate — floor also load-bearing), and `deriveConfidence`. **Fixed now:**
+    `deriveConfidence` no longer lets a fabricated 0.82+ mint a "high" answer-confidence label —
+    "high" requires a genuine-cosine citation; synthetic-origin evidence caps at "medium"
+    (strictly tightening, ordering/routing untouched, unit-tested in tests/rag-score.test.ts).
 22. ⏳ **Registry-to-corpus embedding (universal search Phase 5).** Medications/services/forms/
     differentials are federated into `/api/search/universal` but are not retrieval-corpus
     entities, so Answer mode cannot cite them. If product wants that: env-flagged ingestion,
