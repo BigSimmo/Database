@@ -444,6 +444,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     const metrics = await globalSearchComposerMetrics(page);
     expect(metrics?.position).toBe("fixed");
+    await expect(page.locator(".answer-footer-search-chip:visible")).not.toHaveCount(0);
     await commandSurfaceOpensAbovePill(page);
     await expectNoPageHorizontalOverflow(page);
   });
