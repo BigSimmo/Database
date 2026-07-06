@@ -5,8 +5,10 @@ export type AppModeId =
   "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "prescribing" | "tools";
 export type SearchableAppModeId = AppModeId;
 
-export type AppModeSearchKind = "answer" | "documents" | "services" | "favourites" | "differentials" | "tools";
-export type AppModeResultKind = "answer" | "documents" | "services" | "favourites" | "differentials" | "tools";
+export type AppModeSearchKind =
+  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "tools";
+export type AppModeResultKind =
+  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "tools";
 
 export type AppModeSearchConfig = {
   kind: AppModeSearchKind;
@@ -106,7 +108,9 @@ export const appModeDefinitions = [
     description: "Clinical forms and pathways",
     href: "/forms",
     search: {
-      kind: "documents",
+      // Forms are a registry catalogue, not corpus documents. Declaring the honest kind
+      // removes the ClinicalDashboard special-casing that the old kind:"documents" forced.
+      kind: "forms",
       placeholder: "Search forms...",
       inputAriaLabel: "Search forms, source records, pathways, and criteria",
       submitIdleLabel: "Forms",
@@ -115,7 +119,7 @@ export const appModeDefinitions = [
       emptyTitle: "Enter a form search term",
       readyTitle: "Search forms",
       progressLabel: "Searching form records.",
-      resultKind: "documents",
+      resultKind: "forms",
       resultHeading: "Form matches",
       statusLabel: "Forms",
       nextStep: "Review matching form records",
@@ -173,6 +177,9 @@ export const appModeDefinitions = [
     description: "Prescribing checks and guidance",
     href: "/?mode=prescribing",
     search: {
+      // Deliberately kind:"documents" (unlike forms): prescribing intentionally searches the
+      // document corpus for dosing/threshold guidance (defaultQueryMode dose_threshold_lookup).
+      // The medication registry joins cross-entity search via /api/search/universal instead.
       kind: "documents",
       placeholder: "Search medications...",
       inputAriaLabel: "Search medication guidance",
@@ -300,6 +307,7 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
     kind === "answer" ||
     kind === "documents" ||
     kind === "services" ||
+    kind === "forms" ||
     kind === "favourites" ||
     kind === "differentials" ||
     kind === "tools"

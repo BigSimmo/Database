@@ -1,3 +1,4 @@
+import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import type {
   DifferentialComparisonCandidate,
@@ -107,51 +108,77 @@ export function differentialStaticParams() {
   return differentialRecords.map((record) => ({ slug: record.slug }));
 }
 
-function expandQueryTokens(query: string) {
+function expandQueryTerms(terms: string[]) {
   const aliases = differentialSearchAliases();
-  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const expanded = new Set(tokens);
-  for (const token of tokens) {
-    for (const alias of aliases[token] ?? []) expanded.add(alias);
+  const expanded = new Set(terms);
+  for (const term of terms) {
+    for (const alias of aliases[term] ?? []) {
+      for (const aliasToken of normalizeSearchText(alias).split(/\s+/).filter(Boolean)) expanded.add(aliasToken);
+      expanded.add(normalizeSearchText(alias));
+    }
   }
   return [...expanded];
 }
 
 function recordSearchText(record: DifferentialRecord) {
-  return [
-    record.title,
-    record.subtitle,
-    record.clinicalHinge,
-    record.safetySnapshot.summary,
-    ...record.sections.flatMap((section) => [section.title, section.summary, ...section.items]),
-    ...record.related.flatMap((node) => [node.label, node.note]),
-  ]
-    .join(" ")
-    .toLowerCase();
+  return normalizeSearchText(
+    [
+      record.subtitle,
+      record.clinicalHinge,
+      record.safetySnapshot.summary,
+      ...record.sections.flatMap((section) => [section.title, section.summary, ...section.items]),
+      ...record.related.flatMap((node) => [node.label, node.note]),
+    ].join(" "),
+  );
+}
+
+export type DifferentialSearchMatch = { record: DifferentialRecord; score: number; reasons: string[] };
+
+export function rankDifferentialRecords(query: string, limit?: number): DifferentialSearchMatch[] {
+  return rankCatalogRecords(differentialRecords, query, {
+    fields: [{ id: "title", weight: 6, text: (record) => normalizeSearchText(`${record.title} ${record.slug}`) }],
+    fullText: recordSearchText,
+    contentWeight: 2,
+    phraseBonus: 4,
+    exactValues: (record) => [normalizeSearchText(record.title), normalizeSearchText(record.slug)],
+    exactBonus: 10,
+    expandTokens: expandQueryTerms,
+    limit,
+    tieBreak: (left, right) => left.title.localeCompare(right.title),
+  }).map(({ record, score, signals }) => ({
+    record,
+    score,
+    reasons: [
+      signals.fields.title ? "title" : "",
+      signals.exact ? "exact title" : "",
+      signals.content ? "clinical content" : "",
+    ].filter(Boolean),
+  }));
 }
 
 export function searchDifferentialRecords(query: string) {
-  const tokens = expandQueryTokens(query);
-  if (!tokens.length) return differentialRecords;
-  return differentialRecords.filter((record) => {
-    const text = recordSearchText(record);
-    return tokens.some((token) => text.includes(token));
-  });
+  // Empty query keeps the full-catalogue browse behaviour; otherwise results are now
+  // relevance-ranked (previously an unranked alias OR-filter in snapshot order).
+  if (!normalizeSearchText(query)) return differentialRecords;
+  return rankDifferentialRecords(query).map((match) => match.record);
 }
 
 export function searchPresentationWorkflows(query: string) {
-  const tokens = expandQueryTokens(query);
-  if (!tokens.length) return differentialPresentations();
-  return differentialPresentations().filter((presentation) => {
-    const text = [
-      presentation.title,
-      presentation.subtitle,
-      presentation.safetySnapshot.summary,
-      ...presentation.safetySnapshot.tags,
-      ...presentation.candidates.map((candidate) => candidate.slug),
-    ]
-      .join(" ")
-      .toLowerCase();
-    return tokens.some((token) => text.includes(token));
-  });
+  if (!normalizeSearchText(query)) return differentialPresentations();
+  return rankCatalogRecords(differentialPresentations(), query, {
+    fields: [{ id: "title", weight: 6, text: (presentation) => normalizeSearchText(presentation.title) }],
+    fullText: (presentation) =>
+      normalizeSearchText(
+        [
+          presentation.subtitle,
+          presentation.safetySnapshot.summary,
+          ...presentation.safetySnapshot.tags,
+          ...presentation.candidates.map((candidate) => candidate.slug),
+        ].join(" "),
+      ),
+    contentWeight: 2,
+    phraseBonus: 4,
+    expandTokens: expandQueryTerms,
+    tieBreak: (left, right) => left.title.localeCompare(right.title),
+  }).map((match) => match.record);
 }

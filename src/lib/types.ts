@@ -173,6 +173,9 @@ export type RetrievalCandidate = {
   lexicalScore?: number;
   semanticScore?: number;
   rerankScore?: number;
+  // Deep tiebreak only (see SearchScoreExplanation.preClampFinalScore): discriminates
+  // candidates whose clamped scores all saturate at 1.0. Never a primary ordering signal.
+  preClampScore?: number;
   matchedSignals: string[];
   sourceHref?: string;
 };
@@ -302,6 +305,11 @@ export type SearchResult = {
   retrieval_synopsis?: string | null;
   image_ids: string[];
   similarity: number;
+  // RC9 observability: "synthetic_text" marks a `similarity` fabricated from lexical/structural
+  // signals (document-lookup, memory-card, table-facts fast paths) rather than a real cosine.
+  // Coverage/threshold gates are calibrated for cosine values; this tag lets telemetry measure
+  // how often synthetic scores cross those gates before any recalibration.
+  similarity_origin?: "cosine" | "synthetic_text";
   text_rank?: number;
   hybrid_score?: number;
   // Lexical/keyword relevance (0-1) for text-only fallback rows. This is NOT a
@@ -407,6 +415,10 @@ export type SearchScoreExplanation = {
   rawPenalty?: number;
   finalScore: number;
   finalRank?: number;
+  // Pre-clamp boost sum: finalScore saturates at 1.0 for heavily-boosted results, so this
+  // carries the discrimination the clamp discards. Used only as a deep tiebreak — it must
+  // never reorder results above finalScore.
+  preClampFinalScore?: number;
   strategy: "weighted_hybrid" | "weighted_hybrid_rrf_blend";
 };
 
