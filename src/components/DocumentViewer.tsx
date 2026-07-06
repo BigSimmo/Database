@@ -43,6 +43,7 @@ import {
   documentFileKind,
   documentTileTone,
 } from "@/components/clinical-dashboard/document-ui";
+import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
@@ -1916,6 +1917,12 @@ export function DocumentViewer({
   const [isOnline, setIsOnline] = useState(true);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  // Phone-only hide-on-scroll for the bottom composer: never hide while the
+  // mobile actions sheet is open or while focus sits inside the composer
+  // (keyboard users must not tab into invisible controls).
+  const [composerChromeFocused, setComposerChromeFocused] = useState(false);
+  const scrollHidden = useHideOnScroll({});
+  const composerScrollHidden = scrollHidden && !mobileActionsOpen && !composerChromeFocused;
   const [useNativePdfViewer, setUseNativePdfViewer] = useState(() => getInitialPdfViewerMode().useNativePdfViewer);
   const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(
     () => getInitialPdfViewerMode().hasExplicitPdfViewerMode,
@@ -2964,7 +2971,12 @@ export function DocumentViewer({
             event.preventDefault();
             if (canSummarizeDocument) void summarize();
           }}
-          className="floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-xl"
+          data-scroll-hidden={composerScrollHidden ? "true" : undefined}
+          onFocusCapture={() => setComposerChromeFocused(true)}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
+          }}
+          className="document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-xl max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none"
         >
           <button
             type="button"
