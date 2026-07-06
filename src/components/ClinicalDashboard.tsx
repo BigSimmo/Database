@@ -63,6 +63,7 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
@@ -672,7 +673,7 @@ export function SettingsDialog({
             <div className="min-w-0">
               <h2
                 id="account-settings-title"
-                className="truncate text-[18px] font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-[1.45rem] lg:leading-8"
+                className="truncate text-lg leading-normal font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-[1.45rem] lg:leading-8"
               >
                 Account &amp; app
               </h2>
@@ -683,7 +684,7 @@ export function SettingsDialog({
           </div>
 
           <section className="rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.06),var(--shadow-inset)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.32),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:p-4 lg:shadow-[var(--shadow-inset)]">
-            <h3 className="mb-3 px-0.5 text-[15px] font-semibold leading-5 text-[color:var(--text-heading)]">
+            <h3 className="mb-3 px-0.5 text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
               Clinical Guide account
             </h3>
             <div className="flex items-center gap-3 lg:gap-3">
@@ -828,7 +829,7 @@ export function SettingsDialog({
             <div className="grid gap-3 lg:gap-4">
               {settingSections.map((section) => (
                 <div key={section.title} className="min-w-0">
-                  <h3 className="mb-1 px-1 text-[12px] font-semibold tracking-normal text-[color:var(--text-muted)] lg:mb-1.5 lg:text-[13px] lg:text-[color:var(--text-heading)]">
+                  <h3 className="mb-1 px-1 text-xs leading-normal font-semibold tracking-normal text-[color:var(--text-muted)] lg:mb-1.5 lg:text-sm-minus lg:text-[color:var(--text-heading)]">
                     {section.title}
                   </h3>
                   <div className="overflow-hidden rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[0_8px_22px_rgba(0,0,0,0.04),var(--shadow-inset)] dark:shadow-[0_12px_26px_rgba(0,0,0,0.24),var(--shadow-inset)] lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none">
@@ -866,7 +867,7 @@ export function SettingsDialog({
 
 function SettingsChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-[11px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
+    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
       {label}
     </span>
   );
@@ -930,7 +931,7 @@ function SettingsProviderMark({ provider }: { provider: "Apple" | "Google" | "Mi
 
 function SettingsClinicalContextStrip() {
   return (
-    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-[12px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
+    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
       <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0 truncate">
         Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
@@ -973,10 +974,10 @@ function SettingsSummaryTile({
           <Icon className="h-4 w-4" />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[10px] font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
+          <span className="block truncate text-3xs font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
             {label}
           </span>
-          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-heading)] lg:text-[13px]">
+          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-heading)] lg:text-sm-minus">
             {value}
           </span>
         </span>
@@ -1015,7 +1016,7 @@ function SettingsRow({
       <span className="min-w-0 flex-1 min-[360px]:flex min-[360px]:items-center min-[360px]:justify-between min-[360px]:gap-3">
         <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{label}</span>
         {value ? (
-          <span className="mt-0.5 block max-w-full truncate text-[13px] font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-[13px]">
+          <span className="mt-0.5 block max-w-full truncate text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-sm-minus">
             {value}
           </span>
         ) : null}
@@ -1058,7 +1059,7 @@ function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
       <button
         type="button"
         onClick={onClick}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-[13px] font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-sm-minus font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         data-testid="settings-row-guide-help"
       >
         <BookOpen className="h-4 w-4" />
@@ -1309,7 +1310,7 @@ function MobileSectionFab({
           <span
             aria-hidden="true"
             className={cn(
-              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-[10px] font-bold leading-4 shadow-[var(--shadow-tight)]",
+              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-3xs font-bold leading-4 shadow-[var(--shadow-tight)]",
               fabToneClassName(state.badgeTone),
             )}
           >
@@ -1343,10 +1344,7 @@ function MobileSectionFab({
           />
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <div className="min-w-0">
-              <p
-                id={labelId}
-                className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
-              >
+              <p id={labelId} className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                 Answer navigator
               </p>
               <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -1355,7 +1353,7 @@ function MobileSectionFab({
             </div>
             <span
               data-testid="mobile-section-fab-status"
-              className={cn("rounded-full border px-2 py-1 text-[11px] font-bold", fabToneClassName(state.statusTone))}
+              className={cn("rounded-full border px-2 py-1 text-2xs font-bold", fabToneClassName(state.statusTone))}
             >
               {state.statusLabel}
             </span>
@@ -1410,14 +1408,14 @@ function MobileSectionFab({
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate">{item.label}</span>
-                  <span className="mt-0.5 block truncate text-[11px] font-semibold text-[color:var(--text-soft)]">
+                  <span className="mt-0.5 block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
                     {item.description}
                   </span>
                 </span>
                 {item.count !== null ? (
                   <span
                     className={cn(
-                      "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-[11px] font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
+                      "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-2xs font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
                       item.empty && "text-[color:var(--text-muted)]",
                       active &&
                         "border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
@@ -1674,6 +1672,10 @@ export function ClinicalDashboard({
       return next;
     });
   }
+  // The query the current documentMatches were fetched for, so the
+  // differentials results view can tell live-edited catalogue results apart
+  // from evidence that belongs to a previously submitted search.
+  const [differentialEvidenceQuery, setDifferentialEvidenceQuery] = useState<string | null>(null);
   const clearDifferentialModeResultState = useCallback(() => {
     resetAnswerThread();
     setAnswer(null);
@@ -1685,6 +1687,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setError(null);
     setAnswerProgress(null);
+    setDifferentialEvidenceQuery(null);
   }, [resetAnswerThread]);
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
@@ -2807,6 +2810,11 @@ export function ClinicalDashboard({
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
+      // Differentials mode: the ranked catalogue results are the primary
+      // content and load independently of this document-evidence search, so an
+      // empty corpus result is applied (empty evidence) rather than surfaced
+      // as an error that would hide the catalogue view.
+      let emptyDifferentialsPayload: SearchResultModePayload | null = null;
 
       for (const entry of queryPlan) {
         if (entry.isKeyword) onProgress("Trying keyword-based search...");
@@ -2824,6 +2832,7 @@ export function ClinicalDashboard({
                 );
 
           if (!resultUsable(payload)) {
+            if (modeSearch.kind === "differentials") emptyDifferentialsPayload = payload;
             lastError = makeSearchError("No usable results were found.", 404, false);
             if (!entry.isKeyword) {
               continue;
@@ -2842,6 +2851,10 @@ export function ClinicalDashboard({
         }
       }
 
+      if (!successfulPayload && emptyDifferentialsPayload) {
+        successfulPayload = emptyDifferentialsPayload;
+      }
+
       if (!successfulPayload) {
         if (lastError) throw lastError;
         throw new Error("Search did not return usable results.");
@@ -2850,6 +2863,7 @@ export function ClinicalDashboard({
       // M10: discard a stale response — a newer search owns the UI state.
       if (requestId === searchRequestSeqRef.current) {
         applySearchResult(successfulPayload, trimmedQuery);
+        if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
         if (successfulPayload.kind === "answer") {
           // The composer is a draft box in a conversation: clear it so the
           // user can type the next follow-up immediately.
@@ -3604,7 +3618,7 @@ export function ClinicalDashboard({
       mobileSummary={demoMode ? "Synthetic data" : "Setup needed"}
       className={className}
     >
-      <p className="text-[15px] leading-6 text-[color:var(--warning)]">
+      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
         {demoMode
           ? "Demo mode is active with three synthetic indexed documents, citations, source cards, image captions, and document links. Synthetic data only; not clinical guidance."
           : `Configure .env.local and run supabase/schema.sql before uploading or searching. ${setupWarning}`}
@@ -3661,7 +3675,7 @@ export function ClinicalDashboard({
       }
       mobileSummary={!isOnline ? "Offline" : "API unavailable"}
     >
-      <p className="text-[15px] leading-6 text-[color:var(--warning)]">
+      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
         {!isOnline
           ? "Reconnect before uploading documents, refreshing source URLs, or generating answers."
           : isDeployedClinicalKb()
@@ -3929,12 +3943,10 @@ export function ClinicalDashboard({
                 className={cn(
                   "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                   centeredModeHome || showAnswerHome
-                    ? // On tall phones the centred home leans slightly toward the
-                      // bottom composer (matches the committed vertical-weighting
-                      // guard); short phones skip the bias so content still fits.
-                      // Mobile uses top alignment so the integrated action menu is
-                      // not clipped by the dead space below vertically centred homes.
-                      "grid w-full place-items-center max-sm:place-content-start max-sm:justify-items-center max-sm:pt-[clamp(0.75rem,3vh,2rem)] max-sm:[@media(min-height:800px)]:pt-[5vh]"
+                    ? // Phones centre the home block mid-screen, matching the
+                      // standalone-route homes; the pop-up action surface picks
+                      // its own up/down placement so it stays unclipped either way.
+                      "grid w-full place-items-center max-sm:pt-2"
                     : activeModeResultKind === "tools" ||
                         activeModeResultKind === "favourites" ||
                         activeModeResultKind === "differentials"
@@ -3971,6 +3983,8 @@ export function ClinicalDashboard({
                   <DifferentialsHome
                     query={query}
                     loading={loading}
+                    searchSubmitted={modeSearchSubmitted}
+                    evidenceQuery={differentialEvidenceQuery}
                     documentMatches={documentMatches}
                     realDataReady={canRunSearch}
                     authUnavailable={false}
@@ -4029,6 +4043,9 @@ export function ClinicalDashboard({
                   ) : (
                     <>
                       <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                      {searchMode === "documents" && modeSearchSubmitted && (
+                        <CrossModeLinksSection queries={[query]} onModeSearch={crossModeSearch} />
+                      )}
                       <DocumentSearchResultsPanel
                         matches={documentMatches}
                         recordMatches={recordSearchMatches}
@@ -4122,6 +4139,12 @@ export function ClinicalDashboard({
 
               {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
 
+              {activeModeResultKind === "answer" && answer && (
+                <CrossModeLinksSection
+                  queries={[...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery]}
+                  onModeSearch={crossModeSearch}
+                />
+              )}
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel
                   documents={relatedDocuments}
@@ -4239,7 +4262,7 @@ export function ClinicalDashboard({
                                 <Icon className="h-3.5 w-3.5" />
                                 {tab.label}
                               </span>
-                              <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
+                              <span className="mt-1 block truncate text-2xs font-semibold opacity-80">
                                 {tab.summary}
                               </span>
                             </button>

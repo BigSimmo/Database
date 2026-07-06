@@ -1,7 +1,7 @@
 import { demoSearch } from "@/lib/demo-data";
 import { fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { rankDifferentialRecords } from "@/lib/differentials";
+import { differentialRecords, rankDifferentialRecords } from "@/lib/differentials";
 import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
 import { rowToMedicationRecord } from "@/lib/medication-records";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
@@ -161,7 +161,7 @@ async function searchFormsDomain(args: RunUniversalSearchArgs): Promise<Universa
 async function searchDifferentialsDomain(args: RunUniversalSearchArgs): Promise<UniversalSearchItem[]> {
   // Differentials are a static snapshot for list/search purposes (owner edits surface only on
   // detail pages today), so demo and live share the in-bundle catalogue.
-  return rankDifferentialRecords(args.query, args.limitPerDomain).map((match) => ({
+  return rankDifferentialRecords(differentialRecords, args.query, args.limitPerDomain).map((match) => ({
     id: match.record.slug,
     kind: "differentials",
     title: match.record.title,

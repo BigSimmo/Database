@@ -277,7 +277,7 @@ export function FavouritesSidebar({
                     )}
                   >
                     <Icon className="h-4 w-4" aria-hidden />
-                    <span className="nums absolute -right-0.5 -top-0.5 grid min-h-4 min-w-4 place-items-center rounded-full border border-[color:var(--surface)] bg-[color:var(--command)] px-1 text-[0.625rem] font-black leading-none text-[color:var(--command-contrast)]">
+                    <span className="nums absolute -right-0.5 -top-0.5 grid min-h-4 min-w-4 place-items-center rounded-full border border-[color:var(--surface)] bg-[color:var(--command)] px-1 text-3xs font-black leading-none text-[color:var(--command-contrast)]">
                       {entry.count}
                     </span>
                   </button>

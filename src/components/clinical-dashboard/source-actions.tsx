@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ExternalLink, FileText, Filter, Search } from "lucide-react";
 import { cn, floatingControl, metadataPill, primaryControl } from "@/components/ui-primitives";
+import type { CrossModeLink } from "@/lib/cross-mode-links";
 import type { SearchResult } from "@/lib/types";
 
 export function SourceActionRow({
@@ -74,6 +75,19 @@ export function logSourceOpen(query: string, source: SearchResult) {
       chunkId: source.id,
       fileName: source.file_name,
       title: source.title,
+    }),
+    keepalive: true,
+  }).catch(() => undefined);
+}
+
+export function logCrossModeLinkOpen(query: string, link: Pick<CrossModeLink, "modeId" | "slug" | "title">) {
+  if (!query.trim()) return;
+  void fetch("/api/search/interaction", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query,
+      crossMode: { mode: link.modeId, slug: link.slug, title: link.title },
     }),
     keepalive: true,
   }).catch(() => undefined);

@@ -1307,7 +1307,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             disabled={!pagesReady}
             aria-label="Fit page width and enter fullscreen"
             className={cn(
-              "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-[var(--radius-md)] border px-3 text-xs font-semibold transition",
+              "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold transition",
               "disabled:cursor-not-allowed disabled:opacity-45",
               fitWidth || fullscreenActive
                 ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"

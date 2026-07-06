@@ -97,7 +97,7 @@ export function ModeHomeHero({
         </Heading>
         <p
           className={cn(
-            "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-base sm:leading-6 lg:text-[1.0625rem]",
+            "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-base sm:leading-6 lg:text-lg-minus",
             compact ? "leading-5" : "leading-6",
           )}
         >
@@ -111,6 +111,12 @@ export function ModeHomeHero({
 /**
  * Standalone-route wrapper that mirrors the dashboard's vertically centred
  * mode homes: full-height, centred content, no fixed bottom composer reserve.
+ * The phone min-height nets out the real phone chrome — the ~4.25rem sticky
+ * header plus the shell's 9rem bottom-composer reserve on `#main-content`
+ * (see `global-mockup-search-shell.tsx`) — so short homes centre in the space
+ * that is actually visible instead of against the 4rem desktop-header calc,
+ * which over-measures on phones and forced a phantom scrollbar. sm+ keeps the
+ * original calc where the header really is 4rem.
  */
 export function ModeHomeMain({
   testId,
@@ -125,7 +131,7 @@ export function ModeHomeMain({
     <main
       data-testid={testId}
       className={cn(
-        "grid min-h-[calc(100dvh-4rem)] items-center justify-items-center bg-[color:var(--background)] px-4 pb-4 pt-[clamp(1.25rem,4vh,2.25rem)] text-[color:var(--text)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
+        "grid min-h-[calc(100dvh-13.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] items-center justify-items-center bg-[color:var(--background)] px-4 pb-4 pt-[clamp(1.25rem,4vh,2.25rem)] text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
         className,
       )}
     >
