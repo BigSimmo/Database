@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+# Clinical KB ingestion worker (Node pipeline + Python OCR stack).
+# See docs/deployment-architecture.md for why the worker ships as a
+# container instead of completing the edge-agent migration.
+#
+# Runtime contents:
+#   - Node 24 + full (dev-inclusive) node_modules: the worker runs through
+#     tsx, which is a devDependency.
+#   - Tesseract OCR (Debian package, bundles English language data).
+#   - Python venv with worker/python/requirements.txt (PyMuPDF, Pillow,
+#     pytesseract). The venv's `python` matches the PYTHON_BIN default.
+#
+# Build: docker build -f Dockerfile.worker -t clinical-kb-worker .
+# Run:   docker run --env-file <secrets> clinical-kb-worker
+# Secrets are injected at run time; nothing is baked into the image.
+
+FROM node:24-bookworm-slim AS deps
+WORKDIR /app
+COPY package.json package-lock.json .npmrc ./
+COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
+RUN npm ci
+
+FROM node:24-bookworm-slim AS runner
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 python3-venv tesseract-ocr \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY worker/python/requirements.txt worker/python/requirements.txt
+RUN python3 -m venv /opt/ocr-venv \
+  && /opt/ocr-venv/bin/pip install --no-cache-dir -r worker/python/requirements.txt
+ENV PATH="/opt/ocr-venv/bin:${PATH}"
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+USER node
+# Long-poll worker; WORKER_* env vars control claim batch size, concurrency,
+# and the stale-claim window (see src/lib/env.ts).
+CMD ["node", "node_modules/tsx/dist/cli.mjs", "worker/index.ts"]
