@@ -21,6 +21,8 @@ import {
   sanitizeConflictsOrGaps,
   sanitizeQuoteCards,
 } from "@/lib/rag-quote-verification";
+import { applyNumericVerification } from "@/lib/answer-verification";
+export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
 import { buildRagSourceBlock, compactContextText } from "@/lib/rag-source-block";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
 import { extractNumericTokens, VERIFY_AGAINST_SOURCE_NOTE, verifyAnswerNumbers } from "@/lib/answer-verification";
@@ -6104,114 +6106,6 @@ function annotateAnswerWithDiagnostics<T extends RagAnswer>(
       retrievalReason: fallbackReason,
     },
   };
-}
-
-// GEN-C2 / GEN-H2: verify every numeric/dose/threshold token in the generated
-// answer against the text of its cited chunks. Unsupported figures are recorded
-// on the answer and an explicit "verify against source" caveat is appended so a
-// paraphrased/mis-transcribed dose can never read as authoritative.
-const actionableNumericAnswerPattern =
-  /\b(?:dose|dosage|dosing|mg|mcg|microgram|micrograms|route|oral|intramuscular|\bim\b|\bpo\b|frequency|daily|twice|weekly|monthly|hourly|threshold|cutoff|cut-off|anc|fbc|wbc|withhold|cease|stop|discontinue|red\s+(?:result|range|zone)|amber\s+(?:result|range|zone)|green\s+(?:result|range|zone)|monitor|monitoring|interval|repeat|review|risk\s+score|risk|score|escalat|urgent)\b/i;
-
-const actionableNumericSectionKinds = new Set<AnswerSectionKind>([
-  "medication_dose",
-  "thresholds",
-  "monitoring_timing",
-  "escalation_risk",
-  "required_actions",
-]);
-
-function hasActionableNumericContext(answer: RagAnswer) {
-  if (!answer.grounded || answer.confidence === "unsupported") return false;
-  if (answer.queryClass === "medication_dose_risk" || answer.queryClass === "table_threshold") return true;
-  if (
-    (answer.answerSections ?? []).some((section) => section.kind && actionableNumericSectionKinds.has(section.kind))
-  ) {
-    return true;
-  }
-  const text = [
-    answer.answer,
-    answer.routingReason,
-    ...(answer.answerSections ?? []).flatMap((section) => [section.heading, section.body]),
-  ]
-    .filter(Boolean)
-    .join(" ");
-  return actionableNumericAnswerPattern.test(text);
-}
-
-export function applyNumericVerification(answer: RagAnswer): RagAnswer {
-  const sources = answer.sources ?? [];
-  const unverified = new Set<string>();
-
-  // B4: the model is instructed to put dose details in structured
-  // answerSections (kind medication_dose), so a top-level-only scan never sees
-  // section-body doses. Verify the top-level answer AND every section body.
-  // Each section is scoped to its own citation_chunk_ids when present, so a
-  // dose is only credited against the chunks that section actually cites;
-  // sections with no citations fall back to the answer-level citations.
-  const answerVerification = verifyAnswerNumbers(answer.answer, answer.citations, sources);
-  for (const token of answerVerification.unverifiedTokens) unverified.add(token);
-
-  for (const section of answer.answerSections ?? []) {
-    const sectionCitations =
-      section.citation_chunk_ids.length > 0
-        ? section.citation_chunk_ids.map((chunk_id) => ({ chunk_id }))
-        : answer.citations;
-    const sectionVerification = verifyAnswerNumbers(section.body, sectionCitations, sources);
-    for (const token of sectionVerification.unverifiedTokens) unverified.add(token);
-  }
-
-  if (unverified.size === 0) return answer;
-
-  const unverifiedTokens = [...unverified];
-  answer.unverifiedNumericTokens = unverifiedTokens;
-  answer.faithfulnessWarning = VERIFY_AGAINST_SOURCE_NOTE;
-  // P8: never bold a figure the system could not verify against the cited sources — bold emphasis
-  // must track verification, or an unverified dose/threshold reads as authoritative while its caveat
-  // sits in a separate block. Un-wrap **…** only around segments carrying an unverified token.
-  answer.answer = unboldUnverifiedNumbers(answer.answer, unverified);
-  if (answer.answerSections?.length) {
-    answer.answerSections = answer.answerSections.map((section) => ({
-      ...section,
-      body: unboldUnverifiedNumbers(section.body, unverified),
-    }));
-  }
-  // Surface as a source gap so the UI's existing gap rendering shows it, and
-  // never let an answer with unverified clinical numbers claim high confidence.
-  // This gate runs more than once on the model path (parse-time and finalize-time), so REPLACE any
-  // earlier faithfulness caveat rather than appending a duplicate "CRITICAL…" gap; the latest run
-  // carries the freshest token list.
-  const caveat: ConflictOrGap = {
-    type: "gap",
-    message: `${VERIFY_AGAINST_SOURCE_NOTE} Unverified figures: ${unverifiedTokens.join(", ")}.`,
-  };
-  answer.conflictsOrGaps = [
-    ...(answer.conflictsOrGaps ?? []).filter((gap) => !gap.message.startsWith(VERIFY_AGAINST_SOURCE_NOTE)),
-    caveat,
-  ];
-  if (hasActionableNumericContext(answer)) {
-    answer.answer =
-      "I found source material, but the generated answer included clinical numbers that could not be matched verbatim to its cited source chunks. Review the source passages directly before using this for dose, threshold, route, timing, monitoring, or risk decisions.";
-    answer.grounded = false;
-    answer.confidence = "unsupported";
-    answer.responseMode = "evidence_gap";
-    answer.answerSections = [];
-    answer.citations = [];
-    answer.quoteCards = [];
-    answer.routingReason = appendRoutingReason(answer.routingReason, "numeric_faithfulness_gate_source_gap");
-    return answer;
-  }
-  if (answer.confidence === "high") answer.confidence = "medium";
-  return answer;
-}
-
-// Remove bold emphasis around any **…** segment that contains a numeric token the source-numeric
-// verification could not confirm, leaving the text intact (just un-emphasised). Verified bold stays.
-export function unboldUnverifiedNumbers(text: string, unverified: Set<string>): string {
-  if (!unverified.size || !text.includes("**")) return text;
-  return text.replace(/\*\*([^*]+)\*\*/g, (full, inner: string) =>
-    extractNumericTokens(inner).some((token) => unverified.has(token)) ? inner : full,
-  );
 }
 
 const maxContextChunksPerDocument = 3;
