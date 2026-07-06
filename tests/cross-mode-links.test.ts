@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { crossModeDifferentialCatalog } from "@/lib/cross-mode-differentials";
-import { buildCrossModeLinks } from "@/lib/cross-mode-links";
+import { buildCrossModeLinks, buildCrossModeLinksForThread } from "@/lib/cross-mode-links";
 import { extractKeywordTerms, keywordQueryFromNaturalLanguage } from "@/lib/keyword-query";
 import { defaultMedicationRecords } from "@/lib/medication-fixtures";
 import type { ServiceRecord } from "@/lib/services";
@@ -114,6 +114,23 @@ describe("buildCrossModeLinks", () => {
     const links = buildCrossModeLinks("shared pathway", { services: [shared], forms: [shared] });
     expect(links).toHaveLength(1);
     expect(links[0]!.modeId).toBe("services");
+  });
+
+  it("keeps entity links alive across multiple entity-free follow-up turns", () => {
+    const thread = ["what is the max dose of clozapine", "what about renal impairment", "and in elderly patients"];
+    const links = buildCrossModeLinksForThread(thread, { medications });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({ modeId: "prescribing", slug: "clozapine" });
+  });
+
+  it("prefers the newest turn that names an entity", () => {
+    const thread = ["what is the max dose of clozapine", "tell me about acamprosate"];
+    const links = buildCrossModeLinksForThread(thread, { medications });
+    expect(links).toHaveLength(1);
+    expect(links[0]!.slug).toBe("acamprosate");
+
+    expect(buildCrossModeLinksForThread([], { medications })).toEqual([]);
+    expect(buildCrossModeLinksForThread(["what about renal impairment", null], { medications })).toEqual([]);
   });
 
   it("returns nothing for empty or stop-word-only queries and empty catalogs", () => {

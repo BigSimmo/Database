@@ -89,11 +89,27 @@ function serviceChipBadges(record: ServiceRecord): CrossModeLinkBadge[] {
   return badges;
 }
 
-function medicationLinks(query: string, records: MedicationRecord[]): CrossModeLink[] {
+// The rankers match name/title terms by substring, which lets query words hide
+// inside entity names ("renal" inside "adrenaline"). A term only counts as
+// naming an entity when it aligns with a word boundary; prefixes are accepted
+// for longer terms so plural/possessive drift still matches.
+function hasWordBoundaryMatch(value: string, terms: string[]) {
+  const words = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  return terms.some((term) => words.some((word) => word === term || (term.length >= 5 && word.startsWith(term))));
+}
+
+function medicationLinks(query: string, terms: string[], records: MedicationRecord[]): CrossModeLink[] {
   return rankMedicationRecords(records, query, RANKER_CANDIDATE_LIMIT)
     .filter(
       (match) =>
-        match.score >= MEDICATION_MIN_SCORE && (match.reasons.includes("name") || match.reasons.includes("exact name")),
+        match.score >= MEDICATION_MIN_SCORE &&
+        (match.reasons.includes("name") || match.reasons.includes("exact name")) &&
+        hasWordBoundaryMatch(`${match.medication.name} ${match.medication.slug}`, terms),
     )
     .map((match) => ({
       ...crossModeLinkBase("prescribing", match.medication.name),
@@ -109,11 +125,17 @@ function medicationLinks(query: string, records: MedicationRecord[]): CrossModeL
 function registryLinks(
   modeId: Extract<CrossModeLinkModeId, "services" | "forms">,
   query: string,
+  terms: string[],
   records: ServiceRecord[],
 ): CrossModeLink[] {
   const ranker = modeId === "services" ? rankServiceRecords : rankFormRecords;
   return ranker(records, query, RANKER_CANDIDATE_LIMIT)
-    .filter((match) => match.score >= SERVICE_MIN_SCORE && match.reasons.includes("title"))
+    .filter(
+      (match) =>
+        match.score >= SERVICE_MIN_SCORE &&
+        match.reasons.includes("title") &&
+        hasWordBoundaryMatch(`${match.service.title} ${match.service.slug}`, terms),
+    )
     .map((match) => ({
       ...crossModeLinkBase(modeId, match.service.title),
       slug: match.service.slug,
@@ -126,11 +148,10 @@ function registryLinks(
 }
 
 function differentialTitleScore(title: string, terms: string[], aliasDerived: Set<string>) {
-  const normalizedTitle = title.toLowerCase();
-  // Bare `includes()` on short tokens invites substring junk, so a matching
-  // term must be at least 4 chars unless it came from a curated alias.
+  // Word-boundary matching keeps substring junk out; a matching term must
+  // also be at least 4 chars unless it came from a curated alias.
   const matches = terms.filter(
-    (term) => (term.length >= 4 || aliasDerived.has(term)) && normalizedTitle.includes(term),
+    (term) => (term.length >= 4 || aliasDerived.has(term)) && hasWordBoundaryMatch(title, [term]),
   );
   return matches.length * DIFFERENTIAL_TITLE_TERM_SCORE;
 }
@@ -182,6 +203,24 @@ function differentialLinks(terms: string[], catalog: CrossModeDifferentialCatalo
     .slice(0, 1);
 }
 
+// Follow-ups often drop the entity name ("what about renal impairment?"), so
+// an answer thread resolves links from its newest turn that names an entity —
+// walking all the way back, not just one turn, keeps the entity's card alive
+// through consecutive entity-free follow-ups. Queries are ordered oldest first.
+export function buildCrossModeLinksForThread(
+  queries: Array<string | null | undefined>,
+  catalogs: CrossModeCatalogs,
+  options: CrossModeLinkOptions = {},
+): CrossModeLink[] {
+  for (let index = queries.length - 1; index >= 0; index -= 1) {
+    const query = queries[index]?.trim();
+    if (!query) continue;
+    const links = buildCrossModeLinks(query, catalogs, options);
+    if (links.length > 0) return links;
+  }
+  return [];
+}
+
 export function buildCrossModeLinks(
   query: string,
   catalogs: CrossModeCatalogs,
@@ -195,9 +234,9 @@ export function buildCrossModeLinks(
   const keywordQuery = terms.join(" ");
 
   const candidates = [
-    ...medicationLinks(keywordQuery, catalogs.medications ?? []),
-    ...registryLinks("services", keywordQuery, catalogs.services ?? []),
-    ...registryLinks("forms", keywordQuery, catalogs.forms ?? []),
+    ...medicationLinks(keywordQuery, terms, catalogs.medications ?? []),
+    ...registryLinks("services", keywordQuery, terms, catalogs.services ?? []),
+    ...registryLinks("forms", keywordQuery, terms, catalogs.forms ?? []),
     ...(catalogs.differentials ? differentialLinks(terms, catalogs.differentials) : []),
   ];
 

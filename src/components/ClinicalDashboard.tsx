@@ -162,7 +162,7 @@ import {
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { rankFormRecords } from "@/lib/forms";
 import { rankServiceRecords } from "@/lib/services";
-import { buildCrossModeLinks, type CrossModeDifferentialCatalog } from "@/lib/cross-mode-links";
+import { buildCrossModeLinksForThread, type CrossModeDifferentialCatalog } from "@/lib/cross-mode-links";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
 import {
@@ -1610,15 +1610,9 @@ export function ClinicalDashboard({
       forms: crossLinkForms.records,
       differentials: crossLinkDifferentials ?? undefined,
     };
-    const links = buildCrossModeLinks(latestAnswerQuery, catalogs);
-    if (links.length > 0) return links;
-    // Follow-ups often drop the entity name ("what about renal impairment?");
-    // walk older turns so the entity's card persists across multi-hop threads.
-    for (let i = priorAnswerTurns.length - 1; i >= 0; i -= 1) {
-      const priorLinks = buildCrossModeLinks(priorAnswerTurns[i]!.query, catalogs);
-      if (priorLinks.length > 0) return priorLinks;
-    }
-    return links;
+    // The thread helper walks back from the latest question until a turn
+    // names an entity, so cards survive consecutive entity-free follow-ups.
+    return buildCrossModeLinksForThread([...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery], catalogs);
   }, [
     answerCrossLinksActive,
     latestAnswerQuery,
