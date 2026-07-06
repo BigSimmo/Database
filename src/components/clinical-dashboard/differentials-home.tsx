@@ -891,16 +891,18 @@ function SearchResultsView({
             </div>
 
             <div className="grid gap-2">
-              {visibleResults.map((result, index) => {
-                // "Best" styling follows the overall top-ranked result, not
-                // whichever row happens to be first in a kind-filtered list.
+              {visibleResults.map((result) => {
+                // Rank number and "best" styling follow the overall ranked
+                // list, not whichever row happens to be first in a
+                // kind-filtered view.
+                const globalIndex = results.findIndex((entry) => entry.kind === result.kind && entry.id === result.id);
                 const isBest = result.kind === best.kind && result.id === best.id;
                 return (
                   <div key={`${result.kind}-${result.id}`}>
                     <div className="hidden lg:block">
                       <DesktopResultRow
                         result={result}
-                        index={index}
+                        index={globalIndex}
                         isBest={isBest}
                         selected={selectedIds.has(result.id)}
                         onToggle={() => toggleSelected(result.id)}
@@ -909,7 +911,7 @@ function SearchResultsView({
                     <div className="lg:hidden">
                       <MobileResultCard
                         result={result}
-                        index={index}
+                        index={globalIndex}
                         isBest={isBest}
                         selected={selectedIds.has(result.id)}
                         onToggle={() => toggleSelected(result.id)}
