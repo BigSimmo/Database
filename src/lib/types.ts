@@ -173,9 +173,6 @@ export type RetrievalCandidate = {
   lexicalScore?: number;
   semanticScore?: number;
   rerankScore?: number;
-  // Deep tiebreak only (see SearchScoreExplanation.preClampFinalScore): discriminates
-  // candidates whose clamped scores all saturate at 1.0. Never a primary ordering signal.
-  preClampScore?: number;
   matchedSignals: string[];
   sourceHref?: string;
 };
