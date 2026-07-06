@@ -3580,7 +3580,8 @@ export function ClinicalDashboard({
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && (modeSearchSubmitted || Boolean(submittedUrlQuery));
   const showAnswerHome = activeModeResultKind === "answer" && !answer && !loading && !submittedAnswerSearchActive;
-  const showAnswerPending = activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
+  const showAnswerPending =
+    activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const showDesktopHomeComposer =
     !error &&
     (activeModeResultKind === "tools" ||
