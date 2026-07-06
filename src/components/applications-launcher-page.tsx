@@ -69,16 +69,21 @@ const statusLabels: Record<LauncherStatus, string> = {
   review_due: "Review due",
 };
 
+// Categorical identity tones from the token system (--type-*) so icons stay
+// legible in dark mode and forced-colors; "safety" is genuinely semantic and
+// uses the danger triad.
 const iconToneClasses: Record<LauncherArea | "safety" | "medication" | "differentials", string> = {
-  assessment: "border-cyan-200 bg-cyan-50 text-cyan-700",
-  reference: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  care: "border-sky-200 bg-sky-50 text-sky-700",
+  assessment:
+    "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
+  reference: "border-[color:var(--type-table-border)] bg-[color:var(--type-table-soft)] text-[color:var(--type-table)]",
+  care: "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]",
   coordination:
     "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-  saved: "border-blue-200 bg-blue-50 text-blue-700",
-  safety: "border-red-200 bg-red-50 text-red-600",
-  medication: "border-amber-200 bg-amber-50 text-amber-600",
-  differentials: "border-violet-200 bg-violet-50 text-violet-700",
+  saved: "border-[color:var(--type-search-border)] bg-[color:var(--type-search-soft)] text-[color:var(--type-search)]",
+  safety: "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
+  medication: "border-[color:var(--type-form-border)] bg-[color:var(--type-form-soft)] text-[color:var(--type-form)]",
+  differentials:
+    "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
 };
 
 const launcherApps: LauncherApp[] = [
@@ -538,7 +543,9 @@ function FilterTabs({
               key={filter.id}
               type="button"
               role="tab"
+              id={`launcher-filter-desktop-${filter.id}`}
               aria-selected={active}
+              aria-controls="launcher-results-panel"
               onClick={() => onFilterChange(filter.id)}
               className={cn(
                 "inline-flex min-h-9 items-center justify-center rounded-lg border px-4 text-xs font-bold transition",
@@ -561,7 +568,9 @@ function FilterTabs({
               key={filter.id}
               type="button"
               role="tab"
+              id={`launcher-filter-mobile-${filter.id}`}
               aria-selected={active}
+              aria-controls="launcher-results-panel"
               onClick={() => onFilterChange(filter.id)}
               className={cn(
                 "inline-flex min-h-7 shrink-0 items-center justify-center gap-0.5 rounded-lg border px-2 text-[9px] font-bold transition",
@@ -604,7 +613,7 @@ function ToolCard({
         "group grid min-h-[9.25rem] grid-cols-[auto_minmax(0,1fr)_auto] gap-4 rounded-lg border bg-[color:var(--surface-lux)] p-4 text-left shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)] motion-reduce:hover:translate-y-0",
         selected
           ? app.id === "risk-safety"
-            ? "border-red-200 bg-red-50/45"
+            ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/45"
             : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/50"
           : "border-[color:var(--border)]",
         focusRing,
@@ -654,7 +663,7 @@ function MobileToolRow({
         "grid min-h-[5.25rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-[color:var(--surface-lux)] px-3 py-3 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]",
         selected
           ? app.id === "risk-safety"
-            ? "border-red-200 bg-red-50/45"
+            ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/45"
             : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55"
           : "border-[color:var(--border)]",
         focusRing,
@@ -987,25 +996,27 @@ export function ApplicationsLauncherWorkspace({
           </div>
         </div>
 
-        {filteredApps.length === 0 ? (
-          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-10 text-center shadow-[var(--shadow-inset)]">
-            <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[color:var(--text-muted)]">{copy.emptyBody}</p>
-          </div>
-        ) : (
-          <>
-            <div className="hidden grid-cols-2 gap-4 lg:grid xl:grid-cols-3">
-              {filteredApps.map((app) => (
-                <ToolCard key={app.id} app={app} selected={effectiveSelectedId === app.id} onSelect={openTool} />
-              ))}
+        <div id="launcher-results-panel" role="tabpanel" aria-label={copy.allSectionLabel} className="grid gap-4">
+          {filteredApps.length === 0 ? (
+            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-10 text-center shadow-[var(--shadow-inset)]">
+              <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[color:var(--text-muted)]">{copy.emptyBody}</p>
             </div>
-            <div className="grid gap-3 lg:hidden">
-              {filteredApps.map((app) => (
-                <MobileToolRow key={app.id} app={app} selected={effectiveSelectedId === app.id} onSelect={openTool} />
-              ))}
-            </div>
-          </>
-        )}
+          ) : (
+            <>
+              <div className="hidden grid-cols-2 gap-4 lg:grid xl:grid-cols-3">
+                {filteredApps.map((app) => (
+                  <ToolCard key={app.id} app={app} selected={effectiveSelectedId === app.id} onSelect={openTool} />
+                ))}
+              </div>
+              <div className="grid gap-3 lg:hidden">
+                {filteredApps.map((app) => (
+                  <MobileToolRow key={app.id} app={app} selected={effectiveSelectedId === app.id} onSelect={openTool} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
 
         <p className="sr-only">
           Showing {filteredApps.length > 0 ? "1" : "0"} to {filteredApps.length} of {launcherApps.length}{" "}

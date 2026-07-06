@@ -149,7 +149,7 @@ export const SourceImage = memo(function SourceImage({
   return (
     <img
       src={url}
-      alt={caption}
+      alt={caption?.trim() || "Clinical document image"}
       loading="lazy"
       decoding="async"
       onError={handleImageError}
