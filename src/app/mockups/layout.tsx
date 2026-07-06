@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-import { notFound } from "next/navigation";
-=======
 import type { Metadata } from "next";
->>>>>>> origin/main
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { mockupsEnabled } from "@/lib/env";
