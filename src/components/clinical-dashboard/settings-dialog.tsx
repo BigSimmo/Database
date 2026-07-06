@@ -168,13 +168,13 @@ export function SettingsDialog({
                 ) : null}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="mb-0.5 text-[11px] font-semibold leading-4 text-[color:var(--clinical-accent)] lg:hidden">
+                <p className="mb-0.5 text-2xs font-semibold leading-4 text-[color:var(--clinical-accent)] lg:hidden">
                   Clinical context
                 </p>
-                <p className="truncate text-[15px] font-semibold leading-5 text-[color:var(--text-heading)] lg:text-[15px]">
+                <p className="truncate text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] lg:text-base-minus">
                   {identity.displayName}
                 </p>
-                <p className="text-[12px] font-medium leading-4 text-[color:var(--text-muted)] lg:truncate lg:text-[13px] lg:leading-5">
+                <p className="text-xs font-medium leading-4 text-[color:var(--text-muted)] lg:truncate lg:text-sm-minus lg:leading-5">
                   Consultant psychiatrist, Western Australia
                 </p>
               </div>
@@ -196,7 +196,7 @@ export function SettingsDialog({
             <div className="grid gap-3 lg:gap-4">
               {settingSections.map((section) => (
                 <div key={section.title} className="min-w-0">
-                  <h3 className="mb-1 px-1 text-[12px] font-semibold tracking-normal text-[color:var(--text-muted)] lg:mb-1.5 lg:text-[13px] lg:text-[color:var(--text-heading)]">
+                  <h3 className="mb-1 px-1 text-xs leading-normal font-semibold tracking-normal text-[color:var(--text-muted)] lg:mb-1.5 lg:text-sm-minus lg:text-[color:var(--text-heading)]">
                     {section.title}
                   </h3>
                   <div className="overflow-hidden rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[0_8px_22px_rgba(0,0,0,0.04),var(--shadow-inset)] dark:shadow-[0_12px_26px_rgba(0,0,0,0.24),var(--shadow-inset)] lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none">
@@ -234,7 +234,7 @@ export function SettingsDialog({
 
 function SettingsChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-[11px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
+    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
       {label}
     </span>
   );
@@ -242,7 +242,7 @@ function SettingsChip({ label }: { label: string }) {
 
 function SettingsClinicalContextStrip() {
   return (
-    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-[12px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
+    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
       <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0 truncate">
         Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
@@ -285,10 +285,10 @@ function SettingsSummaryTile({
           <Icon className="h-4 w-4" />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[10px] font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
+          <span className="block truncate text-3xs font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
             {label}
           </span>
-          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-heading)] lg:text-[13px]">
+          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-heading)] lg:text-sm-minus">
             {value}
           </span>
         </span>
@@ -327,7 +327,7 @@ function SettingsRow({
       <span className="min-w-0 flex-1 min-[360px]:flex min-[360px]:items-center min-[360px]:justify-between min-[360px]:gap-3">
         <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{label}</span>
         {value ? (
-          <span className="mt-0.5 block max-w-full truncate text-[13px] font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-[13px]">
+          <span className="mt-0.5 block max-w-full truncate text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-sm-minus">
             {value}
           </span>
         ) : null}
@@ -370,7 +370,7 @@ function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
       <button
         type="button"
         onClick={onClick}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-[13px] font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-sm-minus font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         data-testid="settings-row-guide-help"
       >
         <BookOpen className="h-4 w-4" />

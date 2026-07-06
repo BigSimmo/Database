@@ -97,7 +97,7 @@ export function ModeHomeHero({
         </Heading>
         <p
           className={cn(
-            "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-base sm:leading-6 lg:text-[1.0625rem]",
+            "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-base sm:leading-6 lg:text-lg-minus",
             compact ? "leading-5" : "leading-6",
           )}
         >
