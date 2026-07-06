@@ -1004,7 +1004,7 @@ test.describe("Responsive layout guards", () => {
     });
   }
 
-  test("prescribing mode home bottom-anchors its content on phones but centres on tablet", async ({ page }) => {
+  test("prescribing mode home top-aligns on phones but centres on tablet", async ({ page }) => {
     async function verticalWeighting(width: number) {
       // Tall viewport exaggerates the free space so the anchor is unambiguous.
       await page.setViewportSize({ width, height: 900 });
@@ -1019,10 +1019,11 @@ test.describe("Responsive layout guards", () => {
       });
     }
 
-    // Phone (< sm): content is pushed toward the bottom, so the gap above exceeds the gap below.
+    // Phone (< sm): content is top-aligned so integrated action menus are not
+    // clipped by dead space below vertically centred homes.
     const phone = await verticalWeighting(375);
     expect(phone).not.toBeNull();
-    expect(phone?.topGap ?? 0).toBeGreaterThan(phone?.bottomGap ?? 0);
+    expect(phone?.topGap ?? 0).toBeLessThan(phone?.bottomGap ?? 0);
 
     // Tablet hero-composer homes include the portaled search shell in the measured
     // block, so viewport gap balance is looser than phone bottom-anchoring.
