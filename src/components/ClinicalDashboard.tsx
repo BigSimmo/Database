@@ -1648,6 +1648,10 @@ export function ClinicalDashboard({
       return next;
     });
   }
+  // The query the current documentMatches were fetched for, so the
+  // differentials results view can tell live-edited catalogue results apart
+  // from evidence that belongs to a previously submitted search.
+  const [differentialEvidenceQuery, setDifferentialEvidenceQuery] = useState<string | null>(null);
   const clearDifferentialModeResultState = useCallback(() => {
     resetAnswerThread();
     setAnswer(null);
@@ -1659,6 +1663,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setError(null);
     setAnswerProgress(null);
+    setDifferentialEvidenceQuery(null);
   }, [resetAnswerThread]);
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
@@ -2823,6 +2828,7 @@ export function ClinicalDashboard({
       // M10: discard a stale response — a newer search owns the UI state.
       if (requestId === searchRequestSeqRef.current) {
         applySearchResult(successfulPayload, trimmedQuery);
+        if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
         if (successfulPayload.kind === "answer") {
           // The composer is a draft box in a conversation: clear it so the
           // user can type the next follow-up immediately.
@@ -3945,6 +3951,7 @@ export function ClinicalDashboard({
                     query={query}
                     loading={loading}
                     searchSubmitted={modeSearchSubmitted}
+                    evidenceQuery={differentialEvidenceQuery}
                     documentMatches={documentMatches}
                     realDataReady={canRunSearch}
                     authUnavailable={false}

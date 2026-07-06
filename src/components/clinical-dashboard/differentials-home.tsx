@@ -250,16 +250,17 @@ function SelectionToggle({ selected, onClick, label }: { selected: boolean; onCl
 function DesktopResultRow({
   result,
   index,
+  isBest,
   selected,
   onToggle,
 }: {
   result: DifferentialResult;
   index: number;
+  isBest: boolean;
   selected: boolean;
   onToggle: () => void;
 }) {
   const Icon = result.icon;
-  const isBest = index === 0;
 
   return (
     <article
@@ -338,16 +339,17 @@ function DesktopResultRow({
 function MobileResultCard({
   result,
   index,
+  isBest,
   selected,
   onToggle,
 }: {
   result: DifferentialResult;
   index: number;
+  isBest: boolean;
   selected: boolean;
   onToggle: () => void;
 }) {
   const Icon = result.icon;
-  const isBest = index === 0;
 
   return (
     <article
@@ -619,11 +621,13 @@ function SearchResultsView({
   query,
   loading,
   documentMatches,
+  evidenceQuery,
   onRunSearch,
 }: {
   query: string;
   loading: boolean;
   documentMatches?: DocumentMatch[];
+  evidenceQuery?: string | null;
   onRunSearch?: (query: string) => void;
 }) {
   const catalog = useDifferentialSearch(query);
@@ -652,11 +656,16 @@ function SearchResultsView({
   const visibleResults = kindFilter === "all" ? results : results.filter((result) => result.kind === kindFilter);
   const best = results[0] ?? null;
   const selectedCount = selectedIds.size;
-  const hasSourceEvidence = Boolean(documentMatches?.length);
+  // Catalogue results follow composer edits live, but document evidence only
+  // updates on an executed source search — treat evidence fetched for a
+  // different query as pending so the two panels never claim to be in sync.
+  const evidenceIsCurrent = (evidenceQuery ?? "").trim().toLowerCase() === query.trim().toLowerCase();
+  const currentDocumentMatches = evidenceIsCurrent ? documentMatches : undefined;
+  const hasSourceEvidence = Boolean(currentDocumentMatches?.length);
   const evidenceState: DifferentialEvidenceState = hasSourceEvidence ? "source-backed" : "guided";
   // Count the sources that actually matched this search, never the whole
   // indexed library - the surrounding copy states these reflect real matches.
-  const reviewedSourceCount = hasSourceEvidence ? (documentMatches?.length ?? 0) : 0;
+  const reviewedSourceCount = hasSourceEvidence ? (currentDocumentMatches?.length ?? 0) : 0;
   const catalogLoading = catalog.status === "loading";
   const catalogFailed = catalog.status === "error" || catalog.status === "unauthorized";
 
@@ -707,16 +716,6 @@ function SearchResultsView({
           library.
         </span>
       </p>
-      {catalogFailed ? (
-        <p
-          role="alert"
-          className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50 px-3 py-2 text-sm font-semibold text-[color:var(--warning)]"
-        >
-          {catalog.status === "unauthorized"
-            ? "Sign in again to search the differentials catalogue."
-            : "The differentials catalogue could not be searched. Retry shortly or browse the catalogue pages below."}
-        </p>
-      ) : null}
       {catalogLoading ? (
         <div className="grid gap-2" aria-hidden data-testid="differentials-results-loading">
           {[0, 1, 2].map((placeholder) => (
@@ -728,18 +727,28 @@ function SearchResultsView({
         </div>
       ) : !best ? (
         <section
-          data-testid="differentials-empty-results"
-          className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
+          data-testid={catalogFailed ? "differentials-catalogue-error" : "differentials-empty-results"}
+          role={catalogFailed ? "alert" : undefined}
+          className={cn(
+            "grid gap-3 rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]",
+            catalogFailed ? "border-[color:var(--warning-border)]" : "border-[color:var(--border)]",
+          )}
         >
           <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
-            No catalogue matches for &ldquo;{query}&rdquo;
+            {catalogFailed
+              ? catalog.status === "unauthorized"
+                ? "Sign in again to search the differentials catalogue"
+                : "The differentials catalogue could not be searched"
+              : `No catalogue matches for “${query}”`}
           </h2>
           <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            {hasSourceEvidence
-              ? `No imported differential matched this search, but ${reviewedSourceCount.toLocaleString()} indexed source ${
-                  reviewedSourceCount === 1 ? "match is" : "matches are"
-                } available in the library.`
-              : "Try a symptom, presentation, or diagnosis name — or browse the catalogue directly."}
+            {catalogFailed
+              ? "Retry the search shortly, or browse the catalogue pages directly."
+              : hasSourceEvidence
+                ? `No imported differential matched this search, but ${reviewedSourceCount.toLocaleString()} indexed source ${
+                    reviewedSourceCount === 1 ? "match is" : "matches are"
+                  } available in the library.`
+                : "Try a symptom, presentation, or diagnosis name — or browse the catalogue directly."}
           </p>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -882,26 +891,33 @@ function SearchResultsView({
             </div>
 
             <div className="grid gap-2">
-              {visibleResults.map((result, index) => (
-                <div key={`${result.kind}-${result.id}`}>
-                  <div className="hidden lg:block">
-                    <DesktopResultRow
-                      result={result}
-                      index={index}
-                      selected={selectedIds.has(result.id)}
-                      onToggle={() => toggleSelected(result.id)}
-                    />
+              {visibleResults.map((result, index) => {
+                // "Best" styling follows the overall top-ranked result, not
+                // whichever row happens to be first in a kind-filtered list.
+                const isBest = result.kind === best.kind && result.id === best.id;
+                return (
+                  <div key={`${result.kind}-${result.id}`}>
+                    <div className="hidden lg:block">
+                      <DesktopResultRow
+                        result={result}
+                        index={index}
+                        isBest={isBest}
+                        selected={selectedIds.has(result.id)}
+                        onToggle={() => toggleSelected(result.id)}
+                      />
+                    </div>
+                    <div className="lg:hidden">
+                      <MobileResultCard
+                        result={result}
+                        index={index}
+                        isBest={isBest}
+                        selected={selectedIds.has(result.id)}
+                        onToggle={() => toggleSelected(result.id)}
+                      />
+                    </div>
                   </div>
-                  <div className="lg:hidden">
-                    <MobileResultCard
-                      result={result}
-                      index={index}
-                      selected={selectedIds.has(result.id)}
-                      onToggle={() => toggleSelected(result.id)}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <Link
@@ -948,6 +964,7 @@ export function DifferentialsHome({
   loading,
   searchSubmitted,
   documentMatches,
+  evidenceQuery,
   onQueryChange,
   onSuggestedSearch,
   onRunSearch,
@@ -959,6 +976,7 @@ export function DifferentialsHome({
   loading: boolean;
   searchSubmitted?: boolean;
   documentMatches?: DocumentMatch[];
+  evidenceQuery?: string | null;
   realDataReady?: boolean;
   authUnavailable?: boolean;
   apiUnavailable?: boolean;
@@ -1017,6 +1035,7 @@ export function DifferentialsHome({
         query={trimmedQuery}
         loading={loading}
         documentMatches={documentMatches}
+        evidenceQuery={evidenceQuery}
         onRunSearch={runSearch}
       />
     );
