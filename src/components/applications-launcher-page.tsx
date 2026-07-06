@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 
-import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import {
@@ -726,7 +726,7 @@ export function ApplicationsLauncherWorkspace({
   return (
     <main
       data-testid="tools-hub"
-      aria-labelledby="tools-home-heading"
+      aria-labelledby="tools-home-title"
       className={cn(
         "mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-8 text-[color:var(--text)] sm:px-6 lg:px-8",
         "pb-[calc(12rem+env(safe-area-inset-bottom))] sm:pb-8",
@@ -737,22 +737,16 @@ export function ApplicationsLauncherWorkspace({
       <section
         aria-label="Tools home"
         data-testid="tools-home"
-        className="mx-auto grid max-w-5xl justify-items-center gap-5 text-center sm:gap-6"
+        className="mx-auto grid max-w-5xl justify-items-center gap-3.5 text-center sm:gap-6"
       >
-        <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-          <Grid2X2 className="h-7 w-7 sm:h-8 sm:w-8" aria-hidden />
-        </span>
-        <div className="grid gap-2">
-          <h1
-            id="tools-home-heading"
-            className="text-balance text-[2rem] font-extrabold leading-none tracking-normal text-[color:var(--text-heading)] sm:text-[2.7rem]"
-          >
-            {copy.heading}
-          </h1>
-          <p className="mx-auto max-w-xl text-pretty text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            {copy.description}
-          </p>
-        </div>
+        <ModeHomeHero
+          testId="tools-home"
+          title={copy.heading}
+          subtitle={copy.description}
+          icon={Grid2X2}
+          headingLevel={1}
+          compact
+        />
 
         {desktopComposerSlotId ? (
           <div

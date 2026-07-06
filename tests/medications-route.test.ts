@@ -167,6 +167,26 @@ describe("medications API", () => {
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 
+  it("serves an identity-only slim catalog for fields=index", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const response = await GET(request("/api/medications?fields=index"));
+    const payload = (await response.json()) as {
+      records: Array<{ slug: string; name: string; stats: unknown[]; sections: unknown[]; quick: unknown[] }>;
+    };
+
+    expect(response.status).toBe(200);
+    const acamprosate = payload.records.find((record) => record.slug === "acamprosate");
+    expect(acamprosate?.name).toBe("Acamprosate");
+    expect(
+      payload.records.every(
+        (record) => record.stats.length === 0 && record.sections.length === 0 && record.quick.length === 0,
+      ),
+    ).toBe(true);
+  });
+
   it("serves curated public records for unauthenticated list requests outside demo mode", async () => {
     const client = createSupabaseMock();
     mockRuntime(client);

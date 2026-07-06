@@ -63,6 +63,7 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
@@ -3942,12 +3943,10 @@ export function ClinicalDashboard({
                 className={cn(
                   "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                   centeredModeHome || showAnswerHome
-                    ? // On tall phones the centred home leans slightly toward the
-                      // bottom composer (matches the committed vertical-weighting
-                      // guard); short phones skip the bias so content still fits.
-                      // Mobile uses top alignment so the integrated action menu is
-                      // not clipped by the dead space below vertically centred homes.
-                      "grid w-full place-items-center max-sm:place-content-start max-sm:justify-items-center max-sm:pt-[clamp(0.75rem,3vh,2rem)] max-sm:[@media(min-height:800px)]:pt-[5vh]"
+                    ? // Phones centre the home block mid-screen, matching the
+                      // standalone-route homes; the pop-up action surface picks
+                      // its own up/down placement so it stays unclipped either way.
+                      "grid w-full place-items-center max-sm:pt-2"
                     : activeModeResultKind === "tools" ||
                         activeModeResultKind === "favourites" ||
                         activeModeResultKind === "differentials"
@@ -4044,6 +4043,9 @@ export function ClinicalDashboard({
                   ) : (
                     <>
                       <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                      {searchMode === "documents" && modeSearchSubmitted && (
+                        <CrossModeLinksSection queries={[query]} onModeSearch={crossModeSearch} />
+                      )}
                       <DocumentSearchResultsPanel
                         matches={documentMatches}
                         recordMatches={recordSearchMatches}
@@ -4137,6 +4139,12 @@ export function ClinicalDashboard({
 
               {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
 
+              {activeModeResultKind === "answer" && answer && (
+                <CrossModeLinksSection
+                  queries={[...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery]}
+                  onModeSearch={crossModeSearch}
+                />
+              )}
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel
                   documents={relatedDocuments}
