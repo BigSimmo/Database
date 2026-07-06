@@ -44,3 +44,40 @@ export async function ensureRegistrySeeded(
   if (error) throw new Error(`Registry seed failed: ${error.message}`);
   return (data ?? []) as RegistryRecordRow[];
 }
+
+/**
+ * Fetch an owner's registry rows for a kind, lazily seeding the curated
+ * defaults on the first visit (the registry API's long-standing behaviour,
+ * extracted so /api/registry/records and universal search share one code
+ * path). The seed write is best-effort; the re-read is not, so a genuine
+ * read failure still surfaces instead of a misleading empty registry.
+ */
+export async function fetchOwnerRegistryRowsWithSeed(
+  supabase: AdminClient,
+  ownerId: string,
+  kind: RegistryRecordKind,
+  maxRecords = 500,
+): Promise<RegistryRecordRow[]> {
+  const fetchRecords = async () => {
+    const { data, error } = await supabase
+      .from("clinical_registry_records")
+      .select("*")
+      .eq("owner_id", ownerId)
+      .eq("kind", kind)
+      .order("title")
+      .limit(maxRecords);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as RegistryRecordRow[];
+  };
+
+  let rows = await fetchRecords();
+  if (rows.length === 0) {
+    try {
+      await ensureRegistrySeeded(supabase, ownerId, kind);
+    } catch (seedError) {
+      console.error(`[registry] auto-seed failed for owner ${ownerId} (${kind})`, seedError);
+    }
+    rows = await fetchRecords();
+  }
+  return rows;
+}
