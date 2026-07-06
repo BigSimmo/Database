@@ -1489,7 +1489,10 @@ summary::-webkit-details-marker {
     padding-bottom: max(0.45rem, var(--safe-area-bottom));
   }
 
-  .answer-footer-search-dock[data-scroll-hidden="true"] {
+  /* Must beat the edge-to-edge dock rule above (transform: none) so scroll-hide
+     actually slides the bar off-screen once data-scroll-hidden is set. */
+  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-scroll-hidden="true"],
+  .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-scroll-hidden="true"] {
     transform: translateY(calc(100% + env(safe-area-inset-bottom)));
     pointer-events: none;
   }
@@ -1788,14 +1791,29 @@ summary::-webkit-details-marker {
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 25%, transparent) !important;
   }
 
-  /* Premium Hover Transitions for Source Capsules and Action row chips */
+  /* Premium hover transitions for source capsules */
   .source-capsule-hover {
-    transition: all 180ms cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+    box-shadow: var(--glow-soft), var(--shadow-inset);
+    transition:
+      transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 150ms ease,
+      background-color 150ms ease !important;
   }
 
   .source-capsule-hover:hover {
-    transform: translateY(-1px) scale(1.015) !important;
-    box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 8%, transparent) !important;
+    transform: translateY(-1px) scale(1.01);
+    box-shadow: var(--shadow-tight), var(--shadow-inset);
+  }
+
+  .source-capsule-hover[aria-expanded="true"] {
+    border-color: var(--clinical-accent);
+    box-shadow: var(--glow-soft), var(--shadow-inset);
+  }
+
+  .source-capsule-hover[aria-expanded="true"]:hover {
+    transform: translateY(-1px) scale(1.01);
+    box-shadow: var(--shadow-tight), var(--shadow-inset);
   }
 
   .polished-scroll {
@@ -1837,6 +1855,11 @@ summary::-webkit-details-marker {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .source-capsule-hover:hover,
+  .source-capsule-hover[aria-expanded="true"]:hover {
+    transform: none !important;
   }
 }
 

@@ -115,7 +115,7 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
       { text: "QT prolongation risk medicines", meta: "Prescribing" },
     ],
     scopes: [],
-    crossModes: ["documents", "prescribing", "differentials"],
+    crossModes: ["documents", "prescribing", "services", "forms", "differentials"],
   },
 };
 

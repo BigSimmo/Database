@@ -240,15 +240,7 @@ export function rankMedicationRecords(records: MedicationRecord[], query: string
     .slice(0, limit);
 }
 
-export function medicationIdentityBadges(record: MedicationRecord) {
-  const badges: Array<{ label: string; tone?: "clinical" | "success" | "danger" | "warning" | "neutral" | "info" }> =
-    [];
-  if (record.tag) badges.push({ label: record.tag, tone: "neutral" });
-  if (record.schedule) badges.push({ label: record.schedule, tone: record.schedule === "S8" ? "danger" : "info" });
-  const brand = firstRowValue(record, "form", "brand");
-  if (brand) badges.push({ label: brand, tone: "neutral" });
-  return badges;
-}
+export { medicationIdentityBadges } from "@/lib/medication-badges";
 
 export function medicationDetailTiles(record: MedicationRecord) {
   const usualDose = medicationUsualDose(record);

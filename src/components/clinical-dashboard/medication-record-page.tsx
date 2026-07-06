@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ClipboardList,
   FlaskConical,
+  Lock,
   Pill,
   ShieldCheck,
   type LucideIcon,
@@ -16,16 +17,18 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { BadgeCluster, clinicalBadgeToneClass } from "@/components/clinical-dashboard/clinical-badge";
 import { useMedicationDetail } from "@/components/clinical-dashboard/use-medication-catalog";
 import {
-  medicationDetailTiles,
+  medicationAccessBadges,
+  medicationAccessFields,
   medicationIdentityBadges,
-  type MedicationRecord,
-  type MedicationSection,
-} from "@/lib/medications";
-import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
-
-type ClinicalBadgeTone = "clinical" | "success" | "danger" | "warning" | "neutral" | "info";
+  medicationRowBadges,
+  medicationStatTone,
+  type MedicationGovernance,
+} from "@/lib/medication-badges";
+import { medicationDetailTiles, type MedicationRecord, type MedicationSection } from "@/lib/medications";
+import { cn } from "@/components/ui-primitives";
 
 const sectionIcons: Record<string, LucideIcon> = {
   dose: CalendarDays,
@@ -36,29 +39,6 @@ const sectionIcons: Record<string, LucideIcon> = {
   inter: FlaskConical,
   src: BadgeCheck,
 };
-
-function ClinicalBadge({ label, tone = "neutral" }: { label: string; tone?: ClinicalBadgeTone }) {
-  const toneClassName: Record<ClinicalBadgeTone, string> = {
-    clinical:
-      "border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-    success: toneSuccess,
-    danger: toneDanger,
-    warning: toneWarning,
-    neutral: toneNeutral,
-    info: toneInfo,
-  };
-
-  return (
-    <span
-      className={cn(
-        "inline-flex h-[1.375rem] max-w-full shrink-0 items-center rounded-md border px-1.5 text-3xs font-semibold leading-none shadow-[var(--shadow-inset)]",
-        toneClassName[tone],
-      )}
-    >
-      <span className="truncate">{label}</span>
-    </span>
-  );
-}
 
 function DetailTile({
   label,
@@ -98,6 +78,7 @@ function DetailTile({
 
 function SectionCard({ section }: { section: MedicationSection }) {
   const Icon = sectionIcons[section.type] || ClipboardList;
+
   return (
     <details
       className="group scroll-mt-16 border-b border-[color:var(--border)] last:border-b-0"
@@ -114,32 +95,74 @@ function SectionCard({ section }: { section: MedicationSection }) {
         />
       </summary>
       <div className="space-y-2 px-3 pb-3">
-        {section.rows.map((row) => (
-          <div
-            key={`${section.title}-${row.key}`}
-            className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5"
-          >
-            <p className="text-xs font-semibold text-[color:var(--text-heading)]">{row.key}</p>
-            <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-[color:var(--text-muted)]">
-              {row.val.replace(/\*\*/g, "")}
-            </p>
-            {row.tags?.length ? (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {row.tags.map((tag) => (
-                  <ClinicalBadge key={tag} label={tag} tone="info" />
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ))}
+        {section.rows.map((row) => {
+          const rowBadges = medicationRowBadges(row, section.type);
+          return (
+            <div
+              key={`${section.title}-${row.key}`}
+              className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5"
+            >
+              <p className="text-xs font-semibold text-[color:var(--text-heading)]">{row.key}</p>
+              <BadgeCluster
+                items={rowBadges}
+                compact
+                limit={section.type === "contra" ? 4 : 3}
+                className="mt-2"
+              />
+              <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-[color:var(--text-muted)]">
+                {row.val.replace(/\*\*/g, "")}
+              </p>
+            </div>
+          );
+        })}
       </div>
     </details>
   );
 }
 
-function MedicationRecordDetail({ record }: { record: MedicationRecord }) {
+function MedicationAccessPanel({ record }: { record: MedicationRecord }) {
+  const badges = useMemo(() => medicationAccessBadges(record), [record]);
+  const fields = useMemo(() => medicationAccessFields(record), [record]);
+  if (!badges.length && !fields.length) return null;
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]">
+      <div className="mb-0 flex items-center gap-2 border-b border-[color:var(--border)] px-3 py-2">
+        <Lock className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+        <h4 className="text-sm-minus font-semibold text-[color:var(--text-heading)]">Access</h4>
+      </div>
+      <div className="p-3">
+        <BadgeCluster items={badges} compact limit={3} className="mb-2.5" />
+        {fields.length ? (
+          <dl className="grid gap-2 text-sm-minus">
+            {fields.map((field, index) => (
+              <div
+                key={field.label}
+                className={cn(
+                  "flex justify-between gap-3",
+                  index < fields.length - 1 && "border-b border-[color:var(--border)] pb-2",
+                )}
+              >
+                <dt className="font-semibold text-[color:var(--text-muted)]">{field.label}</dt>
+                <dd className="text-right font-medium text-[color:var(--text-heading)]">{field.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function MedicationRecordDetail({
+  record,
+  governance,
+}: {
+  record: MedicationRecord;
+  governance?: MedicationGovernance;
+}) {
   const tiles = useMemo(() => medicationDetailTiles(record), [record]);
-  const badges = useMemo(() => medicationIdentityBadges(record), [record]);
+  const badges = useMemo(() => medicationIdentityBadges(record, governance), [record, governance]);
   const [activeTab, setActiveTab] = useState<"summary" | "dosing" | "safety" | "more">("summary");
 
   const sectionsByTab = useMemo(() => {
@@ -179,11 +202,7 @@ function MedicationRecordDetail({ record }: { record: MedicationRecord }) {
                     </>
                   ) : null}
                 </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {badges.map((badge) => (
-                    <ClinicalBadge key={badge.label} label={badge.label} tone={badge.tone} />
-                  ))}
-                </div>
+                <BadgeCluster items={badges} limit={5} showOverflowCount className="mt-2" />
               </div>
             </div>
           </section>
@@ -237,7 +256,7 @@ function MedicationRecordDetail({ record }: { record: MedicationRecord }) {
           </section>
         </div>
 
-        <aside className="hidden space-y-3 lg:block lg:self-start lg:pt-[6.6rem]">
+        <aside className="hidden space-y-3 lg:sticky lg:top-20 lg:block lg:self-start">
           <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]">
             <div className="border-b border-[color:var(--border)] px-3 py-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
               Quick reference
@@ -256,23 +275,28 @@ function MedicationRecordDetail({ record }: { record: MedicationRecord }) {
             </div>
           </section>
 
+          <MedicationAccessPanel record={record} />
+
           {record.stats.length ? (
             <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]">
               <div className="border-b border-[color:var(--border)] px-3 py-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
                 Key stats
               </div>
               <div className="grid grid-cols-2 gap-2 p-3">
-                {record.stats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
-                  >
-                    <p className="text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                      {stat.label}
-                    </p>
-                    <p className="mt-1 text-sm-minus font-semibold text-[color:var(--text-heading)]">{stat.value}</p>
-                  </div>
-                ))}
+                {record.stats.map((stat) => {
+                  const tone = medicationStatTone(stat);
+                  return (
+                    <div
+                      key={stat.label}
+                      className={cn("rounded-md border bg-[color:var(--surface-subtle)] p-2", clinicalBadgeToneClass(tone))}
+                    >
+                      <p className="text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                        {stat.label}
+                      </p>
+                      <p className="mt-1 text-sm-minus font-semibold">{stat.value}</p>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           ) : null}
@@ -308,7 +332,7 @@ export function MedicationRecordPage({ slug }: { slug: string }) {
             </div>
           </div>
         ) : (
-          <MedicationRecordDetail record={data.record} />
+          <MedicationRecordDetail record={data.record} governance={data.governance} />
         )}
       </div>
       <footer className="mx-auto max-w-7xl px-4 pb-4 text-center text-3xs font-medium text-[color:var(--text-soft)] opacity-70">

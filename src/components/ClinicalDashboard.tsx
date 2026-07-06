@@ -63,6 +63,7 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
@@ -3979,6 +3980,9 @@ export function ClinicalDashboard({
                   ) : (
                     <>
                       <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                      {searchMode === "documents" && modeSearchSubmitted && (
+                        <CrossModeLinksSection queries={[query]} onModeSearch={crossModeSearch} />
+                      )}
                       <DocumentSearchResultsPanel
                         matches={documentMatches}
                         recordMatches={recordSearchMatches}
@@ -4057,6 +4061,8 @@ export function ClinicalDashboard({
                         followUpSuggestions={answerFollowUpSuggestions}
                         onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
                         followUpSuggestionsDisabled={loading}
+                        crossModeQueries={[...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery]}
+                        onCrossModeSearch={crossModeSearch}
                       />
                     </>
                   ) : null

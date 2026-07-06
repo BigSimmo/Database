@@ -8,15 +8,19 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { defaultMedicationRecords, ensureMedicationsSeeded } from "@/lib/medication-seed";
+import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
 import {
   medicationSourceStatus,
   medicationValidationStatus,
   rowGovernance,
   rowToMedicationRecord,
-  type MedicationRecordRow,
 } from "@/lib/medication-records";
-import { medicationToSearchResult, rankMedicationRecords, type MedicationSearchMatch } from "@/lib/medications";
+import {
+  medicationToSearchResult,
+  rankMedicationRecords,
+  type MedicationRecord,
+  type MedicationSearchMatch,
+} from "@/lib/medications";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -34,7 +38,24 @@ const medicationListQuerySchema = z.object({
     .optional()
     .transform((value) => (value ? value : undefined)),
   limit: queryInteger({ fallback: 50, min: 1, max: 100 }),
+  fields: z.enum(["index"]).optional(),
 });
+
+function toIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
+  return records.map((record) => ({
+    slug: record.slug,
+    name: record.name,
+    class: record.class,
+    subclass: record.subclass,
+    category: record.category,
+    accent: record.accent,
+    tag: record.tag,
+    schedule: record.schedule,
+    stats: [],
+    sections: [],
+    quick: [],
+  }));
+}
 
 function medicationResponse(payload: Record<string, unknown>) {
   return NextResponse.json(payload, { headers: { "Cache-Control": "private, no-store" } });
@@ -49,8 +70,8 @@ function matchesPayload(matches: MedicationSearchMatch[]) {
   }));
 }
 
-function publicMedicationPayload(q: string | undefined, limit: number) {
-  const records = defaultMedicationRecords();
+function publicMedicationPayload(q: string | undefined, limit: number, fields?: "index") {
+  const records = fields === "index" ? toIndexRecords(defaultMedicationRecords()) : defaultMedicationRecords();
   const governance = Object.fromEntries(
     records.map((record) => [
       record.slug,
@@ -71,18 +92,18 @@ function publicMedicationPayload(q: string | undefined, limit: number) {
 
 export async function GET(request: Request) {
   try {
-    const { q, limit } = parseRequestQuery(request, medicationListQuerySchema, "Invalid medication query.");
+    const { q, limit, fields } = parseRequestQuery(request, medicationListQuerySchema, "Invalid medication query.");
 
     if (isDemoMode() || isLocalNoAuthMode()) {
       return medicationResponse({
-        ...publicMedicationPayload(q, limit),
+        ...publicMedicationPayload(q, limit, fields),
         demoMode: true,
       });
     }
 
     if (!shouldResolvePublicCatalogAccess(request)) {
       return medicationResponse({
-        ...publicMedicationPayload(q, limit),
+        ...publicMedicationPayload(q, limit, fields),
         publicAccess: true,
       });
     }
@@ -102,33 +123,14 @@ export async function GET(request: Request) {
 
     if (!access.ownerId) {
       return medicationResponse({
-        ...publicMedicationPayload(q, limit),
+        ...publicMedicationPayload(q, limit, fields),
         publicAccess: true,
       });
     }
 
-    const fetchRecords = async () => {
-      const { data, error } = await supabase
-        .from("medication_records")
-        .select("*")
-        .eq("owner_id", access.ownerId)
-        .order("name")
-        .limit(MEDICATION_MAX_RECORDS);
-      if (error) throw new Error(error.message);
-      return (data ?? []) as MedicationRecordRow[];
-    };
-
-    let rows = await fetchRecords();
-    if (rows.length === 0) {
-      try {
-        await ensureMedicationsSeeded(supabase, access.ownerId);
-      } catch (seedError) {
-        console.error(`[medications] auto-seed failed for owner ${access.ownerId}`, seedError);
-      }
-      rows = await fetchRecords();
-    }
-
-    const records = rows.map(rowToMedicationRecord);
+    const rows = await fetchOwnerMedicationRowsWithSeed(supabase, access.ownerId, MEDICATION_MAX_RECORDS);
+    const fullRecords = rows.map(rowToMedicationRecord);
+    const records = fields === "index" ? toIndexRecords(fullRecords) : fullRecords;
     const governanceBySlug = Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)]));
 
     return medicationResponse({

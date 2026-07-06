@@ -321,7 +321,11 @@ export function MasterSearchHeader({
   });
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
-  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && isMobileBottomComposer && usesPhoneSearchLayout);
+  const phoneBottomSearchDockActive =
+    usesPhoneSearchLayout &&
+    searchComposerVisible &&
+    (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
+  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden =
     bottomComposerScrollHiddenActive &&
     scrollHidden &&
@@ -1191,7 +1195,9 @@ export function MasterSearchHeader({
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesCompactMobileBottomStyle = usesMobileBottomStyle && mobileBottomSearchVariant === "compact";
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
-    const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer;
+    // Sticky-top result composers (tablet+) share the footer chip layout so the
+    // pill + chip row looks identical across homes, results, and the answer dock.
+    const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer || usesMobileBottomStyle;
     // Keep footer suggestion chips on tablet/desktop; phones reach the same actions via "+".
     const showFooterSearchChips = usesFooterChipLayout && !usesPhoneSearchLayout;
     const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;
@@ -1202,11 +1208,8 @@ export function MasterSearchHeader({
     const secondaryFooterChip = footerSecondaryChipFor(searchMode);
     const TrustFooterChipIcon = trustFooterChip?.icon ?? BadgeCheck;
     const SecondaryFooterChipIcon = secondaryFooterChip?.icon ?? ListChecks;
-    const composerPlaceholder =
-      usesMobileBottomStyle && searchMode === "differentials" ? "Search a presentation" : queryPlaceholder;
-
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
-    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesMobileBottomStyle && usesPhoneFooterDock);
+    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
 
@@ -1346,7 +1349,7 @@ export function MasterSearchHeader({
                   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
                 }}
                 aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
-                placeholder={composerPlaceholder}
+                placeholder={queryPlaceholder}
                 className={cn(chatComposerInput, "w-full min-w-0", "answer-footer-search-input")}
               />
               {query && (

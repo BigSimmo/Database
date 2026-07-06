@@ -18,3 +18,36 @@ export async function ensureMedicationsSeeded(supabase: AdminClient, ownerId: st
 }
 
 export { defaultMedicationRecords };
+
+/**
+ * Fetch an owner's medication rows, lazily seeding the curated defaults on the
+ * first visit (extracted from /api/medications so the route and universal
+ * search share one code path). Seed write is best-effort; re-read is not.
+ */
+export async function fetchOwnerMedicationRowsWithSeed(
+  supabase: AdminClient,
+  ownerId: string,
+  maxRecords = 500,
+): Promise<MedicationRecordRow[]> {
+  const fetchRecords = async () => {
+    const { data, error } = await supabase
+      .from("medication_records")
+      .select("*")
+      .eq("owner_id", ownerId)
+      .order("name")
+      .limit(maxRecords);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as MedicationRecordRow[];
+  };
+
+  let rows = await fetchRecords();
+  if (rows.length === 0) {
+    try {
+      await ensureMedicationsSeeded(supabase, ownerId);
+    } catch (seedError) {
+      console.error(`[medications] auto-seed failed for owner ${ownerId}`, seedError);
+    }
+    rows = await fetchRecords();
+  }
+  return rows;
+}

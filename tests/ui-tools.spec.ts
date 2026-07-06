@@ -259,6 +259,22 @@ test.describe("Clinical KB tools launcher", () => {
     });
   }
 
+  test("standalone applications route uses the shared global search", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoLauncher(page, "/applications");
+
+    await expect(page.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+    await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
+    await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
+
+    // Typing in the shared composer live-filters the tools grid, matching /?mode=tools.
+    await visibleGlobalSearchInput(page).fill("medication");
+    await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
+    await expect(page.getByTestId("application-card-documents")).toBeHidden();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("launcher links point to the expected in-app modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
@@ -398,6 +414,8 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
       { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
       { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
+      { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
+      { path: "/favourites", testId: "favourites-hub", heading: "Favourites command library", headingLevel: 1 },
     ] as const) {
       await gotoLauncher(page, home.path);
       await expect(page.getByTestId(home.testId)).toBeVisible();
@@ -464,6 +482,8 @@ test.describe("Clinical KB tools launcher", () => {
         { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
         { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
         { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
+        { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
+        { path: "/favourites", testId: "favourites-hub", heading: "Favourites command library", headingLevel: 1 },
       ] as const) {
         await gotoLauncher(page, home.path);
         await expect(page.getByTestId(home.testId)).toBeVisible();
@@ -512,6 +532,9 @@ test.describe("Clinical KB tools launcher", () => {
       for (const route of [
         { path: "/services?q=13YARN&focus=1&run=1", compactBottomSearch: true },
         { path: "/services/13yarn", compactBottomSearch: false },
+        { path: "/forms?q=transport&focus=1&run=1", compactBottomSearch: true },
+        { path: "/favourites?q=lithium&focus=1&run=1", compactBottomSearch: true },
+        { path: "/differentials?q=acute+confusion&focus=1&run=1", compactBottomSearch: true },
       ] as const) {
         await gotoLauncher(page, route.path);
         await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible({ timeout: 20_000 });
@@ -534,6 +557,7 @@ test.describe("Clinical KB tools launcher", () => {
         } else {
           expect(metrics?.position).toBe("sticky");
           expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
+          await expect(page.locator(".answer-footer-search-chip:visible")).not.toHaveCount(0);
         }
 
         await expectNoPageHorizontalOverflow(page);
@@ -668,9 +692,17 @@ test.describe("Clinical KB tools launcher", () => {
 
     await page.evaluate(() => window.scrollTo({ top: 120, behavior: "auto" }));
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () =>
+        dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"),
+      )
+      .toBe(true);
 
     await page.evaluate(() => window.scrollTo({ top: 60, behavior: "auto" }));
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform === "none"))
+      .toBe(true);
   });
 
   test("mode toggle keeps forms separate from services", async ({ page }) => {
