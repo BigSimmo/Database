@@ -3869,7 +3869,9 @@ export function ClinicalDashboard({
                     ? // On tall phones the centred home leans slightly toward the
                       // bottom composer (matches the committed vertical-weighting
                       // guard); short phones skip the bias so content still fits.
-                      "grid w-full place-items-center max-sm:[@media(min-height:800px)]:pt-[5vh]"
+                      // Mobile uses top alignment so the integrated action menu is
+                      // not clipped by the dead space below vertically centred homes.
+                      "grid w-full place-items-center max-sm:place-content-start max-sm:justify-items-center max-sm:pt-[clamp(0.75rem,3vh,2rem)] max-sm:[@media(min-height:800px)]:pt-[5vh]"
                     : activeModeResultKind === "tools" ||
                         activeModeResultKind === "favourites" ||
                         activeModeResultKind === "differentials"

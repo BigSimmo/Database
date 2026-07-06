@@ -569,6 +569,7 @@ summary::-webkit-details-marker {
   width: min(100%, clamp(19rem, 90vw, 52rem));
   max-width: calc(100vw - 1rem - var(--safe-area-left) - var(--safe-area-right));
   margin-inline: auto;
+  overflow: visible;
 }
 
 .universal-home-search-edge {

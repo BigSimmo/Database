@@ -370,7 +370,7 @@ export function ModeActionPopup({
     const edgePadding = 12;
     const availableAbove = Math.max(0, rect.top - viewportTop - edgePadding);
     const availableBelow = Math.max(0, viewportBottom - rect.bottom - edgePadding);
-    const { minBodyHeight, minSurfaceHeight, headerHeight } = estimateIntegratedMenuHeights(items.length, integrated);
+    const { minSurfaceHeight, headerHeight } = estimateIntegratedMenuHeights(items.length, integrated);
     const detachedUpOffset = 16;
     const integratedDownOffset = integratedChipRow ? 58 : 14;
     const detachedDownOffset = integrated ? integratedDownOffset : 14;
