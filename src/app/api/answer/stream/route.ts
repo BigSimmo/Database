@@ -20,6 +20,7 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -69,12 +70,50 @@ function rateLimitStream(rateLimit: ApiRateLimitResult) {
   );
 }
 
+function buildDemoAnswerPayload(body: AnswerBody, fallbackReason?: string) {
+  const demo = demoAnswer(body.query, body.documentId, body.documentIds);
+  const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
+  const sources = annotateSearchResults(answerFocusQuery, demo.sources);
+  const relevance = buildEvidenceRelevance(answerFocusQuery, sources);
+  return {
+    ...demo,
+    sources,
+    relevance,
+    smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
+    smartApiPlan: buildSmartRagApiPlan({
+      query: answerFocusQuery,
+      queryClass: queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
+      results: sources,
+      routeMode: demo.routingMode,
+      retrievalStrategy: "hybrid",
+    }),
+    demoMode: true,
+    ...(fallbackReason
+      ? {
+          degradedMode: { active: true, reason: fallbackReason },
+          fallbackMode: "non_production_demo",
+          fallbackReason,
+        }
+      : {}),
+  };
+}
+
 function streamErrorPayload(error: unknown) {
   if (error instanceof PublicApiError) {
     return {
       message: error.message,
       status: error.status,
       details: error.details?.code ? { code: error.details.code } : undefined,
+    };
+  }
+
+  // Production has no demo fallback for a misconfigured Supabase key, so tag the
+  // SSE error with a stable code operators can spot in the client/network tab.
+  if (isSupabaseApiKeyConfigurationError(error)) {
+    return {
+      message: "Answer generation failed. Retry with a narrower question.",
+      status: 500,
+      details: { code: "supabase_api_key_configuration" },
     };
   }
 
@@ -142,27 +181,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
             body.documentId && !body.documentIds?.length && scope?.activeFilterCount === 0,
           );
           const answer = isDemoMode()
-            ? (() => {
-                const demo = demoAnswer(body.query, body.documentId, body.documentIds);
-                const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
-                const sources = annotateSearchResults(answerFocusQuery, demo.sources);
-                const relevance = buildEvidenceRelevance(answerFocusQuery, sources);
-                return {
-                  ...demo,
-                  sources,
-                  relevance,
-                  smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
-                  smartApiPlan: buildSmartRagApiPlan({
-                    query: answerFocusQuery,
-                    queryClass:
-                      queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
-                    results: sources,
-                    routeMode: demo.routingMode,
-                    retrievalStrategy: "hybrid",
-                  }),
-                  demoMode: true,
-                };
-              })()
+            ? buildDemoAnswerPayload(body)
             : await answerQuestionWithScope({
                 query: body.query,
                 documentId: singleDocumentScope ? body.documentId : undefined,
@@ -206,8 +225,16 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
           });
         } catch (error) {
           logStreamError(error);
-          const streamError = streamErrorPayload(error);
-          send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
+          // Parity with /api/answer (PR #315): outside production, a misconfigured
+          // Supabase API key degrades to a visible demo answer instead of a stream
+          // error — the UI's answer search uses this route, not /api/answer.
+          const fallbackReason = nonProductionSupabaseDemoFallbackReason(error);
+          if (fallbackReason) {
+            send("final", buildDemoAnswerPayload(body, fallbackReason));
+          } else {
+            const streamError = streamErrorPayload(error);
+            send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
+          }
         } finally {
           controller.close();
         }

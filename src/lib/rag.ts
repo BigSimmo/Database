@@ -1215,6 +1215,52 @@ function uniqueTextValues(values: Array<string | null | undefined>, limit = 32) 
   return output;
 }
 
+type QueryClassifierVerdict = z.infer<typeof queryClassifierParseSchema>;
+
+// Finding #11 interim hardening (docs/process-hardening.md): the generative query
+// classifier is nondeterministic, so the same bare low-confidence query ("bipolar
+// disorder") could answer on one run and short-circuit to "unsupported" on the next.
+// Memoize the classifier's verdict per normalized query so behaviour is deterministic
+// within the TTL. Definitive verdicts — accepted reclassifications AND declines — are
+// cached; transient failures (timeout, parse error) are NOT cached, mirroring the
+// rag_aliases lesson, so a flaky call retries on the next request.
+const queryClassifierVerdictCacheTtlMs = 10 * 60_000;
+const queryClassifierVerdictCacheMaxSize = 500;
+const queryClassifierVerdictCache = new Map<string, { expiresAt: number; verdict: QueryClassifierVerdict | null }>();
+
+function rememberQueryClassifierVerdict(cacheKey: string, verdict: QueryClassifierVerdict | null) {
+  if (queryClassifierVerdictCache.size >= queryClassifierVerdictCacheMaxSize) {
+    const oldestKey = queryClassifierVerdictCache.keys().next().value;
+    if (oldestKey !== undefined) queryClassifierVerdictCache.delete(oldestKey);
+  }
+  queryClassifierVerdictCache.set(cacheKey, { verdict, expiresAt: Date.now() + queryClassifierVerdictCacheTtlMs });
+}
+
+function applyQueryClassifierVerdict(analysis: ClinicalQueryAnalysis, parsed: QueryClassifierVerdict) {
+  return {
+    ...analysis,
+    queryClass: parsed.queryClass,
+    confidence: Math.max(analysis.confidence, parsed.confidence),
+    needsClassifierFallback: false,
+    needsSynthesis:
+      analysis.needsSynthesis ||
+      parsed.queryClass === "comparison" ||
+      parsed.queryClass === "broad_summary" ||
+      parsed.queryClass === "medication_dose_risk",
+    expandedTerms: uniqueTextValues([...analysis.expandedTerms, ...parsed.expandedTerms], 36),
+    queryRewrite: {
+      ...analysis.queryRewrite,
+      expansions: uniqueTextValues([...analysis.queryRewrite.expansions, ...parsed.expandedTerms], 48),
+      searchQuery: uniqueTextValues(
+        [analysis.queryRewrite.searchQuery, ...analysis.queryRewrite.expansions, ...parsed.expandedTerms],
+        60,
+      ).join(" "),
+      reasons: uniqueTextValues([...analysis.queryRewrite.reasons, ...parsed.reasons, "classifier_fallback"], 16),
+    },
+    reasons: uniqueTextValues([...analysis.reasons, ...parsed.reasons, "classifier_fallback"], 12),
+  } satisfies ClinicalQueryAnalysis;
+}
+
 async function analyzeQueryWithClassifierFallback(query: string, analysis: ClinicalQueryAnalysis) {
   if (
     // Fail closed before any generative model call: an adversarial-manipulation
@@ -1228,6 +1274,12 @@ async function analyzeQueryWithClassifierFallback(query: string, analysis: Clini
     return { ...analysis, needsClassifierFallback: false } satisfies ClinicalQueryAnalysis;
   }
   if (!analysis.needsClassifierFallback || !env.OPENAI_API_KEY) return analysis;
+
+  const cacheKey = normalizedCacheQuery(query);
+  const cached = queryClassifierVerdictCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.verdict ? applyQueryClassifierVerdict(analysis, cached.verdict) : analysis;
+  }
 
   try {
     const result = await generateStructuredTextResult(
@@ -1262,29 +1314,9 @@ async function analyzeQueryWithClassifierFallback(query: string, analysis: Clini
       },
     );
     const parsed = queryClassifierParseSchema.parse(JSON.parse(result.text));
-    if (parsed.confidence < 0.58 || parsed.queryClass === "unsupported_or_general") return analysis;
-    return {
-      ...analysis,
-      queryClass: parsed.queryClass,
-      confidence: Math.max(analysis.confidence, parsed.confidence),
-      needsClassifierFallback: false,
-      needsSynthesis:
-        analysis.needsSynthesis ||
-        parsed.queryClass === "comparison" ||
-        parsed.queryClass === "broad_summary" ||
-        parsed.queryClass === "medication_dose_risk",
-      expandedTerms: uniqueTextValues([...analysis.expandedTerms, ...parsed.expandedTerms], 36),
-      queryRewrite: {
-        ...analysis.queryRewrite,
-        expansions: uniqueTextValues([...analysis.queryRewrite.expansions, ...parsed.expandedTerms], 48),
-        searchQuery: uniqueTextValues(
-          [analysis.queryRewrite.searchQuery, ...analysis.queryRewrite.expansions, ...parsed.expandedTerms],
-          60,
-        ).join(" "),
-        reasons: uniqueTextValues([...analysis.queryRewrite.reasons, ...parsed.reasons, "classifier_fallback"], 16),
-      },
-      reasons: uniqueTextValues([...analysis.reasons, ...parsed.reasons, "classifier_fallback"], 12),
-    } satisfies ClinicalQueryAnalysis;
+    const verdict = parsed.confidence < 0.58 || parsed.queryClass === "unsupported_or_general" ? null : parsed;
+    rememberQueryClassifierVerdict(cacheKey, verdict);
+    return verdict ? applyQueryClassifierVerdict(analysis, verdict) : analysis;
   } catch {
     return analysis;
   }
