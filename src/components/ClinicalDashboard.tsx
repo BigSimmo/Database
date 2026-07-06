@@ -3578,10 +3578,7 @@ export function ClinicalDashboard({
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const hasMobileBottomSearch = searchMode !== "answer";
   const submittedAnswerSearchActive =
-    activeModeResultKind === "answer" &&
-    !answer &&
-    canRunSearch &&
-    (modeSearchSubmitted || Boolean(submittedUrlQuery));
+    activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
   const showAnswerHome = activeModeResultKind === "answer" && !answer && !loading && !submittedAnswerSearchActive;
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
