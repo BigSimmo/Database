@@ -10,9 +10,9 @@ function allowDeepHealthProbe(request: Request): boolean {
   if (!secret) return false;
   const token = request.headers.get("x-health-deep-token");
   if (!token) return false;
-  const expected = Buffer.from(secret);
-  const received = Buffer.from(token);
-  if (expected.length !== received.length) return false;
+  if (token.length !== secret.length) return false;
+  const expected = Buffer.from(secret, "utf8");
+  const received = Buffer.from(token, "utf8");
   return timingSafeEqual(expected, received);
 }
 
