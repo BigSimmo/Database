@@ -1,16 +1,19 @@
 "use client";
 
-import { useRef } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
   Bell,
   BookOpen,
   ChevronDown,
+  ChevronRight,
   CircleUserRound,
   Globe2,
   HelpCircle,
   Keyboard,
+  Loader2,
   LockKeyhole,
   LogOut,
+  Mail,
   Palette,
   PanelTop,
   Settings as SettingsIcon,
@@ -23,8 +26,9 @@ import {
 } from "lucide-react";
 
 import { type SidebarIdentity } from "@/components/clinical-dashboard/ClinicalSidebar";
-import { cn } from "@/components/ui-primitives";
+import { cn, fieldControlWithIcon, fieldIcon, floatingControl, primaryControl } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
+import { useAuthSession } from "@/lib/supabase/client";
 
 export function SettingsDialog({
   open,
@@ -44,7 +48,41 @@ export function SettingsDialog({
   onOpenGuide: () => void;
 }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
   const currentThemeLabel = theme === "dark" ? "Dark" : "Light";
+  const auth = useAuthSession();
+  const [settingsEmail, setSettingsEmail] = useState("");
+  const [emailEntryOpen, setEmailEntryOpen] = useState(false);
+  const [settingsEmailAttempted, setSettingsEmailAttempted] = useState(false);
+  const [accountNotice, setAccountNotice] = useState<string | null>(null);
+  const settingsAuthBusy = auth.status === "loading";
+  const signedOutAccount = !identity.signedIn;
+
+  async function submitSettingsEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!settingsEmail.trim()) return;
+    setAccountNotice(null);
+    setSettingsEmailAttempted(true);
+    await auth.signInWithEmail(settingsEmail.trim());
+  }
+
+  function openSettingsEmailEntry() {
+    setEmailEntryOpen(true);
+    setAccountNotice(null);
+  }
+
+  function chooseSettingsProvider(provider: string) {
+    setAccountNotice(`${provider} sign-in is a placeholder for now. Continue with email to use this workspace.`);
+  }
+
+  useEffect(() => {
+    if (!emailEntryOpen) return;
+    const focusFrame = window.requestAnimationFrame(() => {
+      settingsEmailInputRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [emailEntryOpen]);
+
   const settingSections = [
     {
       title: "Account",
@@ -144,12 +182,12 @@ export function SettingsDialog({
           </nav>
         </aside>
 
-        <div className="mx-auto min-h-0 w-full max-w-[460px] overflow-y-auto px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-[max(2.45rem,calc(0.7rem+env(safe-area-inset-top)))] polished-scroll sm:px-5 lg:mx-0 lg:max-w-none lg:px-7 lg:pb-7 lg:pt-6">
+        <div className="mx-auto min-h-0 w-full max-w-[460px] overflow-y-auto bg-[color:var(--background)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-[max(2.45rem,calc(0.7rem+env(safe-area-inset-top)))] polished-scroll sm:px-5 lg:mx-0 lg:max-w-none lg:bg-transparent lg:px-7 lg:pb-7 lg:pt-6">
           <div className="mb-2 flex items-center justify-between gap-4 lg:mb-5">
             <div className="min-w-0">
               <h2
                 id="account-settings-title"
-                className="truncate text-lg font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-[1.45rem] lg:leading-8"
+                className="truncate text-[18px] font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-[1.45rem] lg:leading-8"
               >
                 Account &amp; app
               </h2>
@@ -159,34 +197,143 @@ export function SettingsDialog({
             </span>
           </div>
 
-          <section className="rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-lux)_96%,transparent_4%)_0%,color-mix(in_srgb,var(--surface-lux)_88%,var(--background))_100%)] p-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.06),var(--shadow-inset)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.32),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:p-3.5 lg:shadow-[var(--shadow-inset)]">
+          <section className="rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.06),var(--shadow-inset)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.32),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:p-4 lg:shadow-[var(--shadow-inset)]">
+            <h3 className="mb-3 px-0.5 text-[15px] font-semibold leading-5 text-[color:var(--text-heading)]">
+              Clinical Guide account
+            </h3>
             <div className="flex items-center gap-3 lg:gap-3">
-              <span className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-sm font-bold leading-none text-[color:var(--clinical-accent)] ring-1 ring-[color:var(--clinical-accent)]/10 lg:h-11 lg:w-11">
-                {identity.initials}
+              <span
+                className={cn(
+                  "relative grid h-12 w-12 shrink-0 place-items-center rounded-full text-sm font-bold leading-none ring-1 lg:h-12 lg:w-12",
+                  signedOutAccount
+                    ? "bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] ring-[color:var(--border)]"
+                    : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] ring-[color:var(--clinical-accent)]/10",
+                )}
+              >
+                {signedOutAccount ? <UserRound className="h-5 w-5" /> : identity.initials}
                 {identity.signedIn ? (
                   <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
                 ) : null}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="mb-0.5 text-[11px] font-semibold leading-4 text-[color:var(--clinical-accent)] lg:hidden">
-                  Clinical context
-                </p>
-                <p className="truncate text-[15px] font-semibold leading-5 text-[color:var(--text-heading)] lg:text-[15px]">
+                <p className="truncate text-base font-semibold leading-6 text-[color:var(--text-heading)]">
                   {identity.displayName}
                 </p>
-                <p className="text-[12px] font-medium leading-4 text-[color:var(--text-muted)] lg:truncate lg:text-[13px] lg:leading-5">
-                  Consultant psychiatrist, Western Australia
+                <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                  {signedOutAccount ? "Sign in or create an account" : "Consultant psychiatrist, Western Australia"}
                 </p>
               </div>
-              <div className="hidden shrink-0 items-center gap-2 lg:flex">
-                <SettingsChip label="Private" />
-                <SettingsChip label="No PHI" />
-              </div>
+              {signedOutAccount ? (
+                <div className="hidden w-[220px] shrink-0 grid-cols-1 gap-2 lg:grid">
+                  <button
+                    type="button"
+                    onClick={openSettingsEmailEntry}
+                    className={cn(primaryControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
+                  >
+                    Create account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openSettingsEmailEntry}
+                    className={cn(floatingControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
+                  >
+                    Sign in
+                  </button>
+                </div>
+              ) : (
+                <div className="hidden shrink-0 items-center gap-2 lg:flex">
+                  <SettingsChip label="Private" />
+                  <SettingsChip label="No PHI" />
+                </div>
+              )}
             </div>
-            <SettingsClinicalContextStrip />
+
+            {signedOutAccount ? (
+              <div className="mt-4 grid gap-3">
+                <div className="grid grid-cols-2 gap-2 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={openSettingsEmailEntry}
+                    className={cn(primaryControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
+                  >
+                    Create account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openSettingsEmailEntry}
+                    className={cn(floatingControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
+                  >
+                    Sign in
+                  </button>
+                </div>
+
+                {emailEntryOpen ? (
+                  <form
+                    onSubmit={submitSettingsEmail}
+                    className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]"
+                  >
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
+                        Email address
+                      </span>
+                      <div className="relative">
+                        <Mail className={fieldIcon} />
+                        <input
+                          ref={settingsEmailInputRef}
+                          type="email"
+                          value={settingsEmail}
+                          onChange={(event) => setSettingsEmail(event.target.value)}
+                          placeholder="you@clinic.example"
+                          className={fieldControlWithIcon}
+                        />
+                      </div>
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={settingsAuthBusy || !settingsEmail.trim() || !auth.isConfigured}
+                      className={cn(primaryControl, "w-full")}
+                    >
+                      {settingsAuthBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                      Continue with email
+                    </button>
+                  </form>
+                ) : null}
+
+                <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
+                  <span className="h-px flex-1 bg-[color:var(--border)]" />
+                  <span>or continue with</span>
+                  <span className="h-px flex-1 bg-[color:var(--border)]" />
+                </div>
+
+                <div className="grid gap-2">
+                  <SettingsProviderRow provider="Apple" onClick={() => chooseSettingsProvider("Apple")} />
+                  <SettingsProviderRow provider="Google" onClick={() => chooseSettingsProvider("Google")} />
+                  <SettingsProviderRow provider="Microsoft" onClick={() => chooseSettingsProvider("Microsoft")} />
+                  <SettingsProviderRow provider="email" onClick={openSettingsEmailEntry} />
+                </div>
+
+                <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+                  <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
+                  Accounts save preferences and search history. Do not enter PHI.
+                </p>
+
+                {(accountNotice || !auth.isConfigured || (settingsEmailAttempted && auth.error)) && (
+                  <p
+                    role="alert"
+                    className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
+                  >
+                    {accountNotice ??
+                      (settingsEmailAttempted ? auth.error : null) ??
+                      "Supabase browser authentication is not configured for account sign-in."}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <SettingsClinicalContextStrip />
+            )}
           </section>
 
-          <div className="hidden lg:mt-4 lg:grid lg:grid-cols-3 lg:gap-3">
+          <div className={cn("hidden lg:mt-4 lg:grid-cols-3 lg:gap-3", signedOutAccount ? "lg:hidden" : "lg:grid")}>
             <SettingsSummaryTile icon={UserRound} label="Profile" value={identity.displayName} />
             <SettingsSummaryTile icon={Stethoscope} label="Clinical setup" value="WA, adults" emphasized />
             <SettingsSummaryTile icon={PanelTop} label="Default view" value="Ask" />
@@ -240,6 +387,62 @@ function SettingsChip({ label }: { label: string }) {
   );
 }
 
+function SettingsProviderRow({
+  provider,
+  onClick,
+}: {
+  provider: "Apple" | "Google" | "Microsoft" | "email";
+  onClick: () => void;
+}) {
+  const label = provider === "email" ? "Use email instead" : provider;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+    >
+      {provider === "email" ? (
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+          <Mail className="h-4 w-4" />
+        </span>
+      ) : (
+        <SettingsProviderMark provider={provider} />
+      )}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+    </button>
+  );
+}
+
+function SettingsProviderMark({ provider }: { provider: "Apple" | "Google" | "Microsoft" }) {
+  if (provider === "Microsoft") {
+    return (
+      <span
+        className="grid h-7 w-7 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
+        aria-hidden="true"
+      >
+        <span className="bg-[#f25022]" />
+        <span className="bg-[#7fba00]" />
+        <span className="bg-[#00a4ef]" />
+        <span className="bg-[#ffb900]" />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-base font-bold leading-none shadow-[var(--shadow-inset)]",
+        provider === "Apple" ? "text-[color:var(--text-heading)]" : "text-[#4285f4]",
+      )}
+    >
+      {provider === "Apple" ? "A" : "G"}
+    </span>
+  );
+}
+
 function SettingsClinicalContextStrip() {
   return (
     <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-[12px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
@@ -273,12 +476,12 @@ function SettingsSummaryTile({
           : "border-[color:var(--border-lux)] bg-[color:var(--surface)]",
       )}
     >
-      <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center lg:min-h-11 lg:flex-row lg:justify-start lg:gap-2.5 lg:text-left">
+      <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center lg:min-h-[44px] lg:flex-row lg:justify-start lg:gap-2.5 lg:text-left">
         <span
           className={cn(
             "grid h-8 w-8 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] lg:rounded-lg",
             emphasized
-              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)]"
+              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
               : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
           )}
         >
@@ -318,7 +521,7 @@ function SettingsRow({
         className={cn(
           "grid h-7 w-7 shrink-0 place-items-center rounded-full transition sm:h-8 sm:w-8 lg:rounded-lg lg:border lg:shadow-[var(--shadow-inset)]",
           active
-            ? "bg-[color:var(--clinical-accent)] text-[color:var(--primary-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-accent)_24%,transparent)] lg:border-[color:var(--clinical-accent)]"
+            ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-accent)_24%,transparent)] lg:border-[color:var(--clinical-accent)]"
             : "bg-transparent text-[color:var(--text-muted)] lg:border-[color:var(--border)] lg:bg-[color:var(--surface-lux)]",
         )}
       >
