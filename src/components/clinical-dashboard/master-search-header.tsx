@@ -641,10 +641,19 @@ export function MasterSearchHeader({
     }
   }
 
+  const restoreActionMenuFocusRef = useRef(false);
   const closeScope = useCallback((restoreFocus = false) => {
+    restoreActionMenuFocusRef.current = restoreFocus;
     setScopeOpen(false);
-    if (restoreFocus) actionMenuTriggerRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (scopeOpen || !restoreActionMenuFocusRef.current) return;
+    restoreActionMenuFocusRef.current = false;
+    window.requestAnimationFrame(() => {
+      actionMenuTriggerRef.current?.focus({ preventScroll: true });
+    });
+  }, [scopeOpen]);
 
   const closeScopeSheet = useCallback(() => {
     setScopeSheetOpen(false);

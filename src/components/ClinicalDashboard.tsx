@@ -3186,10 +3186,7 @@ export function ClinicalDashboard({
   }
 
   function handleFollowUpQuote(quote: QuoteCard) {
-    setQuery(createQuoteFollowUp(quote));
-    window.requestAnimationFrame(() => {
-      window.setTimeout(() => focusComposerInput(), 120);
-    });
+    stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
   }
 
   function handlePickFollowUpSuggestion(suggestion: string) {
@@ -3279,18 +3276,10 @@ export function ClinicalDashboard({
       return;
     }
 
-    const drawer = document.getElementById("answer-evidence-drawer") as HTMLDetailsElement | null;
-    if (!drawer) {
-      setActionNotice({
-        tone: "warning",
-        message: "Evidence appears after a source-backed answer is generated.",
-      });
-      return;
-    }
-    drawer.scrollIntoView({ block: "start", behavior: "smooth" });
-    if (!drawer.open) {
-      drawer.querySelector<HTMLElement>("summary")?.click();
-    }
+    setActionNotice({
+      tone: "warning",
+      message: "Evidence appears after a source-backed answer is generated.",
+    });
   }
 
   function navigateMobileSection(href: string, options: { updateHistory?: boolean } = {}) {
@@ -3807,9 +3796,7 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
-                : answer && answerFollowUpSuggestions.length > 0
-                  ? "mb-[calc(11.5rem+env(safe-area-inset-bottom))] sm:mb-24"
-                  : "mb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:mb-24"
+                : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? bottomSearchScrollHidden
                   ? "mb-0 sm:mb-0"

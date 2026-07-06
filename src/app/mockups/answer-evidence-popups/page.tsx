@@ -206,6 +206,30 @@ function ButtonText({ children }: { children: ReactNode }) {
   return <span className="min-w-0 truncate">{children}</span>;
 }
 
+function DesktopSourcePreviewDemo() {
+  return (
+    <div className="relative min-h-[24rem] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
+      <p className="max-w-[68ch] text-base-minus font-medium leading-[1.56] text-[color:var(--text-heading)]">
+        Clozapine monitoring should include FBC/ANC, myocarditis symptoms, metabolic checks, constipation prevention,
+        and shared-care communication.
+      </p>
+      <div className="relative mt-3 w-fit">
+        <SourceCapsule />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-0 top-[calc(100%+0.5rem)] z-10 w-[min(100%,36rem)] motion-safe:animate-pop-in"
+        >
+          <SourcePreviewPopover />
+        </div>
+      </div>
+      <p className="mt-24 max-w-[68ch] text-xs leading-5 text-[color:var(--text-muted)]">
+        The answer body stays in place. The preview floats above nearby content instead of pushing the support card
+        down.
+      </p>
+    </div>
+  );
+}
+
 function SourcePreviewPopover() {
   return (
     <div className="max-w-xl rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)]">
@@ -576,11 +600,11 @@ function MobileEvidencePanel({ selected }: { selected: string }) {
 function DesktopEvidenceModal() {
   return (
     <div className="relative overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-6">
-      <div aria-hidden="true" className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" />
+      <div aria-hidden="true" className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
       <div
         role="dialog"
         aria-label="Evidence"
-        className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)]"
+        className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)] motion-safe:animate-dialog-rise motion-reduce:animate-none"
       >
         <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-3 sm:p-4">
           <div className="min-w-0">
@@ -667,18 +691,9 @@ export default function AnswerEvidencePopupsMockupPage() {
       <div className="grid gap-6">
         <Section
           title="1. Desktop source capsule preview"
-          body="Small inline popover opened from the source-backed capsule underneath the natural-language answer."
+          body="Anchored floating popover opened from the source-backed capsule. The answer body stays in place with no layout reflow."
         >
-          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
-            <p className="max-w-[68ch] text-base-minus font-medium leading-[1.56] text-[color:var(--text-heading)]">
-              Clozapine monitoring should include FBC/ANC, myocarditis symptoms, metabolic checks, constipation
-              prevention, and shared-care communication.
-            </p>
-            <SourceCapsule />
-            <div className="mt-3">
-              <SourcePreviewPopover />
-            </div>
-          </div>
+          <DesktopSourcePreviewDemo />
         </Section>
 
         <Section
@@ -711,7 +726,7 @@ export default function AnswerEvidencePopupsMockupPage() {
 
         <Section
           title="4. Desktop evidence modal"
-          body="Desktop uses the same centered sheet modal as mobile: dimmed backdrop, no answer reflow, and a wider evidence panel."
+          body="Centered sheet modal with a stronger backdrop, wider evidence panel, and a refined rise-in entrance on desktop."
         >
           <DesktopEvidenceModal />
         </Section>
