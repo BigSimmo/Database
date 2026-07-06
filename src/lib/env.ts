@@ -15,6 +15,7 @@ const envSchema = z.object({
   LOCAL_NO_AUTH_OWNER_ID: z.string().optional(),
   PUBLIC_WORKSPACE_OWNER_ID: z.string().uuid().optional(),
   NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED: z.enum(["true", "false"]).optional(),
+  NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
@@ -203,4 +204,14 @@ export function publicWorkspaceOwnerId() {
 
 export function publicUploadsEnabled() {
   return env.NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED === "true";
+}
+
+export function mockupsEnabled() {
+  // Design-exploration mockup routes (/mockups/*) are a development surface.
+  // They stay reachable in dev/test builds, but a production deploy 404s them
+  // unless explicitly opted in (mirrors the prod guard in isLocalNoAuthMode).
+  if (process.env.NODE_ENV !== "production") {
+    return true;
+  }
+  return env.NEXT_PUBLIC_MOCKUPS_ENABLED === "true";
 }
