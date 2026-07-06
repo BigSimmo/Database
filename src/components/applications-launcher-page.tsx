@@ -19,13 +19,13 @@ import {
   Star,
   Users,
   Waves,
-  X,
   type LucideIcon,
 } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn } from "@/components/ui-primitives";
+import { Sheet } from "@/components/ui/sheet";
 type LauncherStatus = "ready" | "recent" | "review_due";
 type LauncherArea = "assessment" | "reference" | "care" | "coordination" | "saved";
 type LauncherFilter = "all" | LauncherArea | "more";
@@ -731,99 +731,79 @@ function DetailRows({ app }: { app: LauncherApp }) {
   );
 }
 
-function DetailDialog({ app, open, onClose }: { app: LauncherApp; open: boolean; onClose: () => void }) {
-  useEffect(() => {
-    if (!open) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+const mobileDetailSections = [
+  { id: "check-first", icon: ShieldCheck, label: "Check first" },
+  { id: "needed-input", icon: ClipboardList, label: "Needed input" },
+  { id: "output", icon: Waves, label: "Output" },
+] as const;
 
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
+type MobileDetailSectionId = (typeof mobileDetailSections)[number]["id"];
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [onClose, open]);
+function MobileDetailSections({ app }: { app: LauncherApp }) {
+  const [openSection, setOpenSection] = useState<MobileDetailSectionId | null>(null);
 
-  if (!open) return null;
+  function sectionContent(id: MobileDetailSectionId) {
+    if (id === "output") return <p>{app.output}</p>;
+    const items = id === "check-first" ? app.checkFirst : app.neededInput;
+    return (
+      <ul className="list-disc space-y-1 pl-4">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    );
+  }
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/15 px-0 pt-8 backdrop-blur-[1px] sm:items-center sm:p-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="selected-application-sheet-heading"
-        className="flex max-h-[76dvh] w-full flex-col overflow-hidden rounded-t-[1.75rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] sm:max-h-[calc(100dvh-4rem)] sm:w-[39rem] sm:rounded-2xl"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="mx-auto mt-3 h-1 w-9 shrink-0 rounded-full bg-[color:var(--border-strong)] sm:hidden" />
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-4 sm:p-6">
-          <div className="grid gap-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-3">
-                <ToolIcon app={app} size="md" />
-                <div className="min-w-0">
-                  <h2
-                    id="selected-application-sheet-heading"
-                    className="text-xl font-extrabold leading-7 text-[color:var(--text-heading)] sm:text-2xl"
-                  >
-                    {app.title}
-                  </h2>
-                  <div className="mt-2">
-                    <ToolChips app={app} />
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label={`Close ${app.title}`}
+    <div className="mt-3 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]">
+      {mobileDetailSections.map(({ id, icon: Icon, label }) => {
+        const expanded = openSection === id;
+        const panelId = `launcher-detail-${id}-panel`;
+        return (
+          <div key={id} className="border-t border-[color:var(--border)] first:border-t-0">
+            <button
+              type="button"
+              onClick={() => setOpenSection(expanded ? null : id)}
+              aria-expanded={expanded}
+              aria-controls={panelId}
+              className={cn(
+                "grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 text-left",
+                focusRing,
+              )}
+            >
+              <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden />
+              <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{label}</span>
+              <ChevronRight
                 className={cn(
-                  "grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
-                  focusRing,
+                  "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                  expanded && "rotate-90",
                 )}
-              >
-                <X className="h-5 w-5" aria-hidden />
-              </button>
-            </div>
-
-            <div className="sm:hidden">
-              <DetailSection icon={Search} title="Best for" compact>
-                <p>{app.detail}</p>
-              </DetailSection>
-              <div className="mt-3 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]">
-                {[
-                  { icon: ShieldCheck, label: "Check first" },
-                  { icon: ClipboardList, label: "Needed input" },
-                  { icon: Waves, label: "Output" },
-                ].map(({ icon: Icon, label }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-t border-[color:var(--border)] px-3 text-left first:border-t-0"
-                  >
-                    <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden />
-                    <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{label}</span>
-                    <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="hidden sm:block">
-              <DetailRows app={app} />
+                aria-hidden
+              />
+            </button>
+            <div id={panelId} hidden={!expanded} className="px-3 pb-3 text-xs leading-5 text-[color:var(--text-muted)]">
+              {sectionContent(id)}
             </div>
           </div>
-        </div>
-        <div className="grid shrink-0 gap-3 border-t border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-5">
+        );
+      })}
+    </div>
+  );
+}
+
+function DetailDialog({ app, open, onClose }: { app: LauncherApp; open: boolean; onClose: () => void }) {
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={app.title}
+      closeLabel={`Close ${app.title}`}
+      headerLeading={<ToolIcon app={app} size="md" />}
+      descriptionContent={<ToolChips app={app} />}
+      titleClassName="text-xl font-extrabold sm:text-2xl"
+      contentClassName="sm:max-w-[39rem]"
+      footer={
+        <div className="grid gap-3">
           <Link
             href={app.href}
             target={app.external ? "_blank" : undefined}
@@ -846,14 +826,30 @@ function DetailDialog({ app, open, onClose }: { app: LauncherApp; open: boolean;
           </Link>
           <Link
             href={app.href}
-            className="inline-flex min-h-9 items-center justify-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)]"
+            className={cn(
+              "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg text-sm font-bold text-[color:var(--clinical-accent)]",
+              focusRing,
+            )}
           >
             View example
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
           </Link>
         </div>
-      </section>
-    </div>
+      }
+    >
+      <div className="grid gap-4">
+        <div className="sm:hidden">
+          <DetailSection icon={Search} title="Best for" compact>
+            <p>{app.detail}</p>
+          </DetailSection>
+          <MobileDetailSections key={app.id} app={app} />
+        </div>
+
+        <div className="hidden sm:block">
+          <DetailRows app={app} />
+        </div>
+      </div>
+    </Sheet>
   );
 }
 
