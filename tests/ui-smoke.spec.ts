@@ -678,8 +678,14 @@ async function openUploadDrawer(page: Page) {
   return uploadDrawer;
 }
 
-async function openDailyActions(page: Page) {
-  const trigger = page.getByRole("button", { name: /^Open .+ options$/ });
+async function dismissOverlayByHeaderClick(page: Page) {
+  // Portaled integrated action menus cover the hero composer; avoid fixed viewport
+  // coordinates that can hit menu tiles (e.g. Clinical tools -> tools mode).
+  await page.locator("#search").click({ position: { x: 120, y: 28 } });
+}
+
+async function openDailyActions(page: Page, triggerName: string | RegExp = /^Open .+ options$/) {
+  const trigger = page.getByRole("button", { name: triggerName });
   const menu = page.getByTestId("daily-actions-menu");
 
   await expect(trigger).toBeVisible();
@@ -1019,12 +1025,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(dailyActionsMenu).toHaveCount(0);
 
     // First open — use robust retry helper to handle async state update timing.
-    await openDailyActions(page);
-    await page.mouse.click(640, 430);
+    await openDailyActions(page, "Open answer options");
+    await dismissOverlayByHeaderClick(page);
     await expect(dailyActionsMenu).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
 
     // Second open - verify opening the mode menu closes the daily actions surface.
-    await openDailyActions(page);
+    await openDailyActions(page, "Open answer options");
     await appModeTrigger.click();
 
     await expect(dailyActionsMenu).toHaveCount(0);
