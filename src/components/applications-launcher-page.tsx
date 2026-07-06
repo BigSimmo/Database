@@ -875,11 +875,11 @@ export function ApplicationsLauncherWorkspace({
   const query = controlledQuery ?? localQuery;
   const normalizedQuery = query.trim().toLowerCase();
   const queryDerivedId = useMemo(() => initialToolId(query), [query]);
-  const [selection, setSelection] = useState({
-    queryKey: normalizedQuery,
-    id: initialToolId(query),
-  });
-  const selectedId = selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
+  const [selection, setSelection] = useState(() => ({
+    queryKey: (controlledQuery ?? "").trim().toLowerCase(),
+    id: initialToolId(controlledQuery),
+  }));
+  const selectedId = detailOpen || selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
 
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {

@@ -1525,7 +1525,9 @@ export function ClinicalDashboard({
   const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
-  const [modeSearchSubmitted, setModeSearchSubmitted] = useState(false);
+  const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
+    Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
+  );
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
   // Answer-mode conversation thread. `priorAnswerTurns` holds completed
@@ -1549,6 +1551,14 @@ export function ClinicalDashboard({
   const activeModeSearch = appModeSearchConfig(searchMode);
   const activeModeResultKind = appModeResultKind(searchMode);
   const requestQueryMode = appModeQueryMode(searchMode, queryMode);
+  const submittedUrlMode = searchParams.get("mode");
+  const submittedUrlModeMatchesActive =
+    !submittedUrlMode ||
+    (isAppModeId(submittedUrlMode) && isAppModeVisible(submittedUrlMode) && submittedUrlMode === searchMode);
+  const submittedUrlQuery =
+    autoRunSearch && searchParams.get("run") === "1" && submittedUrlModeMatchesActive
+      ? (searchParams.get("q") ?? searchParams.get("query") ?? "").trim()
+      : "";
 
   // Record matches come from the owner-scoped registry API (mock fixtures in
   // demo mode); ranking stays client-side so live-typing behaviour is
@@ -2846,26 +2856,27 @@ export function ClinicalDashboard({
     if (updateUrl) router.replace(appModeHomeHref("prescribing", { query: trimmedSearchText }));
   }
 
-  async function ask() {
-    const trimmedQuery = query.trim();
+  async function ask(searchText = query) {
+    const trimmedQuery = searchText.trim();
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
       router.push(documentsSearchHref({ query: trimmedQuery, focus: true, run: true }));
       return;
     }
     if (searchMode === "prescribing") {
-      setMedicationSearchQuery(query);
+      setMedicationSearchQuery(searchText);
       return;
     }
-    await executeSearch(query, searchMode, scopeFilters);
+    await executeSearch(searchText, searchMode, scopeFilters);
   }
   const askRef = useRef(ask);
   askRef.current = ask;
 
   useEffect(() => {
     const trimmedQuery = query.trim();
+    const submittedSearchText = searchMode === "answer" && submittedUrlQuery ? submittedUrlQuery : trimmedQuery;
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
-    if (!autoRunSearch || !trimmedQuery || !canAutoRunMode || loading) return;
+    if (!autoRunSearch || !submittedSearchText || !canAutoRunMode || loading) return;
     if (searchMode === "answer" && !answerThreadBootstrapped) return;
     // Once an answer is on screen, composer edits are follow-up drafts and must
     // only run on explicit submit — not on every query keystroke while run=1
@@ -2873,15 +2884,25 @@ export function ClinicalDashboard({
     if (searchMode === "answer" && answer) return;
     // After reload, the URL query matches the restored latest turn — do not
     // archive it again into a duplicate prior turn.
-    if (searchMode === "answer" && latestAnswerQuery?.trim() === trimmedQuery) {
-      autoRunSearchSignatureRef.current = `${searchMode}:${trimmedQuery}`;
+    if (searchMode === "answer" && latestAnswerQuery?.trim() === submittedSearchText) {
+      autoRunSearchSignatureRef.current = `${searchMode}:${submittedSearchText}`;
       return;
     }
-    const signature = `${searchMode}:${trimmedQuery}`;
+    const signature = `${searchMode}:${submittedSearchText}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
-    void askRef.current();
-  }, [autoRunSearch, canRunSearch, loading, query, searchMode, answer, answerThreadBootstrapped, latestAnswerQuery]);
+    void askRef.current(submittedSearchText);
+  }, [
+    autoRunSearch,
+    canRunSearch,
+    loading,
+    query,
+    submittedUrlQuery,
+    searchMode,
+    answer,
+    answerThreadBootstrapped,
+    latestAnswerQuery,
+  ]);
 
   function pickRecentQuery(recentQuery: string) {
     if (searchMode === "prescribing") {
@@ -3186,10 +3207,7 @@ export function ClinicalDashboard({
   }
 
   function handleFollowUpQuote(quote: QuoteCard) {
-    setQuery(createQuoteFollowUp(quote));
-    window.requestAnimationFrame(() => {
-      window.setTimeout(() => focusComposerInput(), 120);
-    });
+    stageAnswerFollowUpDraft(createQuoteFollowUp(quote));
   }
 
   function handlePickFollowUpSuggestion(suggestion: string) {
@@ -3279,18 +3297,10 @@ export function ClinicalDashboard({
       return;
     }
 
-    const drawer = document.getElementById("answer-evidence-drawer") as HTMLDetailsElement | null;
-    if (!drawer) {
-      setActionNotice({
-        tone: "warning",
-        message: "Evidence appears after a source-backed answer is generated.",
-      });
-      return;
-    }
-    drawer.scrollIntoView({ block: "start", behavior: "smooth" });
-    if (!drawer.open) {
-      drawer.querySelector<HTMLElement>("summary")?.click();
-    }
+    setActionNotice({
+      tone: "warning",
+      message: "Evidence appears after a source-backed answer is generated.",
+    });
   }
 
   function navigateMobileSection(href: string, options: { updateHistory?: boolean } = {}) {
@@ -3567,12 +3577,17 @@ export function ClinicalDashboard({
   const showAuthPanel = false;
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const hasMobileBottomSearch = searchMode !== "answer";
+  const submittedAnswerSearchActive =
+    activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
+  const showAnswerHome = activeModeResultKind === "answer" && !answer && !loading && !submittedAnswerSearchActive;
+  const showAnswerPending =
+    activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const showDesktopHomeComposer =
     !error &&
     (activeModeResultKind === "tools" ||
       activeModeResultKind === "favourites" ||
       (!loading &&
-        ((activeModeResultKind === "answer" && !answer && !modeSearchSubmitted) ||
+        (showAnswerHome ||
           (searchMode === "documents" &&
             activeModeResultKind === "documents" &&
             documentMatches.length === 0 &&
@@ -3807,9 +3822,7 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
-                : answer && answerFollowUpSuggestions.length > 0
-                  ? "mb-[calc(11.5rem+env(safe-area-inset-bottom))] sm:mb-24"
-                  : "mb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:mb-24"
+                : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? bottomSearchScrollHidden
                   ? "mb-0 sm:mb-0"
@@ -3878,11 +3891,13 @@ export function ClinicalDashboard({
               <section
                 className={cn(
                   "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
-                  centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
+                  centeredModeHome || showAnswerHome
                     ? // On tall phones the centred home leans slightly toward the
                       // bottom composer (matches the committed vertical-weighting
                       // guard); short phones skip the bias so content still fits.
-                      "grid w-full place-items-center max-sm:[@media(min-height:800px)]:pt-[5vh]"
+                      // Mobile uses top alignment so the integrated action menu is
+                      // not clipped by the dead space below vertically centred homes.
+                      "grid w-full place-items-center max-sm:place-content-start max-sm:justify-items-center max-sm:pt-[clamp(0.75rem,3vh,2rem)] max-sm:[@media(min-height:800px)]:pt-[5vh]"
                     : activeModeResultKind === "tools" ||
                         activeModeResultKind === "favourites" ||
                         activeModeResultKind === "differentials"
@@ -4003,7 +4018,7 @@ export function ClinicalDashboard({
                       />
                     </>
                   )
-                ) : loading && !answer ? (
+                ) : showAnswerPending ? (
                   <AnswerSkeleton />
                 ) : answer && answerRenderModel ? (
                   stagedDashboardExtraction.answerSurface ? (
@@ -4058,14 +4073,14 @@ export function ClinicalDashboard({
                       />
                     </>
                   ) : null
-                ) : (
+                ) : showAnswerHome ? (
                   <AnswerEmptyState
                     onPickSample={setQuery}
                     onSearchDocuments={() => setSearchMode("documents")}
                     onUploadDocument={openUploadDrawer}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
-                )}
+                ) : null}
               </section>
 
               {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
