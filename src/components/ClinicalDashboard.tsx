@@ -2761,6 +2761,11 @@ export function ClinicalDashboard({
       return;
     }
     if (!canRunSearch) {
+      // requestId was already bumped above, so a superseded in-flight request's
+      // finally block can no longer reset loading — reset it here or the answer
+      // skeleton can stay on screen indefinitely.
+      setLoading(false);
+      setAnswerProgress(null);
       setError(errorCopy.searchSetupNotReady);
       return;
     }
