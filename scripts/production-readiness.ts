@@ -188,6 +188,11 @@ async function main() {
       }
     }
 
+    const productionLike = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+    if (productionLike && !envModule.env.RAG_QUERY_HASH_SECRET) {
+      result.failures.push("RAG_QUERY_HASH_SECRET is required in a production-like environment.");
+    }
+
     if (placeholderLooksLikeExample(envModule.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "")) {
       result.warnings.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY looks like a placeholder.");
     }

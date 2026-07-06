@@ -38,6 +38,10 @@ const phase7RetrievalPerformanceMigration = readFileSync(
   new URL("../supabase/migrations/20260626020000_phase7_retrieval_rpc_performance.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const retrievalOwnerFilterSentinelMigration = readFileSync(
+  new URL("../supabase/migrations/20260705210000_retrieval_owner_filter_sentinel.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const atomicReindexMigration = readFileSync(
   new URL("../supabase/migrations/20260628000000_atomic_reindex_generation_commit.sql", import.meta.url),
   "utf8",
@@ -82,6 +86,10 @@ const registryCatalogPayloadMigration = readFileSync(
 ).replace(/\s+/g, " ");
 const searchHealthIndexesMigration = readFileSync(
   new URL("../supabase/migrations/20260705180000_reconcile_search_health_indexes.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const searchSchemaHealthM13GuardMigration = readFileSync(
+  new URL("../supabase/migrations/20260706010000_search_schema_health_m13_guard.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const ragQueriesRetentionMigration = readFileSync(
@@ -792,6 +800,14 @@ describe("Supabase schema Data API grants", () => {
       "revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated",
     );
   });
+
+  it("surfaces stale commit generation RPCs through search_schema_health", () => {
+    for (const sql of [schema, searchSchemaHealthM13GuardMigration]) {
+      expect(sql).toContain("commit_fn_def := pg_get_functiondef(");
+      expect(sql).toContain("commit_document_index_generation.preserve_legacy_artifacts_migration");
+      expect(sql).toContain("from public.document_chunks replacement");
+    }
+  });
 });
 
 describe("RC9 — lexical text path must not fabricate a cosine similarity", () => {
@@ -825,6 +841,12 @@ describe("Supabase Preview replay guards", () => {
 
   it("drops match_document_chunks_text before phase 7 changes its OUT signature", () => {
     expect(phase7RetrievalPerformanceMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
+  });
+
+  it("drops match_document_chunks_text before retrieval owner sentinel rewrites it", () => {
+    expect(retrievalOwnerFilterSentinelMigration).toContain(
       "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
     );
   });

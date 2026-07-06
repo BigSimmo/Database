@@ -26,10 +26,8 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn } from "@/components/ui-primitives";
-
 type LauncherStatus = "ready" | "recent" | "review_due";
 type LauncherArea = "assessment" | "reference" | "care" | "coordination" | "saved";
-type LauncherVariant = "standalone" | "dashboard-tools";
 type LauncherFilter = "all" | LauncherArea | "more";
 
 type LauncherApp = {
@@ -52,19 +50,6 @@ type LauncherApp = {
   checkFirst: string[];
   neededInput: string[];
   output: string;
-};
-
-type LauncherCopy = {
-  heading: string;
-  description: string;
-  searchAriaLabel: string;
-  searchPlaceholder: string;
-  openSelectedAriaLabel: string;
-  allSectionLabel: string;
-  allColumnLabel: string;
-  countNoun: string;
-  emptyTitle: string;
-  emptyBody: string;
 };
 
 const focusRing =
@@ -311,32 +296,17 @@ const launcherApps: LauncherApp[] = [
   },
 ];
 
-const standaloneLauncherCopy: LauncherCopy = {
-  heading: "Applications",
-  description:
-    "Open the clinical applications and connected workflows you use for assessment, prescribing, documents, and saved work.",
-  searchAriaLabel: "Search applications",
-  searchPlaceholder: "Search applications...",
-  openSelectedAriaLabel: "Open selected application",
-  allSectionLabel: "All applications",
-  allColumnLabel: "Application",
-  countNoun: "applications",
-  emptyTitle: "No applications match",
-  emptyBody: "Clear the search or try another clinical workflow, app name, or category.",
-};
-
-const dashboardToolsLauncherCopy: LauncherCopy = {
+const toolsLauncherCopy = {
   heading: "Tools",
   description:
     "Open the clinical tools and connected workflows you use for assessment, prescribing, documents, and saved work.",
-  searchAriaLabel: "Search tools",
-  searchPlaceholder: "Search tools...",
-  openSelectedAriaLabel: "Open selected tool",
   allSectionLabel: "All tools",
-  allColumnLabel: "Tool",
   countNoun: "tools",
   emptyTitle: "No tools match",
   emptyBody: "Clear the search or try another clinical workflow, tool name, or category.",
+  searchAriaLabel: "Search tools",
+  searchPlaceholder: "Search tools...",
+  openSelectedAriaLabel: "Open selected tool",
 };
 
 const quickActions = [
@@ -430,20 +400,6 @@ function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutra
   );
 }
 
-function ToolChips({ app, includeStatus = false }: { app: LauncherApp; includeStatus?: boolean }) {
-  return (
-    <span className="flex flex-wrap items-center gap-1.5">
-      {includeStatus ? <StatusChip label={statusLabels[app.status]} /> : null}
-      {app.sourceBacked ? <StatusChip label="Source-backed" tone="source" /> : <StatusChip label="Private" />}
-      {app.safetyFirst ? (
-        <StatusChip label="Safety-first" tone="safety" />
-      ) : app.highYield ? (
-        <StatusChip label="High yield" tone="high" />
-      ) : null}
-    </span>
-  );
-}
-
 function ToolSearch({
   value,
   onChange,
@@ -454,7 +410,7 @@ function ToolSearch({
   value: string;
   onChange: (query: string) => void;
   onSubmit: () => void;
-  copy: LauncherCopy;
+  copy: typeof toolsLauncherCopy;
   className?: string;
 }) {
   return (
@@ -493,6 +449,20 @@ function ToolSearch({
         <Search className="h-4.5 w-4.5" aria-hidden />
       </button>
     </form>
+  );
+}
+
+function ToolChips({ app, includeStatus = false }: { app: LauncherApp; includeStatus?: boolean }) {
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {includeStatus ? <StatusChip label={statusLabels[app.status]} /> : null}
+      {app.sourceBacked ? <StatusChip label="Source-backed" tone="source" /> : <StatusChip label="Private" />}
+      {app.safetyFirst ? (
+        <StatusChip label="Safety-first" tone="safety" />
+      ) : app.highYield ? (
+        <StatusChip label="High yield" tone="high" />
+      ) : null}
+    </span>
   );
 }
 
@@ -888,34 +858,27 @@ function DetailDialog({ app, open, onClose }: { app: LauncherApp; open: boolean;
 }
 
 type ApplicationsLauncherWorkspaceProps = {
-  variant?: LauncherVariant;
   query?: string;
-  onQueryChange?: (query: string) => void;
   desktopComposerSlotId?: string;
-  showDetailPanel?: boolean;
   className?: string;
 };
 
 export function ApplicationsLauncherWorkspace({
-  variant = "standalone",
   query: controlledQuery,
-  onQueryChange,
   desktopComposerSlotId,
-  showDetailPanel,
   className,
 }: ApplicationsLauncherWorkspaceProps) {
-  const [uncontrolledQuery, setUncontrolledQuery] = useState("");
+  const [localQuery, setLocalQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
-  const isDashboardTools = variant === "dashboard-tools";
-  const [detailOpen, setDetailOpen] = useState(!isDashboardTools && showDetailPanel === true);
-  const copy = isDashboardTools ? dashboardToolsLauncherCopy : standaloneLauncherCopy;
-  const query = controlledQuery ?? uncontrolledQuery;
+  const [detailOpen, setDetailOpen] = useState(false);
+  const copy = toolsLauncherCopy;
+  const query = controlledQuery ?? localQuery;
   const normalizedQuery = query.trim().toLowerCase();
   const queryDerivedId = useMemo(() => initialToolId(query), [query]);
-  const [selection, setSelection] = useState(() => ({
-    queryKey: (controlledQuery ?? "").trim().toLowerCase(),
-    id: initialToolId(controlledQuery),
-  }));
+  const [selection, setSelection] = useState({
+    queryKey: normalizedQuery,
+    id: initialToolId(query),
+  });
   const selectedId = selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
 
   const filteredApps = useMemo(() => {
@@ -941,8 +904,7 @@ export function ApplicationsLauncherWorkspace({
   const selectedApp = appById(effectiveSelectedId);
 
   function updateQuery(nextQuery: string) {
-    if (controlledQuery === undefined) setUncontrolledQuery(nextQuery);
-    onQueryChange?.(nextQuery);
+    if (controlledQuery === undefined) setLocalQuery(nextQuery);
   }
 
   function openTool(id: string) {
@@ -956,18 +918,18 @@ export function ApplicationsLauncherWorkspace({
 
   return (
     <main
-      data-testid={isDashboardTools ? "tools-hub" : "applications-launcher"}
-      aria-labelledby={isDashboardTools ? "tools-home-heading" : "applications-launcher-heading"}
+      data-testid="tools-hub"
+      aria-labelledby="tools-home-heading"
       className={cn(
         "mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-8 text-[color:var(--text)] sm:px-6 lg:px-8",
         "pb-[calc(12rem+env(safe-area-inset-bottom))] sm:pb-8",
-        isDashboardTools ? "pt-7 sm:pt-10 lg:pt-14" : "pt-8 sm:pt-10",
+        "pt-7 sm:pt-10 lg:pt-14",
         className,
       )}
     >
       <section
-        aria-label={isDashboardTools ? "Tools home" : "Applications home"}
-        data-testid={isDashboardTools ? "tools-home" : "applications-home"}
+        aria-label="Tools home"
+        data-testid="tools-home"
         className="mx-auto grid max-w-5xl justify-items-center gap-5 text-center sm:gap-6"
       >
         <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
@@ -975,7 +937,7 @@ export function ApplicationsLauncherWorkspace({
         </span>
         <div className="grid gap-2">
           <h1
-            id={isDashboardTools ? "tools-home-heading" : "applications-launcher-heading"}
+            id="tools-home-heading"
             className="text-balance text-[2rem] font-extrabold leading-none tracking-normal text-[color:var(--text-heading)] sm:text-[2.7rem]"
           >
             {copy.heading}
@@ -1000,7 +962,7 @@ export function ApplicationsLauncherWorkspace({
           />
         )}
 
-        <div className="w-full max-w-6xl" data-testid={isDashboardTools ? "tools-shortcuts" : "application-shortcuts"}>
+        <div className="w-full max-w-6xl" data-testid="tools-shortcuts">
           <div className="hidden sm:block">
             <QuickActions onSelect={openTool} />
           </div>
@@ -1012,7 +974,7 @@ export function ApplicationsLauncherWorkspace({
 
       <section
         aria-label={copy.allSectionLabel}
-        data-testid={isDashboardTools ? "tools-all-tools" : "applications-all-applications"}
+        data-testid="tools-all-tools"
         className="mx-auto mt-8 grid max-w-[86rem] gap-4 sm:mt-10"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -1055,9 +1017,7 @@ export function ApplicationsLauncherWorkspace({
         </p>
       </section>
 
-      {isDashboardTools ? (
-        <ModeHomeVerificationFooter icon={ShieldCheck} label="Clinical tools" body="Source-backed workflows" />
-      ) : null}
+      <ModeHomeVerificationFooter icon={ShieldCheck} label="Clinical tools" body="Source-backed workflows" />
 
       <DetailDialog app={selectedApp} open={detailOpen} onClose={() => setDetailOpen(false)} />
     </main>
@@ -1065,5 +1025,5 @@ export function ApplicationsLauncherWorkspace({
 }
 
 export function ApplicationsLauncherPage() {
-  return <ApplicationsLauncherWorkspace variant="standalone" />;
+  return <ApplicationsLauncherWorkspace />;
 }

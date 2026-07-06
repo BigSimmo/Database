@@ -16,17 +16,13 @@ import { createPortal } from "react-dom";
 
 import {
   Activity,
-  BadgeCheck,
   CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
   FileText,
   Filter,
-  FolderOpen,
-  GitBranch,
   Globe2,
-  ListChecks,
   Loader2,
   Menu,
   MessageSquarePlus,
@@ -210,6 +206,7 @@ export function MasterSearchHeader({
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
+  onBottomComposerScrollHiddenChange,
 }: {
   documents: ClinicalDocument[];
   documentTotal?: number;
@@ -265,12 +262,15 @@ export function MasterSearchHeader({
   heroComposerFromTablet?: boolean;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
-  /** Phone-only hide-on-scroll for the universal header. "overlay" translates
-   *  the sticky header away (host scrolls the document, content already flows
-   *  beneath); "collapse" also releases the header's layout space (host keeps
-   *  the header above an internally scrolling element). `containerRef` points
-   *  at the scrolling element; omit it to observe window scroll. */
+  /** Phone-only hide-on-scroll for the universal header and bottom search dock.
+   *  "overlay" translates the sticky header away (host scrolls the document,
+   *  content already flows beneath); "collapse" also releases the header's
+   *  layout space (host keeps the header above an internally scrolling element).
+   *  The phone bottom search composer hides in sync on search-mode pages.
+   *  `containerRef` points at the scrolling element; omit it to observe window scroll. */
   hideOnScroll?: { strategy: "overlay" | "collapse"; containerRef?: RefObject<HTMLElement | null> };
+  /** Fired when the phone bottom search dock enters or leaves the scroll-hidden state. */
+  onBottomComposerScrollHiddenChange?: (hidden: boolean) => void;
 }) {
   const visibleAppModeOptions = defaultVisibleAppModeOptions;
   const trimmedQuery = query.trim();
@@ -310,12 +310,26 @@ export function MasterSearchHeader({
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
+  const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const scrollHidden = useHideOnScroll({
     containerRef: hideOnScroll?.containerRef,
     disabled: !hideOnScroll,
   });
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
+  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && isMobileBottomComposer && usesPhoneSearchLayout);
+  const bottomComposerHidden =
+    bottomComposerScrollHiddenActive &&
+    scrollHidden &&
+    !actionMenuOpen &&
+    !commandDropdownOpen &&
+    !scopeOpen &&
+    !scopeSheetOpen &&
+    !composerChromeFocused;
+
+  useEffect(() => {
+    onBottomComposerScrollHiddenChange?.(bottomComposerHidden);
+  }, [bottomComposerHidden, onBottomComposerScrollHiddenChange]);
   // Stable, header-owned element the composer is portaled into; we move it in and
   // out of the page-owned slot rather than portaling into the slot directly.
   const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);
@@ -335,7 +349,6 @@ export function MasterSearchHeader({
     [documentById, selectedDocumentIds],
   );
   const scopeSummary = selectedDocumentIds.length === 0 ? "All documents" : `${selectedDocumentIds.length} scoped`;
-  const footerScopeLabel = selectedDocumentIds.length === 0 ? "All sources" : `${selectedDocumentIds.length} scoped`;
   const scopePreview = useMemo(
     () =>
       selectedDocuments
@@ -682,6 +695,7 @@ export function MasterSearchHeader({
     );
     let frame: number | null = null;
     let retryTimeout: number | null = null;
+    let portalRetryCount = 0;
     const syncTarget = () => {
       if (retryTimeout !== null) {
         window.clearTimeout(retryTimeout);
@@ -689,14 +703,16 @@ export function MasterSearchHeader({
       }
       const slot = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
       if (slot) {
+        portalRetryCount = 0;
         if (host.parentNode !== slot) slot.appendChild(host);
         setDesktopHomeComposerHost(host);
         setDesktopHomeComposerActive(true);
       } else {
         host.parentNode?.removeChild(host);
         setDesktopHomeComposerActive(false);
-        if (mediaQuery.matches) {
-          retryTimeout = window.setTimeout(syncTarget, 50);
+        if (mediaQuery.matches && portalRetryCount < 24) {
+          portalRetryCount += 1;
+          retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
         }
       }
     };
@@ -1024,144 +1040,6 @@ export function MasterSearchHeader({
     );
   }
 
-  // "open-evidence" is the one footer-chip action that isn't already a mode-action
-  // id — every other chip dispatches through the existing runModeAction handler
-  // (the same dispatcher the "+" action menu already uses for these ids).
-  type FooterChipActionId = ModeActionId | "open-evidence";
-
-  type FooterActionChip = {
-    icon: typeof Search;
-    shortLabel: string;
-    longLabel: string;
-    actionId: FooterChipActionId;
-    ariaLabel: string;
-  };
-
-  // The first ("trust") chip on the universal small-screen footer. Every mode gets
-  // one, mirroring Answer's "Evidence-based" chip in tone, each wired to a real
-  // action from that mode's own action menu rather than being decorative.
-  function footerTrustChipFor(mode: AppModeId): FooterActionChip | null {
-    switch (mode) {
-      case "answer":
-        return {
-          icon: ListChecks,
-          shortLabel: "Evidence",
-          longLabel: "Evidence-based",
-          actionId: "open-evidence",
-          ariaLabel: "Open evidence-backed answer sources",
-        };
-      case "documents":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Indexed",
-          longLabel: "Fully indexed",
-          actionId: "documents-collections",
-          ariaLabel: "Open the indexed document library",
-        };
-      case "forms":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Library",
-          longLabel: "Form library",
-          actionId: "forms-records",
-          ariaLabel: "Open the form library",
-        };
-      case "services":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Verified",
-          longLabel: "Verified directory",
-          actionId: "services-records",
-          ariaLabel: "Browse verified service records",
-        };
-      case "favourites":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Trusted",
-          longLabel: "Trusted picks",
-          actionId: "favourites-browse",
-          ariaLabel: "Browse trusted favourites",
-        };
-      case "differentials":
-        return {
-          icon: ListChecks,
-          shortLabel: "Evidence",
-          longLabel: "Evidence-linked",
-          actionId: "differentials-evidence",
-          ariaLabel: "Review cited differential evidence",
-        };
-      case "prescribing":
-        return {
-          icon: ShieldCheck,
-          shortLabel: "Safety",
-          longLabel: "Safety-checked",
-          actionId: "medication-safety",
-          ariaLabel: "Review contraindications and cautions",
-        };
-      case "tools":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Curated",
-          longLabel: "Curated registry",
-          actionId: "tools-browse",
-          ariaLabel: "Browse the curated tools registry",
-        };
-      default:
-        return null;
-    }
-  }
-
-  // The second footer chip. Answer/Documents/Forms use the shared document-scope
-  // trigger instead (see hasScopeFooterChip below) since scope is a real, existing
-  // concept for those three modes. Tools has no genuine second action yet, so it
-  // intentionally ships with a single chip rather than an invented one.
-  function footerSecondaryChipFor(mode: AppModeId): FooterActionChip | null {
-    switch (mode) {
-      case "services":
-        return {
-          icon: ListChecks,
-          shortLabel: "Pathways",
-          longLabel: "Pathways",
-          actionId: "services-pathways",
-          ariaLabel: "Browse referral pathways",
-        };
-      case "favourites":
-        return {
-          icon: FolderOpen,
-          shortLabel: "Sets",
-          longLabel: "Sets",
-          actionId: "favourites-sets",
-          ariaLabel: "Open saved sets",
-        };
-      case "differentials":
-        return {
-          icon: GitBranch,
-          shortLabel: "Criteria",
-          longLabel: "Criteria",
-          actionId: "differentials-criteria",
-          ariaLabel: "Compare distinguishing criteria",
-        };
-      case "prescribing":
-        return {
-          icon: Activity,
-          shortLabel: "Monitor",
-          longLabel: "Monitoring",
-          actionId: "medication-monitoring",
-          ariaLabel: "Review the monitoring schedule",
-        };
-      default:
-        return null;
-    }
-  }
-
-  function runFooterChipAction(actionId: FooterChipActionId) {
-    if (actionId === "open-evidence") {
-      onOpenEvidence?.();
-      return;
-    }
-    runModeAction(actionId);
-  }
-
   function renderSearchComposer(placement: "default" | "desktop-home") {
     const isDesktopHomeComposer = placement === "desktop-home";
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
@@ -1169,27 +1047,17 @@ export function MasterSearchHeader({
     const usesCompactMobileBottomStyle = usesMobileBottomStyle && mobileBottomSearchVariant === "compact";
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
     const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer;
-    // Compact search views drop the chip row on phones so the pill can sit
-    // flush with the bottom edge; the same actions stay reachable via the
-    // integrated "+" menu.
-    const showFooterSearchChips = usesFooterChipLayout && !usesCompactMobileBottomStyle;
     // The visible footer/hero composer chrome is universal; submit semantics still
     // come from the active mode.
     const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;
     const usesModeIdentityAffordance = usesBottomComposerPlacement && !usesSendAffordance;
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
-    const trustFooterChip = footerTrustChipFor(searchMode);
-    const secondaryFooterChip = footerSecondaryChipFor(searchMode);
-    // Fallback icons here are never rendered — both are only used inside a JSX guard
-    // on the corresponding chip being non-null — but keep the icon variables typed as
-    // components (not `| null`) so the JSX below type-checks without a cast.
-    const TrustFooterChipIcon = trustFooterChip?.icon ?? BadgeCheck;
-    const SecondaryFooterChipIcon = secondaryFooterChip?.icon ?? ListChecks;
     const composerPlaceholder =
       usesMobileBottomStyle && searchMode === "differentials" ? "Search a presentation" : queryPlaceholder;
 
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
+    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesMobileBottomStyle && usesPhoneFooterDock);
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
 
@@ -1199,6 +1067,8 @@ export function MasterSearchHeader({
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
         data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
         data-command-open={usesBottomComposerPlacement && commandDropdownOpen ? "true" : undefined}
+        data-scroll-hidden={shouldHideBottomOnScroll && bottomComposerHidden ? "true" : undefined}
+        {...(shouldHideBottomOnScroll ? composerFocusProps : undefined)}
         className={cn(
           isDesktopHomeComposer
             ? "universal-home-search-edge mx-auto w-full"
@@ -1219,6 +1089,8 @@ export function MasterSearchHeader({
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
           usesFooterChipLayout && "flex flex-col items-center gap-2.5",
+          shouldHideBottomOnScroll &&
+            "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
         )}
       >
         {usesBottomComposerPlacement ? <div className="answer-footer-search-backdrop" aria-hidden="true" /> : null}
@@ -1305,6 +1177,7 @@ export function MasterSearchHeader({
               onModeSelect={selectAppModeById}
               onPlacementChange={setActionMenuPlacement}
               triggerClassName="answer-footer-search-action"
+              triggerRef={scopeSummaryRef}
               integrated={usesFooterChipLayout}
             />
 
@@ -1368,53 +1241,8 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
-        {showFooterSearchChips && (trustFooterChip || hasScopeFooterChip || secondaryFooterChip) ? (
-          <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">
-            {trustFooterChip ? (
-              <button
-                type="button"
-                onClick={() => runFooterChipAction(trustFooterChip.actionId)}
-                className="answer-footer-search-chip"
-                aria-label={trustFooterChip.ariaLabel}
-              >
-                <TrustFooterChipIcon className="h-4 w-4" aria-hidden="true" />
-                <span className="sm:hidden">{trustFooterChip.shortLabel}</span>
-                <span className="hidden sm:inline">{trustFooterChip.longLabel}</span>
-              </button>
-            ) : null}
-            {hasScopeFooterChip ? (
-              <button
-                type="button"
-                ref={scopeSummaryRef}
-                data-testid="scope-trigger"
-                onClick={openScopePicker}
-                className="answer-footer-search-chip"
-                aria-expanded={usesScopeSheet ? scopeSheetOpen : scopeOpen}
-                aria-label="Open source scope"
-              >
-                <Filter className="h-4 w-4" aria-hidden="true" />
-                <span className="sm:hidden">{selectedDocumentIds.length === 0 ? "Sources" : footerScopeLabel}</span>
-                <span className="hidden sm:inline">{footerScopeLabel}</span>
-              </button>
-            ) : null}
-            {!hasScopeFooterChip && secondaryFooterChip ? (
-              <button
-                type="button"
-                onClick={() => runFooterChipAction(secondaryFooterChip.actionId)}
-                className="answer-footer-search-chip"
-                aria-label={secondaryFooterChip.ariaLabel}
-              >
-                <SecondaryFooterChipIcon className="h-4 w-4" aria-hidden="true" />
-                <span className="sm:hidden">{secondaryFooterChip.shortLabel}</span>
-                <span className="hidden sm:inline">{secondaryFooterChip.longLabel}</span>
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-        {/* Rendered as a sibling of the chip row (not nested inside it) so the "+"
-            menu's "Set scope" action still opens this popover on screens where the
-            chip row itself is hidden (documents/forms desktop widths) — the popover
-            still anchors correctly since the form stays position:fixed/sticky there. */}
+        {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
+            open it even when the footer chip row is not shown. */}
         {hasScopeFooterChip && !usesScopeSheet && scopeOpen ? (
           <div
             ref={scopePopoverRef}
@@ -1476,6 +1304,14 @@ export function MasterSearchHeader({
         onFocusCapture: () => setHeaderChromeFocused(true),
         onBlurCapture: (event: ReactFocusEvent<HTMLElement>) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setHeaderChromeFocused(false);
+        },
+      }
+    : undefined;
+  const composerFocusProps = hideOnScroll
+    ? {
+        onFocusCapture: () => setComposerChromeFocused(true),
+        onBlurCapture: (event: ReactFocusEvent<HTMLElement>) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
         },
       }
     : undefined;
@@ -1674,7 +1510,11 @@ export function MasterSearchHeader({
 
       {searchComposerVisible ? (
         <>
-          {desktopHomeComposerActive && desktopHomeComposerHost ? null : renderSearchComposer("default")}
+          {desktopHomeComposerActive && desktopHomeComposerHost
+            ? null
+            : desktopHomeComposerSlotId
+              ? null
+              : renderSearchComposer("default")}
           {desktopHomeComposerActive && desktopHomeComposerHost
             ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
             : null}

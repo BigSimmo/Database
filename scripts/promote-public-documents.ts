@@ -34,8 +34,7 @@ async function countCandidates(supabase: Awaited<ReturnType<typeof loadAdminClie
     .from("documents")
     .select("id", { count: "exact", head: true })
     .eq("status", "indexed")
-    .not("owner_id", "is", null)
-    .in("metadata->>clinical_validation_status", ["locally_reviewed", "approved"]);
+    .not("owner_id", "is", null);
 
   if (ownerId) query = query.eq("owner_id", ownerId);
 
@@ -70,7 +69,7 @@ async function main() {
     candidateCount,
   );
   console.log(
-    "Apply migration 20260705220000_promote_locally_reviewed_documents_public.sql with `npx supabase db push --linked`.",
+    "Promote remaining owned indexed documents with `npm run promote:public-documents:batch` or apply migration 20260706120000_promote_remaining_indexed_documents_public.sql.",
   );
 }
 

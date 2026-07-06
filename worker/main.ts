@@ -35,6 +35,7 @@ import { assessDocumentIndexQuality } from "../src/lib/index-quality";
 import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai";
 import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers } from "../src/lib/privacy";
 import { isAtomicReindexCandidate } from "../src/lib/reindex-pipeline";
+import { invalidateRagCachesForDocumentMutation } from "../src/lib/rag";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { probeSupabaseHealth } from "../src/lib/supabase/health";
 import type { Json, TablesInsert, TablesUpdate } from "../src/lib/supabase/database.types";
@@ -214,7 +215,10 @@ async function completeJob(job: JobRow, stage: string) {
     p_batch_id: job.batch_id ?? undefined,
     p_stage: stage,
   });
-  if (!error) return;
+  if (!error) {
+    invalidateRagCachesForDocumentMutation(job.documents.owner_id ?? "anonymous");
+    return;
+  }
   if (!isMissingSchemaError(error)) throw supabaseStageError("complete ingestion job", error);
 
   await updateJob(job.id, {
@@ -227,6 +231,7 @@ async function completeJob(job: JobRow, stage: string) {
   });
   await markSupersededSiblingJobs(job);
   await updateBatch(job.batch_id);
+  invalidateRagCachesForDocumentMutation(job.documents.owner_id ?? "anonymous");
 }
 
 async function completeStrictEnrichmentJob(job: JobRow) {
@@ -433,6 +438,9 @@ async function commitDocumentIndexGeneration(args: {
   pages: ReturnType<typeof buildDocumentPageRows>;
   quality: ReturnType<typeof buildIndexQualityPayload>;
 }) {
+  // Audit L9: p_image_count is searchable-only (insertedImages excludes
+  // audit-retained non-searchable rows). Retrieval filters searchable=true, so
+  // the persisted count intentionally differs from extracted_image_count.
   const { error } = await supabase.rpc("commit_document_index_generation", {
     p_document_id: args.documentId,
     p_index_generation_id: args.indexGenerationId,
