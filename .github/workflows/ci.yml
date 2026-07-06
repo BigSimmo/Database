@@ -52,6 +52,12 @@ jobs:
       - name: Runtime alignment
         run: npm run check:runtime
 
+      - name: Dependency vulnerability audit
+        # Non-mutating gate. The document parsers (pdf-parse, pdfjs-dist, mammoth,
+        # exceljs, jszip) process untrusted uploads, so high/critical advisories in
+        # the production tree must block the merge rather than wait for Dependabot.
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Edge function typecheck
         run: npm run check:edge:functions
 
