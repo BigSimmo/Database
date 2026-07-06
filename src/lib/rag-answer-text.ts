@@ -258,3 +258,7 @@ export function hasClinicalAnswerQualityIssue(value: string) {
 export function isUsableAnswerSectionText(value: string, options: { minTokens?: number; minLength?: number } = {}) {
   return Boolean(sanitizeStructuredText(value, options));
 }
+
+export function safeRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
