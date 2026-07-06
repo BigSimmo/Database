@@ -250,16 +250,17 @@ function SelectionToggle({ selected, onClick, label }: { selected: boolean; onCl
 function DesktopResultRow({
   result,
   index,
+  isBest,
   selected,
   onToggle,
 }: {
   result: DifferentialResult;
   index: number;
+  isBest: boolean;
   selected: boolean;
   onToggle: () => void;
 }) {
   const Icon = result.icon;
-  const isBest = index === 0;
 
   return (
     <article
@@ -338,16 +339,17 @@ function DesktopResultRow({
 function MobileResultCard({
   result,
   index,
+  isBest,
   selected,
   onToggle,
 }: {
   result: DifferentialResult;
   index: number;
+  isBest: boolean;
   selected: boolean;
   onToggle: () => void;
 }) {
   const Icon = result.icon;
-  const isBest = index === 0;
 
   return (
     <article
@@ -627,6 +629,18 @@ function SearchResultsView({
   onRunSearch?: (query: string) => void;
 }) {
   const catalog = useDifferentialSearch(query);
+  const documentMatchesKey = useMemo(
+    () => documentMatches?.map((match) => match.document_id).join("|") ?? "",
+    [documentMatches],
+  );
+  const [sourceEvidenceQuery, setSourceEvidenceQuery] = useState<string | null>(null);
+  const [lastDocumentMatchesKey, setLastDocumentMatchesKey] = useState(documentMatchesKey);
+  if (lastDocumentMatchesKey !== documentMatchesKey) {
+    setLastDocumentMatchesKey(documentMatchesKey);
+    setSourceEvidenceQuery(documentMatchesKey ? query.trim() : null);
+  }
+  const activeDocumentMatches =
+    sourceEvidenceQuery && sourceEvidenceQuery === query.trim() ? documentMatches : undefined;
   const results = useMemo(
     () =>
       composeDifferentialSearchResults(catalog.matches.diagnoses, catalog.matches.presentations).map(
@@ -652,11 +666,11 @@ function SearchResultsView({
   const visibleResults = kindFilter === "all" ? results : results.filter((result) => result.kind === kindFilter);
   const best = results[0] ?? null;
   const selectedCount = selectedIds.size;
-  const hasSourceEvidence = Boolean(documentMatches?.length);
+  const hasSourceEvidence = Boolean(activeDocumentMatches?.length);
   const evidenceState: DifferentialEvidenceState = hasSourceEvidence ? "source-backed" : "guided";
   // Count the sources that actually matched this search, never the whole
   // indexed library - the surrounding copy states these reflect real matches.
-  const reviewedSourceCount = hasSourceEvidence ? (documentMatches?.length ?? 0) : 0;
+  const reviewedSourceCount = hasSourceEvidence ? (activeDocumentMatches?.length ?? 0) : 0;
   const catalogLoading = catalog.status === "loading";
   const catalogFailed = catalog.status === "error" || catalog.status === "unauthorized";
 
@@ -726,7 +740,7 @@ function SearchResultsView({
             />
           ))}
         </div>
-      ) : !best ? (
+      ) : !best && !catalogFailed ? (
         <section
           data-testid="differentials-empty-results"
           className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
@@ -882,26 +896,32 @@ function SearchResultsView({
             </div>
 
             <div className="grid gap-2">
-              {visibleResults.map((result, index) => (
-                <div key={`${result.kind}-${result.id}`}>
-                  <div className="hidden lg:block">
-                    <DesktopResultRow
-                      result={result}
-                      index={index}
-                      selected={selectedIds.has(result.id)}
-                      onToggle={() => toggleSelected(result.id)}
-                    />
+              {visibleResults.map((result) => {
+                const globalIndex = results.findIndex((entry) => entry.id === result.id);
+                const isBest = result.id === best.id;
+                return (
+                  <div key={`${result.kind}-${result.id}`}>
+                    <div className="hidden lg:block">
+                      <DesktopResultRow
+                        result={result}
+                        index={globalIndex}
+                        isBest={isBest}
+                        selected={selectedIds.has(result.id)}
+                        onToggle={() => toggleSelected(result.id)}
+                      />
+                    </div>
+                    <div className="lg:hidden">
+                      <MobileResultCard
+                        result={result}
+                        index={globalIndex}
+                        isBest={isBest}
+                        selected={selectedIds.has(result.id)}
+                        onToggle={() => toggleSelected(result.id)}
+                      />
+                    </div>
                   </div>
-                  <div className="lg:hidden">
-                    <MobileResultCard
-                      result={result}
-                      index={index}
-                      selected={selectedIds.has(result.id)}
-                      onToggle={() => toggleSelected(result.id)}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <Link
