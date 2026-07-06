@@ -50,7 +50,7 @@ function fabToneClassName(tone: MobileSectionFabTone) {
   if (tone === "empty") {
     return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
   }
-  return "border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)]";
+  return "border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 }
 
 export function buildMobileSectionFabState({
@@ -330,14 +330,14 @@ export function MobileSectionFab({
                   "relative grid min-h-[58px] grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-transparent py-1.5 pl-3 pr-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                   item.empty && !active && "opacity-75",
                   active &&
-                    "border-[color:var(--primary)]/25 bg-[color:var(--primary-soft)] text-[color:var(--primary-strong)] shadow-[var(--shadow-inset)]",
+                    "border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
                 )}
               >
                 <span
                   aria-hidden="true"
                   className={cn(
                     "absolute bottom-2 left-1 top-2 w-1 rounded-full bg-transparent",
-                    active && "bg-[color:var(--primary)]",
+                    active && "bg-[color:var(--clinical-accent)]",
                   )}
                 />
                 <span
@@ -346,7 +346,7 @@ export function MobileSectionFab({
                     "grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]",
                     item.empty && !active && "bg-[color:var(--surface-subtle)]",
                     active &&
-                      "border-[color:var(--primary)]/25 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
+                      "border-[color:var(--clinical-accent)]/25 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
                   )}
                 >
                   <Icon className="h-4.5 w-4.5" />
@@ -363,7 +363,7 @@ export function MobileSectionFab({
                       "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-[11px] font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
                       item.empty && "text-[color:var(--text-muted)]",
                       active &&
-                        "border-[color:var(--primary)]/20 bg-[color:var(--surface)] text-[color:var(--primary-strong)]",
+                        "border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
                     )}
                   >
                     {item.count}
