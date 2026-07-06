@@ -18,6 +18,13 @@ describe("medications catalogue", () => {
     expect(matches[0]?.score).toBeGreaterThan(0);
   });
 
+  it("boosts name-prefix matches above content-only matches", () => {
+    const records = loadMedicationSnapshot();
+    const matches = rankMedicationRecords(records, "sert", 10);
+    expect(matches[0]?.medication.slug).toBe("sertraline");
+    expect(matches[0]?.reasons).toContain("name prefix");
+  });
+
   it("exposes prescribing summary fields for search results", () => {
     const record = getMedicationRecord("acamprosate");
     expect(record).toBeTruthy();

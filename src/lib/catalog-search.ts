@@ -34,8 +34,12 @@ export type CatalogMatchSignals = {
   fields: Record<string, number>;
   // Matched term count against the full-text haystack.
   content: number;
+  // Matched term count for terms introduced by expandTokens (e.g. symptom
+  // aliases) that were not part of the raw query.
+  expanded: number;
   compact: boolean;
   phrase: boolean;
+  prefix: boolean;
   exact: boolean;
   broad: boolean;
 };
@@ -61,6 +65,11 @@ export type RankCatalogOptions<T> = {
   // Values compared for exact equality with the normalized query (title/slug).
   exactValues?: (record: T) => string[];
   exactBonus?: number;
+  // Values checked for a starts-with match on the normalized query (partial
+  // typing of a name). 0 disables.
+  prefixValues?: (record: T) => string[];
+  prefixBonus?: number;
+  prefixMinLength?: number;
   // Catalogue-wide "broad intent" terms ("forms", "services") granting a flat bonus.
   broadTerms?: string[];
   broadBonus?: number;
@@ -84,6 +93,8 @@ export function rankCatalogRecords<T>(
   const compactMinLength = options.compactMinLength ?? 4;
   const phraseBonus = options.phraseBonus ?? 4;
   const exactBonus = options.exactBonus ?? 10;
+  const prefixBonus = options.prefixBonus ?? 0;
+  const prefixMinLength = options.prefixMinLength ?? 3;
   const broadBonus = options.broadBonus ?? 1;
 
   const compactQuery = compactSearchText(normalizedQuery);
@@ -91,6 +102,8 @@ export function rankCatalogRecords<T>(
   const terms = options.expandTokens
     ? Array.from(new Set(options.expandTokens(baseTerms).filter((term) => term.length > 1)))
     : baseTerms;
+  const baseTermSet = new Set(baseTerms);
+  const expandedTerms = terms.filter((term) => !baseTermSet.has(term));
   const broad = Boolean(options.broadTerms?.length && terms.some((term) => options.broadTerms!.includes(term)));
 
   const ranked = records
@@ -111,6 +124,8 @@ export function rankCatalogRecords<T>(
       const content = terms.filter((term) => text.includes(term)).length;
       score += content * contentWeight;
 
+      const expanded = expandedTerms.filter((term) => text.includes(term)).length;
+
       const compact =
         compactBonus > 0 &&
         compactQuery.length >= compactMinLength &&
@@ -126,13 +141,19 @@ export function rankCatalogRecords<T>(
       const exact = Boolean(options.exactValues?.(record).some((value) => value === normalizedQuery));
       if (exact) score += exactBonus;
 
+      const prefix =
+        prefixBonus > 0 &&
+        normalizedQuery.length >= prefixMinLength &&
+        Boolean(options.prefixValues?.(record).some((value) => value.startsWith(normalizedQuery)));
+      if (prefix) score += prefixBonus;
+
       if (broad) score += broadBonus;
 
       return {
         record,
         index,
         score,
-        signals: { fields, content, compact, phrase, exact, broad } satisfies CatalogMatchSignals,
+        signals: { fields, content, expanded, compact, phrase, prefix, exact, broad } satisfies CatalogMatchSignals,
       };
     })
     .filter((match) => match.score > 0)
