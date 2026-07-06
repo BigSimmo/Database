@@ -52,7 +52,11 @@ const word = fc.constantFrom(...vocabulary);
 // removePageNoise treats whole lines of <= 2 characters as extraction debris
 // (looksLikeMetadataNoise), so every paragraph anchors on a word long enough
 // to keep its line alive; the anchor is alphabetic so no line can match the
-// bare-number or page-footer noise patterns either.
+// bare-number or page-footer noise patterns either. (One contract exception:
+// a unit-only line like "mg" directly after a digit-ending line is rejoined
+// to that line rather than dropped — rejoinWrappedDoseUnits in chunking.ts.
+// The generators never emit that shape: unit tokens only appear space-joined
+// inside a paragraph line, never alone on their own line.)
 const anchorWord = fc.constantFrom(...vocabulary.filter((entry) => /^[a-z]{3,}/.test(entry)));
 
 const paragraph = fc
