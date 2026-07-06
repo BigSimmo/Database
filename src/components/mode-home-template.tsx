@@ -2,7 +2,7 @@ import Link from "next/link";
 import { type ReactNode } from "react";
 import { type LucideIcon, ArrowRight } from "lucide-react";
 
-import { cn } from "@/components/ui-primitives";
+import { cn, eyebrowText } from "@/components/ui-primitives";
 
 export type ModeHomeAction = {
   title: string;
@@ -16,6 +16,7 @@ export type ModeHomeAction = {
 
 export type ModeHomePill = {
   label: string;
+  shortLabel?: string;
   href?: string;
   onClick?: () => void;
   icon?: LucideIcon;
@@ -289,40 +290,53 @@ export function ModeHomeTemplate({
       ) : null}
 
       {pills?.length ? (
-        <section className="grid w-full max-w-none self-stretch gap-4 border-t border-[color:var(--border)] pt-5 sm:pt-6">
+        <section
+          aria-label={pillsTitle ?? "Quick links"}
+          className="grid w-full max-w-none self-stretch gap-2.5 border-t border-[color:var(--border)]/70 pt-5 sm:pt-6"
+        >
           {pillsTitle || pillsAction ? (
-            <div className="flex min-h-10 w-full items-center justify-between gap-3 text-left">
+            <div className="flex min-h-8 w-full items-center justify-between gap-3">
               {pillsTitle ? (
-                <h2 className="text-base font-bold text-[color:var(--text-heading)] sm:text-lg">{pillsTitle}</h2>
+                <p className={cn(eyebrowText, "text-center sm:text-left")}>{pillsTitle}</p>
               ) : (
                 <span />
               )}
               {pillsAction}
             </div>
           ) : null}
-          <div className="-mx-1 flex w-full max-w-full gap-3 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-[repeat(5,minmax(0,1fr))] sm:overflow-visible sm:px-0">
+          <div className="flex w-full flex-wrap justify-center gap-2 sm:gap-2.5">
             {pills.map((pill) => {
               const PillIcon = pill.icon;
+              const displayLabel = pill.shortLabel ?? pill.label;
               const content = (
                 <>
                   {PillIcon ? (
-                    <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                       <PillIcon className="h-3.5 w-3.5" aria-hidden="true" />
                     </span>
                   ) : (
-                    <span className={cn("h-2.5 w-2.5 rounded-full", pillToneClass[pill.tone ?? "neutral"])} />
+                    <span
+                      className={cn("h-2.5 w-2.5 shrink-0 rounded-full", pillToneClass[pill.tone ?? "neutral"])}
+                    />
                   )}
-                  {pill.label}
+                  <span className="text-balance text-center">{displayLabel}</span>
                 </>
               );
               const pillClassName =
-                "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-w-0 sm:px-3";
+                "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm";
+              const pillA11y = pill.shortLabel ? { "aria-label": pill.label, title: pill.label } : {};
               return pill.href ? (
-                <Link key={pill.label} href={pill.href} className={pillClassName}>
+                <Link key={pill.label} href={pill.href} className={pillClassName} {...pillA11y}>
                   {content}
                 </Link>
               ) : (
-                <button key={pill.label} type="button" onClick={pill.onClick} className={pillClassName}>
+                <button
+                  key={pill.label}
+                  type="button"
+                  onClick={pill.onClick}
+                  className={pillClassName}
+                  {...pillA11y}
+                >
                   {content}
                 </button>
               );
