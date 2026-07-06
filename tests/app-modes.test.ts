@@ -75,8 +75,10 @@ describe("app mode search contract", () => {
     expect(isSearchableAppMode("forms")).toBe(true);
     expect(mode?.label).toBe("Forms");
     expect(mode?.href).toBe("/forms");
-    expect(config.kind).toBe("documents");
-    expect(config.resultKind).toBe("documents");
+    // Forms are a registry catalogue with their own honest kind — no longer masquerading
+    // as corpus documents (which forced downstream special-casing).
+    expect(config.kind).toBe("forms");
+    expect(config.resultKind).toBe("forms");
     expect(config.placeholder.toLowerCase()).toContain("forms");
   });
 
@@ -107,7 +109,9 @@ describe("app mode search contract", () => {
     expect(appModeCanUseSourceLibraryShortcut("tools")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("documents")).toBe(true);
     expect(appModeCanUseSourceLibraryShortcut("services")).toBe(false);
-    expect(appModeCanUseSourceLibraryShortcut("forms")).toBe(true);
+    // Forms is a registry catalogue: a scope-tag shortcut falls back to documents mode
+    // instead of dead-ending in the forms registry branch.
+    expect(appModeCanUseSourceLibraryShortcut("forms")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("favourites")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("prescribing")).toBe(true);
     expect(appModeCanUseSourceLibraryShortcut("differentials")).toBe(true);

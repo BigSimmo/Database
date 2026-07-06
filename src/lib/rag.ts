@@ -2288,15 +2288,21 @@ export function relaxVariantToOrQuery(variant: string): string | null {
 // text_rank sits below it carries almost no lexical evidence.
 const weakTextMatchTopRankFloor = 0.05;
 const weakTextMatchMinResultCount = 3;
+// Above this rank the best strict match is a precise lexical hit; augmenting a sparse set
+// around it only adds OR noise and a needless RPC round-trip (single-strong-match queries
+// like exact table lookups must stay one-RPC retrievals).
+const strongTextMatchTopRankBar = 0.3;
 
-// Strict-AND matched something, but so weakly (sparse set or negligible text rank) that the
-// right chunk may be buried outside the candidate pool. In that case OR-relaxed recall is
-// appended BEHIND the strict matches (append-only: strict results keep merge precedence), so
-// this can widen the pool but never displace a precise match.
+// Strict-AND matched something, but so weakly (sparse set of middling matches, or a
+// negligible best text rank) that the right chunk may be buried outside the candidate pool.
+// In that case OR-relaxed recall is appended BEHIND the strict matches (append-only: strict
+// results keep merge precedence), so this can widen the pool but never displace a precise
+// match. A sparse set anchored by a strong hit does NOT relax.
 export function shouldRelaxWeakTextMatches(merged: SearchResult[]): boolean {
   if (merged.length === 0) return false;
-  if (merged.length < weakTextMatchMinResultCount) return true;
   const topTextRank = merged.reduce((top, result) => Math.max(top, result.text_rank ?? 0), 0);
+  if (topTextRank >= strongTextMatchTopRankBar) return false;
+  if (merged.length < weakTextMatchMinResultCount) return true;
   return topTextRank < weakTextMatchTopRankFloor;
 }
 

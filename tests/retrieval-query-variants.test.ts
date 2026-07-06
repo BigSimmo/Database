@@ -1041,10 +1041,18 @@ describe("shouldRelaxWeakTextMatches (P8b weak-augment)", () => {
     expect(shouldRelaxWeakTextMatches([])).toBe(false);
   });
 
-  it("fires when strict-AND returned a sparse result set", () => {
-    expect(shouldRelaxWeakTextMatches([result({ text_rank: 0.4 })])).toBe(true);
-    expect(shouldRelaxWeakTextMatches([result({ id: "a", text_rank: 0.4 }), result({ id: "b", text_rank: 0.3 })])).toBe(
-      true,
+  it("fires when strict-AND returned a sparse set of middling matches", () => {
+    expect(shouldRelaxWeakTextMatches([result({ text_rank: 0.1 })])).toBe(true);
+    expect(
+      shouldRelaxWeakTextMatches([result({ id: "a", text_rank: 0.12 }), result({ id: "b", text_rank: 0.08 })]),
+    ).toBe(true);
+  });
+
+  it("does not fire when a sparse set is anchored by a strong lexical hit", () => {
+    // A single precise match (e.g. an exact table lookup) must stay a one-RPC retrieval.
+    expect(shouldRelaxWeakTextMatches([result({ text_rank: 1.1 })])).toBe(false);
+    expect(shouldRelaxWeakTextMatches([result({ id: "a", text_rank: 0.4 }), result({ id: "b", text_rank: 0.05 })])).toBe(
+      false,
     );
   });
 

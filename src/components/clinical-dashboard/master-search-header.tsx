@@ -288,7 +288,7 @@ export function MasterSearchHeader({
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
   const canRunLocalSearch =
     selectedSearch.kind === "documents" ||
-    searchMode === "forms" ||
+    selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
     selectedSearch.kind === "favourites";

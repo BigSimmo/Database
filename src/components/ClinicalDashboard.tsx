@@ -1123,7 +1123,10 @@ function buildMobileSectionFabState({
       };
     }
     return {
-      statusLabel: modeSearch.resultKind === "documents" ? modeSearch.statusLabel : "No answer yet",
+      statusLabel:
+        modeSearch.resultKind === "documents" || modeSearch.resultKind === "forms"
+          ? modeSearch.statusLabel
+          : "No answer yet",
       statusTone: "empty",
       nextStep: modeSearch.nextStep,
       badgeLabel: modeSearch.badgeLabel,
@@ -2445,6 +2448,7 @@ export function ClinicalDashboard({
     const shouldRun =
       params.get("run") === "1" ||
       modeSearch.kind === "documents" ||
+      modeSearch.kind === "forms" ||
       modeSearch.kind === "favourites" ||
       modeSearch.kind === "differentials";
     if (!shouldRun) return;
@@ -2712,7 +2716,7 @@ export function ClinicalDashboard({
       setActionNotice({ tone: "success", message: "Favourites filtered from the composer." });
       return;
     }
-    if (modeSearch.kind === "services" || targetMode === "forms") {
+    if (modeSearch.kind === "services" || modeSearch.kind === "forms") {
       resetAnswerThread();
       setAnswer(null);
       setSources([]);

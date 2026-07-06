@@ -1,3 +1,5 @@
+import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
+
 export type MedicationPatientMetadata = {
   factors?: string[];
   action?: string;
@@ -69,15 +71,7 @@ export function normalizeMedicationSlug(value: string) {
   return value.trim().toLowerCase();
 }
 
-export function normalizeSearchText(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9+./\s-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+export { normalizeSearchText };
 
 export function normalizeRecord(record: MedicationRecord): MedicationRecord {
   return {
@@ -196,48 +190,43 @@ export function medicationToSearchResult(match: MedicationSearchMatch): Medicati
 }
 
 export function rankMedicationRecords(records: MedicationRecord[], query: string, limit = 50): MedicationSearchMatch[] {
-  const normalizedQuery = normalizeSearchText(query);
-  if (!normalizedQuery) return [];
-
-  const compactQuery = normalizedQuery.replace(/\s+/g, "");
-  const terms = Array.from(new Set(normalizedQuery.split(/\s+/).filter((term) => term.length > 1)));
-
-  return records
-    .map((medication) => {
-      const title = normalizeSearchText(medication.name);
-      const slug = normalizeSearchText(medication.slug);
-      const taxonomy = normalizeSearchText(
-        [medication.class, medication.subclass, medication.category, medication.tag, medication.schedule].join(" "),
-      );
-      const text = medicationSearchText(medication);
-      const compactText = text.replace(/\s+/g, "");
-      const matchedTerms = terms.filter((term) => text.includes(term));
-      const titleMatches = terms.filter((term) => title.includes(term) || slug.includes(term));
-      const taxonomyMatches = terms.filter((term) => taxonomy.includes(term));
-      const compactTitleMatch =
-        compactQuery.length >= 4 &&
-        (compactText.includes(compactQuery) || title.replace(/\s+/g, "").includes(compactQuery));
-
-      let score = 0;
-      score += titleMatches.length * 8;
-      if (compactTitleMatch) score += 6;
-      score += taxonomyMatches.length * 3;
-      score += matchedTerms.length * 2;
-      if (normalizedQuery && text.includes(normalizedQuery)) score += 4;
-      if (title === normalizedQuery || slug === normalizedQuery) score += 10;
-
-      const reasons = [
-        titleMatches.length ? "name" : "",
-        compactTitleMatch ? "exact name" : "",
-        taxonomyMatches.length ? "class/category" : "",
-        matchedTerms.length ? "content" : "",
-      ].filter(Boolean);
-
-      return { medication, score, reasons };
-    })
-    .filter((match) => match.score > 0)
-    .sort((left, right) => right.score - left.score || left.medication.name.localeCompare(right.medication.name))
-    .slice(0, limit);
+  return rankCatalogRecords(records, query, {
+    fields: [
+      {
+        id: "name",
+        weight: 8,
+        text: (medication) => normalizeSearchText(`${medication.name} ${medication.slug}`),
+      },
+      {
+        id: "taxonomy",
+        weight: 3,
+        text: (medication) =>
+          normalizeSearchText(
+            [medication.class, medication.subclass, medication.category, medication.tag, medication.schedule].join(
+              " ",
+            ),
+          ),
+      },
+    ],
+    fullText: medicationSearchText,
+    contentWeight: 2,
+    compactBonus: 6,
+    compactExtraText: (medication) => normalizeSearchText(medication.name),
+    phraseBonus: 4,
+    exactValues: (medication) => [normalizeSearchText(medication.name), normalizeSearchText(medication.slug)],
+    exactBonus: 10,
+    limit,
+    tieBreak: (left, right) => left.name.localeCompare(right.name),
+  }).map(({ record, score, signals }) => ({
+    medication: record,
+    score,
+    reasons: [
+      signals.fields.name ? "name" : "",
+      signals.compact ? "exact name" : "",
+      signals.fields.taxonomy ? "class/category" : "",
+      signals.content ? "content" : "",
+    ].filter(Boolean),
+  }));
 }
 
 export function medicationIdentityBadges(record: MedicationRecord) {
