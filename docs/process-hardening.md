@@ -99,6 +99,7 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 
 - **RESOLVED:** `indexing_v3_agent_jobs` table + `claim_indexing_v3_agent_jobs` + `update_indexing_v3_agent_job_status` were recorded as applied but absent on live. Migration `20260705230000_reconcile_live_database_drift` idempotently re-applied them; live verified post-push.
 - **RESOLVED:** `match_document_embedding_fields_text` codified with service_role-only execute.
+- **Follow-up (2026-07-06):** the codified `match_document_embedding_fields_text` kept the legacy `(owner_filter is null or d.owner_id = owner_filter)` predicate instead of `retrieval_owner_matches`, so it ignores the public-owner sentinel (anonymous sentinel would match zero rows; a real owner id excludes public docs). Migration `20260706130000_fix_embedding_fields_text_owner_sentinel` recreates it with the shared predicate — **prepared but NOT applied to live**; latent until the `_text` RPC is wired into app code, so apply with the next approved push.
 - **RESOLVED:** `rag_visual_eval_*` tables codified with service_role-only RLS.
 - **RESOLVED:** Live-only `20260705133000_tighten_search_document_chunks_owner_scope` mirrored in `schema.sql`.
 - **Edge function follow-up:** deploy `indexing-v3-agent` after merge so JSONB status RPC parsing is live.
