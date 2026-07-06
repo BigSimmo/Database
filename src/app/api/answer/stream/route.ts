@@ -20,6 +20,7 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -102,6 +103,29 @@ function logStreamError(error: unknown) {
   });
 }
 
+function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
+  const demo = demoAnswer(body.query, body.documentId, body.documentIds);
+  const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
+  const sources = annotateSearchResults(answerFocusQuery, demo.sources);
+  const relevance = buildEvidenceRelevance(answerFocusQuery, sources);
+  return {
+    ...demo,
+    sources,
+    relevance,
+    smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
+    smartApiPlan: buildSmartRagApiPlan({
+      query: answerFocusQuery,
+      queryClass: queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
+      results: sources,
+      routeMode: demo.routingMode,
+      retrievalStrategy: "hybrid",
+    }),
+    demoMode: true,
+    degradedMode: fallbackReason ? { active: true, reason: fallbackReason } : answerDegradedModeSignal(demo),
+    ...(fallbackReason ? { fallbackMode: "non_production_demo", fallbackReason } : {}),
+  };
+}
+
 function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, publicOnly = false) {
   const encoder = new TextEncoder();
 
@@ -142,27 +166,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
             body.documentId && !body.documentIds?.length && scope?.activeFilterCount === 0,
           );
           const answer = isDemoMode()
-            ? (() => {
-                const demo = demoAnswer(body.query, body.documentId, body.documentIds);
-                const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
-                const sources = annotateSearchResults(answerFocusQuery, demo.sources);
-                const relevance = buildEvidenceRelevance(answerFocusQuery, sources);
-                return {
-                  ...demo,
-                  sources,
-                  relevance,
-                  smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
-                  smartApiPlan: buildSmartRagApiPlan({
-                    query: answerFocusQuery,
-                    queryClass:
-                      queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
-                    results: sources,
-                    routeMode: demo.routingMode,
-                    retrievalStrategy: "hybrid",
-                  }),
-                  demoMode: true,
-                };
-              })()
+            ? buildDemoStreamAnswer(body)
             : await answerQuestionWithScope({
                 query: body.query,
                 documentId: singleDocumentScope ? body.documentId : undefined,
@@ -206,6 +210,11 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
           });
         } catch (error) {
           logStreamError(error);
+          const fallbackReason = nonProductionSupabaseDemoFallbackReason(error);
+          if (fallbackReason) {
+            send("final", buildDemoStreamAnswer(body, fallbackReason));
+            return;
+          }
           const streamError = streamErrorPayload(error);
           send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
         } finally {
