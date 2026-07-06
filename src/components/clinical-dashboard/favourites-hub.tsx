@@ -159,13 +159,14 @@ export function FavouritesHub({
 
   return (
     <div data-testid="favourites-hub" className="mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden sm:space-y-5">
-      <div className="mx-auto grid w-full max-w-5xl justify-items-center gap-5 pt-4 text-center sm:gap-6 sm:pt-7">
+      <div className="mx-auto grid w-full max-w-5xl justify-items-center gap-3.5 pt-4 text-center sm:gap-6 sm:pt-7">
         <ModeHomeHero
           testId="favourites-home"
           title="Favourites"
           subtitle="Keep trusted notes, sources, medication pages, and clinical sets ready for reuse."
           icon={Heart}
           headingLevel={headingLevel}
+          compact
         />
 
         {desktopComposerSlotId ? (

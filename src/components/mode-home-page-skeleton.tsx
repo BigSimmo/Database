@@ -9,16 +9,16 @@ function SkeletonBlock({ className }: { className?: string }) {
 export function ModeHomePageSkeleton() {
   return (
     <div
-      className="mx-auto grid w-full max-w-3xl justify-items-center gap-4 px-4 py-8"
+      className="mx-auto grid w-full max-w-[64rem] justify-items-center gap-3.5 px-4 py-8 sm:gap-6"
       role="status"
       aria-label="Loading"
     >
-      <SkeletonBlock className="h-14 w-14 rounded-2xl sm:h-16 sm:w-16" />
+      <SkeletonBlock className="h-12 w-12 rounded-2xl sm:h-16 sm:w-16 lg:h-[4.75rem] lg:w-[4.75rem]" />
       <div className="grid w-full justify-items-center gap-2">
-        <SkeletonBlock className="h-8 w-2/3 max-w-sm" />
-        <SkeletonBlock className="h-4 w-1/2 max-w-xs" />
+        <SkeletonBlock className="h-[1.7rem] w-2/3 max-w-sm sm:h-[2.6rem]" />
+        <SkeletonBlock className="h-5 w-1/2 max-w-xs" />
       </div>
-      <SkeletonBlock className="mt-2 h-12 w-full max-w-xl rounded-xl" />
+      <SkeletonBlock className="mt-2 h-[3.25rem] w-full max-w-xl rounded-full sm:h-14" />
       <div className="mt-4 grid w-full max-w-xl gap-3">
         <SkeletonBlock className="h-16 w-full rounded-lg" />
         <SkeletonBlock className="h-16 w-full rounded-lg" />
@@ -31,7 +31,7 @@ export function ModeHomePageSkeleton() {
 
 export function ModeHomeRouteLoading() {
   return (
-    <div className="flex min-h-[50vh] items-start justify-center bg-[color:var(--background)] pt-8">
+    <div className="grid min-h-[calc(100dvh-13.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] items-center justify-items-center bg-[color:var(--background)] sm:min-h-[calc(100dvh-4rem)]">
       <ModeHomePageSkeleton />
     </div>
   );
