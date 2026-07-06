@@ -26,7 +26,12 @@ function sleep(ms) {
 function canListenOnHost(port, host) {
   return new Promise((resolve) => {
     const server = net.createServer();
-    server.once("error", () => resolve(false));
+    server.once("error", (error) => {
+      // Containers without IPv6 fail ::1/:: binds with EAFNOSUPPORT/EADDRNOTAVAIL.
+      // An unsupported address family cannot conflict with the port, so treat it
+      // as available rather than declaring every port in the range busy.
+      resolve(error.code === "EAFNOSUPPORT" || error.code === "EADDRNOTAVAIL");
+    });
     server.once("listening", () => server.close(() => resolve(true)));
     server.listen(port, host);
   });
