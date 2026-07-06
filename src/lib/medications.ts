@@ -213,6 +213,8 @@ export function rankMedicationRecords(records: MedicationRecord[], query: string
     phraseBonus: 4,
     exactValues: (medication) => [normalizeSearchText(medication.name), normalizeSearchText(medication.slug)],
     exactBonus: 10,
+    prefixValues: (medication) => [normalizeSearchText(medication.name), normalizeSearchText(medication.slug)],
+    prefixBonus: 5,
     limit,
     tieBreak: (left, right) => left.name.localeCompare(right.name),
   }).map(({ record, score, signals }) => ({
@@ -220,6 +222,7 @@ export function rankMedicationRecords(records: MedicationRecord[], query: string
     score,
     reasons: [
       signals.fields.name ? "name" : "",
+      signals.prefix ? "name prefix" : "",
       signals.compact ? "exact name" : "",
       signals.fields.taxonomy ? "class/category" : "",
       signals.content ? "content" : "",

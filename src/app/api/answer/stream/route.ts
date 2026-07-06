@@ -20,7 +20,7 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
+import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -76,6 +76,16 @@ function streamErrorPayload(error: unknown) {
       message: error.message,
       status: error.status,
       details: error.details?.code ? { code: error.details.code } : undefined,
+    };
+  }
+
+  // Production has no demo fallback for a misconfigured Supabase key, so tag the
+  // SSE error with a stable code operators can spot in the client/network tab.
+  if (isSupabaseApiKeyConfigurationError(error)) {
+    return {
+      message: "Answer generation failed. Retry with a narrower question.",
+      status: 500,
+      details: { code: "supabase_api_key_configuration" },
     };
   }
 
@@ -210,6 +220,9 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
           });
         } catch (error) {
           logStreamError(error);
+          // Parity with /api/answer (PR #315): outside production, a misconfigured
+          // Supabase API key degrades to a visible demo answer instead of a stream
+          // error — the UI's answer search uses this route, not /api/answer.
           const fallbackReason = nonProductionSupabaseDemoFallbackReason(error);
           if (fallbackReason) {
             send("final", buildDemoStreamAnswer(body, fallbackReason));

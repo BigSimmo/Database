@@ -1,5 +1,7 @@
 import type { RagAnswer } from "@/lib/types";
 
+export { keywordQueryFromNaturalLanguage } from "@/lib/keyword-query";
+
 export type AnswerPayload = RagAnswer & { demoMode?: boolean };
 
 export type SearchError = Error & {
@@ -9,73 +11,6 @@ export type SearchError = Error & {
 
 export const searchRetryDelaysMs = [500, 1000, 2000] as const;
 export const searchRetryCount = 2;
-
-const keywordStopWords = new Set([
-  "a",
-  "about",
-  "all",
-  "an",
-  "and",
-  "are",
-  "as",
-  "at",
-  "be",
-  "before",
-  "both",
-  "by",
-  "can",
-  "could",
-  "did",
-  "do",
-  "does",
-  "for",
-  "from",
-  "get",
-  "had",
-  "has",
-  "have",
-  "her",
-  "his",
-  "how",
-  "if",
-  "in",
-  "is",
-  "it",
-  "its",
-  "into",
-  "me",
-  "may",
-  "more",
-  "my",
-  "no",
-  "not",
-  "of",
-  "on",
-  "or",
-  "our",
-  "out",
-  "should",
-  "so",
-  "such",
-  "that",
-  "the",
-  "their",
-  "them",
-  "there",
-  "these",
-  "they",
-  "this",
-  "those",
-  "to",
-  "when",
-  "where",
-  "which",
-  "who",
-  "why",
-  "with",
-  "would",
-  "you",
-]);
 
 export function makeSearchError(message: string, status?: number, retryable = false): SearchError {
   const error = new Error(message) as SearchError;
@@ -118,26 +53,6 @@ export function isRetryableError(error: unknown) {
 
 export function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-export function keywordQueryFromNaturalLanguage(query: string) {
-  const normalized = query
-    .normalize("NFKD")
-    .toLowerCase()
-    .replace(/[^\w\s]+/g, " ")
-    .replace(/_/g, " ")
-    .trim();
-  const tokens = normalized.split(/\s+/).filter((token) => token.length >= 3 && !keywordStopWords.has(token));
-  const terms: string[] = [];
-  const seen = new Set<string>();
-
-  for (const token of tokens) {
-    if (seen.has(token)) continue;
-    seen.add(token);
-    terms.push(token);
-  }
-
-  return terms.slice(0, 7).join(" ");
 }
 
 export function answerPayloadIsUsable(payload: AnswerPayload) {

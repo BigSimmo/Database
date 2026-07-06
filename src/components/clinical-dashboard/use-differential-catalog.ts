@@ -6,6 +6,19 @@ import type { DifferentialSourceStatus, DifferentialValidationStatus } from "@/l
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differentials";
 import { useAuthSession } from "@/lib/supabase/client";
 
+export type DifferentialSearchMatches = {
+  diagnoses: Array<{ record: DifferentialRecord; score: number; reasons: string[] }>;
+  presentations: Array<{ workflow: DifferentialPresentationWorkflow; score: number; reasons: string[] }>;
+};
+
+export type DifferentialSearchState = {
+  status: "loading" | "ready" | "unauthorized" | "error";
+  matches: DifferentialSearchMatches;
+  demoMode: boolean;
+};
+
+const emptyDifferentialMatches: DifferentialSearchMatches = { diagnoses: [], presentations: [] };
+
 export type DifferentialRecordGovernance = {
   sourceStatus: DifferentialSourceStatus;
   validationStatus: DifferentialValidationStatus;
@@ -26,6 +39,78 @@ export type DifferentialPresentationState = {
   demoMode: boolean;
   governance: DifferentialRecordGovernance | null;
 };
+
+/** Ranked catalogue search for the Differentials search mode: fetches scored
+ *  diagnosis and presentation matches in parallel from /api/differentials.
+ *  Empty queries resolve immediately without a request. */
+export function useDifferentialSearch(query: string): DifferentialSearchState {
+  const { authorizationHeader, markSessionExpired, status: authStatus } = useAuthSession();
+  const requestKey = query.trim().toLowerCase();
+  const [state, setState] = useState<DifferentialSearchState>({
+    status: "ready",
+    matches: emptyDifferentialMatches,
+    demoMode: false,
+  });
+  // Reset to loading during render when the query changes (repo pattern —
+  // avoids react-hooks/set-state-in-effect).
+  const [lastRequestKey, setLastRequestKey] = useState(requestKey);
+  if (lastRequestKey !== requestKey) {
+    setLastRequestKey(requestKey);
+    setState({
+      status: requestKey ? "loading" : "ready",
+      matches: emptyDifferentialMatches,
+      demoMode: false,
+    });
+  }
+
+  useEffect(() => {
+    if (!requestKey) return undefined;
+    let active = true;
+    const encoded = encodeURIComponent(requestKey);
+    Promise.all([
+      fetch(`/api/differentials?kind=diagnosis&q=${encoded}&limit=20`, { headers: authorizationHeader }),
+      fetch(`/api/differentials?kind=presentation&q=${encoded}&limit=10`, { headers: authorizationHeader }),
+    ])
+      .then(async ([diagnosisResponse, presentationResponse]) => {
+        if (!active) return;
+        if (diagnosisResponse.status === 401 || presentationResponse.status === 401) {
+          if (authStatus === "loading") return;
+          if (authStatus === "authenticated") markSessionExpired();
+          setState({ status: "unauthorized", matches: emptyDifferentialMatches, demoMode: false });
+          return;
+        }
+        if (!diagnosisResponse.ok || !presentationResponse.ok) {
+          setState({ status: "error", matches: emptyDifferentialMatches, demoMode: false });
+          return;
+        }
+        const diagnosisPayload = (await diagnosisResponse.json()) as {
+          matches?: DifferentialSearchMatches["diagnoses"];
+          demoMode?: boolean;
+        };
+        const presentationPayload = (await presentationResponse.json()) as {
+          matches?: DifferentialSearchMatches["presentations"];
+          demoMode?: boolean;
+        };
+        if (!active) return;
+        setState({
+          status: "ready",
+          matches: {
+            diagnoses: diagnosisPayload.matches ?? [],
+            presentations: presentationPayload.matches ?? [],
+          },
+          demoMode: Boolean(diagnosisPayload.demoMode || presentationPayload.demoMode),
+        });
+      })
+      .catch(() => {
+        if (active) setState({ status: "error", matches: emptyDifferentialMatches, demoMode: false });
+      });
+    return () => {
+      active = false;
+    };
+  }, [requestKey, authStatus, authorizationHeader, markSessionExpired]);
+
+  return state;
+}
 
 export function useDifferentialRecord(slug: string): DifferentialRecordState {
   const { authorizationHeader, markSessionExpired, status: authStatus } = useAuthSession();

@@ -8,7 +8,16 @@ function errorMessage(error: unknown) {
 }
 
 export function isSupabaseApiKeyConfigurationError(error: unknown) {
-  return /\b(?:unregistered|invalid)\s+api\s+key\b/i.test(errorMessage(error));
+  const message = errorMessage(error);
+  return (
+    /\b(?:unregistered|invalid)\s+api\s+key\b/i.test(message) ||
+    // Post-rotation messages confirmed live (2026-07-06): PostgREST returns
+    // "Legacy API keys are disabled" once the anon/service_role JWTs are turned
+    // off, and "Secret API key required" when a publishable key is sent to a
+    // secret-only endpoint. Both mean the configured key is wrong, not the query.
+    /\blegacy\s+api\s+keys?\s+(?:are\s+)?disabled\b/i.test(message) ||
+    /\bsecret\s+api\s+key\s+required\b/i.test(message)
+  );
 }
 
 export function nonProductionSupabaseDemoFallbackReason(error: unknown) {
