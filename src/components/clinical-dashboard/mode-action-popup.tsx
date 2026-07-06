@@ -8,6 +8,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type Ref,
 } from "react";
 import {
   BadgeCheck,
@@ -245,6 +246,15 @@ export function modeActionItemsFor(setId: ModeActionSetId): readonly ModeActionI
   return modeActionSets[setId];
 }
 
+function assignTriggerRef(ref: Ref<HTMLButtonElement> | undefined, element: HTMLButtonElement | null) {
+  if (!ref) return;
+  if (typeof ref === "function") {
+    ref(element);
+    return;
+  }
+  ref.current = element;
+}
+
 export function ModeActionPopup({
   open,
   title,
@@ -260,6 +270,7 @@ export function ModeActionPopup({
   onModeSelect,
   onPlacementChange,
   triggerClassName,
+  triggerRef,
   integrated = false,
 }: {
   open: boolean;
@@ -276,6 +287,7 @@ export function ModeActionPopup({
   onModeSelect?: (modeId: string) => void;
   onPlacementChange?: (placement: ModeActionPlacement) => void;
   triggerClassName?: string;
+  triggerRef?: Ref<HTMLButtonElement>;
   integrated?: boolean;
 }) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -643,7 +655,10 @@ export function ModeActionPopup({
       <div ref={rootRef} className="relative shrink-0">
         <button
           type="button"
-          ref={buttonRef}
+          ref={(element) => {
+            buttonRef.current = element;
+            assignTriggerRef(triggerRef, element);
+          }}
           className={cn(
             chatComposerIconButton,
             triggerClassName,

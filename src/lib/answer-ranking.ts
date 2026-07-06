@@ -70,6 +70,7 @@ function resultTexts(result: SearchResult) {
   const metadataText = `${labels} ${result.document_summary ?? ""}`;
   const titleText = `${result.title} ${result.file_name}`;
   const sectionText = result.section_heading ?? "";
+  const synopsisText = result.retrieval_synopsis ?? "";
   const contentText = `${sourceTextForModel(result.content)} ${imageEvidenceText(result)}`;
   return {
     title: normalizeText(titleText),
@@ -78,7 +79,7 @@ function resultTexts(result: SearchResult) {
     metadata: normalizeText(metadataText),
     adjacent: normalizeText(result.adjacent_context ?? ""),
     combined: normalizeText(
-      `${titleText} ${sectionText} ${contentText} ${metadataText} ${result.adjacent_context ?? ""}`,
+      `${titleText} ${sectionText} ${synopsisText} ${contentText} ${metadataText} ${result.adjacent_context ?? ""}`,
     ),
   };
 }

@@ -1068,26 +1068,8 @@ function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
   );
 }
 
-function ToolsHub({
-  query,
-  onQueryChange,
-  desktopComposerSlotId,
-  showDetailPanel,
-}: {
-  query: string;
-  onQueryChange: (nextQuery: string) => void;
-  desktopComposerSlotId?: string;
-  showDetailPanel?: boolean;
-}) {
-  return (
-    <ApplicationsLauncherWorkspace
-      variant="dashboard-tools"
-      query={query}
-      onQueryChange={onQueryChange}
-      desktopComposerSlotId={desktopComposerSlotId}
-      showDetailPanel={showDetailPanel}
-    />
-  );
+function ToolsHub({ query, desktopComposerSlotId }: { query: string; desktopComposerSlotId?: string }) {
+  return <ApplicationsLauncherWorkspace query={query} desktopComposerSlotId={desktopComposerSlotId} />;
 }
 
 type MobileSectionFabItem = {
@@ -1540,6 +1522,7 @@ export function ClinicalDashboard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const mainRef = useRef<HTMLElement>(null);
+  const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
@@ -1588,7 +1571,7 @@ export function ClinicalDashboard({
   const activeModeSearch = appModeSearchConfig(searchMode);
   const activeModeResultKind = appModeResultKind(searchMode);
   const requestQueryMode = appModeQueryMode(searchMode, queryMode);
-  const requestedRun = searchParams.get("run") === "1";
+
   // Record matches come from the owner-scoped registry API (mock fixtures in
   // demo mode); ranking stays client-side so live-typing behaviour is
   // unchanged and the registry is fetched once per active mode.
@@ -2483,7 +2466,6 @@ export function ClinicalDashboard({
     urlDocumentSearchBootstrappedRef.current = true;
     void executeSearch(searchText, mode, scopeFilters);
     // URL search intentionally runs once when the selected mode can execute.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canRunSearch, answerThreadBootstrapped]);
 
   useEffect(() => {
@@ -3085,17 +3067,25 @@ export function ClinicalDashboard({
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
     if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode);
 
+    const requestId = ++searchRequestSeqRef.current;
+
     try {
       const shortcutQueryMode = appModeQueryMode(targetMode, queryMode);
       const payload = await runWithRetries(() =>
         requestSourceLibrarySearch(trimmedSearchText, sourceLibraryMode, filtersOverride, shortcutQueryMode),
       );
-      applySearchResult(payload);
+      if (requestId === searchRequestSeqRef.current) {
+        applySearchResult(payload);
+      }
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Document search failed");
+      if (requestId === searchRequestSeqRef.current) {
+        setError(requestError instanceof Error ? requestError.message : "Document search failed");
+      }
     } finally {
-      setLoading(false);
-      setAnswerProgress(null);
+      if (requestId === searchRequestSeqRef.current) {
+        setLoading(false);
+        setAnswerProgress(null);
+      }
     }
   }
 
@@ -3816,6 +3806,7 @@ export function ClinicalDashboard({
           // Phone-only: the header sits above the internally scrolling <main>,
           // so hiding must collapse its layout space to hand it to content.
           hideOnScroll={{ strategy: "collapse", containerRef: mainRef }}
+          onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
         />
 
         <main
@@ -3830,13 +3821,15 @@ export function ClinicalDashboard({
                 ? "mb-0"
                 : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
-                ? compactMobileBottomSearch
-                  ? differentialsCompareAddonActive
-                    ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
-                    : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
-                  : compactMobileModeHome
-                    ? "mb-0"
-                    : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+                ? bottomSearchScrollHidden
+                  ? "mb-0 sm:mb-0"
+                  : compactMobileBottomSearch
+                    ? differentialsCompareAddonActive
+                      ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
+                      : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
+                    : compactMobileModeHome
+                      ? "mb-0"
+                      : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
                 : "mb-0",
           )}
         >
@@ -3964,12 +3957,7 @@ export function ClinicalDashboard({
                     }}
                   />
                 ) : activeModeResultKind === "tools" ? (
-                  <ToolsHub
-                    query={query}
-                    onQueryChange={setQuery}
-                    desktopComposerSlotId={desktopHomeComposerSlotId}
-                    showDetailPanel={!requestedRun}
-                  />
+                  <ToolsHub query={query} desktopComposerSlotId={desktopHomeComposerSlotId} />
                 ) : activeModeResultKind === "favourites" ? (
                   <FavouritesHub
                     query={query}

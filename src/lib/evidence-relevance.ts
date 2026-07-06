@@ -127,7 +127,7 @@ function labelsText(labels?: Array<{ label?: string | null; label_type?: string 
 
 function sourceTextBlocks(source: SearchResult) {
   const title = normalizeSearchText(
-    `${source.title} ${source.file_name} ${source.section_heading ?? ""} ${(source.section_path ?? []).join(" ")}`,
+    `${source.title} ${source.file_name} ${source.section_heading ?? ""} ${(source.section_path ?? []).join(" ")} ${source.retrieval_synopsis ?? ""}`,
   );
   const content = normalizeSearchText(
     [

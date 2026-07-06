@@ -15,6 +15,27 @@ const topRevealOffset = 8;
 // avoid jitter from momentum settling and fractional scroll positions.
 const minimumDelta = 4;
 
+/** Pure scroll-direction evaluation used by the hook; exported for unit tests. */
+export function computeScrollHideUpdate(params: { offset: number; lastOffset: number; currentlyHidden: boolean }): {
+  hidden: boolean;
+  lastOffset: number;
+} {
+  const { offset, lastOffset, currentlyHidden } = params;
+  // Ignore iOS rubber-band overscroll at the top.
+  if (offset < 0) return { hidden: currentlyHidden, lastOffset };
+  const delta = offset - lastOffset;
+  if (offset <= topRevealOffset) {
+    return { hidden: false, lastOffset: offset };
+  }
+  if (Math.abs(delta) < minimumDelta) {
+    return { hidden: currentlyHidden, lastOffset };
+  }
+  if (delta > 0) {
+    return { hidden: offset > hideActivationOffset, lastOffset: offset };
+  }
+  return { hidden: false, lastOffset: offset };
+}
+
 function subscribeToPhoneMedia(onChange: () => void) {
   const media = window.matchMedia(phoneMediaQuery);
   media.addEventListener("change", onChange);
@@ -41,9 +62,10 @@ interface UseHideOnScrollOptions {
 
 /**
  * Tracks scroll direction on phones and reports when top chrome (the
- * universal header) should hide to maximise content space. Hidden while
- * scrolling down past the header, shown again on any deliberate scroll up or
- * when near the top. Inert (always visible) above the phone breakpoint.
+ * universal header) and the bottom search dock should hide to maximise
+ * content space. Hidden while scrolling down past the header, shown again
+ * on any deliberate scroll up or when near the top. Inert (always visible)
+ * above the phone breakpoint.
  */
 export function useHideOnScroll({ containerRef, disabled = false }: UseHideOnScrollOptions): boolean {
   const [hidden, setHidden] = useState(false);
@@ -63,21 +85,12 @@ export function useHideOnScroll({ containerRef, disabled = false }: UseHideOnScr
     const evaluate = () => {
       frame = 0;
       const offset = readOffset();
-      // Ignore iOS rubber-band overscroll at the top.
       if (offset < 0) return;
       const delta = offset - lastOffset;
-      if (offset <= topRevealOffset) {
-        lastOffset = offset;
-        setHidden(false);
-        return;
-      }
-      if (Math.abs(delta) < minimumDelta) return;
-      lastOffset = offset;
-      if (delta > 0) {
-        if (offset > hideActivationOffset) setHidden(true);
-      } else {
-        setHidden(false);
-      }
+      if (Math.abs(delta) < minimumDelta && offset > topRevealOffset) return;
+      const update = computeScrollHideUpdate({ offset, lastOffset, currentlyHidden: false });
+      lastOffset = update.lastOffset;
+      setHidden(update.hidden);
     };
 
     const onScroll = () => {
