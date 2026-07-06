@@ -9,6 +9,7 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type Ref,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -295,9 +296,10 @@ export function ModeActionPopup({
   onModeSelect,
   onPlacementChange,
   triggerClassName,
-  triggerRef,
   integrated = false,
   integratedChipRow = true,
+  triggerRef,
+  dismissIgnoreRefs,
 }: {
   open: boolean;
   title: string;
@@ -317,6 +319,8 @@ export function ModeActionPopup({
   integrated?: boolean;
   /** When false, the integrated menu skips the footer chip-row clearance offset. */
   integratedChipRow?: boolean;
+  /** Header-owned controls (e.g. app mode trigger) that must stay clickable above the portaled menu. */
+  dismissIgnoreRefs?: readonly RefObject<HTMLElement | null>[];
 }) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -334,18 +338,16 @@ export function ModeActionPopup({
 
   const closeAndRestoreFocus = useCallback(() => {
     setModeSelectorOpen(false);
-    setIntegratedSurfaceLayout(null);
     onOpenChange(false);
     window.requestAnimationFrame(() => buttonRef.current?.focus());
-  }, [onOpenChange]);
+  }, [onOpenChange, setModeSelectorOpen]);
 
   useDismissableLayer({
     enabled: open,
-    refs: [rootRef, surfaceRef],
+    refs: [rootRef, surfaceRef, ...(dismissIgnoreRefs ?? [])],
     restoreFocusRef: buttonRef,
     onDismiss: () => {
       setModeSelectorOpen(false);
-      setIntegratedSurfaceLayout(null);
       onOpenChange(false);
     },
   });
@@ -368,7 +370,7 @@ export function ModeActionPopup({
     const edgePadding = 12;
     const availableAbove = Math.max(0, rect.top - viewportTop - edgePadding);
     const availableBelow = Math.max(0, viewportBottom - rect.bottom - edgePadding);
-    const { minBodyHeight, minSurfaceHeight, headerHeight } = estimateIntegratedMenuHeights(items.length, integrated);
+    const { minSurfaceHeight, headerHeight } = estimateIntegratedMenuHeights(items.length, integrated);
     const detachedUpOffset = 16;
     const integratedDownOffset = integratedChipRow ? 58 : 14;
     const detachedDownOffset = integrated ? integratedDownOffset : 14;
@@ -451,7 +453,6 @@ export function ModeActionPopup({
 
   function runActionAndClose(actionId: ModeActionId) {
     setModeSelectorOpen(false);
-    setIntegratedSurfaceLayout(null);
     onOpenChange(false);
     onAction(actionId);
   }
@@ -536,7 +537,7 @@ export function ModeActionPopup({
 
   useEffect(() => {
     if (open) return;
-    setIntegratedSurfaceLayout(null);
+    queueMicrotask(() => setIntegratedSurfaceLayout(null));
   }, [open]);
 
   useEffect(() => {
