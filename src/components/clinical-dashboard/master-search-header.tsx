@@ -330,6 +330,11 @@ export function MasterSearchHeader({
   useEffect(() => {
     onBottomComposerScrollHiddenChange?.(bottomComposerHidden);
   }, [bottomComposerHidden, onBottomComposerScrollHiddenChange]);
+
+  useEffect(() => {
+    if (loading) setCommandDropdownOpen(false);
+  }, [loading]);
+
   // Stable, header-owned element the composer is portaled into; we move it in and
   // out of the page-owned slot rather than portaling into the slot directly.
   const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);
