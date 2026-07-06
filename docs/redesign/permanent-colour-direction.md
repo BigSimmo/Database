@@ -1,5 +1,7 @@
 # Permanent colour direction
 
+> **Entry point:** day-to-day UI rules live in [`docs/design-system.md`](../design-system.md); this document remains the colour contract of record it links to.
+
 ## Decision
 
 Adopt **Clinical White / Aegean Graphite** as the permanent colour direction.

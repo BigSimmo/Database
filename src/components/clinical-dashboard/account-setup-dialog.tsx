@@ -209,9 +209,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                       )}
                     >
                       <Icon className="h-4 w-4 text-[color:var(--clinical-accent)] sm:mb-1 sm:h-5 sm:w-5" />
-                      <span className="min-w-0 whitespace-normal break-words text-[12px] leading-4 sm:text-xs">
-                        {source.label}
-                      </span>
+                      <span className="min-w-0 whitespace-normal break-words text-xs leading-4">{source.label}</span>
                       <span
                         className={cn(
                           "grid h-4.5 w-4.5 place-items-center rounded-full border sm:absolute sm:right-2 sm:top-2",
@@ -304,7 +302,7 @@ function ProviderButton({ provider, onClick }: { provider: Provider; onClick: ()
       className="flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] min-[375px]:gap-2 min-[375px]:px-2 sm:text-sm"
     >
       <ProviderMark provider={provider} />
-      <span className="min-w-0 text-[11px] leading-none min-[375px]:text-xs sm:text-sm">{provider}</span>
+      <span className="min-w-0 text-2xs leading-none min-[375px]:text-xs sm:text-sm">{provider}</span>
     </button>
   );
 }
