@@ -2267,9 +2267,7 @@ export function DocumentViewer({
       ? viewerError
       : null;
   const effectiveLoadingDocument =
-    !canUsePrivateApis && authStatus === "loading" && !authLoadingTimedOut && loadingDocument
-      ? true
-      : loadingDocument;
+    !canUsePrivateApis && authStatus === "loading" && !authLoadingTimedOut && loadingDocument ? true : loadingDocument;
   const effectiveViewerError = authViewerError ?? viewerError;
   const viewerState = effectiveLoadingDocument
     ? "loading"
