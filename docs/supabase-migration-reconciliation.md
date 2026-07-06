@@ -1,6 +1,6 @@
 # Supabase Migration Reconciliation
 
-Last reviewed: 2026-07-04
+Last reviewed: 2026-07-05
 
 Target project: Clinical KB Database (`sjrfecxgysukkwxsowpy`)
 
@@ -27,7 +27,15 @@ These previously local-only versions were verified in the live project history b
 
 ## Current Status (July 2026)
 
-The repo now includes additional July 2026 migrations beyond the June checkpoint above, including:
+Migration `20260705230000_reconcile_live_database_drift.sql` codifies live-only drift discovered 2026-07-05:
+
+- `indexing_v3_agent_jobs` table and claim/update RPCs (recorded as applied in history but absent on live at inspection time)
+- `match_document_embedding_fields_text` RPC with service-role-only execute grants (was present on live with anon/auth execute)
+- `rag_visual_eval_cases` / `rag_visual_eval_runs` tables with service-role-only RLS (were present on live without RLS)
+
+`supabase/schema.sql` has been reconciled to match. Apply the migration through the normal linked workflow when ready; do not use raw dashboard SQL for retrieval RPCs.
+
+The repo also includes additional July 2026 migrations beyond the June checkpoint above, including:
 
 - Retrieval RPC codification and hybrid execution smoke (`20260701140631`, related July 1 fixes)
 - Legacy vector index drops and `search_schema_health()` reconciliation (`20260702014803`, `20260702021604`)
