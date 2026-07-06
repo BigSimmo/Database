@@ -154,41 +154,55 @@ test.describe("Header element overlap coverage", () => {
     });
   }
 
-  test("desktop smart search keeps suggested words above the composer", async ({ page }) => {
+  test("desktop smart search keeps rotating text above and prompts below the composer", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoDashboard(page);
     await gotoHome(page);
 
-    const suggestionRow = page.getByTestId("smart-search-suggestion-row");
-    await expect(suggestionRow).toBeVisible();
-    await expect(suggestionRow.getByRole("button", { name: "lithium level timing" })).toBeVisible();
-    await expect(suggestionRow.getByRole("button", { name: "clozapine ANC monitoring" })).toBeVisible();
+    const rotatingText = page.getByTestId("smart-search-rotating-text");
+    const promptRow = page.getByTestId("smart-search-prompt-row");
+    await expect(rotatingText).toBeVisible();
+    await expect(rotatingText).toContainText("Smart search");
+    await expect(promptRow).toBeVisible();
+    await expect(promptRow.getByRole("button", { name: "lithium level timing" })).toBeVisible();
+    await expect(promptRow.getByRole("button", { name: "clozapine ANC monitoring" })).toBeVisible();
 
     const geometry = await page.evaluate(() => {
-      const row = document.querySelector('[data-testid="smart-search-suggestion-row"]');
-      const input = document.querySelector('[data-testid="global-search-input"]');
-      if (!row || !input) return null;
-      const rowRect = row.getBoundingClientRect();
-      const inputRect = input.getBoundingClientRect();
-      return { rowBottom: rowRect.bottom, inputTop: inputRect.top };
+      const hint = document.querySelector('[data-testid="smart-search-rotating-text"]');
+      const prompt = document.querySelector('[data-testid="smart-search-prompt-row"]');
+      const pill = document.querySelector(".answer-footer-search-pill");
+      if (!hint || !prompt || !pill) return null;
+      const hintRect = hint.getBoundingClientRect();
+      const promptRect = prompt.getBoundingClientRect();
+      const pillRect = pill.getBoundingClientRect();
+      return {
+        hintBottom: hintRect.bottom,
+        pillTop: pillRect.top,
+        pillBottom: pillRect.bottom,
+        promptTop: promptRect.top,
+      };
     });
 
-    expect(geometry, "suggestion row and smart search input must render").not.toBeNull();
-    expect(geometry!.rowBottom, "suggestions should sit above the smart search bar").toBeLessThanOrEqual(
-      geometry!.inputTop + 1,
+    expect(geometry, "smart search hint, composer, and prompt row must render").not.toBeNull();
+    expect(geometry!.hintBottom, "rotating text should sit above the smart search bar").toBeLessThanOrEqual(
+      geometry!.pillTop + 1,
+    );
+    expect(geometry!.promptTop, "smart prompts should sit below the smart search bar").toBeGreaterThanOrEqual(
+      geometry!.pillBottom - 1,
     );
 
-    await suggestionRow.getByRole("button", { name: "lithium level timing" }).click();
+    await promptRow.getByRole("button", { name: "lithium level timing" }).click();
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue(
       "lithium level timing",
     );
   });
 
-  test("phone smart search does not show the desktop suggested words row", async ({ page }) => {
+  test("phone smart search does not show the desktop rotating text or prompt row", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoDashboard(page);
     await gotoHome(page);
 
-    await expect(page.getByTestId("smart-search-suggestion-row")).toBeHidden();
+    await expect(page.getByTestId("smart-search-rotating-text")).toBeHidden();
+    await expect(page.getByTestId("smart-search-prompt-row")).toBeHidden();
   });
 });
