@@ -68,7 +68,7 @@ function ContextHintRow({
       label="Suggested"
       testId="smart-search-suggestion-row"
       layout="scroll"
-      className="hidden lg:flex"
+      className="smart-search-suggestion-row"
     />
   );
 }
