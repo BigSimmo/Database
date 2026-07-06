@@ -332,8 +332,10 @@ export function MasterSearchHeader({
   }, [bottomComposerHidden, onBottomComposerScrollHiddenChange]);
 
   useEffect(() => {
-    if (loading) setCommandDropdownOpen(false);
-  }, [loading]);
+    if (!loading || !commandDropdownOpen) return undefined;
+    const frame = window.requestAnimationFrame(() => setCommandDropdownOpen(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [commandDropdownOpen, loading]);
 
   // Stable, header-owned element the composer is portaled into; we move it in and
   // out of the page-owned slot rather than portaling into the slot directly.
