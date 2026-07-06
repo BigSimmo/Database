@@ -193,8 +193,13 @@ async function fulfillAnswerResponse(route: Route, payload: unknown) {
 }
 
 type DemoAnswerOverride = (query: string, documentId?: string, documentIds?: string[]) => ReturnType<typeof demoAnswer>;
+type MockDemoApiOptions = {
+  answerOverride?: DemoAnswerOverride;
+  answerDelayMs?: number;
+  onAnswerRequest?: (query: string) => void;
+};
 
-async function mockDemoApi(page: Page, options: { answerOverride?: DemoAnswerOverride } = {}) {
+async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
   await mockLocalProjectIdentity(page);
   await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
@@ -273,9 +278,14 @@ async function mockDemoApi(page: Page, options: { answerOverride?: DemoAnswerOve
       documentId?: string;
       documentIds?: string[];
     };
+    const query = body.query ?? "What monitoring is required?";
+    options.onAnswerRequest?.(query);
+    if (options.answerDelayMs) {
+      await new Promise((resolve) => setTimeout(resolve, options.answerDelayMs));
+    }
     const answer =
-      options.answerOverride?.(body.query ?? "What monitoring is required?", body.documentId, body.documentIds) ??
-      demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds);
+      options.answerOverride?.(query, body.documentId, body.documentIds) ??
+      demoAnswer(query, body.documentId, body.documentIds);
     await fulfillAnswerResponse(route, {
       ...answer,
       demoMode: true,
@@ -1314,6 +1324,33 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(async () => {
       await expect(page.getByRole("button", { name: "Open answer options" })).toBeFocused();
     }).toPass({ timeout: 5_000 });
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("answer search URL opens chat without the answer home copy", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    const answerRequests: string[] = [];
+    const question = "What clozapine monitoring items are shown in the table image?";
+    await mockDemoApi(page, {
+      answerDelayMs: 1500,
+      onAnswerRequest: (query) => answerRequests.push(query),
+    });
+
+    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&focus=1&run=1`, { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId("answer-empty-state")).toHaveCount(0);
+    await expect(page.getByText("How can I help?", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Loading answer")).toBeVisible();
+    await expect.poll(() => answerRequests[0]).toBe(question);
+
+    const questionBubble = page.getByTestId("user-question-bubble");
+    await expect(questionBubble).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(questionBubble).toContainText(question);
+    await expect(page.getByTestId("plain-answer-response")).toContainText("synthetic clozapine table image highlights");
+    await expect(visibleQuestionInput(page)).toHaveValue("");
+    await expect(page.getByTestId("answer-empty-state")).toHaveCount(0);
+    await expect(page.getByText("How can I help?", { exact: true })).toHaveCount(0);
+    expect(answerRequests).toEqual([question]);
     await expectNoPageHorizontalOverflow(page);
   });
 
