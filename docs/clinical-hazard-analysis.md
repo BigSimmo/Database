@@ -1,0 +1,211 @@
+# Clinical Hazard Analysis — Answer Pipeline (ISO 14971-style)
+
+**System:** Clinical KB Database — source-backed clinical Q&A over user-uploaded guideline documents.
+**Scope:** Every pathway from a generated system output to potential patient harm. Answer-generation pipeline only (`src/lib/rag.ts`, `answer-verification.ts`, `source-text-sanitizer.ts`, `ward-output.ts`, `answer-render-policy.ts`, `evidence.ts`, `source-governance.ts`, `clinical-search.ts`, and the copy/export surfaces).
+**Status:** Analysis only. No product code was changed. This document identifies hazards, the existing in-code controls, the tests that prove them, and the gaps where no control exists. It does **not** implement fixes.
+**Companion:** [`docs/rag-injection-threat-model.md`](rag-injection-threat-model.md) covers the adversarial (ingestion→context→answer) chain in depth; hazard **H6** here cross-references it.
+
+---
+
+## 1. Method
+
+Findings were produced by a blind multi-agent fan-out — one analyst per harm pathway, each unaware of the others — followed by orchestrator-level dedupe and **adversarial verification of every finding against the live code** before it entered this document. Where an agent's claim did not survive verification it was corrected or dropped (examples: model-supplied citation identity fields are inert, so citation-ID spoofing via document text is *blocked*, not a hazard; `indexing_quality.issues` reaches the prompt raw but is built from deterministic strings and is not attacker-controllable; the audit's H4 ward-note "fix" was verified to live in **dead code**).
+
+The 2026-07-01 repository audit ([`docs/audit/repo-audit-2026-07-01.md`](audit/repo-audit-2026-07-01.md)) findings **H1–H4** are used as evidence that these pathways are real: each was a confirmed, reproduced defect on exactly one of the pathways below. Their remediations (audit "Remediation — 2026-07-02", merged via PR #123) are the **current controls** named here — so each control is cited at its present location, and each is re-examined for residual gaps.
+
+## 2. Risk framework
+
+**Severity** (clinical consequence of the output being acted on):
+
+| Level | Meaning |
+|---|---|
+| Catastrophic | Could contribute to death or life-threatening harm (e.g. 10–24× dose/rate error, wrong agranulocytosis/ANC threshold, dilution-ratio error). |
+| Critical | Serious injury or permanent harm (wrong dose within an order of magnitude, missed contraindication). |
+| Serious | Harm requiring clinical intervention (wrong monitoring interval, overstated confidence leading to a skipped check). |
+| Minor | Temporary/reversible inconvenience. |
+
+**Plausibility** (how readily the failure occurs):
+
+| Level | Meaning |
+|---|---|
+| High | Occurs in ordinary use, no adversary required. |
+| Medium | Requires specific-but-common content or a routine workflow step. |
+| Low | Requires unusual content, an adversary, or social engineering. |
+
+**Human-in-the-loop is the top-level control.** The product is explicitly a *draft-for-review* tool: every answer and copied artifact carries "Verify against linked source documents before clinical use" ([`answer-render-policy.ts:529`](../src/lib/answer-render-policy.ts), [`ward-output.ts:825`](../src/lib/ward-output.ts)). The hazards below are dangerous precisely where they **undermine a clinician's ability to perform that verification** (a stripped caveat, a mis-attributed citation, a "verified" wrong number) — which is also, per §8, the criterion the TGA exemption hinges on.
+
+---
+
+## 3. Hazard register
+
+Each hazard: failure scenario → severity/plausibility → existing control (function + `file:line`) → proving test/eval (or "none") → residual gap.
+
+### H1 — A wrong clinical number reaches the clinician
+*Pathway: model output → numeric verification → render/copy. Audit evidence: **H1** (numeric faithfulness gate blanked correct answers), and the B1 substring-vs-token fix.*
+
+The single control is `verifyAnswerNumbers` ([`answer-verification.ts:152`](../src/lib/answer-verification.ts)): it extracts numeric/dose/threshold tokens from the answer via `NUMERIC_TOKEN_PATTERN` ([`answer-verification.ts:28`](../src/lib/answer-verification.ts)) and confirms each appears — by **exact normalized-token set membership**, not substring — in a **cited** chunk's text. `applyNumericVerification` ([`rag.ts:6424`](../src/lib/rag.ts)) then, for actionable dose/threshold context (`hasActionableNumericContext`, [`rag.ts:6402`](../src/lib/rag.ts)), blanks the answer to an evidence gap (`grounded=false`, `confidence="unsupported"`, [`rag.ts:6474`](../src/lib/rag.ts)); otherwise it appends the "verify against source" caveat and un-bolds the figure. This control is **genuinely strong on its axes**: it fails closed when no cited chunk maps ([`answer-verification.ts:168`](../src/lib/answer-verification.ts)), and the B1 fix stops `2.5 mg` matching inside `12.5 mg`. It is well tested (`tests/answer-verification.test.ts`, `tests/rag-content-accuracy.test.ts`). The residual hazards are **coverage holes in the token regex** and a scoping subtlety:
+
+| ID | Failure scenario | Severity | Plaus. | Control | Test | Gap |
+|---|---|---|---|---|---|---|
+| **H1a** | Source says `30 mL/day`; model outputs `30 mL/hr` (24× rate error). The regex captures numeral + base unit but has no per-time/per-weight suffix for `mL`/`units`, so both normalize to token `30ml` and the answer **verifies**. | Catastrophic | Medium | `NUMERIC_TOKEN_PATTERN` [`answer-verification.ts:28`](../src/lib/answer-verification.ts) | **none** (no rate/denominator case) | Denominator (`/hr`, `/day`, `/min`, `/kg`) is dropped for volume/unit branches; only `mg/(day\|kg\|m2\|dose)` has one. |
+| **H1b** | Adrenaline `1:1000` vs `1:10000` (10× dilution). Ratios match neither `NUMERIC_TOKEN_PATTERN` nor `SIGNIFICANT_BARE_NUMBER_PATTERN` ([`:34`](../src/lib/answer-verification.ts)); `extractNumericTokens` returns `[]`, so the mismatch is never even considered. | Catastrophic | Low | — | **none** | No `\d+:\d+` ratio branch anywhere. |
+| **H1c** | `100 ug` (the `ug` spelling is absent from the unit list — only `mcg`/`microgram`/`μg`), bare-integer frequencies (`4 times daily`), `drops/min` — none extracted, so an unverified value passes. | Serious–Critical | Medium | `SIGNIFICANT_BARE_NUMBER_PATTERN` [`:34`](../src/lib/answer-verification.ts) (decimals/ranges only, integers excluded by design) | **none** | Deliberate precision/recall trade-off; `ug`/`drops`/`puffs`/bare-integer frequencies are recall holes. |
+| **H1d** | Union-scoped verification: the top-level answer's numbers are checked against the **union** of *all* cited chunks (`sourceNumericTokenSet`, [`answer-verification.ts:172`](../src/lib/answer-verification.ts)). An answer about drug A that cites A **and** co-retrieved B "verifies" a figure that only exists in B's context. (Section bodies are correctly scoped to their own `citation_chunk_ids`, [`rag.ts:6437`](../src/lib/rag.ts) — the gap is the answer field.) | Critical | Medium | per-section scoping [`rag.ts:6437`](../src/lib/rag.ts) | partial | Answer-level tokens are not tied to the specific chunk supporting the sentence. |
+
+### H2 — A stale or unverified guideline is presented as current/authoritative
+*Pathway: source metadata → ranking → confidence/trust/strength → answer surface. Audit evidence: **H3** (freshness penalties were floored out; PR #118 then removed metadata weighting from selection).*
+
+**Dominant finding (H2a).** The entire live corpus defaults to `document_status: "unknown"` / `clinical_validation_status: "unverified"` — hard-coded at upload ([`upload/route.ts:212`](../src/app/api/upload/route.ts)) and as the normalization default ([`source-metadata.ts:28`](../src/lib/source-metadata.ts)); nothing in ingestion ever promotes a document to `current`/`review_due`/`outdated` (only the manual bulk-edit admin endpoint sets those). Yet **confidence, trust, and source-strength never read validation status**:
+
+- `deriveConfidence` ([`rag.ts:749`](../src/lib/rag.ts)) is cited-chunk **similarity only**.
+- `deriveTrust` ([`answer-render-policy.ts:124`](../src/lib/answer-render-policy.ts)) reads confidence/relevance/faithfulness/routing — never `document_status`/`clinical_validation_status`.
+- Source strength is `sourceStrengthForSimilarity` ([`evidence.ts:40`](../src/lib/evidence.ts)) — `≥0.82 → "strong"`, purely similarity.
+
+So an unvalidated, unknown-provenance document is routinely presented as a high-confidence, "strong"/"Direct" clinical source. The only surface signal is a soft, dismissible "Review status unknown / Not locally validated" label.
+
+- **Severity:** High (Critical for a dosing/threshold answer). **Plausibility:** High — this is the modal state of every document.
+- **Existing control:** the `unverified_source` warning is emitted (`sourceGovernanceWarnings`, [`source-governance.ts:113`](../src/lib/source-governance.ts)) and is frontend-visible ([`:53`](../src/lib/source-governance.ts)) — but at `warning` severity only, and it never lowers confidence/trust.
+- **Test:** `tests/source-governance.test.ts` asserts the system *does not* danger-refuse on missing review metadata — i.e. the tested behaviour is the permissive one. **No test** prevents an unverified source from rendering high-confidence.
+- **Gap:** [`rag.ts:749`](../src/lib/rag.ts), [`answer-render-policy.ts:124`](../src/lib/answer-render-policy.ts), [`evidence.ts:40`](../src/lib/evidence.ts) — validation status is never an input to confidence/trust/strength.
+
+**Secondary findings.**
+
+| ID | Failure scenario | Severity | Plaus. | Control | Test | Gap |
+|---|---|---|---|---|---|---|
+| **H2b** | An `outdated` chunk out-ranks a current one. Freshness/status penalties exist (`-0.04` at [`clinical-search.ts:680`](../src/lib/clinical-search.ts), [`rag.ts:621`](../src/lib/rag.ts); date-decay in `ranking-config.ts`) but are an order of magnitude below relevance boosts (`+0.06…+0.38`) and are **zero when dates are null** (the default). | High | Medium (needs metadata set) | small penalties [`clinical-search.ts:680`](../src/lib/clinical-search.ts) | `ranking-config.test.ts` proves the *math*, not the *ordering* | No "current beats outdated on tie" rule; penalty is summed flat and clamped. |
+| **H2c** | The one hard block, `sourceGovernanceRefusalAnswer` ([`answer/route.ts:135`](../src/app/api/answer/route.ts)), fires only on `severity==="danger"` — i.e. literal `document_status==="outdated"` or `extraction_quality==="poor"` ([`source-governance.ts:44`](../src/lib/source-governance.ts)). Because `outdated` is essentially never set, this block is dormant in practice. | High | Medium | `hasDangerSourceGovernanceWarning` [`source-governance.ts:238`](../src/lib/source-governance.ts) | `tests/source-governance.test.ts` | Depends on metadata that the pipeline never populates. |
+| **H2d** | `review_due` is filtered **out** of the frontend banner (`frontendVisibleWarningCodes` omits it, [`source-governance.ts:53`](../src/lib/source-governance.ts)); a review-due source surfaces with only a badge tone. | Medium | Low | — | test asserts it is *hidden* | No review-due caveat in the answer prose or the warnings channel. |
+
+### H3 — A safety caveat present on screen is stripped on copy/export
+*Pathway: on-screen answer → clipboard/ward-note → medical record. Audit evidence: **H4/M8/M16** (ward-note table export dropped the low-confidence caveat).*
+
+The audit's H4 fix (`clinicalTableToTextRows` routes copied tables through `normalizeAccessibleTable(conservativeClinical)` and emits the "Table structure could not be confidently reconstructed — verify values against the source document" caveat, [`ward-output.ts:612`](../src/lib/ward-output.ts)) is present **and correct** — but **verification found it lives in dead code**. `formatWardNote`, `formatAnswerForClipboard`, and `formatQuotesForClipboard` have **zero callers in `src/`** (confirmed by repository-wide search); they are exercised only by `tests/ward-output.test.ts`. The **shipped** copy button uses `renderModel.copyText` = `formatAnswerRenderCopyText` ([`answer-render-policy.ts:513`](../src/lib/answer-render-policy.ts), wired at [`ClinicalDashboard.tsx:506`](../src/components/ClinicalDashboard.tsx) and [`:4100`](../src/components/ClinicalDashboard.tsx)).
+
+| ID | Failure scenario | Severity | Plaus. | Control | Test | Gap |
+|---|---|---|---|---|---|---|
+| **H3a** | A low-confidence clozapine dose grid is on screen with its caveat. The clinician clicks Copy. `copyText` emits header + prose answer + source status + sources + warnings — **no table body and no table caveat** ([`answer-render-policy.ts:513`](../src/lib/answer-render-policy.ts)). The pasted note looks complete but omits the structured grid most likely to be transcribed. | High | High | none on this path | **none** asserts a table/caveat in `copyText` | `formatAnswerRenderCopyText` has no table logic. |
+| **H3b** | Even the warnings block cannot carry the table caveat: `buildWarnings` ([`answer-render-policy.ts:368`](../src/lib/answer-render-policy.ts)) sources only from trust, `faithfulnessWarning`, `unverifiedNumericTokens`, `conflictsOrGaps`. The table `lowConfidence` flag (`accessible-table-normalization.ts`) is never written back to the `RagAnswer`, so it cannot reach the copy. | High | High (whenever a low-confidence table is shown) | numeric caveat *is* in `copyText` ([`:376`](../src/lib/answer-render-policy.ts)) | none links a table flag to copy | No channel from `normalizeAccessibleTable` → `answer.conflictsOrGaps`/`faithfulnessWarning`. |
+| **H3c** | The correct, caveat-preserving formatter (`formatAnswerForClipboard`/`formatWardNote`) is exported and green-tested but **unused**, so the green suite masks the live gap. A maintainer reading the audit reasonably believes the copy path is safe. | High (latent/process) | Certain | dead code [`ward-output.ts:835`](../src/lib/ward-output.ts), [`:864`](../src/lib/ward-output.ts) | tests exercise the dead path | No test asserts a *wired* copy button produces caveat-bearing output. |
+| **H3d** | Mobile evidence "Copy" prefers quotes (`formatQuoteCardsForClipboard`, `evidence-panels.tsx`) and thereby bypasses the warning-bearing `copyText`, so low-trust/faithfulness context around the quotes is dropped. | Medium | Medium | per-quote truncation warning only | none for trust context | Quote-copy path carries no answer-level caveat. |
+
+> Note: even `copyText` **does** carry the numeric faithfulness caveat, unverified tokens, and trust warnings ([`answer-render-policy.ts:376`](../src/lib/answer-render-policy.ts)). H3 is specifically about the **table** caveat and body, which no shipped path preserves.
+
+### H4 — A claim is attributed to the wrong source / a source is given false authority
+*Pathway: citation assembly → provenance labelling → clinician "verifies" against a non-supporting source. Audit evidence: **M1** (confidence over uncited chunks), **M5–M7** (false 'BMJ Best Practice' provenance).*
+
+| ID | Failure scenario | Severity | Plaus. | Control | Test | Gap |
+|---|---|---|---|---|---|---|
+| **H4a** (core) | The model writes a non-numeric directive ("contraindicated in pregnancy; switch agent") and tags a real but non-supporting chunk. `sanitizeCitations` ([`rag.ts:857`](../src/lib/rag.ts)) and `sanitizeAnswerSections` ([`rag.ts:955`](../src/lib/rag.ts)) validate only that the id is a retrieved chunk — never that the chunk **entails the prose**. The clinician clicks through to a source that doesn't say it. | Critical | High | numeric-only verification; quote cards *are* entailment-checked (`isExactSourceQuote`, [`rag.ts:1031`](../src/lib/rag.ts)) | **none** for prose entailment | No claim-level entailment check on `answer`/section bodies (only numbers and quotes). |
+| **H4b** | `enrichGroundedReviewCitations` ([`rag.ts:1070`](../src/lib/rag.ts)) back-fills a grounded answer up to 2 citations from top retrieved chunks the model **never cited**, then they render with reason "Cited by the generated answer." ([`answer-render-policy.ts:195`](../src/lib/answer-render-policy.ts)) and count toward the ≥2-citations "high" threshold. | Serious | Medium | gated off when unverified numbers/faithfulness warning present ([`rag.ts:1073`](../src/lib/rag.ts)) | none marks enriched vs model-cited | Enriched citations are indistinguishable from model citations. |
+| **H4c** | The pinned "best source" is chosen by `selectBestSourceRecommendation` ([`evidence.ts:294`](../src/lib/evidence.ts)) purely on `hybrid_score`/`similarity` — **citation-blind**. `collectSourceCandidates` ([`answer-render-policy.ts:247`](../src/lib/answer-render-policy.ts)) also folds every raw `sources` result into the primary-source pool. So an uncited chunk can be shown as the top "best/primary source" with a strength badge. | Serious | High | cited candidates are ordered first in `dedupeSourceLinks` | none guards uncited-as-primary | Primary/best source is not required to be within the cited set. |
+| **H4d** | Source-strength "strong match" means "similar to the query," or `document_status==="current" → "strong"` ([`answer-render-policy.ts:145`](../src/lib/answer-render-policy.ts), [`evidence.ts:40`](../src/lib/evidence.ts)) — never "supports the claim." | Serious | High | — | tests cover the *gloss wording* only | Strength conflates retrieval similarity/recency with evidential support. |
+| **H4e** | False high-authority publisher: mitigated. BMJ now requires the literal `bmj` token, not the phrase "best practice" ([`document-organization.ts:268`](../src/lib/document-organization.ts)). | Serious | Low (residual) | present + tested (`tests/document-organization.test.ts`) | ✓ | Residual: an incidental "bmj" mention in a local doc's body/title can still attribute the BMJ reference collection. |
+
+### H5 — An answer that should be withheld or flagged is presented as trusted
+*Pathway: coverage/confidence/trust gating. Note: the **coverage gate** (`evaluateEvidenceCoverageGate`, [`rag.ts:3683`](../src/lib/rag.ts)) is an **accept-to-skip-embedding optimization** ([`rag.ts:5892`](../src/lib/rag.ts)), not a withhold gate — rejection falls through to full retrieval, so it cannot conjure a wrong answer. The real withhold controls are `applyConfidenceGate` ([`rag.ts:815`](../src/lib/rag.ts)), grounding, and the H1 numeric blank.*
+
+| ID | Failure scenario | Severity | Plaus. | Control | Test | Gap |
+|---|---|---|---|---|---|---|
+| **H5a** | The document-lookup fast path fabricates a non-cosine similarity from title/label match strength (`similarity = min(0.92, 0.58 + …)`, `hybrid_score = min(0.94, …)`, tagged `similarity_origin:"synthetic_text"`, [`rag.ts:2657`](../src/lib/rag.ts)). `scoreValue`/`deriveConfidence` ignore that tag, so two such cited chunks reach `strongest≥0.82 → "high"` ([`rag.ts:757`](../src/lib/rag.ts)) from title matching alone. | Serious–High | Medium | `deriveTrust` relevance re-check usually caps title-only to "low" ([`answer-render-policy.ts:128`](../src/lib/answer-render-policy.ts)) | **none** feeds synthetic-origin to `deriveConfidence` | `scoreValue` ([`rag.ts:762`](../src/lib/rag.ts)) treats synthetic similarity as real cosine. |
+| **H5b** | `deriveTrust` fails **open** on missing relevance: `sourceBacked = relevance?.isSourceBacked !== false` → `undefined !== false → true` ([`answer-render-policy.ts:128`](../src/lib/answer-render-policy.ts)). Any fallback return path that omits `answer.relevance` defaults a `confidence:"high"` answer to high trust. | High (if reached) | Low | main paths set `answer.relevance` | none asserts fail-safe on missing relevance | Convention, not enforcement; audit all `RagAnswer` constructors. |
+| **H5c** | A single lexically-"partial" chunk lifts the aggregate to source-backed (`partialSourceCount>0 → "partial"`, `evidence-relevance.ts`), re-enabling medium/high trust though the bulk of evidence is nearby-only. | Medium–High | Medium | cited-scoped confidence (M1) partially compensates | none for aggregate widening | Trust-facing relevance is over the retrieved set, not the cited subset. |
+| **H5d** | Hardcoded clozapine / patient-property branches in the coverage gate use looser accept criteria than the generic path ([`rag.ts:3726`](../src/lib/rag.ts)) — inconsistent strictness per drug. | Low–Medium | Medium | downstream gates apply uniformly | none asserts cross-drug parity | Per-drug literals in a safety-adjacent gate. |
+| **H5e** | Out-of-order response painting the wrong answer under a new question — **controlled**: a monotonic `searchRequestSeqRef` guards every state write incl. streamed progress ([`ClinicalDashboard.tsx`](../src/components/ClinicalDashboard.tsx), audit M10). | High (if it regressed) | Low | request-id guard | none (client React logic) | Minor: superseded stream has no `AbortController` (resource hygiene only). |
+
+### H6 — Adversarial / corrupted document content changes the answer
+*Pathway: uploaded document text → model context → answer. Detailed in the companion threat model; summarized here as a hazard.*
+
+| ID | Failure scenario | Severity | Plaus. | Control | Test | Gap |
+|---|---|---|---|---|---|---|
+| **H6a** (master residual — faithfulness ≠ correctness) | A document simply **states a wrong-but-plausible value** ("max citalopram 200 mg"; "withhold clozapine if ANC < 0.2"). The model copies it faithfully; the number *is* in the cited chunk, so `verifyAnswerNumbers` passes it, `applyNumericVerification` no-ops ([`rag.ts:6446`](../src/lib/rag.ts)), and it can render at "high" confidence with a citation. The system prompt actively mandates verbatim copy and forbids correction ([`rag.ts:7076`](../src/lib/rag.ts)). Includes the **non-malicious** case: OCR dropping a decimal (`1.5 → 15`). | Critical | Medium | none — verification is faithfulness, not correctness. No source-authority tier (PR #118 removed weighting). No cross-source numeric conflict check (`detectConflictsOrGaps`, [`evidence.ts:456`](../src/lib/evidence.ts), compares only doc-count and similarity). | `tests/rag-trust.test.ts` proves in-source numbers pass unflagged (the inverse proof) | No plausibility/range check; no source-trust weighting; no dose-disagreement detection. |
+| **H6b** | Prompt injection embedded in a document alters answer/selection. Several prompt-facing fields bypass the neutralizer (`title`/`file_name` at [`rag.ts:6310`](../src/lib/rag.ts); image `caption`/`tableTitle`/`tableLabel` at [`rag.ts:6267`](../src/lib/rag.ts); un-fenced fusion brief). | High | Low–Medium (owner-scoped) | `neutralizePromptInstructions` on most fields ([`source-text-sanitizer.ts:392`](../src/lib/source-text-sanitizer.ts)); `fenceSourceEvidence` on `content` | one test (GEN-H1) covers `content` only | See companion threat model, vectors A–F. |
+
+Owner-scoping ([`owner-scope.ts`](../src/lib/owner-scope.ts)) bounds H6 to intra-org (self-inflicted / socially-engineered upload / untrusted bulk-import / OCR corruption), not cross-tenant.
+
+---
+
+## 4. Risk register (ranked)
+
+| Rank | Hazard | Sev × Plaus | Controlled? | Priority |
+|---|---|---|---|---|
+| 1 | **H6a** faithful-but-wrong value (malicious or OCR) | Critical × Medium | No | Highest |
+| 2 | **H1a/H1b** rate-denominator & ratio verification holes | Catastrophic × Med/Low | No | Highest |
+| 3 | **H4a** no prose entailment on cited claims | Critical × High | No | Highest |
+| 4 | **H3a–c** table caveat/body dropped on shipped copy path (H4 fix is dead code) | High × High | No (dead code) | High |
+| 5 | **H2a** unverified corpus renders high-confidence/strong | High × High | Label only | High |
+| 6 | **H4c/H4d** uncited source shown as best/strong | Serious × High | No | High |
+| 7 | **H1c** unit recall holes (`ug`/`drops`/integer freq) | Serious–Critical × Medium | No | Medium-High |
+| 8 | **H1d** union-scoped numeric verification (answer field) | Critical × Medium | Partial | Medium-High |
+| 9 | **H5a** synthetic title-match similarity → "high" | Serious–High × Medium | Partial | Medium |
+| 10 | **H4b** back-filled citations labelled "Cited by…" | Serious × Medium | Partial | Medium |
+| 11 | **H2b/H2c/H2d** stale-source demotion/refusal/caveats inert | High × Medium | Weak | Medium |
+| 12 | **H5b/H5c/H5d** trust fail-open, single-partial widening, per-drug gate | Medium–High × Low–Med | Partial | Medium |
+| 13 | **H6b** injection via raw prompt fields | High × Low–Med | Partial | Medium (see companion) |
+| 14 | **H4e** residual incidental-BMJ attribution | Serious × Low | Yes | Low |
+| 15 | **H5e** stale-stream repaint | High × Low | Yes | Low |
+
+**Dominant theme:** the pipeline rigorously verifies that an answer is **faithful to a cited source**, but has **no control that the source is correct or trustworthy, that a non-numeric claim is actually entailed by its citation, or that the safety caveats shown on screen survive into the copied artifact.** These are the three places a clinician's independent verification is silently defeated.
+
+---
+
+## 5. Controls that are working well (for balance)
+
+- **Numeric faithfulness** (exact-token, fail-closed, un-bold, blank-on-actionable) — the strongest single net on the highest-harm class ([`answer-verification.ts:152`](../src/lib/answer-verification.ts), [`rag.ts:6474`](../src/lib/rag.ts)); well tested.
+- **Citation identity anchoring** — model-supplied `document_id`/`title`/`page` are inert; identity is rebuilt from the trusted DB row (`resultCitation`, [`rag.ts:727`](../src/lib/rag.ts)); forged IDs in document text cannot pollute `allowedChunkMap` ([`rag.ts:740`](../src/lib/rag.ts)).
+- **Confidence cannot be inflated by the model** (`clampConfidence` takes the min, [`rag.ts:841`](../src/lib/rag.ts)); confidence is scoped to cited chunks (M1, [`rag.ts:749`](../src/lib/rag.ts)).
+- **Quote cards are entailment-checked** (`isExactSourceQuote`, [`rag.ts:1031`](../src/lib/rag.ts)).
+- **Trust "unsupported" cascade** hides evidence extras (`trustCaps.unsupported` all-zero, [`answer-render-policy.ts:107`](../src/lib/answer-render-policy.ts)).
+- **H2 clinical-threshold rescue** stops the sanitizer dropping threshold sentences (`clinicalThresholdSignalPattern`, [`source-text-sanitizer.ts:63`](../src/lib/source-text-sanitizer.ts)) — audit H2 fixed and tested.
+- **Ingestion-time enrichment prompts already neutralize + fence** `title`/`file_name`/`caption` ([`document-enrichment.ts:442`](../src/lib/document-enrichment.ts)) — which makes the answer-time raw handling of the same fields (H6b) clearly an inconsistency rather than a design choice.
+
+---
+
+## 6. TGA clinical-decision-support (CDSS) exemption assessment
+
+Under the Australian framework, software that meets the definition of a medical device is regulated by the TGA unless it is **excluded** or **exempt**. The relevant carve-out here is the **clinical decision support software (CDSS) exemption**, which applies only if **all three** conditions are met:
+
+1. **Provides a recommendation to a health professional** (not to a patient/consumer, and not the sole determinant of care).
+2. **Does not take data directly from a medical device** (no processing/analysis of a signal or image from another medical device).
+3. **Is not intended to replace the clinical judgement of a health professional** — because the recommendation is based on information (e.g. a referenced clinical guideline) that the health professional **can independently review and verify**.
+
+(Sources: TGA guidance [*Understanding clinical decision support software*](https://www.tga.gov.au/resources/guidance/understanding-clinical-decision-support-software), [*Determining exemptions for Clinical Decision Support Software*](https://www.tga.gov.au/resources/guidance/determining-exemptions-clinical-decision-support-software), and [*Exemption for Certain Clinical Decision Support Software*](https://www.tga.gov.au/sites/default/files/2022-08/exemption-for-certain-clinical-decision-support-software.pdf). This is an engineering assessment, **not legal advice** — confirm classification with regulatory counsel and complete the TGA SaMD screening required by [`docs/clinical-governance.md`](clinical-governance.md).)
+
+### Condition-by-condition
+
+| Condition | Current fit | Risk to the fit |
+|---|---|---|
+| **1. HCP-facing recommendation** | Likely met — the product is designed for clinicians and frames output as a draft for review. | Fails immediately if ever exposed to patients/consumers. The "public-corpus promotion" note ([`source-governance.ts:57`](../src/lib/source-governance.ts)) — anonymous searchability — trends toward a consumer surface and must be governed. |
+| **2. No direct medical-device data** | Likely met — the tool processes uploaded *documents* (PDF/DOCX), including OCR of document images, not diagnostic signals/images from a medical device. | Would fail if a feature ever analysed ECGs, imaging, or device output as clinical input. Vision captioning of *document* table-images is document processing, but the boundary must be held. |
+| **3. Does not replace clinical judgement / independently verifiable** | **This is the exemption's load-bearing condition, and it is exactly what the hazards above threaten.** The design *intends* to satisfy it (source-linked citations, "verify against source"). | **Every hazard that defeats a clinician's ability to verify the basis of the recommendation erodes this condition:** H1/H6a (a wrong number presented as "verified"), H3 (the verify-caveat/table stripped on copy), H4a/H4c/H4d (the citation points at a non-supporting or uncited source, or overstates its authority), H2a (an unvalidated source presented as authoritative). If the recommendation cannot be reliably traced to correct, supporting, current source text, the software is no longer merely "supporting" a verifiable judgement. |
+
+### Implied product requirements (to preserve the exemption)
+
+If the product intends to rely on the CDSS exemption, these become **requirements**, not nice-to-haves — and they map directly onto the open hazards:
+
+- **PR-1 — Traceable, faithful basis for every recommendation.** Each surfaced clinical value/claim must trace to a *supporting* source the HCP can open and confirm. Requires closing H4a (prose entailment), H1a/H1b/H1c/H1d (numeric coverage), and H6a (a "verified" wrong number defeats verifiability). *This is the single most exemption-critical cluster.*
+- **PR-2 — Caveats must survive every export.** The "verify against source" signal, low-confidence table caveat, and unverified-number flags must be present in every copied/exported artifact (close H3). A caveat the HCP never sees cannot support independent review.
+- **PR-3 — Accurate provenance & authority.** No uncited source shown as "best/strong"; no false/self-declared authority; unvalidated sources labelled as such and not rendered as high-confidence (close H4c/H4d, H2a). Independent verification presupposes the HCP is pointed at the *right* document.
+- **PR-4 — HCP-only, not patient-facing.** Enforce authentication/authorisation and keep any anonymous/public surface out of scope of clinical recommendation, or re-classify (condition 1).
+- **PR-5 — Hold the device-data boundary.** No analysis of medical-device signals/images; document OCR only (condition 2).
+- **PR-6 — Governance of record.** Named clinical owner, source-approval/review cadence, incident review, and TGA SaMD screening as already required by [`docs/clinical-governance.md`](clinical-governance.md).
+
+**If any condition is not maintained**, the software is likely a regulated Software as a Medical Device (SaMD) — classification depends on the intended purpose and the harm from a wrong output (the dose/threshold outputs here would sit at the higher-risk end), triggering ARTG inclusion, conformity assessment, a quality management system, clinical evaluation, and post-market surveillance. Even under the exemption, the software **remains subject to TGA oversight** (advertising rules, adverse-event reporting, notification) — the exemption removes ARTG inclusion, not accountability.
+
+---
+
+## 7. Recommended risk controls (prioritized — NOT implemented here)
+
+Ordered by risk-reduction per effort. These are recommendations for a later change; this document changes no code.
+
+1. **Close the numeric-verification coverage holes** (H1a–c): add per-time/per-weight denominators and ratio (`\d+:\d+`) handling to `NUMERIC_TOKEN_PATTERN`, and `ug`/`drops`/integer-frequency recall — with regression tests. Highest severity, smallest change.
+2. **Wire the caveat-preserving copy path** (H3): make the shipped copy button emit the table body + low-confidence caveat (either route `copyText` through the tested `ward-output` formatters or propagate the table `lowConfidence` flag into `answer.conflictsOrGaps`), and add a test asserting a wired copy button carries the caveat. Delete or wire the dead formatters.
+3. **Add a claim-level entailment gate for prose** (H4a) mirroring `isExactSourceQuote`, and scope answer-field numeric verification per-cited-chunk (H1d).
+4. **Restrict primary/best source to the cited set and decouple strength from `document_status`** (H4c/H4d); mark back-filled review citations distinctly (H4b).
+5. **Make validation status a first-class safety signal** (H2a): cap confidence/strength when the only support is `unverified`; surface a freshness/validation caveat in the answer and in every export (H2b–d).
+6. **Address the faithful-but-wrong class** (H6a): numeric range/plausibility checks at ingestion (also catches OCR corruption), a cross-source dose-disagreement flag in `detectConflictsOrGaps`, and a source-authority/trust tier reintroduced as a *tie-breaker/caveat trigger* (not a primary sort key, to avoid the recall regression PR #118 fixed).
+7. **Injection hardening** (H6b) — see the companion threat model for the ranked, prompt-level provenance-boundary mitigations.
+8. **Fail-safe defaults** (H5b), de-weight synthetic-origin similarity in `deriveConfidence` (H5a), and replace per-drug coverage-gate literals with class-general signal floors (H5d).
+
+---
+
+*Prepared as an analysis artifact on branch `claude/safety-analysis`. Findings were adversarially verified against the code at each cited `file:line`. No product code was modified.*
