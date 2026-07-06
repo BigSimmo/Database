@@ -1613,9 +1613,12 @@ export function ClinicalDashboard({
     const links = buildCrossModeLinks(latestAnswerQuery, catalogs);
     if (links.length > 0) return links;
     // Follow-ups often drop the entity name ("what about renal impairment?");
-    // fall back to the previous turn's question so the entity's card persists.
-    const priorQuery = priorAnswerTurns.at(-1)?.query;
-    return priorQuery ? buildCrossModeLinks(priorQuery, catalogs) : links;
+    // walk older turns so the entity's card persists across multi-hop threads.
+    for (let i = priorAnswerTurns.length - 1; i >= 0; i -= 1) {
+      const priorLinks = buildCrossModeLinks(priorAnswerTurns[i]!.query, catalogs);
+      if (priorLinks.length > 0) return priorLinks;
+    }
+    return links;
   }, [
     answerCrossLinksActive,
     latestAnswerQuery,
