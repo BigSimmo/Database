@@ -3,14 +3,13 @@ import { getPlaywrightBaseUrl } from "./scripts/playwright-base-url";
 
 const baseURL = getPlaywrightBaseUrl();
 
-// Sandboxed/CI containers often pre-install a single Chromium at a fixed path
-// instead of the exact revision this Playwright version pins. Honour an
-// explicit executable override there without affecting normal installs.
+// Sandboxed CI/cloud containers often ship a preinstalled Chromium and block
+// browser downloads; point this at that binary instead of the managed one.
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: /.*ui-(smoke|stress|accessibility|tools|tools-task-directory|overlap)\.spec\.ts/,
+  testMatch: /.*ui-(smoke|stress|accessibility|tools|tools-task-directory|overlap|universal-search)\.spec\.ts/,
   timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
   expect: {

@@ -17,7 +17,7 @@ import {
   type RegistryRecordKind,
   type RegistryRecordRow,
 } from "@/lib/registry-records";
-import { ensureRegistrySeeded } from "@/lib/registry-seed";
+import { fetchOwnerRegistryRowsWithSeed } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceSearchMatch } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -109,33 +109,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const fetchRecords = async () => {
-      const { data, error } = await supabase
-        .from("clinical_registry_records")
-        .select("*")
-        .eq("owner_id", access.ownerId)
-        .eq("kind", kind)
-        .order("title")
-        .limit(REGISTRY_MAX_RECORDS);
-      if (error) throw new Error(error.message);
-      return (data ?? []) as RegistryRecordRow[];
-    };
-
-    let rows = await fetchRecords();
-    if (rows.length === 0) {
-      // First visit for this owner: lazily seed the curated defaults so new
-      // accounts get populated Services/Forms instead of the empty state. Only
-      // the seed write is best-effort (a failure falls back to the empty set);
-      // the re-read stays outside the try so a genuine read failure still
-      // surfaces as an error rather than a misleading empty registry.
-      try {
-        await ensureRegistrySeeded(supabase, access.ownerId, kind);
-      } catch (seedError) {
-        console.error(`[registry] auto-seed failed for owner ${access.ownerId} (${kind})`, seedError);
-      }
-      rows = await fetchRecords();
-    }
-
+    const rows = await fetchOwnerRegistryRowsWithSeed(supabase, access.ownerId, kind, REGISTRY_MAX_RECORDS);
     const records = rows.map(rowToServiceRecord);
     const governanceBySlug = Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)]));
 

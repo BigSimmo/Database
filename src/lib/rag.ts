@@ -358,6 +358,12 @@ export type SearchTelemetry = {
   text_fast_path_latency_ms: number;
   text_candidate_budget?: number;
   text_fast_path_reason?: string | null;
+  // P8b extension: how OR-relaxation participated in the text layer. "empty_fallback" is the
+  // long-standing relax-on-zero path; "weak_augment" appends OR recall behind weak-but-nonzero
+  // strict matches (issue: strict-AND could bury the right chunk without ever relaxing).
+  text_or_relaxation_used?: "none" | "empty_fallback" | "weak_augment";
+  // RC9 observability: how many final results carry a fabricated (non-cosine) similarity.
+  synthetic_similarity_count?: number;
   embedding_skipped: boolean;
   embedding_skip_reason?: string | null;
   embedding_latency_ms: number;
@@ -548,6 +554,9 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
   telemetry.score_spread = Number(Math.max(0, telemetry.top_score - telemetry.second_top_score).toFixed(4));
   telemetry.score_distinct_documents = new Set(results.map((result) => result.document_id)).size;
   telemetry.retrieval_candidate_count = results.length;
+  telemetry.synthetic_similarity_count = results.filter(
+    (result) => result.similarity_origin === "synthetic_text",
+  ).length;
   telemetry.retrieval_provenance_counts = results.reduce<Record<string, number>>((counts, result) => {
     for (const layer of provenanceLayerKeys(result)) counts[layer] = (counts[layer] ?? 0) + 1;
     return counts;
@@ -1215,7 +1224,103 @@ function uniqueTextValues(values: Array<string | null | undefined>, limit = 32) 
   return output;
 }
 
-async function analyzeQueryWithClassifierFallback(query: string, analysis: ClinicalQueryAnalysis) {
+type ClassifierVerdict = z.infer<typeof queryClassifierParseSchema>;
+
+// Finding #11 interim fix (docs/process-hardening.md): the LLM classifier verdict flips
+// run-to-run for the same query, so the unsupported short-circuit downstream intermittently
+// returned 0 results for valid in-corpus topics. Memoizing successful verdicts makes the
+// verdict — and therefore retrieval behaviour — deterministic per query for the TTL window.
+// Only *successful* classifier calls are memoized (accepted and rejected verdicts alike);
+// transport errors and timeouts stay retryable, otherwise one transient 6s timeout would pin
+// a query's classification for the whole TTL. The full corpus-grounded relevance fix remains
+// scoped to RAG optimisation Phase 2.
+const classifierVerdictMemoTtlMs = 15 * 60 * 1000;
+const classifierVerdictMemoMaxEntries = 500;
+const classifierVerdictMemo = new Map<string, { expiresAt: number; verdict: ClassifierVerdict }>();
+const classifierVerdictInflight = new Map<string, Promise<ClassifierVerdict>>();
+
+function classifierVerdictMemoKey(query: string, analysis: ClinicalQueryAnalysis) {
+  const normalizedQuery = query.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+  // The deterministic class + confidence bucket are part of the key so a deterministic-analyzer
+  // change invalidates stale verdicts instead of replaying them against a different baseline.
+  return `${normalizedQuery}::${analysis.queryClass}::${analysis.confidence.toFixed(2)}`;
+}
+
+function storeClassifierVerdictMemo(key: string, verdict: ClassifierVerdict) {
+  if (classifierVerdictMemo.size >= classifierVerdictMemoMaxEntries) {
+    const oldestKey = classifierVerdictMemo.keys().next().value;
+    if (oldestKey !== undefined) classifierVerdictMemo.delete(oldestKey);
+  }
+  classifierVerdictMemo.set(key, { expiresAt: Date.now() + classifierVerdictMemoTtlMs, verdict });
+}
+
+export function resetClassifierVerdictMemoForTests() {
+  classifierVerdictMemo.clear();
+  classifierVerdictInflight.clear();
+}
+
+async function requestClassifierVerdict(query: string, analysis: ClinicalQueryAnalysis): Promise<ClassifierVerdict> {
+  const result = await generateStructuredTextResult(
+    [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: [
+              `Query: ${query}`,
+              `Deterministic query class: ${analysis.queryClass}`,
+              `Deterministic confidence: ${analysis.confidence}`,
+              `Known expanded terms: ${analysis.expandedTerms.join(", ") || "none"}`,
+            ].join("\n"),
+          },
+        ],
+      },
+    ],
+    queryClassifierOutputSchema,
+    {
+      model: env.OPENAI_FAST_ANSWER_MODEL,
+      maxOutputTokens: 220,
+      operation: "text_generation",
+      instructions:
+        "Classify this query for retrieval routing only. Do not answer the clinical question. Prefer unsupported when the query is not about indexed clinical document retrieval.",
+      reasoningEffort: "low",
+      textVerbosity: "low",
+      schemaName: "clinical_rag_query_classifier",
+      promptCacheKey: "clinical-rag-query-classifier-v1",
+      timeoutMs: 6000,
+    },
+  );
+  return queryClassifierParseSchema.parse(JSON.parse(result.text));
+}
+
+function applyClassifierVerdict(analysis: ClinicalQueryAnalysis, parsed: ClassifierVerdict): ClinicalQueryAnalysis {
+  if (parsed.confidence < 0.58 || parsed.queryClass === "unsupported_or_general") return analysis;
+  return {
+    ...analysis,
+    queryClass: parsed.queryClass,
+    confidence: Math.max(analysis.confidence, parsed.confidence),
+    needsClassifierFallback: false,
+    needsSynthesis:
+      analysis.needsSynthesis ||
+      parsed.queryClass === "comparison" ||
+      parsed.queryClass === "broad_summary" ||
+      parsed.queryClass === "medication_dose_risk",
+    expandedTerms: uniqueTextValues([...analysis.expandedTerms, ...parsed.expandedTerms], 36),
+    queryRewrite: {
+      ...analysis.queryRewrite,
+      expansions: uniqueTextValues([...analysis.queryRewrite.expansions, ...parsed.expandedTerms], 48),
+      searchQuery: uniqueTextValues(
+        [analysis.queryRewrite.searchQuery, ...analysis.queryRewrite.expansions, ...parsed.expandedTerms],
+        60,
+      ).join(" "),
+      reasons: uniqueTextValues([...analysis.queryRewrite.reasons, ...parsed.reasons, "classifier_fallback"], 16),
+    },
+    reasons: uniqueTextValues([...analysis.reasons, ...parsed.reasons, "classifier_fallback"], 12),
+  } satisfies ClinicalQueryAnalysis;
+}
+
+export async function analyzeQueryWithClassifierFallback(query: string, analysis: ClinicalQueryAnalysis) {
   if (
     // Fail closed before any generative model call: an adversarial-manipulation
     // query is routed to "unsupported" downstream, so never send its text to the
@@ -1229,63 +1334,28 @@ async function analyzeQueryWithClassifierFallback(query: string, analysis: Clini
   }
   if (!analysis.needsClassifierFallback || !env.OPENAI_API_KEY) return analysis;
 
+  const memoKey = classifierVerdictMemoKey(query, analysis);
+  const memoized = classifierVerdictMemo.get(memoKey);
+  if (memoized) {
+    if (memoized.expiresAt > Date.now()) return applyClassifierVerdict(analysis, memoized.verdict);
+    classifierVerdictMemo.delete(memoKey);
+  }
+
+  let pending = classifierVerdictInflight.get(memoKey);
+  if (!pending) {
+    pending = requestClassifierVerdict(query, analysis).finally(() => {
+      classifierVerdictInflight.delete(memoKey);
+    });
+    classifierVerdictInflight.set(memoKey, pending);
+  }
+
   try {
-    const result = await generateStructuredTextResult(
-      [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: [
-                `Query: ${query}`,
-                `Deterministic query class: ${analysis.queryClass}`,
-                `Deterministic confidence: ${analysis.confidence}`,
-                `Known expanded terms: ${analysis.expandedTerms.join(", ") || "none"}`,
-              ].join("\n"),
-            },
-          ],
-        },
-      ],
-      queryClassifierOutputSchema,
-      {
-        model: env.OPENAI_FAST_ANSWER_MODEL,
-        maxOutputTokens: 220,
-        operation: "text_generation",
-        instructions:
-          "Classify this query for retrieval routing only. Do not answer the clinical question. Prefer unsupported when the query is not about indexed clinical document retrieval.",
-        reasoningEffort: "low",
-        textVerbosity: "low",
-        schemaName: "clinical_rag_query_classifier",
-        promptCacheKey: "clinical-rag-query-classifier-v1",
-        timeoutMs: 6000,
-      },
-    );
-    const parsed = queryClassifierParseSchema.parse(JSON.parse(result.text));
-    if (parsed.confidence < 0.58 || parsed.queryClass === "unsupported_or_general") return analysis;
-    return {
-      ...analysis,
-      queryClass: parsed.queryClass,
-      confidence: Math.max(analysis.confidence, parsed.confidence),
-      needsClassifierFallback: false,
-      needsSynthesis:
-        analysis.needsSynthesis ||
-        parsed.queryClass === "comparison" ||
-        parsed.queryClass === "broad_summary" ||
-        parsed.queryClass === "medication_dose_risk",
-      expandedTerms: uniqueTextValues([...analysis.expandedTerms, ...parsed.expandedTerms], 36),
-      queryRewrite: {
-        ...analysis.queryRewrite,
-        expansions: uniqueTextValues([...analysis.queryRewrite.expansions, ...parsed.expandedTerms], 48),
-        searchQuery: uniqueTextValues(
-          [analysis.queryRewrite.searchQuery, ...analysis.queryRewrite.expansions, ...parsed.expandedTerms],
-          60,
-        ).join(" "),
-        reasons: uniqueTextValues([...analysis.queryRewrite.reasons, ...parsed.reasons, "classifier_fallback"], 16),
-      },
-      reasons: uniqueTextValues([...analysis.reasons, ...parsed.reasons, "classifier_fallback"], 12),
-    } satisfies ClinicalQueryAnalysis;
+    const verdict = await pending;
+    storeClassifierVerdictMemo(memoKey, verdict);
+    return applyClassifierVerdict(analysis, verdict);
   } catch {
+    // Transport/parse failures are deliberately NOT memoized: fall back to the deterministic
+    // analysis for this request only, and let the next request retry the classifier.
     return analysis;
   }
 }
@@ -2213,6 +2283,29 @@ export function relaxVariantToOrQuery(variant: string): string | null {
   return tokens.join(" OR ");
 }
 
+// Mirrors the minimum meaningful text-signal floor used by answer routing
+// (see textSignalFloor usage in rag-routing.ts): a strict-AND result set whose best
+// text_rank sits below it carries almost no lexical evidence.
+const weakTextMatchTopRankFloor = 0.05;
+const weakTextMatchMinResultCount = 3;
+// Above this rank the best strict match is a precise lexical hit; augmenting a sparse set
+// around it only adds OR noise and a needless RPC round-trip (single-strong-match queries
+// like exact table lookups must stay one-RPC retrievals).
+const strongTextMatchTopRankBar = 0.3;
+
+// Strict-AND matched something, but so weakly (sparse set of middling matches, or a
+// negligible best text rank) that the right chunk may be buried outside the candidate pool.
+// In that case OR-relaxed recall is appended BEHIND the strict matches (append-only: strict
+// results keep merge precedence), so this can widen the pool but never displace a precise
+// match. A sparse set anchored by a strong hit does NOT relax.
+export function shouldRelaxWeakTextMatches(merged: SearchResult[]): boolean {
+  if (merged.length === 0) return false;
+  const topTextRank = merged.reduce((top, result) => Math.max(top, result.text_rank ?? 0), 0);
+  if (topTextRank >= strongTextMatchTopRankBar) return false;
+  if (merged.length < weakTextMatchMinResultCount) return true;
+  return topTextRank < weakTextMatchTopRankFloor;
+}
+
 async function searchTextChunkCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   queryVariants: string[];
@@ -2220,6 +2313,7 @@ async function searchTextChunkCandidates(args: {
   documentIds?: string[];
   allowGlobalSearch?: boolean;
   matchCount: number;
+  telemetry?: SearchTelemetry;
 }) {
   const runChunkText = async (queryText: string, matchCount: number) => {
     const { data, error } = await args.supabase.rpc("match_document_chunks_text", {
@@ -2241,7 +2335,25 @@ async function searchTextChunkCandidates(args: {
     (accumulated, resultSet) => mergeSearchResults(resultSet, accumulated),
     [] as SearchResult[],
   );
-  if (merged.length > 0) return merged;
+  if (args.telemetry) args.telemetry.text_or_relaxation_used = "none";
+  if (merged.length > 0) {
+    // P8b extension: strict-AND matched, but weakly. Append OR-relaxed recall behind the
+    // strict matches so a buried chunk can enter the candidate pool without displacing any
+    // precise match (mergeSearchResults keeps primary/strict precedence). Trigram correction
+    // is not run here — it exists to rescue *empty* strict retrieval (RC6), and correcting a
+    // query that already matched would second-guess a working query.
+    if (env.RAG_TEXT_WEAK_OR_RELAXATION && shouldRelaxWeakTextMatches(merged)) {
+      const weakRelaxed = relaxVariantToOrQuery(variants[0] ?? "");
+      if (weakRelaxed) {
+        const orResults = await runChunkText(weakRelaxed, Math.min(args.matchCount, 24));
+        if (orResults.length > 0) {
+          if (args.telemetry) args.telemetry.text_or_relaxation_used = "weak_augment";
+          return mergeSearchResults(merged, orResults);
+        }
+      }
+    }
+    return merged;
+  }
 
   // Strict AND variants matched nothing. Two fallbacks, in order:
   //   (item 10, RC6) a typo the hard-coded map misses can block an otherwise-precise query — so first
@@ -2267,7 +2379,10 @@ async function searchTextChunkCandidates(args: {
   const relaxed = relaxVariantToOrQuery(effectivePrimary);
   if (relaxed) {
     const relaxedResults = await runChunkText(relaxed, args.matchCount);
-    if (relaxedResults.length > 0) return relaxedResults;
+    if (relaxedResults.length > 0) {
+      if (args.telemetry) args.telemetry.text_or_relaxation_used = "empty_fallback";
+      return relaxedResults;
+    }
   }
   return merged;
 }
@@ -2538,8 +2653,10 @@ async function searchDocumentLookupFastPath(args: {
     if (!document) continue;
     const documentScore = scoreByDocument.get(chunk.document_id) ?? 0;
     const chunkScore = documentLookupChunkScore(chunk, terms);
+    // Not a cosine: fabricated from title/label match strength (RC9 — tagged below).
     const similarity = Math.min(0.92, 0.58 + documentScore + Math.min(0.12, chunkScore * 0.08));
     results.push({
+      similarity_origin: "synthetic_text",
       id: chunk.id,
       document_id: chunk.document_id,
       title: document.title,
@@ -2713,8 +2830,10 @@ async function loadChunksForMemoryCards(
       const committedGeneration = committedIndexGeneration(document.metadata);
       if (chunk.index_generation_id && chunk.index_generation_id !== committedGeneration) return null;
       const card = bestCardByChunk.get(chunk.id);
+      // Not a cosine: fabricated from memory-card confidence (RC9 — tagged below).
       const similarity = Math.min(0.92, 0.58 + (card?.confidence ?? 0.5) * 0.28);
       return {
+        similarity_origin: "synthetic_text" as const,
         id: chunk.id,
         document_id: chunk.document_id,
         title: document.title,
@@ -2796,6 +2915,8 @@ async function loadChunksForSignalMatches(args: {
         retrieval_synopsis: chunk.retrieval_synopsis ?? null,
         image_ids: chunk.image_ids ?? [],
         source_metadata: normalizeSourceMetadata(document.metadata),
+        // ChunkSignalMatch similarities are fabricated from table-fact text rank (RC9).
+        similarity_origin: "synthetic_text" as const,
         similarity: match.similarity,
         text_rank: match.textRank,
         hybrid_score: match.hybridScore,
@@ -5558,6 +5679,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     documentIds: documentFilterList,
     allowGlobalSearch: args.allowGlobalSearch,
     matchCount: textCandidateCount,
+    telemetry,
   });
   telemetry.text_candidate_count = textData.length;
   telemetry.text_fast_path_latency_ms = Date.now() - textRpcStartedAt;

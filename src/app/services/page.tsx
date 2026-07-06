@@ -16,7 +16,7 @@ export default async function ServicesIndexRoute({ searchParams }: { searchParam
     readFirstSearchParam(resolvedSearchParams.query) ??
     ""
   ).trim();
-  const hasSubmittedSearch = resolvedSearchParams.run === "1" && query.length > 0;
+  const hasSubmittedSearch = readFirstSearchParam(resolvedSearchParams.run) === "1" && query.length > 0;
 
   if (!hasSubmittedSearch) {
     return <ServicesHomePage />;

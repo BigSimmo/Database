@@ -8,7 +8,7 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { defaultMedicationRecords, ensureMedicationsSeeded } from "@/lib/medication-seed";
+import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
 import {
   medicationSourceStatus,
   medicationValidationStatus,
@@ -107,27 +107,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const fetchRecords = async () => {
-      const { data, error } = await supabase
-        .from("medication_records")
-        .select("*")
-        .eq("owner_id", access.ownerId)
-        .order("name")
-        .limit(MEDICATION_MAX_RECORDS);
-      if (error) throw new Error(error.message);
-      return (data ?? []) as MedicationRecordRow[];
-    };
-
-    let rows = await fetchRecords();
-    if (rows.length === 0) {
-      try {
-        await ensureMedicationsSeeded(supabase, access.ownerId);
-      } catch (seedError) {
-        console.error(`[medications] auto-seed failed for owner ${access.ownerId}`, seedError);
-      }
-      rows = await fetchRecords();
-    }
-
+    const rows = await fetchOwnerMedicationRowsWithSeed(supabase, access.ownerId, MEDICATION_MAX_RECORDS);
     const records = rows.map(rowToMedicationRecord);
     const governanceBySlug = Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)]));
 

@@ -26,6 +26,7 @@ import { SearchResultsLayout } from "@/components/clinical-dashboard/search-resu
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
+  SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeHomeHref } from "@/lib/app-modes";
@@ -435,6 +436,7 @@ export function ServicesNavigatorPage() {
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
   const registry = useRegistryRecords("service");
+  const registryLoading = registry.status === "loading";
   const searchableRecords = useMemo(
     () => (registry.status === "ready" ? registry.records : registry.status === "loading" ? [] : serviceRecords),
     [registry.records, registry.status],
@@ -478,10 +480,20 @@ export function ServicesNavigatorPage() {
           />
           <Stepper />
           <div className="xl:hidden">
-            <SearchResultsHeaderBand modeId="services" query={query} matchCount={scopedMatches.length} />
+            <SearchResultsHeaderBand
+              modeId="services"
+              query={query}
+              matchCount={scopedMatches.length}
+              loading={registryLoading}
+            />
           </div>
           <div className="hidden xl:block">
-            <SearchResultsHeaderBand modeId="services" query={query} matchCount={scopedMatches.length} />
+            <SearchResultsHeaderBand
+              modeId="services"
+              query={query}
+              matchCount={scopedMatches.length}
+              loading={registryLoading}
+            />
           </div>
         </>
       }
@@ -494,7 +506,9 @@ export function ServicesNavigatorPage() {
         />
       }
     >
-      {query.trim() && scopedMatches.length === 0 ? (
+      {registryLoading ? (
+        <SearchResultsSkeleton />
+      ) : query.trim() && scopedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"
           query={query}
@@ -547,7 +561,15 @@ export function ServicesNavigatorPage() {
                   <button
                     key={chip}
                     type="button"
-                    onClick={() => applyServiceQuery(index === 0 ? defaultQuery : chip)}
+                    onClick={() =>
+                      applyServiceQuery(
+                        index === 0
+                          ? defaultQuery
+                          : chip === "ATSI-specific"
+                            ? "Aboriginal Torres Strait Islander"
+                            : chip,
+                      )
+                    }
                     className={cn(
                       "min-h-8 rounded-full border px-3 text-xs font-bold transition hover:-translate-y-px hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                       index > 2 ? "max-sm:hidden" : "",

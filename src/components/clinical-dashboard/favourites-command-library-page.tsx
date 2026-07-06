@@ -143,7 +143,10 @@ function isSourceBacked(item: FavouriteItem): boolean {
 }
 
 function toCommandItem(item: PrototypeFavouriteItem): FavouriteItem {
-  const type = typeByPrototypeType[item.type] ?? (item.primaryAction === "Run" ? "Saved search" : "Source");
+  const type =
+    item.type === "sources" && item.primaryAction === "Run"
+      ? "Saved search"
+      : (typeByPrototypeType[item.type] ?? "Source");
   return {
     id: item.id,
     title: item.title,
@@ -544,9 +547,11 @@ function FavouritesTable({
           <label className="relative block min-w-[9.5rem]">
             <span className="sr-only">Sort favourites</span>
             <select
-              value={sortMode}
+              value={viewMode === "recent" ? "last-used" : sortMode}
+              disabled={viewMode === "recent"}
+              title={viewMode === "recent" ? "Recently used view is always sorted by last used" : undefined}
               onChange={(event) => onSortModeChange(event.target.value as SortMode)}
-              className="h-9 w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 pr-9 text-xs font-bold text-[color:var(--text-muted)] outline-none hover:bg-[color:var(--surface-subtle)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+              className="h-9 w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 pr-9 text-xs font-bold text-[color:var(--text-muted)] outline-none hover:bg-[color:var(--surface-subtle)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="last-used">Sort: Last used</option>
               <option value="title">Sort: Title</option>
@@ -897,7 +902,7 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
 
   const continueItem = useMemo(() => getMostRecentlyUsedItem(items), [items]);
   const showContinueStrip =
-    continueItem !== null && filteredItems.some((item) => item.id === continueItem.id) && filteredItems.length > 0;
+    continueItem !== null && scopedItems.some((item) => item.id === continueItem.id) && scopedItems.length > 0;
 
   const selectedItem = selectedItemId ? (items.find((item) => item.id === selectedItemId) ?? null) : null;
 

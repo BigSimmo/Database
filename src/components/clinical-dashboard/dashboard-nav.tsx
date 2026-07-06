@@ -89,7 +89,10 @@ export function buildMobileSectionFabState({
       };
     }
     return {
-      statusLabel: modeSearch.resultKind === "documents" ? modeSearch.statusLabel : "No answer yet",
+      statusLabel:
+        modeSearch.resultKind === "documents" || modeSearch.resultKind === "forms"
+          ? modeSearch.statusLabel
+          : "No answer yet",
       statusTone: "empty",
       nextStep: modeSearch.nextStep,
       badgeLabel: modeSearch.badgeLabel,
