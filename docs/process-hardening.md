@@ -163,6 +163,7 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 - **P2 upload hardening:** `/api/upload` consumes the `document_upload` rate-limit bucket (12/min owner, 3/min anonymous).
 - **P3 dispositioned (no code change):** L9 searchable-only `image_count` (documented in `worker/main.ts`); L11 triple `readFile` peak-memory trade-off (documented at the ingestion site); L18 duplicate `audit_logs` policy in an already-applied migration (do not edit applied migrations — consolidate only if migrations are ever squashed); L19 CSP `script-src 'unsafe-inline'` deferred (no active XSS sink today; nonce migration needs dedicated UI verification).
 
+<<<<<<< HEAD
 ## Repository hygiene + production surface pass (2026-07-06)
 
 - **Mockup routes gated out of production:** `/mockups/*` (27 design-exploration pages) previously shipped in production builds, hidden only by a `robots.ts` disallow. `src/app/mockups/layout.tsx` now calls `notFound()` unless `mockupsEnabled()` (`src/lib/env.ts`) — always on in dev/test, production requires explicit `NEXT_PUBLIC_MOCKUPS_ENABLED=true`. Verified end-to-end: production build serves HTTP 404 on mockup routes and 200 on real routes; `tests/env-mockups-gate.test.ts` guards the flag logic.
@@ -170,6 +171,13 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 - **Scratch artifacts untracked:** 24 committed `.tmp-visual/` files (visual-QA capture scripts + PNGs) removed from tracking; `.tmp-visual/` added to `.gitignore` (it was already Prettier-ignored).
 - **Docs archived:** superseded/completed planning docs moved to `docs/archive/` — root `COLOR_REDESIGN_PLAN.md` (superseded), `TOOLS_CONTEXT_FOR_NEW_CHAT.md` + `design-qa.md` (chat handoffs referencing machine-local paths), the completed `search-rag-phase-0…5.5b` + pre-phase-2 series, and the completed `clinical-chat-ui-*` phase docs. Living docs (`search-rag-master-plan.md`, `search-rag-master-context.md`, `clinical-chat-ui-component-map.md`) stay in `docs/`; no inbound references were broken (verified by repo-wide grep) and relative links inside moved files were retargeted.
 - **Playwright port-finder IPv6 fix:** superseded — an equivalent fix landed on `main` first (`71e0ab0`, which also adds a Chromium executable override); `main`'s version is kept in the merge.
+=======
+## Design convergence & type-scale ratchet (2026-07-06)
+
+- **`docs/design-system.md` is now the front door** for all UI work: token contract, type-scale rules, z-index ladder, Sheet-only modals, a11y requirements, and the UI Definition of Done. The `docs/redesign/*` documents remain the deep references it links to.
+- **Type-scale ratchet:** `node scripts/check-type-scale.mjs` baseline is **20 hits / 9 files** (was 168/22). Remaining hits are rem display headings (accepted exceptions) and one mockup file. UI PRs must not raise the count; flip `check:type-scale --strict` into `verify:cheap` if the accepted exceptions are ever tokenized.
+- **Cleared this pass:** dead launcher mobile detail rows now expand (aria-expanded disclosures); launcher detail dialog migrated to the `Sheet` primitive (focus trap/return-focus restored); launcher filter tablists gained `aria-controls` + a `role="tabpanel"` results region; styled `src/app/not-found.tsx` added (the `notFound()` calls in differentials no longer fall through to the unstyled default); `?page=abc` NaN leak in the document viewer clamped; `/services` off-palette preview deleted (dead export) and the live navigator's residual hardcodes tokenized; launcher icon tones moved from raw Tailwind palette classes to categorical `--type-*` / semantic danger triads (dark-mode + forced-colors correct); mockups layout emits `robots: noindex`.
+>>>>>>> origin/main
 
 ## Universal search workstream — verification state (2026-07-06)
 

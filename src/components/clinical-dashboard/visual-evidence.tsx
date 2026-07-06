@@ -144,7 +144,7 @@ function VisualEvidenceStrip({
                     caption={sourceHeader.caption || sourceHeader.title}
                   />
                 </div>
-                <figcaption className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
+                <figcaption className="mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text)] sm:mt-3">
                   {!hasStructuredTable ? <p className="font-semibold">{sourceHeader.title}</p> : null}
                   {!hasStructuredTable && sourceHeader.caption ? <p>{sourceHeader.caption}</p> : null}
                   <AccessibleTable
@@ -164,7 +164,7 @@ function VisualEvidenceStrip({
                   {displayLabels.length ? (
                     <div className="flex flex-wrap gap-1.5">
                       {displayLabels.map((label) => (
-                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>
+                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-3xs")}>
                           {label}
                         </span>
                       ))}
@@ -177,14 +177,14 @@ function VisualEvidenceStrip({
                     clinicalDivider,
                   )}
                 >
-                  <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
+                  <span className={cn("text-base-minus font-semibold leading-6 sm:hidden", textMuted)}>
                     {formatCompactCitationLabel(item)}
                   </span>
                   <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
                     {cleanDisplayTitle(item.title)}, page {item.page_number ?? "n/a"}
                   </span>
                   {item.image_type && (
-                    <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+                    <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
                       {item.image_type.replaceAll("_", " ")}
                     </span>
                   )}
@@ -377,7 +377,7 @@ function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
           key={`${warning}:${index}`}
           className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2"
         >
-          <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-[10px] font-bold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
+          <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-3xs font-bold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
             {index + 1}
           </span>
           <p className="line-clamp-2 text-xs leading-5 text-[color:var(--text)]">{warning}</p>
@@ -474,7 +474,7 @@ export function MobileEvidenceSheetContent({
               >
                 <Icon className="h-3.5 w-3.5" />
                 {tab}
-                {count ? <span className="nums text-[11px] opacity-80">{count}</span> : null}
+                {count ? <span className="nums text-2xs opacity-80">{count}</span> : null}
               </button>
             );
           })}
