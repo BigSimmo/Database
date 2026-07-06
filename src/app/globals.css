@@ -1528,6 +1528,15 @@ summary::-webkit-details-marker {
     pointer-events: none;
   }
 
+  /* Document viewer bottom composer mirrors the dock's hide-on-scroll. Unlike
+     the full-bleed dock it floats with a bottom gap (.floating-composer-edge,
+     bottom: max(0.75rem, safe-area)), so the exit transform must also clear
+     that gap. translateY-only: this form centres with mx-auto, not translateX. */
+  .document-viewer-composer[data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + max(0.75rem, var(--safe-area-bottom))));
+    pointer-events: none;
+  }
+
   .answer-footer-search-dock .answer-footer-search-pill {
     border-color: var(--border-strong);
     background: var(--surface);

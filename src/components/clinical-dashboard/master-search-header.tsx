@@ -288,7 +288,7 @@ export function MasterSearchHeader({
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
   const canRunLocalSearch =
     selectedSearch.kind === "documents" ||
-    searchMode === "forms" ||
+    selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
     selectedSearch.kind === "favourites";
@@ -334,6 +334,13 @@ export function MasterSearchHeader({
   useEffect(() => {
     onBottomComposerScrollHiddenChange?.(bottomComposerHidden);
   }, [bottomComposerHidden, onBottomComposerScrollHiddenChange]);
+
+  useEffect(() => {
+    if (!loading || !commandDropdownOpen) return undefined;
+    const frame = window.requestAnimationFrame(() => setCommandDropdownOpen(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [commandDropdownOpen, loading]);
+
   // Stable, header-owned element the composer is portaled into; we move it in and
   // out of the page-owned slot rather than portaling into the slot directly.
   const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);

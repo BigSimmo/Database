@@ -26,31 +26,18 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn } from "@/components/ui-primitives";
-type LauncherStatus = "ready" | "recent" | "review_due";
-type LauncherArea = "assessment" | "reference" | "care" | "coordination" | "saved";
+import {
+  toolCatalogRecords,
+  type ToolCatalogArea,
+  type ToolCatalogRecord,
+  type ToolCatalogStatus,
+} from "@/lib/tools-catalog";
+
+type LauncherStatus = ToolCatalogStatus;
+type LauncherArea = ToolCatalogArea;
 type LauncherFilter = "all" | LauncherArea | "more";
 
-type LauncherApp = {
-  id: string;
-  title: string;
-  mobileTitle?: string;
-  description: string;
-  bestFor: string;
-  detail: string;
-  href: string;
-  external?: boolean;
-  icon: LucideIcon;
-  area: LauncherArea;
-  status: LauncherStatus;
-  sourceBacked: boolean;
-  safetyFirst?: boolean;
-  highYield?: boolean;
-  actionLabel: string;
-  keywords: string[];
-  checkFirst: string[];
-  neededInput: string[];
-  output: string;
-};
+type LauncherApp = ToolCatalogRecord & { icon: LucideIcon };
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -81,220 +68,26 @@ const iconToneClasses: Record<LauncherArea | "safety" | "medication" | "differen
   differentials: "border-violet-200 bg-violet-50 text-violet-700",
 };
 
-const launcherApps: LauncherApp[] = [
-  {
-    id: "clinical-kb-search",
-    title: "Clinical KB Search",
-    mobileTitle: "Clinical KB",
-    description: "Ask source-backed clinical questions and move straight to evidence.",
-    bestFor: "Quick answers and guidance",
-    detail: "Ask source-backed clinical questions and move straight to evidence.",
-    href: "/?mode=answer",
-    icon: Search,
-    area: "assessment",
-    status: "ready",
-    sourceBacked: true,
-    highYield: true,
-    actionLabel: "Ask",
-    keywords: ["answer", "ask", "source", "knowledge base", "clinical question", "search"],
-    checkFirst: ["Clinical question or PICO", "Patient context and setting", "Timeframe or guideline scope"],
-    neededInput: ["Clinical question", "Relevant patient context", "Optional source or document scope"],
-    output: "Concise answer, key points, citations, and source links.",
-  },
-  {
-    id: "differentials",
-    title: "Differentials",
-    description: "Build and compare diagnostic possibilities with source-aware prompts.",
-    bestFor: "Broad or complex presentations",
-    detail: "Compare diagnostic possibilities, supporting features, red flags, and next-step questions.",
-    href: "/differentials",
-    icon: Brain,
-    area: "assessment",
-    status: "recent",
-    sourceBacked: true,
-    highYield: true,
-    actionLabel: "Compare",
-    keywords: ["compare", "diagnosis", "differential", "presentation", "risk"],
-    checkFirst: ["Red flags", "Key presenting features", "Important negatives"],
-    neededInput: ["Chief concern", "History and examination features", "Available observations or tests"],
-    output: "Ranked differentials, rationale, must-not-miss risks, and next steps.",
-  },
-  {
-    id: "documents",
-    title: "Documents",
-    mobileTitle: "Docs",
-    description: "Search indexed PDFs, policies, guidelines, pages, tables, and images.",
-    bestFor: "Trusted documents and pages",
-    detail: "Find the source document, page, table, image, or policy wording behind an answer.",
-    href: "/?mode=documents",
-    icon: FileText,
-    area: "reference",
-    status: "ready",
-    sourceBacked: true,
-    highYield: true,
-    actionLabel: "Search",
-    keywords: ["documents", "docs", "pdf", "policy", "guideline", "source", "pages"],
-    checkFirst: ["Document title or topic", "Local policy scope", "Page, table, or image need"],
-    neededInput: ["Source topic", "Optional document name", "Preferred date or local scope"],
-    output: "Matching documents, page context, snippets, and source links.",
-  },
-  {
-    id: "guidelines",
-    title: "Guidelines",
-    description: "Browse trusted guidelines and clinical pathways.",
-    bestFor: "Recommendations and standards",
-    detail: "Move from a clinical question to guideline wording, pathway steps, and source context.",
-    href: "/?mode=documents&q=guideline&focus=1",
-    icon: ShieldCheck,
-    area: "reference",
-    status: "ready",
-    sourceBacked: true,
-    highYield: true,
-    actionLabel: "Browse",
-    keywords: ["guidelines", "recommendations", "standards", "pathways"],
-    checkFirst: ["Guideline topic", "Population or setting", "Local policy relevance"],
-    neededInput: ["Condition or intervention", "Clinical setting", "Optional source preference"],
-    output: "Guideline matches, key recommendations, and linked source context.",
-  },
-  {
-    id: "risk-safety",
-    title: "Risk & Safety",
-    mobileTitle: "Safety",
-    description: "Check risks, contraindications, alerts, and safety guidance.",
-    bestFor: "Preventing harm",
-    detail: "Check risks, contraindications, and safety alerts before making clinical decisions.",
-    href: "/?mode=answer&q=safety%20check&focus=1",
-    icon: ShieldCheck,
-    area: "care",
-    status: "review_due",
-    sourceBacked: true,
-    safetyFirst: true,
-    actionLabel: "Open",
-    keywords: ["risk", "safety", "contraindications", "red flags", "alerts", "harm"],
-    checkFirst: [
-      "Allergies and adverse reactions",
-      "Drug-drug and drug-disease interactions",
-      "Dose adjustments and monitoring needs",
-      "Safety alerts and warnings",
-    ],
-    neededInput: [
-      "Patient context and problem list",
-      "Current medications and doses",
-      "Allergies and prior reactions",
-      "Renal/hepatic function if relevant",
-    ],
-    output: "Prioritized risks, alerts, and actionable recommendations with source links.",
-  },
-  {
-    id: "medication-prescribing",
-    title: "Medication Prescribing",
-    mobileTitle: "Prescribe",
-    description: "Review prescribing context, monitoring, interactions, and cautions.",
-    bestFor: "Safe and effective prescribing",
-    detail: "Review medication context, dosing, interactions, monitoring, and medication-specific cautions.",
-    href: "/?mode=prescribing",
-    icon: Pill,
-    area: "care",
-    status: "review_due",
-    sourceBacked: true,
-    safetyFirst: true,
-    actionLabel: "Prescribe",
-    keywords: ["medication", "medications", "prescribing", "dose", "monitoring", "interactions"],
-    checkFirst: ["Current medicines", "Contraindications", "Monitoring requirements"],
-    neededInput: ["Medicine and indication", "Dose and route if known", "Comorbidities and key labs"],
-    output: "Prescribing guidance, monitoring plan, cautions, and references.",
-  },
-  {
-    id: "services",
-    title: "Services",
-    description: "Open source-backed service records, referral routes, and eligibility.",
-    bestFor: "Referrals and coordination",
-    detail: "Open service records with referral routes, eligibility, source status, and access pathways.",
-    href: "/services",
-    icon: Users,
-    area: "coordination",
-    status: "ready",
-    sourceBacked: true,
-    highYield: true,
-    actionLabel: "Refer",
-    keywords: ["services", "referral", "eligibility", "pathway", "contact"],
-    checkFirst: ["Eligibility", "Referral route", "Service source status"],
-    neededInput: ["Patient location or catchment", "Clinical need", "Urgency and pathway requirements"],
-    output: "Referral pathway, eligibility notes, service record, and source link.",
-  },
-  {
-    id: "forms",
-    title: "Forms",
-    description: "Find clinical forms and source-backed readiness pathways.",
-    bestFor: "Forms and workflows",
-    detail: "Open form search, readiness checks, pathway tasks, and source-backed records.",
-    href: "/forms",
-    icon: FileCheck2,
-    area: "coordination",
-    status: "ready",
-    sourceBacked: true,
-    highYield: true,
-    actionLabel: "Open",
-    keywords: ["forms", "paperwork", "readiness", "pathway"],
-    checkFirst: ["Current form version", "Required fields", "Linked service pathway"],
-    neededInput: ["Form type", "Clinical pathway", "Patient or service context"],
-    output: "Relevant form, readiness tasks, and source-backed pathway details.",
-  },
-  {
-    id: "care-plans",
-    title: "Care plans",
-    description: "Create and review management plans with monitoring and follow-up.",
-    bestFor: "Ongoing care planning",
-    detail: "Structure care planning, review milestones, monitoring needs, and follow-up tasks.",
-    href: "/?mode=answer&q=care%20plan&focus=1",
-    icon: ClipboardCheck,
-    area: "care",
-    status: "ready",
-    sourceBacked: true,
-    highYield: true,
-    actionLabel: "Open",
-    keywords: ["care plan", "management", "follow-up", "monitoring"],
-    checkFirst: ["Goals of care", "Review date", "Monitoring responsibilities"],
-    neededInput: ["Diagnosis or working problem", "Current plan", "Follow-up timeframe"],
-    output: "Care-plan structure, review points, and monitoring prompts.",
-  },
-  {
-    id: "monitoring",
-    title: "Monitoring",
-    description: "Track and review key monitoring parameters and results.",
-    bestFor: "Ongoing monitoring",
-    detail: "Review monitoring intervals, parameters, alerts, and follow-up actions.",
-    href: "/?mode=answer&q=monitoring%20schedule&focus=1",
-    icon: Waves,
-    area: "care",
-    status: "ready",
-    sourceBacked: true,
-    highYield: true,
-    actionLabel: "Open",
-    keywords: ["monitoring", "results", "parameters", "schedule", "labs"],
-    checkFirst: ["Monitoring indication", "Last result date", "Thresholds and alerts"],
-    neededInput: ["Medication or condition", "Recent results", "Monitoring timeframe"],
-    output: "Monitoring schedule, thresholds, and review prompts.",
-  },
-  {
-    id: "favourites",
-    title: "Saved workflows",
-    mobileTitle: "Saved",
-    description: "Return to saved clinical workspaces and repeated workflows.",
-    bestFor: "Repeated or complex work",
-    detail: "Resume saved answers, pinned sources, and repeated clinical workflows.",
-    href: "/favourites",
-    icon: Star,
-    area: "saved",
-    status: "recent",
-    sourceBacked: false,
-    actionLabel: "View",
-    keywords: ["favourites", "favorites", "saved", "recent", "pinned"],
-    checkFirst: ["Saved context", "Last-used status", "Review markers"],
-    neededInput: ["Saved item or workflow name", "Optional source set", "Review context"],
-    output: "Saved workspace, pinned source, or recent workflow.",
-  },
-];
+// Presentation-only mapping: the shared tools catalog is icon-free so it can be used by
+// server code (universal search); icons are attached at the UI boundary.
+const launcherIconById: Record<string, LucideIcon> = {
+  "clinical-kb-search": Search,
+  differentials: Brain,
+  documents: FileText,
+  guidelines: ShieldCheck,
+  "risk-safety": ShieldCheck,
+  "medication-prescribing": Pill,
+  services: Users,
+  forms: FileCheck2,
+  "care-plans": ClipboardCheck,
+  monitoring: Waves,
+  favourites: Star,
+};
+
+const launcherApps: LauncherApp[] = toolCatalogRecords.map((record) => ({
+  ...record,
+  icon: launcherIconById[record.id] ?? Sparkles,
+}));
 
 const toolsLauncherCopy = {
   heading: "Tools",
