@@ -727,7 +727,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);
       }
       if (viewport.width < 640) {
-        const dailyActionsTrigger = page.getByRole("button", { name: "Open answer options" });
+        const dailyActionsTrigger = page.getByRole("button", { name: /^Open .+ options$/ });
         const dailyActions = await openDailyActions(page);
         const searchAction = dailyActions.getByRole("menuitem", { name: "Search" });
         await expect(searchAction).toBeVisible();
@@ -1008,7 +1008,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const dailyActionsTrigger = page.getByRole("button", { name: "Open answer options" });
     const dailyActionsMenu = page.getByTestId("daily-actions-menu");
-    const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
+    const appModeTrigger = page.getByRole("button", { name: /^Mode / });
     const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
 
     await appModeTrigger.click();
