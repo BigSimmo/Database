@@ -27,14 +27,15 @@ import {
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import {
-  acuteConfusionPresentationWorkflow,
+  composeDifferentialSearchResults,
   differentialScenarioPresets,
-  getDifferentialRecord,
   type DifferentialRecord,
+  type DifferentialSearchResultItem,
 } from "@/lib/differentials";
 import type { DocumentMatch } from "@/lib/types";
 
@@ -54,6 +55,7 @@ type RecentDifferential = {
 
 type DifferentialResult = {
   id: string;
+  kind: "presentation" | "diagnosis";
   title: string;
   subtitle: string;
   href: string;
@@ -167,8 +169,9 @@ function statusTone(status: DifferentialRecord["status"]) {
   return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
 }
 
-function recordIcon(record: DifferentialRecord) {
-  return candidateIconBySlug.find(([fragment]) => record.slug.includes(fragment))?.[1] ?? BrainCircuit;
+function resultIcon(kind: DifferentialResult["kind"], slug: string) {
+  if (kind === "presentation") return BrainCircuit;
+  return candidateIconBySlug.find(([fragment]) => slug.includes(fragment))?.[1] ?? Stethoscope;
 }
 
 function tagText(value: string) {
@@ -177,53 +180,20 @@ function tagText(value: string) {
   return cleaned.toLowerCase();
 }
 
-function buildDifferentialResults(): DifferentialResult[] {
-  const workflow = acuteConfusionPresentationWorkflow;
-  const candidateRows = workflow.candidates.flatMap((candidate, index) => {
-    const record = getDifferentialRecord(candidate.slug);
-    if (!record) return [];
-    const Icon = recordIcon(record);
-    const whyItFits = candidate.comparison["why-it-fits"] ?? record.clinicalHinge;
-    const tags = [
-      ...record.currentPresentation.slice(0, 2),
-      ...(index < 2 ? ["fluctuating course"] : []),
-      record.investigations[0],
-    ]
-      .filter(Boolean)
-      .slice(0, 4)
-      .map(tagText);
-
-    return [
-      {
-        id: record.slug,
-        title: record.title,
-        subtitle: whyItFits,
-        href: `/differentials/diagnoses/${record.slug}`,
-        status: record.status,
-        selected: candidate.selected,
-        matchLabel: index < 1 ? "High match" : index < 5 ? "Moderate match" : "Lower match",
-        tags,
-        icon: Icon,
-        safety: candidate.comparison["must-not-miss"] ?? whyItFits,
-      },
-    ];
-  });
-
-  return [
-    {
-      id: workflow.id,
-      title: workflow.title,
-      subtitle: "Acute presentation with fluctuating course, inattention, or disorientation.",
-      href: `/differentials/presentations/${workflow.id}`,
-      status: workflow.status,
-      selected: true,
-      matchLabel: "Best match",
-      tags: ["acute onset", "fluctuating course", "inattention", "disorientation"],
-      icon: BrainCircuit,
-      safety: workflow.safetySnapshot.summary,
-    },
-    ...candidateRows,
-  ].slice(0, 8);
+function toDifferentialResult(item: DifferentialSearchResultItem): DifferentialResult {
+  return {
+    id: item.id,
+    kind: item.kind,
+    title: item.title,
+    subtitle: item.subtitle,
+    href: item.href,
+    status: item.status,
+    selected: false,
+    matchLabel: item.matchLabel,
+    tags: item.tags.map(tagText),
+    icon: resultIcon(item.kind, item.slug),
+    safety: item.safety,
+  };
 }
 
 function StatusBadge({ status, className }: { status: DifferentialRecord["status"]; className?: string }) {
@@ -280,16 +250,17 @@ function SelectionToggle({ selected, onClick, label }: { selected: boolean; onCl
 function DesktopResultRow({
   result,
   index,
+  isBest,
   selected,
   onToggle,
 }: {
   result: DifferentialResult;
   index: number;
+  isBest: boolean;
   selected: boolean;
   onToggle: () => void;
 }) {
   const Icon = result.icon;
-  const isBest = index === 0;
 
   return (
     <article
@@ -339,7 +310,7 @@ function DesktopResultRow({
           {result.tags.slice(0, 4).map((tag) => (
             <Chip key={`${result.id}-${tag}`}>{tag}</Chip>
           ))}
-          {isBest ? <Chip>+2</Chip> : null}
+          {result.tags.length > 4 ? <Chip>{`+${result.tags.length - 4}`}</Chip> : null}
         </div>
       </div>
       <div className="grid gap-1.5 border-l border-[color:var(--border)] pl-3">
@@ -368,16 +339,17 @@ function DesktopResultRow({
 function MobileResultCard({
   result,
   index,
+  isBest,
   selected,
   onToggle,
 }: {
   result: DifferentialResult;
   index: number;
+  isBest: boolean;
   selected: boolean;
   onToggle: () => void;
 }) {
   const Icon = result.icon;
-  const isBest = index === 0;
 
   return (
     <article
@@ -427,7 +399,7 @@ function MobileResultCard({
         {result.tags.slice(0, isBest ? 4 : 2).map((tag) => (
           <Chip key={`${result.id}-${tag}`}>{tag}</Chip>
         ))}
-        {isBest ? <Chip>+2</Chip> : null}
+        {result.tags.length > (isBest ? 4 : 2) ? <Chip>{`+${result.tags.length - (isBest ? 4 : 2)}`}</Chip> : null}
       </div>
     </article>
   );
@@ -466,15 +438,12 @@ function BestAnswerCard({
         {best.tags.map((tag) => (
           <Chip key={tag}>{tag}</Chip>
         ))}
-        <Chip>+2</Chip>
       </div>
     </section>
   );
 }
 
-function SafetyCard() {
-  const workflow = acuteConfusionPresentationWorkflow;
-
+function SafetyCard({ safety, query }: { safety: string; query: string }) {
   return (
     <section className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/45 p-4 shadow-[var(--shadow-inset)]">
       <div className="flex items-start gap-3">
@@ -485,11 +454,9 @@ function SafetyCard() {
           <h2 className="text-sm font-extrabold uppercase tracking-[0.05em] text-[color:var(--danger)]">
             Safety first
           </h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]">
-            {workflow.safetySnapshot.summary}
-          </p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]">{safety}</p>
           <Link
-            href="/differentials/presentations?q=acute+confusion"
+            href={routeWithQuery("/differentials/presentations", query)}
             className="mt-2 inline-flex min-h-8 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
           >
             View presentation guide
@@ -501,12 +468,10 @@ function SafetyCard() {
   );
 }
 
-function LikelyPresentationCard({ best }: { best: DifferentialResult }) {
-  const points = [
-    "Acute onset with fluctuating attention or awareness.",
-    "Post-operative or medical setting increases risk.",
-    best.safety ?? acuteConfusionPresentationWorkflow.safetySnapshot.summary,
-  ];
+function LikelyPresentationCard({ lead }: { lead: DifferentialResult }) {
+  const points = [lead.subtitle, ...lead.tags, lead.safety]
+    .filter((point): point is string => Boolean(point?.trim()))
+    .slice(0, 4);
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
@@ -561,7 +526,6 @@ function SourceStatusCard({
   loading: boolean;
   onRunSourceSearch: () => void;
 }) {
-  const workflow = acuteConfusionPresentationWorkflow;
   const hasSourceEvidence = evidenceState === "source-backed";
 
   return (
@@ -582,7 +546,7 @@ function SourceStatusCard({
         <p className="flex items-center justify-between gap-3 text-[color:var(--warning)]">
           <span className="inline-flex items-center gap-2">
             <CircleHelp className="h-4 w-4" aria-hidden />
-            {hasSourceEvidence ? workflow.sourceStatus.label : "Run source search"}
+            {hasSourceEvidence ? "Imported catalogue" : "Run source search"}
           </span>
           <span className="text-[color:var(--text-muted)]">
             {hasSourceEvidence
@@ -593,7 +557,7 @@ function SourceStatusCard({
       </div>
       <p className="mt-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
         {hasSourceEvidence
-          ? workflow.sourceStatus.version
+          ? "Catalogue matches are ranked from the imported, locally reviewed differentials library."
           : "Showing reviewed local differential records. Run source search to validate against indexed documents."}
       </p>
       {!hasSourceEvidence ? (
@@ -614,6 +578,7 @@ function SourceStatusCard({
 function InterpretationRail({
   best,
   results,
+  query,
   sourceCount,
   evidenceState,
   loading,
@@ -621,11 +586,14 @@ function InterpretationRail({
 }: {
   best: DifferentialResult;
   results: DifferentialResult[];
+  query: string;
   sourceCount: number;
   evidenceState: DifferentialEvidenceState;
   loading: boolean;
   onRunSourceSearch: () => void;
 }) {
+  const safetyLead = results.find((result) => result.status === "emergent") ?? best;
+
   return (
     <aside className="hidden min-w-0 gap-3 lg:grid" aria-label="Differential interpretation">
       <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
@@ -633,8 +601,8 @@ function InterpretationRail({
         <Info className="h-4 w-4" aria-hidden />
       </h2>
       <BestAnswerCard best={best} />
-      <SafetyCard />
-      <LikelyPresentationCard best={best} />
+      {safetyLead.safety ? <SafetyCard safety={safetyLead.safety} query={query} /> : null}
+      {best.kind === "presentation" ? <LikelyPresentationCard lead={best} /> : null}
       <UrgencyCard results={results} />
       <SourceStatusCard
         sourceCount={sourceCount}
@@ -653,24 +621,53 @@ function SearchResultsView({
   query,
   loading,
   documentMatches,
+  evidenceQuery,
   onRunSearch,
 }: {
   query: string;
   loading: boolean;
   documentMatches?: DocumentMatch[];
+  evidenceQuery?: string | null;
   onRunSearch?: (query: string) => void;
 }) {
-  const results = useMemo(() => buildDifferentialResults(), []);
-  const [selectedIds, setSelectedIds] = useState(
-    () => new Set([acuteConfusionPresentationWorkflow.id, "delirium", "substance-withdrawal"]),
+  const catalog = useDifferentialSearch(query);
+  const results = useMemo(
+    () =>
+      composeDifferentialSearchResults(catalog.matches.diagnoses, catalog.matches.presentations).map(
+        toDifferentialResult,
+      ),
+    [catalog.matches],
   );
-  const best = results[0];
+  const [kindFilter, setKindFilter] = useState<"all" | "presentation" | "diagnosis">("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  // Selection and filter follow the ranked result set: seed the top two for
+  // comparison and drop stale ids whenever a new query changes the results
+  // (render-time sync, matching the repo's set-state-in-render pattern).
+  const resultSignature = results.map((result) => result.id).join("|");
+  const [lastResultSignature, setLastResultSignature] = useState(resultSignature);
+  if (lastResultSignature !== resultSignature) {
+    setLastResultSignature(resultSignature);
+    setKindFilter("all");
+    setSelectedIds(new Set(results.slice(0, 2).map((result) => result.id)));
+  }
+
+  const presentationCount = results.filter((result) => result.kind === "presentation").length;
+  const diagnosisCount = results.length - presentationCount;
+  const visibleResults = kindFilter === "all" ? results : results.filter((result) => result.kind === kindFilter);
+  const best = results[0] ?? null;
   const selectedCount = selectedIds.size;
-  const hasSourceEvidence = Boolean(documentMatches?.length);
+  // Catalogue results follow composer edits live, but document evidence only
+  // updates on an executed source search — treat evidence fetched for a
+  // different query as pending so the two panels never claim to be in sync.
+  const evidenceIsCurrent = (evidenceQuery ?? "").trim().toLowerCase() === query.trim().toLowerCase();
+  const currentDocumentMatches = evidenceIsCurrent ? documentMatches : undefined;
+  const hasSourceEvidence = Boolean(currentDocumentMatches?.length);
   const evidenceState: DifferentialEvidenceState = hasSourceEvidence ? "source-backed" : "guided";
   // Count the sources that actually matched this search, never the whole
   // indexed library - the surrounding copy states these reflect real matches.
-  const reviewedSourceCount = hasSourceEvidence ? (documentMatches?.length ?? 0) : 0;
+  const reviewedSourceCount = hasSourceEvidence ? (currentDocumentMatches?.length ?? 0) : 0;
+  const catalogLoading = catalog.status === "loading";
+  const catalogFailed = catalog.status === "error" || catalog.status === "unauthorized";
 
   function toggleSelected(id: string) {
     setSelectedIds((current) => {
@@ -686,186 +683,276 @@ function SearchResultsView({
     if (trimmedQuery && onRunSearch) onRunSearch(trimmedQuery);
   }
 
+  const kindFilterOptions = [
+    { id: "all" as const, label: `All (${results.length})`, compact: "All" },
+    {
+      id: "presentation" as const,
+      label: `Presentations (${presentationCount})`,
+      compact: `Pres (${presentationCount})`,
+    },
+    { id: "diagnosis" as const, label: `Diagnoses (${diagnosisCount})`, compact: `Dx (${diagnosisCount})` },
+  ];
+
   return (
     <div
       data-testid="differentials-search-results"
       className="mx-auto grid w-full max-w-[86rem] gap-4 overflow-x-hidden px-3 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:px-4 lg:px-0 lg:pb-0"
     >
       <div className="hidden lg:block">
-        <SearchResultsHeaderBand modeId="differentials" query={query} matchCount={results.length} loading={loading} />
+        <SearchResultsHeaderBand
+          modeId="differentials"
+          query={query}
+          matchCount={results.length}
+          loading={loading || catalogLoading}
+        />
       </div>
       <p
-        data-testid="differentials-demo-content-notice"
-        className="flex items-start gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50 px-3 py-2 text-xs font-semibold leading-5 text-[color:var(--warning)] sm:text-sm"
+        data-testid="differentials-catalogue-notice"
+        className="flex items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/50 px-3 py-2 text-xs font-semibold leading-5 text-[color:var(--info)] sm:text-sm"
       >
         <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <span>
-          The ranked diagnoses below are synthetic demonstration content, not clinically authored guidance. Source
-          counts reflect real matches from your indexed library.
+          Ranked from your imported differentials catalogue. Source counts reflect real matches from your indexed
+          library.
         </span>
       </p>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
-        <section className="min-w-0 space-y-3" aria-label="Differential diagnosis results">
-          <div className="hidden flex-wrap items-center justify-between gap-3 lg:flex">
-            <div className="min-w-0">
-              <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-bold text-[color:var(--text-muted)]">
-                <span className="inline-flex items-center gap-1.5 text-[color:var(--warning)]">
-                  <CircleHelp className="h-3.5 w-3.5" aria-hidden />
-                  Demonstration ranking
-                </span>
-                <span className="hidden sm:inline">
-                  {hasSourceEvidence
-                    ? "Source matches available. Review before use."
-                    : "Run source search to validate against indexed local documents."}
-                </span>
-              </div>
-              <h2 className="mt-3 text-base font-extrabold uppercase tracking-[0.09em] text-[color:var(--text-heading)]">
-                Diagnosis pages <span className="text-[color:var(--text-muted)]">(ranked)</span>
-              </h2>
-            </div>
-            <div className="hidden items-center gap-2 sm:flex">
-              <button
-                type="button"
-                onClick={rerunSearch}
-                disabled={loading}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
-              >
-                {hasSourceEvidence ? (
-                  <GitCompareArrows className="h-4 w-4" aria-hidden />
-                ) : (
-                  <Search className="h-4 w-4" aria-hidden />
-                )}
-                {hasSourceEvidence ? "Compare top 3" : "Run source search"}
-              </button>
-              <button
-                type="button"
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
-              >
-                <Filter className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
-                Filters
-              </button>
-            </div>
+      {catalogLoading ? (
+        <div className="grid gap-2" aria-hidden data-testid="differentials-results-loading">
+          {[0, 1, 2].map((placeholder) => (
+            <div
+              key={placeholder}
+              className="h-24 animate-pulse rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)]"
+            />
+          ))}
+        </div>
+      ) : !best ? (
+        <section
+          data-testid={catalogFailed ? "differentials-catalogue-error" : "differentials-empty-results"}
+          role={catalogFailed ? "alert" : undefined}
+          className={cn(
+            "grid gap-3 rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]",
+            catalogFailed ? "border-[color:var(--warning-border)]" : "border-[color:var(--border)]",
+          )}
+        >
+          <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
+            {catalogFailed
+              ? catalog.status === "unauthorized"
+                ? "Sign in again to search the differentials catalogue"
+                : "The differentials catalogue could not be searched"
+              : `No catalogue matches for “${query}”`}
+          </h2>
+          <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+            {catalogFailed
+              ? "Retry the search shortly, or browse the catalogue pages directly."
+              : hasSourceEvidence
+                ? `No imported differential matched this search, but ${reviewedSourceCount.toLocaleString()} indexed source ${
+                    reviewedSourceCount === 1 ? "match is" : "matches are"
+                  } available in the library.`
+                : "Try a symptom, presentation, or diagnosis name — or browse the catalogue directly."}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={routeWithQuery("/differentials/presentations", query)}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
+            >
+              Browse presentations
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Link>
+            <Link
+              href={routeWithQuery("/differentials/diagnoses", query)}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
+            >
+              Browse diagnoses
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Link>
+            <button
+              type="button"
+              onClick={rerunSearch}
+              disabled={loading}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] disabled:cursor-wait disabled:opacity-60"
+            >
+              <Search className="h-4 w-4" aria-hidden />
+              {loading ? "Searching sources" : "Run source search"}
+            </button>
           </div>
-
-          <div className="grid gap-2 lg:hidden">
-            <BestAnswerCard best={best} selected={selectedIds.has(best.id)} onToggle={() => toggleSelected(best.id)} />
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5">
-              {[
-                { label: "All (8)", compact: "All" },
-                { label: "Diagnosis (6)", compact: "Dx (6)" },
-                { label: "Mimics (2)", compact: "Mimics" },
-              ].map((item, index) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  aria-label={item.label}
-                  className={cn(
-                    "min-h-10 min-w-10 rounded-lg border px-2 text-xs font-bold min-[390px]:text-sm",
-                    index === 0
-                      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                      : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-                  )}
-                >
-                  <span className="hidden min-[430px]:inline">{item.label}</span>
-                  <span className="min-[430px]:hidden">{item.compact}</span>
-                </button>
-              ))}
-              <button
-                type="button"
-                aria-label="Filters"
-                className="inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm"
-              >
-                <ListFilter className="h-4 w-4" aria-hidden />
-                <span className="hidden min-[430px]:inline">Filters</span>
-              </button>
-            </div>
-            <div className="flex items-center justify-between gap-2 text-sm font-medium text-[color:var(--text-muted)]">
-              <span>
-                <strong className="text-[color:var(--text-heading)]">8 results</strong> ·{" "}
-                {hasSourceEvidence ? "Ranked by relevance" : "Guided differential view"}
-              </span>
-              <button
-                type="button"
-                className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]"
-              >
-                Sort
-                <ChevronRight className="h-3.5 w-3.5 rotate-90" aria-hidden />
-              </button>
-            </div>
-            {!hasSourceEvidence ? (
-              <section
-                aria-label="Source status"
-                className="grid gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 p-3 text-sm"
-              >
-                <p className="font-semibold leading-5 text-[color:var(--text-heading)]">
-                  Showing guided local differential records. Source-library evidence has not been checked for this query
-                  yet.
-                </p>
+        </section>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
+          <section className="min-w-0 space-y-3" aria-label="Differential diagnosis results">
+            <div className="hidden flex-wrap items-center justify-between gap-3 lg:flex">
+              <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-bold text-[color:var(--text-muted)]">
+                  <span className="inline-flex items-center gap-1.5 text-[color:var(--clinical-accent)]">
+                    <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+                    Catalogue ranking
+                  </span>
+                  <span className="hidden sm:inline">
+                    {hasSourceEvidence
+                      ? "Source matches available. Review before use."
+                      : "Run source search to validate against indexed local documents."}
+                  </span>
+                </div>
+                <h2 className="mt-3 text-base font-extrabold uppercase tracking-[0.09em] text-[color:var(--text-heading)]">
+                  Catalogue matches <span className="text-[color:var(--text-muted)]">(ranked)</span>
+                </h2>
+              </div>
+              <div className="hidden items-center gap-2 sm:flex">
                 <button
                   type="button"
                   onClick={rerunSearch}
                   disabled={loading}
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
                 >
-                  <Search className="h-4 w-4" aria-hidden />
-                  {loading ? "Searching sources" : "Run source search"}
+                  {hasSourceEvidence ? (
+                    <GitCompareArrows className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <Search className="h-4 w-4" aria-hidden />
+                  )}
+                  {hasSourceEvidence ? "Compare top 3" : "Run source search"}
                 </button>
-              </section>
-            ) : null}
-          </div>
-
-          <div className="grid gap-2">
-            {results.map((result, index) => (
-              <div key={result.id}>
-                <div className="hidden lg:block">
-                  <DesktopResultRow
-                    result={result}
-                    index={index}
-                    selected={selectedIds.has(result.id)}
-                    onToggle={() => toggleSelected(result.id)}
-                  />
-                </div>
-                <div className="lg:hidden">
-                  <MobileResultCard
-                    result={result}
-                    index={index}
-                    selected={selectedIds.has(result.id)}
-                    onToggle={() => toggleSelected(result.id)}
-                  />
-                </div>
+                <button
+                  type="button"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
+                >
+                  <Filter className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
+                  Filters
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
 
-          <button
-            type="button"
-            className="hidden min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] lg:inline-flex"
-          >
-            View all demonstration results ({results.length})
-            <ChevronRight className="h-4 w-4 rotate-90" aria-hidden />
-          </button>
+            <div className="grid gap-2 lg:hidden">
+              <BestAnswerCard
+                best={best}
+                selected={selectedIds.has(best.id)}
+                onToggle={() => toggleSelected(best.id)}
+              />
+              <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5">
+                {kindFilterOptions.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-label={item.label}
+                    aria-pressed={kindFilter === item.id}
+                    onClick={() => setKindFilter(item.id)}
+                    className={cn(
+                      "min-h-10 min-w-10 rounded-lg border px-2 text-xs font-bold min-[390px]:text-sm",
+                      kindFilter === item.id
+                        ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+                    )}
+                  >
+                    <span className="hidden min-[430px]:inline">{item.label}</span>
+                    <span className="min-[430px]:hidden">{item.compact}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  aria-label="Filters"
+                  className="inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm"
+                >
+                  <ListFilter className="h-4 w-4" aria-hidden />
+                  <span className="hidden min-[430px]:inline">Filters</span>
+                </button>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-sm font-medium text-[color:var(--text-muted)]">
+                <span>
+                  <strong className="text-[color:var(--text-heading)]">
+                    {visibleResults.length} result{visibleResults.length === 1 ? "" : "s"}
+                  </strong>{" "}
+                  · {hasSourceEvidence ? "Ranked by relevance" : "Catalogue ranking"}
+                </span>
+                <button
+                  type="button"
+                  className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]"
+                >
+                  Sort
+                  <ChevronRight className="h-3.5 w-3.5 rotate-90" aria-hidden />
+                </button>
+              </div>
+              {!hasSourceEvidence ? (
+                <section
+                  aria-label="Source status"
+                  className="grid gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 p-3 text-sm"
+                >
+                  <p className="font-semibold leading-5 text-[color:var(--text-heading)]">
+                    Showing ranked catalogue records. Source-library evidence has not been checked for this query yet.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={rerunSearch}
+                    disabled={loading}
+                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <Search className="h-4 w-4" aria-hidden />
+                    {loading ? "Searching sources" : "Run source search"}
+                  </button>
+                </section>
+              ) : null}
+            </div>
 
-          <Link
-            href={routeWithQuery("/differentials/presentations", query)}
-            className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-base font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] lg:inline-flex"
-          >
-            <GitCompareArrows className="h-5 w-5" aria-hidden />
-            Compare selected ({selectedCount})
-            <ChevronRight className="ml-auto h-5 w-5" aria-hidden />
-          </Link>
-        </section>
+            <div className="grid gap-2">
+              {visibleResults.map((result) => {
+                // Rank number and "best" styling follow the overall ranked
+                // list, not whichever row happens to be first in a
+                // kind-filtered view.
+                const globalIndex = results.findIndex((entry) => entry.kind === result.kind && entry.id === result.id);
+                const isBest = result.kind === best.kind && result.id === best.id;
+                return (
+                  <div key={`${result.kind}-${result.id}`}>
+                    <div className="hidden lg:block">
+                      <DesktopResultRow
+                        result={result}
+                        index={globalIndex}
+                        isBest={isBest}
+                        selected={selectedIds.has(result.id)}
+                        onToggle={() => toggleSelected(result.id)}
+                      />
+                    </div>
+                    <div className="lg:hidden">
+                      <MobileResultCard
+                        result={result}
+                        index={globalIndex}
+                        isBest={isBest}
+                        selected={selectedIds.has(result.id)}
+                        onToggle={() => toggleSelected(result.id)}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-        <InterpretationRail
-          best={best}
-          results={results}
-          sourceCount={reviewedSourceCount}
-          evidenceState={evidenceState}
-          loading={loading}
-          onRunSourceSearch={rerunSearch}
-        />
-      </div>
+            <Link
+              href={routeWithQuery("/differentials/diagnoses", query)}
+              className="hidden min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] lg:inline-flex"
+            >
+              View all catalogue matches ({results.length})
+              <ChevronRight className="h-4 w-4 rotate-90" aria-hidden />
+            </Link>
 
-      <DifferentialsMobileCompareAddon selectedCount={selectedCount} query={query} />
+            <Link
+              href={routeWithQuery("/differentials/presentations", query)}
+              className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-base font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] lg:inline-flex"
+            >
+              <GitCompareArrows className="h-5 w-5" aria-hidden />
+              Compare selected ({selectedCount})
+              <ChevronRight className="ml-auto h-5 w-5" aria-hidden />
+            </Link>
+          </section>
+
+          <InterpretationRail
+            best={best}
+            results={results}
+            query={query}
+            sourceCount={reviewedSourceCount}
+            evidenceState={evidenceState}
+            loading={loading}
+            onRunSourceSearch={rerunSearch}
+          />
+        </div>
+      )}
+
+      {best ? <DifferentialsMobileCompareAddon selectedCount={selectedCount} query={query} /> : null}
 
       <p className="pb-3 text-center text-xs font-medium text-[color:var(--text-muted)] lg:hidden">
         Clinical decision support only. Review before use.
@@ -877,7 +964,9 @@ function SearchResultsView({
 export function DifferentialsHome({
   query,
   loading,
+  searchSubmitted,
   documentMatches,
+  evidenceQuery,
   onQueryChange,
   onSuggestedSearch,
   onRunSearch,
@@ -887,7 +976,9 @@ export function DifferentialsHome({
 }: {
   query: string;
   loading: boolean;
+  searchSubmitted?: boolean;
   documentMatches?: DocumentMatch[];
+  evidenceQuery?: string | null;
   realDataReady?: boolean;
   authUnavailable?: boolean;
   apiUnavailable?: boolean;
@@ -936,27 +1027,28 @@ export function DifferentialsHome({
     runSearch(action.query);
   }
 
-  // Only surface ranked results once an actual search has run (loading or
-  // evidence matches present) — not on every keystroke, and not for a query
-  // whose source search returned nothing. Otherwise the hard-coded demo
-  // rankings render as if relevant to any typed text.
-  if (trimmedQuery && (loading || hasEvidenceMatches)) {
+  // Only surface ranked results once an actual search has run (submitted,
+  // loading, or evidence matches present) — not on every keystroke. The
+  // catalogue results are the primary content, so a submitted search with
+  // zero document evidence still shows the ranked catalogue view.
+  if (trimmedQuery && (loading || searchSubmitted || hasEvidenceMatches)) {
     return (
       <SearchResultsView
         query={trimmedQuery}
         loading={loading}
         documentMatches={documentMatches}
+        evidenceQuery={evidenceQuery}
         onRunSearch={runSearch}
       />
     );
   }
 
   return (
-    <div data-testid="differentials-home" className="mx-auto w-full max-w-6xl overflow-x-hidden px-1">
+    <div data-testid="differentials-home" className="w-full">
       <ModeHomeTemplate
         testId="differentials-home-template"
         title="Differentials"
-        subtitle="Compare demonstration differentials against matches from your indexed library."
+        subtitle="Search your imported differentials catalogue against matches from your indexed library."
         icon={BrainCircuit}
         headingLevel={1}
         desktopComposerSlotId={desktopComposerSlotId}

@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { ReactNode, useMemo, useState } from "react";
 
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { cn } from "@/components/ui-primitives";
 import { documentEvidenceHref, documentReaderHref, documentsSearchHref } from "@/lib/document-flow-routes";
 
@@ -756,6 +757,10 @@ export function MasterDocumentSearch() {
               </button>
             </div>
           </header>
+
+          <div className="mt-4">
+            <CrossModeLinksSection queries={[query]} />
+          </div>
 
           <section className="mt-4 hidden min-h-0 flex-1 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] md:block">
             <div className="grid min-w-[58rem] grid-cols-[minmax(20rem,1.7fr)_minmax(17rem,1.25fr)_9rem_8rem_5rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-3 text-xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
