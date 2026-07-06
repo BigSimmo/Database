@@ -105,7 +105,6 @@ export function serviceNavigatorQuery(service: ServiceRecord) {
   );
 }
 
-
 function serviceRecordSearchParts(service: ServiceRecord) {
   return [
     service.title,

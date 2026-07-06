@@ -209,7 +209,10 @@ function documentItemsFromChunks(results: SearchResult[], limit: number): Univer
 
 async function searchDocumentsDomain(args: RunUniversalSearchArgs): Promise<UniversalSearchItem[]> {
   if (args.demo || !args.supabase) {
-    return documentItemsFromChunks(demoSearch(args.query, args.limitPerDomain * 3) as SearchResult[], args.limitPerDomain);
+    return documentItemsFromChunks(
+      demoSearch(args.query, args.limitPerDomain * 3) as SearchResult[],
+      args.limitPerDomain,
+    );
   }
   const { results } = await searchChunksWithTelemetry({
     query: args.query,

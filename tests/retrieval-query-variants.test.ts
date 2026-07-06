@@ -1051,9 +1051,9 @@ describe("shouldRelaxWeakTextMatches (P8b weak-augment)", () => {
   it("does not fire when a sparse set is anchored by a strong lexical hit", () => {
     // A single precise match (e.g. an exact table lookup) must stay a one-RPC retrieval.
     expect(shouldRelaxWeakTextMatches([result({ text_rank: 1.1 })])).toBe(false);
-    expect(shouldRelaxWeakTextMatches([result({ id: "a", text_rank: 0.4 }), result({ id: "b", text_rank: 0.05 })])).toBe(
-      false,
-    );
+    expect(
+      shouldRelaxWeakTextMatches([result({ id: "a", text_rank: 0.4 }), result({ id: "b", text_rank: 0.05 })]),
+    ).toBe(false);
   });
 
   it("fires when the best strict text rank is below the meaningful-signal floor", () => {

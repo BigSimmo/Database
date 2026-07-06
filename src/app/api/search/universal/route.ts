@@ -11,11 +11,7 @@ import { jsonError } from "@/lib/http";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
-import {
-  runUniversalSearch,
-  universalSearchDomains,
-  type UniversalSearchDomain,
-} from "@/lib/universal-search";
+import { runUniversalSearch, universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
@@ -35,9 +31,7 @@ const universalSearchQuerySchema = z.object({
       const requested = value
         .split(",")
         .map((domain) => domain.trim())
-        .filter((domain): domain is UniversalSearchDomain =>
-          (universalSearchDomains as string[]).includes(domain),
-        );
+        .filter((domain): domain is UniversalSearchDomain => (universalSearchDomains as string[]).includes(domain));
       return requested.length ? requested : undefined;
     }),
 });

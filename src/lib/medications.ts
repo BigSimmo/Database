@@ -202,9 +202,7 @@ export function rankMedicationRecords(records: MedicationRecord[], query: string
         weight: 3,
         text: (medication) =>
           normalizeSearchText(
-            [medication.class, medication.subclass, medication.category, medication.tag, medication.schedule].join(
-              " ",
-            ),
+            [medication.class, medication.subclass, medication.category, medication.tag, medication.schedule].join(" "),
           ),
       },
     ],

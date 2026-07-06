@@ -75,10 +75,7 @@ describe("classifier verdict memoization", () => {
   });
 
   it("does not memoize transport errors — the next request retries the classifier", async () => {
-    const mock = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("timeout"))
-      .mockResolvedValueOnce(classifierResponse());
+    const mock = vi.fn().mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce(classifierResponse());
     const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
     const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
 

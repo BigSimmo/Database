@@ -115,7 +115,9 @@ export function rankCatalogRecords<T>(
         compactBonus > 0 &&
         compactQuery.length >= compactMinLength &&
         (compactSearchText(text).includes(compactQuery) ||
-          (options.compactExtraText ? compactSearchText(options.compactExtraText(record)).includes(compactQuery) : false));
+          (options.compactExtraText
+            ? compactSearchText(options.compactExtraText(record)).includes(compactQuery)
+            : false));
       if (compact) score += compactBonus;
 
       const phrase = phraseBonus > 0 && text.includes(normalizedQuery);

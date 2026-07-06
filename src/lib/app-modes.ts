@@ -5,8 +5,10 @@ export type AppModeId =
   "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "prescribing" | "tools";
 export type SearchableAppModeId = AppModeId;
 
-export type AppModeSearchKind = "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "tools";
-export type AppModeResultKind = "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "tools";
+export type AppModeSearchKind =
+  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "tools";
+export type AppModeResultKind =
+  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "tools";
 
 export type AppModeSearchConfig = {
   kind: AppModeSearchKind;

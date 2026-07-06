@@ -48,7 +48,11 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
       domains: ["tools", "differentials"],
       demo: true,
     });
-    expect(response.groups.map((group) => group.kind)).toEqual(["documents", "medications", "services", "forms", "differentials", "tools"].filter((domain) => ["tools", "differentials"].includes(domain)));
+    expect(response.groups.map((group) => group.kind)).toEqual(
+      ["documents", "medications", "services", "forms", "differentials", "tools"].filter((domain) =>
+        ["tools", "differentials"].includes(domain),
+      ),
+    );
   });
 
   it("isolates a failing domain instead of blanking the response", async () => {
@@ -106,9 +110,7 @@ describe("GET /api/search/universal (demo mode)", () => {
   it("ignores unknown domains in the CSV filter", async () => {
     vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
     const { GET } = await import("../src/app/api/search/universal/route");
-    const response = await GET(
-      new Request("http://localhost/api/search/universal?q=monitoring&domains=tools,bogus"),
-    );
+    const response = await GET(new Request("http://localhost/api/search/universal?q=monitoring&domains=tools,bogus"));
     expect(response.status).toBe(200);
     const payload = (await response.json()) as { groups: Array<{ kind: string }> };
     expect(payload.groups.map((group) => group.kind)).toEqual(["tools"]);
