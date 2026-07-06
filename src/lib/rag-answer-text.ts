@@ -262,3 +262,8 @@ export function isUsableAnswerSectionText(value: string, options: { minTokens?: 
 export function safeRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
+
+export function metadataText(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
