@@ -913,6 +913,29 @@ describe("private document API access", () => {
     });
   });
 
+  it("fails closed for anonymous uploads when the durable anonymous limiter is unavailable", async () => {
+    const publicOwnerId = "99999999-9999-4999-8999-999999999999";
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_api_subject_rate_limit" ? fail("anonymous limiter table unavailable") : ok([]),
+    );
+    mockRuntime(client, undefined, { publicUploadsEnabled: true, publicWorkspaceOwnerId: publicOwnerId });
+    const { POST } = await import("../src/app/api/upload/route");
+    const formData = new FormData();
+    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(
+      request("/api/upload", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(await payload(response)).toEqual({ error: "Rate limit check is temporarily unavailable." });
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
   it("stores uploaded documents with owner_id and a user-scoped storage path", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "insert") {
