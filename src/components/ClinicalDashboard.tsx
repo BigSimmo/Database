@@ -315,6 +315,18 @@ type SearchResultModePayload =
 
 type SourceLibrarySearchMode = Extract<AppModeSearchKind, "documents" | "differentials">;
 
+function hasNonProductionSupabaseApiKeyFallback(checks: SetupCheck[]) {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    checks.some(
+      (check) =>
+        check.id === "search" &&
+        check.status !== "ready" &&
+        /\b(?:unregistered|invalid)\s+api\s+key\b/i.test(check.detail),
+    )
+  );
+}
+
 function parseSseData(lines: string[]) {
   const data = lines.join("\n").trim();
   if (!data) return null;
@@ -329,6 +341,11 @@ function answerStreamProgressMessage(data: unknown) {
   if (!data || typeof data !== "object") return null;
   const message = (data as { message?: unknown }).message;
   return typeof message === "string" && message.trim() ? message.trim() : null;
+}
+
+function findSseSeparator(buffer: string) {
+  const match = /\r?\n\r?\n/.exec(buffer);
+  return match ? { index: match.index, length: match[0].length } : null;
 }
 
 async function readAnswerStream(response: Response, onProgress: (message: string) => void): Promise<AnswerPayload> {
@@ -381,25 +398,31 @@ async function readAnswerStream(response: Response, onProgress: (message: string
     }
     if (event === "final") {
       finalPayload = data as AnswerPayload;
+      return true;
     }
+
+    return false;
   }
 
   while (true) {
     const { value, done } = await reader.read();
     buffer += decoder.decode(value, { stream: !done });
 
-    let separatorIndex = buffer.indexOf("\n\n");
-    while (separatorIndex >= 0) {
-      const block = buffer.slice(0, separatorIndex).trim();
-      buffer = buffer.slice(separatorIndex + 2);
-      if (block) processEvent(block);
-      separatorIndex = buffer.indexOf("\n\n");
+    let separator = findSseSeparator(buffer);
+    while (separator) {
+      const block = buffer.slice(0, separator.index).trim();
+      buffer = buffer.slice(separator.index + separator.length);
+      if (block && processEvent(block) && finalPayload) {
+        await reader.cancel().catch(() => undefined);
+        return finalPayload as AnswerPayload;
+      }
+      separator = findSseSeparator(buffer);
     }
 
     if (done) break;
   }
 
-  if (buffer.trim()) processEvent(buffer.trim());
+  if (buffer.trim() && processEvent(buffer.trim()) && finalPayload) return finalPayload as AnswerPayload;
   if (!finalPayload) throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
   return finalPayload as AnswerPayload;
 }
@@ -1126,7 +1149,10 @@ function buildMobileSectionFabState({
       };
     }
     return {
-      statusLabel: modeSearch.resultKind === "documents" ? modeSearch.statusLabel : "No answer yet",
+      statusLabel:
+        modeSearch.resultKind === "documents" || modeSearch.resultKind === "forms"
+          ? modeSearch.statusLabel
+          : "No answer yet",
       statusTone: "empty",
       nextStep: modeSearch.nextStep,
       badgeLabel: modeSearch.badgeLabel,
@@ -1764,12 +1790,17 @@ export function ClinicalDashboard({
   const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
   const canUseDegradedLocalSearchApis =
     process.env.NODE_ENV !== "production" && localProjectReady && hasReadyRequiredPublicSearchConfig(setupChecks);
+  const canUseNonProductionDemoFallback = localProjectReady && hasNonProductionSupabaseApiKeyFallback(setupChecks);
   const canUsePrivateApis =
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
   const canUploadDocuments = canUsePrivateApis || (publicUploadsEnabled() && canUsePublicSearchApis);
   const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
   const canRunSearch =
-    explicitDemoMode || canUsePublicSearchApis || canUseDegradedLocalSearchApis || canAttemptDeployedPublicSearch;
+    explicitDemoMode ||
+    canUsePublicSearchApis ||
+    canUseDegradedLocalSearchApis ||
+    canUseNonProductionDemoFallback ||
+    canAttemptDeployedPublicSearch;
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
@@ -2488,6 +2519,7 @@ export function ClinicalDashboard({
     const shouldRun =
       params.get("run") === "1" ||
       modeSearch.kind === "documents" ||
+      modeSearch.kind === "forms" ||
       modeSearch.kind === "favourites" ||
       modeSearch.kind === "differentials";
     if (!shouldRun) return;
@@ -2755,7 +2787,7 @@ export function ClinicalDashboard({
       setActionNotice({ tone: "success", message: "Favourites filtered from the composer." });
       return;
     }
-    if (modeSearch.kind === "services" || targetMode === "forms") {
+    if (modeSearch.kind === "services" || modeSearch.kind === "forms") {
       resetAnswerThread();
       setAnswer(null);
       setSources([]);
@@ -2772,6 +2804,11 @@ export function ClinicalDashboard({
       return;
     }
     if (!canRunSearch) {
+      // requestId was already bumped above, so a superseded in-flight request's
+      // finally block can no longer reset loading — reset it here or the answer
+      // skeleton can stay on screen indefinitely.
+      setLoading(false);
+      setAnswerProgress(null);
       setError(errorCopy.searchSetupNotReady);
       return;
     }

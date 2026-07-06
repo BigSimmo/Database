@@ -3198,7 +3198,7 @@ as $$
     cross join q
     where f.source_chunk_id is not null
       and (document_filters is null or f.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed' and f.search_tsv @@ q.tsq
   )
   select * from ranked where text_rank >= min_text_rank

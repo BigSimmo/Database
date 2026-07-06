@@ -73,6 +73,14 @@ const envSchema = z.object({
   // Lets tuning/eval experiments adjust the second-stage rerank weights, document-diversity
   // demotion, and freshness decay WITHOUT a code change. Omitted/malformed => current defaults.
   RAG_RANKING_CONFIG: z.string().optional(),
+  // P8b extension: when strict-AND text retrieval returns weak-but-nonzero matches (sparse
+  // result set or negligible top text_rank), append OR-relaxed recall behind the strict
+  // matches. Kill switch for the golden retrieval eval: set false to restore
+  // relax-only-on-empty behaviour without a code change.
+  RAG_TEXT_WEAK_OR_RELAXATION: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
   RAG_ANSWER_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(300000),
   RAG_ANSWER_CACHE_SIZE: z.coerce.number().int().nonnegative().default(100),
   RAG_SEARCH_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(60000),
