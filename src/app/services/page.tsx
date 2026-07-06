@@ -23,7 +23,7 @@ export default async function ServicesIndexRoute({ searchParams }: { searchParam
   }
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f8fbfd]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[color:var(--surface-wash)]" />}>
       <ServicesNavigatorPage />
     </Suspense>
   );

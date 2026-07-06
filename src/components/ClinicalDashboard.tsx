@@ -33,6 +33,7 @@ import { appBackdrop, answerSurface, cn, textMuted, toneSuccess, toneWarning } f
 import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
@@ -725,6 +726,10 @@ export function ClinicalDashboard({
       return next;
     });
   }
+  // The query the current documentMatches were fetched for, so the
+  // differentials results view can tell live-edited catalogue results apart
+  // from evidence that belongs to a previously submitted search.
+  const [differentialEvidenceQuery, setDifferentialEvidenceQuery] = useState<string | null>(null);
   const clearDifferentialModeResultState = useCallback(() => {
     resetAnswerThread();
     setAnswer(null);
@@ -736,6 +741,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setError(null);
     setAnswerProgress(null);
+    setDifferentialEvidenceQuery(null);
   }, [resetAnswerThread]);
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
@@ -1858,6 +1864,11 @@ export function ClinicalDashboard({
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
+      // Differentials mode: the ranked catalogue results are the primary
+      // content and load independently of this document-evidence search, so an
+      // empty corpus result is applied (empty evidence) rather than surfaced
+      // as an error that would hide the catalogue view.
+      let emptyDifferentialsPayload: SearchResultModePayload | null = null;
 
       for (const entry of queryPlan) {
         if (entry.isKeyword) onProgress("Trying keyword-based search...");
@@ -1875,6 +1886,7 @@ export function ClinicalDashboard({
                 );
 
           if (!resultUsable(payload)) {
+            if (modeSearch.kind === "differentials") emptyDifferentialsPayload = payload;
             lastError = makeSearchError("No usable results were found.", 404, false);
             if (!entry.isKeyword) {
               continue;
@@ -1893,6 +1905,10 @@ export function ClinicalDashboard({
         }
       }
 
+      if (!successfulPayload && emptyDifferentialsPayload) {
+        successfulPayload = emptyDifferentialsPayload;
+      }
+
       if (!successfulPayload) {
         if (lastError) throw lastError;
         throw new Error("Search did not return usable results.");
@@ -1901,6 +1917,7 @@ export function ClinicalDashboard({
       // M10: discard a stale response — a newer search owns the UI state.
       if (requestId === searchRequestSeqRef.current) {
         applySearchResult(successfulPayload, trimmedQuery);
+        if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
         if (successfulPayload.kind === "answer") {
           // The composer is a draft box in a conversation: clear it so the
           // user can type the next follow-up immediately.
@@ -2655,7 +2672,7 @@ export function ClinicalDashboard({
       mobileSummary={demoMode ? "Synthetic data" : "Setup needed"}
       className={className}
     >
-      <p className="text-[15px] leading-6 text-[color:var(--warning)]">
+      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
         {demoMode
           ? "Demo mode is active with three synthetic indexed documents, citations, source cards, image captions, and document links. Synthetic data only; not clinical guidance."
           : `Configure .env.local and run supabase/schema.sql before uploading or searching. ${setupWarning}`}
@@ -2712,7 +2729,7 @@ export function ClinicalDashboard({
       }
       mobileSummary={!isOnline ? "Offline" : "API unavailable"}
     >
-      <p className="text-[15px] leading-6 text-[color:var(--warning)]">
+      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
         {!isOnline
           ? "Reconnect before uploading documents, refreshing source URLs, or generating answers."
           : isDeployedClinicalKb()
@@ -2980,12 +2997,10 @@ export function ClinicalDashboard({
                 className={cn(
                   "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                   centeredModeHome || showAnswerHome
-                    ? // On tall phones the centred home leans slightly toward the
-                      // bottom composer (matches the committed vertical-weighting
-                      // guard); short phones skip the bias so content still fits.
-                      // Mobile uses top alignment so the integrated action menu is
-                      // not clipped by the dead space below vertically centred homes.
-                      "grid w-full place-items-center max-sm:place-content-start max-sm:justify-items-center max-sm:pt-[clamp(0.75rem,3vh,2rem)] max-sm:[@media(min-height:800px)]:pt-[5vh]"
+                    ? // Phones centre the home block mid-screen, matching the
+                      // standalone-route homes; the pop-up action surface picks
+                      // its own up/down placement so it stays unclipped either way.
+                      "grid w-full place-items-center max-sm:pt-2"
                     : activeModeResultKind === "tools" ||
                         activeModeResultKind === "favourites" ||
                         activeModeResultKind === "differentials"
@@ -3022,6 +3037,8 @@ export function ClinicalDashboard({
                   <DifferentialsHome
                     query={query}
                     loading={loading}
+                    searchSubmitted={modeSearchSubmitted}
+                    evidenceQuery={differentialEvidenceQuery}
                     documentMatches={documentMatches}
                     realDataReady={canRunSearch}
                     authUnavailable={false}
@@ -3080,6 +3097,9 @@ export function ClinicalDashboard({
                   ) : (
                     <>
                       <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                      {searchMode === "documents" && modeSearchSubmitted && (
+                        <CrossModeLinksSection queries={[query]} onModeSearch={crossModeSearch} />
+                      )}
                       <DocumentSearchResultsPanel
                         matches={documentMatches}
                         recordMatches={recordSearchMatches}
@@ -3173,6 +3193,12 @@ export function ClinicalDashboard({
 
               {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
 
+              {activeModeResultKind === "answer" && answer && (
+                <CrossModeLinksSection
+                  queries={[...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery]}
+                  onModeSearch={crossModeSearch}
+                />
+              )}
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel
                   documents={relatedDocuments}
@@ -3290,7 +3316,7 @@ export function ClinicalDashboard({
                                 <Icon className="h-3.5 w-3.5" />
                                 {tab.label}
                               </span>
-                              <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
+                              <span className="mt-1 block truncate text-2xs font-semibold opacity-80">
                                 {tab.summary}
                               </span>
                             </button>

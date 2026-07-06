@@ -1,5 +1,5 @@
 > **SUPERSEDED — historical exploration only.** Do not implement from this file.
-> Active design direction: [`docs/redesign/02-design-direction.md`](docs/redesign/02-design-direction.md)
+> Active design direction: [`docs/redesign/02-design-direction.md`](../redesign/02-design-direction.md)
 > (Clinical White / Aegean Graphite).
 
 # Luxury Black-First Color Redesign Plan (Global UI Polish)

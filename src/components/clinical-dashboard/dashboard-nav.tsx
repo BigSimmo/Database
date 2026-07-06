@@ -252,7 +252,7 @@ export function MobileSectionFab({
           <span
             aria-hidden="true"
             className={cn(
-              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-[10px] font-bold leading-4 shadow-[var(--shadow-tight)]",
+              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-3xs font-bold leading-4 shadow-[var(--shadow-tight)]",
               fabToneClassName(state.badgeTone),
             )}
           >
@@ -286,10 +286,7 @@ export function MobileSectionFab({
           />
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <div className="min-w-0">
-              <p
-                id={labelId}
-                className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
-              >
+              <p id={labelId} className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                 Answer navigator
               </p>
               <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -298,7 +295,7 @@ export function MobileSectionFab({
             </div>
             <span
               data-testid="mobile-section-fab-status"
-              className={cn("rounded-full border px-2 py-1 text-[11px] font-bold", fabToneClassName(state.statusTone))}
+              className={cn("rounded-full border px-2 py-1 text-2xs font-bold", fabToneClassName(state.statusTone))}
             >
               {state.statusLabel}
             </span>
@@ -353,14 +350,14 @@ export function MobileSectionFab({
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate">{item.label}</span>
-                  <span className="mt-0.5 block truncate text-[11px] font-semibold text-[color:var(--text-soft)]">
+                  <span className="mt-0.5 block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
                     {item.description}
                   </span>
                 </span>
                 {item.count !== null ? (
                   <span
                     className={cn(
-                      "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-[11px] font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
+                      "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-2xs font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
                       item.empty && "text-[color:var(--text-muted)]",
                       active &&
                         "border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",

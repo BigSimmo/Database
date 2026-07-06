@@ -138,6 +138,62 @@ describe("/api/search/interaction", () => {
     ]);
   });
 
+  it("stores cross-mode link clicks without a document id", async () => {
+    const { client, insert } = createClient({ ownsDocument: false, ownsChunk: false });
+    vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: false }, isDemoMode: () => false }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/search/interaction/route");
+
+    const response = await POST(
+      request({
+        query: "clozapine maximum dose",
+        crossMode: { mode: "prescribing", slug: "clozapine", title: clozapineTitle },
+      }),
+    );
+    const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      owner_id: userId,
+      clicked_document_id: null,
+      clicked_chunk_id: null,
+      top_files: [],
+      top_chunk_ids: [],
+      miss_reason: "clicked_result",
+    });
+    expect(payload.query).toMatch(/^redacted-query:[a-f0-9]{64}$/);
+    expect(payload.candidate_labels).toEqual([
+      {
+        label: "Clozapine Monitoring",
+        label_type: "cross_mode_target",
+        document_id: null,
+        confidence: 1,
+      },
+    ]);
+    expect(payload.metadata).toMatchObject({
+      interaction: "cross_mode_link_open",
+      cross_mode_target: "prescribing",
+      cross_mode_slug: "clozapine",
+    });
+    // Cross-mode targets are not documents; no ownership lookups should run.
+    expect(client.from).toHaveBeenCalledWith("rag_query_misses");
+    expect(client.from).not.toHaveBeenCalledWith("documents");
+  });
+
+  it("rejects interactions with neither a document id nor a cross-mode target", async () => {
+    const { POST } = await import("../src/app/api/search/interaction/route");
+
+    const response = await POST(request({ query: "clozapine monitoring" }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Invalid interaction request." });
+  });
+
   it("does not persist PHI-capable query text in source-open miss telemetry", async () => {
     const { client, insert } = createClient({ ownsDocument: true, ownsChunk: true });
     vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: false }, isDemoMode: () => false }));
