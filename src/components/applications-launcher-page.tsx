@@ -390,7 +390,7 @@ function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutra
   return (
     <span
       className={cn(
-        "inline-flex min-h-6 items-center gap-1 rounded-md border px-2 text-[11px] font-bold leading-none",
+        "inline-flex min-h-6 items-center gap-1 rounded-md border px-2 text-2xs font-bold leading-none",
         tone === "source" && "border-emerald-200 bg-emerald-50 text-emerald-700",
         tone === "safety" && "border-orange-200 bg-orange-50 text-orange-700",
         tone === "high" && "border-blue-200 bg-blue-50 text-blue-700",
@@ -508,7 +508,7 @@ function QuickActions({ onSelect, mobile }: { onSelect: (id: string) => void; mo
               <span
                 className={cn(
                   "block truncate font-bold leading-tight text-[color:var(--text-heading)]",
-                  mobile ? "text-[10px]" : "text-sm",
+                  mobile ? "text-3xs" : "text-sm",
                 )}
               >
                 {mobile ? action.label : action.desktopLabel}
@@ -573,7 +573,7 @@ function FilterTabs({
               aria-controls="launcher-results-panel"
               onClick={() => onFilterChange(filter.id)}
               className={cn(
-                "inline-flex min-h-7 shrink-0 items-center justify-center gap-0.5 rounded-lg border px-2 text-[9px] font-bold transition",
+                "inline-flex min-h-7 shrink-0 items-center justify-center gap-0.5 rounded-lg border px-2 text-4xs font-bold transition",
                 active
                   ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
                   : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
@@ -676,7 +676,7 @@ function MobileToolRow({
           {app.description}
         </span>
       </span>
-      <span className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3 text-[11px] font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+      <span className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3 text-2xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
         {app.actionLabel}
         <ChevronRight className="ml-1 h-3 w-3" aria-hidden />
       </span>

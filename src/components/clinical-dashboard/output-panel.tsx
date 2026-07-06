@@ -100,7 +100,7 @@ export function ClinicalOutputPanel({
                 "min-h-12 min-w-0 justify-between gap-2 rounded-lg px-3 py-2 text-left sm:min-h-9",
               )}
             >
-              <span className="min-w-0 truncate text-[11px] uppercase tracking-[0.06em]">{item.label}</span>
+              <span className="min-w-0 truncate text-2xs uppercase tracking-[0.06em]">{item.label}</span>
               <span className="shrink-0 text-sm font-bold text-[color:var(--text-heading)]">{item.value}</span>
             </span>
           ))}
@@ -116,7 +116,7 @@ export function ClinicalOutputPanel({
               <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">
                 {leadSection.title}
               </p>
-              <p className="mt-1 text-[15px] font-semibold leading-6 text-[color:var(--text-heading)]">
+              <p className="mt-1 text-base-minus font-semibold leading-6 text-[color:var(--text-heading)]">
                 <SafeBoldText text={leadSection.items[0] ?? "Review the source-backed answer and citations."} />
               </p>
             </div>
@@ -160,7 +160,7 @@ export function ClinicalOutputPanel({
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-[11px] font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                      <p className="truncate text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
                         {meta.eyebrow}
                       </p>
                       <h3 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -168,7 +168,7 @@ export function ClinicalOutputPanel({
                       </h3>
                     </div>
                   </div>
-                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-[10px]")}>{itemCount}</span>
+                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-3xs")}>{itemCount}</span>
                 </div>
                 {section.tables?.length ? (
                   <div className="mt-3 grid gap-3">
@@ -188,7 +188,7 @@ export function ClinicalOutputPanel({
                   </div>
                 ) : null}
                 {section.items.length ? (
-                  <ul className="mt-3 grid gap-2 text-[15px] leading-6 text-[color:var(--text)]">
+                  <ul className="mt-3 grid gap-2 text-base-minus leading-6 text-[color:var(--text)]">
                     {section.items.map((item, index) => (
                       <li
                         key={`${section.id}:${index}:${item.slice(0, 48)}`}

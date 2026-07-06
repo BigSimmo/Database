@@ -121,7 +121,7 @@ function Chip({ chip }: { chip: ServiceStatusChip }) {
   return (
     <span
       className={cn(
-        "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-bold",
+        "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-2xs font-bold",
         chipTone(chip.tone),
       )}
     >
