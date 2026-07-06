@@ -1014,11 +1014,25 @@ test.describe("Responsive layout guards", () => {
       const home = page.getByTestId("medication-home");
       await expect(home).toBeVisible();
       await settleLayout(page);
-      return page.evaluate(() => {
-        const rect = document.querySelector('[data-testid="medication-home"]')?.getBoundingClientRect();
-        if (!rect) return null;
-        return { topGap: rect.top, bottomGap: window.innerHeight - rect.bottom };
-      });
+      const measure = () =>
+        page.evaluate(() => {
+          const rect = document.querySelector('[data-testid="medication-home"]')?.getBoundingClientRect();
+          if (!rect) return null;
+          return { topGap: rect.top, bottomGap: window.innerHeight - rect.bottom };
+        });
+      // The smart-search hint/prompt rows render at first paint and are hidden
+      // by a post-hydration check on phone, shrinking the measured home ~50px
+      // shortly after load. Poll until two consecutive measurements match so
+      // the guard asserts the settled layout, not the transient one.
+      let result = await measure();
+      await expect(async () => {
+        const next = await measure();
+        const stable =
+          result !== null && next !== null && result.topGap === next.topGap && result.bottomGap === next.bottomGap;
+        result = next;
+        expect(stable).toBe(true);
+      }).toPass({ timeout: 10_000 });
+      return result;
     }
 
     // Phone (< sm): content is top-aligned so integrated action menus are not
