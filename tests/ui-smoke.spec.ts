@@ -1354,6 +1354,31 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("answer results surface cross-mode quick links", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    const question = "What is the maximum dose of clozapine?";
+    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    const strip = page.getByTestId("cross-mode-links");
+    await expect(strip).toBeVisible({ timeout: 15_000 });
+    // Close the composer command palette if it opened over the results.
+    await page.keyboard.press("Escape");
+    await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
+    await expect(
+      strip.getByRole("button", { name: "Search Clozapine in Medication" }),
+    ).toBeVisible();
+
+    const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
+    await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
+    await medicationLink.click();
+    await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 15_000 });
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("answer mode keeps prior turns visible for follow-up questions", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);

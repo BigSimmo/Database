@@ -41,25 +41,32 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-export function useMedicationCatalog(query?: string): AsyncState<MedicationCatalogResponse> {
+export function useMedicationCatalog(
+  query?: string,
+  options: { enabled?: boolean } = {},
+): AsyncState<MedicationCatalogResponse> {
+  const enabled = options.enabled ?? true;
   const trimmed = query?.trim() ?? "";
   const [prevQuery, setPrevQuery] = useState(trimmed);
+  const [prevEnabled, setPrevEnabled] = useState(enabled);
   const [state, setState] = useState<AsyncState<MedicationCatalogResponse>>({
     data: null,
-    loading: true,
+    loading: enabled,
     error: null,
   });
 
-  if (trimmed !== prevQuery) {
+  if (trimmed !== prevQuery || enabled !== prevEnabled) {
     setPrevQuery(trimmed);
+    setPrevEnabled(enabled);
     setState({
       data: null,
-      loading: true,
+      loading: enabled,
       error: null,
     });
   }
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     const url = trimmed ? `/api/medications?q=${encodeURIComponent(trimmed)}` : "/api/medications";
     fetchJson<MedicationCatalogResponse>(url)
@@ -78,7 +85,7 @@ export function useMedicationCatalog(query?: string): AsyncState<MedicationCatal
     return () => {
       cancelled = true;
     };
-  }, [trimmed]);
+  }, [trimmed, enabled]);
 
   return state;
 }
