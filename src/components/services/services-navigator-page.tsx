@@ -26,6 +26,7 @@ import { SearchResultsLayout } from "@/components/clinical-dashboard/search-resu
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
+  SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeHomeHref } from "@/lib/app-modes";
@@ -121,7 +122,7 @@ function Chip({ chip }: { chip: ServiceStatusChip }) {
   return (
     <span
       className={cn(
-        "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-bold",
+        "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-2xs font-bold",
         chipTone(chip.tone),
       )}
     >
@@ -435,6 +436,7 @@ export function ServicesNavigatorPage() {
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
   const registry = useRegistryRecords("service");
+  const registryLoading = registry.status === "loading";
   const searchableRecords = useMemo(
     () => (registry.status === "ready" ? registry.records : registry.status === "loading" ? [] : serviceRecords),
     [registry.records, registry.status],
@@ -478,10 +480,20 @@ export function ServicesNavigatorPage() {
           />
           <Stepper />
           <div className="xl:hidden">
-            <SearchResultsHeaderBand modeId="services" query={query} matchCount={scopedMatches.length} />
+            <SearchResultsHeaderBand
+              modeId="services"
+              query={query}
+              matchCount={scopedMatches.length}
+              loading={registryLoading}
+            />
           </div>
           <div className="hidden xl:block">
-            <SearchResultsHeaderBand modeId="services" query={query} matchCount={scopedMatches.length} />
+            <SearchResultsHeaderBand
+              modeId="services"
+              query={query}
+              matchCount={scopedMatches.length}
+              loading={registryLoading}
+            />
           </div>
         </>
       }
@@ -494,7 +506,9 @@ export function ServicesNavigatorPage() {
         />
       }
     >
-      {query.trim() && scopedMatches.length === 0 ? (
+      {registryLoading ? (
+        <SearchResultsSkeleton />
+      ) : query.trim() && scopedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"
           query={query}
@@ -506,14 +520,14 @@ export function ServicesNavigatorPage() {
           <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]">
             <div className="flex min-w-0 items-start justify-between gap-2 bg-[color:var(--surface-chrome)] p-3 sm:gap-3 sm:p-4">
               <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 sm:grid-cols-[3.25rem_minmax(0,1fr)]">
-                <span className="hidden h-12 w-12 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] sm:grid">
+                <span className="hidden h-12 w-12 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:grid">
                   <span className="text-lg font-extrabold leading-none sm:text-xl">{scopedMatches.length}</span>
                 </span>
                 <div className="min-w-0">
                   <p className="hidden text-3xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] sm:block">
                     Referral matches
                   </p>
-                  <h1 className="text-[1.45rem] font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:mt-0.5 sm:text-3xl">
+                  <h1 className="text-2xl-minus font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:mt-0.5 sm:text-3xl">
                     {scopedMatches.length} referral {scopedMatches.length === 1 ? "match" : "matches"}
                   </h1>
                   <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)] max-sm:max-w-[14rem]">
@@ -526,7 +540,7 @@ export function ServicesNavigatorPage() {
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button
-                  className="inline-flex min-h-10 w-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-[#061740] shadow-sm transition hover:border-[#b8dedb] hover:bg-[#f8fcfc] sm:min-h-11 sm:w-auto sm:px-4"
+                  className="inline-flex min-h-10 w-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-11 sm:w-auto sm:px-4"
                   type="button"
                   aria-label="Open service filters"
                 >
@@ -534,7 +548,7 @@ export function ServicesNavigatorPage() {
                   <span className="hidden sm:inline">Filters</span>
                 </button>
                 <button
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-[#061740] shadow-sm transition hover:border-[#b8dedb] hover:bg-[#f8fcfc] sm:min-h-11 sm:px-4"
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-11 sm:px-4"
                   type="button"
                 >
                   Sort <ChevronDown className="h-4 w-4" aria-hidden />
@@ -547,12 +561,20 @@ export function ServicesNavigatorPage() {
                   <button
                     key={chip}
                     type="button"
-                    onClick={() => applyServiceQuery(index === 0 ? defaultQuery : chip)}
+                    onClick={() =>
+                      applyServiceQuery(
+                        index === 0
+                          ? defaultQuery
+                          : chip === "ATSI-specific"
+                            ? "Aboriginal Torres Strait Islander"
+                            : chip,
+                      )
+                    }
                     className={cn(
                       "min-h-8 rounded-full border px-3 text-xs font-bold transition hover:-translate-y-px hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                       index > 2 ? "max-sm:hidden" : "",
                       index === 0
-                        ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[0_5px_12px_rgba(0,122,120,0.16)]"
+                        ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
                     )}
                   >

@@ -871,3 +871,17 @@ describe("clinical rank score bounding and penalty caps (RET-H1, RET-H2)", () =>
     expect(ranked[0].id).toBe("dose-table-row");
   });
 });
+
+describe("pre-clamp final score emission", () => {
+  it("emits preClampFinalScore on every ranked result for downstream tie-breaking", () => {
+    const ranked = rankClinicalResults("clozapine monitoring requirements", [
+      result({ id: "a", title: "Clozapine Prescribing and Monitoring", hybrid_score: 0.9 }),
+      result({ id: "b", title: "General Notes", hybrid_score: 0.4 }),
+    ]);
+
+    for (const item of ranked) {
+      expect(typeof item.score_explanation?.preClampFinalScore).toBe("number");
+      expect(Number.isFinite(item.score_explanation?.preClampFinalScore)).toBe(true);
+    }
+  });
+});

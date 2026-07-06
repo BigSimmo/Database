@@ -3367,7 +3367,7 @@ describe("private document API access", () => {
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
-  it("falls back to visible demo answers on the answer stream only outside production when Supabase rejects the API key", async () => {
+  it("falls back to a final streamed demo answer outside production when Supabase rejects the API key", async () => {
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Live answer",
       grounded: true,
@@ -3388,21 +3388,21 @@ describe("private document API access", () => {
       }),
     );
     const body = await response.text();
-    const final = ssePayload(body, "final");
+    const finalPayload = ssePayload(body, "final");
 
     expect(response.status).toBe(200);
     expect(body).not.toContain("event: error");
-    expect(final).toMatchObject({
+    expect(finalPayload).toMatchObject({
       demoMode: true,
       fallbackMode: "non_production_demo",
       fallbackReason: "supabase_api_key_configuration_unavailable",
       degradedMode: { active: true, reason: "supabase_api_key_configuration_unavailable" },
     });
-    expect(String(final.answer)).toContain("Synthetic");
+    expect(String(finalPayload.answer)).toContain("Synthetic");
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
-  it("does not fall back to demo answers on the answer stream in production when Supabase rejects the API key", async () => {
+  it("does not stream demo fallback in production when Supabase rejects the API key", async () => {
     vi.stubEnv("NODE_ENV", "production");
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Live answer",
@@ -3424,12 +3424,15 @@ describe("private document API access", () => {
       }),
     );
     const body = await response.text();
-    const streamError = ssePayload(body, "error");
+    const errorPayload = ssePayload(body, "error");
 
+    expect(response.status).toBe(200);
     expect(body).not.toContain("event: final");
-    expect(streamError).toMatchObject({
+    expect(errorPayload).toMatchObject({
       error: "Answer generation failed. Retry with a narrower question.",
       status: 500,
+      // Key-configuration failures carry a stable code so a production outage is
+      // diagnosable from the client network tab (confirmed live 2026-07-06).
       details: { code: "supabase_api_key_configuration" },
     });
     expect(answerQuestionWithScope).not.toHaveBeenCalled();

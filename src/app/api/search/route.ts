@@ -9,6 +9,7 @@ import { fetchRelatedDocuments, toDocumentMatch } from "@/lib/document-enrichmen
 import { jsonError, PublicApiError } from "@/lib/http";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { searchChunksWithTelemetry } from "@/lib/rag";
+import { weakRetrievalTopScoreThreshold } from "@/lib/rag-routing";
 import { classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag-provider";
@@ -439,7 +440,7 @@ function logWeakSearch(args: {
     args.results.length === 0 ||
     args.relevance.verdict === "none" ||
     args.relevance.verdict === "nearby" ||
-    topScore < 0.48;
+    topScore < weakRetrievalTopScoreThreshold;
   if (!weak) return;
   const promotions = candidatePromotions(args.query, args.results);
   void args.supabase
@@ -549,7 +550,7 @@ function logRetrievalDiagnostics(args: {
         args.results.length === 0 ||
         args.relevance.verdict === "none" ||
         args.relevance.verdict === "nearby" ||
-        topScore < 0.48;
+        topScore < weakRetrievalTopScoreThreshold;
       const latencyMs = telemetryLatencyMs(args.telemetry);
 
       await args.supabase.from("rag_retrieval_logs").insert({

@@ -2001,6 +2001,34 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("document viewer bottom composer hides while scrolling down on phones", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(
+      page,
+      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+    );
+
+    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
+    const composer = page.locator("form.document-viewer-composer");
+    await expect(composer).toBeVisible();
+    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
+
+    // Hide on deliberate scroll down past the activation offset.
+    await page.evaluate(() => window.scrollTo({ top: 120, behavior: "auto" }));
+    await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
+
+    // Reappear on scroll up.
+    await page.evaluate(() => window.scrollTo({ top: 60, behavior: "auto" }));
+    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
+
+    // Keyboard focus inside the composer reveals it while hidden.
+    await page.evaluate(() => window.scrollTo({ top: 240, behavior: "auto" }));
+    await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
+    await composer.locator("input").focus();
+    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
+  });
+
   test("document summary opens at the top with cleaned bold formatting", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);

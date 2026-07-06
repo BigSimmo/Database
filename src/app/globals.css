@@ -12,6 +12,16 @@
  *   rounded-md  chips, inner elements, metadata pills
  *   rounded-lg  controls, inputs, buttons, cards, panels, drawers
  *   rounded-xl  bottom sheets, dialogs, large shells
+ *
+ * Z-index ladder (Tailwind v4 has no z theme namespace; arbitrary values are
+ * the idiom — pick an existing rung, never invent a new number):
+ *   0–40    in-page layering: sticky headers, badges, count bubbles
+ *   60      app chrome: master search header, mode menus
+ *   80–85   document overlays: viewer fullscreen (80), table fullscreen (85)
+ *   95      popovers that must beat overlays (source preview)
+ *   100     modal layer — the Sheet primitive — and the skip link
+ *   max     mockup-only diagnostics; never in live routes
+ * New overlays go through components/ui/sheet.tsx rather than a new layer.
  */
 @theme {
   --radius-xs: 0.25rem;
@@ -1238,14 +1248,37 @@ summary::-webkit-details-marker {
   min-width: 0;
 }
 
+.smart-search-rotating-text,
+.smart-search-prompt-row,
 .smart-search-suggestion-row {
   display: none;
 }
 
 @media (min-width: 1024px) {
+  .smart-search-rotating-text {
+    display: flex;
+  }
+
+  .smart-search-prompt-row,
   .smart-search-suggestion-row {
     display: flex;
   }
+}
+
+.smart-search-rotating-text {
+  min-height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding-inline: 0.25rem;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.smart-search-rotating-query {
+  color: var(--clinical-accent);
 }
 
 .answer-suggestion-label {
@@ -1502,6 +1535,15 @@ summary::-webkit-details-marker {
 
   .answer-footer-search-dock[data-scroll-hidden="true"] {
     transform: translateY(calc(100% + env(safe-area-inset-bottom)));
+    pointer-events: none;
+  }
+
+  /* Document viewer bottom composer mirrors the dock's hide-on-scroll. Unlike
+     the full-bleed dock it floats with a bottom gap (.floating-composer-edge,
+     bottom: max(0.75rem, safe-area)), so the exit transform must also clear
+     that gap. translateY-only: this form centres with mx-auto, not translateX. */
+  .document-viewer-composer[data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + max(0.75rem, var(--safe-area-bottom))));
     pointer-events: none;
   }
 

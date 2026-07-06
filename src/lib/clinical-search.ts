@@ -1714,6 +1714,7 @@ export function rankClinicalResults(query: string, results: SearchResult[]) {
       score_explanation: {
         ...entry.explanation,
         finalRank: index + 1,
+        preClampFinalScore: roundScore(entry.preClampFinalScore),
       },
     }));
 

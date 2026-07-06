@@ -1,5 +1,6 @@
 import { Brain, FileCheck2, FileText, Pill, Search, Star, type LucideIcon } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
+import { toolCatalogRecordById } from "@/lib/tools-catalog";
 
 export type ToolStatus = "ready" | "review_due" | "recent";
 export type ToolArea = "reference" | "assessment" | "care" | "coordination" | "personal";
@@ -18,15 +19,25 @@ export type ToolFixture = {
   secondary: string;
 };
 
-export const tools: ToolFixture[] = [
+// Identity (title/description/href/sourceBacked) comes from the shared tools catalog
+// (src/lib/tools-catalog.ts); only mockup-specific presentation extras live here.
+type ToolFixtureExtras = {
+  id: string;
+  icon: LucideIcon;
+  area: ToolArea;
+  status: ToolStatus;
+  lastUsed: string;
+  primaryAction: string;
+  secondary: string;
+  title?: string;
+  description?: string;
+};
+
+const fixtureExtras: ToolFixtureExtras[] = [
   {
     id: "clinical-kb-search",
-    title: "Clinical KB Search",
-    description: "Ask source-backed clinical questions and move straight to evidence.",
-    href: "/?mode=answer",
     icon: Search,
     area: "reference",
-    sourceBacked: true,
     status: "ready",
     lastUsed: "Today, 7:30 AM",
     primaryAction: "Ask",
@@ -34,12 +45,8 @@ export const tools: ToolFixture[] = [
   },
   {
     id: "documents",
-    title: "Documents",
-    description: "Search indexed PDFs, policies, guidelines, pages, tables, and images.",
-    href: "/?mode=documents",
     icon: FileText,
     area: "reference",
-    sourceBacked: true,
     status: "ready",
     lastUsed: "May 10, 2025",
     primaryAction: "Search",
@@ -47,12 +54,8 @@ export const tools: ToolFixture[] = [
   },
   {
     id: "differentials",
-    title: "Differentials",
-    description: "Build and compare diagnostic possibilities with source-aware prompts.",
-    href: "/differentials",
     icon: Brain,
     area: "assessment",
-    sourceBacked: true,
     status: "recent",
     lastUsed: "Today, 8:40 AM",
     primaryAction: "Compare",
@@ -60,12 +63,8 @@ export const tools: ToolFixture[] = [
   },
   {
     id: "medication-prescribing",
-    title: "Medication Prescribing",
-    description: "Review prescribing context, monitoring, interactions, and cautions.",
-    href: "/?mode=prescribing",
     icon: Pill,
     area: "care",
-    sourceBacked: true,
     status: "review_due",
     lastUsed: "May 12, 2025",
     primaryAction: "Prescribe",
@@ -73,12 +72,8 @@ export const tools: ToolFixture[] = [
   },
   {
     id: "services",
-    title: "Services",
-    description: "Open source-backed service records, referral routes, and eligibility.",
-    href: "/services",
     icon: appModeIcons.services,
     area: "coordination",
-    sourceBacked: true,
     status: "review_due",
     lastUsed: "Today, 8:15 AM",
     primaryAction: "Refer",
@@ -86,12 +81,8 @@ export const tools: ToolFixture[] = [
   },
   {
     id: "forms",
-    title: "Forms",
-    description: "Find clinical forms and source-backed readiness pathways.",
-    href: "/forms",
     icon: FileCheck2,
     area: "coordination",
-    sourceBacked: true,
     status: "ready",
     lastUsed: "Today, 8:05 AM",
     primaryAction: "Open",
@@ -99,18 +90,34 @@ export const tools: ToolFixture[] = [
   },
   {
     id: "favourites",
-    title: "Favourites",
-    description: "Return to saved clinical work, sources, and repeated workflows.",
-    href: "/favourites",
     icon: Star,
     area: "personal",
-    sourceBacked: false,
     status: "recent",
     lastUsed: "Today, 8:45 AM",
     primaryAction: "Resume",
     secondary: "Saved items, recent work, pins",
+    // The mockups keep the shorter historical framing for this entry.
+    title: "Favourites",
+    description: "Return to saved clinical work, sources, and repeated workflows.",
   },
 ];
+
+export const tools: ToolFixture[] = fixtureExtras.map((extras) => {
+  const record = toolCatalogRecordById(extras.id);
+  return {
+    id: record.id,
+    title: extras.title ?? record.title,
+    description: extras.description ?? record.description,
+    href: record.href,
+    sourceBacked: record.sourceBacked,
+    icon: extras.icon,
+    area: extras.area,
+    status: extras.status,
+    lastUsed: extras.lastUsed,
+    primaryAction: extras.primaryAction,
+    secondary: extras.secondary,
+  };
+});
 
 export const pinnedToolIds = ["clinical-kb-search", "documents", "medication-prescribing", "services"] as const;
 
