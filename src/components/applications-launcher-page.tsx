@@ -908,7 +908,9 @@ export function ApplicationsLauncherWorkspace({
     : (filteredApps[0]?.id ?? selectedId);
   const selectedApp = appById(effectiveSelectedId);
   // "more" behaves as "all" in filtering, so it falls back to the all-tools label.
-  const activeFilterLabel = desktopFilters.find((filter) => filter.id === activeFilter)?.label;
+  const activeFilterLabel =
+    desktopFilters.find((filter) => filter.id === activeFilter)?.label ??
+    mobileFilters.find((filter) => filter.id === activeFilter)?.label;
   const resultsPanelLabel =
     activeFilterLabel && activeFilterLabel !== copy.allSectionLabel
       ? `${activeFilterLabel} tools`
