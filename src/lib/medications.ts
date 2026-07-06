@@ -218,9 +218,13 @@ export function rankMedicationRecords(records: MedicationRecord[], query: string
         compactQuery.length >= 4 &&
         (compactText.includes(compactQuery) || title.replace(/\s+/g, "").includes(compactQuery));
 
+      const namePrefixMatch =
+        normalizedQuery.length >= 3 && (title.startsWith(normalizedQuery) || slug.startsWith(normalizedQuery));
+
       let score = 0;
       score += titleMatches.length * 8;
       if (compactTitleMatch) score += 6;
+      if (namePrefixMatch) score += 5;
       score += taxonomyMatches.length * 3;
       score += matchedTerms.length * 2;
       if (normalizedQuery && text.includes(normalizedQuery)) score += 4;
@@ -228,6 +232,7 @@ export function rankMedicationRecords(records: MedicationRecord[], query: string
 
       const reasons = [
         titleMatches.length ? "name" : "",
+        namePrefixMatch ? "name prefix" : "",
         compactTitleMatch ? "exact name" : "",
         taxonomyMatches.length ? "class/category" : "",
         matchedTerms.length ? "content" : "",

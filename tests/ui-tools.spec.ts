@@ -825,11 +825,12 @@ test.describe("Clinical KB tools launcher", () => {
       queryMode: "compare_guidance",
     });
 
-    // Evidence arrived, so the results view renders — with the synthetic
-    // demonstration-content notice, never presented as reviewed output.
+    // Evidence arrived, so the results view renders — ranked from the imported
+    // differentials catalogue with a real query-matched result row.
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
-    await expect(page.getByTestId("differentials-demo-content-notice")).toBeVisible();
-    await expect(page.getByText("Demonstration ranking").first()).toBeVisible();
+    await expect(page.getByTestId("differentials-catalogue-notice")).toBeVisible();
+    await expect(page.getByText("Catalogue ranking").first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
   });
 
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {

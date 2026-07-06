@@ -2770,6 +2770,11 @@ export function ClinicalDashboard({
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
+      // Differentials mode: the ranked catalogue results are the primary
+      // content and load independently of this document-evidence search, so an
+      // empty corpus result is applied (empty evidence) rather than surfaced
+      // as an error that would hide the catalogue view.
+      let emptyDifferentialsPayload: SearchResultModePayload | null = null;
 
       for (const entry of queryPlan) {
         if (entry.isKeyword) onProgress("Trying keyword-based search...");
@@ -2787,6 +2792,7 @@ export function ClinicalDashboard({
                 );
 
           if (!resultUsable(payload)) {
+            if (modeSearch.kind === "differentials") emptyDifferentialsPayload = payload;
             lastError = makeSearchError("No usable results were found.", 404, false);
             if (!entry.isKeyword) {
               continue;
@@ -2803,6 +2809,10 @@ export function ClinicalDashboard({
           }
           throw requestError;
         }
+      }
+
+      if (!successfulPayload && emptyDifferentialsPayload) {
+        successfulPayload = emptyDifferentialsPayload;
       }
 
       if (!successfulPayload) {
@@ -3934,6 +3944,7 @@ export function ClinicalDashboard({
                   <DifferentialsHome
                     query={query}
                     loading={loading}
+                    searchSubmitted={modeSearchSubmitted}
                     documentMatches={documentMatches}
                     realDataReady={canRunSearch}
                     authUnavailable={false}
