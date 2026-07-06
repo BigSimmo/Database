@@ -1238,14 +1238,37 @@ summary::-webkit-details-marker {
   min-width: 0;
 }
 
+.smart-search-rotating-text,
+.smart-search-prompt-row,
 .smart-search-suggestion-row {
   display: none;
 }
 
 @media (min-width: 1024px) {
+  .smart-search-rotating-text {
+    display: flex;
+  }
+
+  .smart-search-prompt-row,
   .smart-search-suggestion-row {
     display: flex;
   }
+}
+
+.smart-search-rotating-text {
+  min-height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding-inline: 0.25rem;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.smart-search-rotating-query {
+  color: var(--clinical-accent);
 }
 
 .answer-suggestion-label {

@@ -22,6 +22,8 @@ import {
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
+const SMART_HINT_ROTATION_MS = 3200;
+
 type DropdownItem = {
   id: string;
   label: string;
@@ -54,15 +56,40 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
 
 export type CommandSurfacePlacement = "bottom-dock" | "inline";
 
-function ContextHintRow({ examples, onPickExample }: { examples: string[]; onPickExample: (example: string) => void }) {
+function SmartRotatingHint({ examples, modeLabel }: { examples: string[]; modeLabel: string }) {
+  const [activeExampleIndex, setActiveExampleIndex] = useState(0);
+  const activeExample = examples[activeExampleIndex % examples.length];
+
+  useEffect(() => {
+    if (examples.length <= 1) return;
+    const intervalId = window.setInterval(() => {
+      setActiveExampleIndex((current) => (current + 1) % examples.length);
+    }, SMART_HINT_ROTATION_MS);
+    return () => window.clearInterval(intervalId);
+  }, [examples]);
+
+  if (!activeExample) return null;
+
+  return (
+    <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text" aria-live="polite">
+      <span>Smart search</span>
+      <span aria-hidden="true">·</span>
+      <span>
+        Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
+      </span>
+    </div>
+  );
+}
+
+function SmartPromptRow({ examples, onPickExample }: { examples: string[]; onPickExample: (example: string) => void }) {
   return (
     <AnswerSuggestionChips
       suggestions={examples}
       onPick={onPickExample}
-      label="Suggested"
-      testId="smart-search-suggestion-row"
+      label="Prompts"
+      testId="smart-search-prompt-row"
       layout="scroll"
-      className="smart-search-suggestion-row"
+      className="smart-search-prompt-row"
     />
   );
 }
@@ -545,14 +572,7 @@ export function UniversalSearchCommandSurface({
         placement === "bottom-dock" ? "gap-1" : "gap-2",
       )}
     >
-      <ContextHintRow
-        examples={config.examples}
-        onPickExample={(example) => {
-          onQueryChange(example);
-          onDropdownOpenChange(true);
-          onFocusSearchInput?.();
-        }}
-      />
+      <SmartRotatingHint examples={config.examples} modeLabel={mode.label} />
       <div
         className="relative w-full"
         onKeyDownCapture={(event) => {
@@ -585,6 +605,14 @@ export function UniversalSearchCommandSurface({
           />
         ) : null}
       </div>
+      <SmartPromptRow
+        examples={config.examples}
+        onPickExample={(example) => {
+          onQueryChange(example);
+          onDropdownOpenChange(true);
+          onFocusSearchInput?.();
+        }}
+      />
       <ScopeChipRow scopes={config.scopes} activeScopes={commandScopes} onToggle={toggleScope} modeLabel={mode.label} />
       <style>{`@keyframes universal-command-fade { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }`}</style>
     </div>
