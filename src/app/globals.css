@@ -12,6 +12,16 @@
  *   rounded-md  chips, inner elements, metadata pills
  *   rounded-lg  controls, inputs, buttons, cards, panels, drawers
  *   rounded-xl  bottom sheets, dialogs, large shells
+ *
+ * Z-index ladder (Tailwind v4 has no z theme namespace; arbitrary values are
+ * the idiom — pick an existing rung, never invent a new number):
+ *   0–40    in-page layering: sticky headers, badges, count bubbles
+ *   60      app chrome: master search header, mode menus
+ *   80–85   document overlays: viewer fullscreen (80), table fullscreen (85)
+ *   95      popovers that must beat overlays (source preview)
+ *   100     modal layer — the Sheet primitive — and the skip link
+ *   max     mockup-only diagnostics; never in live routes
+ * New overlays go through components/ui/sheet.tsx rather than a new layer.
  */
 @theme {
   --radius-xs: 0.25rem;

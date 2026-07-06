@@ -57,7 +57,7 @@ export function RelatedDocumentsPanel({
               </button>
             </div>
             {document.summary && (
-              <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>
+              <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>
                 <SafeBoldText text={document.summary} />
               </p>
             )}
