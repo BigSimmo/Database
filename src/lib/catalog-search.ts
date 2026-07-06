@@ -5,6 +5,8 @@
 // rankCatalogRecords with their historical field weights; the wrapper owns its reason
 // labels and match shape so existing API/UI contracts are unchanged.
 
+import { matchesTermAtWordBoundary } from "@/lib/keyword-query";
+
 // Canonical normalizer (the medications implementation — the superset of the retired
 // services/forms variants: NFKD + diacritic strip, and `+ . / -` survive so dose strings
 // ("5+5", "0.5mg", "IM/PO") and hyphenated clinical terms stay searchable).
@@ -102,7 +104,10 @@ export function rankCatalogRecords<T>(
       for (const field of options.fields) {
         const haystack = field.text(record);
         if (!haystack) continue;
-        const matched = terms.filter((term) => haystack.includes(term)).length;
+        // Fields are the high-weight name/title/tag signals, so a term must
+        // align with a word boundary — substring hits ("renal" inside
+        // "adrenaline") stay confined to the low-weight content haystack.
+        const matched = terms.filter((term) => matchesTermAtWordBoundary(haystack, term)).length;
         if (!matched) continue;
         fields[field.id] = matched;
         score += matched * field.weight;

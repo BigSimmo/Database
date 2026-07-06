@@ -63,9 +63,8 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
-import { CrossModeLinksStrip } from "@/components/clinical-dashboard/cross-mode-links";
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
-import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
@@ -162,7 +161,6 @@ import {
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { rankFormRecords } from "@/lib/forms";
 import { rankServiceRecords } from "@/lib/services";
-import { buildCrossModeLinksForThread, type CrossModeDifferentialCatalog } from "@/lib/cross-mode-links";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
 import {
@@ -1608,46 +1606,6 @@ export function ClinicalDashboard({
     [searchMode, formSearchMatches, serviceSearchMatches],
   );
   const recordSearchMode = searchMode === "forms" ? "forms" : "services";
-  // Cross-mode quick links rendered under answers. Catalogs come from the
-  // same owner-scoped APIs the modes themselves use (fixtures in demo mode),
-  // and nothing is fetched until the first answer lands.
-  const answerCrossLinksActive = activeModeResultKind === "answer" && answer !== null;
-  const crossLinkServices = useRegistryRecords("service", { enabled: answerCrossLinksActive });
-  const crossLinkForms = useRegistryRecords("form", { enabled: answerCrossLinksActive });
-  const crossLinkMedications = useMedicationCatalog(undefined, { enabled: answerCrossLinksActive });
-  const [crossLinkDifferentials, setCrossLinkDifferentials] = useState<CrossModeDifferentialCatalog | null>(null);
-  useEffect(() => {
-    // Dynamic import keeps the 1.2 MB differentials snapshot out of the
-    // dashboard bundle; the catalog is loaded once per session.
-    if (!answerCrossLinksActive || crossLinkDifferentials) return;
-    let cancelled = false;
-    import("@/lib/cross-mode-differentials").then((module) => {
-      if (!cancelled) setCrossLinkDifferentials(module.crossModeDifferentialCatalog());
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [answerCrossLinksActive, crossLinkDifferentials]);
-  const crossModeLinks = useMemo(() => {
-    if (!answerCrossLinksActive || !latestAnswerQuery) return [];
-    const catalogs = {
-      medications: crossLinkMedications.data?.records ?? [],
-      services: crossLinkServices.records,
-      forms: crossLinkForms.records,
-      differentials: crossLinkDifferentials ?? undefined,
-    };
-    // The thread helper walks back from the latest question until a turn
-    // names an entity, so cards survive consecutive entity-free follow-ups.
-    return buildCrossModeLinksForThread([...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery], catalogs);
-  }, [
-    answerCrossLinksActive,
-    latestAnswerQuery,
-    priorAnswerTurns,
-    crossLinkMedications.data,
-    crossLinkServices.records,
-    crossLinkForms.records,
-    crossLinkDifferentials,
-  ]);
   // The thread mirror ref must never outlive the answer it describes: every
   // reset path nulls `answer`, so clearing here covers them all (mode
   // switches, new chat, differentials/services clears) without each caller
@@ -4072,6 +4030,9 @@ export function ClinicalDashboard({
                   ) : (
                     <>
                       <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                      {searchMode === "documents" && modeSearchSubmitted && (
+                        <CrossModeLinksSection queries={[query]} onModeSearch={crossModeSearch} />
+                      )}
                       <DocumentSearchResultsPanel
                         matches={documentMatches}
                         recordMatches={recordSearchMatches}
@@ -4165,8 +4126,11 @@ export function ClinicalDashboard({
 
               {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
 
-              {activeModeResultKind === "answer" && answer && crossModeLinks.length > 0 && (
-                <CrossModeLinksStrip links={crossModeLinks} onModeSearch={crossModeSearch} />
+              {activeModeResultKind === "answer" && answer && (
+                <CrossModeLinksSection
+                  queries={[...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery]}
+                  onModeSearch={crossModeSearch}
+                />
               )}
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel

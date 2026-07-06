@@ -44,9 +44,10 @@ async function fetchJson<T>(url: string, headers?: HeadersInit): Promise<T> {
 
 export function useMedicationCatalog(
   query?: string,
-  options: { enabled?: boolean } = {},
+  options: { enabled?: boolean; fields?: "index" } = {},
 ): AsyncState<MedicationCatalogResponse> {
   const enabled = options.enabled ?? true;
+  const fields = options.fields;
   const trimmed = query?.trim() ?? "";
   // Auth-aware like use-registry-records: without the header an authenticated owner was
   // silently served the public fixture catalogue instead of their seeded records.
@@ -72,7 +73,11 @@ export function useMedicationCatalog(
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
-    const url = trimmed ? `/api/medications?q=${encodeURIComponent(trimmed)}` : "/api/medications";
+    const params = new URLSearchParams();
+    if (trimmed) params.set("q", trimmed);
+    if (fields) params.set("fields", fields);
+    const suffix = params.toString();
+    const url = suffix ? `/api/medications?${suffix}` : "/api/medications";
     fetchJson<MedicationCatalogResponse>(url, authorizationHeader)
       .then((data) => {
         if (!cancelled) setState({ data, loading: false, error: null });
@@ -89,7 +94,7 @@ export function useMedicationCatalog(
     return () => {
       cancelled = true;
     };
-  }, [trimmed, enabled, authorizationHeader]);
+  }, [trimmed, enabled, fields, authorizationHeader]);
 
   return state;
 }

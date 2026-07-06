@@ -89,3 +89,16 @@ export function extractKeywordTerms(query: string, options: { maxTerms?: number 
 export function keywordQueryFromNaturalLanguage(query: string) {
   return extractKeywordTerms(query, { maxTerms: 7 }).join(" ");
 }
+
+// A query term only counts against a name/title when it aligns with a word
+// boundary — exact word, or word prefix to keep search-as-you-type working —
+// so terms cannot hide inside words ("renal" inside "adrenaline"). Words are
+// split on every non-alphanumeric so tokens like "im/po" or "co-codamol"
+// match on their parts.
+export function matchesTermAtWordBoundary(text: string, term: string) {
+  if (!term) return false;
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .some((word) => word === term || word.startsWith(term));
+}
