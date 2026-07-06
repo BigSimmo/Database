@@ -506,12 +506,16 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     // job (status "pending") racing this DELETE let the worker upload a new
     // generation of image objects after the storage paths were enumerated,
     // orphaning them permanently.
-    const { data: activeJobs, error: activeJobsError } = await supabase
-      .from("ingestion_jobs")
-      .select("id,status")
-      .eq("document_id", id)
-      .in("status", ["pending", "processing"])
-      .limit(1);
+    async function loadActiveJobs() {
+      return supabase
+        .from("ingestion_jobs")
+        .select("id,status")
+        .eq("document_id", id)
+        .in("status", ["pending", "processing"])
+        .limit(1);
+    }
+
+    const { data: activeJobs, error: activeJobsError } = await loadActiveJobs();
 
     if (activeJobsError) throw new Error(activeJobsError.message);
     if ((activeJobs ?? []).length > 0) {
@@ -546,6 +550,21 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       sourcePath: document.storage_path,
       imagePaths,
     });
+
+    const { data: lateActiveJobs, error: lateActiveJobsError } = await loadActiveJobs();
+    if (lateActiveJobsError) throw new Error(lateActiveJobsError.message);
+    if ((lateActiveJobs ?? []).length > 0) {
+      const message =
+        "Document gained pending or processing indexing work during delete. Stop or wait for the worker before deleting.";
+      const ledgerWarning = await updateStorageCleanupJob({
+        supabase,
+        cleanupJobId,
+        status: "failed",
+        storageRemoved: 0,
+        warnings: [message],
+      });
+      throw new PublicApiError(ledgerWarning ? `${message}; ${ledgerWarning}` : message, 409);
+    }
 
     try {
       await deleteDocumentIndexTraceRows({ supabase, ownerId: user.id, documentId: id, chunkIds });

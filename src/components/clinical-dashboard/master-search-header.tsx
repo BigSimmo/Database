@@ -206,6 +206,7 @@ export function MasterSearchHeader({
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
+  onBottomComposerScrollHiddenChange,
 }: {
   documents: ClinicalDocument[];
   documentTotal?: number;
@@ -261,12 +262,15 @@ export function MasterSearchHeader({
   heroComposerFromTablet?: boolean;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
-  /** Phone-only hide-on-scroll for the universal header. "overlay" translates
-   *  the sticky header away (host scrolls the document, content already flows
-   *  beneath); "collapse" also releases the header's layout space (host keeps
-   *  the header above an internally scrolling element). `containerRef` points
-   *  at the scrolling element; omit it to observe window scroll. */
+  /** Phone-only hide-on-scroll for the universal header and bottom search dock.
+   *  "overlay" translates the sticky header away (host scrolls the document,
+   *  content already flows beneath); "collapse" also releases the header's
+   *  layout space (host keeps the header above an internally scrolling element).
+   *  The phone bottom search composer hides in sync on search-mode pages.
+   *  `containerRef` points at the scrolling element; omit it to observe window scroll. */
   hideOnScroll?: { strategy: "overlay" | "collapse"; containerRef?: RefObject<HTMLElement | null> };
+  /** Fired when the phone bottom search dock enters or leaves the scroll-hidden state. */
+  onBottomComposerScrollHiddenChange?: (hidden: boolean) => void;
 }) {
   const visibleAppModeOptions = defaultVisibleAppModeOptions;
   const trimmedQuery = query.trim();
@@ -306,12 +310,26 @@ export function MasterSearchHeader({
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
+  const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const scrollHidden = useHideOnScroll({
     containerRef: hideOnScroll?.containerRef,
     disabled: !hideOnScroll,
   });
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
+  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && isMobileBottomComposer && usesPhoneSearchLayout);
+  const bottomComposerHidden =
+    bottomComposerScrollHiddenActive &&
+    scrollHidden &&
+    !actionMenuOpen &&
+    !commandDropdownOpen &&
+    !scopeOpen &&
+    !scopeSheetOpen &&
+    !composerChromeFocused;
+
+  useEffect(() => {
+    onBottomComposerScrollHiddenChange?.(bottomComposerHidden);
+  }, [bottomComposerHidden, onBottomComposerScrollHiddenChange]);
   // Stable, header-owned element the composer is portaled into; we move it in and
   // out of the page-owned slot rather than portaling into the slot directly.
   const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);
@@ -677,6 +695,7 @@ export function MasterSearchHeader({
     );
     let frame: number | null = null;
     let retryTimeout: number | null = null;
+    let portalRetryCount = 0;
     const syncTarget = () => {
       if (retryTimeout !== null) {
         window.clearTimeout(retryTimeout);
@@ -684,14 +703,16 @@ export function MasterSearchHeader({
       }
       const slot = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
       if (slot) {
+        portalRetryCount = 0;
         if (host.parentNode !== slot) slot.appendChild(host);
         setDesktopHomeComposerHost(host);
         setDesktopHomeComposerActive(true);
       } else {
         host.parentNode?.removeChild(host);
         setDesktopHomeComposerActive(false);
-        if (mediaQuery.matches) {
-          retryTimeout = window.setTimeout(syncTarget, 50);
+        if (mediaQuery.matches && portalRetryCount < 24) {
+          portalRetryCount += 1;
+          retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
         }
       }
     };
@@ -1026,6 +1047,8 @@ export function MasterSearchHeader({
     const usesCompactMobileBottomStyle = usesMobileBottomStyle && mobileBottomSearchVariant === "compact";
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
     const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer;
+    // The visible footer/hero composer chrome is universal; submit semantics still
+    // come from the active mode.
     const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;
     const usesModeIdentityAffordance = usesBottomComposerPlacement && !usesSendAffordance;
     const ModeIdentityIcon = appModeIcons[searchMode];
@@ -1034,6 +1057,7 @@ export function MasterSearchHeader({
       usesMobileBottomStyle && searchMode === "differentials" ? "Search a presentation" : queryPlaceholder;
 
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
+    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesMobileBottomStyle && usesPhoneFooterDock);
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
 
@@ -1043,6 +1067,8 @@ export function MasterSearchHeader({
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
         data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
         data-command-open={usesBottomComposerPlacement && commandDropdownOpen ? "true" : undefined}
+        data-scroll-hidden={shouldHideBottomOnScroll && bottomComposerHidden ? "true" : undefined}
+        {...(shouldHideBottomOnScroll ? composerFocusProps : undefined)}
         className={cn(
           isDesktopHomeComposer
             ? "universal-home-search-edge mx-auto w-full"
@@ -1057,6 +1083,8 @@ export function MasterSearchHeader({
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
+          shouldHideBottomOnScroll &&
+            "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
         )}
       >
         {usesBottomComposerPlacement ? <div className="answer-footer-search-backdrop" aria-hidden="true" /> : null}
@@ -1209,6 +1237,8 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
+        {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
+            open it even when the footer chip row is not shown. */}
         {supportsDocumentScope && !usesScopeSheet && scopeOpen ? (
           <div
             ref={scopePopoverRef}
@@ -1271,6 +1301,14 @@ export function MasterSearchHeader({
         onFocusCapture: () => setHeaderChromeFocused(true),
         onBlurCapture: (event: ReactFocusEvent<HTMLElement>) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setHeaderChromeFocused(false);
+        },
+      }
+    : undefined;
+  const composerFocusProps = hideOnScroll
+    ? {
+        onFocusCapture: () => setComposerChromeFocused(true),
+        onBlurCapture: (event: ReactFocusEvent<HTMLElement>) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
         },
       }
     : undefined;
@@ -1472,7 +1510,11 @@ export function MasterSearchHeader({
 
       {searchComposerVisible ? (
         <>
-          {desktopHomeComposerActive && desktopHomeComposerHost ? null : renderSearchComposer("default")}
+          {desktopHomeComposerActive && desktopHomeComposerHost
+            ? null
+            : desktopHomeComposerSlotId
+              ? null
+              : renderSearchComposer("default")}
           {desktopHomeComposerActive && desktopHomeComposerHost
             ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
             : null}

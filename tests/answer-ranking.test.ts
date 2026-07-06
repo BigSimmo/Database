@@ -116,6 +116,26 @@ describe("answer evidence ranking", () => {
     ).toBeLessThan(0.45);
   });
 
+  it("uses retrieval synopsis text in the combined evidence haystack", () => {
+    const ranking = rankAnswerEvidence("Summarize clozapine blood monitoring observations", [
+      result({
+        id: "generic-higher-score",
+        title: "General monitoring",
+        content: "Administrative review process only.",
+        hybrid_score: 0.72,
+      }),
+      result({
+        id: "synopsis-match",
+        title: "Monitoring overview",
+        content: "Administrative review process only.",
+        retrieval_synopsis: "Clozapine blood monitoring observations and review timing guidance.",
+        hybrid_score: 0.56,
+      }),
+    ]);
+
+    expect(ranking.rankedResults[0].id).toBe("synopsis-match");
+  });
+
   it("does not let agitation title repetition outrank direct dosing evidence", () => {
     const ranking = rankAnswerEvidence("agitation and arousal dosing in psychiatric patients", [
       result({

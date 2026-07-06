@@ -8,6 +8,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type Ref,
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
@@ -271,6 +272,15 @@ export function modeActionItemsFor(setId: ModeActionSetId): readonly ModeActionI
   return modeActionSets[setId];
 }
 
+function assignTriggerRef(ref: Ref<HTMLButtonElement> | undefined, element: HTMLButtonElement | null) {
+  if (!ref) return;
+  if (typeof ref === "function") {
+    ref(element);
+    return;
+  }
+  ref.current = element;
+}
+
 export function ModeActionPopup({
   open,
   title,
@@ -305,10 +315,10 @@ export function ModeActionPopup({
   onModeSelect?: (modeId: string) => void;
   onPlacementChange?: (placement: ModeActionPlacement) => void;
   triggerClassName?: string;
+  triggerRef?: Ref<HTMLButtonElement>;
   integrated?: boolean;
   /** When false, the integrated menu skips the footer chip-row clearance offset. */
   integratedChipRow?: boolean;
-  triggerRef?: RefObject<HTMLButtonElement | null>;
   /** Header-owned controls (e.g. app mode trigger) that must stay clickable above the portaled menu. */
   dismissIgnoreRefs?: readonly RefObject<HTMLElement | null>[];
 }) {
@@ -733,9 +743,9 @@ export function ModeActionPopup({
       <div ref={rootRef} className="relative shrink-0">
         <button
           type="button"
-          ref={(node) => {
-            buttonRef.current = node;
-            if (triggerRef) triggerRef.current = node;
+          ref={(element) => {
+            buttonRef.current = element;
+            assignTriggerRef(triggerRef, element);
           }}
           className={cn(
             chatComposerIconButton,
