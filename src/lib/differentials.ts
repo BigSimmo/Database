@@ -1,3 +1,4 @@
+import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import type {
   DifferentialComparisonCandidate,
@@ -46,7 +47,9 @@ export function differentialPresentations(): DifferentialPresentationWorkflow[] 
 }
 
 export function differentialScenarioPresets(): DifferentialScenarioPreset[] {
-  return catalog().presets;
+  // The generated snapshot can carry markdown-header artifacts (e.g. "# Scenario
+  // Presets") as synthetic first rows; they are not searchable presets.
+  return catalog().presets.filter((preset) => !preset.query.trimStart().startsWith("#"));
 }
 
 export function differentialRedFlagFlows(): DifferentialRedFlagFlow[] {
@@ -54,7 +57,14 @@ export function differentialRedFlagFlows(): DifferentialRedFlagFlow[] {
 }
 
 export function differentialSearchAliases(): Record<string, string[]> {
-  return catalog().searchAliases;
+  // The generated snapshot can leak template metadata (field name → numeric
+  // weight, e.g. "tags" → ["1.1"]) into the alias map; bare-number aliases
+  // would match unrelated records by substring, so drop them.
+  return Object.fromEntries(
+    Object.entries(catalog().searchAliases)
+      .map(([token, aliases]) => [token, aliases.filter((alias) => !/^\d+(\.\d+)?$/.test(alias.trim()))] as const)
+      .filter(([, aliases]) => aliases.length > 0),
+  );
 }
 
 export function getPresentationWorkflow(slug: string | null | undefined) {
@@ -98,21 +108,16 @@ export function differentialStaticParams() {
   return differentialRecords.map((record) => ({ slug: record.slug }));
 }
 
-function expandQueryTokens(query: string) {
+function expandQueryTerms(terms: string[]) {
   const aliases = differentialSearchAliases();
-  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const expanded = new Set(tokens);
-  for (const token of tokens) {
-    for (const alias of aliases[token] ?? []) expanded.add(alias);
+  const expanded = new Set(terms);
+  for (const term of terms) {
+    for (const alias of aliases[term] ?? []) {
+      for (const aliasToken of normalizeSearchText(alias).split(/\s+/).filter(Boolean)) expanded.add(aliasToken);
+      expanded.add(normalizeSearchText(alias));
+    }
   }
   return [...expanded];
-}
-
-function normalizeSearchText(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
 }
 
 const differentialStatusRank: Record<DifferentialRecord["status"], number> = {
@@ -127,174 +132,134 @@ export type DifferentialRecordMatch = {
   reasons: string[];
 };
 
+/** Back-compat alias kept for the universal-search workstream naming. */
+export type DifferentialSearchMatch = DifferentialRecordMatch;
+
 export type DifferentialPresentationMatch = {
   workflow: DifferentialPresentationWorkflow;
   score: number;
   reasons: string[];
 };
 
-type QueryTermPlan = {
-  normalizedQuery: string;
-  compactQuery: string;
-  terms: string[];
-  aliasTerms: string[];
-};
-
-function buildQueryTermPlan(query: string): QueryTermPlan | null {
-  const normalizedQuery = normalizeSearchText(query);
-  if (!normalizedQuery) return null;
-  const terms = Array.from(new Set(normalizedQuery.split(/\s+/).filter((term) => term.length > 1)));
-  const aliasTerms = Array.from(
-    new Set(
-      expandQueryTokens(query)
-        .map(normalizeSearchText)
-        .filter((term) => term.length > 1 && !terms.includes(term)),
-    ),
+function diagnosisHingeText(record: DifferentialRecord) {
+  return normalizeSearchText(
+    [record.subtitle, record.clinicalHinge, record.safetySnapshot.summary, ...record.safetySnapshot.tags].join(" "),
   );
-  return {
-    normalizedQuery,
-    compactQuery: normalizedQuery.replace(/\s+/g, ""),
-    terms,
-    aliasTerms,
-  };
 }
 
-/** Ranked catalogue search over diagnosis records. Records are passed in so
- *  the API can rank live owner rows and the client can rank snapshot data with
- *  the same scoring. Alias expansion (symptom -> diagnosis vocabulary) comes
- *  from the imported catalogue's searchAliases. */
+function diagnosisFullText(record: DifferentialRecord) {
+  return normalizeSearchText(
+    [
+      record.title,
+      record.slug,
+      record.subtitle,
+      record.clinicalHinge,
+      record.safetySnapshot.summary,
+      ...record.safetySnapshot.tags,
+      ...record.sections.flatMap((section) => [section.title, section.summary, ...section.items]),
+      ...record.related.flatMap((node) => [node.label, node.note ?? ""]),
+      ...record.currentPresentation,
+      ...record.investigations,
+      ...record.immediateActions,
+    ].join(" "),
+  );
+}
+
+/** Ranked catalogue search over diagnosis records, built on the shared
+ *  rankCatalogRecords primitive. Records are passed in so the API can rank
+ *  live owner rows and universal search can rank the snapshot with the same
+ *  scoring. Alias expansion (symptom -> diagnosis vocabulary) comes from the
+ *  imported catalogue's searchAliases; urgency shapes ties only, never
+ *  outranking a stronger text match. */
 export function rankDifferentialRecords(
   records: DifferentialRecord[],
   query: string,
   limit = 50,
 ): DifferentialRecordMatch[] {
-  const plan = buildQueryTermPlan(query);
-  if (!plan) return [];
-  const { normalizedQuery, compactQuery, terms, aliasTerms } = plan;
+  return rankCatalogRecords(records, query, {
+    fields: [
+      { id: "title", weight: 8, text: (record) => normalizeSearchText(`${record.title} ${record.slug}`) },
+      { id: "hinge", weight: 3, text: diagnosisHingeText },
+    ],
+    fullText: diagnosisFullText,
+    contentWeight: 2,
+    compactBonus: 6,
+    compactExtraText: (record) => normalizeSearchText(record.title),
+    phraseBonus: 4,
+    exactValues: (record) => [normalizeSearchText(record.title), normalizeSearchText(record.slug)],
+    exactBonus: 10,
+    expandTokens: expandQueryTerms,
+    limit,
+    tieBreak: (left, right) =>
+      differentialStatusRank[left.status] - differentialStatusRank[right.status] ||
+      left.title.localeCompare(right.title),
+  }).map(({ record, score, signals }) => ({
+    record,
+    score,
+    reasons: [
+      signals.fields.title ? "title" : "",
+      signals.exact || signals.compact ? "exact name" : "",
+      signals.fields.hinge ? "clinical hinge/safety" : "",
+      signals.content ? "content" : "",
+      signals.expanded ? "symptom alias" : "",
+    ].filter(Boolean),
+  }));
+}
 
-  return records
-    .map((record) => {
-      const title = normalizeSearchText(record.title);
-      const slug = normalizeSearchText(record.slug);
-      const hingeText = normalizeSearchText(
-        [record.subtitle, record.clinicalHinge, record.safetySnapshot.summary, ...record.safetySnapshot.tags].join(" "),
-      );
-      const contentText = normalizeSearchText(
-        [
-          ...record.sections.flatMap((section) => [section.title, section.summary, ...section.items]),
-          ...record.related.flatMap((node) => [node.label, node.note ?? ""]),
-          ...record.currentPresentation,
-          ...record.investigations,
-          ...record.immediateActions,
-        ].join(" "),
-      );
-      const text = `${title} ${slug} ${hingeText} ${contentText}`;
+function presentationSafetyText(workflow: DifferentialPresentationWorkflow) {
+  return normalizeSearchText([workflow.subtitle, ...workflow.safetySnapshot.tags].join(" "));
+}
 
-      const titleMatches = terms.filter((term) => title.includes(term) || slug.includes(term));
-      const hingeMatches = terms.filter((term) => hingeText.includes(term));
-      const contentMatches = terms.filter((term) => contentText.includes(term));
-      const aliasMatches = aliasTerms.filter((term) => text.includes(term));
-      const exactName = title === normalizedQuery || slug === normalizedQuery;
-      const compactTitleMatch = compactQuery.length >= 4 && title.replace(/\s+/g, "").includes(compactQuery);
-
-      let score = 0;
-      score += titleMatches.length * 8;
-      if (exactName) score += 10;
-      if (compactTitleMatch) score += 6;
-      score += hingeMatches.length * 3;
-      score += contentMatches.length * 2;
-      score += aliasMatches.length * 2;
-      if (text.includes(normalizedQuery)) score += 4;
-      // Safety-first tie shaping only: a small nudge so equal-evidence matches
-      // surface must-not-miss diagnoses first, never enough to outrank a
-      // stronger text match.
-      if (score > 0 && record.status === "emergent") score += 2;
-      else if (score > 0 && record.status === "urgent") score += 1;
-
-      const reasons = [
-        titleMatches.length ? "title" : "",
-        exactName || compactTitleMatch ? "exact name" : "",
-        hingeMatches.length ? "clinical hinge/safety" : "",
-        contentMatches.length ? "content" : "",
-        aliasMatches.length ? "symptom alias" : "",
-        score > 0 && record.status !== "routine" ? "urgency" : "",
-      ].filter(Boolean);
-
-      return { record, score, reasons };
-    })
-    .filter((match) => match.score > 0)
-    .sort(
-      (left, right) =>
-        right.score - left.score ||
-        differentialStatusRank[left.record.status] - differentialStatusRank[right.record.status] ||
-        left.record.title.localeCompare(right.record.title),
-    )
-    .slice(0, limit);
+function presentationFullText(workflow: DifferentialPresentationWorkflow) {
+  return normalizeSearchText(
+    [
+      workflow.title,
+      workflow.id,
+      workflow.subtitle,
+      ...workflow.safetySnapshot.tags,
+      workflow.safetySnapshot.summary,
+      workflow.highestUrgencyNote,
+      ...workflow.reviewChecklist,
+      ...workflow.candidates.map((candidate) => candidate.slug.replace(/-/g, " ")),
+    ].join(" "),
+  );
 }
 
 /** Ranked catalogue search over presentation workflows (same scoring family
- *  as rankDifferentialRecords, weighted towards safety tags and candidates). */
+ *  as rankDifferentialRecords, weighted towards safety tags). */
 export function rankPresentationWorkflows(
   workflows: DifferentialPresentationWorkflow[],
   query: string,
   limit = 20,
 ): DifferentialPresentationMatch[] {
-  const plan = buildQueryTermPlan(query);
-  if (!plan) return [];
-  const { normalizedQuery, compactQuery, terms, aliasTerms } = plan;
-
-  return workflows
-    .map((workflow) => {
-      const title = normalizeSearchText(workflow.title);
-      const id = normalizeSearchText(workflow.id);
-      const safetyText = normalizeSearchText([workflow.subtitle, ...workflow.safetySnapshot.tags].join(" "));
-      const contentText = normalizeSearchText(
-        [
-          workflow.safetySnapshot.summary,
-          workflow.highestUrgencyNote,
-          ...workflow.reviewChecklist,
-          ...workflow.candidates.map((candidate) => candidate.slug.replace(/-/g, " ")),
-        ].join(" "),
-      );
-      const text = `${title} ${id} ${safetyText} ${contentText}`;
-
-      const titleMatches = terms.filter((term) => title.includes(term) || id.includes(term));
-      const safetyMatches = terms.filter((term) => safetyText.includes(term));
-      const contentMatches = terms.filter((term) => contentText.includes(term));
-      const aliasMatches = aliasTerms.filter((term) => text.includes(term));
-      const exactName = title === normalizedQuery || id === normalizedQuery;
-      const compactTitleMatch = compactQuery.length >= 4 && title.replace(/\s+/g, "").includes(compactQuery);
-
-      let score = 0;
-      score += titleMatches.length * 8;
-      if (exactName) score += 10;
-      if (compactTitleMatch) score += 6;
-      score += safetyMatches.length * 4;
-      score += contentMatches.length * 2;
-      score += aliasMatches.length * 2;
-      if (text.includes(normalizedQuery)) score += 4;
-      if (score > 0 && workflow.status === "emergent") score += 2;
-      else if (score > 0 && workflow.status === "urgent") score += 1;
-
-      const reasons = [
-        titleMatches.length ? "title" : "",
-        exactName || compactTitleMatch ? "exact name" : "",
-        safetyMatches.length ? "safety focus" : "",
-        contentMatches.length ? "content" : "",
-        aliasMatches.length ? "symptom alias" : "",
-        score > 0 && workflow.status !== "routine" ? "urgency" : "",
-      ].filter(Boolean);
-
-      return { workflow, score, reasons };
-    })
-    .filter((match) => match.score > 0)
-    .sort(
-      (left, right) =>
-        right.score - left.score ||
-        differentialStatusRank[left.workflow.status] - differentialStatusRank[right.workflow.status] ||
-        left.workflow.title.localeCompare(right.workflow.title),
-    )
-    .slice(0, limit);
+  return rankCatalogRecords(workflows, query, {
+    fields: [
+      { id: "title", weight: 8, text: (workflow) => normalizeSearchText(`${workflow.title} ${workflow.id}`) },
+      { id: "safety", weight: 4, text: presentationSafetyText },
+    ],
+    fullText: presentationFullText,
+    contentWeight: 2,
+    compactBonus: 6,
+    compactExtraText: (workflow) => normalizeSearchText(workflow.title),
+    phraseBonus: 4,
+    exactValues: (workflow) => [normalizeSearchText(workflow.title), normalizeSearchText(workflow.id)],
+    exactBonus: 10,
+    expandTokens: expandQueryTerms,
+    limit,
+    tieBreak: (left, right) =>
+      differentialStatusRank[left.status] - differentialStatusRank[right.status] ||
+      left.title.localeCompare(right.title),
+  }).map(({ record, score, signals }) => ({
+    workflow: record,
+    score,
+    reasons: [
+      signals.fields.title ? "title" : "",
+      signals.exact || signals.compact ? "exact name" : "",
+      signals.fields.safety ? "safety focus" : "",
+      signals.content ? "content" : "",
+      signals.expanded ? "symptom alias" : "",
+    ].filter(Boolean),
+  }));
 }
 
 export type DifferentialSearchResultItem = {
@@ -397,7 +362,7 @@ export function composeDifferentialSearchResults(
 }
 
 /** Back-compat wrapper: empty query returns the full catalogue (the API route
- *  relies on this), otherwise ranked results in ranked order. */
+ *  relies on this), otherwise relevance-ranked results in ranked order. */
 export function searchDifferentialRecords(query: string) {
   if (!normalizeSearchText(query)) return differentialRecords;
   return rankDifferentialRecords(differentialRecords, query, differentialRecords.length).map((match) => match.record);

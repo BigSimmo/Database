@@ -5,8 +5,10 @@ export type AppModeId =
   "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "prescribing" | "tools";
 export type SearchableAppModeId = AppModeId;
 
-export type AppModeSearchKind = "answer" | "documents" | "services" | "favourites" | "differentials" | "tools";
-export type AppModeResultKind = "answer" | "documents" | "services" | "favourites" | "differentials" | "tools";
+export type AppModeSearchKind =
+  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "tools";
+export type AppModeResultKind =
+  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "tools";
 
 export type AppModeSearchConfig = {
   kind: AppModeSearchKind;
@@ -106,7 +108,9 @@ export const appModeDefinitions = [
     description: "Clinical forms and pathways",
     href: "/forms",
     search: {
-      kind: "documents",
+      // Forms are a registry catalogue, not corpus documents. Declaring the honest kind
+      // removes the ClinicalDashboard special-casing that the old kind:"documents" forced.
+      kind: "forms",
       placeholder: "Search forms...",
       inputAriaLabel: "Search forms, source records, pathways, and criteria",
       submitIdleLabel: "Forms",
@@ -115,7 +119,7 @@ export const appModeDefinitions = [
       emptyTitle: "Enter a form search term",
       readyTitle: "Search forms",
       progressLabel: "Searching form records.",
-      resultKind: "documents",
+      resultKind: "forms",
       resultHeading: "Form matches",
       statusLabel: "Forms",
       nextStep: "Review matching form records",
@@ -173,6 +177,9 @@ export const appModeDefinitions = [
     description: "Prescribing checks and guidance",
     href: "/?mode=prescribing",
     search: {
+      // Deliberately kind:"documents" (unlike forms): prescribing intentionally searches the
+      // document corpus for dosing/threshold guidance (defaultQueryMode dose_threshold_lookup).
+      // The medication registry joins cross-entity search via /api/search/universal instead.
       kind: "documents",
       placeholder: "Search medications...",
       inputAriaLabel: "Search medication guidance",
@@ -250,7 +257,7 @@ export function appModeHomeHref(modeId: AppModeId, options: { query?: string; fo
     const namespacedParams = new URLSearchParams();
     if (query) namespacedParams.set("q", query);
     if (options.focus) namespacedParams.set("focus", "1");
-    if (options.run) namespacedParams.set("run", "1");
+    if (options.run && query) namespacedParams.set("run", "1");
 
     const suffix = namespacedParams.toString();
     return suffix ? `${mode.href}?${suffix}` : mode.href;
@@ -260,7 +267,8 @@ export function appModeHomeHref(modeId: AppModeId, options: { query?: string; fo
     const homeParams = new URLSearchParams();
     if (options.focus) homeParams.set("focus", "1");
     const suffix = homeParams.toString();
-    return suffix ? `${mode.href}?${suffix}` : mode.href;
+    const separator = mode.href.includes("?") ? "&" : "?";
+    return suffix ? `${mode.href}${separator}${suffix}` : mode.href;
   }
 
   const params = new URLSearchParams({ mode: modeId });
@@ -299,6 +307,7 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
     kind === "answer" ||
     kind === "documents" ||
     kind === "services" ||
+    kind === "forms" ||
     kind === "favourites" ||
     kind === "differentials" ||
     kind === "tools"

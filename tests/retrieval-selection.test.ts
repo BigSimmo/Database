@@ -627,3 +627,55 @@ describe("retrieval source selection", () => {
     expect(selection.results[0].source_metadata?.clinical_validation_status).toBe("unverified");
   });
 });
+
+describe("saturated-score tie-breaking (pre-clamp)", () => {
+  function saturatedExplanation(preClampFinalScore: number): NonNullable<SearchResult["score_explanation"]> {
+    return {
+      vectorScore: 0.9,
+      textRank: 0.3,
+      lexicalCoverageScore: 0.5,
+      metadataMatchScore: 0.2,
+      sectionTitleMatchBoost: 0.1,
+      freshnessRecencyBoost: 0,
+      weightedHybridScore: 0.9,
+      rrfScore: null,
+      rrfBoost: 0,
+      memoryBoost: 0,
+      titleBoost: 0.3,
+      metadataBoost: 0.2,
+      clinicalSignalBoost: 0.3,
+      penalty: 0,
+      finalScore: 1,
+      preClampFinalScore,
+      strategy: "weighted_hybrid",
+    };
+  }
+
+  it("orders fully-tied saturated candidates by pre-clamp score, not chunk id", () => {
+    // Both results are identical on every primary signal (score, lexical, rerank all tie at the
+    // 1.0 clamp). Without the pre-clamp tiebreak, ordering would fall through to
+    // chunkId.localeCompare and pick "chunk-a" first; the higher pre-clamp sum must win instead.
+    const higherPreClamp = source({
+      id: "chunk-b",
+      hybrid_score: 1,
+      similarity: 0.9,
+      score_explanation: saturatedExplanation(1.8),
+    });
+    const lowerPreClamp = source({
+      id: "chunk-a",
+      hybrid_score: 1,
+      similarity: 0.9,
+      score_explanation: saturatedExplanation(1.2),
+    });
+
+    const selection = selectRetrievalEvidence({
+      query: "clinical guidance",
+      queryClass: "broad_summary",
+      results: [lowerPreClamp, higherPreClamp],
+      topK: 2,
+      maxResultsPerDocument: 2,
+    });
+
+    expect(selection.results.map((item) => item.id)).toEqual(["chunk-b", "chunk-a"]);
+  });
+});

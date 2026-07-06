@@ -261,3 +261,18 @@ describe("composeDifferentialSearchResults", () => {
     expect(diagnosis?.href).toBe("/differentials/diagnoses/alpha");
   });
 });
+
+describe("ranked differential search", () => {
+  it("ranks title matches above content-only matches", () => {
+    const matches = rankDifferentialRecords(differentialRecords, "delirium");
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches[0].record.slug).toContain("delirium");
+    expect(matches[0].score).toBeGreaterThanOrEqual(matches[matches.length - 1].score);
+    expect(matches[0].reasons).toContain("title");
+  });
+
+  it("keeps the full catalogue for an empty query and still honours aliases", () => {
+    expect(searchDifferentialRecords("")).toEqual(differentialRecords);
+    expect(searchDifferentialRecords("   ")).toEqual(differentialRecords);
+  });
+});
