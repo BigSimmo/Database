@@ -55,17 +55,19 @@ async function expectDashboardUsable(page: Page) {
 }
 
 async function openScopeControl(page: Page) {
-  const actionMenu = page.getByRole("button", { name: "Open answer options" });
+  const trigger = page.getByRole("button", { name: "Open answer options" });
+  const menu = page.getByTestId("daily-actions-menu");
 
   await expect(async () => {
-    await actionMenu.click();
-    const actionsMenu = page.getByTestId("daily-actions-menu");
-    await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
-    await expect(page.getByTestId("scope-command-popover")).toBeVisible({
-      timeout: uiAssertionTimeoutMs,
-    });
+    if (await menu.isVisible().catch(() => false)) return;
+    await trigger.click();
+    await expect(menu).toBeVisible({ timeout: uiAssertionTimeoutMs });
   }).toPass({ timeout: 10_000 });
+
+  await menu.getByRole("menuitem", { name: "Scope", exact: true }).click();
+  await expect(page.locator('[data-testid="scope-command-popover"]:visible')).toBeVisible({
+    timeout: uiAssertionTimeoutMs,
+  });
 }
 
 test.describe("Clinical KB accessibility media smoke", () => {
