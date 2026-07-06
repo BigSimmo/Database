@@ -1672,6 +1672,10 @@ export function ClinicalDashboard({
       return next;
     });
   }
+  // The query the current documentMatches were fetched for, so the
+  // differentials results view can tell live-edited catalogue results apart
+  // from evidence that belongs to a previously submitted search.
+  const [differentialEvidenceQuery, setDifferentialEvidenceQuery] = useState<string | null>(null);
   const clearDifferentialModeResultState = useCallback(() => {
     resetAnswerThread();
     setAnswer(null);
@@ -1683,6 +1687,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setError(null);
     setAnswerProgress(null);
+    setDifferentialEvidenceQuery(null);
   }, [resetAnswerThread]);
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
@@ -2805,6 +2810,11 @@ export function ClinicalDashboard({
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
+      // Differentials mode: the ranked catalogue results are the primary
+      // content and load independently of this document-evidence search, so an
+      // empty corpus result is applied (empty evidence) rather than surfaced
+      // as an error that would hide the catalogue view.
+      let emptyDifferentialsPayload: SearchResultModePayload | null = null;
 
       for (const entry of queryPlan) {
         if (entry.isKeyword) onProgress("Trying keyword-based search...");
@@ -2822,6 +2832,7 @@ export function ClinicalDashboard({
                 );
 
           if (!resultUsable(payload)) {
+            if (modeSearch.kind === "differentials") emptyDifferentialsPayload = payload;
             lastError = makeSearchError("No usable results were found.", 404, false);
             if (!entry.isKeyword) {
               continue;
@@ -2840,6 +2851,10 @@ export function ClinicalDashboard({
         }
       }
 
+      if (!successfulPayload && emptyDifferentialsPayload) {
+        successfulPayload = emptyDifferentialsPayload;
+      }
+
       if (!successfulPayload) {
         if (lastError) throw lastError;
         throw new Error("Search did not return usable results.");
@@ -2848,6 +2863,7 @@ export function ClinicalDashboard({
       // M10: discard a stale response — a newer search owns the UI state.
       if (requestId === searchRequestSeqRef.current) {
         applySearchResult(successfulPayload, trimmedQuery);
+        if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
         if (successfulPayload.kind === "answer") {
           // The composer is a draft box in a conversation: clear it so the
           // user can type the next follow-up immediately.
@@ -3969,6 +3985,8 @@ export function ClinicalDashboard({
                   <DifferentialsHome
                     query={query}
                     loading={loading}
+                    searchSubmitted={modeSearchSubmitted}
+                    evidenceQuery={differentialEvidenceQuery}
                     documentMatches={documentMatches}
                     realDataReady={canRunSearch}
                     authUnavailable={false}

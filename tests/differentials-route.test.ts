@@ -153,6 +153,7 @@ describe("differentials API routes", () => {
     const response = await GET(request("/api/differentials?kind=diagnosis&limit=10"));
     const payload = (await response.json()) as {
       records?: Array<{ slug: string }>;
+      matches?: unknown;
       total?: number;
       demoMode?: boolean;
     };
@@ -161,5 +162,44 @@ describe("differentials API routes", () => {
     expect(payload.demoMode).toBe(true);
     expect((payload.total ?? 0) > 100).toBe(true);
     expect(payload.records?.length).toBeGreaterThan(0);
+    expect(payload.matches).toBeUndefined();
+  });
+
+  it("returns scored diagnosis matches for a query", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/differentials/route");
+
+    const response = await GET(request("/api/differentials?kind=diagnosis&q=delirium&limit=10"));
+    const payload = (await response.json()) as {
+      records?: Array<{ slug: string }>;
+      matches?: Array<{ record: { slug: string }; score: number; reasons: string[] }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.matches?.[0]?.record.slug).toBe("delirium");
+    expect(payload.matches?.[0]?.score ?? 0).toBeGreaterThan(0);
+    expect(payload.matches?.[0]?.reasons).toContain("title");
+    // Ranked records stay in ranked order and mirror the matches list.
+    expect(payload.records?.[0]?.slug).toBe("delirium");
+    expect(payload.records?.length).toBe(payload.matches?.length);
+  });
+
+  it("returns scored presentation matches for a query", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/differentials/route");
+
+    const response = await GET(request("/api/differentials?kind=presentation&q=acute%20confusion&limit=5"));
+    const payload = (await response.json()) as {
+      presentations?: Array<{ id: string }>;
+      matches?: Array<{ workflow: { id: string }; score: number; reasons: string[] }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.matches?.[0]?.workflow.id).toBe("acute-confusion-encephalopathy");
+    expect(payload.matches?.[0]?.score ?? 0).toBeGreaterThan(0);
+    expect(payload.presentations?.[0]?.id).toBe("acute-confusion-encephalopathy");
+    expect(payload.presentations?.length).toBeLessThanOrEqual(5);
   });
 });
