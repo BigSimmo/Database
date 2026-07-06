@@ -79,5 +79,7 @@ artifacts/
 # Local debugging scratch space — never commit (accidentally landed once via 'Save Codex local changes')
 scratch/
 .qa-smoke/
+# Visual-QA capture scratch (scripts + screenshots) — untracked 2026-07-06 after 24 files landed
+.tmp-visual/
 *.pid
 tmp_output.txt
