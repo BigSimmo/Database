@@ -907,6 +907,12 @@ export function ApplicationsLauncherWorkspace({
     ? selectedId
     : (filteredApps[0]?.id ?? selectedId);
   const selectedApp = appById(effectiveSelectedId);
+  // "more" behaves as "all" in filtering, so it falls back to the all-tools label.
+  const activeFilterLabel = desktopFilters.find((filter) => filter.id === activeFilter)?.label;
+  const resultsPanelLabel =
+    activeFilterLabel && activeFilterLabel !== copy.allSectionLabel
+      ? `${activeFilterLabel} tools`
+      : copy.allSectionLabel;
 
   function updateQuery(nextQuery: string) {
     if (controlledQuery === undefined) setLocalQuery(nextQuery);
@@ -996,7 +1002,7 @@ export function ApplicationsLauncherWorkspace({
           </div>
         </div>
 
-        <div id="launcher-results-panel" role="tabpanel" aria-label={copy.allSectionLabel} className="grid gap-4">
+        <div id="launcher-results-panel" role="tabpanel" aria-label={resultsPanelLabel} className="grid gap-4">
           {filteredApps.length === 0 ? (
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-10 text-center shadow-[var(--shadow-inset)]">
               <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>
