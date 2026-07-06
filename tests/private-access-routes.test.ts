@@ -3431,7 +3431,9 @@ describe("private document API access", () => {
     expect(errorPayload).toMatchObject({
       error: "Answer generation failed. Retry with a narrower question.",
       status: 500,
-      details: { code: "Error" },
+      // Key-configuration failures carry a stable code so a production outage is
+      // diagnosable from the client network tab (confirmed live 2026-07-06).
+      details: { code: "supabase_api_key_configuration" },
     });
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
