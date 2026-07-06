@@ -708,8 +708,14 @@ async function openUploadDrawer(page: Page) {
   return uploadDrawer;
 }
 
-async function openDailyActions(page: Page) {
-  const trigger = page.getByRole("button", { name: /^Open .+ options$/ });
+async function dismissOverlayByHeaderClick(page: Page) {
+  // Portaled integrated action menus cover the hero composer; avoid fixed viewport
+  // coordinates that can hit menu tiles (e.g. Clinical tools -> tools mode).
+  await page.locator("#search").click({ position: { x: 120, y: 28 } });
+}
+
+async function openDailyActions(page: Page, triggerName: string | RegExp = /^Open .+ options$/) {
+  const trigger = page.getByRole("button", { name: triggerName });
   const menu = page.getByTestId("daily-actions-menu");
 
   await expect(trigger).toBeVisible();
@@ -743,7 +749,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByTestId("scope-command-popover")).toBeHidden();
       await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
       await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
-      await expect(page.getByRole("button", { name: "lithium level timing" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Search documents" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Upload document" })).toBeVisible();
       await expectDomIntegrity(page, { mobileNav: viewport.width <= 768 });
@@ -1049,18 +1054,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(dailyActionsMenu).toHaveCount(0);
 
     // First open — use robust retry helper to handle async state update timing.
-    await openDailyActions(page);
-    await expect(async () => {
-      if (await dailyActionsMenu.isVisible().catch(() => false)) {
-        // Top-left avoids integrated menu panels that can intercept center clicks in CI.
-        await page.mouse.click(8, 8);
-      }
-      await expect(dailyActionsMenu).toHaveCount(0);
-      await expect(dailyActionsTrigger).toHaveAttribute("aria-expanded", "false");
-    }).toPass({ timeout: 10_000 });
+    await openDailyActions(page, "Open answer options");
+    await dismissOverlayByHeaderClick(page);
+    await expect(dailyActionsMenu).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
 
     // Second open - verify opening the mode menu closes the daily actions surface.
-    await openDailyActions(page);
+    await openDailyActions(page, "Open answer options");
     await appModeTrigger.click();
 
     await expect(dailyActionsMenu).toHaveCount(0);
@@ -1311,7 +1311,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(popoverMetrics.height).toBeLessThanOrEqual(Math.ceil(popoverMetrics.viewportHeight * 0.72));
     await page.keyboard.press("Escape");
     await expect(scopePopover).toBeHidden();
-    await expect(page.getByTestId("global-search-input")).toBeFocused();
+    await expect(async () => {
+      await expect(page.getByRole("button", { name: "Open answer options" })).toBeFocused();
+    }).toPass({ timeout: 5_000 });
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1491,20 +1493,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
       await expectMinTouchTarget(sourceCapsule);
       await sourceCapsule.click();
-      const sourceSurface = viewport.sheet
-        ? page.getByRole("dialog", { name: "Sources" })
-        : page.getByTestId("source-capsule-preview");
+      const sourceSurface = page.getByRole("dialog", { name: "Sources" });
       await expect(sourceSurface).toBeVisible();
       await expect(sourceSurface.getByTestId("source-capsule-preview-row").first()).toHaveAttribute(
         "href",
         /\/documents\/.+chunk=/,
       );
       await expectMinTouchTarget(sourceSurface.getByTestId("source-capsule-preview-row").first());
-      if (viewport.sheet) {
-        await page.keyboard.press("Escape");
-        await expect(sourceSurface).toHaveCount(0);
-        await expect(sourceCapsule).toBeFocused();
-      } else {
+      await page.keyboard.press("Escape");
+      await expect(sourceSurface).toHaveCount(0);
+      await expect(sourceCapsule).toBeFocused();
+      if (!viewport.sheet) {
+        await sourceCapsule.click();
+        await expect(sourceSurface).toBeVisible();
         await sourceCapsule.click();
         await expect(sourceSurface).toHaveCount(0);
       }

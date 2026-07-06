@@ -528,6 +528,11 @@ as $$
   limit match_count;
 $$;
 
+-- The live/preview database may carry a match_document_chunks_text OUT signature
+-- that differs from this batching rewrite (see 20260702170000 no-op note).
+-- PostgreSQL rejects CREATE OR REPLACE when OUT columns change.
+drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid);
+
 create or replace function public.match_document_chunks_text(
   query_text text,
   match_count integer default 12,

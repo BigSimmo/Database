@@ -36,6 +36,7 @@ import {
   sanitizeAnswerDisplayText,
 } from "@/components/clinical-dashboard/display-text";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
+import { SourcePreviewPopover } from "@/components/clinical-dashboard/source-preview-popover";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
@@ -658,10 +659,11 @@ export function NaturalLanguageAnswer({
           </section>
         ) : null}
         {sourceCapsuleButton}
-        {sourcePreviewOpen && canOpenSourcePreview && !usePreviewSheet ? (
-          <div
-            data-testid="source-capsule-preview"
-            className="max-h-[22rem] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
+        {canOpenSourcePreview && !usePreviewSheet ? (
+          <SourcePreviewPopover
+            open={sourcePreviewOpen}
+            onClose={() => setSourcePreviewOpen(false)}
+            anchorRef={sourceCapsuleRef}
           >
             <SourcePreviewContent
               previewSources={previewSources}
@@ -669,7 +671,7 @@ export function NaturalLanguageAnswer({
               copiedQuote={copiedSourceQuote}
               onCopyQuote={copySourceQuote}
             />
-          </div>
+          </SourcePreviewPopover>
         ) : null}
         <Sheet
           open={sourcePreviewOpen && canOpenSourcePreview && usePreviewSheet}
