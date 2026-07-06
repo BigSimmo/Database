@@ -33,7 +33,11 @@ export function CrossModeLinksStrip({
   if (links.length === 0) return null;
 
   return (
-    <section aria-label="Related pages in other modes" className="mx-auto w-full max-w-4xl" data-testid="cross-mode-links">
+    <section
+      aria-label="Related pages in other modes"
+      className="mx-auto w-full max-w-4xl"
+      data-testid="cross-mode-links"
+    >
       <p className={cn(eyebrowText, "mb-2")}>Also in your library</p>
       <div className="grid gap-2 sm:grid-cols-2">
         {links.map((link) => {
@@ -50,7 +54,9 @@ export function CrossModeLinksStrip({
                 >
                   <span className="line-clamp-1">{link.title}</span>
                 </Link>
-                {link.subtitle ? <p className={cn("text-xs leading-5 line-clamp-1", textMuted)}>{link.subtitle}</p> : null}
+                {link.subtitle ? (
+                  <p className={cn("text-xs leading-5 line-clamp-1", textMuted)}>{link.subtitle}</p>
+                ) : null}
                 {link.badges.length > 0 && (
                   <div className="mt-1 flex flex-wrap items-center gap-1">
                     {link.badges.map((badge) => (

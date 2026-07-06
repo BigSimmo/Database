@@ -1368,9 +1368,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Close the composer command palette if it opened over the results.
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
-    await expect(
-      strip.getByRole("button", { name: "Search Clozapine in Medication" }),
-    ).toBeVisible();
+    await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
     await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");

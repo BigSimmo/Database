@@ -93,8 +93,7 @@ function medicationLinks(query: string, records: MedicationRecord[]): CrossModeL
   return rankMedicationRecords(records, query, RANKER_CANDIDATE_LIMIT)
     .filter(
       (match) =>
-        match.score >= MEDICATION_MIN_SCORE &&
-        (match.reasons.includes("name") || match.reasons.includes("exact name")),
+        match.score >= MEDICATION_MIN_SCORE && (match.reasons.includes("name") || match.reasons.includes("exact name")),
     )
     .map((match) => ({
       ...crossModeLinkBase("prescribing", match.medication.name),
@@ -178,7 +177,9 @@ function differentialLinks(terms: string[], catalog: CrossModeDifferentialCatalo
     });
   }
 
-  return candidates.sort((left, right) => right.score - left.score || left.title.localeCompare(right.title)).slice(0, 1);
+  return candidates
+    .sort((left, right) => right.score - left.score || left.title.localeCompare(right.title))
+    .slice(0, 1);
 }
 
 export function buildCrossModeLinks(
