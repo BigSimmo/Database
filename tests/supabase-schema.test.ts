@@ -105,7 +105,7 @@ const ragRetrievalLogsRetentionMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const liveDatabaseDriftMigration = readFileSync(
-  new URL("../supabase/migrations/20260705220000_reconcile_live_database_drift.sql", import.meta.url),
+  new URL("../supabase/migrations/20260705230000_reconcile_live_database_drift.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const searchDocumentChunksOwnerScopeMigration = readFileSync(

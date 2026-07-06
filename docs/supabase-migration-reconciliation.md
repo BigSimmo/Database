@@ -27,7 +27,7 @@ These previously local-only versions were verified in the live project history b
 
 ## Current Status (July 2026)
 
-Migration `20260705220000_reconcile_live_database_drift.sql` codifies live-only drift discovered 2026-07-05:
+Migration `20260705230000_reconcile_live_database_drift.sql` codifies live-only drift discovered 2026-07-05:
 
 - `indexing_v3_agent_jobs` table and claim/update RPCs (recorded as applied in history but absent on live at inspection time)
 - `match_document_embedding_fields_text` RPC with service-role-only execute grants (was present on live with anon/auth execute)

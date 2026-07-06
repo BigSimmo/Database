@@ -97,7 +97,7 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 
 ## Live database drift reconciliation (2026-07-05)
 
-- **RESOLVED:** `indexing_v3_agent_jobs` table + `claim_indexing_v3_agent_jobs` + `update_indexing_v3_agent_job_status` were recorded as applied but absent on live. Migration `20260705220000_reconcile_live_database_drift` idempotently re-applied them; live verified post-push.
+- **RESOLVED:** `indexing_v3_agent_jobs` table + `claim_indexing_v3_agent_jobs` + `update_indexing_v3_agent_job_status` were recorded as applied but absent on live. Migration `20260705230000_reconcile_live_database_drift` idempotently re-applied them; live verified post-push.
 - **RESOLVED:** `match_document_embedding_fields_text` codified with service_role-only execute.
 - **RESOLVED:** `rag_visual_eval_*` tables codified with service_role-only RLS.
 - **RESOLVED:** Live-only `20260705133000_tighten_search_document_chunks_owner_scope` mirrored in `schema.sql`.
