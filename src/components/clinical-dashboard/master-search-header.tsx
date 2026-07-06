@@ -210,6 +210,7 @@ export function MasterSearchHeader({
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
+  onBottomComposerScrollHiddenChange,
 }: {
   documents: ClinicalDocument[];
   documentTotal?: number;
@@ -271,6 +272,8 @@ export function MasterSearchHeader({
    *  the header above an internally scrolling element). `containerRef` points
    *  at the scrolling element; omit it to observe window scroll. */
   hideOnScroll?: { strategy: "overlay" | "collapse"; containerRef?: RefObject<HTMLElement | null> };
+  /** Fired when the phone bottom search dock enters or leaves the scroll-hidden state. */
+  onBottomComposerScrollHiddenChange?: (hidden: boolean) => void;
 }) {
   const visibleAppModeOptions = defaultVisibleAppModeOptions;
   const trimmedQuery = query.trim();
@@ -316,6 +319,19 @@ export function MasterSearchHeader({
   });
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
+  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && isMobileBottomComposer && usesPhoneSearchLayout);
+  const bottomComposerHidden =
+    bottomComposerScrollHiddenActive &&
+    scrollHidden &&
+    !actionMenuOpen &&
+    !commandDropdownOpen &&
+    !scopeOpen &&
+    !scopeSheetOpen &&
+    !headerChromeFocused;
+
+  useEffect(() => {
+    onBottomComposerScrollHiddenChange?.(bottomComposerHidden);
+  }, [bottomComposerHidden, onBottomComposerScrollHiddenChange]);
   // Stable, header-owned element the composer is portaled into; we move it in and
   // out of the page-owned slot rather than portaling into the slot directly.
   const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);
@@ -1306,7 +1322,6 @@ export function MasterSearchHeader({
               onPlacementChange={setActionMenuPlacement}
               triggerClassName="answer-footer-search-action"
               integrated={usesFooterChipLayout}
-              integratedChipRow={showFooterSearchChips}
             />
 
             {/* The clear button is a flex sibling (not absolutely positioned): the
