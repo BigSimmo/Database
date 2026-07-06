@@ -9,6 +9,12 @@ export function allowRateLimitInMemoryFallbackOnUnavailable() {
   return isLocalNoAuthMode() || process.env.NODE_ENV === "production";
 }
 
+function allowAnonymousRateLimitFallback() {
+  // Anonymous public search/read paths must stay reachable if the durable limiter
+  // migration is temporarily unavailable; the per-instance limiter still applies.
+  return true;
+}
+
 export type ApiRateLimitBucket =
   | "answer"
   | "search"
@@ -159,7 +165,7 @@ export async function consumeSubjectApiRateLimit(args: {
   });
 
   if (error) {
-    if (args.allowInMemoryFallbackOnUnavailable) {
+    if (allowAnonymousRateLimitFallback()) {
       console.warn("Durable anonymous API rate limit check unavailable; using local in-memory fallback.", {
         bucket: args.bucket,
         code: error.code,
@@ -177,7 +183,7 @@ export async function consumeSubjectApiRateLimit(args: {
 
   const row = parseRateLimitRow(data);
   if (!row || typeof row.limited !== "boolean") {
-    if (args.allowInMemoryFallbackOnUnavailable) {
+    if (allowAnonymousRateLimitFallback()) {
       return consumeInMemoryApiRateLimit({
         ownerId: args.subject.subjectKey,
         bucket: args.bucket,

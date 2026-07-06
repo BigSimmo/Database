@@ -3217,6 +3217,42 @@ describe("private document API access", () => {
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
+  it("uses an anonymous in-memory limiter for public search when the durable anonymous limiter is unavailable", async () => {
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: {
+        search_cache_hit: false,
+        text_fast_path_latency_ms: 0,
+        embedding_skipped: true,
+        embedding_latency_ms: 0,
+        embedding_cache_hit: false,
+        supabase_rpc_latency_ms: 0,
+        rerank_latency_ms: 0,
+        retrieval_strategy: "text_fast_path",
+      },
+    }));
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_api_subject_rate_limit" ? fail("anonymous limiter table unavailable") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      request("/api/search", {
+        method: "POST",
+        headers: { "x-forwarded-for": "203.0.113.21" },
+        body: JSON.stringify({ query: "monitoring", includeRelatedDocuments: false }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
+    );
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
   it("uses an anonymous in-memory limiter for managed local no-auth search", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
