@@ -328,6 +328,11 @@ function answerStreamProgressMessage(data: unknown) {
   return typeof message === "string" && message.trim() ? message.trim() : null;
 }
 
+function findSseSeparator(buffer: string) {
+  const match = /\r?\n\r?\n/.exec(buffer);
+  return match ? { index: match.index, length: match[0].length } : null;
+}
+
 async function readAnswerStream(response: Response, onProgress: (message: string) => void): Promise<AnswerPayload> {
   if (!response.body) throw makeSearchError("Answer stream could not be opened.", undefined, true);
 
@@ -378,25 +383,31 @@ async function readAnswerStream(response: Response, onProgress: (message: string
     }
     if (event === "final") {
       finalPayload = data as AnswerPayload;
+      return true;
     }
+
+    return false;
   }
 
   while (true) {
     const { value, done } = await reader.read();
     buffer += decoder.decode(value, { stream: !done });
 
-    let separatorIndex = buffer.indexOf("\n\n");
-    while (separatorIndex >= 0) {
-      const block = buffer.slice(0, separatorIndex).trim();
-      buffer = buffer.slice(separatorIndex + 2);
-      if (block) processEvent(block);
-      separatorIndex = buffer.indexOf("\n\n");
+    let separator = findSseSeparator(buffer);
+    while (separator) {
+      const block = buffer.slice(0, separator.index).trim();
+      buffer = buffer.slice(separator.index + separator.length);
+      if (block && processEvent(block) && finalPayload) {
+        await reader.cancel().catch(() => undefined);
+        return finalPayload as AnswerPayload;
+      }
+      separator = findSseSeparator(buffer);
     }
 
     if (done) break;
   }
 
-  if (buffer.trim()) processEvent(buffer.trim());
+  if (buffer.trim() && processEvent(buffer.trim()) && finalPayload) return finalPayload as AnswerPayload;
   if (!finalPayload) throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
   return finalPayload as AnswerPayload;
 }
