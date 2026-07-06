@@ -80,10 +80,11 @@ line-height/tracking — set `leading-*`/`tracking-*` at the call site):
 ## 4. Radius & shadows
 
 - Radii come from `@theme`: `rounded-md` chips/pills · `rounded-lg` controls/cards/panels ·
-  `rounded-xl`+ sheets/dialogs. Never write `rounded-[var(--radius-*)]` — the plain utility is
-  the same token.
+  `rounded-xl`+ sheets/dialogs. Never pass a radius token through an arbitrary value
+  (`rounded-[var(--radius-md)]` → `rounded-md`) — the plain utility is the same token.
 - Shadows/elevation: `--shadow-tight/soft/card/hover/elevated/lux/inset` and `--glow-primary/
-soft`, all re-tuned per theme and removed under forced-colors. No literal `shadow-[0_…rgba…]`.
+soft`, all re-tuned per theme and removed under forced-colors. No literal `box-shadow` values
+  in components.
 
 ## 5. Z-index ladder
 
