@@ -26,6 +26,12 @@ const lineNoisePatterns: RegExp[] = [
   /^\s*[-*_]{3,}\s*$/,
   /^\s*[\u25cf\u25e6\u2022]\s*$/,
 ];
+// PDF extraction wraps a dose across lines in narrow table cells — PyMuPDF's
+// get_text("text", sort=True) emits each rendered line separately, so
+// "12.5 mg" arrives as "12.5\nmg". The bare unit line is then <= 2 characters
+// and looksLikeMetadataNoise would delete it, leaving a unitless dose in the
+// indexed chunk. removePageNoise rejoins these lines before filtering.
+const clinicalUnitLinePattern = /^(?:mg|mcg|µg|ug|g|kg|ml|l|iu|u|mmol|%)$/i;
 const maxImageContextItemsPerPage = 3;
 const highYieldSectionPattern =
   /\b(?:medicat|dose|dosage|dosing|administer|titrate|threshold|cut[\s-]?off|withhold|cease|stop|monitor|baseline|fbc|anc|neutrophil|level|risk|red flag|urgent|escalat|contraindicat|caution|toxicity|required|must|criteria|observation)\b/i;
@@ -114,10 +120,30 @@ function buildRepeatedBoilerplateLines(inputs: ChunkInput[]) {
   return new Set([...counts.entries()].filter(([, count]) => count >= 2).map(([line]) => line));
 }
 
+// Rejoin a wrapped dose unit ("12.5" / "mg" on consecutive lines) into a single
+// line so the unit is not deleted as short-line extraction debris. Only merges
+// when the previous line ends in a digit and is not a standalone page footer —
+// a lone unit token with no preceding number stays subject to the noise filter.
+function rejoinWrappedDoseUnits(lines: string[]) {
+  return lines.reduce<string[]>((kept, line) => {
+    const previous = kept[kept.length - 1];
+    if (
+      previous &&
+      /\d$/.test(previous) &&
+      clinicalUnitLinePattern.test(line) &&
+      !lineNoisePatterns.some((pattern) => pattern.test(previous))
+    ) {
+      kept[kept.length - 1] = `${previous} ${line}`;
+    } else {
+      kept.push(line);
+    }
+    return kept;
+  }, []);
+}
+
 function removePageNoise(text: string, repeatedBoilerplateLines = new Set<string>()) {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
+  const lines = rejoinWrappedDoseUnits(text.split(/\r?\n/).map((line) => line.trim()));
+  return lines
     .filter((line) => {
       if (line === "") return true;
       if (looksLikeMetadataNoise(line)) return false;
