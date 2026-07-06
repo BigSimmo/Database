@@ -23,6 +23,8 @@ import {
 } from "@/lib/rag-quote-verification";
 import { applyNumericVerification } from "@/lib/answer-verification";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
+import { capPerDocumentCrowding, selectModelContextResults } from "@/lib/rag-context-selection";
+export { capPerDocumentCrowding, selectModelContextResults } from "@/lib/rag-context-selection";
 import { buildRagSourceBlock, compactContextText } from "@/lib/rag-source-block";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
 import { extractNumericTokens, VERIFY_AGAINST_SOURCE_NOTE, verifyAnswerNumbers } from "@/lib/answer-verification";
@@ -286,8 +288,6 @@ export function answerJsonOutputSchemaForResults(results: SearchResult[]) {
 
   return schema;
 }
-
-const fastRoutineModelContextLimit = 4;
 
 const confidenceOrder = {
   unsupported: 0,
@@ -6106,46 +6106,6 @@ function annotateAnswerWithDiagnostics<T extends RagAnswer>(
       retrievalReason: fallbackReason,
     },
   };
-}
-
-const maxContextChunksPerDocument = 3;
-
-// P9: keep one verbose document from dominating the sources the model sees. Cap each document to at
-// most `maxContextChunksPerDocument` chunks (order-preserving, no reranking/dedup), but only when the
-// result set spans multiple documents — a genuinely single-document answer must not be starved.
-export function capPerDocumentCrowding(results: SearchResult[], maxPerDocument = maxContextChunksPerDocument) {
-  if (results.length <= maxPerDocument) return results;
-  const distinctDocuments = new Set(results.map((result) => result.document_id)).size;
-  if (distinctDocuments < 2) return results;
-  const documentCounts = new Map<string, number>();
-  const capped: SearchResult[] = [];
-  for (const result of results) {
-    const count = documentCounts.get(result.document_id) ?? 0;
-    if (count >= maxPerDocument) continue;
-    documentCounts.set(result.document_id, count + 1);
-    capped.push(result);
-  }
-  return capped;
-}
-
-export function selectModelContextResults(args: {
-  routeMode: RagAnswer["routingMode"];
-  queryClass: RagQueryClass;
-  crossDocument: boolean;
-  results: SearchResult[];
-}) {
-  const results = capPerDocumentCrowding(args.results);
-  if (args.routeMode !== "fast") return results;
-  if (
-    args.crossDocument ||
-    args.queryClass === "comparison" ||
-    args.queryClass === "broad_summary" ||
-    args.queryClass === "medication_dose_risk" ||
-    args.queryClass === "table_threshold"
-  ) {
-    return results;
-  }
-  return results.slice(0, fastRoutineModelContextLimit);
 }
 
 export async function answerQuestion(query: string, documentId?: string) {
