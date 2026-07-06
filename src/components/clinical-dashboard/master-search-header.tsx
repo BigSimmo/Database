@@ -337,7 +337,7 @@ export function MasterSearchHeader({
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
-  const scopeSummaryRef = useRef<HTMLButtonElement | null>(null);
+  const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
   const selectedDocumentIdSet = useMemo(() => new Set(selectedDocumentIds), [selectedDocumentIds]);
   const documentById = useMemo(() => new Map(documents.map((document) => [document.id, document])), [documents]);
@@ -643,12 +643,12 @@ export function MasterSearchHeader({
 
   const closeScope = useCallback((restoreFocus = false) => {
     setScopeOpen(false);
-    if (restoreFocus) scopeSummaryRef.current?.focus();
+    if (restoreFocus) actionMenuTriggerRef.current?.focus();
   }, []);
 
   const closeScopeSheet = useCallback(() => {
     setScopeSheetOpen(false);
-    window.requestAnimationFrame(() => scopeSummaryRef.current?.focus());
+    window.requestAnimationFrame(() => actionMenuTriggerRef.current?.focus());
   }, []);
 
   useEffect(() => {
@@ -750,8 +750,8 @@ export function MasterSearchHeader({
 
   useDismissableLayer({
     enabled: scopeOpen,
-    refs: [scopePopoverRef, scopeSummaryRef],
-    restoreFocusRef: scopeSummaryRef,
+    refs: [scopePopoverRef, actionMenuTriggerRef],
+    restoreFocusRef: actionMenuTriggerRef,
     onDismiss: dismissScope,
   });
 
@@ -1052,7 +1052,7 @@ export function MasterSearchHeader({
     const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;
     const usesModeIdentityAffordance = usesBottomComposerPlacement && !usesSendAffordance;
     const ModeIdentityIcon = appModeIcons[searchMode];
-    const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
+    const supportsDocumentScope = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const composerPlaceholder =
       usesMobileBottomStyle && searchMode === "differentials" ? "Search a presentation" : queryPlaceholder;
 
@@ -1077,18 +1077,12 @@ export function MasterSearchHeader({
               : usesMobileBottomStyle
                 ? cn(
                     "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                    // Hero-placement mode-homes (services/forms) portal the composer into
-                    // the hero from sm up. Hide the default (non-portaled) composer at sm+
-                    // so it never briefly flashes as an overlapping float over the hero
-                    // before the portal activates; the mobile fixed-bottom slot still shows
-                    // below sm. Other homes keep a sticky bar until the portal lifts it.
                     isHeroDesktopComposer ? "sm:hidden" : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
                   )
                 : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
-          usesFooterChipLayout && "flex flex-col items-center gap-2.5",
           shouldHideBottomOnScroll &&
             "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
         )}
@@ -1177,8 +1171,10 @@ export function MasterSearchHeader({
               onModeSelect={selectAppModeById}
               onPlacementChange={setActionMenuPlacement}
               triggerClassName="answer-footer-search-action"
-              triggerRef={scopeSummaryRef}
+              triggerRef={actionMenuTriggerRef}
               integrated={usesFooterChipLayout}
+              integratedChipRow={false}
+              dismissIgnoreRefs={[modeMenuRef]}
             />
 
             {/* The clear button is a flex sibling (not absolutely positioned): the
@@ -1243,7 +1239,7 @@ export function MasterSearchHeader({
         </UniversalSearchCommandSurface>
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
             open it even when the footer chip row is not shown. */}
-        {hasScopeFooterChip && !usesScopeSheet && scopeOpen ? (
+        {supportsDocumentScope && !usesScopeSheet && scopeOpen ? (
           <div
             ref={scopePopoverRef}
             data-testid="scope-command-popover"
@@ -1262,6 +1258,7 @@ export function MasterSearchHeader({
           description="Choose documents and filters for the next search."
           closeLabel="Close document scope"
           initialFocusRef={scopeFilterInputRef}
+          returnFocusRef={actionMenuTriggerRef}
           headerLeading={
             <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <Filter className="h-5 w-5" aria-hidden="true" />
@@ -1374,7 +1371,7 @@ export function MasterSearchHeader({
 
           <div
             ref={modeMenuRef}
-            className={cn("relative z-40 min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
+            className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
           >
             <button
               ref={modeButtonRef}
