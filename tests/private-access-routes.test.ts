@@ -391,6 +391,7 @@ function ssePayload(body: string, eventName: string) {
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   vi.resetModules();
 });
@@ -3274,6 +3275,96 @@ describe("private document API access", () => {
       expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
     );
     expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("falls back to visible demo search only outside production when Supabase rejects the API key", async () => {
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: { retrieval_strategy: "text_fast_path" },
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      request("/api/search", {
+        method: "POST",
+        body: JSON.stringify({ query: "clozapine monitoring", includeRelatedDocuments: false }),
+      }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-Clinical-KB-Fallback")).toBe("supabase_api_key_configuration_unavailable");
+    expect(body).toMatchObject({
+      demoMode: true,
+      fallbackMode: "non_production_demo",
+      fallbackReason: "supabase_api_key_configuration_unavailable",
+      degradedMode: { active: true, reason: "supabase_api_key_configuration_unavailable" },
+    });
+    expect(Array.isArray(body.results) ? body.results.length : 0).toBeGreaterThan(0);
+    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to demo search in production when Supabase rejects the API key", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: { retrieval_strategy: "text_fast_path" },
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      request("/api/search", {
+        method: "POST",
+        body: JSON.stringify({ query: "clozapine monitoring", includeRelatedDocuments: false }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("X-Clinical-KB-Fallback")).toBeNull();
+    expect(await payload(response)).toEqual({ error: "Search failed. Retry with a narrower question." });
+    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
+  });
+
+  it("falls back to visible demo answers only outside production when Supabase rejects the API key", async () => {
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Live answer",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/route");
+
+    const response = await POST(
+      request("/api/answer", {
+        method: "POST",
+        body: JSON.stringify({ query: "clozapine monitoring" }),
+      }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-Clinical-KB-Fallback")).toBe("supabase_api_key_configuration_unavailable");
+    expect(body).toMatchObject({
+      demoMode: true,
+      fallbackMode: "non_production_demo",
+      fallbackReason: "supabase_api_key_configuration_unavailable",
+      degradedMode: { active: true, reason: "supabase_api_key_configuration_unavailable" },
+    });
+    expect(String(body.answer)).toContain("Synthetic");
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
   it("uses an anonymous in-memory limiter for managed local no-auth search", async () => {
