@@ -54,13 +54,7 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
 
 export type CommandSurfacePlacement = "bottom-dock" | "inline";
 
-function ContextHintRow({
-  examples,
-  onPickExample,
-}: {
-  examples: string[];
-  onPickExample: (example: string) => void;
-}) {
+function ContextHintRow({ examples, onPickExample }: { examples: string[]; onPickExample: (example: string) => void }) {
   return (
     <AnswerSuggestionChips
       suggestions={examples}
