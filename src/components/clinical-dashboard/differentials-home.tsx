@@ -952,7 +952,7 @@ export function DifferentialsHome({
   }
 
   return (
-    <div data-testid="differentials-home" className="mx-auto w-full max-w-6xl overflow-x-hidden px-1">
+    <div data-testid="differentials-home" className="w-full">
       <ModeHomeTemplate
         testId="differentials-home-template"
         title="Differentials"
