@@ -8,6 +8,7 @@ import {
   type ModeActionId,
   type ModeActionSetId,
 } from "@/components/clinical-dashboard/mode-action-popup";
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -52,6 +53,25 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
 }
 
 export type CommandSurfacePlacement = "bottom-dock" | "inline";
+
+function ContextHintRow({
+  examples,
+  onPickExample,
+}: {
+  examples: string[];
+  onPickExample: (example: string) => void;
+}) {
+  return (
+    <AnswerSuggestionChips
+      suggestions={examples}
+      onPick={onPickExample}
+      label="Suggested"
+      testId="smart-search-suggestion-row"
+      layout="scroll"
+      className="hidden lg:flex"
+    />
+  );
+}
 
 function ScopeChipRow({
   scopes,
@@ -531,6 +551,14 @@ export function UniversalSearchCommandSurface({
         placement === "bottom-dock" ? "gap-1" : "gap-2",
       )}
     >
+      <ContextHintRow
+        examples={config.examples}
+        onPickExample={(example) => {
+          onQueryChange(example);
+          onDropdownOpenChange(true);
+          onFocusSearchInput?.();
+        }}
+      />
       <div
         className="relative w-full"
         onKeyDownCapture={(event) => {
