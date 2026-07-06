@@ -15,20 +15,22 @@ rolled-back transaction; nothing on the live project was modified.
 ## 1. Live baseline (2026-07-07)
 
 ### Corpus
-| Table | Rows | Total size (heap) | 10× projection |
-| --- | --- | --- | --- |
-| documents | 2,065 (all `indexed`) | 27 MB | ~20k |
-| document_chunks | 69,334 | 1.62 GB (124 MB) | ~700k / ~16 GB |
-| document_index_units | 111,991 | 1.16 GB (159 MB) | ~1.1M / ~12 GB |
-| document_embedding_fields | 215,072 | 3.92 GB (558 MB) | ~2.2M / ~39 GB |
-| document_memory_cards | 53,041 | 1.02 GB (84 MB) | ~530k / ~10 GB |
-| document_table_facts | 34,795 | 76 MB | ~350k |
-| document_pages / images | 27,416 / 12,202 | 51 / 38 MB | ~270k / ~120k |
+
+| Table                     | Rows                  | Total size (heap) | 10× projection |
+| ------------------------- | --------------------- | ----------------- | -------------- |
+| documents                 | 2,065 (all `indexed`) | 27 MB             | ~20k           |
+| document_chunks           | 69,334                | 1.62 GB (124 MB)  | ~700k / ~16 GB |
+| document_index_units      | 111,991               | 1.16 GB (159 MB)  | ~1.1M / ~12 GB |
+| document_embedding_fields | 215,072               | 3.92 GB (558 MB)  | ~2.2M / ~39 GB |
+| document_memory_cards     | 53,041                | 1.02 GB (84 MB)   | ~530k / ~10 GB |
+| document_table_facts      | 34,795                | 76 MB             | ~350k          |
+| document_pages / images   | 27,416 / 12,202       | 51 / 38 MB        | ~270k / ~120k  |
 
 ~7.8 GB of RAG tables today (indexes dominate — embedding_fields carries
 ~3.4 GB of index for 558 MB of heap). 10× ≈ **75–80 GB**.
 
 ### Instance
+
 `shared_buffers` 256 MB, `effective_cache_size` 768 MB, `work_mem` 3.5 MB,
 `max_connections` 60, `random_page_cost` 1.1, `jit` off. pgvector **0.8.0**;
 HNSW indexes `m=24, ef_construction=128` on chunks / embedding_fields /
@@ -36,18 +38,20 @@ memory_cards; `hnsw.ef_search` at the **default 40** (no RPC or role sets it);
 `hnsw.iterative_scan` at the default **off**.
 
 ### Measured RPC latencies (warm-ish, single caller, live corpus)
-| RPC | Time | Notes |
-| --- | --- | --- |
-| match_document_lookup_chunks_text | 9 ms | fine |
-| match_documents_for_query | 52 ms | label/summary joins + per-row `similarity()` |
-| match_document_chunks_hybrid | 141 ms | two arms + fusion |
-| match_document_chunks_text | 301 ms | tsv + trgm fallbacks |
-| match_document_index_units_hybrid | 444 ms | **text-gated only — see F2** |
-| match_document_embedding_fields_hybrid | 520 ms | heaviest vector table, disk-bound |
-| match_document_memory_cards_hybrid_v2 | 687 ms | |
-| match_document_table_facts_text | **6,750 ms** | **unindexable trigram OR — see F1** |
+
+| RPC                                    | Time         | Notes                                        |
+| -------------------------------------- | ------------ | -------------------------------------------- |
+| match_document_lookup_chunks_text      | 9 ms         | fine                                         |
+| match_documents_for_query              | 52 ms        | label/summary joins + per-row `similarity()` |
+| match_document_chunks_hybrid           | 141 ms       | two arms + fusion                            |
+| match_document_chunks_text             | 301 ms       | tsv + trgm fallbacks                         |
+| match_document_index_units_hybrid      | 444 ms       | **text-gated only — see F2**                 |
+| match_document_embedding_fields_hybrid | 520 ms       | heaviest vector table, disk-bound            |
+| match_document_memory_cards_hybrid_v2  | 687 ms       |                                              |
+| match_document_table_facts_text        | **6,750 ms** | **unindexable trigram OR — see F1**          |
 
 ### Per-request fan-out (src/lib/rag.ts, cold cache worst case)
+
 Up to 3 query variants (`maxTextRpcQueryVariants=3`) each for
 `match_document_chunks_text`, `match_documents_for_query`, and
 `match_document_table_facts_text` (all three variant sets run under
@@ -60,6 +64,7 @@ alone is ~3 × 6.75 s of parallel DB CPU.**
 ## 2. Findings (ranked)
 
 ### F1 — `match_document_table_facts_text` is already pathological: 6.75 s at 2k docs, ~linear in corpus (CRITICAL, live today)
+
 The candidate predicate ends in
 `or similarity(lower(coalesce(table_title,'')||' '||row_label||' '||clinical_parameter||' '||threshold_value||' '||action), query) >= 0.18`
 (schema.sql:3087-3100). This disjunct is unindexable twice over: the expression
@@ -78,6 +83,7 @@ existing index expression and uses the `%` operator (set
 "tsv/terms arms returned nothing". Verify with the same explain harness.
 
 ### F2 — Index-unit "hybrid" retrieval has no vector arm at all; the missing HNSW index is being masked (HIGH, correctness-at-scale)
+
 `document_index_units` (112k rows, the visual/enrichment evidence table) has
 **no vector index** — 14 btree/GIN indexes, zero HNSW. The RPC compensates by
 gating candidates on text only: `where (search_tsv @@ tsq or normalized_terms
@@ -94,6 +100,7 @@ rows at 10× is fine for HNSW) and give the RPC a real vector arm mirroring
 `match_document_chunks_hybrid`; keep the text arm as-is.
 
 ### F3 — `ef_search` 40 silently caps every vector arm below its own LIMIT (HIGH, recall)
+
 The chunks-hybrid vector arm asks for `limit greatest(match_count*6, 48)` = 72
 candidates and embedding-fields asks for 48, but pgvector returns at most
 `hnsw.ef_search` = 40 tuples per scan with `iterative_scan` off. Measured live:
@@ -110,6 +117,7 @@ surgical), or enable `hnsw.iterative_scan = relaxed_order` (pgvector 0.8
 feature, purpose-built for filtered HNSW).
 
 ### F4 — The whole vector working set already exceeds RAM by ~10×; at 10× corpus it exceeds it by ~100× (HIGH, latency/cost)
+
 256 MB `shared_buffers` / 768 MB `effective_cache_size` against ~5 GB of HNSW
 indexes today explains the measured 440-690 ms hybrid RPCs (disk-bound graph
 traversal). At 10× (~50 GB of vector indexes) every HNSW hop is a random read;
@@ -122,6 +130,7 @@ in cache; (3) collapse the five per-artifact vector searches per query into
 fewer arms (see F6).
 
 ### F5 — `match_documents_for_query` recomputes unindexed tsvectors and trigram similarity per label/summary row (MEDIUM)
+
 The document-gate RPC computes `to_tsvector('english', l.label)` and
 `similarity(lower(...), query)` inline for every candidate label and summary
 (schema.sql:2637-2672) — no expression index exists for either. 52 ms today at
@@ -131,6 +140,7 @@ retrieval). Mitigation: precomputed `search_tsv` on document_labels (indexed)
 and `%` instead of `similarity() >=`.
 
 ### F6 — Connection/latency budget: 10-14 RPCs per cold request against `max_connections` 60 (MEDIUM, throughput ceiling)
+
 Each RPC is a separate PostgREST round-trip holding a pooled connection for its
 full runtime. Today a cold clinical query consumes roughly 9-10 s of aggregate
 DB time (dominated by F1); a dozen concurrent cold users would saturate the
@@ -142,6 +152,7 @@ RPC taking `text[]` of variants (one round-trip, one scan with
 `retrieve_all(query, embedding)` orchestrator RPC to collapse the hybrid trio.
 
 ### F7 — Statistics churn from `analyze_rag_tables` after every job (LOW)
+
 The worker runs `ANALYZE` over six RAG tables after each completed job,
 throttled to 45 s (worker/main.ts:334-343). At 10× ingestion volume this is a
 steady background full-table sampling load on multi-GB tables and will start
@@ -150,6 +161,7 @@ fine at scale; the manual sweep should become conditional (row-delta threshold)
 or scoped to the tables the job actually grew.
 
 ### F8 — `cleanup_abandoned_document_index_generations` scans every artifact table by generation-mismatch with no supporting index (LOW, ops)
+
 Candidate selection unions seven `table × documents` joins filtering on
 `index_generation_id::text is distinct from metadata->>'index_generation_id'`
 — none of the partial indexes cover that predicate shape, so each run is seven
@@ -160,6 +172,7 @@ from the ops script, or a partial index on `(document_id) where
 index_generation_id is not null`.
 
 ## 3. What holds up fine
+
 - `match_document_chunks_text` (301 ms) and `match_document_lookup_chunks_text`
   (9 ms): GIN `search_tsv` arms with bounded candidate LIMITs; growth is in
   ts_rank sort width, roughly logarithmic-ish in practice. Acceptable at 10×.
@@ -173,6 +186,7 @@ index_generation_id is not null`.
   statement timeout has ample headroom at 10× per-document sizes.
 
 ## 4. Ranked mitigation list
+
 1. **F1**: make the table-facts trigram disjunct indexable (`%` operator +
    3-column expression matching the existing index) or short-circuit it.
    Unbreaks the worst RPC today; mandatory before any growth.
