@@ -312,6 +312,18 @@ type SearchResultModePayload =
 
 type SourceLibrarySearchMode = Extract<AppModeSearchKind, "documents" | "differentials">;
 
+function hasNonProductionSupabaseApiKeyFallback(checks: SetupCheck[]) {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    checks.some(
+      (check) =>
+        check.id === "search" &&
+        check.status !== "ready" &&
+        /\b(?:unregistered|invalid)\s+api\s+key\b/i.test(check.detail),
+    )
+  );
+}
+
 function parseSseData(lines: string[]) {
   const data = lines.join("\n").trim();
   if (!data) return null;
@@ -1722,12 +1734,17 @@ export function ClinicalDashboard({
   const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
   const canUseDegradedLocalSearchApis =
     process.env.NODE_ENV !== "production" && localProjectReady && hasReadyRequiredPublicSearchConfig(setupChecks);
+  const canUseNonProductionDemoFallback = localProjectReady && hasNonProductionSupabaseApiKeyFallback(setupChecks);
   const canUsePrivateApis =
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
   const canUploadDocuments = canUsePrivateApis || (publicUploadsEnabled() && canUsePublicSearchApis);
   const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
   const canRunSearch =
-    explicitDemoMode || canUsePublicSearchApis || canUseDegradedLocalSearchApis || canAttemptDeployedPublicSearch;
+    explicitDemoMode ||
+    canUsePublicSearchApis ||
+    canUseDegradedLocalSearchApis ||
+    canUseNonProductionDemoFallback ||
+    canAttemptDeployedPublicSearch;
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
