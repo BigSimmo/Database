@@ -1488,6 +1488,11 @@ summary::-webkit-details-marker {
     padding-bottom: max(0.45rem, var(--safe-area-bottom));
   }
 
+  .answer-footer-search-dock[data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + env(safe-area-inset-bottom)));
+    pointer-events: none;
+  }
+
   .answer-footer-search-dock .answer-footer-search-pill {
     border-color: var(--border-strong);
     background: var(--surface);

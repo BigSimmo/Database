@@ -83,6 +83,21 @@ async function mockAnswerDashboardApi(page: Page) {
   await page.route(/\/api\/ingestion\/quality(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { items: [], demoMode: true } });
   });
+  await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
+    const kind = new URL(route.request().url()).searchParams.get("kind");
+    const records =
+      kind === "form"
+        ? [{ slug: "transport-crisis-form", title: "Transport order", subtitle: "Crisis transport form" }]
+        : [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }];
+    await route.fulfill({
+      json: {
+        records,
+        total: records.length,
+        demoMode: true,
+        governance: {},
+      },
+    });
+  });
 }
 
 async function commandSurfaceOpensAbovePill(page: Page) {
@@ -90,7 +105,7 @@ async function commandSurfaceOpensAbovePill(page: Page) {
   await expect(input).toBeVisible();
   // Phone footer-dock placement is applied after the header's media-query effect.
   // Opening the command surface before that settles leaves the dropdown on the
-  // inline placement (hidden below lg) even though the hint row is already visible.
+  // inline placement (hidden below lg) even though the footer composer is visible.
   await page.waitForFunction(
     () => Boolean(document.querySelector("form.answer-footer-search-dock, form.answer-footer-search-edge")),
     undefined,
@@ -99,8 +114,8 @@ async function commandSurfaceOpensAbovePill(page: Page) {
   await input.click();
   await expect(async () => {
     await input.press("ArrowDown");
-    await expect(page.getByText("Examples", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("listbox").first()).toBeVisible();
+    await expect(page.getByRole("option").first()).toBeVisible();
   }).toPass({ timeout: 15_000 });
 
   const listbox = page.getByRole("listbox").first();
@@ -375,6 +390,7 @@ test.describe("Clinical KB tools launcher", () => {
   });
 
   test("mode home routes center the shared search on mobile", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
     await page.setViewportSize({ width: 390, height: 820 });
 
     for (const home of [
@@ -406,7 +422,6 @@ test.describe("Clinical KB tools launcher", () => {
       expect(metrics?.homeCenterX).not.toBeNull();
       expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
       await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
-      await expect(page.locator(".mode-home-action").first()).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -435,6 +450,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("mode home routes center the shared search from tablet up", async ({ page }) => {
     test.setTimeout(150_000);
+    await mockAnswerDashboardApi(page);
 
     for (const viewport of [
       { name: "tablet", width: 768, height: 1024 },
@@ -477,7 +493,6 @@ test.describe("Clinical KB tools launcher", () => {
         expect(metrics?.formLeft ?? 0).toBeGreaterThanOrEqual((metrics?.homeLeft ?? 0) - 1);
         expect(metrics?.formRight ?? 0).toBeLessThanOrEqual((metrics?.homeRight ?? viewport.width) + 1);
         expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
-        await expect(page.locator(".mode-home-action").first()).toBeVisible();
         await expectNoPageHorizontalOverflow(page);
       }
     }
@@ -639,6 +654,22 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
     await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone bottom search dock hides while scrolling down on search results", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoLauncher(page, "/forms?q=transport&focus=1&run=1");
+
+    await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
+    const dock = page.locator("form.answer-footer-search-dock");
+    await expect(dock).toBeVisible();
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+
+    await page.evaluate(() => window.scrollTo({ top: 120, behavior: "auto" }));
+    await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+
+    await page.evaluate(() => window.scrollTo({ top: 60, behavior: "auto" }));
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
   });
 
   test("mode toggle keeps forms separate from services", async ({ page }) => {

@@ -12,6 +12,7 @@ import {
   FileText,
   Grid2X2,
   Pill,
+  Plus,
   Search,
   ShieldCheck,
   Sparkles,
@@ -21,12 +22,10 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn } from "@/components/ui-primitives";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-
 type LauncherStatus = "ready" | "recent" | "review_due";
 type LauncherArea = "assessment" | "reference" | "care" | "coordination" | "saved";
 type LauncherFilter = "all" | LauncherArea | "more";
@@ -305,6 +304,9 @@ const toolsLauncherCopy = {
   countNoun: "tools",
   emptyTitle: "No tools match",
   emptyBody: "Clear the search or try another clinical workflow, tool name, or category.",
+  searchAriaLabel: "Search tools",
+  searchPlaceholder: "Search tools...",
+  openSelectedAriaLabel: "Open selected tool",
 };
 
 const quickActions = [
@@ -395,6 +397,58 @@ function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutra
       {tone === "safety" ? <Sparkles className="h-3 w-3" aria-hidden /> : null}
       {label}
     </span>
+  );
+}
+
+function ToolSearch({
+  value,
+  onChange,
+  onSubmit,
+  copy,
+  className,
+}: {
+  value: string;
+  onChange: (query: string) => void;
+  onSubmit: () => void;
+  copy: typeof toolsLauncherCopy;
+  className?: string;
+}) {
+  return (
+    <form
+      role="search"
+      onSubmit={(event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+      className={cn(
+        "grid min-h-13 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
+        className,
+      )}
+    >
+      <span className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--clinical-accent)]">
+        <Plus className="h-4.5 w-4.5" aria-hidden />
+      </span>
+      <label className="min-w-0">
+        <span className="sr-only">{copy.searchAriaLabel}</span>
+        <input
+          data-testid="tools-local-search-input"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={copy.searchPlaceholder}
+          className="w-full min-w-0 bg-transparent text-sm font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none"
+        />
+      </label>
+      <button
+        type="submit"
+        aria-label={copy.openSelectedAriaLabel}
+        className={cn(
+          "mr-1 grid h-10 w-10 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)]",
+          focusRing,
+        )}
+      >
+        <Search className="h-4.5 w-4.5" aria-hidden />
+      </button>
+    </form>
   );
 }
 
@@ -810,14 +864,15 @@ type ApplicationsLauncherWorkspaceProps = {
 };
 
 export function ApplicationsLauncherWorkspace({
-  query = "",
+  query: controlledQuery,
   desktopComposerSlotId,
   className,
 }: ApplicationsLauncherWorkspaceProps) {
+  const [localQuery, setLocalQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
-  const composerSlotId = desktopComposerSlotId ?? modeHomeDesktopComposerSlotId;
   const [detailOpen, setDetailOpen] = useState(false);
   const copy = toolsLauncherCopy;
+  const query = controlledQuery ?? localQuery;
   const normalizedQuery = query.trim().toLowerCase();
   const queryDerivedId = useMemo(() => initialToolId(query), [query]);
   const [selection, setSelection] = useState({
@@ -848,9 +903,17 @@ export function ApplicationsLauncherWorkspace({
     : (filteredApps[0]?.id ?? selectedId);
   const selectedApp = appById(effectiveSelectedId);
 
+  function updateQuery(nextQuery: string) {
+    if (controlledQuery === undefined) setLocalQuery(nextQuery);
+  }
+
   function openTool(id: string) {
     setSelection({ queryKey: normalizedQuery, id });
     setDetailOpen(true);
+  }
+
+  function submitSearch() {
+    if (filteredApps[0]) openTool(filteredApps[0].id);
   }
 
   return (
@@ -884,9 +947,20 @@ export function ApplicationsLauncherWorkspace({
           </p>
         </div>
 
-        {composerSlotId ? (
-          <div id={composerSlotId} className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block" />
-        ) : null}
+        {desktopComposerSlotId ? (
+          <div
+            id={desktopComposerSlotId}
+            className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
+          />
+        ) : (
+          <ToolSearch
+            value={query}
+            onChange={updateQuery}
+            onSubmit={submitSearch}
+            copy={copy}
+            className="w-full max-w-3xl"
+          />
+        )}
 
         <div className="w-full max-w-6xl" data-testid="tools-shortcuts">
           <div className="hidden sm:block">

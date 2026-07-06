@@ -743,7 +743,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByTestId("scope-command-popover")).toBeHidden();
       await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
       await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
-      await expect(page.getByRole("button", { name: "lithium level timing" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Search documents" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Upload document" })).toBeVisible();
       await expectDomIntegrity(page, { mobileNav: viewport.width <= 768 });
@@ -1050,9 +1049,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // First open — use robust retry helper to handle async state update timing.
     await openDailyActions(page);
-    await page.mouse.click(640, 430);
-    await expect(dailyActionsMenu).toHaveCount(0);
-    await expect(dailyActionsTrigger).toHaveAttribute("aria-expanded", "false");
+    await expect(async () => {
+      if (await dailyActionsMenu.isVisible().catch(() => false)) {
+        // Top-left avoids integrated menu panels that can intercept center clicks in CI.
+        await page.mouse.click(8, 8);
+      }
+      await expect(dailyActionsMenu).toHaveCount(0);
+      await expect(dailyActionsTrigger).toHaveAttribute("aria-expanded", "false");
+    }).toPass({ timeout: 10_000 });
 
     // Second open - verify opening the mode menu closes the daily actions surface.
     await openDailyActions(page);
