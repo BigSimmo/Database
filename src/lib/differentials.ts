@@ -46,7 +46,9 @@ export function differentialPresentations(): DifferentialPresentationWorkflow[] 
 }
 
 export function differentialScenarioPresets(): DifferentialScenarioPreset[] {
-  return catalog().presets;
+  // The generated snapshot can carry markdown-header artifacts (e.g. "# Scenario
+  // Presets") as synthetic first rows; they are not searchable presets.
+  return catalog().presets.filter((preset) => !preset.query.trimStart().startsWith("#"));
 }
 
 export function differentialRedFlagFlows(): DifferentialRedFlagFlow[] {
@@ -54,7 +56,14 @@ export function differentialRedFlagFlows(): DifferentialRedFlagFlow[] {
 }
 
 export function differentialSearchAliases(): Record<string, string[]> {
-  return catalog().searchAliases;
+  // The generated snapshot can leak template metadata (field name → numeric
+  // weight, e.g. "tags" → ["1.1"]) into the alias map; bare-number aliases
+  // would match unrelated records by substring, so drop them.
+  return Object.fromEntries(
+    Object.entries(catalog().searchAliases)
+      .map(([token, aliases]) => [token, aliases.filter((alias) => !/^\d+(\.\d+)?$/.test(alias.trim()))] as const)
+      .filter(([, aliases]) => aliases.length > 0),
+  );
 }
 
 export function getPresentationWorkflow(slug: string | null | undefined) {

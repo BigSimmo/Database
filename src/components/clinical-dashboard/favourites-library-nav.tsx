@@ -153,7 +153,10 @@ function buildSidebarSections({
           label: "Source-backed",
           count: sourceBackedCount,
           active: viewMode === "source-backed",
-          onClick: () => onSelectViewMode(viewMode === "source-backed" ? "all" : "source-backed"),
+          onClick: () => {
+            onSelectSet(null);
+            onSelectViewMode(viewMode === "source-backed" ? "all" : "source-backed");
+          },
         },
         {
           id: "pinned",
@@ -161,7 +164,10 @@ function buildSidebarSections({
           label: "Pinned",
           count: pinnedCount,
           active: viewMode === "pinned",
-          onClick: () => onSelectViewMode(viewMode === "pinned" ? "all" : "pinned"),
+          onClick: () => {
+            onSelectSet(null);
+            onSelectViewMode(viewMode === "pinned" ? "all" : "pinned");
+          },
         },
         {
           id: "recent",
@@ -169,7 +175,10 @@ function buildSidebarSections({
           label: "Recently used",
           count: items.length,
           active: viewMode === "recent",
-          onClick: () => onSelectViewMode(viewMode === "recent" ? "all" : "recent"),
+          onClick: () => {
+            onSelectSet(null);
+            onSelectViewMode(viewMode === "recent" ? "all" : "recent");
+          },
         },
       ],
     },

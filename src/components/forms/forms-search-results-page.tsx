@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ChevronRight,
   Clock3,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { useMemo } from "react";
 
+import { appModeHomeHref } from "@/lib/app-modes";
 import { rankFormRecords, type FormSearchMatch } from "@/lib/forms";
 import { useRegistryRecords, type RegistryRequestStatus } from "@/lib/use-registry-records";
 import {
@@ -38,13 +40,18 @@ type FormsSearchResultsPageProps = {
   query: string;
 };
 
-const resultCodes = ["4A", "4B", "3A", "5", "2B", "1A"];
+const formCodesBySlug: Record<string, string> = {
+  "transport-crisis-form": "4A",
+  "extension-transport-order": "4B",
+  "detention-examination-movement": "3A",
+  "transfer-order": "5",
+};
 const sourceSnippetCount = 278;
 const taskCount = 8;
 const pathwayCount = 12;
 
-function resultCode(index: number) {
-  return resultCodes[index] ?? String(index + 1);
+function resultCode(match: FormSearchMatch, index: number) {
+  return formCodesBySlug[match.service.slug] ?? String(index + 1);
 }
 
 function tagToneClass(label: string) {
@@ -61,10 +68,13 @@ function tagToneClass(label: string) {
   return "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 }
 
-function compactMatchReason(match: FormSearchMatch) {
-  if (match.reasons.includes("title")) return `Title or content match for "transport"`;
+function compactMatchReason(match: FormSearchMatch, query: string) {
+  const trimmedQuery = query.trim();
+  if (match.reasons.includes("title")) {
+    return trimmedQuery ? `Title or content match for "${trimmedQuery}"` : "Title or content match";
+  }
   if (match.reasons.includes("record fields")) return "Content match in related pathway";
-  return "Content match for transfer/transport";
+  return "Content match in the forms catalogue";
 }
 
 function ResultTabs({ formsCount }: { formsCount: number }) {
@@ -106,7 +116,7 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
   );
 }
 
-function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
+function ResultsTable({ matches, query }: { matches: FormSearchMatch[]; query: string }) {
   return (
     <section
       data-testid="form-search-results"
@@ -133,7 +143,7 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
               className="grid gap-4 border-b border-[color:var(--border)] px-5 py-4 transition last:border-b-0 hover:bg-[color:var(--surface-subtle)]/55 md:grid-cols-[86px_minmax(180px,1fr)_170px_minmax(180px,1fr)_86px] md:items-center"
             >
               <div className="grid h-12 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-3xl font-extrabold text-[color:var(--clinical-accent)]">
-                {resultCode(index)}
+                {resultCode(match, index)}
               </div>
               <div>
                 <h3 className="max-w-[21rem] text-sm font-extrabold leading-snug text-[color:var(--text-heading)]">
@@ -157,7 +167,7 @@ function ResultsTable({ matches }: { matches: FormSearchMatch[] }) {
                 })}
               </div>
               <p className="text-sm font-medium leading-relaxed text-[color:var(--text-muted)]">
-                {compactMatchReason(match)}
+                {compactMatchReason(match, query)}
               </p>
               <Link
                 href={`/forms/${form.slug}`}
@@ -403,7 +413,7 @@ function VerifiedFooter() {
   );
 }
 
-function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
+function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: string }) {
   return (
     <section
       data-testid="form-search-mobile-results"
@@ -420,7 +430,7 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
               className="grid grid-cols-[38px_minmax(0,1fr)] gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[0_1px_2px_rgb(12_24_34_/_5%)]"
             >
               <div className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-lg font-extrabold leading-none text-[color:var(--clinical-accent)]">
-                {resultCode(index)}
+                {resultCode(match, index)}
               </div>
               <div className="min-w-0">
                 <div className="flex min-w-0 items-start justify-between gap-2">
@@ -456,7 +466,7 @@ function MobileCards({ matches }: { matches: FormSearchMatch[] }) {
                   })}
                 </div>
                 <p className="mt-0.5 truncate text-3xs font-medium leading-3 text-[color:var(--text-muted)]">
-                  {compactMatchReason(match)}
+                  {compactMatchReason(match, query)}
                 </p>
               </div>
             </article>
@@ -580,6 +590,7 @@ export function FormsSearchResultsPage(props: FormsSearchResultsPageProps) {
 }
 
 function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
+  const router = useRouter();
   const command = useSearchCommand();
   const registry = useRegistryRecords("form");
   const registryReady = registry.status === "ready";
@@ -604,17 +615,24 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 <SearchResultsHeaderBand modeId="forms" query={query} matchCount={scopedMatches.length} />
               </div>
               {query.trim() && scopedMatches.length === 0 ? (
-                <SearchResultsEmptyState modeId="forms" query={query} onClearScopes={command?.onClearScopes} />
+                <SearchResultsEmptyState
+                  modeId="forms"
+                  query={query}
+                  onClearScopes={command?.onClearScopes}
+                  onTryExample={(example) =>
+                    router.push(appModeHomeHref("forms", { query: example, focus: true, run: true }))
+                  }
+                />
               ) : (
                 <>
                   <div className="overflow-x-auto">
                     <ResultTabs formsCount={scopedMatches.length} />
                   </div>
                   <div className="hidden lg:block">
-                    <ResultsTable matches={scopedMatches} />
+                    <ResultsTable matches={scopedMatches} query={query} />
                   </div>
                   <div className="lg:hidden">
-                    <MobileCards matches={scopedMatches} />
+                    <MobileCards matches={scopedMatches} query={query} />
                   </div>
                 </>
               )}

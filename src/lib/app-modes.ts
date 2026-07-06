@@ -250,7 +250,7 @@ export function appModeHomeHref(modeId: AppModeId, options: { query?: string; fo
     const namespacedParams = new URLSearchParams();
     if (query) namespacedParams.set("q", query);
     if (options.focus) namespacedParams.set("focus", "1");
-    if (options.run) namespacedParams.set("run", "1");
+    if (options.run && query) namespacedParams.set("run", "1");
 
     const suffix = namespacedParams.toString();
     return suffix ? `${mode.href}?${suffix}` : mode.href;
@@ -260,7 +260,8 @@ export function appModeHomeHref(modeId: AppModeId, options: { query?: string; fo
     const homeParams = new URLSearchParams();
     if (options.focus) homeParams.set("focus", "1");
     const suffix = homeParams.toString();
-    return suffix ? `${mode.href}?${suffix}` : mode.href;
+    const separator = mode.href.includes("?") ? "&" : "?";
+    return suffix ? `${mode.href}${separator}${suffix}` : mode.href;
   }
 
   const params = new URLSearchParams({ mode: modeId });
