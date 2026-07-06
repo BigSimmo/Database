@@ -1882,7 +1882,7 @@ async function updateAgentJobStatus(
   error: string | null = null,
   nextRunAt: string | null = null,
 ): Promise<void> {
-  const rows = await sql<Array<{ ok: boolean }>>`
+  const rows = await sql<JobStatusRpcResult[]>`
     select *
     from public.update_indexing_v3_agent_job_status(
       ${job.document_id}::uuid,
@@ -1891,7 +1891,8 @@ async function updateAgentJobStatus(
       ${nextRunAt}::timestamptz
     )
   `;
-  if (!rows[0]?.ok) {
+  const result = parseJobStatusRpcResult(rows[0], "update_indexing_v3_agent_job_status");
+  if (!result?.ok) {
     throw new Error(`Failed to update indexing_v3_agent_jobs status to ${status} for document ${job.document_id}`);
   }
 }
