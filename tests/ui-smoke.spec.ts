@@ -1310,7 +1310,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(popoverMetrics.height).toBeLessThanOrEqual(Math.ceil(popoverMetrics.viewportHeight * 0.72));
     await page.keyboard.press("Escape");
     await expect(scopePopover).toBeHidden();
-    await expect(page.getByTestId("global-search-input")).toBeFocused();
+    await expect(page.getByRole("button", { name: "Open answer options" })).toBeFocused();
     await expectNoPageHorizontalOverflow(page);
   });
 
