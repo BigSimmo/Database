@@ -1236,6 +1236,16 @@ summary::-webkit-details-marker {
   min-width: 0;
 }
 
+.smart-search-suggestion-row {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .smart-search-suggestion-row {
+    display: flex;
+  }
+}
+
 .answer-suggestion-label {
   color: var(--text-soft);
   font-size: 0.6875rem;
