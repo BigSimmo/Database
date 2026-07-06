@@ -1006,7 +1006,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    const dailyActionsTrigger = page.getByRole("button", { name: "Open answer options" });
+    const dailyActionsTrigger = page.getByRole("button", { name: /^Open .+ options$/ });
     const dailyActionsMenu = page.getByTestId("daily-actions-menu");
     const appModeTrigger = page.getByRole("button", { name: /^Mode / });
     const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
