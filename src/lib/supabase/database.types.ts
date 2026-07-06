@@ -2105,6 +2105,16 @@ export type Database = {
           retry_after_seconds: number;
         }[];
       };
+      corpus_topic_term_stats: {
+        Args: { terms: string[]; owner_filter?: string | null };
+        Returns: {
+          term: string;
+          has_ts_signal: boolean;
+          title_doc_count: number;
+          chunk_present: boolean;
+          total_doc_count: number;
+        }[];
+      };
       correct_clinical_query_terms: {
         Args: { input_query: string; min_sim?: number };
         Returns: string;

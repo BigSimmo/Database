@@ -199,16 +199,21 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
       `typoCorrected` flag; only fires for would-be-unsupported queries so no hot-path cost). Rescues
       typo queries whose corrected form is a _supported_ class (e.g. a typo'd clozapine/dose query
       → table_threshold). Golden 23/23 unchanged, 682 tests pass.
-    - ⚠️ **Pre-existing bug surfaced (NEW, finding #11):** unsupported-classified queries retrieve
-      **nondeterministically** — the _same_ query in the _same_ process alternates
-      `unsupported_short_circuit` (0 results) vs `text_fast_path`/`hybrid` (real results), e.g.
-      "anorexia management" (no typo). Classification is pure and all caches honour `skipCache`, so the
-      variance is elsewhere in the unsupported-query path (candidate: alias fetch/expansion or an async
-      step) — needs runtime instrumentation to pin. It masks the benefit above (a typo query whose
-      corrected form is ALSO borderline-unsupported, like "schizophrenai management", inherits the
-      flakiness). Confined to unsupported queries (golden set never hits it), so it never affected the
-      committed metrics. High-priority to fix — it means some valid clinical topics ("bipolar disorder",
-      "anorexia management") intermittently return nothing.
+    - ✅ **Finding #11 FIXED (2026-07-07) — corpus-grounded relevance.** Root cause was the
+      nondeterministic LLM classifier deciding the unsupported soft tail (see
+      docs/process-hardening.md 2026-07-03 entry). Two-part fix: PR #325's classifier-verdict
+      memoization (interim determinism per query per 15-min TTL), then the Phase-2 fix on
+      `claude/retrieval-correctness`: `corpus_topic_term_stats` (migration `20260707100000`,
+      applied live) + `src/lib/corpus-grounding.ts` classify soft-tail queries against the
+      corpus's own topic vocabulary (title-tsvector matches under a 5% genericity ceiling;
+      chunk-absence = invented term) BEFORE any LLM call. In-corpus bare topics ("bipolar
+      disorder", "anorexia management") deterministically reclassify to `broad_summary` and
+      answer (verified live: 4/4 identical runs, docs at rank 1); corpus-absent queries
+      ("florbizone syndrome management", "quxbyria disorder treatment") skip the LLM and refuse
+      deterministically, with the trigram-correction escape hatch preserved for typos.
+      Invented-term controls added to `ragEvalCases`; bare-topic golden cases added
+      (`bare-topic-bipolar`, `bare-topic-anorexia`). Inconclusive verdicts (e.g. "gout
+      management" — chunk-present but no title topic) keep the legacy memoized-LLM behaviour.
     - ⏳ Still hard-coded (lower priority now the trigram path exists): moving `synonymGroups` /
       `domainAliasGroups` / `medicationAliasGroups` into `rag_aliases`; generalising the special-case
       rewrites off `RagQueryClass`.

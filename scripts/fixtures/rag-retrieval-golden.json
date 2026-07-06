@@ -327,5 +327,23 @@
     "topK": 8,
     "expectTableEvidence": false,
     "forceEmbedding": true
+  },
+  {
+    "id": "bare-topic-bipolar",
+    "query": "bipolar disorder",
+    "expectedQueryClass": "broad_summary",
+    "expectedDocumentSubstrings": ["Bipolar"],
+    "expectedContentTerms": [["bipolar", "mania", "manic", "mood"]],
+    "topK": 8,
+    "expectTableEvidence": false
+  },
+  {
+    "id": "bare-topic-anorexia",
+    "query": "anorexia management",
+    "expectedQueryClass": "broad_summary",
+    "expectedDocumentSubstrings": ["Anorexia"],
+    "expectedContentTerms": [["anorexia", "eating", "weight"]],
+    "topK": 8,
+    "expectTableEvidence": false
   }
 ]

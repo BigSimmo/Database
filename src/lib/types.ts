@@ -635,6 +635,12 @@ export type ClinicalQueryIntent =
   | "broad_summary"
   | "general";
 
+// Finding #11 corpus grounding: how the corpus classified an unsupported-soft-tail query.
+// "in_corpus_topic" deterministically reclassifies to broad_summary; "out_of_corpus" skips the
+// LLM classifier so the soft-tail refusal is deterministic; "inconclusive" keeps legacy
+// behaviour (LLM classifier fallback). Absent = the query never entered the soft tail.
+export type CorpusGroundingVerdict = "in_corpus_topic" | "out_of_corpus" | "inconclusive";
+
 export type ClinicalQueryAnalysis = {
   originalQuery: string;
   normalizedQuery: string;
@@ -642,6 +648,7 @@ export type ClinicalQueryAnalysis = {
   intent: ClinicalQueryIntent;
   confidence: number;
   reasons: string[];
+  corpusGrounding?: CorpusGroundingVerdict;
   canonicalTerms: string[];
   expandedTerms: string[];
   typoCorrections: Array<{ from: string; to: string }>;
