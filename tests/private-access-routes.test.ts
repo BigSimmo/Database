@@ -3367,6 +3367,77 @@ describe("private document API access", () => {
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
+  it("falls back to a final streamed demo answer outside production when Supabase rejects the API key", async () => {
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Live answer",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      request("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "clozapine monitoring" }),
+      }),
+    );
+    const body = await response.text();
+    const finalPayload = ssePayload(body, "final");
+
+    expect(response.status).toBe(200);
+    expect(body).not.toContain("event: error");
+    expect(finalPayload).toMatchObject({
+      demoMode: true,
+      fallbackMode: "non_production_demo",
+      fallbackReason: "supabase_api_key_configuration_unavailable",
+      degradedMode: { active: true, reason: "supabase_api_key_configuration_unavailable" },
+    });
+    expect(String(finalPayload.answer)).toContain("Synthetic");
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("does not stream demo fallback in production when Supabase rejects the API key", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Live answer",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      request("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "clozapine monitoring" }),
+      }),
+    );
+    const body = await response.text();
+    const errorPayload = ssePayload(body, "error");
+
+    expect(response.status).toBe(200);
+    expect(body).not.toContain("event: final");
+    expect(errorPayload).toMatchObject({
+      error: "Answer generation failed. Retry with a narrower question.",
+      status: 500,
+      // Key-configuration failures carry a stable code so a production outage is
+      // diagnosable from the client network tab (confirmed live 2026-07-06).
+      details: { code: "supabase_api_key_configuration" },
+    });
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
   it("uses an anonymous in-memory limiter for managed local no-auth search", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],

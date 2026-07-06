@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import type { MedicationRecord, MedicationSearchResult } from "@/lib/medications";
+import { useAuthSession } from "@/lib/supabase/client";
 
 type MedicationCatalogMatch = {
   medication: MedicationRecord;
@@ -33,36 +34,51 @@ type AsyncState<T> = {
   error: string | null;
 };
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { cache: "no-store" });
+async function fetchJson<T>(url: string, headers?: HeadersInit): Promise<T> {
+  const response = await fetch(url, { cache: "no-store", headers });
   if (!response.ok) {
     throw new Error(`Request failed (${response.status})`);
   }
   return (await response.json()) as T;
 }
 
-export function useMedicationCatalog(query?: string): AsyncState<MedicationCatalogResponse> {
+export function useMedicationCatalog(
+  query?: string,
+  options: { enabled?: boolean; fields?: "index" } = {},
+): AsyncState<MedicationCatalogResponse> {
+  const enabled = options.enabled ?? true;
+  const fields = options.fields;
   const trimmed = query?.trim() ?? "";
+  // Auth-aware like use-registry-records: without the header an authenticated owner was
+  // silently served the public fixture catalogue instead of their seeded records.
+  const { authorizationHeader } = useAuthSession();
   const [prevQuery, setPrevQuery] = useState(trimmed);
+  const [prevEnabled, setPrevEnabled] = useState(enabled);
   const [state, setState] = useState<AsyncState<MedicationCatalogResponse>>({
     data: null,
-    loading: true,
+    loading: enabled,
     error: null,
   });
 
-  if (trimmed !== prevQuery) {
+  if (trimmed !== prevQuery || enabled !== prevEnabled) {
     setPrevQuery(trimmed);
+    setPrevEnabled(enabled);
     setState({
       data: null,
-      loading: true,
+      loading: enabled,
       error: null,
     });
   }
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
-    const url = trimmed ? `/api/medications?q=${encodeURIComponent(trimmed)}` : "/api/medications";
-    fetchJson<MedicationCatalogResponse>(url)
+    const params = new URLSearchParams();
+    if (trimmed) params.set("q", trimmed);
+    if (fields) params.set("fields", fields);
+    const suffix = params.toString();
+    const url = suffix ? `/api/medications?${suffix}` : "/api/medications";
+    fetchJson<MedicationCatalogResponse>(url, authorizationHeader)
       .then((data) => {
         if (!cancelled) setState({ data, loading: false, error: null });
       })
@@ -78,13 +94,14 @@ export function useMedicationCatalog(query?: string): AsyncState<MedicationCatal
     return () => {
       cancelled = true;
     };
-  }, [trimmed]);
+  }, [trimmed, enabled, fields, authorizationHeader]);
 
   return state;
 }
 
 export function useMedicationDetail(slug?: string): AsyncState<MedicationDetailResponse> {
   const normalized = slug?.trim().toLowerCase() ?? "";
+  const { authorizationHeader } = useAuthSession();
   const [prevSlug, setPrevSlug] = useState(normalized);
   const [state, setState] = useState<AsyncState<MedicationDetailResponse>>(() => ({
     data: null,
@@ -106,7 +123,7 @@ export function useMedicationDetail(slug?: string): AsyncState<MedicationDetailR
       return;
     }
     let cancelled = false;
-    fetchJson<MedicationDetailResponse>(`/api/medications/${encodeURIComponent(normalized)}`)
+    fetchJson<MedicationDetailResponse>(`/api/medications/${encodeURIComponent(normalized)}`, authorizationHeader)
       .then((data) => {
         if (!cancelled) setState({ data, loading: false, error: null });
       })
@@ -122,7 +139,7 @@ export function useMedicationDetail(slug?: string): AsyncState<MedicationDetailR
     return () => {
       cancelled = true;
     };
-  }, [normalized]);
+  }, [normalized, authorizationHeader]);
 
   return state;
 }

@@ -16,14 +16,14 @@ export default async function ServicesIndexRoute({ searchParams }: { searchParam
     readFirstSearchParam(resolvedSearchParams.query) ??
     ""
   ).trim();
-  const hasSubmittedSearch = resolvedSearchParams.run === "1" && query.length > 0;
+  const hasSubmittedSearch = readFirstSearchParam(resolvedSearchParams.run) === "1" && query.length > 0;
 
   if (!hasSubmittedSearch) {
     return <ServicesHomePage />;
   }
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#f8fbfd]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[color:var(--surface-wash)]" />}>
       <ServicesNavigatorPage />
     </Suspense>
   );

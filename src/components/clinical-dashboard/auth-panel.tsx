@@ -88,7 +88,7 @@ export function AuthPanel() {
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
           <div>
             <p className="text-sm font-semibold text-[color:var(--text)]">Real-data sign-in unavailable</p>
-            <p className={cn("mt-1 text-[15px] leading-6", textMuted)}>
+            <p className={cn("mt-1 text-base-minus leading-6", textMuted)}>
               Configure the Supabase public URL and publishable key before using private documents.
             </p>
           </div>
@@ -246,7 +246,7 @@ function ProviderMark({ provider }: { provider: "Apple" | "Google" | "Microsoft"
 
 function AuthBenefit({ icon: Icon, label }: { icon: typeof SlidersHorizontal; label: string }) {
   return (
-    <span className="flex min-w-0 flex-col items-center gap-1 text-center text-[11px] font-semibold leading-4 text-[color:var(--text-muted)]">
+    <span className="flex min-w-0 flex-col items-center gap-1 text-center text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
       <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" />
       <span>{label}</span>
     </span>

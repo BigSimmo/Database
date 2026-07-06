@@ -229,7 +229,7 @@ export function AnswerSupportSummaryCard({
               <p className={cn("mt-0.5 line-clamp-1 text-xs leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
             </div>
             {priority.sourceLabel ? (
-              <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-[11px]")}>{priority.sourceLabel}</span>
+              <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-2xs")}>{priority.sourceLabel}</span>
             ) : null}
           </div>
         )
@@ -778,7 +778,7 @@ export function ClinicalNotesChecklistPanel({
                   <span className="truncate">{tab.label}</span>
                   <span
                     className={cn(
-                      "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px]",
+                      "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-3xs",
                       selected
                         ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)]"
                         : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
@@ -833,7 +833,7 @@ export function ClinicalNotesChecklistPanel({
                     {row.title}
                   </p>
                   {!isWarnRow ? (
-                    <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", toneSuccess)}>
+                    <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", toneSuccess)}>
                       {activeTab === "actions" ? "Action" : "Source"}
                     </span>
                   ) : null}
@@ -844,9 +844,9 @@ export function ClinicalNotesChecklistPanel({
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {isWarnRow ? (
-                  <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", toneWarning)}>Review</span>
+                  <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", toneWarning)}>Review</span>
                 ) : (
-                  <span className="nums grid h-6 min-w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+                  <span className="nums grid h-6 min-w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-2xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                     S{row.sourceIndex}
                   </span>
                 )}
@@ -895,13 +895,13 @@ export function ClinicalNotesChecklistPanel({
           {bestSource ? (
             <Link
               href={bestSource.viewer_href}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]">
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
@@ -909,7 +909,7 @@ export function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text)]"
           >
             <Copy className="h-3.5 w-3.5" />
             {copied ? "Copied" : "Copy"}
@@ -917,7 +917,7 @@ export function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
           >
             <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
@@ -968,7 +968,7 @@ export function SafetyFindingsListContent({ findings }: { findings: SafetyFindin
           </span>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", safetyFindingKindTone(finding.kind))}>
+              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", safetyFindingKindTone(finding.kind))}>
                 {finding.label}
               </span>
               <Link
@@ -1133,7 +1133,7 @@ export function AnswerFeedbackPanel({
           </p>
         </div>
         {pending ? (
-          <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+          <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Saving
           </span>
@@ -1416,12 +1416,12 @@ export function AnswerSafetyNotice({
           : "Draft only; verify source first before pasting into the medical record."}
       </p>
       {retrievalGateBlocked ? (
-        <p className="mt-1 text-[11px] text-[color:var(--warning)]">
+        <p className="mt-1 text-2xs text-[color:var(--warning)]">
           Retrieval confidence gate was triggered. Expand evidence details before using this result.
         </p>
       ) : null}
       {demoMode ? (
-        <p className="mt-1 text-[11px] font-semibold text-[color:var(--warning)]">
+        <p className="mt-1 text-2xs font-semibold text-[color:var(--warning)]">
           Synthetic demo only: this is not clinical guidance.
         </p>
       ) : null}
@@ -1471,7 +1471,9 @@ export function QuoteCards({
                   </span>
                   <StrengthBadge strength={quote.source_strength} />
                 </div>
-                <blockquote className={cn(proseMeasure, "text-[15px] font-medium leading-6 text-[color:var(--text)]")}>
+                <blockquote
+                  className={cn(proseMeasure, "text-base-minus font-medium leading-6 text-[color:var(--text)]")}
+                >
                   &ldquo;{quoteText}&rdquo;
                 </blockquote>
                 <div
@@ -1480,7 +1482,7 @@ export function QuoteCards({
                     clinicalDivider,
                   )}
                 >
-                  <span className="max-w-full text-[15px] font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
+                  <span className="max-w-full text-base-minus font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
                     {formatCompactCitationLabel(quote)}
                   </span>
                   <span className="hidden max-w-full text-xs font-semibold leading-5 text-[color:var(--primary)] sm:inline">

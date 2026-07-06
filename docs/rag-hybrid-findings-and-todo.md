@@ -231,3 +231,31 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
 16. ⏳ **ROTATE all secrets** pasted in plaintext this session: OpenAI key, Supabase `service_role`
     JWT + legacy JWT secret, DB password, E2E password. `.env.local` is gitignored, but the values
     were exposed in chat.
+
+## Follow-ups filed 2026-07-06 (universal-search workstream)
+
+17. ⏳ **Alias promotion pipeline is blocked by privacy redaction.** `rag_query_misses` rows store
+    hashed/redacted queries with empty `candidate_aliases`, so hardcoded `synonymGroups` /
+    `domainAliasGroups` / special-case rewrites in `src/lib/clinical-search.ts` cannot be replaced
+    with data-driven `rag_aliases` rows until a privacy-safe candidate-alias capture is designed.
+18. ⏳ **`document_index_units` vector recall** — no HNSW index (dropped 2026-07-02) and hosted
+    Supabase denies `ALTER FUNCTION … SET hnsw.ef_search` for the `language sql` hybrid RPCs, so
+    only `match_document_memory_cards_hybrid` pins `ef_search=100`. Quantify the recall impact
+    before reintroducing an index.
+19. ⏳ **Demo fallback can mask live retrieval failures in non-prod.** `/api/search` and
+    `/api/answer` silently swap in demo data on Supabase errors outside production (only an
+    `X-Clinical-KB-Fallback` header signals it). Proposal: surface a warning in
+    `check:production-readiness` output and/or a visible dev-mode banner rather than changing
+    the fallback behaviour.
+20. ⏳ **Automated guard for governance-weighting regressions.** The 23/23 → 16/23 golden-set
+    regression class (governance metadata weighting selection ordering) is only guarded by the
+    manual PR checklist because `eval:retrieval:quality` needs live keys. Investigate a
+    keys-free structural test (e.g. assert selection sort inputs exclude governance fields).
+21. ⏳ **Recalibrate gates for synthetic text-only similarity (RC9 residual).** Text-fast-path
+    results now carry `similarity_origin: "synthetic_text"` telemetry; once enough data exists,
+    recalibrate `evaluateEvidenceCoverageGate` / text-fast-path thresholds against real cosine
+    distributions instead of the `least(0.95, 0.56 + text_rank*0.39)` proxy.
+22. ⏳ **Registry-to-corpus embedding (universal search Phase 5).** Medications/services/forms/
+    differentials are federated into `/api/search/universal` but are not retrieval-corpus
+    entities, so Answer mode cannot cite them. If product wants that: env-flagged ingestion,
+    golden-eval + invented-term controls first (depends on 17 for alias hygiene).

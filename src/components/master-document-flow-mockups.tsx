@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { ReactNode, useMemo, useState } from "react";
 
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { cn } from "@/components/ui-primitives";
 import { documentEvidenceHref, documentReaderHref, documentsSearchHref } from "@/lib/document-flow-routes";
 
@@ -250,12 +251,12 @@ const monitoringTableRows = [
   ["> 1 year", "4 weekly", "Full Blood Count (ANC)", "ANC < 1.0 x10^9/L"],
 ] as const;
 
-function documentHref(document: DocumentFixture, query = defaultQuery) {
+function documentHref(document: DocumentFixture, query = defaultQuery, evidence?: EvidenceFixture) {
   return documentReaderHref({
     document: document.slug,
     query,
-    page: String(document.page),
-    chunk: document.chunk,
+    page: String(evidence?.page ?? document.page),
+    chunk: evidence?.id ?? document.chunk,
   });
 }
 
@@ -285,12 +286,26 @@ function primaryEvidence(document: DocumentFixture) {
   return document.evidence[0] ?? defaultDocument.evidence[0];
 }
 
-function primaryEvidenceLabel(document: DocumentFixture) {
-  const evidence = primaryEvidence(document);
-  if (evidence.type === "table") return evidence.label;
+function evidenceForType(document: DocumentFixture, type: "all" | EvidenceType) {
+  if (type !== "all") return document.evidence.find((evidence) => evidence.type === type);
+  return document.evidence[0];
+}
+
+function evidenceLabel(evidence: EvidenceFixture) {
   if (evidence.type === "quote") return "Quote";
-  if (evidence.type === "image") return evidence.label;
-  return "Related";
+  if (evidence.type === "related") return "Related";
+  return evidence.label;
+}
+
+function evidenceCountLabel(document: DocumentFixture, type: EvidenceType, label: string) {
+  return `${label} ${document.evidence.filter((evidence) => evidence.type === type).length}`;
+}
+
+function evidenceTypeIconFor(type: EvidenceType): LucideIcon {
+  if (type === "table") return Table2;
+  if (type === "quote") return Quote;
+  if (type === "image") return FileImage;
+  return Layers3;
 }
 
 function evidenceTypeLabel(type: EvidenceType) {
@@ -439,12 +454,14 @@ function SearchResultMobileCard({
   document,
   query,
   selected,
+  activeType = "all",
 }: {
   document: DocumentFixture;
   query: string;
   selected: boolean;
+  activeType?: "all" | EvidenceType;
 }) {
-  const evidence = primaryEvidence(document);
+  const evidence = evidenceForType(document, activeType);
   return (
     <article
       className={cn(
@@ -457,12 +474,25 @@ function SearchResultMobileCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-[color:var(--clinical-accent)]">
-            <EvidenceTypeIcon type={evidence.type} className="h-4 w-4 shrink-0" />
-            <span className="truncate">{evidenceTypeLabel(evidence.type)}</span>
-            <span className="text-[color:var(--text-soft)]">·</span>
-            <span className="shrink-0">p.{evidence.page}</span>
-            <span className="text-[color:var(--text-soft)]">·</span>
-            <span className="shrink-0">{evidence.relevance}%</span>
+            {evidence ? (
+              <>
+                <EvidenceTypeIcon type={evidence.type} className="h-4 w-4 shrink-0" />
+                <span className="truncate">{evidenceTypeLabel(evidence.type)}</span>
+                <span className="text-[color:var(--text-soft)]">·</span>
+                <span className="shrink-0">p.{evidence.page}</span>
+                <span className="text-[color:var(--text-soft)]">·</span>
+                <span className="shrink-0">{evidence.relevance}%</span>
+              </>
+            ) : (
+              <>
+                <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">Document match</span>
+                <span className="text-[color:var(--text-soft)]">·</span>
+                <span className="shrink-0">p.{document.page}</span>
+                <span className="text-[color:var(--text-soft)]">·</span>
+                <span className="shrink-0">{document.relevance}%</span>
+              </>
+            )}
           </div>
         </div>
         {selected ? <Pill active>Best match</Pill> : <IconButton label="More result actions" icon={MoreVertical} />}
@@ -484,38 +514,45 @@ function SearchResultMobileCard({
           <p className="mt-1 line-clamp-1 text-xs font-semibold text-[color:var(--text-muted)]">
             {document.kind} · {document.version}
           </p>
-          <h2 className="mt-2 line-clamp-1 text-sm font-extrabold text-[color:var(--clinical-accent)]">
-            {evidence.title}
-          </h2>
+          {evidence ? (
+            <h2 className="mt-2 line-clamp-1 text-sm font-extrabold text-[color:var(--clinical-accent)]">
+              {evidence.title}
+            </h2>
+          ) : null}
         </div>
       </div>
-      <p className="mt-3 line-clamp-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">{evidence.body}</p>
+      <p className="mt-3 line-clamp-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+        {evidence ? evidence.body : document.snippet}
+      </p>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <Pill tone={document.status === "Current" ? "green" : "amber"} icon={CheckCircle2}>
           {document.status}
         </Pill>
-        <Pill>{primaryEvidenceLabel(document)}</Pill>
+        <Pill>{evidence ? evidenceLabel(evidence) : "No extracted evidence"}</Pill>
       </div>
       <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
         <Link
-          href={documentHref(document, query)}
+          href={documentHref(document, query, evidence)}
           className={cn(
             "inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)]",
             focusRing,
+            !evidence && "col-span-2",
           )}
         >
           Open document
           <ExternalLink className="h-4 w-4" aria-hidden="true" />
         </Link>
-        <Link
-          href={evidenceHref(document, evidence, query)}
-          className={cn(
-            "inline-flex min-h-11 min-w-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]",
-            focusRing,
-          )}
-        >
-          Open evidence
-        </Link>
+        {evidence ? (
+          <Link
+            href={evidenceHref(document, evidence, query)}
+            className={cn(
+              "inline-flex min-h-11 min-w-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]",
+              focusRing,
+            )}
+          >
+            Open evidence
+          </Link>
+        ) : null}
       </div>
     </article>
   );
@@ -606,7 +643,7 @@ export function MasterDocumentSearch() {
         document.snippet.toLowerCase().includes(lowered) ||
         document.terms.some((term) => lowered.includes(term.toLowerCase()) || term.toLowerCase().includes(lowered));
       const matchesType = type === "all" || document.evidence.some((item) => item.type === type);
-      return matchesQuery || matchesType || document.slug === defaultDocument.slug;
+      return matchesQuery && matchesType;
     });
   }, [query, type]);
 
@@ -721,6 +758,10 @@ export function MasterDocumentSearch() {
             </div>
           </header>
 
+          <div className="mt-4">
+            <CrossModeLinksSection queries={[query]} />
+          </div>
+
           <section className="mt-4 hidden min-h-0 flex-1 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] md:block">
             <div className="grid min-w-[58rem] grid-cols-[minmax(20rem,1.7fr)_minmax(17rem,1.25fr)_9rem_8rem_5rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-3 text-xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
               <span>Document</span>
@@ -730,87 +771,144 @@ export function MasterDocumentSearch() {
               <span>Actions</span>
             </div>
             <div className="overflow-x-auto">
-              {filtered.map((document, index) => (
-                <article
-                  key={document.slug}
-                  className={cn(
-                    "grid min-w-[58rem] grid-cols-[minmax(20rem,1.7fr)_minmax(17rem,1.25fr)_9rem_8rem_5rem] items-center gap-3 border-b border-[color:var(--border)] px-4 py-3",
-                    index === 0 &&
-                      "bg-[color:var(--clinical-accent-soft)]/30 shadow-[inset_3px_0_0_var(--clinical-accent)]",
-                  )}
-                >
-                  <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3">
-                    <FileTile />
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap gap-1.5">
-                        {index === 0 ? <Pill active>Best match</Pill> : <Pill>Relevant</Pill>}
-                      </div>
-                      <Link
-                        href={documentHref(document, query)}
-                        className={cn(
-                          "mt-1 block line-clamp-2 text-sm font-extrabold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)]",
-                          focusRing,
-                        )}
-                      >
-                        {document.title}
-                      </Link>
-                      <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                        {document.kind} · {document.version} · {document.source}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap gap-1.5">
-                      <Pill icon={Table2}>{primaryEvidenceLabel(document)}</Pill>
-                      <Pill>p.{document.page}</Pill>
-                      <Pill>{document.chunk}</Pill>
-                    </div>
-                    <p className="mt-1 truncate text-xs font-medium text-[color:var(--text-muted)]">
-                      {document.snippet}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <Pill tone={document.status === "Current" ? "green" : "amber"}>{document.status}</Pill>
-                    <p className="text-xs font-semibold text-[color:var(--text-muted)]">{document.review}</p>
-                    <p className="text-xs font-semibold text-[color:var(--text-soft)]">{document.updated}</p>
-                  </div>
-                  <div>
-                    <p className="nums text-sm font-extrabold text-[color:var(--clinical-accent)]">
-                      {document.relevance}%
-                    </p>
-                    <div className="mt-2 h-1.5 rounded-full bg-[color:var(--border)]">
-                      <div
-                        className="h-full rounded-full bg-[color:var(--clinical-accent)]"
-                        style={{ width: `${document.relevance}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Link
-                      href={documentHref(document, query)}
-                      className={cn(
-                        "grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text-heading)]",
-                        focusRing,
-                      )}
-                      aria-label={`Open ${document.title}`}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Link>
+              {filtered.length === 0 ? (
+                <div className="px-4 py-10 text-center">
+                  <p className="text-base font-extrabold text-[color:var(--text-heading)]">
+                    No documents match &ldquo;{query}&rdquo;
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">
+                    Try a broader search term{type !== "all" ? " or reset the evidence filter" : ""}.
+                  </p>
+                  {type !== "all" ? (
                     <button
                       type="button"
-                      className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)]"
+                      onClick={() => setType("all")}
+                      className={cn(
+                        "mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 text-sm font-bold text-[color:var(--clinical-accent)]",
+                        focusRing,
+                      )}
                     >
-                      <MoreVertical className="h-4 w-4" />
+                      Show all sources
                     </button>
-                  </div>
-                </article>
-              ))}
+                  ) : null}
+                </div>
+              ) : null}
+              {filtered.map((document, index) => {
+                const rowEvidence = evidenceForType(document, type);
+                return (
+                  <article
+                    key={document.slug}
+                    className={cn(
+                      "grid min-w-[58rem] grid-cols-[minmax(20rem,1.7fr)_minmax(17rem,1.25fr)_9rem_8rem_5rem] items-center gap-3 border-b border-[color:var(--border)] px-4 py-3",
+                      index === 0 &&
+                        "bg-[color:var(--clinical-accent-soft)]/30 shadow-[inset_3px_0_0_var(--clinical-accent)]",
+                    )}
+                  >
+                    <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3">
+                      <FileTile />
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap gap-1.5">
+                          {index === 0 ? <Pill active>Best match</Pill> : <Pill>Relevant</Pill>}
+                        </div>
+                        <Link
+                          href={documentHref(document, query, rowEvidence)}
+                          className={cn(
+                            "mt-1 block line-clamp-2 text-sm font-extrabold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)]",
+                            focusRing,
+                          )}
+                        >
+                          {document.title}
+                        </Link>
+                        <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
+                          {document.kind} · {document.version} · {document.source}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap gap-1.5">
+                        {rowEvidence ? (
+                          <Pill icon={evidenceTypeIconFor(rowEvidence.type)}>{evidenceLabel(rowEvidence)}</Pill>
+                        ) : (
+                          <Pill>No extracted evidence</Pill>
+                        )}
+                        <Pill>p.{rowEvidence?.page ?? document.page}</Pill>
+                        <Pill>{document.chunk}</Pill>
+                      </div>
+                      <p className="mt-1 truncate text-xs font-medium text-[color:var(--text-muted)]">
+                        {rowEvidence ? rowEvidence.body : document.snippet}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Pill tone={document.status === "Current" ? "green" : "amber"}>{document.status}</Pill>
+                      <p className="text-xs font-semibold text-[color:var(--text-muted)]">{document.review}</p>
+                      <p className="text-xs font-semibold text-[color:var(--text-soft)]">{document.updated}</p>
+                    </div>
+                    <div>
+                      <p className="nums text-sm font-extrabold text-[color:var(--clinical-accent)]">
+                        {document.relevance}%
+                      </p>
+                      <div className="mt-2 h-1.5 rounded-full bg-[color:var(--border)]">
+                        <div
+                          className="h-full rounded-full bg-[color:var(--clinical-accent)]"
+                          style={{ width: `${document.relevance}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Link
+                        href={documentHref(document, query, rowEvidence)}
+                        className={cn(
+                          "grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text-heading)]",
+                          focusRing,
+                        )}
+                        aria-label={`Open ${document.title}`}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Link>
+                      <button
+                        type="button"
+                        className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)]"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </section>
 
           <section className="mt-4 grid gap-3 md:hidden" aria-label="Document results">
+            {filtered.length === 0 ? (
+              <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 py-8 text-center shadow-[var(--shadow-inset)]">
+                <p className="text-base font-extrabold text-[color:var(--text-heading)]">
+                  No documents match &ldquo;{query}&rdquo;
+                </p>
+                <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">
+                  Try a broader search term{type !== "all" ? " or reset the evidence filter" : ""}.
+                </p>
+                {type !== "all" ? (
+                  <button
+                    type="button"
+                    onClick={() => setType("all")}
+                    className={cn(
+                      "mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 text-sm font-bold text-[color:var(--clinical-accent)]",
+                      focusRing,
+                    )}
+                  >
+                    Show all sources
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             {filtered.map((document, index) => (
-              <SearchResultMobileCard key={document.slug} document={document} query={query} selected={index === 0} />
+              <SearchResultMobileCard
+                key={document.slug}
+                document={document}
+                query={query}
+                selected={index === 0}
+                activeType={type}
+              />
             ))}
           </section>
         </div>
@@ -1175,10 +1273,10 @@ export function MasterDocumentReader() {
                 <div className="flex gap-1 overflow-x-auto pb-1">
                   {[
                     ["all", `All ${document.evidence.length}`],
-                    ["table", "Tables 1"],
-                    ["quote", "Quotes 1"],
-                    ["image", "Images 1"],
-                    ["related", "Related 1"],
+                    ["table", evidenceCountLabel(document, "table", "Tables")],
+                    ["quote", evidenceCountLabel(document, "quote", "Quotes")],
+                    ["image", evidenceCountLabel(document, "image", "Images")],
+                    ["related", evidenceCountLabel(document, "related", "Related")],
                   ].map(([key, label]) => (
                     <button
                       key={key}
@@ -1292,9 +1390,9 @@ export function MasterDocumentReader() {
               <div className="mt-3 flex gap-1 overflow-x-auto pb-1">
                 {[
                   ["all", `All ${document.evidence.length}`],
-                  ["table", "Tables 1"],
-                  ["quote", "Quotes 1"],
-                  ["image", "Images 1"],
+                  ["table", evidenceCountLabel(document, "table", "Tables")],
+                  ["quote", evidenceCountLabel(document, "quote", "Quotes")],
+                  ["image", evidenceCountLabel(document, "image", "Images")],
                 ].map(([key, label]) => (
                   <button
                     key={key}
@@ -1436,14 +1534,14 @@ export function MasterEvidenceDetail() {
         <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3">
           <div className="flex min-h-11 items-center gap-3">
             <Link
-              href={documentHref(document, query)}
+              href={documentHref(document, query, evidence)}
               className={cn("grid h-11 w-11 place-items-center rounded-lg text-[color:var(--text-heading)]", focusRing)}
               aria-label="Back to document"
             >
               <ArrowLeft className="h-6 w-6" aria-hidden="true" />
             </Link>
             <h1 className="text-2xl font-extrabold text-[color:var(--text-heading)]">Evidence</h1>
-            <Pill icon={Table2}>
+            <Pill icon={evidenceTypeIconFor(evidence.type)}>
               {evidence.label} · p.{evidence.page}
             </Pill>
             <div className="ml-auto">
@@ -1458,7 +1556,7 @@ export function MasterEvidenceDetail() {
             <nav className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[color:var(--text-muted)]">
               <Link href={searchHref(query)}>Documents</Link>
               <ChevronRight className="h-4 w-4" />
-              <Link href={documentHref(document, query)}>{document.shortTitle}</Link>
+              <Link href={documentHref(document, query, evidence)}>{document.shortTitle}</Link>
               <ChevronRight className="h-4 w-4" />
               <span className="text-[color:var(--text-heading)]">{evidence.label}</span>
             </nav>
@@ -1470,7 +1568,7 @@ export function MasterEvidenceDetail() {
             </div>
           </div>
           <Link
-            href={documentHref(document, query)}
+            href={documentHref(document, query, evidence)}
             className={cn(
               "inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--text-heading)]",
               focusRing,
@@ -1557,7 +1655,7 @@ export function MasterEvidenceDetail() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">Source page</h3>
                   <Link
-                    href={documentHref(document, query)}
+                    href={documentHref(document, query, evidence)}
                     className={cn(
                       "inline-flex min-h-9 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)]",
                       focusRing,
@@ -1639,10 +1737,10 @@ export function MasterEvidenceDetail() {
                     {document.title}
                   </h2>
                   <p className="mt-1 text-xs font-semibold text-[color:var(--text-muted)]">
-                    {document.version} · Published 12 May 2024
+                    {document.version} · Updated {document.updated}
                   </p>
                   <Link
-                    href={documentHref(document, query)}
+                    href={documentHref(document, query, evidence)}
                     className="mt-2 inline-flex items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)]"
                   >
                     Open full document
@@ -1657,7 +1755,7 @@ export function MasterEvidenceDetail() {
                 ["Section", `Section ${evidence.section}`],
                 ["Chunk ID", evidence.chunk],
                 ["Indexed", "24 May 2024 · 10:21 AEST"],
-                ["Source", "clinical-documents/clozapine-guidelines-v3.2.pdf"],
+                ["Source", document.pdfPath.replace(/^\//, "")],
               ].map(([label, value]) => (
                 <div key={label} className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3 text-sm">
                   <span className="font-bold text-[color:var(--text-muted)]">{label}</span>
@@ -1691,7 +1789,7 @@ export function MasterEvidenceDetail() {
               <Pill tone="green">Current</Pill>
               <div className="grid gap-2">
                 <Link
-                  href={documentHref(document, query)}
+                  href={documentHref(document, query, evidence)}
                   className={cn(
                     "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)]",
                     focusRing,

@@ -1,3 +1,4 @@
+import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 import type { ServiceRecord, ServiceSearchMatch } from "@/lib/services";
 
 export type FormRecord = ServiceRecord;
@@ -214,14 +215,6 @@ export const formRecords: FormRecord[] = [
   },
 ];
 
-function normalizeSearchText(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^\w\d\s]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function formRecordSearchText(form: FormRecord) {
   const values = [
     form.title,
@@ -287,12 +280,19 @@ export function formNavigatorQuery(form: FormRecord) {
 export function rankFormRecords(records: FormRecord[], query: string, limit = records.length): FormSearchMatch[] {
   const normalizedQuery = normalizeSearchText(query);
   if (!normalizedQuery) return [];
+  // A bare "service(s)" query belongs to the services catalogue, not forms.
   if (/^services?$/.test(normalizedQuery)) return [];
 
-  const compactQuery = normalizedQuery.replace(/\s+/g, "");
-  const terms = Array.from(new Set(normalizedQuery.split(" ").filter((term) => term.length > 1)));
-  const broadFormsQuery = terms.some((term) =>
-    [
+  return rankCatalogRecords(records, query, {
+    fields: [
+      { id: "title", weight: 6, text: (form) => normalizeSearchText(`${form.title} ${form.slug}`) },
+      { id: "contact", weight: 5, text: (form) => normalizeSearchText(form.primaryContact?.value ?? "") },
+    ],
+    fullText: formRecordSearchText,
+    contentWeight: 2,
+    compactBonus: 5,
+    phraseBonus: 4,
+    broadTerms: [
       "form",
       "forms",
       "checklist",
@@ -304,42 +304,21 @@ export function rankFormRecords(records: FormRecord[], query: string, limit = re
       "examination",
       "template",
       "assessment",
-    ].includes(term),
-  );
-
-  return records
-    .map((form) => {
-      const title = normalizeSearchText(form.title);
-      const slug = normalizeSearchText(form.slug);
-      const contact = normalizeSearchText(form.primaryContact?.value ?? "");
-      const text = formRecordSearchText(form);
-      const compactText = text.replace(/\s+/g, "");
-
-      const matchedTerms = terms.filter((term) => text.includes(term));
-      const titleMatches = terms.filter((term) => title.includes(term) || slug.includes(term));
-      const contactMatches = terms.filter((term) => contact.includes(term));
-      const compactContactMatch = compactQuery.length >= 4 && compactText.includes(compactQuery);
-
-      let score = 0;
-      score += titleMatches.length * 6;
-      score += contactMatches.length * 5;
-      if (compactContactMatch) score += 5;
-      score += matchedTerms.length * 2;
-      if (broadFormsQuery) score += 1;
-      if (normalizedQuery && text.includes(normalizedQuery)) score += 4;
-
-      const reasons = [
-        titleMatches.length ? "title" : "",
-        contactMatches.length || compactContactMatch ? "contact" : "",
-        matchedTerms.length ? "record fields" : "",
-        broadFormsQuery ? "psychiatry forms catalogue" : "",
-      ].filter(Boolean);
-
-      return { service: form, score, reasons };
-    })
-    .filter((match) => match.score > 0)
-    .sort((left, right) => right.score - left.score || records.indexOf(left.service) - records.indexOf(right.service))
-    .slice(0, limit);
+    ],
+    broadBonus: 1,
+    limit,
+    // No tieBreak: forms historically tie-break by catalogue (input) order, which is the
+    // generic ranker's default.
+  }).map(({ record, score, signals }) => ({
+    service: record,
+    score,
+    reasons: [
+      signals.fields.title ? "title" : "",
+      signals.fields.contact || signals.compact ? "contact" : "",
+      signals.content ? "record fields" : "",
+      signals.broad ? "psychiatry forms catalogue" : "",
+    ].filter(Boolean),
+  }));
 }
 
 export function searchFormRecords(query: string, limit = formRecords.length): FormSearchMatch[] {

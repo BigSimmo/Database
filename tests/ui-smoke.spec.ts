@@ -1354,6 +1354,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("answer results surface cross-mode quick links", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    const question = "What is the maximum dose of clozapine?";
+    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    const strip = page.getByTestId("cross-mode-links");
+    await expect(strip).toBeVisible({ timeout: 15_000 });
+    // Close the composer command palette if it opened over the results.
+    await page.keyboard.press("Escape");
+    await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
+    await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
+
+    const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
+    await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
+    await medicationLink.click();
+    await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 15_000 });
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("answer mode keeps prior turns visible for follow-up questions", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
@@ -1999,6 +2022,34 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(fitWidthScrollStyles.overflowX).toBe("hidden");
     expect(fitWidthScrollStyles.touchAction).toContain("pan-y");
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("document viewer bottom composer hides while scrolling down on phones", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(
+      page,
+      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+    );
+
+    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
+    const composer = page.locator("form.document-viewer-composer");
+    await expect(composer).toBeVisible();
+    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
+
+    // Hide on deliberate scroll down past the activation offset.
+    await page.evaluate(() => window.scrollTo({ top: 120, behavior: "auto" }));
+    await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
+
+    // Reappear on scroll up.
+    await page.evaluate(() => window.scrollTo({ top: 60, behavior: "auto" }));
+    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
+
+    // Keyboard focus inside the composer reveals it while hidden.
+    await page.evaluate(() => window.scrollTo({ top: 240, behavior: "auto" }));
+    await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
+    await composer.locator("input").focus();
+    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
   });
 
   test("document summary opens at the top with cleaned bold formatting", async ({ page }) => {

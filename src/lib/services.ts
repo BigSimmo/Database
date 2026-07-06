@@ -1,3 +1,4 @@
+import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 import { defaultServiceRecords } from "@/lib/registry-fixtures";
 
 export type ServiceChipTone = "danger" | "info" | "warning" | "success" | "neutral";
@@ -104,13 +105,6 @@ export function serviceNavigatorQuery(service: ServiceRecord) {
   );
 }
 
-function normalizeSearchText(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
 function serviceRecordSearchParts(service: ServiceRecord) {
   return [
     service.title,
@@ -154,49 +148,35 @@ export function rankServiceRecords(
   query: string,
   limit = records.length,
 ): ServiceSearchMatch[] {
-  const normalizedQuery = normalizeSearchText(query);
-  if (!normalizedQuery) return [];
-
-  const compactQuery = normalizedQuery.replace(/\s+/g, "");
-  const terms = Array.from(new Set(normalizedQuery.split(/\s+/).filter((term) => term.length > 1)));
-  const broadServicesQuery = terms.some((term) => ["service", "services", "pathway", "pathways"].includes(term));
-
-  return records
-    .map((service) => {
-      const title = normalizeSearchText(service.title);
-      const slug = normalizeSearchText(service.slug);
-      const contact = normalizeSearchText(service.primaryContact?.value ?? "");
-      const tags = normalizeSearchText([...(service.tags ?? []), ...(service.catchments ?? [])].join(" "));
-      const text = serviceRecordSearchText(service);
-      const compactText = text.replace(/\s+/g, "");
-      const matchedTerms = terms.filter((term) => text.includes(term));
-      const titleMatches = terms.filter((term) => title.includes(term) || slug.includes(term));
-      const contactMatches = terms.filter((term) => contact.includes(term));
-      const tagMatches = terms.filter((term) => tags.includes(term));
-      const compactContactMatch = compactQuery.length >= 4 && compactText.includes(compactQuery);
-
-      let score = 0;
-      score += titleMatches.length * 6;
-      score += contactMatches.length * 5;
-      if (compactContactMatch) score += 5;
-      score += tagMatches.length * 3;
-      score += matchedTerms.length * 2;
-      if (broadServicesQuery) score += 1;
-      if (normalizedQuery && text.includes(normalizedQuery)) score += 4;
-
-      const reasons = [
-        titleMatches.length ? "title" : "",
-        contactMatches.length || compactContactMatch ? "contact" : "",
-        tagMatches.length ? "tags" : "",
-        matchedTerms.length ? "record fields" : "",
-        broadServicesQuery ? "services catalogue" : "",
-      ].filter(Boolean);
-
-      return { service, score, reasons };
-    })
-    .filter((match) => match.score > 0)
-    .sort((left, right) => right.score - left.score || left.service.title.localeCompare(right.service.title))
-    .slice(0, limit);
+  return rankCatalogRecords(records, query, {
+    fields: [
+      { id: "title", weight: 6, text: (service) => normalizeSearchText(`${service.title} ${service.slug}`) },
+      { id: "contact", weight: 5, text: (service) => normalizeSearchText(service.primaryContact?.value ?? "") },
+      {
+        id: "tags",
+        weight: 3,
+        text: (service) => normalizeSearchText([...(service.tags ?? []), ...(service.catchments ?? [])].join(" ")),
+      },
+    ],
+    fullText: serviceRecordSearchText,
+    contentWeight: 2,
+    compactBonus: 5,
+    phraseBonus: 4,
+    broadTerms: ["service", "services", "pathway", "pathways"],
+    broadBonus: 1,
+    limit,
+    tieBreak: (left, right) => left.title.localeCompare(right.title),
+  }).map(({ record, score, signals }) => ({
+    service: record,
+    score,
+    reasons: [
+      signals.fields.title ? "title" : "",
+      signals.fields.contact || signals.compact ? "contact" : "",
+      signals.fields.tags ? "tags" : "",
+      signals.content ? "record fields" : "",
+      signals.broad ? "services catalogue" : "",
+    ].filter(Boolean),
+  }));
 }
 
 export function searchServiceRecords(query: string, limit = serviceRecords.length): ServiceSearchMatch[] {

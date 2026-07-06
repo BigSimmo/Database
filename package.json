@@ -131,7 +131,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9.39.4",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.2.10",
     "playwright": "^1.61.1",
     "prettier": "^3.9.4",
     "tailwindcss": "^4.3.1",

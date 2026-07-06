@@ -19,7 +19,7 @@ The desired experience is:
 
 Phase 7 performance hardening is implemented:
 
-- `OPENAI_ANSWER_TIMEOUT_MS=12000` is the answer-generation timeout budget.
+- `OPENAI_ANSWER_TIMEOUT_MS` is the answer-generation timeout budget. Phase 7 introduced it at 12000ms; the current default is **30000ms** — a deliberate product decision to favour natural, model-written answers over fast degradation to stitched extractive prose (see the rationale comment at `src/lib/env.ts` next to `OPENAI_ANSWER_TIMEOUT_MS`).
 - `src/lib/rag.ts` passes that timeout to structured answer generation so provider stalls fail into the existing source-backed fallback path faster than the global OpenAI request timeout.
 - `scripts/eval-rag.ts` excludes `generation_fallback` answers from the intentional routine-extractive latency bucket so provider timeout waits do not distort the model-free extractive metric.
 - Focused tests, typecheck, production-readiness, and capped RAG eval with threshold failure enabled passed after the change.
@@ -33,9 +33,9 @@ Phase 7b latency polish is implemented:
 
 Deployment/config note:
 
-- `.env.example` documents `OPENAI_ANSWER_TIMEOUT_MS=12000`.
-- Local `.env.local` should also include `OPENAI_ANSWER_TIMEOUT_MS=12000` for explicit local parity.
-- Hosted production/deployment environments should set `OPENAI_ANSWER_TIMEOUT_MS=12000` explicitly, or they will rely on the server default from `src/lib/env.ts`.
+- `.env.example` documents `OPENAI_ANSWER_TIMEOUT_MS=30000`, matching the server default in `src/lib/env.ts`.
+- Local `.env.local` may set it explicitly for parity; unset environments rely on the 30000ms server default.
+- The historical 12000ms value in `docs/search-rag-phase-0-baseline.md` and `docs/search-rag-master-plan.md` records the Phase 7 rollout, not current guidance.
 
 ## Skill Lenses Used
 
