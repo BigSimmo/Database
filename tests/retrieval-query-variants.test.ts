@@ -11,6 +11,7 @@ import {
   shouldApplyUnsupportedSearchShortCircuit,
   textCandidateBudgetForQueryClass,
   relaxVariantToOrQuery,
+  shouldRelaxWeakTextMatches,
 } from "../src/lib/rag";
 import type { SearchResult } from "../src/lib/types";
 
@@ -1032,5 +1033,41 @@ describe("relaxVariantToOrQuery (8b over-conjunction fallback)", () => {
   it("returns null when there is nothing to relax", () => {
     expect(relaxVariantToOrQuery("")).toBeNull();
     expect(relaxVariantToOrQuery("clozapine")).toBeNull();
+  });
+});
+
+describe("shouldRelaxWeakTextMatches (P8b weak-augment)", () => {
+  it("never fires on an empty strict result set (that is the empty_fallback path)", () => {
+    expect(shouldRelaxWeakTextMatches([])).toBe(false);
+  });
+
+  it("fires when strict-AND returned a sparse result set", () => {
+    expect(shouldRelaxWeakTextMatches([result({ text_rank: 0.4 })])).toBe(true);
+    expect(shouldRelaxWeakTextMatches([result({ id: "a", text_rank: 0.4 }), result({ id: "b", text_rank: 0.3 })])).toBe(
+      true,
+    );
+  });
+
+  it("fires when the best strict text rank is below the meaningful-signal floor", () => {
+    const weak = [
+      result({ id: "a", text_rank: 0.01 }),
+      result({ id: "b", text_rank: 0.02 }),
+      result({ id: "c", text_rank: 0.04 }),
+    ];
+    expect(shouldRelaxWeakTextMatches(weak)).toBe(true);
+  });
+
+  it("does not fire when strict-AND already carries meaningful lexical evidence", () => {
+    const strong = [
+      result({ id: "a", text_rank: 0.4 }),
+      result({ id: "b", text_rank: 0.2 }),
+      result({ id: "c", text_rank: 0.1 }),
+    ];
+    expect(shouldRelaxWeakTextMatches(strong)).toBe(false);
+  });
+
+  it("treats a missing text_rank as no lexical evidence", () => {
+    const missing = [result({ id: "a" }), result({ id: "b" }), result({ id: "c" })];
+    expect(shouldRelaxWeakTextMatches(missing)).toBe(true);
   });
 });
