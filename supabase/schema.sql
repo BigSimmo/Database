@@ -2680,6 +2680,8 @@ as $$
   limit match_count;
 $$;
 
+drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid);
+
 create or replace function public.match_document_chunks_text(
   query_text text,
   match_count integer default 12,
