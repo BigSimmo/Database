@@ -60,6 +60,15 @@ export function buildIngestionRecoveryPlan(args: {
       isRecoverableProcessingJob(job, now, args.staleAfterMinutes);
 
     if (isIndexedDocument && job.status !== "completed") {
+      // Audit R22: a `pending` job on an already-indexed document is a
+      // legitimately-queued reindex, not an abandoned leftover. Superseding it
+      // silently cancels the reindex ("completed / superseded by successful
+      // index"); routing it through the retry branch below would reset the live
+      // index (R19). Leave it untouched for the worker's atomic reindex path,
+      // which keeps the old generation live until the new commit swaps it.
+      if (job.status === "pending") {
+        continue;
+      }
       actions.push({ action: "supersede", jobId: job.id, documentId: job.document_id });
       continue;
     }
