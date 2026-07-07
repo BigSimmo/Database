@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   buildStorageCleanupJobUpdate,
+  ingestionJobRetryRejectionReason,
   isPartialIndexWriteConflict,
   isRetryableIngestionError,
   nextRetryAt,
   retryDelayMs,
+  retryDocumentQueueUpdate,
   terminalBatchStatus,
 } from "../src/lib/ingestion";
 
@@ -42,6 +44,34 @@ describe("ingestion retry helpers", () => {
     expect(Date.parse(nextRetryAt(1, new Date("2026-05-27T00:00:00.000Z")))).toBe(
       Date.parse("2026-05-27T00:01:00.000Z"),
     );
+  });
+});
+
+describe("ingestion job retry guards (R15/R16)", () => {
+  it("rejects retrying a completed job (zombie re-ingest)", () => {
+    expect(ingestionJobRetryRejectionReason("completed")).toMatch(/already completed/i);
+  });
+
+  it("allows retrying non-completed jobs", () => {
+    for (const status of ["failed", "pending", "processing", null, undefined]) {
+      expect(ingestionJobRetryRejectionReason(status)).toBeNull();
+    }
+  });
+
+  it("never demotes an indexed document to queued (keeps its live index)", () => {
+    const update = retryDocumentQueueUpdate({ documentStatus: "indexed", fenceStamp: "2026-07-07T00:00:00.123Z" });
+    expect(update).not.toHaveProperty("status");
+    expect(update.error_message).toBeNull();
+    expect(update.updated_at).toBe("2026-07-07T00:00:00.123Z");
+  });
+
+  it("re-queues non-indexed documents so the worker rebuilds them", () => {
+    for (const status of ["failed", "queued", "processing", null]) {
+      const update = retryDocumentQueueUpdate({ documentStatus: status, fenceStamp: "2026-07-07T00:00:00.500Z" });
+      expect(update.status).toBe("queued");
+      expect(update.error_message).toBeNull();
+      expect(update.updated_at).toBe("2026-07-07T00:00:00.500Z");
+    }
   });
 });
 

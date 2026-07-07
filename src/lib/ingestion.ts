@@ -30,6 +30,38 @@ export function terminalBatchStatus(args: { queued: number; processing: number; 
   return args.failed > 0 ? "completed_with_errors" : "completed";
 }
 
+// Audit R16: retrying a `completed` ingestion job resurrects a terminal row
+// into a zombie re-ingest — a worker can re-claim it and interleave a fresh
+// build against the live committed index. Completed work is re-run via the
+// reindex route (which enqueues a NEW job); retry is only for jobs that have
+// not completed. Returns a rejection message, or null when the retry may run.
+export function ingestionJobRetryRejectionReason(status: string | null | undefined): string | null {
+  if (status === "completed") {
+    return "This ingestion job already completed. Reindex the document to rebuild it instead of retrying a completed job.";
+  }
+  return null;
+}
+
+// Audit R15/R16: the retry route must NOT demote an already-indexed document to
+// `queued`. A queued document takes the worker's non-atomic path, which runs
+// reset_document_index at job start and deletes the entire live committed index
+// hours before any replacement commit — so a transient failure of a healthy
+// indexed document would otherwise destroy its clinical index. Indexed
+// documents keep their status (atomic reindex: the old index stays live until
+// the new commit swaps the generation); only non-indexed documents are
+// re-queued. Either way we clear error_message and stamp the rollback fence.
+export function retryDocumentQueueUpdate(args: { documentStatus: string | null | undefined; fenceStamp: string }): {
+  status?: "queued";
+  error_message: null;
+  updated_at: string;
+} {
+  const base = { error_message: null as null, updated_at: args.fenceStamp };
+  if (args.documentStatus === "indexed") {
+    return base;
+  }
+  return { status: "queued", ...base };
+}
+
 export type StorageCleanupJobUpdate = {
   status: "completed" | "failed";
   attempts: number;
