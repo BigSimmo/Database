@@ -21,9 +21,5 @@ export default async function ApplicationsRoute({ searchParams }: ApplicationsPa
   const params = searchParams ? await searchParams : {};
   const query = firstSearchParam(params.q)?.trim();
 
-  return query ? (
-    <ApplicationsLauncherPage key={query} query={query} />
-  ) : (
-    <ApplicationsLauncherPage />
-  );
+  return query ? <ApplicationsLauncherPage key={query} query={query} /> : <ApplicationsLauncherPage />;
 }
