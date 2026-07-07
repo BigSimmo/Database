@@ -27731,13 +27731,6 @@
   ],
   "presets": [
     {
-      "id": "scenario-presets",
-      "query": "# Scenario Presets",
-      "signals": [],
-      "entryIds": [],
-      "presentationSlugs": []
-    },
-    {
       "id": "1-older-adult-acute-confusion",
       "query": "older adult acute confusion",
       "signals": ["Older adult onset", "Fluctuating attention"],
@@ -27788,14 +27781,6 @@
     }
   ],
   "redFlagFlows": [
-    {
-      "id": "red-flag-flows",
-      "title": "# Red Flag Flows",
-      "entryId": "",
-      "presentationSlug": "red-flag-flows",
-      "bedsideQuestions": "",
-      "keyRedFlags": ""
-    },
     {
       "id": "1-suicide",
       "title": "1. Suicide",
@@ -27873,15 +27858,7 @@
     "medicine": ["medication", "iatrogenic", "toxicity"],
     "qt": ["qtc", "arrhythmia", "toxicity"],
     "catatonia": ["mutism", "shutdown", "stupor"],
-    "field": ["weight"],
-    "presentation": ["2.6"],
-    "clinicalhinge": ["2.2"],
-    "mustnotmiss": ["2.0"],
-    "immediateactions": ["1.7"],
-    "mimics": ["1.5"],
-    "investigations": ["1.2"],
-    "tags": ["1.1"],
-    "optiontext": ["1.0"]
+    "field": ["weight"]
   },
   "governance": {
     "version": "v10",

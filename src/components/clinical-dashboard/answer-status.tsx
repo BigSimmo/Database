@@ -35,12 +35,10 @@ export function CopyButton({
 }
 
 export function AnswerEmptyState({
-  onPickSample: _onPickSample,
   onSearchDocuments,
   onUploadDocument,
   desktopComposerSlotId,
 }: {
-  onPickSample: (sample: string) => void;
   onSearchDocuments: () => void;
   onUploadDocument: () => void;
   desktopComposerSlotId?: string;

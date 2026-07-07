@@ -4129,7 +4129,6 @@ export function ClinicalDashboard({
                   ) : null
                 ) : showAnswerHome ? (
                   <AnswerEmptyState
-                    onPickSample={setQuery}
                     onSearchDocuments={() => setSearchMode("documents")}
                     onUploadDocument={openUploadDrawer}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
