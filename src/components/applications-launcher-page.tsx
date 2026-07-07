@@ -24,6 +24,7 @@ import {
 import { type FormEvent, useMemo, useState } from "react";
 
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { cn } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -667,11 +668,12 @@ export function ApplicationsLauncherWorkspace({
   desktopComposerSlotId,
   className,
 }: ApplicationsLauncherWorkspaceProps) {
+  const searchCommand = useSearchCommand();
   const [localQuery, setLocalQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
   const [detailOpen, setDetailOpen] = useState(false);
   const copy = toolsLauncherCopy;
-  const query = controlledQuery ?? localQuery;
+  const query = controlledQuery ?? searchCommand?.query ?? localQuery;
   const normalizedQuery = query.trim().toLowerCase();
   const queryDerivedId = useMemo(() => initialToolId(query), [query]);
   const [selection, setSelection] = useState(() => ({
@@ -712,7 +714,7 @@ export function ApplicationsLauncherWorkspace({
       : copy.allSectionLabel;
 
   function updateQuery(nextQuery: string) {
-    if (controlledQuery === undefined) setLocalQuery(nextQuery);
+    if (controlledQuery === undefined && !searchCommand) setLocalQuery(nextQuery);
   }
 
   function openTool(id: string) {

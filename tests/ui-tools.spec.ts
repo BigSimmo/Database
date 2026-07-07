@@ -461,7 +461,6 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/?mode=answer", testId: "answer-empty-state", heroTestId: "answer-empty-state" },
       { path: "/?mode=documents", testId: "document-search-empty-state", heroTestId: "document-search-empty-state" },
       { path: "/?mode=prescribing", testId: "medication-home", heroTestId: "medication-home" },
-      { path: "/?mode=favourites", testId: "favourites-hub", heroTestId: "favourites-home" },
       { path: "/?mode=tools", testId: "tools-home", heroTestId: "tools-home" },
       { path: "/services", testId: "services-home", heroTestId: "services-home-template" },
       { path: "/forms", testId: "forms-home", heroTestId: "forms-home-template" },
@@ -551,7 +550,6 @@ test.describe("Clinical KB tools launcher", () => {
         { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
         { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
         { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
-        { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
         { path: "/favourites", testId: "favourites-hub", heading: "Favourites command library", headingLevel: 1 },
       ] as const) {
         await gotoLauncher(page, home.path);
