@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { HomePageClient } from "@/app/home-page-client";
 import { isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
 
@@ -19,6 +21,28 @@ export default async function Home({ searchParams }: HomeProps) {
   const requestedMode = firstSearchParam(params.mode);
   const initialSearchMode: AppModeId =
     isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
+
+  // /favourites is the canonical favourites surface; deep links via the
+  // dashboard mode param would otherwise open a divergent hub view.
+  if (initialSearchMode === "favourites") {
+    const favouriteParams = new URLSearchParams();
+    const query = firstSearchParam(params.q)?.trim();
+    if (query) favouriteParams.set("q", query);
+    if (firstSearchParam(params.focus) === "1") favouriteParams.set("focus", "1");
+    if (firstSearchParam(params.run) === "1") favouriteParams.set("run", "1");
+    const suffix = favouriteParams.toString();
+    redirect(suffix ? `/favourites?${suffix}` : "/favourites");
+  }
+
+  if (initialSearchMode === "differentials") {
+    const differentialParams = new URLSearchParams();
+    const query = firstSearchParam(params.q)?.trim();
+    if (query) differentialParams.set("q", query);
+    if (firstSearchParam(params.focus) === "1") differentialParams.set("focus", "1");
+    if (firstSearchParam(params.run) === "1") differentialParams.set("run", "1");
+    const suffix = differentialParams.toString();
+    redirect(suffix ? `/differentials?${suffix}` : "/differentials");
+  }
 
   return <HomePageClient initialMode={initialSearchMode} />;
 }
