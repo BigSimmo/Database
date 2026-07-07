@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireOwnerScope, retrievalOwnerFilter } from "@/lib/owner-scope";
+import { requireOwnerScope } from "@/lib/owner-scope";
 import { classifyCorpusGrounding } from "@/lib/corpus-grounding";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { embedTextWithTelemetry, generateStructuredTextResult, type OpenAITextResult } from "@/lib/openai";
@@ -42,6 +42,27 @@ export {
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
 } from "@/lib/rag-extractive-answer";
+import {
+  assertGlobalSearchAllowed,
+  buildRetrievalQueryVariants,
+  fetchEnabledRagAliases,
+  maxTextRpcQueryVariants,
+  normalizeRetrievalVariant,
+  ownerScopeForDocumentFilteredRetrieval,
+  relaxVariantToOrQuery,
+  selectRagAliasExpansions,
+  shouldApplyUnsupportedSearchShortCircuit,
+  shouldRelaxWeakTextMatches,
+  textCandidateBudgetForQueryClass,
+} from "@/lib/rag-retrieval-variants";
+export {
+  buildRetrievalQueryVariants,
+  relaxVariantToOrQuery,
+  selectRagAliasExpansions,
+  shouldApplyUnsupportedSearchShortCircuit,
+  shouldRelaxWeakTextMatches,
+  textCandidateBudgetForQueryClass,
+} from "@/lib/rag-retrieval-variants";
 import { buildRagSourceBlock, compactContextText } from "@/lib/rag-source-block";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
 import { extractNumericTokens, VERIFY_AGAINST_SOURCE_NOTE, verifyAnswerNumbers } from "@/lib/answer-verification";
@@ -54,12 +75,11 @@ import {
   hasStructuredThresholdEvidence,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
-  queriedZoneColour,
   riskZoneActionPattern,
   riskZoneContextPattern,
   zoneContextPatternsForQuery,
 } from "@/lib/clinical-search";
-import { env, isDemoMode, isLocalNoAuthMode, requestedOpenAIAnswerModels } from "@/lib/env";
+import { env, requestedOpenAIAnswerModels } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { queryCacheKeyForStorage, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
 import { ragCacheKeyMatchesOwner } from "@/lib/rag-cache-utils";
@@ -1326,7 +1346,7 @@ function unsupportedSoftTailEligible(analysis: ClinicalQueryAnalysis) {
   return true;
 }
 
-function shouldShortCircuitUnsupportedSearch(query: string, analysis: ClinicalQueryAnalysis) {
+export function shouldShortCircuitUnsupportedSearch(query: string, analysis: ClinicalQueryAnalysis) {
   if (unavailableDocumentNoisePattern.test(query)) return true;
   if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return true;
   if (!unsupportedSoftTailEligible(analysis)) return false;
@@ -1994,292 +2014,6 @@ function mergeSearchResults(primary: SearchResult[], secondary: SearchResult[]) 
   }
 
   return Array.from(merged.values());
-}
-
-const maxRetrievalQueryVariants = 4;
-const maxTextRpcQueryVariants = 3;
-const ragAliasCacheTtlMs = 60_000;
-const maxRagAliasesPerScope = 200;
-const maxRagAliasExpansions = 12;
-
-export function textCandidateBudgetForQueryClass(queryClass: RagQueryClass | undefined, topK: number) {
-  if (queryClass === "comparison") return Math.max(topK * 7, 72);
-  if (queryClass === "table_threshold" || queryClass === "medication_dose_risk") return Math.max(topK * 4, 40);
-  if (queryClass === "document_lookup") return Math.max(topK * 3, 24);
-  if (queryClass === "unsupported_or_general") return Math.max(topK * 2, 16);
-  return Math.max(topK * 4, 32);
-}
-
-export type RagAliasInput = {
-  alias: string;
-  canonical: string;
-  alias_type?: string | null;
-  weight?: number | null;
-  owner_id?: string | null;
-};
-
-const ragAliasCache = new Map<string, { expiresAt: number; aliases: RagAliasInput[] }>();
-
-function normalizeRetrievalVariant(value: string) {
-  return value.normalize("NFKC").replace(/\s+/g, " ").trim();
-}
-
-function retrievalVariantFromTerms(terms: string[]) {
-  return buildClinicalTextSearchQuery(terms.filter(Boolean).join(" "));
-}
-
-function normalizeAliasLookup(value: string) {
-  return value
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function escapedAliasPattern(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-}
-
-function aliasAppearsInQuery(normalizedQuery: string, alias: string) {
-  const normalizedAlias = normalizeAliasLookup(alias);
-  if (!normalizedQuery || !normalizedAlias) return false;
-  const pattern = new RegExp(`(?:^|\\s)${escapedAliasPattern(normalizedAlias)}(?:\\s|$)`, "i");
-  return pattern.test(normalizedQuery);
-}
-
-export function selectRagAliasExpansions(query: string, aliases: RagAliasInput[], limit = maxRagAliasExpansions) {
-  const normalizedQuery = normalizeAliasLookup(query);
-  const expansions: string[] = [];
-  const seen = new Set<string>();
-
-  const sorted = [...aliases].sort((left, right) => {
-    const leftWeight = typeof left.weight === "number" ? left.weight : 1;
-    const rightWeight = typeof right.weight === "number" ? right.weight : 1;
-    return rightWeight - leftWeight;
-  });
-
-  for (const alias of sorted) {
-    if (expansions.length >= limit) break;
-    if (!aliasAppearsInQuery(normalizedQuery, alias.alias)) continue;
-    const canonical = normalizeRetrievalVariant(alias.canonical);
-    const key = canonical.toLowerCase();
-    if (!canonical || seen.has(key)) continue;
-    seen.add(key);
-    expansions.push(canonical);
-  }
-
-  return expansions;
-}
-
-export function shouldApplyUnsupportedSearchShortCircuit(
-  query: string,
-  analysis: ClinicalQueryAnalysis,
-  aliasExpansions: string[] = [],
-) {
-  return aliasExpansions.length === 0 && shouldShortCircuitUnsupportedSearch(query, analysis);
-}
-
-async function fetchEnabledRagAliases(
-  supabase: ReturnType<typeof createAdminClient>,
-  ownerId?: string,
-): Promise<RagAliasInput[]> {
-  const cacheKey = ownerId ? `owner:${ownerId}` : "global";
-  const cached = ragAliasCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) return cached.aliases;
-
-  async function readScope(scopeOwnerId: string | null) {
-    let query = supabase
-      .from("rag_aliases")
-      .select("alias,canonical,alias_type,weight,owner_id")
-      .eq("enabled", true)
-      .order("weight", { ascending: false })
-      .limit(maxRagAliasesPerScope);
-    query = scopeOwnerId ? query.eq("owner_id", scopeOwnerId) : query.is("owner_id", null);
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data ?? []) as RagAliasInput[];
-  }
-
-  try {
-    const [globalAliases, ownerAliases] = await Promise.all([
-      readScope(null),
-      ownerId ? readScope(ownerId) : Promise.resolve([] as RagAliasInput[]),
-    ]);
-    const merged: RagAliasInput[] = [];
-    const seen = new Set<string>();
-    for (const alias of [...ownerAliases, ...globalAliases]) {
-      const key = `${normalizeAliasLookup(alias.alias)}||${normalizeAliasLookup(alias.canonical)}`;
-      if (!alias.alias?.trim() || !alias.canonical?.trim() || seen.has(key)) continue;
-      seen.add(key);
-      merged.push(alias);
-      if (merged.length >= maxRagAliasesPerScope) break;
-    }
-    ragAliasCache.set(cacheKey, { aliases: merged, expiresAt: Date.now() + ragAliasCacheTtlMs });
-    return merged;
-  } catch {
-    // Do not cache an empty result on a transient rag_aliases read failure: caching [] would suppress
-    // alias-based query expansion (and could let an alias-rescuable query short-circuit) for the whole
-    // TTL. Return empty for this call only and retry on the next call.
-    return [];
-  }
-}
-
-function assertGlobalSearchAllowed(args: SearchChunksArgs) {
-  if (args.ownerId || args.allowGlobalSearch || isDemoMode() || isLocalNoAuthMode()) return;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Global RAG search requires allowGlobalSearch=true or an explicit ownerId.");
-  }
-}
-
-function ownerScopeForDocumentFilteredRetrieval(
-  ownerId: string | undefined,
-  documentIds: string[] | undefined,
-  allowGlobalSearch?: boolean,
-) {
-  return retrievalOwnerFilter({ ownerId, documentIds, allowGlobalSearch });
-}
-
-export function buildRetrievalQueryVariants(
-  query: string,
-  analysis: ClinicalQueryAnalysis,
-  aliases: RagAliasInput[] = [],
-) {
-  const variants: string[] = [];
-  const seen = new Set<string>();
-  const aliasExpansions = selectRagAliasExpansions(query, aliases);
-  const addVariant = (value: string) => {
-    const normalized = normalizeRetrievalVariant(value);
-    if (!normalized) return;
-    const key = normalized.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    variants.push(normalized);
-  };
-
-  addVariant(buildClinicalTextSearchQuery(query));
-  aliasExpansions.slice(0, 2).forEach(addVariant);
-  if (/\bpatient property\b/i.test(query)) {
-    addVariant("patient property");
-  }
-  if (/\bclozapine\b/i.test(query) && /\b(?:anc|fbc|wbc|neutrophil|white cell)\b/i.test(query)) {
-    addVariant("clozapine anc fbc");
-    addVariant("clozapine monitoring");
-  }
-  if (analysis.queryClass === "comparison" && /\badmission\b/i.test(query) && /\bdischarge\b/i.test(query)) {
-    addVariant("admission community patients");
-    addVariant("discharge community patients");
-    addVariant("admission discharge");
-  }
-  if (
-    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk[\s-]*matrix)\b/i.test(query) &&
-    /\b(?:risk|red\s*zone|red|urgent|escalat|next step)\b/i.test(query)
-  ) {
-    addVariant("risk flow");
-    // websearch_to_tsquery ANDs every term, so the previous "red zone risk flow"
-    // and "risk flow review urgent escalation" variants required all terms in one
-    // chunk and did not reliably contribute candidates to the pool. A "<colour> zone" variant retrieves the small,
-    // precise set of zone-action chunks (escalation protocols, observation and
-    // response charts, risk-matrix cells) that answer zone / next-step questions.
-    // Match the zone the query actually names so an amber-zone question does not
-    // pull red-zone chunks into its candidate pool.
-    const zoneColour = queriedZoneColour(query);
-    if (zoneColour) {
-      addVariant(`${zoneColour} zone`);
-    }
-  }
-  addVariant(analysis.queryRewrite.searchQuery);
-
-  addVariant(
-    retrievalVariantFromTerms([
-      ...analysis.canonicalTerms,
-      ...analysis.acronyms,
-      ...analysis.typoCorrections.map((correction) => correction.to),
-      ...analysis.expandedTerms.slice(0, 8),
-      ...analysis.queryRewrite.expansions.slice(0, 10),
-      ...aliasExpansions.slice(0, 6),
-    ]),
-  );
-
-  if (analysis.documentTitleIntent) {
-    addVariant(
-      retrievalVariantFromTerms([
-        ...analysis.documentTitleTerms,
-        ...analysis.canonicalTerms.slice(0, 6),
-        ...analysis.acronyms,
-        ...aliasExpansions.slice(0, 4),
-      ]),
-    );
-  }
-
-  if (analysis.medications.length > 0 || analysis.thresholdTerms.length > 0) {
-    addVariant(
-      retrievalVariantFromTerms([
-        ...analysis.medications,
-        ...analysis.thresholdTerms,
-        ...analysis.acronyms,
-        ...analysis.canonicalTerms.slice(0, 8),
-        ...aliasExpansions.slice(0, 6),
-      ]),
-    );
-  }
-
-  const normalizedTokens = normalizedClinicalSearchTokens(query);
-  if (normalizedTokens.length > 10) {
-    const coreTerms = [
-      ...analysis.medications,
-      ...analysis.thresholdTerms,
-      ...analysis.documentTitleTerms,
-      ...analysis.canonicalTerms,
-      ...aliasExpansions.slice(0, 4),
-      ...normalizedTokens,
-    ];
-    addVariant(retrievalVariantFromTerms(coreTerms.slice(0, 10)));
-  }
-
-  return variants.slice(0, maxRetrievalQueryVariants);
-}
-
-// P8b: websearch_to_tsquery ANDs every term, so a long multi-term query (e.g. "ciwa score threshold
-// drug treatment alcohol withdrawal") can match zero chunks even when the answer clearly exists —
-// no single chunk contains all seven terms. Relax the primary variant to a term-OR query so recall
-// is recovered; ts_rank_cd still ranks chunks matching more terms highest, so topical docs surface
-// on top rather than flooding with single-term matches. Only used as a fallback when the strict
-// AND variants returned nothing, so it never displaces a working precise match.
-export function relaxVariantToOrQuery(variant: string): string | null {
-  const tokens = Array.from(
-    new Set(
-      variant
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, " ")
-        .split(/\s+/)
-        .filter((token) => token.length > 1 && token !== "or"),
-    ),
-  );
-  if (tokens.length < 2) return null;
-  return tokens.join(" OR ");
-}
-
-// Mirrors the minimum meaningful text-signal floor used by answer routing
-// (see textSignalFloor usage in rag-routing.ts): a strict-AND result set whose best
-// text_rank sits below it carries almost no lexical evidence.
-const weakTextMatchTopRankFloor = 0.05;
-const weakTextMatchMinResultCount = 3;
-// Above this rank the best strict match is a precise lexical hit; augmenting a sparse set
-// around it only adds OR noise and a needless RPC round-trip (single-strong-match queries
-// like exact table lookups must stay one-RPC retrievals).
-const strongTextMatchTopRankBar = 0.3;
-
-// Strict-AND matched something, but so weakly (sparse set of middling matches, or a
-// negligible best text rank) that the right chunk may be buried outside the candidate pool.
-// In that case OR-relaxed recall is appended BEHIND the strict matches (append-only: strict
-// results keep merge precedence), so this can widen the pool but never displace a precise
-// match. A sparse set anchored by a strong hit does NOT relax.
-export function shouldRelaxWeakTextMatches(merged: SearchResult[]): boolean {
-  if (merged.length === 0) return false;
-  const topTextRank = merged.reduce((top, result) => Math.max(top, result.text_rank ?? 0), 0);
-  if (topTextRank >= strongTextMatchTopRankBar) return false;
-  if (merged.length < weakTextMatchMinResultCount) return true;
-  return topTextRank < weakTextMatchTopRankFloor;
 }
 
 async function searchTextChunkCandidates(args: {
