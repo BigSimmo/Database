@@ -329,8 +329,12 @@ function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id:
               className={cn("min-w-0 flex-1 text-left", focusRing)}
             >
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--success)]">Continue</p>
-                <p className="min-w-0 text-sm-minus font-bold leading-snug text-[color:var(--text-heading)]">{item.title}</p>
+                <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--success)]">
+                  Continue
+                </p>
+                <p className="min-w-0 text-sm-minus font-bold leading-snug text-[color:var(--text-heading)]">
+                  {item.title}
+                </p>
               </div>
               <p className="mt-0.5 text-2xs font-medium leading-snug text-[color:var(--text-muted)]">
                 {item.set} · last opened {item.lastUsed}
@@ -457,7 +461,9 @@ function FavouriteMobileCard({
       )}
     >
       <div className="min-w-0">
-        <h3 className="line-clamp-2 text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">{item.title}</h3>
+        <h3 className="line-clamp-2 text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">
+          {item.title}
+        </h3>
         <p className="mt-1 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
           {item.description}
         </p>
@@ -602,7 +608,9 @@ function FavouritesTable({
                 >
                   <td className="px-3 align-middle">
                     <div className="min-w-0">
-                      <p className="line-clamp-1 text-sm-minus font-bold text-[color:var(--text-heading)]">{item.title}</p>
+                      <p className="line-clamp-1 text-sm-minus font-bold text-[color:var(--text-heading)]">
+                        {item.title}
+                      </p>
                       <p className="mt-0.5 line-clamp-1 text-2xs font-medium text-[color:var(--text-muted)]">
                         {item.description}
                       </p>
@@ -793,7 +801,9 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
                   <span className="nums grid h-5 w-5 place-items-center rounded bg-[color:var(--surface-subtle)] text-2xs font-semibold text-[color:var(--text-muted)]">
                     {index + 1}
                   </span>
-                  <span className="truncate text-2xs font-semibold text-[color:var(--text-heading)]">{source.title}</span>
+                  <span className="truncate text-2xs font-semibold text-[color:var(--text-heading)]">
+                    {source.title}
+                  </span>
                   <SmallChip className="border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
                     {source.type}
                   </SmallChip>
@@ -824,13 +834,17 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
               <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                 Useful for older patients with fluctuating eGFR. Check adherence section on page 4.
               </p>
-              <span className="mt-3 block text-2xs font-medium text-[color:var(--text-muted)]">Updated 11 May 2024</span>
+              <span className="mt-3 block text-2xs font-medium text-[color:var(--text-muted)]">
+                Updated 11 May 2024
+              </span>
             </div>
           </section>
         ) : null}
 
         <section className="border-t border-[color:var(--border)] pt-4">
-          <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">More</h3>
+          <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            More
+          </h3>
           <div className="grid gap-2">
             <button
               type="button"
