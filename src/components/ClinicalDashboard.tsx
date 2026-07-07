@@ -3178,6 +3178,8 @@ export function ClinicalDashboard({
                         followUpSuggestions={answerFollowUpSuggestions}
                         onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
                         followUpSuggestionsDisabled={loading}
+                        crossModeQueries={[...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery]}
+                        onCrossModeSearch={crossModeSearch}
                       />
                     </>
                   ) : null

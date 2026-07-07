@@ -1363,12 +1363,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
 
-    const strip = page.getByTestId("cross-mode-links");
+    const answerSurface = page.locator('[data-dashboard-stage="answer-surface"]');
+    const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
-    // Close the composer command palette if it opened over the results.
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
     await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
+
+    const followUps = answerSurface.getByTestId("answer-follow-up-suggestions");
+    if (await followUps.isVisible()) {
+      const stripBox = await strip.boundingBox();
+      const followUpBox = await followUps.boundingBox();
+      expect(stripBox).toBeTruthy();
+      expect(followUpBox).toBeTruthy();
+      expect(stripBox!.y).toBeLessThan(followUpBox!.y);
+    }
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
     await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
@@ -1682,6 +1691,46 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(expandButton).toBeFocused();
     });
   }
+
+  test("dashboard favourites mode param redirects to the standalone favourites route", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
+
+    await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1$/);
+    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+  });
+
+  test("dashboard differentials mode param redirects to the standalone differentials route", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
+
+    await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1$/);
+    await expect(page.getByTestId("differentials-home")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
+  });
+
+  test("submitted differentials searches stay on the standalone differentials route", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/differentials?q=acute+confusion&focus=1&run=1");
+
+    await expect(page.getByTestId("differentials-search-results")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
+    await expect(page.getByTestId("differentials-home")).toHaveCount(0);
+  });
+
+  test("submitted favourites searches stay on the command library route", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/favourites?q=lithium%20set&focus=1&run=1");
+
+    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByTestId("favourites-active-filters")).toBeVisible();
+  });
 
   test("favourites route opens the favourites home", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });

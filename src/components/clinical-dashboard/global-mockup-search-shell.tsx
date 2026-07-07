@@ -17,7 +17,6 @@ import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
-import { FormsSearchResultsPage } from "@/components/forms/forms-search-results-page";
 import { ClientHydrationBoundary } from "@/components/client-hydration-boundary";
 import { cn } from "@/components/ui-primitives";
 import {
@@ -142,18 +141,25 @@ function GlobalMockupSearchShellClient({
   const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search") || isDocumentFlowRoute;
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
+  // Services, forms, and favourites own their submitted-search views on their
+  // standalone routes; the shell must not swap them to the dashboard. On the
+  // home route the dashboard always renders, so these exclusions only apply
+  // to the standalone pages.
   const shouldRenderDashboardSearch =
-    hasSubmittedModeSearch && resolvedSearchMode !== "services" && !isDocumentSearchMockupRoute;
-  const isFormsOnlyShell = availableModeIds?.length === 1 && availableModeIds[0] === "forms";
-  const shouldRenderFormsSearchResults =
-    shouldRenderDashboardSearch && resolvedSearchMode === "forms" && isFormsOnlyShell;
+    hasSubmittedModeSearch &&
+    resolvedSearchMode !== "services" &&
+    resolvedSearchMode !== "forms" &&
+    resolvedSearchMode !== "favourites" &&
+    resolvedSearchMode !== "differentials" &&
+    !isDocumentSearchMockupRoute;
   const isStandaloneModeHome =
     !hasSubmittedModeSearch &&
     !shouldRenderDashboardSearch &&
     ((searchMode === "services" && pathname === "/services") ||
       (searchMode === "forms" && pathname === "/forms") ||
       (searchMode === "favourites" && pathname === "/favourites") ||
-      (searchMode === "differentials" && pathname === "/differentials"));
+      (searchMode === "differentials" && pathname === "/differentials") ||
+      (searchMode === "tools" && pathname === "/applications"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
@@ -286,8 +292,7 @@ function GlobalMockupSearchShellClient({
   }
 
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
-  const shouldRenderClinicalDashboard =
-    !isMedicationDetailRoute && (isHomeRoute || (shouldRenderDashboardSearch && !shouldRenderFormsSearchResults));
+  const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
 
   if (shouldRenderClinicalDashboard) {
     return (
@@ -401,9 +406,7 @@ function GlobalMockupSearchShellClient({
             // result views: compact the phone bottom composer so results keep
             // maximum screen space. Mode homes keep the chip-row layout.
             mobileBottomSearchVariant={useCompactBottomSearch ? "compact" : "default"}
-            desktopSearchPlacement={
-              (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
-            }
+            desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
             heroComposerFromTablet={isStandaloneModeHome}
@@ -446,7 +449,7 @@ function GlobalMockupSearchShellClient({
                 onClearScopes: () => setCommandScopes([]),
               }}
             >
-              {shouldRenderFormsSearchResults ? <FormsSearchResultsPage query={requestedQuery} /> : children}
+              {children}
             </SearchCommandProvider>
           </ClientHydrationBoundary>
         </div>

@@ -7,6 +7,19 @@ export const metadata: Metadata = {
   description: "Launch Clinical KB applications, workflows, and connected clinical tools.",
 };
 
-export default function ApplicationsRoute() {
-  return <ApplicationsLauncherPage />;
+type ApplicationsPageProps = {
+  searchParams?: Promise<{
+    q?: string | string[];
+  }>;
+};
+
+function firstSearchParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function ApplicationsRoute({ searchParams }: ApplicationsPageProps) {
+  const params = searchParams ? await searchParams : {};
+  const query = firstSearchParam(params.q)?.trim();
+
+  return query ? <ApplicationsLauncherPage key={query} query={query} /> : <ApplicationsLauncherPage />;
 }
