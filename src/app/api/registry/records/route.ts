@@ -15,7 +15,6 @@ import {
   rowGovernance,
   rowToServiceRecord,
   type RegistryRecordKind,
-  type RegistryRecordRow,
 } from "@/lib/registry-records";
 import { fetchOwnerRegistryRowsWithSeed } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceSearchMatch } from "@/lib/services";

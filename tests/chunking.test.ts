@@ -44,6 +44,37 @@ describe("chunkTextWithOverlap", () => {
     expect(joined).not.toMatch(/Page 3 of 12/);
   });
 
+  // PDF extraction (PyMuPDF get_text with sort=True) wraps a dose across lines
+  // in narrow table cells ("12.5\nmg"). The bare unit line is <= 2 chars, so the
+  // short-line debris rule used to delete it, indexing a unitless "12.5".
+  it("rejoins a dose unit wrapped onto its own line instead of deleting it as debris", () => {
+    const text = "Commence clozapine at a starting dose of\n12.5\nmg\nonce daily.";
+    const joined = chunkTextWithOverlap(text, 2000, 200).join(" ");
+    expect(joined).toContain("12.5 mg");
+  });
+
+  it("rejoins wrapped units after bare-integer doses and longer unit tokens", () => {
+    const text = "Thiamine\n300\nmg\ndaily. Fludrocortisone\n100\nmcg\nmane.";
+    const joined = chunkTextWithOverlap(text, 2000, 200).join(" ");
+    expect(joined).toContain("300 mg");
+    expect(joined).toContain("100 mcg");
+  });
+
+  it("still drops a lone unit token with no preceding dose number", () => {
+    const text = "Withhold clozapine.\nmg\nRepeat the full blood count.";
+    const joined = chunkTextWithOverlap(text, 2000, 200).join(" ");
+    expect(joined).not.toMatch(/\bmg\b/);
+    expect(joined).toContain("Withhold clozapine.");
+    expect(joined).toContain("Repeat the full blood count.");
+  });
+
+  it("does not merge a unit token into a standalone page footer", () => {
+    const text = "Monitor lithium levels.\nPage 3 of 12\nmg\nReview renally.";
+    const joined = chunkTextWithOverlap(text, 2000, 200).join(" ");
+    expect(joined).not.toMatch(/Page 3 of 12/);
+    expect(joined).not.toMatch(/\bmg\b/);
+  });
+
   it("prefers paragraph boundaries before falling back to sentence windows", () => {
     const chunks = chunkTextWithOverlap("Heading\n\nFirst clinical paragraph.\n\nSecond clinical paragraph.", 32, 4);
 
