@@ -296,11 +296,7 @@ export function ModeHomeTemplate({
         >
           {pillsTitle || pillsAction ? (
             <div className="flex min-h-8 w-full items-center justify-between gap-3">
-              {pillsTitle ? (
-                <p className={cn(eyebrowText, "text-center sm:text-left")}>{pillsTitle}</p>
-              ) : (
-                <span />
-              )}
+              {pillsTitle ? <p className={cn(eyebrowText, "text-center sm:text-left")}>{pillsTitle}</p> : <span />}
               {pillsAction}
             </div>
           ) : null}
@@ -315,9 +311,7 @@ export function ModeHomeTemplate({
                       <PillIcon className="h-3.5 w-3.5" aria-hidden="true" />
                     </span>
                   ) : (
-                    <span
-                      className={cn("h-2.5 w-2.5 shrink-0 rounded-full", pillToneClass[pill.tone ?? "neutral"])}
-                    />
+                    <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", pillToneClass[pill.tone ?? "neutral"])} />
                   )}
                   <span className="text-balance text-center">{displayLabel}</span>
                 </>
@@ -330,13 +324,7 @@ export function ModeHomeTemplate({
                   {content}
                 </Link>
               ) : (
-                <button
-                  key={pill.label}
-                  type="button"
-                  onClick={pill.onClick}
-                  className={pillClassName}
-                  {...pillA11y}
-                >
+                <button key={pill.label} type="button" onClick={pill.onClick} className={pillClassName} {...pillA11y}>
                   {content}
                 </button>
               );
