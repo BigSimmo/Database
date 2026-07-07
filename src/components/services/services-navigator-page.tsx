@@ -13,6 +13,7 @@ import {
   DollarSign,
   ExternalLink,
   Phone,
+  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Users,
@@ -22,6 +23,7 @@ import {
 import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { ModeHomeStatusNotice } from "@/components/mode-home-template";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
   SearchResultsEmptyState,
@@ -437,8 +439,12 @@ export function ServicesNavigatorPage() {
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
   const registry = useRegistryRecords("service");
   const registryLoading = registry.status === "loading";
+  // Demo mode is served by the registry API as status "ready" with fixture
+  // records, so unauthorized/error must not silently fall back to fixtures —
+  // the home and detail pages surface the same conditions as notices.
+  const registryBlocked = registry.status === "unauthorized" || registry.status === "error";
   const searchableRecords = useMemo(
-    () => (registry.status === "ready" ? registry.records : registry.status === "loading" ? [] : serviceRecords),
+    () => (registry.status === "ready" ? registry.records : []),
     [registry.records, registry.status],
   );
   const matches = useMemo(() => {
@@ -508,6 +514,22 @@ export function ServicesNavigatorPage() {
     >
       {registryLoading ? (
         <SearchResultsSkeleton />
+      ) : registryBlocked ? (
+        registry.status === "unauthorized" ? (
+          <ModeHomeStatusNotice
+            icon={ShieldAlert}
+            title="Session expired"
+            body="Your session expired. Sign in again to search private service records and referral pathways."
+            actionHref="/"
+            actionLabel="Open account setup"
+          />
+        ) : (
+          <ModeHomeStatusNotice
+            icon={ShieldAlert}
+            title="Could not load services"
+            body="The services registry could not be loaded. Try again shortly."
+          />
+        )
       ) : query.trim() && scopedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"

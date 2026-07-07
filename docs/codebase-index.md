@@ -250,6 +250,16 @@ Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 - Registry modes: services, forms, medications, differentials
 - Demo mode: synthetic data when Supabase unavailable (`demo-data.ts`, `isDemoMode()` in `env.ts`)
 
+### Global search composer placement rules
+
+One shared composer (`master-search-header.tsx`) serves every mode. Placement:
+
+- **Mode homes** (`/services`, `/forms`, `/favourites`, `/differentials`, `/applications`, and dashboard homes): inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike.
+- **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
+- **Results routing**: standalone routes own their submitted searches via `?q=…&run=1` (`/services` → `ServicesNavigatorPage`, `/forms` → `FormsSearchResultsPage`, `/differentials` → `DifferentialsHome` results view, `/favourites` filters the command library in place). Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. `/?mode=favourites` redirects to `/favourites`; `/?mode=differentials` redirects to `/differentials`.
+- **Intentionally composer-free routes**: `/differentials/presentations/*` (comparison workflow owns its chrome), `/documents/[id]` viewer (has its own in-document ask composer), `/documents/source/*` (document flow owns mobile chrome). Do not re-flag these in search-consistency audits.
+- **Local filter fields** (sidebar "Search chats", document drawer "Find a document"/"Find a source PDF") are scoped filters, not global search; they share the `fieldControlWithIcon`/`fieldIcon` primitives.
+
 ---
 
 ## Key config files

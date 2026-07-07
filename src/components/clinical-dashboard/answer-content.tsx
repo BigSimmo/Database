@@ -28,6 +28,7 @@ import {
   statusDotReview,
   subtleStatusPill,
   textMuted,
+  toneWarningQuiet,
 } from "@/components/ui-primitives";
 import { sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import {
@@ -574,11 +575,12 @@ export function NaturalLanguageAnswer({
       setCopiedSourceQuote(false);
     }
   }
+  const cautionCapsule = weakEvidence || !grounded;
   const sourceCapsuleButton = (
     <button
       type="button"
       ref={sourceCapsuleRef}
-      className={cn(sourceCapsule, "w-fit")}
+      className={cn(sourceCapsule, "w-fit", cautionCapsule && toneWarningQuiet)}
       aria-label="Open answer sources"
       aria-expanded={sourcePreviewOpen}
       onClick={() => {
@@ -587,15 +589,21 @@ export function NaturalLanguageAnswer({
     >
       {sourceCount > 0 ? (
         <>
-          <span className="sm:hidden">
+          <span className="leading-none sm:hidden">
             {sourceCount} source{sourceCount === 1 ? "" : "s"}
           </span>
-          <span className="hidden sm:inline">{capsuleText}</span>
+          <span className="hidden leading-none sm:inline">{capsuleText}</span>
         </>
       ) : (
-        capsuleText
+        <span className="leading-none">{capsuleText}</span>
       )}
-      {canOpenSourcePreview ? <ChevronDown className="h-3.5 w-3.5" /> : null}
+      {canOpenSourcePreview ? (
+        <ChevronDown
+          className={cn("h-4 w-4 shrink-0 transition-transform", sourcePreviewOpen && "rotate-180")}
+          strokeWidth={2.25}
+          aria-hidden
+        />
+      ) : null}
     </button>
   );
 
@@ -612,7 +620,7 @@ export function NaturalLanguageAnswer({
       >
         <ShieldCheck className="h-[18px] w-[18px]" />
       </span>
-      <div className="min-w-0 space-y-1.5">
+      <div className="min-w-0 space-y-2.5">
         <p className={chatAnswerText}>
           <span data-testid="plain-answer-prose">
             <SafeBoldText text={cleaned} />
@@ -698,7 +706,7 @@ export function NaturalLanguageAnswer({
             />
           </div>
         </Sheet>
-        <div className={chatActionRow} aria-label="Answer actions">
+        <div className={cn(chatActionRow, "mt-0.5")} aria-label="Answer actions">
           <button
             type="button"
             onClick={onCopy}

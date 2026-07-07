@@ -645,13 +645,19 @@ function FavouritesTable({
             })}
             {tableRows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center">
-                  <Search className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
-                  <p className="font-black text-[color:var(--text-heading)]">No favourites match</p>
-                  <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
-                    Clear filters or search to show saved clinical work.
-                  </p>
-                </td>
+                {/* The Evidence column is hidden below lg, so span 5 there and 6 at lg+. */}
+                {[
+                  { colSpan: 5, className: "px-4 py-10 text-center lg:hidden" },
+                  { colSpan: 6, className: "hidden px-4 py-10 text-center lg:table-cell" },
+                ].map(({ colSpan, className }) => (
+                  <td key={colSpan} colSpan={colSpan} className={className}>
+                    <Search className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
+                    <p className="font-black text-[color:var(--text-heading)]">No favourites match</p>
+                    <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
+                      Clear filters or search to show saved clinical work.
+                    </p>
+                  </td>
+                ))}
               </tr>
             ) : null}
           </tbody>
