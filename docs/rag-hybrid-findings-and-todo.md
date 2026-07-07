@@ -259,36 +259,6 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     from `candidate_aliases` → `rag_aliases` is still manual.
 18. ⏳ **`document_index_units` vector recall** — no HNSW index (dropped 2026-07-02) and hosted
     Supabase denies `ALTER FUNCTION … SET hnsw.ef_search` for the `language sql` hybrid RPCs, so
-<<<<<<< HEAD
-    only `match_document_memory_cards_hybrid` pins `ef_search=100`. Quantify the recall impact
-    before reintroducing an index.
-19. ⏳ **Demo fallback can mask live retrieval failures in non-prod.** `/api/search` and
-    `/api/answer` silently swap in demo data on Supabase errors outside production (only an
-    `X-Clinical-KB-Fallback` header signals it). Proposal: surface a warning in
-    `check:production-readiness` output and/or a visible dev-mode banner rather than changing
-    the fallback behaviour.
-20. ⏳ **Automated guard for governance-weighting regressions.** The 23/23 → 16/23 golden-set
-    regression class (governance metadata weighting selection ordering) is only guarded by the
-    manual PR checklist because `eval:retrieval:quality` needs live keys. Investigate a
-    keys-free structural test (e.g. assert selection sort inputs exclude governance fields).
-21. ⏳ **Recalibrate gates for synthetic text-only similarity (RC9 residual) — audited 2026-07-07,
-    scope reduced.** Full consumer audit on `claude/retrieval-correctness`: the headline
-    `least(0.95, 0.56 + text_rank*0.39)` proxy NO LONGER EXISTS — `match_document_chunks_text`
-    already returns `similarity = 0` with hybrid capped at 0.5 and the lexical signal isolated in
-    `lexical_score` (codified in schema.sql with the "do not fabricate" comment). What remains
-    synthetic are three app-side fabricators, all tagged `similarity_origin: "synthetic_text"`:
-    the document-lookup fast path (0.58 + documentScore, hybrid ≤ 0.94), memory-card chunk loader
-    (0.58 + confidence·0.28, hybrid ≤ 0.89), and table-fact signal matches. Their consumers:
-    `evaluateEvidenceCoverageGate` / `shouldReturnTextFastPath` / `chooseAnswerRoute` /
-    `shouldUseExtractiveAnswer` (thresholds 0.32–0.76 — the fabricated 0.58 floor is
-    deliberately load-bearing there, always paired with structural checks like
-    `directTitleSupport`; re-gating them on native signals is the deferred recalibration and
-    must not be attempted without the telemetry distributions), `buildRetrievalDiagnostics`
-    (topScore < 0.5 weak gate — floor also load-bearing), and `deriveConfidence`. **Fixed now:**
-    `deriveConfidence` no longer lets a fabricated 0.82+ mint a "high" answer-confidence label —
-    "high" requires a genuine-cosine citation; synthetic-origin evidence caps at "medium"
-    (strictly tightening, ordering/routing untouched, unit-tested in tests/rag-score.test.ts).
-=======
     only `match_document_memory_cards_hybrid` pins `ef_search=100`. Concrete measurement plan
     (needs live keys, ~1 hour): run `eval:retrieval:quality` twice with `--force-embedding`
     (bypasses lexical fast paths, exercising vectors directly) — once as-is and once after
@@ -307,13 +277,29 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     `review_due`/`unverified` source outranks a lower-relevance `current`/`reviewed` one. The
     manual golden-eval checklist remains the live backstop; no further action.
 21. 🔶 **Recalibrate gates for synthetic text-only similarity (RC9 residual) — DATA NOW
-    FLOWING (2026-07-06).** `synthetic_similarity_count` and `text_or_relaxation_used` are now
-    persisted into `rag_retrieval_logs.metadata` (they were computed but dropped by the
-    telemetry whitelist in /api/search). Once ~2 weeks of live rows exist, recalibrate
-    `evaluateEvidenceCoverageGate` / text-fast-path thresholds against real cosine
-    distributions: query `metadata->>'synthetic_similarity_count'` joined to `is_miss` to see
-    how often synthetic scores cross the 0.58/0.62 gates on misses vs hits.
->>>>>>> origin/main
+    FLOWING (2026-07-06); audited 2026-07-07, scope reduced.** `synthetic_similarity_count` and
+    `text_or_relaxation_used` are now persisted into `rag_retrieval_logs.metadata` (they were
+    computed but dropped by the telemetry whitelist in /api/search). Once ~2 weeks of live rows
+    exist, recalibrate `evaluateEvidenceCoverageGate` / text-fast-path thresholds against real
+    cosine distributions: query `metadata->>'synthetic_similarity_count'` joined to `is_miss` to
+    see how often synthetic scores cross the 0.58/0.62 gates on misses vs hits. Full consumer
+    audit on `claude/retrieval-correctness`: the headline `least(0.95, 0.56 + text_rank*0.39)`
+    proxy NO LONGER EXISTS — `match_document_chunks_text` already returns `similarity = 0` with
+    hybrid capped at 0.5 and the lexical signal isolated in `lexical_score` (codified in
+    schema.sql with the "do not fabricate" comment). What remains synthetic are three app-side
+    fabricators, all tagged `similarity_origin: "synthetic_text"`: the document-lookup fast path
+    (0.58 + documentScore, hybrid ≤ 0.94), memory-card chunk loader (0.58 + confidence·0.28,
+    hybrid ≤ 0.89), and table-fact signal matches. Their consumers:
+    `evaluateEvidenceCoverageGate` / `shouldReturnTextFastPath` / `chooseAnswerRoute` /
+    `shouldUseExtractiveAnswer` (thresholds 0.32–0.76 — the fabricated 0.58 floor is
+    deliberately load-bearing there, always paired with structural checks like
+    `directTitleSupport`; re-gating them on native signals is the deferred recalibration and
+    must not be attempted without the telemetry distributions), `buildRetrievalDiagnostics`
+    (topScore < 0.5 weak gate — floor also load-bearing), and `deriveConfidence`. **Fixed
+    (2026-07-07):** `deriveConfidence` no longer lets a fabricated 0.82+ mint a "high"
+    answer-confidence label — "high" requires a genuine-cosine citation; synthetic-origin
+    evidence caps at "medium" (strictly tightening, ordering/routing untouched, unit-tested in
+    tests/rag-score.test.ts).
 22. ⏳ **Registry-to-corpus embedding (universal search Phase 5).** Medications/services/forms/
     differentials are federated into `/api/search/universal` but are not retrieval-corpus
     entities, so Answer mode cannot cite them. Concrete implementation spec (in order):
