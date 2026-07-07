@@ -313,6 +313,7 @@ export function AccessibleTable({
   clinicalOnly = false,
   rowActions,
   actionsHeader,
+  lowConfidenceFallback,
 }: {
   caption?: string | null;
   markdown?: string | null;
@@ -328,6 +329,11 @@ export function AccessibleTable({
   clinicalOnly?: boolean;
   rowActions?: Array<ReactNode | null>;
   actionsHeader?: string;
+  // GEN-H3: when the normalizer can't confidently reconstruct a clinical table,
+  // the padded raw grid is misleading (mostly empty "-" cells, clipped headers).
+  // Callers that have the cropped source image (e.g. the visual-evidence cards)
+  // can pass it here to show the real table screenshot instead of that grid.
+  lowConfidenceFallback?: ReactNode;
 }) {
   const dialogId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -377,25 +383,32 @@ export function AccessibleTable({
   const displayCaption = clinicalOnly && caption ? cleanClinicalTableText(caption) : caption;
   const title = dialogTitle || displayCaption || "Clinical table";
   const lowConfidence = Boolean(normalized.lowConfidence);
+  const showFallback = lowConfidence && Boolean(lowConfidenceFallback);
   const table = (
     <>
       {lowConfidence ? (
         <p data-testid="table-low-confidence-note" className={cn("mb-1 text-xs", textMuted)}>
-          Table structure could not be confidently reconstructed — verify values against the source document.
+          {showFallback
+            ? "Table structure could not be confidently reconstructed — showing the source document image instead."
+            : "Table structure could not be confidently reconstructed — verify values against the source document."}
         </p>
       ) : null}
-      <AccessibleTableMarkup
-        caption={displayCaption}
-        header={header}
-        body={body}
-        compact={compact}
-        previewRows={previewRows}
-        hidePreviewCaption={hidePreviewCaption}
-        hidePreviewRowCount={hidePreviewRowCount}
-        densePreview={densePreview}
-        rowActions={rowActions}
-        actionsHeader={actionsHeader}
-      />
+      {showFallback ? (
+        <div data-testid="table-source-image-fallback">{lowConfidenceFallback}</div>
+      ) : (
+        <AccessibleTableMarkup
+          caption={displayCaption}
+          header={header}
+          body={body}
+          compact={compact}
+          previewRows={previewRows}
+          hidePreviewCaption={hidePreviewCaption}
+          hidePreviewRowCount={hidePreviewRowCount}
+          densePreview={densePreview}
+          rowActions={rowActions}
+          actionsHeader={actionsHeader}
+        />
+      )}
     </>
   );
 
@@ -483,15 +496,19 @@ export function AccessibleTable({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <AccessibleTableMarkup
-                caption={displayCaption}
-                header={header}
-                body={body}
-                compact={false}
-                expanded
-                rowActions={rowActions}
-                actionsHeader={actionsHeader}
-              />
+              {showFallback ? (
+                <div data-testid="table-source-image-fallback">{lowConfidenceFallback}</div>
+              ) : (
+                <AccessibleTableMarkup
+                  caption={displayCaption}
+                  header={header}
+                  body={body}
+                  compact={false}
+                  expanded
+                  rowActions={rowActions}
+                  actionsHeader={actionsHeader}
+                />
+              )}
             </div>
           </div>
         </div>
