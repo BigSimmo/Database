@@ -96,7 +96,9 @@
     "workflow:deps": "node ../.local-dev/workflow-deps.mjs",
     "workflow:clean-state": "node ../.local-dev/workflow-clean-state.mjs",
     "workflow:export": "node ../.local-dev/workflow-export.mjs",
-    "workflow:handoff": "node ../.local-dev/workflow-handoff.mjs"
+    "workflow:handoff": "node ../.local-dev/workflow-handoff.mjs",
+    "check:drift": "tsx scripts/check-drift.ts",
+    "drift:manifest": "tsx scripts/generate-drift-manifest.ts"
   },
   "dependencies": {
     "@next/env": "16.2.10",
