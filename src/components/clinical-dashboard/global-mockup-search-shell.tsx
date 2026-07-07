@@ -5,8 +5,9 @@ import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRe
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { recentQueryStorageKey, SettingsDialog } from "@/components/ClinicalDashboard";
+import { recentQueryStorageKey } from "@/components/ClinicalDashboard";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
+import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import {
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,

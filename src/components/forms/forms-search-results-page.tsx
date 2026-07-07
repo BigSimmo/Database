@@ -95,10 +95,14 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
         <button
           key={label}
           type="button"
+          disabled={index !== 0}
+          title={index !== 0 ? "Coming soon" : undefined}
           className={cn(
             "relative -mb-px flex min-h-14 items-center gap-2 whitespace-nowrap rounded-t-md",
             searchFocusRing,
-            index === 0 ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text)]",
+            index === 0
+              ? "text-[color:var(--clinical-accent)]"
+              : "cursor-not-allowed text-[color:var(--text)] opacity-70",
           )}
         >
           {label}
@@ -185,8 +189,8 @@ function ResultsTable({ matches, query }: { matches: FormSearchMatch[]; query: s
         })}
       </div>
       <div className="flex justify-center border-t border-[color:var(--border)] p-4">
-        <button
-          type="button"
+        <Link
+          href="/forms"
           className={cn(
             "inline-flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
             searchFocusRing,
@@ -194,7 +198,7 @@ function ResultsTable({ matches, query }: { matches: FormSearchMatch[]; query: s
         >
           View all forms ({matches.length})
           <ChevronRight className="h-4 w-4" />
-        </button>
+        </Link>
       </div>
     </section>
   );
@@ -227,20 +231,22 @@ function ToggleRow({
 
 function RefineRail() {
   return (
-    <section className={cn(searchResultsSection, "p-5")}>
+    <section className={cn(searchResultsSection, "p-5")} title="Coming soon">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Refine</h2>
         <button
           type="button"
+          disabled
+          title="Coming soon"
           className={cn(
-            "rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+            "cursor-not-allowed rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--clinical-accent)] opacity-70",
             searchFocusRing,
           )}
         >
           Reset
         </button>
       </div>
-      <div className="mt-4">
+      <div className="mt-4 opacity-70" aria-disabled="true">
         <ToggleRow icon={Shield} title="High risk only" subtitle="Show high risk forms" enabled={false} danger />
         <ToggleRow icon={FileText} title="Official forms" subtitle="Limit to official forms" enabled />
         <ToggleRow icon={Workflow} title="Pathway linked" subtitle="Show pathway-linked" enabled />
@@ -252,7 +258,12 @@ function RefineRail() {
 
 function NextSteps() {
   const steps = [
-    { icon: FileText, title: "Open Form 4A", subtitle: "View the Transport order form" },
+    {
+      icon: FileText,
+      title: "Open Form 4A",
+      subtitle: "View the Transport order form",
+      href: "/forms/transport-crisis-form",
+    },
     { icon: Workflow, title: "View transport pathway", subtitle: "Explore before, current, parallel, after" },
     { icon: FileText, title: "Check source evidence", subtitle: "See matching sections and snippets" },
   ];
@@ -260,23 +271,32 @@ function NextSteps() {
     <section className={cn(searchResultsSection, "p-4 lg:p-5")}>
       <h2 className="text-base font-extrabold text-[color:var(--text-heading)] lg:text-lg">Next steps</h2>
       <div className="mt-2 lg:mt-3">
-        {steps.map(({ icon: Icon, title, subtitle }) => (
-          <button
-            key={title}
-            type="button"
-            className={cn(
-              "grid w-full grid-cols-[28px_1fr_18px] items-center gap-3 rounded-lg border-b border-[color:var(--border)] py-3 text-left transition last:border-b-0 hover:bg-[color:var(--surface-subtle)] lg:grid-cols-[32px_1fr_18px] lg:px-2 lg:py-4",
-              searchFocusRing,
-            )}
-          >
-            <Icon className="h-5 w-5 text-[color:var(--clinical-accent)] lg:h-6 lg:w-6" />
-            <span>
-              <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">{title}</span>
-              <span className="mt-0.5 block text-xs font-medium text-[color:var(--text-muted)]">{subtitle}</span>
-            </span>
-            <ChevronRight className="h-5 w-5 text-[color:var(--text-heading)]" />
-          </button>
-        ))}
+        {steps.map(({ icon: Icon, title, subtitle, href }) => {
+          const rowClassName = cn(
+            "grid w-full grid-cols-[28px_1fr_18px] items-center gap-3 rounded-lg border-b border-[color:var(--border)] py-3 text-left transition last:border-b-0 lg:grid-cols-[32px_1fr_18px] lg:px-2 lg:py-4",
+            href ? "hover:bg-[color:var(--surface-subtle)]" : "cursor-not-allowed opacity-70",
+            searchFocusRing,
+          );
+          const rowContent = (
+            <>
+              <Icon className="h-5 w-5 text-[color:var(--clinical-accent)] lg:h-6 lg:w-6" />
+              <span>
+                <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">{title}</span>
+                <span className="mt-0.5 block text-xs font-medium text-[color:var(--text-muted)]">{subtitle}</span>
+              </span>
+              <ChevronRight className="h-5 w-5 text-[color:var(--text-heading)]" />
+            </>
+          );
+          return href ? (
+            <Link key={title} href={href} className={rowClassName}>
+              {rowContent}
+            </Link>
+          ) : (
+            <button key={title} type="button" disabled title="Coming soon" className={rowClassName}>
+              {rowContent}
+            </button>
+          );
+        })}
       </div>
     </section>
   );
@@ -336,8 +356,10 @@ function PathwayPanel() {
       <div className="mt-5 flex justify-center">
         <button
           type="button"
+          disabled
+          title="Coming soon"
           className={cn(
-            "inline-flex min-h-9 items-center gap-3 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+            "inline-flex min-h-9 cursor-not-allowed items-center gap-3 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] opacity-70",
             searchFocusRing,
           )}
         >
@@ -473,8 +495,8 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
           );
         })}
       </div>
-      <button
-        type="button"
+      <Link
+        href="/forms"
         className={cn(
           "mx-auto mt-1.5 flex min-h-8 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
           searchFocusRing,
@@ -482,7 +504,7 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
       >
         View all forms ({matches.length})
         <ChevronRight className="h-4 w-4" />
-      </button>
+      </Link>
     </section>
   );
 }
@@ -527,8 +549,10 @@ function MobilePathway() {
       </div>
       <button
         type="button"
+        disabled
+        title="Coming soon"
         className={cn(
-          "mx-auto mt-1 flex min-h-8 items-center gap-2 rounded-md px-2 text-sm-minus font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+          "mx-auto mt-1 flex min-h-8 cursor-not-allowed items-center gap-2 rounded-md px-2 text-sm-minus font-extrabold text-[color:var(--clinical-accent)] opacity-70",
           searchFocusRing,
         )}
       >
@@ -659,16 +683,15 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
           <NextSteps />
           <button
             type="button"
+            disabled
+            title="Coming soon"
             className={cn(
-              "mx-auto inline-flex h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-8 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+              "mx-auto inline-flex h-10 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-8 text-sm font-extrabold text-[color:var(--clinical-accent)] opacity-70 shadow-[var(--shadow-inset)]",
               searchFocusRing,
             )}
           >
             <SlidersHorizontal className="h-5 w-5" />
             Filters
-            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[color:var(--clinical-accent)] px-1 text-3xs text-[color:var(--clinical-accent-contrast)]">
-              3
-            </span>
           </button>
           <VerifiedFooter />
         </div>
