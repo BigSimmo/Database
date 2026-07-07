@@ -7,6 +7,7 @@ import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { jsonError } from "@/lib/http";
 import {
   checkIngestionMutationSafety,
+  hasActiveAgentEnrichmentJob,
   ingestionMutationSafetyPayload,
   ingestionRollbackFenceStamp,
 } from "@/lib/ingestion-mutation-safety";
@@ -135,6 +136,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
 
     if (mode === "enrichment") {
+      // Audit R24d: route-mode enrichment and the enrichment agent both
+      // delete-then-insert the same artifact families with no shared lock. If
+      // the agent is mid-pass, the interleaved deletes can strand a
+      // "completed/good" document with zero enrichment artifacts (no repair
+      // path exists). Refuse to run while a live agent pass holds the document.
+      const agentBusy = await hasActiveAgentEnrichmentJob({
+        supabase,
+        documentId: id,
+        staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
+      });
+      if (agentBusy) {
+        return NextResponse.json(
+          {
+            error:
+              "The enrichment agent is currently processing this document. Wait for it to finish before re-running enrichment.",
+          },
+          { status: 409 },
+        );
+      }
+
       const [chunks, images] = await Promise.all([
         selectReindexRowsInPages<ReindexChunk>({
           supabase,
