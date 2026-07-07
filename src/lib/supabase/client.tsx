@@ -251,20 +251,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const accessToken = session?.access_token ?? null;
   const authorizationHeader = useMemo(() => authorizationHeadersForAccessToken(accessToken), [accessToken]);
 
-  const value: AuthContextValue = {
-    client,
-    session,
-    status,
-    error,
-    isConfigured: Boolean(client),
-    authorizationHeader,
-    signInWithEmail,
-    signInWithPassword,
-    signUpWithPassword,
-    signInWithOAuth,
-    signOut,
-    markSessionExpired,
-  };
+  // Memoized so `useAuthSession()` consumers (the whole tree is wrapped) only
+  // re-render when an auth field actually changes, not on every AuthProvider
+  // render. Every input is already stable: callbacks are useCallback,
+  // authorizationHeader is useMemo, the rest are useState/derived primitives.
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      client,
+      session,
+      status,
+      error,
+      isConfigured: Boolean(client),
+      authorizationHeader,
+      signInWithEmail,
+      signInWithPassword,
+      signUpWithPassword,
+      signInWithOAuth,
+      signOut,
+      markSessionExpired,
+    }),
+    [
+      client,
+      session,
+      status,
+      error,
+      authorizationHeader,
+      signInWithEmail,
+      signInWithPassword,
+      signUpWithPassword,
+      signInWithOAuth,
+      signOut,
+      markSessionExpired,
+    ],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
