@@ -50,10 +50,10 @@ const favouritesNavCollapsedKey = "clinical-kb-favourites-nav-collapsed";
 const favouritesNavCollapsedEvent = "clinical-kb-favourites-nav-collapsed-change";
 
 const setAccentBars = [
-  "bg-gradient-to-r from-[color:var(--clinical-accent)] to-teal-600",
-  "bg-gradient-to-r from-blue-500 to-indigo-500",
-  "bg-gradient-to-r from-violet-500 to-purple-600",
-  "bg-gradient-to-r from-amber-500 to-orange-500",
+  "bg-gradient-to-r from-[color:var(--clinical-accent)] to-[color:var(--tone-indigo)]",
+  "bg-gradient-to-r from-[color:var(--info)] to-[color:var(--tone-indigo)]",
+  "bg-gradient-to-r from-[color:var(--tone-purple)] to-[color:var(--tone-rose)]",
+  "bg-gradient-to-r from-[color:var(--warning)] to-[color:var(--tone-rose)]",
 ];
 
 function getSetAccentBar(index: number) {

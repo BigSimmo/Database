@@ -449,11 +449,13 @@ function FavouriteMobileCard({
           onSelect(item.id);
         }
       }}
+      aria-pressed={selected}
       className={cn(
         "min-w-0 max-w-full rounded-lg border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)]",
         selected
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35 shadow-[inset_3px_0_0_var(--clinical-accent)]"
           : "border-[color:var(--border)]",
+        focusRing,
       )}
     >
       <div className="min-w-0">
@@ -601,12 +603,19 @@ function FavouritesTable({
                   )}
                 >
                   <td className="px-3 align-middle">
-                    <div className="min-w-0">
-                      <p className="line-clamp-1 text-sm font-black text-[color:var(--text-heading)]">{item.title}</p>
-                      <p className="mt-0.5 line-clamp-1 text-xs font-semibold text-[color:var(--text-muted)]">
+                    <button
+                      type="button"
+                      onClick={() => onSelectItem(item.id)}
+                      aria-pressed={selected}
+                      className={cn("min-w-0 max-w-full rounded-md text-left", focusRing)}
+                    >
+                      <span className="line-clamp-1 block text-sm font-black text-[color:var(--text-heading)]">
+                        {item.title}
+                      </span>
+                      <span className="mt-0.5 line-clamp-1 block text-xs font-semibold text-[color:var(--text-muted)]">
                         {item.description}
-                      </p>
-                    </div>
+                      </span>
+                    </button>
                   </td>
                   <td className="px-3 align-middle">
                     <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
