@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildStorageCleanupJobUpdate,
   isPartialIndexWriteConflict,
   isRetryableIngestionError,
   nextRetryAt,
@@ -41,5 +42,42 @@ describe("ingestion retry helpers", () => {
     expect(Date.parse(nextRetryAt(1, new Date("2026-05-27T00:00:00.000Z")))).toBe(
       Date.parse("2026-05-27T00:01:00.000Z"),
     );
+  });
+});
+
+describe("storage cleanup ledger update (R11)", () => {
+  it("clears storage paths when the delete aborts so the janitor cannot remove a live document's storage", () => {
+    const update = buildStorageCleanupJobUpdate({
+      status: "failed",
+      storageRemoved: 0,
+      warnings: ["Document gained pending indexing work during delete."],
+      aborted: true,
+    });
+    expect(update.status).toBe("failed");
+    expect(update.document_paths).toEqual([]);
+    expect(update.image_paths).toEqual([]);
+    expect(update.completed_at).toBeNull();
+    expect(update.last_error).toContain("gained pending");
+  });
+
+  it("preserves storage paths on a genuine post-delete failure so the janitor can finish removal", () => {
+    const update = buildStorageCleanupJobUpdate({
+      status: "failed",
+      storageRemoved: 2,
+      warnings: ["Extracted images: transient network error"],
+    });
+    // The document row is already gone; the janitor must still remove its
+    // orphaned storage, so paths are left untouched (undefined = not written).
+    expect(update.document_paths).toBeUndefined();
+    expect(update.image_paths).toBeUndefined();
+    expect(update.storage_removed).toBe(2);
+  });
+
+  it("stamps completed_at only on success and never clears paths there", () => {
+    const now = new Date("2026-07-07T00:00:00.000Z");
+    const update = buildStorageCleanupJobUpdate({ status: "completed", storageRemoved: 3, warnings: [], now });
+    expect(update.completed_at).toBe(now.toISOString());
+    expect(update.last_error).toBeNull();
+    expect(update.document_paths).toBeUndefined();
   });
 });
