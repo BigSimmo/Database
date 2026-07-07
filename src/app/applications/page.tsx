@@ -19,7 +19,11 @@ function firstSearchParam(value: string | string[] | undefined) {
 
 export default async function ApplicationsRoute({ searchParams }: ApplicationsPageProps) {
   const params = searchParams ? await searchParams : {};
-  const query = firstSearchParam(params.q)?.trim() ?? "";
+  const query = firstSearchParam(params.q)?.trim();
 
-  return <ApplicationsLauncherPage key={query} query={query} />;
+  return query ? (
+    <ApplicationsLauncherPage key={query} query={query} />
+  ) : (
+    <ApplicationsLauncherPage />
+  );
 }

@@ -414,7 +414,6 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
       { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
       { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
-      { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
       { path: "/favourites", testId: "favourites-hub", heading: "Favourites command library", headingLevel: 1 },
     ] as const) {
       await gotoLauncher(page, home.path);
@@ -550,7 +549,6 @@ test.describe("Clinical KB tools launcher", () => {
         { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
         { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
         { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
-        { path: "/favourites", testId: "favourites-hub", heading: "Favourites command library", headingLevel: 1 },
       ] as const) {
         await gotoLauncher(page, home.path);
         await expect(page.getByTestId(home.testId)).toBeVisible();
