@@ -48,9 +48,7 @@ describe("medication badge mappers", () => {
     expect(renalRow).toBeTruthy();
 
     const badges = medicationRowBadges(renalRow!, "dose");
-    expect(badges.some((badge) => badge.label === "Renal adjustment" || badge.label === "Contraindicated")).toBe(
-      true,
-    );
+    expect(badges.some((badge) => badge.label === "Renal adjustment" || badge.label === "Contraindicated")).toBe(true);
   });
 
   it("maps risk gastrointestinal severity badge", () => {

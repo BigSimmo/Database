@@ -762,9 +762,7 @@ test.describe("Clinical KB tools launcher", () => {
     await page.evaluate(() => window.scrollTo({ top: 120, behavior: "auto" }));
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
     await expect
-      .poll(async () =>
-        dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"),
-      )
+      .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"))
       .toBe(true);
 
     await page.evaluate(() => window.scrollTo({ top: 60, behavior: "auto" }));

@@ -103,12 +103,7 @@ function SectionCard({ section }: { section: MedicationSection }) {
               className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5"
             >
               <p className="text-xs font-semibold text-[color:var(--text-heading)]">{row.key}</p>
-              <BadgeCluster
-                items={rowBadges}
-                compact
-                limit={section.type === "contra" ? 4 : 3}
-                className="mt-2"
-              />
+              <BadgeCluster items={rowBadges} compact limit={section.type === "contra" ? 4 : 3} className="mt-2" />
               <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-[color:var(--text-muted)]">
                 {row.val.replace(/\*\*/g, "")}
               </p>
@@ -288,7 +283,10 @@ function MedicationRecordDetail({
                   return (
                     <div
                       key={stat.label}
-                      className={cn("rounded-md border bg-[color:var(--surface-subtle)] p-2", clinicalBadgeToneClass(tone))}
+                      className={cn(
+                        "rounded-md border bg-[color:var(--surface-subtle)] p-2",
+                        clinicalBadgeToneClass(tone),
+                      )}
                     >
                       <p className="text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                         {stat.label}

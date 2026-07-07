@@ -173,7 +173,12 @@ function patientBadges(patient: MedicationPatientMetadata, prefix: string, badge
   }
 }
 
-function textHeuristicBadges(row: MedicationSectionRow, sectionType: string, prefix: string, badges: MedicationBadge[]) {
+function textHeuristicBadges(
+  row: MedicationSectionRow,
+  sectionType: string,
+  prefix: string,
+  badges: MedicationBadge[],
+) {
   const val = row.val.replace(/\*\*/g, "");
   const keyLower = row.key.toLowerCase();
   const combined = `${row.key} ${val}`.toLowerCase();
@@ -212,7 +217,10 @@ function textHeuristicBadges(row: MedicationSectionRow, sectionType: string, pre
   }
 }
 
-export function medicationIdentityBadges(record: MedicationRecord, governance?: MedicationGovernance): MedicationBadge[] {
+export function medicationIdentityBadges(
+  record: MedicationRecord,
+  governance?: MedicationGovernance,
+): MedicationBadge[] {
   const badges: MedicationBadge[] = [];
 
   if (record.tag) {

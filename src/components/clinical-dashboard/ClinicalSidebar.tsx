@@ -22,7 +22,14 @@ import {
 } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
-import { cn, fieldControlWithIcon, fieldIcon, sidebarItem, statusDotReady, textMuted } from "@/components/ui-primitives";
+import {
+  cn,
+  fieldControlWithIcon,
+  fieldIcon,
+  sidebarItem,
+  statusDotReady,
+  textMuted,
+} from "@/components/ui-primitives";
 
 function useClientMounted() {
   return useSyncExternalStore(

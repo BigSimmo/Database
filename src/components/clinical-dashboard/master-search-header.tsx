@@ -322,9 +322,7 @@ export function MasterSearchHeader({
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
   const phoneBottomSearchDockActive =
-    usesPhoneSearchLayout &&
-    searchComposerVisible &&
-    (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
+    usesPhoneSearchLayout && searchComposerVisible && (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
   const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden =
     bottomComposerScrollHiddenActive &&
