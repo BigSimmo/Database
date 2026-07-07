@@ -1,7 +1,7 @@
 import { DifferentialsHomePage } from "@/components/differentials/differentials-home-page";
 
 type DifferentialsRouteProps = {
-  searchParams?: Promise<{ query?: string | string[]; q?: string | string[] }>;
+  searchParams?: Promise<{ query?: string | string[]; q?: string | string[]; run?: string | string[] }>;
 };
 
 function firstSearchParam(value?: string | string[]) {
@@ -10,11 +10,12 @@ function firstSearchParam(value?: string | string[]) {
 
 export default async function DifferentialsHomeRoute({ searchParams }: DifferentialsRouteProps) {
   const params = searchParams ? await searchParams : {};
-  const query = firstSearchParam(params.query ?? params.q)?.trim();
+  const query = (firstSearchParam(params.q) ?? firstSearchParam(params.query) ?? "").trim();
+  const hasSubmittedSearch = firstSearchParam(params.run) === "1" && query.length > 0;
 
-  if (!query) {
+  if (!hasSubmittedSearch) {
     return <DifferentialsHomePage />;
   }
 
-  return <DifferentialsHomePage query={query} />;
+  return <DifferentialsHomePage query={query} autoRunSearch />;
 }

@@ -4,7 +4,7 @@ import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search
 
 export default function ApplicationsLayout({ children }: { children: ReactNode }) {
   return (
-    <GlobalSearchShell initialMode="tools" searchComposerVisible={false}>
+    <GlobalSearchShell initialMode="tools" desktopSearchPlacement="hero">
       {children}
     </GlobalSearchShell>
   );

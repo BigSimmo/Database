@@ -34,6 +34,17 @@ const excludedDomainByMode: Partial<Record<AppModeId, UniversalSearchDomain>> = 
   tools: "tools",
 };
 
+// Reverse of modeIdByDomain for chip counts: the domain whose live result total a
+// cross-mode chip should show. Answer/favourites chips have no countable domain.
+const domainByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain>> = {
+  documents: "documents",
+  prescribing: "medications",
+  services: "services",
+  forms: "forms",
+  differentials: "differentials",
+  tools: "tools",
+};
+
 const modeIdByDomain: Record<UniversalSearchDomain, AppModeId> = {
   documents: "documents",
   medications: "prescribing",
@@ -357,6 +368,7 @@ export function UniversalSearchCommandSurface({
   const showSafetyBanner =
     modeId === "differentials" && differentialRedFlagTerms.some((term) => trimmedQuery.toLowerCase().includes(term));
   const showFormCodeHint = modeId === "forms" && isFormCodeQuery(trimmedQuery);
+  const { groups: universalGroups, query: universalQuery } = universal;
 
   const sections = useMemo(() => {
     if (!config) return [];
@@ -453,8 +465,8 @@ export function UniversalSearchCommandSurface({
     // search endpoint, excluding this mode's own domain. Selecting an item navigates straight
     // to the record; each group ends with a cross-mode "view all" that re-runs the query in
     // the owning mode. Enter with nothing highlighted still runs the mode-scoped search.
-    if (trimmedQuery && universal.query === trimmedQuery && universal.groups.length) {
-      for (const group of universal.groups) {
+    if (trimmedQuery && universalQuery === trimmedQuery && universalGroups.length) {
+      for (const group of universalGroups) {
         const targetModeId = modeIdByDomain[group.kind];
         const targetMode = appModeDefinition(targetModeId);
         const GroupIcon = appModeIcons[targetModeId];
@@ -564,6 +576,13 @@ export function UniversalSearchCommandSurface({
         items: config.crossModes.map((target) => {
           const targetMode = appModeDefinition(target);
           const TargetIcon = appModeIcons[target];
+          // Live count from the universal typeahead response ("Forms (2)") — only shown when
+          // fresh results for this exact query exist, so the chip never shows a stale number.
+          const targetDomain = domainByTargetMode[target];
+          const targetCount =
+            targetDomain && universalQuery === trimmedQuery
+              ? universalGroups.find((group) => group.kind === targetDomain)?.total
+              : undefined;
           return {
             id: nextId(),
             label: targetMode.label,
@@ -582,6 +601,7 @@ export function UniversalSearchCommandSurface({
               >
                 <TargetIcon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
                 {targetMode.label}
+                {typeof targetCount === "number" ? ` (${targetCount})` : ""}
               </span>
             ),
           };
@@ -605,8 +625,8 @@ export function UniversalSearchCommandSurface({
     router,
     showFormCodeHint,
     trimmedQuery,
-    universal.groups,
-    universal.query,
+    universalGroups,
+    universalQuery,
   ]);
 
   const flatItems = useMemo(() => sections.flatMap((section) => section.items), [sections]);

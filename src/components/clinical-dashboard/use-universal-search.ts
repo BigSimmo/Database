@@ -32,16 +32,24 @@ export function useUniversalSearch(args: {
   const { authorizationHeader } = useAuthSession();
   const [result, setResult] = useState<{ groups: UniversalSearchGroup[]; query: string }>({ groups: [], query: "" });
   const requestSeqRef = useRef(0);
+  const prevAuthRef = useRef(authorizationHeader);
   const trimmedQuery = args.query.trim();
   const active = args.enabled && trimmedQuery.length >= minQueryLength;
   const limitPerDomain = args.limitPerDomain ?? 3;
   const excludeDomain = args.excludeDomain;
 
   useEffect(() => {
+    const authChanged = prevAuthRef.current !== authorizationHeader;
+    prevAuthRef.current = authorizationHeader;
+
     if (!active) {
       // Invalidate any in-flight request; visible state is derived, so no reset needed.
       requestSeqRef.current += 1;
       return undefined;
+    }
+
+    if (authChanged) {
+      setResult({ groups: [], query: "" });
     }
 
     const requestId = ++requestSeqRef.current;

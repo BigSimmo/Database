@@ -6,6 +6,7 @@ import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react"
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { NaturalLanguageAnswer, UserQuestionBubble } from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerSupportSummaryCard,
@@ -24,6 +25,7 @@ import { InlineTableCard, MobileEvidenceSheetContent } from "@/components/clinic
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
+import { type AppModeId } from "@/lib/app-modes";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { type SourceGovernanceWarning } from "@/lib/source-governance";
 import type {
@@ -61,6 +63,8 @@ export function StagedAnswerResultSurface({
   followUpSuggestions,
   onPickFollowUpSuggestion,
   followUpSuggestionsDisabled = false,
+  crossModeQueries,
+  onCrossModeSearch,
 }: {
   answer: RagAnswer;
   query: string;
@@ -86,6 +90,8 @@ export function StagedAnswerResultSurface({
   followUpSuggestions?: string[];
   onPickFollowUpSuggestion?: (suggestion: string) => void;
   followUpSuggestionsDisabled?: boolean;
+  crossModeQueries?: Array<string | null | undefined>;
+  onCrossModeSearch?: (mode: AppModeId, query: string) => void;
 }) {
   const noteCount = clinicalNotesCount(answer);
   const showClinicalNotes =
@@ -232,6 +238,10 @@ export function StagedAnswerResultSurface({
                 onOpenEvidence={() => openEvidence(null)}
                 onOpenSafetyFindings={safetyFindings.length > 0 ? openSafetyFindings : undefined}
               />
+            ) : null}
+
+            {crossModeQueries?.length && onCrossModeSearch ? (
+              <CrossModeLinksSection queries={crossModeQueries} onModeSearch={onCrossModeSearch} />
             ) : null}
 
             {followUpSuggestions?.length && onPickFollowUpSuggestion ? (

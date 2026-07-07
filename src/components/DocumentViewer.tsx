@@ -2166,6 +2166,7 @@ export function DocumentViewer({
   }, [
     authStatus,
     authorizationHeader,
+    canUsePrivateApis,
     canViewSourceDocuments,
     clientDemoMode,
     documentId,

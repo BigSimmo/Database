@@ -400,8 +400,16 @@ function mergeDiagnosisRecords(existing: DifferentialRecord, incoming: Different
   };
 }
 
-export function parseScenarioPresets(markdown: string): DifferentialScenarioPreset[] {
+// Splitting on "## " leaves any document preamble (the top-level "# Title"
+// heading and intro prose) as a phantom first section; it must be dropped or
+// it becomes a bogus record (e.g. a "# Scenario Presets" preset).
+function markdownSections(markdown: string) {
   const sections = markdown.split(/(?:^|\n)##\s+/).filter(Boolean);
+  return markdown.trimStart().startsWith("## ") ? sections : sections.slice(1);
+}
+
+export function parseScenarioPresets(markdown: string): DifferentialScenarioPreset[] {
+  const sections = markdownSections(markdown);
   return sections.map((section, index) => {
     const lines = section.split("\n");
     const titleLine = lines[0]?.trim() ?? `Preset ${index + 1}`;
@@ -430,7 +438,7 @@ export function parseScenarioPresets(markdown: string): DifferentialScenarioPres
 }
 
 export function parseRedFlagFlows(markdown: string): DifferentialRedFlagFlow[] {
-  const sections = markdown.split(/(?:^|\n)##\s+/).filter(Boolean);
+  const sections = markdownSections(markdown);
   return sections.map((section, index) => {
     const title = section.split("\n")[0]?.trim() ?? `Flow ${index + 1}`;
     const entryId = section.match(/Entry\s+(\d+[A-Z]?)/i)?.[1]?.toUpperCase() ?? "";
@@ -463,7 +471,9 @@ export function parseSearchAliases(markdown: string): Record<string, string[]> {
     const values = match[2]
       .split(",")
       .map((item) => item.trim().toLowerCase())
-      .filter(Boolean);
+      // The export also carries field-weight tables (e.g. "| tags | 1.1 |");
+      // bare numbers are ranking weights, not clinical synonyms.
+      .filter((item) => Boolean(item) && !/^\d+(\.\d+)?$/.test(item));
     if (token && values.length) aliases[token] = values;
   }
   return aliases;

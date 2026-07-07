@@ -219,7 +219,15 @@ function stripLowYieldLines(value: string) {
       const isControlLine = sourceControlLinePattern.test(normalized);
       const hasSourceMarker =
         sourceDocumentCodeTestPattern.test(normalized) || pageBoilerplateTestPattern.test(normalized);
-      const hasClinicalSignal = clinicalSignalPattern.test(normalized);
+      // H2 (line-level): extraction glues control markers ("Document owner:",
+      // "review date") onto body text, and several callers compact the whole
+      // excerpt to a single line before this filter runs — so dropping the
+      // line deletes clinical content along with the marker. A line carrying
+      // threshold-bearing values ("8 or below", "3 to 15") must survive even
+      // when it lacks a clinical keyword, same generous bias as the
+      // fragment-level rescue below.
+      const hasClinicalSignal =
+        clinicalSignalPattern.test(normalized) || clinicalThresholdSignalPattern.test(normalized);
       if (isControlLine && !hasClinicalSignal) return false;
       if (hasSourceMarker && normalized.length <= 140 && !hasClinicalSignal) return false;
       return true;

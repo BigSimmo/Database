@@ -250,12 +250,16 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
 
 ## Follow-ups filed 2026-07-06 (universal-search workstream)
 
-17. ⏳ **Alias promotion pipeline is blocked by privacy redaction.** `rag_query_misses` rows store
-    hashed/redacted queries with empty `candidate_aliases`, so hardcoded `synonymGroups` /
-    `domainAliasGroups` / special-case rewrites in `src/lib/clinical-search.ts` cannot be replaced
-    with data-driven `rag_aliases` rows until a privacy-safe candidate-alias capture is designed.
+17. 🔶 **Alias promotion pipeline is blocked by privacy redaction — PARTIALLY UNBLOCKED
+    (2026-07-06).** Weak-search misses now store `queryVocabularyAliasesForStorage(query)` as
+    `candidate_aliases` when raw retention is off: only canonical terms from the curated
+    clinical vocabulary that the query MATCHED are persisted (output text comes from the fixed
+    vocabulary table, never the raw query, so RET-H4 holds). Remaining: terms OUTSIDE the
+    curated vocabulary still cannot be captured without a privacy review; promotion tooling
+    from `candidate_aliases` → `rag_aliases` is still manual.
 18. ⏳ **`document_index_units` vector recall** — no HNSW index (dropped 2026-07-02) and hosted
     Supabase denies `ALTER FUNCTION … SET hnsw.ef_search` for the `language sql` hybrid RPCs, so
+<<<<<<< HEAD
     only `match_document_memory_cards_hybrid` pins `ef_search=100`. Quantify the recall impact
     before reintroducing an index.
 19. ⏳ **Demo fallback can mask live retrieval failures in non-prod.** `/api/search` and
@@ -284,7 +288,61 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     `deriveConfidence` no longer lets a fabricated 0.82+ mint a "high" answer-confidence label —
     "high" requires a genuine-cosine citation; synthetic-origin evidence caps at "medium"
     (strictly tightening, ordering/routing untouched, unit-tested in tests/rag-score.test.ts).
+=======
+    only `match_document_memory_cards_hybrid` pins `ef_search=100`. Concrete measurement plan
+    (needs live keys, ~1 hour): run `eval:retrieval:quality` twice with `--force-embedding`
+    (bypasses lexical fast paths, exercising vectors directly) — once as-is and once after
+    `create index concurrently` on `document_index_units.embedding` in a Supabase branch — and
+    compare doc-recall@5 + p90 latency. If recall gain < 1 case, close as not-worth-4.4GB. The
+    ef_search half can be retested via the plpgsql-wrapper trick that memory_cards already uses
+    (wrap the `language sql` RPC in a plpgsql shim that SETs it).
+19. ✅ **Demo fallback can mask live retrieval failures in non-prod — DONE (2026-07-06).**
+    `nonProductionSupabaseDemoFallbackReason` (the shared choke point for /api/search,
+    /api/answer, and /api/answer/stream) now emits a loud `console.warn` naming the env vars to
+    check whenever the non-prod demo fallback fires; behaviour and the
+    `X-Clinical-KB-Fallback` header are unchanged. A visible dev-mode banner remains optional.
+20. ✅ **Automated guard for governance-weighting regressions — ALREADY COVERED.** A keys-free
+    structural test exists: `tests/retrieval-selection.test.ts` ("keeps relevance ordering and
+    does not let source-governance metadata reorder selection") asserts a higher-relevance
+    `review_due`/`unverified` source outranks a lower-relevance `current`/`reviewed` one. The
+    manual golden-eval checklist remains the live backstop; no further action.
+21. 🔶 **Recalibrate gates for synthetic text-only similarity (RC9 residual) — DATA NOW
+    FLOWING (2026-07-06).** `synthetic_similarity_count` and `text_or_relaxation_used` are now
+    persisted into `rag_retrieval_logs.metadata` (they were computed but dropped by the
+    telemetry whitelist in /api/search). Once ~2 weeks of live rows exist, recalibrate
+    `evaluateEvidenceCoverageGate` / text-fast-path thresholds against real cosine
+    distributions: query `metadata->>'synthetic_similarity_count'` joined to `is_miss` to see
+    how often synthetic scores cross the 0.58/0.62 gates on misses vs hits.
+>>>>>>> origin/main
 22. ⏳ **Registry-to-corpus embedding (universal search Phase 5).** Medications/services/forms/
     differentials are federated into `/api/search/universal` but are not retrieval-corpus
-    entities, so Answer mode cannot cite them. If product wants that: env-flagged ingestion,
-    golden-eval + invented-term controls first (depends on 17 for alias hygiene).
+    entities, so Answer mode cannot cite them. Concrete implementation spec (in order):
+    1. Flag `RAG_REGISTRY_CORPUS_EMBEDDING` (default off) in `src/lib/env.ts`.
+    2. Ingestion script `scripts/embed-registry-records.ts`: map each registry record to a
+       synthetic "document" (`metadata.source_kind = 'registry_record'`, title = record title,
+       one chunk per record from the record's search text, embedded with the standard
+       `text-embedding-3-small` path) so the existing chunk pipeline/RPCs need no schema change.
+    3. Re-embed on registry edit: hook `ensureRegistrySeeded` / record-update routes to enqueue
+       re-embedding for the changed slug only.
+    4. Answer-surface labelling: `sourceGovernanceWarnings` must label registry-backed
+       citations distinctly (registry records are curated summaries, not source documents).
+    5. Gates before enabling anywhere real: `eval:retrieval:quality` 23/23 with the flag ON,
+       plus invented-term controls ("florbizone syndrome management") still refusing — registry
+       rows must not become a fabrication surface for unsupported topics.
+23. ⏳ **Finding #11 full fix (RAG optimisation Phase 2)** — the classifier-verdict memo (shipped
+    2026-07-06) makes zero-result behaviour deterministic per query but does not close the gap:
+    the deterministic analyzer still cannot tell in-corpus topics from out-of-corpus ones.
+    Phase-2 spec stands (corpus-grounded relevance: IDF/corpus-frequency weighting of query
+    terms + data-driven vocabulary), with the added prerequisite that item 17's vocabulary
+    capture now supplies real miss data to seed the vocabulary from.
+24. ⏳ **OCR dropped-letter corruption in table index units** — no reliable detector exists (82%
+    false positives; guard reverted). Next viable angle: dictionary-based repair at INGESTION
+    (compare table-cell tokens against the document's own clean chunk text — "p ycho ocial"
+    aligns to "psychosocial" within the same page's raw text) rather than heuristic detection at
+    query time. Scope to `worker/` table extraction; requires the Python OCR stack to test.
+25. ⏳ **Retrieval latency p90 ~8.6s (local)** — remaining sequential layers after the 2026-07-01
+    parallelisation. Cheapest next step (measure first): overlap `embedTextWithTelemetry` with
+    the text fast path unconditionally (today preload only fires when `shouldPreloadEmbedding`),
+    and collapse the repeated `attachDocumentRankingMetadata` calls to one batched fetch per
+    request. Both are perf-only; gate with the golden eval unchanged + p90 from
+    `rag_retrieval_logs` before/after.
