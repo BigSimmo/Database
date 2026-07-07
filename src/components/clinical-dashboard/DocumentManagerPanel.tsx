@@ -247,9 +247,7 @@ export function UploadPanel({
     setUploading(true);
     setUploadPercent(0);
     changeStatus(
-      files.length === 1
-        ? `Uploading ${files[0].name}...`
-        : `Uploading 1 of ${files.length}: ${files[0].name}`,
+      files.length === 1 ? `Uploading ${files[0].name}...` : `Uploading 1 of ${files.length}: ${files[0].name}`,
     );
 
     const failures: string[] = [];
@@ -257,9 +255,7 @@ export function UploadPanel({
       const file = files[index];
       try {
         changeStatus(
-          files.length === 1
-            ? `Uploading ${file.name}...`
-            : `Uploading ${index + 1} of ${files.length}: ${file.name}`,
+          files.length === 1 ? `Uploading ${file.name}...` : `Uploading ${index + 1} of ${files.length}: ${file.name}`,
         );
         // Overall percent spans all files: completed files + the current file's
         // byte fraction, so the bar advances smoothly across a multi-file batch.

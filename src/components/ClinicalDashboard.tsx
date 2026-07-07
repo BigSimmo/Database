@@ -1919,7 +1919,8 @@ export function ClinicalDashboard({
                   onProgress,
                 )
               : await runWithRetries(
-                  () => requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress, abortController.signal),
+                  () =>
+                    requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress, abortController.signal),
                   onProgress,
                 );
 

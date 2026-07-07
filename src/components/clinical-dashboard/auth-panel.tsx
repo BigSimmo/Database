@@ -180,7 +180,9 @@ export function AuthPanel() {
               }}
               onBlur={(event) => {
                 const value = event.target.value.trim();
-                setEmailError(!value || isLikelyEmail(value) ? null : "Enter a valid email address, e.g. you@clinic.example.");
+                setEmailError(
+                  !value || isLikelyEmail(value) ? null : "Enter a valid email address, e.g. you@clinic.example.",
+                );
               }}
               aria-invalid={emailError ? true : undefined}
               aria-describedby={emailError ? emailErrorId : undefined}
@@ -189,7 +191,11 @@ export function AuthPanel() {
             />
           </div>
           {emailError && (
-            <span id={emailErrorId} role="alert" className="mt-1.5 block text-xs font-medium leading-5 text-[color:var(--danger)]">
+            <span
+              id={emailErrorId}
+              role="alert"
+              className="mt-1.5 block text-xs font-medium leading-5 text-[color:var(--danger)]"
+            >
               {emailError}
             </span>
           )}
