@@ -829,7 +829,5 @@ export function ApplicationsLauncherWorkspace({
 }
 
 export function ApplicationsLauncherPage({ query }: { query?: string }) {
-  return (
-    <ApplicationsLauncherWorkspace query={query} desktopComposerSlotId={modeHomeDesktopComposerSlotId} />
-  );
+  return <ApplicationsLauncherWorkspace query={query} desktopComposerSlotId={modeHomeDesktopComposerSlotId} />;
 }

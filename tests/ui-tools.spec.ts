@@ -603,7 +603,11 @@ test.describe("Clinical KB tools launcher", () => {
         { path: "/services/13yarn", modeButton: "Mode Services", compactBottomSearch: false },
         { path: "/forms?q=transport&focus=1&run=1", modeButton: "Mode Forms", compactBottomSearch: true },
         { path: "/favourites?q=lithium&focus=1&run=1", modeButton: "Mode Favourites", compactBottomSearch: true },
-        { path: "/differentials?q=acute+confusion&focus=1&run=1", modeButton: "Mode Differentials", compactBottomSearch: true },
+        {
+          path: "/differentials?q=acute+confusion&focus=1&run=1",
+          modeButton: "Mode Differentials",
+          compactBottomSearch: true,
+        },
       ] as const) {
         await gotoLauncher(page, route.path);
         await expect(page.getByRole("button", { name: route.modeButton })).toBeVisible({ timeout: 20_000 });
