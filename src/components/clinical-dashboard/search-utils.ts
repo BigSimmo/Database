@@ -72,3 +72,21 @@ export function progressForRetry(attempt: number) {
   if (attempt <= 1) return "Retrying...";
   return `Retrying... (${Math.min(attempt, searchRetryCount)}/${searchRetryCount})`;
 }
+
+export type AnswerErrorKind = "no-results" | "failure";
+
+/**
+ * Classify an answer/search failure so the UI can offer the right recovery.
+ *
+ * A `404` `SearchError` is the sentinel for "the query ran fine but nothing
+ * usable came back" (see `makeSearchError("No usable results were found.", 404,
+ * false)` in the search executor) — that deserves a calm, helpful panel rather
+ * than an alarming error. Everything else (network, 5xx, generic) is a genuine
+ * failure the user should be able to retry.
+ */
+export function classifyAnswerError(error: unknown): AnswerErrorKind {
+  if (error instanceof Error && (error as SearchError).status === 404) {
+    return "no-results";
+  }
+  return "failure";
+}

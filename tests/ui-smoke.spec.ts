@@ -1327,6 +1327,101 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("answer failure offers a retry action that re-runs the question", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const answerRequests: string[] = [];
+    let answerMode: "error" | "ok" = "error";
+    await mockDemoApi(page);
+    // Override the answer route so the first attempt fails (non-retryable), then
+    // succeeds once the user taps Retry. Registered after mockDemoApi so it wins.
+    await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
+      const body = route.request().postDataJSON() as { query?: string; documentId?: string; documentIds?: string[] };
+      answerRequests.push(body.query ?? "");
+      if (answerMode === "error") {
+        await route.fulfill({
+          body: `event: error\ndata: ${JSON.stringify({ error: "Answer generation failed for this question.", status: 400 })}\n\n`,
+          contentType: "text/event-stream; charset=utf-8",
+          headers: { "Cache-Control": "no-cache, no-transform" },
+        });
+        return;
+      }
+      await fulfillAnswerResponse(route, {
+        ...demoAnswer(body.query ?? "", body.documentId, body.documentIds),
+        demoMode: true,
+      });
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "What lithium monitoring is required?");
+    await visibleAnswerSubmitButton(page).click();
+
+    const retry = page.getByTestId("answer-error-retry");
+    await expect(retry).toBeVisible();
+    await expect(page.getByTestId("answer-error")).toContainText("Answer generation failed for this question.");
+    await expect(page.getByTestId("answer-error-search-documents")).toBeVisible();
+    const requestsBeforeRetry = answerRequests.length;
+
+    answerMode = "ok";
+    await retry.click();
+
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible();
+    await expect(page.getByTestId("answer-error-retry")).toHaveCount(0);
+    expect(answerRequests.length).toBeGreaterThan(requestsBeforeRetry);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("answer with no usable results shows a calm recovery panel, not an error alert", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page, {
+      // Empty answer text makes the payload unusable, which the executor surfaces
+      // as the "No usable results were found." 404 sentinel.
+      answerOverride: (query, documentId, documentIds) => ({
+        ...demoAnswer(query, documentId, documentIds),
+        answer: "",
+      }),
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "A question with no indexed match at all");
+    await visibleAnswerSubmitButton(page).click();
+
+    const panel = page.getByTestId("answer-no-results");
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText("No answer for that yet");
+    await expect(page.getByTestId("answer-no-results-rephrase")).toBeVisible();
+    await expect(page.getByTestId("answer-no-results-search-documents")).toBeVisible();
+    // A calm status panel, never the alarming red error banner.
+    await expect(page.getByTestId("answer-error")).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const answerRequests: string[] = [];
+    await mockDemoApi(page, { onAnswerRequest: (query) => answerRequests.push(query) });
+    const recent = "clozapine monitoring schedule";
+    // Seed persisted recent queries before the app loads (key mirrors
+    // `recentQueryStorageKey` in ClinicalDashboard.tsx).
+    await page.addInitScript((value) => {
+      window.localStorage.setItem("clinical-kb-recent-queries", JSON.stringify([value]));
+    }, recent);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const recentChips = page.getByTestId("answer-recent-queries");
+    await expect(recentChips).toBeVisible();
+    await expect(recentChips).toContainText("Recent searches");
+    const chip = recentChips.getByRole("button", { name: recent });
+    await expect(chip).toBeVisible();
+    await chip.click();
+
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible();
+    expect(answerRequests).toContain(recent);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("answer search URL opens chat without the answer home copy", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     const answerRequests: string[] = [];

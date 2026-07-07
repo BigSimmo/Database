@@ -38,15 +38,22 @@ export function AnswerEmptyState({
   onSearchDocuments,
   onUploadDocument,
   desktopComposerSlotId,
+  recentQueries = [],
+  onSelectRecent,
 }: {
   onSearchDocuments: () => void;
   onUploadDocument: () => void;
   desktopComposerSlotId?: string;
+  recentQueries?: string[];
+  onSelectRecent?: (query: string) => void;
 }) {
   const quickActions = [
     answerEmptyState.starters.searchDocuments.title,
     answerEmptyState.starters.uploadDocument.title,
   ];
+  // Returning users get their prior questions back as one-tap chips so they can
+  // re-run without retyping. Capped for a calm surface; storage already dedupes.
+  const recents = onSelectRecent ? recentQueries.filter((entry) => entry.trim().length > 0).slice(0, 5) : [];
 
   function handleQuickAction(action: string) {
     if (action === answerEmptyState.starters.searchDocuments.title) {
@@ -70,6 +77,16 @@ export function AnswerEmptyState({
       actions={[]}
       footer={
         <div className="grid w-full gap-3">
+          {recents.length > 0 && (
+            <AnswerSuggestionChips
+              testId="answer-recent-queries"
+              suggestions={recents}
+              onPick={(entry) => onSelectRecent?.(entry)}
+              label={answerEmptyState.recentLabel}
+              layout="wrap"
+              className="justify-center"
+            />
+          )}
           <AnswerSuggestionChips
             suggestions={quickActions}
             onPick={handleQuickAction}

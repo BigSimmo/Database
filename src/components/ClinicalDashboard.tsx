@@ -29,7 +29,17 @@ import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/env";
-import { appBackdrop, answerSurface, cn, textMuted, toneSuccess, toneWarning } from "@/components/ui-primitives";
+import {
+  appBackdrop,
+  answerSurface,
+  cn,
+  floatingControl,
+  primaryControl,
+  textMuted,
+  toneInfo,
+  toneSuccess,
+  toneWarning,
+} from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
@@ -68,7 +78,7 @@ import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboar
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-panels";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { errorCopy } from "@/lib/ui-copy";
+import { answerRecovery, errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 import {
   DrawerGroupLabel,
@@ -105,6 +115,7 @@ import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clin
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
+  classifyAnswerError,
   isRetryableError,
   isRetryableMessage,
   isRetryableStatus,
@@ -114,6 +125,7 @@ import {
   searchRetryCount,
   searchRetryDelaysMs,
   sleep,
+  type AnswerErrorKind,
   type AnswerPayload,
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
@@ -752,6 +764,12 @@ export function ClinicalDashboard({
   const [loading, setLoading] = useState(false);
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Companion state for `error`, used to pick the right recovery UI (retry vs.
+  // a calm no-results panel) and to re-run the exact query that failed. Only read
+  // while `error` is truthy, and set alongside every `setError(<message>)` so a
+  // stale value can never leak into a later, unrelated error.
+  const [errorKind, setErrorKind] = useState<AnswerErrorKind | null>(null);
+  const [lastFailedQuery, setLastFailedQuery] = useState<string | null>(null);
   const [setupWarning, setSetupWarning] = useState<string | null>(null);
   const [setupChecks, setSetupChecks] = useState<SetupCheck[]>(fallbackSetupChecks);
   const [demoMode, setDemoMode] = useState(false);
@@ -1824,6 +1842,8 @@ export function ClinicalDashboard({
       setLoading(false);
       setAnswerProgress(null);
       setError(errorCopy.searchSetupNotReady);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
     // M10 (diff-review hardening): progress updates emitted by this request's
@@ -1937,6 +1957,8 @@ export function ClinicalDashboard({
     } catch (requestError) {
       if (requestId === searchRequestSeqRef.current) {
         setError(requestError instanceof Error ? requestError.message : "Search failed");
+        setErrorKind(classifyAnswerError(requestError));
+        setLastFailedQuery(trimmedQuery);
       }
     } finally {
       if (requestId === searchRequestSeqRef.current) {
@@ -2150,6 +2172,8 @@ export function ClinicalDashboard({
     }
     if (!canRunSearch) {
       setError(errorCopy.searchSetupNotReady);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
 
@@ -2183,6 +2207,8 @@ export function ClinicalDashboard({
     } catch (requestError) {
       if (requestId === searchRequestSeqRef.current) {
         setError(requestError instanceof Error ? requestError.message : "Document search failed");
+        setErrorKind(null);
+        setLastFailedQuery(null);
       }
     } finally {
       if (requestId === searchRequestSeqRef.current) {
@@ -2500,6 +2526,8 @@ export function ClinicalDashboard({
     }
     if (!copied) {
       setError(errorCopy.clipboardCopyFailed);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
     setCopiedAction(action);
@@ -3013,15 +3041,79 @@ export function ClinicalDashboard({
                 <h2 data-testid="answer-section-heading" className="sr-only">
                   {activeModeSearch.resultHeading}
                 </h2>
-                {error && (
+                {error && errorKind === "no-results" && activeModeResultKind === "answer" ? (
+                  <div
+                    role="status"
+                    data-testid="answer-no-results"
+                    className={cn("rounded-lg border p-4 text-sm", toneInfo)}
+                  >
+                    <div className="flex items-start gap-2">
+                      <Search className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div className="min-w-0 space-y-1">
+                        <p className="font-semibold text-[color:var(--text-heading)]">
+                          {answerRecovery.noResults.heading}
+                        </p>
+                        <p className={textMuted}>{answerRecovery.noResults.body}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        data-testid="answer-no-results-rephrase"
+                        onClick={() => focusComposerInput()}
+                        className={cn(primaryControl, "text-xs")}
+                      >
+                        {answerRecovery.rephrase}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="answer-no-results-search-documents"
+                        onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
+                        className={cn(floatingControl, "text-xs")}
+                      >
+                        <FileText className="h-4 w-4" />
+                        {answerRecovery.searchDocuments}
+                      </button>
+                    </div>
+                  </div>
+                ) : error ? (
                   <div
                     role="alert"
+                    data-testid="answer-error"
                     className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
                   >
-                    <AlertCircle className="mr-2 inline h-4 w-4" />
-                    {error}
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span className="min-w-0">{error}</span>
+                    </div>
+                    {activeModeResultKind === "answer" && lastFailedQuery && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          data-testid="answer-error-retry"
+                          onClick={() => {
+                            const retryQuery = lastFailedQuery ?? query;
+                            setError(null);
+                            void ask(retryQuery);
+                          }}
+                          className={cn(floatingControl, "text-xs")}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          {answerRecovery.retry}
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="answer-error-search-documents"
+                          onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
+                          className={cn(floatingControl, "text-xs")}
+                        >
+                          <FileText className="h-4 w-4" />
+                          {answerRecovery.searchDocuments}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+                ) : null}
 
                 {loading && answerProgress && searchMode !== "prescribing" && (
                   <div
@@ -3188,6 +3280,11 @@ export function ClinicalDashboard({
                     onSearchDocuments={() => setSearchMode("documents")}
                     onUploadDocument={openUploadDrawer}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
+                    recentQueries={recentQueries}
+                    onSelectRecent={(recentQuery) => {
+                      setQuery(recentQuery);
+                      void ask(recentQuery);
+                    }}
                   />
                 ) : null}
               </section>
