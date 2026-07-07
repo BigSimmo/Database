@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOwnerScope, retrievalOwnerFilter } from "@/lib/owner-scope";
+import { classifyCorpusGrounding } from "@/lib/corpus-grounding";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   embedTextWithTelemetry,
@@ -112,6 +113,7 @@ import type {
   Citation,
   ConflictOrGap,
   ClinicalQueryAnalysis,
+  CorpusGroundingVerdict,
   DocumentIndexQuality,
   DocumentIndexUnitMatch,
   DocumentMemoryCard,
@@ -365,6 +367,9 @@ export type SearchTelemetry = {
   // long-standing relax-on-zero path; "weak_augment" appends OR recall behind weak-but-nonzero
   // strict matches (issue: strict-AND could bury the right chunk without ever relaxing).
   text_or_relaxation_used?: "none" | "empty_fallback" | "weak_augment";
+  // Finding #11: corpus-grounding verdict for unsupported-soft-tail queries (absent when the
+  // query never entered the soft tail). See src/lib/corpus-grounding.ts.
+  corpus_grounding?: CorpusGroundingVerdict;
   // RC9 observability: how many final results carry a fabricated (non-cosine) similarity.
   synthetic_similarity_count?: number;
   embedding_skipped: boolean;
@@ -732,7 +737,16 @@ const answerJsonSchema = z.object({
 // uncited high-similarity chunk grant "high" confidence to an answer built on
 // weak citations, so the strongest-score scan is scoped to the cited subset.
 // A citation that maps to no known chunk contributes nothing (fail low).
-function deriveConfidence(
+//
+// RC9: results tagged `similarity_origin: "synthetic_text"` carry a similarity FABRICATED from
+// lexical/structural signals (0.58-floor formulas in the document-lookup fast path, memory-card
+// chunk loader, and table-fact signal matches), not a real cosine. Those fabrications routinely
+// clear the 0.82 bar (memory-card hybrid reaches 0.89, document-lookup 0.94), which let a
+// lexical-only citation mint "high" confidence. Synthetic-origin evidence is therefore capped at
+// "medium": "high" requires at least one cited result whose similarity is a genuine cosine.
+// Ordering, routing, and coverage gates are untouched — this only stops the fabricated scale
+// from masquerading as strong semantic evidence in the clinician-facing confidence label.
+export function deriveConfidence(
   results: SearchResult[],
   acceptedCitations: Array<Pick<Citation, "chunk_id">>,
 ): RagAnswer["confidence"] {
@@ -740,7 +754,11 @@ function deriveConfidence(
   const citedIds = new Set(acceptedCitations.map((citation) => citation.chunk_id));
   const citedResults = results.filter((result) => citedIds.has(result.id));
   const strongest = citedResults.reduce((max, result) => Math.max(max, scoreValue(result)), 0);
-  if (strongest >= 0.82 && acceptedCitations.length >= 2) return "high";
+  const strongestCosine = citedResults.reduce(
+    (max, result) => (result.similarity_origin === "synthetic_text" ? max : Math.max(max, scoreValue(result))),
+    0,
+  );
+  if (strongestCosine >= 0.82 && acceptedCitations.length >= 2) return "high";
   if (strongest >= 0.64) return "medium";
   return "low";
 }
@@ -1197,7 +1215,16 @@ function applyClassifierVerdict(analysis: ClinicalQueryAnalysis, parsed: Classif
   } satisfies ClinicalQueryAnalysis;
 }
 
-export async function analyzeQueryWithClassifierFallback(query: string, analysis: ClinicalQueryAnalysis) {
+export async function analyzeQueryWithClassifierFallback(
+  query: string,
+  analysis: ClinicalQueryAnalysis,
+  opts?: {
+    // Finding #11 corpus grounding: when provided, unsupported-soft-tail queries are checked
+    // against the corpus BEFORE the nondeterministic LLM classifier. Scoped with the exact
+    // owner_filter retrieval will use so grounding can never see documents retrieval cannot.
+    corpusGrounding?: { supabase: ReturnType<typeof createAdminClient>; ownerFilter: string | null };
+  },
+) {
   if (
     // Fail closed before any generative model call: an adversarial-manipulation
     // query is routed to "unsupported" downstream, so never send its text to the
@@ -1209,6 +1236,46 @@ export async function analyzeQueryWithClassifierFallback(query: string, analysis
   ) {
     return { ...analysis, needsClassifierFallback: false } satisfies ClinicalQueryAnalysis;
   }
+
+  // Finding #11 corpus-grounded relevance: for queries that would hit the unsupported soft
+  // tail, the corpus — not the LLM — decides. An in-corpus bare topic ("bipolar disorder")
+  // deterministically reclassifies to broad_summary (mirroring what an accepted classifier
+  // verdict would have done, minus the coin flip); a corpus-absent query ("florbizone syndrome
+  // management") skips the LLM entirely so the soft-tail refusal is deterministic — and typos
+  // remain rescuable because the short-circuit path still runs trigram correction afterwards.
+  // "inconclusive" (including DB errors and an unapplied migration) keeps legacy behaviour.
+  // This deliberately runs before the OPENAI_API_KEY gate: offline/source-only deployments
+  // still retrieve lexically, so in-corpus bare topics should answer there too.
+  if (opts?.corpusGrounding && isUnsupportedSoftTailAnalysis(query, analysis)) {
+    const grounding = await classifyCorpusGrounding({
+      supabase: opts.corpusGrounding.supabase,
+      query,
+      ownerFilter: opts.corpusGrounding.ownerFilter,
+    });
+    if (grounding.verdict === "in_corpus_topic") {
+      return {
+        ...analysis,
+        queryClass: "broad_summary",
+        confidence: Math.max(analysis.confidence, 0.62),
+        needsSynthesis: true,
+        needsClassifierFallback: false,
+        corpusGrounding: "in_corpus_topic",
+        reasons: uniqueTextValues([...analysis.reasons, "corpus_topic_grounding"], 12),
+      } satisfies ClinicalQueryAnalysis;
+    }
+    if (grounding.verdict === "out_of_corpus") {
+      // Do NOT touch queryClass/confidence/reasons: the existing soft-tail short-circuit (and
+      // its alias-expansion + trigram-correction escape hatches) must keep firing exactly as
+      // before — only the LLM lottery is removed.
+      return {
+        ...analysis,
+        needsClassifierFallback: false,
+        corpusGrounding: "out_of_corpus",
+      } satisfies ClinicalQueryAnalysis;
+    }
+    analysis = { ...analysis, corpusGrounding: "inconclusive" };
+  }
+
   if (!analysis.needsClassifierFallback || !env.OPENAI_API_KEY) return analysis;
 
   const memoKey = classifierVerdictMemoKey(query, analysis);
@@ -1237,13 +1304,32 @@ export async function analyzeQueryWithClassifierFallback(query: string, analysis
   }
 }
 
-function shouldShortCircuitUnsupportedSearch(query: string, analysis: ClinicalQueryAnalysis) {
-  if (unavailableDocumentNoisePattern.test(query)) return true;
-  if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return true;
+// Shared eligibility gate for the unsupported soft tail: a low-signal unsupported_or_general
+// analysis with no title/medication/threshold intent and no non-default reasons.
+function unsupportedSoftTailEligible(analysis: ClinicalQueryAnalysis) {
   if (analysis.queryClass !== "unsupported_or_general") return false;
   if (analysis.documentTitleIntent || analysis.medications.length || analysis.thresholdTerms.length) return false;
   if (analysis.reasons.some((reason) => reason !== "no_specific_rag_class_terms")) return false;
+  return true;
+}
+
+function shouldShortCircuitUnsupportedSearch(query: string, analysis: ClinicalQueryAnalysis) {
+  if (unavailableDocumentNoisePattern.test(query)) return true;
+  if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return true;
+  if (!unsupportedSoftTailEligible(analysis)) return false;
   if (clearlyNonClinicalConsumerPattern.test(query)) return true;
+  return analysis.confidence <= 0.42 && analysis.expandedTerms.length <= 5;
+}
+
+// True only for queries that would short-circuit via the soft tail itself — NOT via the
+// pattern guards (out-of-corpus medical list, consumer-noise, unavailable-document noise).
+// Corpus grounding is scoped to exactly this branch: the pattern-guarded refusals and every
+// higher-confidence class keep their existing behaviour untouched.
+function isUnsupportedSoftTailAnalysis(query: string, analysis: ClinicalQueryAnalysis) {
+  if (unavailableDocumentNoisePattern.test(query)) return false;
+  if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return false;
+  if (!unsupportedSoftTailEligible(analysis)) return false;
+  if (clearlyNonClinicalConsumerPattern.test(query)) return false;
   return analysis.confidence <= 0.42 && analysis.expandedTerms.length <= 5;
 }
 
@@ -5430,7 +5516,29 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const memoryCardCache: MemoryCardCache = new Map();
   const retrievalQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
   const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
-  const queryAnalysis = await analyzeQueryWithClassifierFallback(retrievalQuery, analyzeClinicalQuery(retrievalQuery));
+  const documentFilterList = args.documentIds?.length
+    ? args.documentIds
+    : args.documentId
+      ? [args.documentId]
+      : undefined;
+  // Finding #11: give the classifier fallback the exact owner scope retrieval will use, so
+  // corpus grounding sees the same corpus. If owner-scope derivation throws (anonymous prod
+  // call without allowGlobalSearch), grounding is skipped and the retrieval path below raises
+  // the proper owner-scope error itself.
+  const corpusGroundingScope = (() => {
+    try {
+      return {
+        supabase,
+        ownerFilter:
+          ownerScopeForDocumentFilteredRetrieval(args.ownerId, documentFilterList, args.allowGlobalSearch) ?? null,
+      };
+    } catch {
+      return undefined;
+    }
+  })();
+  const queryAnalysis = await analyzeQueryWithClassifierFallback(retrievalQuery, analyzeClinicalQuery(retrievalQuery), {
+    corpusGrounding: corpusGroundingScope,
+  });
   throwIfAborted(args.signal);
   if (modeQueryClass) queryAnalysis.queryClass = modeQueryClass;
   const queryClassification = {
@@ -5438,11 +5546,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     confidence: queryAnalysis.confidence,
     reasons: queryAnalysis.reasons,
   };
-  const documentFilterList = args.documentIds?.length
-    ? args.documentIds
-    : args.documentId
-      ? [args.documentId]
-      : undefined;
   const telemetry: SearchTelemetry = {
     search_cache_hit: false,
     query_class: queryClassification.queryClass,
@@ -5482,6 +5585,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     weighted_top_score: 0,
     rrf_top_score: 0,
   };
+  if (queryAnalysis.corpusGrounding) telemetry.corpus_grounding = queryAnalysis.corpusGrounding;
 
   const ragAliases = await fetchEnabledRagAliases(supabase, args.ownerId);
   const ragAliasExpansions = selectRagAliasExpansions(retrievalQuery, ragAliases);

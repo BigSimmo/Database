@@ -10,7 +10,10 @@ async function loadUniversalSearch() {
 }
 
 describe("runUniversalSearch (demo/fixtures path)", () => {
-  it("returns groups in the fixed domain order without touching Supabase", async () => {
+  // 60s timeout: the first test in this file pays the one-off vite transform cost of the large
+  // universal-search module graph (~15s on a cold, loaded worker — right at the global 15s
+  // limit), which made this the suite's most frequent first-test timeout flake.
+  it("returns groups in the fixed domain order without touching Supabase", { timeout: 60000 }, async () => {
     const { runUniversalSearch, universalSearchDomains } = await loadUniversalSearch();
     const response = await runUniversalSearch({ query: "clinical", limitPerDomain: 5, demo: true });
 

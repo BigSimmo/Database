@@ -92,9 +92,10 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
      Note: this only affects the **panel**; the answer-retrieval path (`searchChunksWithTelemetry`) has
      no per-doc cap and doesn't need one — the comparison gate already enforces ≥2 distinct docs, and
      single-topic queries _should_ be able to draw multiple chunks from the best document.
-   - ⏳ **Synthetic text similarity (RC9)** `least(0.95, 0.56 + text_rank*0.39)` still feeds coverage
-     gates that assume a real cosine — gate text-only paths on `text_rank`/`rrf` instead. (Cleanest
-     remaining ranking-correctness item.)
+   - 🔧 **Synthetic text similarity (RC9)** — superseded; see item 21 (2026-07-07 audit): the SQL
+     formula is gone (`match_document_chunks_text` returns similarity 0), the three remaining
+     app-side fabricators are tagged, and the fabricated-"high"-confidence defect is fixed;
+     only the telemetry-gated threshold recalibration remains.
    - ⏳ **Source-strength as a filter not just a penalty (RC8)**; **threshold floors (RC5)**;
      **rerank trigger (RC10)** — see item 4's note (marginal without a chunk-level eval metric).
    - ⏳ **Differentials flowchart-action boost (dropped in the PR #120 merge).** The codex/RAG_FIX
@@ -199,19 +200,34 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
       `typoCorrected` flag; only fires for would-be-unsupported queries so no hot-path cost). Rescues
       typo queries whose corrected form is a _supported_ class (e.g. a typo'd clozapine/dose query
       → table_threshold). Golden 23/23 unchanged, 682 tests pass.
-    - ⚠️ **Pre-existing bug surfaced (NEW, finding #11):** unsupported-classified queries retrieve
-      **nondeterministically** — the _same_ query in the _same_ process alternates
-      `unsupported_short_circuit` (0 results) vs `text_fast_path`/`hybrid` (real results), e.g.
-      "anorexia management" (no typo). Classification is pure and all caches honour `skipCache`, so the
-      variance is elsewhere in the unsupported-query path (candidate: alias fetch/expansion or an async
-      step) — needs runtime instrumentation to pin. It masks the benefit above (a typo query whose
-      corrected form is ALSO borderline-unsupported, like "schizophrenai management", inherits the
-      flakiness). Confined to unsupported queries (golden set never hits it), so it never affected the
-      committed metrics. High-priority to fix — it means some valid clinical topics ("bipolar disorder",
-      "anorexia management") intermittently return nothing.
+    - ✅ **Finding #11 FIXED (2026-07-07) — corpus-grounded relevance.** Root cause was the
+      nondeterministic LLM classifier deciding the unsupported soft tail (see
+      docs/process-hardening.md 2026-07-03 entry). Two-part fix: PR #325's classifier-verdict
+      memoization (interim determinism per query per 15-min TTL), then the Phase-2 fix on
+      `claude/retrieval-correctness`: `corpus_topic_term_stats` (migration `20260707100000`,
+      applied live) + `src/lib/corpus-grounding.ts` classify soft-tail queries against the
+      corpus's own topic vocabulary (title-tsvector matches under a 5% genericity ceiling;
+      chunk-absence = invented term) BEFORE any LLM call. In-corpus bare topics ("bipolar
+      disorder", "anorexia management") deterministically reclassify to `broad_summary` and
+      answer (verified live: 4/4 identical runs, docs at rank 1); corpus-absent queries
+      ("florbizone syndrome management", "quxbyria disorder treatment") skip the LLM and refuse
+      deterministically, with the trigram-correction escape hatch preserved for typos.
+      Invented-term controls added to `ragEvalCases`; bare-topic golden cases added
+      (`bare-topic-bipolar`, `bare-topic-anorexia`). Inconclusive verdicts (e.g. "gout
+      management" — chunk-present but no title topic) keep the legacy memoized-LLM behaviour.
     - ⏳ Still hard-coded (lower priority now the trigram path exists): moving `synonymGroups` /
       `domainAliasGroups` / `medicationAliasGroups` into `rag_aliases`; generalising the special-case
-      rewrites off `RagQueryClass`.
+      rewrites off `RagQueryClass`. **Design constraint (2026-07-07):** this is NOT a plain seed
+      migration. The groups are consumed inside the synchronous deterministic analyzer
+      (`analyzeClinicalQuery`), which must keep working in demo mode and in unit tests without a
+      DB, while `rag_aliases` rows flow through a different mechanism (`fetchEnabledRagAliases` →
+      retrieval query variants + the unsupported-short-circuit alias guard). Seeding the same
+      groups into `rag_aliases` while the in-code groups remain would double-expand variants and
+      change short-circuit behaviour corpus-wide — a behavior change needing its own golden +
+      rag-only eval run, not a data chore. Deferred from the 2026-07-07 retrieval-correctness
+      branch for that reason; do it as a dedicated eval-gated change (either an async analyzer
+      vocabulary refactor, or DB-only expansion with the in-code groups retired from the variant
+      path in the same change).
 
 ## P2 — offline/fallback remainder (Workstream F)
 
@@ -261,12 +277,29 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     `review_due`/`unverified` source outranks a lower-relevance `current`/`reviewed` one. The
     manual golden-eval checklist remains the live backstop; no further action.
 21. 🔶 **Recalibrate gates for synthetic text-only similarity (RC9 residual) — DATA NOW
-    FLOWING (2026-07-06).** `synthetic_similarity_count` and `text_or_relaxation_used` are now
-    persisted into `rag_retrieval_logs.metadata` (they were computed but dropped by the
-    telemetry whitelist in /api/search). Once ~2 weeks of live rows exist, recalibrate
-    `evaluateEvidenceCoverageGate` / text-fast-path thresholds against real cosine
-    distributions: query `metadata->>'synthetic_similarity_count'` joined to `is_miss` to see
-    how often synthetic scores cross the 0.58/0.62 gates on misses vs hits.
+    FLOWING (2026-07-06); audited 2026-07-07, scope reduced.** `synthetic_similarity_count` and
+    `text_or_relaxation_used` are now persisted into `rag_retrieval_logs.metadata` (they were
+    computed but dropped by the telemetry whitelist in /api/search). Once ~2 weeks of live rows
+    exist, recalibrate `evaluateEvidenceCoverageGate` / text-fast-path thresholds against real
+    cosine distributions: query `metadata->>'synthetic_similarity_count'` joined to `is_miss` to
+    see how often synthetic scores cross the 0.58/0.62 gates on misses vs hits. Full consumer
+    audit on `claude/retrieval-correctness`: the headline `least(0.95, 0.56 + text_rank*0.39)`
+    proxy NO LONGER EXISTS — `match_document_chunks_text` already returns `similarity = 0` with
+    hybrid capped at 0.5 and the lexical signal isolated in `lexical_score` (codified in
+    schema.sql with the "do not fabricate" comment). What remains synthetic are three app-side
+    fabricators, all tagged `similarity_origin: "synthetic_text"`: the document-lookup fast path
+    (0.58 + documentScore, hybrid ≤ 0.94), memory-card chunk loader (0.58 + confidence·0.28,
+    hybrid ≤ 0.89), and table-fact signal matches. Their consumers:
+    `evaluateEvidenceCoverageGate` / `shouldReturnTextFastPath` / `chooseAnswerRoute` /
+    `shouldUseExtractiveAnswer` (thresholds 0.32–0.76 — the fabricated 0.58 floor is
+    deliberately load-bearing there, always paired with structural checks like
+    `directTitleSupport`; re-gating them on native signals is the deferred recalibration and
+    must not be attempted without the telemetry distributions), `buildRetrievalDiagnostics`
+    (topScore < 0.5 weak gate — floor also load-bearing), and `deriveConfidence`. **Fixed
+    (2026-07-07):** `deriveConfidence` no longer lets a fabricated 0.82+ mint a "high"
+    answer-confidence label — "high" requires a genuine-cosine citation; synthetic-origin
+    evidence caps at "medium" (strictly tightening, ordering/routing untouched, unit-tested in
+    tests/rag-score.test.ts).
 22. ⏳ **Registry-to-corpus embedding (universal search Phase 5).** Medications/services/forms/
     differentials are federated into `/api/search/universal` but are not retrieval-corpus
     entities, so Answer mode cannot cite them. Concrete implementation spec (in order):

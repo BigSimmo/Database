@@ -76,11 +76,13 @@ const envSchema = z.object({
   RAG_RANKING_CONFIG: z.string().optional(),
   // P8b extension: when strict-AND text retrieval returns weak-but-nonzero matches (sparse
   // result set or negligible top text_rank), append OR-relaxed recall behind the strict
-  // matches. Kill switch for the golden retrieval eval: set false to restore
-  // relax-only-on-empty behaviour without a code change.
+  // matches. Default OFF: with it on, the golden retrieval eval measured OR-noise displacing
+  // the expected document out of top-5 (opioid-withdrawal-doses docRecall@5 1.0 -> 0.0) —
+  // "append-only" at the RPC merge is not append-only after re-ranking. Opt-in experiment
+  // flag only; re-enable solely behind a fresh 34/34 golden run.
   RAG_TEXT_WEAK_OR_RELAXATION: z
     .enum(["true", "false"])
-    .default("true")
+    .default("false")
     .transform((value) => value === "true"),
   RAG_ANSWER_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(300000),
   RAG_ANSWER_CACHE_SIZE: z.coerce.number().int().nonnegative().default(100),
