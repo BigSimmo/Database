@@ -15,7 +15,13 @@ import {
   type DifferentialRecordRow,
 } from "@/lib/differential-records";
 import { ensureDifferentialsSeeded, loadDifferentialSnapshot } from "@/lib/differential-seed";
-import { differentialRecords, searchDifferentialRecords, searchPresentationWorkflows } from "@/lib/differentials";
+import {
+  differentialRecords,
+  rankDifferentialRecords,
+  rankPresentationWorkflows,
+  type DifferentialPresentationMatch,
+  type DifferentialRecordMatch,
+} from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
@@ -42,20 +48,31 @@ function differentialResponse(payload: Record<string, unknown>) {
   return NextResponse.json(payload, { headers: { "Cache-Control": "private, no-store" } });
 }
 
+function recordMatchesPayload(matches: DifferentialRecordMatch[]) {
+  return matches.map((match) => ({ record: match.record, score: match.score, reasons: match.reasons }));
+}
+
+function presentationMatchesPayload(matches: DifferentialPresentationMatch[]) {
+  return matches.map((match) => ({ workflow: match.workflow, score: match.score, reasons: match.reasons }));
+}
+
 function publicDifferentialPayload(kind: DifferentialRecordKind, q: string | undefined, limit: number) {
   const snapshot = loadDifferentialSnapshot();
   const governance = deriveGovernanceFromSnapshot(snapshot);
   if (kind === "presentation") {
-    const presentations = q ? searchPresentationWorkflows(q).slice(0, limit) : snapshot.presentations;
+    const ranked = q ? rankPresentationWorkflows(snapshot.presentations, q, limit) : null;
     return {
-      presentations,
+      presentations: ranked ? ranked.map((match) => match.workflow) : snapshot.presentations,
+      matches: ranked ? presentationMatchesPayload(ranked) : undefined,
       total: snapshot.presentations.length,
       governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
     };
   }
-  const records = q ? searchDifferentialRecords(q).slice(0, limit) : differentialRecords;
+  const ranked = q ? rankDifferentialRecords(differentialRecords, q, limit) : null;
+  const records = ranked ? ranked.map((match) => match.record) : differentialRecords;
   return {
     records,
+    matches: ranked ? recordMatchesPayload(ranked) : undefined,
     total: records.length,
     governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
   };
@@ -123,26 +140,20 @@ export async function GET(request: Request) {
 
     if (kind === "presentation") {
       const presentations = rows.map(rowToPresentationWorkflow);
-      const filtered = q
-        ? searchPresentationWorkflows(q)
-            .filter((presentation) => presentations.some((row) => row.id === presentation.id))
-            .slice(0, limit)
-        : presentations;
+      const ranked = q ? rankPresentationWorkflows(presentations, q, limit) : null;
       return differentialResponse({
-        presentations: filtered,
+        presentations: ranked ? ranked.map((match) => match.workflow) : presentations,
+        matches: ranked ? presentationMatchesPayload(ranked) : undefined,
         total: rows.length,
         governance: Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)])),
       });
     }
 
     const records = rows.map(rowToDifferentialRecord);
-    const filtered = q
-      ? searchDifferentialRecords(q)
-          .filter((record) => records.some((row) => row.slug === record.slug))
-          .slice(0, limit)
-      : records;
+    const ranked = q ? rankDifferentialRecords(records, q, limit) : null;
     return differentialResponse({
-      records: filtered,
+      records: ranked ? ranked.map((match) => match.record) : records,
+      matches: ranked ? recordMatchesPayload(ranked) : undefined,
       total: rows.length,
       governance: Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)])),
     });

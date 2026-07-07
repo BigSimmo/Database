@@ -153,4 +153,56 @@ test.describe("Header element overlap coverage", () => {
       ).toBeLessThanOrEqual(geometry!.clearLeft + 1);
     });
   }
+
+  test("desktop smart search keeps rotating text above and prompts below the composer", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoDashboard(page);
+    await gotoHome(page);
+
+    const rotatingText = page.getByTestId("smart-search-rotating-text");
+    const promptRow = page.getByTestId("smart-search-prompt-row");
+    await expect(rotatingText).toBeVisible();
+    await expect(rotatingText).toContainText("Smart search");
+    await expect(promptRow).toBeVisible();
+    await expect(promptRow.getByRole("button", { name: "lithium level timing" })).toBeVisible();
+    await expect(promptRow.getByRole("button", { name: "clozapine ANC monitoring" })).toBeVisible();
+
+    const geometry = await page.evaluate(() => {
+      const hint = document.querySelector('[data-testid="smart-search-rotating-text"]');
+      const prompt = document.querySelector('[data-testid="smart-search-prompt-row"]');
+      const pill = document.querySelector(".answer-footer-search-pill");
+      if (!hint || !prompt || !pill) return null;
+      const hintRect = hint.getBoundingClientRect();
+      const promptRect = prompt.getBoundingClientRect();
+      const pillRect = pill.getBoundingClientRect();
+      return {
+        hintBottom: hintRect.bottom,
+        pillTop: pillRect.top,
+        pillBottom: pillRect.bottom,
+        promptTop: promptRect.top,
+      };
+    });
+
+    expect(geometry, "smart search hint, composer, and prompt row must render").not.toBeNull();
+    expect(geometry!.hintBottom, "rotating text should sit above the smart search bar").toBeLessThanOrEqual(
+      geometry!.pillTop + 1,
+    );
+    expect(geometry!.promptTop, "smart prompts should sit below the smart search bar").toBeGreaterThanOrEqual(
+      geometry!.pillBottom - 1,
+    );
+
+    await promptRow.getByRole("button", { name: "lithium level timing" }).click();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue(
+      "lithium level timing",
+    );
+  });
+
+  test("phone smart search does not show the desktop rotating text or prompt row", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoDashboard(page);
+    await gotoHome(page);
+
+    await expect(page.getByTestId("smart-search-rotating-text")).toBeHidden();
+    await expect(page.getByTestId("smart-search-prompt-row")).toBeHidden();
+  });
 });

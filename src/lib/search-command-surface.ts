@@ -115,6 +115,8 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
       { text: "QT prolongation risk medicines", meta: "Prescribing" },
     ],
     scopes: [],
+    // Keep in sync with the post-answer cross-mode links strip, which covers
+    // prescribing, services, forms, and differentials.
     crossModes: ["documents", "prescribing", "services", "forms", "differentials"],
   },
 };

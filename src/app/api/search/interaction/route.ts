@@ -86,6 +86,9 @@ export async function POST(request: Request) {
     // owner-cleanable instead of being orphaned with owner_id: null (RET-H4).
     const user = await serverAuth.requireAuthenticatedUser(request, supabase);
 
+    // Cross-mode link clicks reference registry/medication slugs, not owned
+    // documents; store the same privacy-hardened miss row with the target in
+    // metadata so retrieval-quality reviews can see which modes get used.
     if (!body.documentId) {
       const target = body.crossMode!;
       const { error: insertError } = await supabase.from("rag_query_misses").insert({

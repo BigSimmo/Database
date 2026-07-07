@@ -2,7 +2,7 @@
 
 Date: 2026-06-23
 
-> **Revised 2026-07-03 — colour aligned to Clinical White / Aegean Graphite.** The functional-colour and colour-specification sections below have been rewritten in-body onto the role-split token system: `--command` (graphite) for primary command, `--clinical-accent` (Aegean blue-teal) for clinical identity (evidence/selected/send/focus), and `--success` (green) for status only. See [`redesign/02-design-direction.md`](redesign/02-design-direction.md) and [`redesign/permanent-colour-direction.md`](redesign/permanent-colour-direction.md). The layout, interaction, and iteration plan are unchanged from the original 2026-06-23 draft.
+> **Revised 2026-07-03 — colour aligned to Clinical White / Aegean Graphite.** The functional-colour and colour-specification sections below have been rewritten in-body onto the role-split token system: `--command` (graphite) for primary command, `--clinical-accent` (Aegean blue-teal) for clinical identity (evidence/selected/send/focus), and `--success` (green) for status only. See [`redesign/02-design-direction.md`](../redesign/02-design-direction.md) and [`redesign/permanent-colour-direction.md`](../redesign/permanent-colour-direction.md). The layout, interaction, and iteration plan are unchanged from the original 2026-06-23 draft.
 
 ## Purpose
 
@@ -148,7 +148,7 @@ Reading constraints:
 
 ## Colour specification
 
-Use the Clinical White / Aegean Graphite role tokens defined in `src/app/globals.css` (full palette and dark-mode values in [`redesign/permanent-colour-direction.md`](redesign/permanent-colour-direction.md)). Reference the tokens, not raw hex; the light values below are for orientation only.
+Use the Clinical White / Aegean Graphite role tokens defined in `src/app/globals.css` (full palette and dark-mode values in [`redesign/permanent-colour-direction.md`](../redesign/permanent-colour-direction.md)). Reference the tokens, not raw hex; the light values below are for orientation only.
 
 | Role token                       | Light value           | Use                                                                             |
 | -------------------------------- | --------------------- | ------------------------------------------------------------------------------- |

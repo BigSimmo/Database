@@ -41,6 +41,10 @@ const medicationListQuerySchema = z.object({
   fields: z.enum(["index"]).optional(),
 });
 
+// `fields=index` strips the heavy per-record content (stats/sections/quick are
+// ~99% of the ~3.4 MB catalog) for callers that only need identity-level
+// ranking, e.g. the answer surface's cross-mode links. The records keep the
+// full MedicationRecord shape so rankers and badge helpers work unchanged.
 function toIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
   return records.map((record) => ({
     slug: record.slug,

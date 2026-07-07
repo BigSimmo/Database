@@ -792,7 +792,6 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("index_aliases constant jsonb := jsonb_build_object(");
     expect(schema).toContain("jsonb_array_elements_text(index_aliases -> index_name)");
   });
-
   it("mirrors tightened search_document_chunks owner scope in schema and migration", () => {
     expect(searchDocumentChunksOwnerScopeMigration).toContain("(p_owner_id is null and d.owner_id is null)");
     expect(schema).toContain("create or replace function public.search_document_chunks(");

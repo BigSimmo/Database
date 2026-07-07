@@ -49,6 +49,8 @@ export function useMedicationCatalog(
   const enabled = options.enabled ?? true;
   const fields = options.fields;
   const trimmed = query?.trim() ?? "";
+  // Auth-aware like use-registry-records: without the header an authenticated owner was
+  // silently served the public fixture catalogue instead of their seeded records.
   const { authorizationHeader } = useAuthSession();
   const [prevQuery, setPrevQuery] = useState(trimmed);
   const [prevEnabled, setPrevEnabled] = useState(enabled);

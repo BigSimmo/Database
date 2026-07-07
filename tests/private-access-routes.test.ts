@@ -391,6 +391,7 @@ function ssePayload(body: string, eventName: string) {
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   vi.resetModules();
 });
@@ -911,6 +912,29 @@ describe("private document API access", () => {
     ).toMatchObject({
       owner_id: publicOwnerId,
     });
+  });
+
+  it("fails closed for anonymous uploads when the durable anonymous limiter is unavailable", async () => {
+    const publicOwnerId = "99999999-9999-4999-8999-999999999999";
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_api_subject_rate_limit" ? fail("anonymous limiter table unavailable") : ok([]),
+    );
+    mockRuntime(client, undefined, { publicUploadsEnabled: true, publicWorkspaceOwnerId: publicOwnerId });
+    const { POST } = await import("../src/app/api/upload/route");
+    const formData = new FormData();
+    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(
+      request("/api/upload", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(await payload(response)).toEqual({ error: "Rate limit check is temporarily unavailable." });
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
   });
 
   it("stores uploaded documents with owner_id and a user-scoped storage path", async () => {
@@ -3215,6 +3239,203 @@ describe("private document API access", () => {
     expect(response.status).toBe(503);
     expect(await payload(response)).toEqual({ error: "Rate limit check is temporarily unavailable." });
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
+  });
+
+  it("uses an anonymous in-memory limiter for public search when the durable anonymous limiter is unavailable", async () => {
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: {
+        search_cache_hit: false,
+        text_fast_path_latency_ms: 0,
+        embedding_skipped: true,
+        embedding_latency_ms: 0,
+        embedding_cache_hit: false,
+        supabase_rpc_latency_ms: 0,
+        rerank_latency_ms: 0,
+        retrieval_strategy: "text_fast_path",
+      },
+    }));
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_api_subject_rate_limit" ? fail("anonymous limiter table unavailable") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      request("/api/search", {
+        method: "POST",
+        headers: { "x-forwarded-for": "203.0.113.21" },
+        body: JSON.stringify({ query: "monitoring", includeRelatedDocuments: false }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
+    );
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("falls back to visible demo search only outside production when Supabase rejects the API key", async () => {
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: { retrieval_strategy: "text_fast_path" },
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      request("/api/search", {
+        method: "POST",
+        body: JSON.stringify({ query: "clozapine monitoring", includeRelatedDocuments: false }),
+      }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-Clinical-KB-Fallback")).toBe("supabase_api_key_configuration_unavailable");
+    expect(body).toMatchObject({
+      demoMode: true,
+      fallbackMode: "non_production_demo",
+      fallbackReason: "supabase_api_key_configuration_unavailable",
+      degradedMode: { active: true, reason: "supabase_api_key_configuration_unavailable" },
+    });
+    expect(Array.isArray(body.results) ? body.results.length : 0).toBeGreaterThan(0);
+    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to demo search in production when Supabase rejects the API key", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: { retrieval_strategy: "text_fast_path" },
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      request("/api/search", {
+        method: "POST",
+        body: JSON.stringify({ query: "clozapine monitoring", includeRelatedDocuments: false }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("X-Clinical-KB-Fallback")).toBeNull();
+    expect(await payload(response)).toEqual({ error: "Search failed. Retry with a narrower question." });
+    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
+  });
+
+  it("falls back to visible demo answers only outside production when Supabase rejects the API key", async () => {
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Live answer",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/route");
+
+    const response = await POST(
+      request("/api/answer", {
+        method: "POST",
+        body: JSON.stringify({ query: "clozapine monitoring" }),
+      }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-Clinical-KB-Fallback")).toBe("supabase_api_key_configuration_unavailable");
+    expect(body).toMatchObject({
+      demoMode: true,
+      fallbackMode: "non_production_demo",
+      fallbackReason: "supabase_api_key_configuration_unavailable",
+      degradedMode: { active: true, reason: "supabase_api_key_configuration_unavailable" },
+    });
+    expect(String(body.answer)).toContain("Synthetic");
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a final streamed demo answer outside production when Supabase rejects the API key", async () => {
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Live answer",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      request("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "clozapine monitoring" }),
+      }),
+    );
+    const body = await response.text();
+    const finalPayload = ssePayload(body, "final");
+
+    expect(response.status).toBe(200);
+    expect(body).not.toContain("event: error");
+    expect(finalPayload).toMatchObject({
+      demoMode: true,
+      fallbackMode: "non_production_demo",
+      fallbackReason: "supabase_api_key_configuration_unavailable",
+      degradedMode: { active: true, reason: "supabase_api_key_configuration_unavailable" },
+    });
+    expect(String(finalPayload.answer)).toContain("Synthetic");
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("does not stream demo fallback in production when Supabase rejects the API key", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Live answer",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      request("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "clozapine monitoring" }),
+      }),
+    );
+    const body = await response.text();
+    const errorPayload = ssePayload(body, "error");
+
+    expect(response.status).toBe(200);
+    expect(body).not.toContain("event: final");
+    expect(errorPayload).toMatchObject({
+      error: "Answer generation failed. Retry with a narrower question.",
+      status: 500,
+      // Key-configuration failures carry a stable code so a production outage is
+      // diagnosable from the client network tab (confirmed live 2026-07-06).
+      details: { code: "supabase_api_key_configuration" },
+    });
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
   it("uses an anonymous in-memory limiter for managed local no-auth search", async () => {

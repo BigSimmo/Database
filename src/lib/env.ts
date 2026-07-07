@@ -15,6 +15,7 @@ const envSchema = z.object({
   LOCAL_NO_AUTH_OWNER_ID: z.string().optional(),
   PUBLIC_WORKSPACE_OWNER_ID: z.string().uuid().optional(),
   NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED: z.enum(["true", "false"]).optional(),
+  NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
@@ -73,6 +74,14 @@ const envSchema = z.object({
   // Lets tuning/eval experiments adjust the second-stage rerank weights, document-diversity
   // demotion, and freshness decay WITHOUT a code change. Omitted/malformed => current defaults.
   RAG_RANKING_CONFIG: z.string().optional(),
+  // P8b extension: when strict-AND text retrieval returns weak-but-nonzero matches (sparse
+  // result set or negligible top text_rank), append OR-relaxed recall behind the strict
+  // matches. Kill switch for the golden retrieval eval: set false to restore
+  // relax-only-on-empty behaviour without a code change.
+  RAG_TEXT_WEAK_OR_RELAXATION: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((value) => value === "true"),
   RAG_ANSWER_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(300000),
   RAG_ANSWER_CACHE_SIZE: z.coerce.number().int().nonnegative().default(100),
   RAG_SEARCH_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(60000),
@@ -203,4 +212,14 @@ export function publicWorkspaceOwnerId() {
 
 export function publicUploadsEnabled() {
   return env.NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED === "true";
+}
+
+export function mockupsEnabled() {
+  // Design-exploration mockup routes (/mockups/*) are a development surface.
+  // They stay reachable in dev/test builds, but a production deploy 404s them
+  // unless explicitly opted in (mirrors the prod guard in isLocalNoAuthMode).
+  if (process.env.NODE_ENV !== "production") {
+    return true;
+  }
+  return env.NEXT_PUBLIC_MOCKUPS_ENABLED === "true";
 }

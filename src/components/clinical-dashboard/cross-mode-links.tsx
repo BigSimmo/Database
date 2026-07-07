@@ -44,14 +44,18 @@ export function CrossModeLinksSection({
 }: {
   queries: Array<string | null | undefined>;
   enabled?: boolean;
+  // Defaults to navigating to the target mode with the search pre-run.
   onModeSearch?: (mode: AppModeId, query: string) => void;
 }) {
   const router = useRouter();
   const services = useRegistryRecords("service", { enabled });
   const forms = useRegistryRecords("form", { enabled });
+  // fields=index keeps this to the ~30 KB identity slice of the catalog.
   const medications = useMedicationCatalog(undefined, { enabled, fields: "index" });
   const [differentials, setDifferentials] = useState<CrossModeDifferentialCatalog | null>(null);
   useEffect(() => {
+    // Dynamic import keeps the 1.2 MB differentials snapshot out of the
+    // dashboard bundle; the catalog is loaded once per session.
     if (!enabled || differentials) return;
     let cancelled = false;
     import("@/lib/cross-mode-differentials").then((module) => {
@@ -62,6 +66,7 @@ export function CrossModeLinksSection({
     };
   }, [enabled, differentials]);
 
+  // Memo on the thread's contents, not the (per-render) array identity.
   const queriesKey = queries.filter((value): value is string => Boolean(value?.trim())).join("\u0000");
   const links = useMemo(() => {
     if (!enabled || !queriesKey) return [];
@@ -92,6 +97,7 @@ export function CrossModeLinksStrip({
 }: {
   links: CrossModeLink[];
   onModeSearch: (mode: AppModeId, query: string) => void;
+  // The search text that produced the links; used only for click telemetry.
   query?: string;
 }) {
   if (links.length === 0) return null;

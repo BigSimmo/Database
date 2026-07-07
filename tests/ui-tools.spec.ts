@@ -431,7 +431,10 @@ test.describe("Clinical KB tools launcher", () => {
       expect(searchBox).not.toBeNull();
       expect(headingBox).not.toBeNull();
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
+      // Short homes centre their hero+search block mid-screen on phones, so the
+      // search midpoint should land in a centred band rather than hug an edge.
       expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(820 * 0.72);
+      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.2);
       const metrics = await globalSearchComposerMetrics(page, home.testId);
       expect(metrics).not.toBeNull();
       expect(metrics?.position).not.toBe("fixed");
@@ -440,6 +443,65 @@ test.describe("Clinical KB tools launcher", () => {
       expect(metrics?.homeCenterX).not.toBeNull();
       expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
       await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
+      await expectNoPageHorizontalOverflow(page);
+    }
+  });
+
+  test("all mode home heroes share identical sizing on mobile", async ({ page }) => {
+    test.setTimeout(150_000);
+    await mockAnswerDashboardApi(page);
+    await page.setViewportSize({ width: 390, height: 820 });
+
+    // Every mode home renders the shared compact ModeHomeHero, so the icon box
+    // and type scale must be identical across modes. Baseline: Answer.
+    let baseline: { iconWidth: number; iconHeight: number; headingFontSize: number; subtitleFontSize: number } | null =
+      null;
+
+    for (const home of [
+      { path: "/?mode=answer", testId: "answer-empty-state", heroTestId: "answer-empty-state" },
+      { path: "/?mode=documents", testId: "document-search-empty-state", heroTestId: "document-search-empty-state" },
+      { path: "/?mode=prescribing", testId: "medication-home", heroTestId: "medication-home" },
+      { path: "/?mode=favourites", testId: "favourites-hub", heroTestId: "favourites-home" },
+      { path: "/?mode=tools", testId: "tools-home", heroTestId: "tools-home" },
+      { path: "/services", testId: "services-home", heroTestId: "services-home-template" },
+      { path: "/forms", testId: "forms-home", heroTestId: "forms-home-template" },
+      { path: "/differentials", testId: "differentials-home", heroTestId: "differentials-home-template" },
+    ] as const) {
+      await gotoLauncher(page, home.path);
+      const homeRegion = page.getByTestId(home.testId);
+      await expect(homeRegion).toBeVisible();
+
+      const icon = homeRegion.locator(".mode-home-icon").first();
+      await expect(icon).toBeVisible();
+      const iconBox = await icon.boundingBox();
+      expect(iconBox, `${home.path} hero icon`).not.toBeNull();
+
+      // ModeHomeHero gives its heading the deterministic id `<heroTestId>-title`
+      // (role/name lookups can collide with sr-only section headings).
+      const heading = page.locator(`#${home.heroTestId}-title`);
+      await expect(heading).toBeVisible();
+      const headingFontSize = await heading.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+      const subtitle = heading.locator("xpath=following-sibling::p[1]");
+      await expect(subtitle).toBeVisible();
+      const subtitleFontSize = await subtitle.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+
+      const metrics = {
+        iconWidth: Math.round(iconBox?.width ?? 0),
+        iconHeight: Math.round(iconBox?.height ?? 0),
+        headingFontSize,
+        subtitleFontSize,
+      };
+      if (!baseline) {
+        baseline = metrics;
+        // Compact hero mobile scale: 3rem icon, 1.6rem heading, 0.875rem subtitle.
+        expect(metrics.iconWidth).toBe(48);
+        expect(metrics.iconHeight).toBe(48);
+        expect(metrics.headingFontSize).toBeCloseTo(25.6, 1);
+        expect(metrics.subtitleFontSize).toBeCloseTo(14, 1);
+      } else {
+        expect(metrics, `${home.path} hero metrics`).toEqual(baseline);
+      }
+
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -479,6 +541,13 @@ test.describe("Clinical KB tools launcher", () => {
 
       for (const home of [
         { path: "/?mode=answer", testId: "answer-empty-state", heading: "How can I help?", headingLevel: 2 },
+        { path: "/?mode=documents", testId: "document-search-empty-state", heading: "Documents", headingLevel: 2 },
+        {
+          path: "/?mode=prescribing",
+          testId: "medication-home",
+          heading: "Medication prescribing",
+          headingLevel: 2,
+        },
         { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
         { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
         { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
@@ -857,11 +926,12 @@ test.describe("Clinical KB tools launcher", () => {
       queryMode: "compare_guidance",
     });
 
-    // Evidence arrived, so the results view renders — with the synthetic
-    // demonstration-content notice, never presented as reviewed output.
+    // Evidence arrived, so the results view renders — ranked from the imported
+    // differentials catalogue with a real query-matched result row.
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
-    await expect(page.getByTestId("differentials-demo-content-notice")).toBeVisible();
-    await expect(page.getByText("Demonstration ranking").first()).toBeVisible();
+    await expect(page.getByTestId("differentials-catalogue-notice")).toBeVisible();
+    await expect(page.getByText("Catalogue ranking").first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
   });
 
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {
@@ -1037,7 +1107,7 @@ test.describe("Responsive layout guards", () => {
     });
   }
 
-  test("prescribing mode home top-aligns on phones but centres on tablet", async ({ page }) => {
+  test("prescribing mode home centres above the phone composer and balances on tablet", async ({ page }) => {
     async function verticalWeighting(width: number) {
       // Tall viewport exaggerates the free space so the anchor is unambiguous.
       await page.setViewportSize({ width, height: 900 });
@@ -1045,15 +1115,29 @@ test.describe("Responsive layout guards", () => {
       const home = page.getByTestId("medication-home");
       await expect(home).toBeVisible();
       await settleLayout(page);
-      return page.evaluate(() => {
-        const rect = document.querySelector('[data-testid="medication-home"]')?.getBoundingClientRect();
-        if (!rect) return null;
-        return { topGap: rect.top, bottomGap: window.innerHeight - rect.bottom };
-      });
+      const measure = () =>
+        page.evaluate(() => {
+          const rect = document.querySelector('[data-testid="medication-home"]')?.getBoundingClientRect();
+          if (!rect) return null;
+          return { topGap: rect.top, bottomGap: window.innerHeight - rect.bottom };
+        });
+      // The smart-search hint/prompt rows render at first paint and are hidden
+      // by a post-hydration check on phone, shrinking the measured home ~50px
+      // shortly after load. Poll until two consecutive measurements match so
+      // the guard asserts the settled layout, not the transient one.
+      let result = await measure();
+      await expect(async () => {
+        const next = await measure();
+        const stable =
+          result !== null && next !== null && result.topGap === next.topGap && result.bottomGap === next.bottomGap;
+        result = next;
+        expect(stable).toBe(true);
+      }).toPass({ timeout: 10_000 });
+      return result;
     }
 
-    // Phone (< sm): content is top-aligned so integrated action menus are not
-    // clipped by dead space below vertically centred homes.
+    // Phone (< sm): the home block centres within the space above the bottom
+    // composer reserve, so it sits mid-screen leaning toward the top edge.
     const phone = await verticalWeighting(375);
     expect(phone).not.toBeNull();
     expect(phone?.topGap ?? 0).toBeLessThan(phone?.bottomGap ?? 0);

@@ -37,6 +37,7 @@ import {
   sanitizeAnswerDisplayText,
 } from "@/components/clinical-dashboard/display-text";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
+import { SourcePreviewPopover } from "@/components/clinical-dashboard/source-preview-popover";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
@@ -149,7 +150,7 @@ export const SourceImage = memo(function SourceImage({
   return (
     <img
       src={url}
-      alt={caption}
+      alt={caption?.trim() || "Clinical document image"}
       loading="lazy"
       decoding="async"
       onError={handleImageError}
@@ -180,14 +181,14 @@ export function ScopeAndGovernanceNotice({
         </p>
       ) : null}
       {scope?.warnings?.length ? (
-        <ul className="grid gap-0.5 text-[11px] font-medium text-[color:var(--warning)]">
+        <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
           {scope.warnings.slice(0, 3).map((warning) => (
             <li key={warning}>{warning}</li>
           ))}
         </ul>
       ) : null}
       {groupedWarnings.length ? (
-        <ul className="grid gap-0.5 text-[11px] font-medium text-[color:var(--warning)]">
+        <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
           {groupedWarnings.map((warning) => (
             <li key={warning.code}>
               {warning.message}
@@ -392,7 +393,7 @@ function SourcePreviewContent({
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <p className="text-base font-semibold text-[color:var(--text-heading)]">Sources</p>
-              <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
+              <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
                 {sourcePreviewPageCountLabel(previewSources)}
               </span>
             </div>
@@ -416,7 +417,7 @@ function SourcePreviewContent({
             )}
           >
             {index === 0 ? (
-              <p className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[color:var(--clinical-accent)]">
+              <p className="mb-2 inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)]">
                 <Sparkles className="h-3.5 w-3.5" />
                 Best match
               </p>
@@ -643,7 +644,7 @@ export function NaturalLanguageAnswer({
             >
               <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
               <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
-              <span className="shrink-0 text-[11px] text-[color:var(--text-muted)]">· verify passages</span>
+              <span className="shrink-0 text-2xs text-[color:var(--text-muted)]">· verify passages</span>
               <ChevronDown
                 className={cn(
                   "ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition-transform",
@@ -655,7 +656,7 @@ export function NaturalLanguageAnswer({
             {sourceOnlyNoticeOpen ? (
               <div
                 id="source-only-disclosure-detail"
-                className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-[11px] leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+                className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-2xs leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
               >
                 <p>
                   This answer was assembled from your documents without the AI model, so it may be less complete. Verify
@@ -665,11 +666,12 @@ export function NaturalLanguageAnswer({
             ) : null}
           </section>
         ) : null}
-        <div className="flex flex-wrap items-center gap-2 pt-1">{sourceCapsuleButton}</div>
-        {sourcePreviewOpen && canOpenSourcePreview && !usePreviewSheet ? (
-          <div
-            data-testid="source-capsule-preview"
-            className="mt-2 max-h-[22rem] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
+        {sourceCapsuleButton}
+        {canOpenSourcePreview && !usePreviewSheet ? (
+          <SourcePreviewPopover
+            open={sourcePreviewOpen}
+            onClose={() => setSourcePreviewOpen(false)}
+            anchorRef={sourceCapsuleRef}
           >
             <SourcePreviewContent
               previewSources={previewSources}
@@ -677,7 +679,7 @@ export function NaturalLanguageAnswer({
               copiedQuote={copiedSourceQuote}
               onCopyQuote={copySourceQuote}
             />
-          </div>
+          </SourcePreviewPopover>
         ) : null}
         <Sheet
           open={sourcePreviewOpen && canOpenSourcePreview && usePreviewSheet}
@@ -685,7 +687,7 @@ export function NaturalLanguageAnswer({
           title="Sources"
           description="Open the original PDF page."
           titleAccessory={
-            <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
+            <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
               {sourcePreviewPageCountLabel(previewSources)}
             </span>
           }

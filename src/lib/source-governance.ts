@@ -54,6 +54,10 @@ const frontendVisibleWarningCodes = new Set<SourceGovernanceWarning["code"]>([
   "outdated_source",
   "poor_extraction",
   "weak_evidence",
+  // Since the public-corpus promotion (all indexed documents are anonymously
+  // searchable regardless of clinical_validation_status), "not locally
+  // validated" is a clinically material caveat, not routine review metadata.
+  "unverified_source",
 ]);
 
 function isLocalMetadataText(value: string) {

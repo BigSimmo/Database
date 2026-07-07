@@ -193,8 +193,13 @@ async function fulfillAnswerResponse(route: Route, payload: unknown) {
 }
 
 type DemoAnswerOverride = (query: string, documentId?: string, documentIds?: string[]) => ReturnType<typeof demoAnswer>;
+type MockDemoApiOptions = {
+  answerOverride?: DemoAnswerOverride;
+  answerDelayMs?: number;
+  onAnswerRequest?: (query: string) => void;
+};
 
-async function mockDemoApi(page: Page, options: { answerOverride?: DemoAnswerOverride } = {}) {
+async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
   await mockLocalProjectIdentity(page);
   await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
@@ -273,9 +278,14 @@ async function mockDemoApi(page: Page, options: { answerOverride?: DemoAnswerOve
       documentId?: string;
       documentIds?: string[];
     };
+    const query = body.query ?? "What monitoring is required?";
+    options.onAnswerRequest?.(query);
+    if (options.answerDelayMs) {
+      await new Promise((resolve) => setTimeout(resolve, options.answerDelayMs));
+    }
     const answer =
-      options.answerOverride?.(body.query ?? "What monitoring is required?", body.documentId, body.documentIds) ??
-      demoAnswer(body.query ?? "What monitoring is required?", body.documentId, body.documentIds);
+      options.answerOverride?.(query, body.documentId, body.documentIds) ??
+      demoAnswer(query, body.documentId, body.documentIds);
     await fulfillAnswerResponse(route, {
       ...answer,
       demoMode: true,
@@ -1311,7 +1321,59 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(popoverMetrics.height).toBeLessThanOrEqual(Math.ceil(popoverMetrics.viewportHeight * 0.72));
     await page.keyboard.press("Escape");
     await expect(scopePopover).toBeHidden();
-    await expect(page.getByRole("button", { name: "Open answer options" })).toBeFocused();
+    await expect(async () => {
+      await expect(page.getByRole("button", { name: "Open answer options" })).toBeFocused();
+    }).toPass({ timeout: 5_000 });
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("answer search URL opens chat without the answer home copy", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    const answerRequests: string[] = [];
+    const question = "What clozapine monitoring items are shown in the table image?";
+    await mockDemoApi(page, {
+      answerDelayMs: 1500,
+      onAnswerRequest: (query) => answerRequests.push(query),
+    });
+
+    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&focus=1&run=1`, { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId("answer-empty-state")).toHaveCount(0);
+    await expect(page.getByText("How can I help?", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Loading answer")).toBeVisible();
+    await expect.poll(() => answerRequests[0]).toBe(question);
+
+    const questionBubble = page.getByTestId("user-question-bubble");
+    await expect(questionBubble).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(questionBubble).toContainText(question);
+    await expect(page.getByTestId("plain-answer-response")).toContainText("synthetic clozapine table image highlights");
+    await expect(visibleQuestionInput(page)).toHaveValue("");
+    await expect(page.getByTestId("answer-empty-state")).toHaveCount(0);
+    await expect(page.getByText("How can I help?", { exact: true })).toHaveCount(0);
+    expect(answerRequests).toEqual([question]);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("answer results surface cross-mode quick links", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    const question = "What is the maximum dose of clozapine?";
+    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    const strip = page.getByTestId("cross-mode-links");
+    await expect(strip).toBeVisible({ timeout: 15_000 });
+    // Close the composer command palette if it opened over the results.
+    await page.keyboard.press("Escape");
+    await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
+    await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
+
+    const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
+    await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
+    await medicationLink.click();
+    await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 15_000 });
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1523,20 +1585,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
       await expectMinTouchTarget(sourceCapsule);
       await sourceCapsule.click();
-      const sourceSurface = viewport.sheet
-        ? page.getByRole("dialog", { name: "Sources" })
-        : page.getByTestId("source-capsule-preview");
+      const sourceSurface = page.getByRole("dialog", { name: "Sources" });
       await expect(sourceSurface).toBeVisible();
       await expect(sourceSurface.getByTestId("source-capsule-preview-row").first()).toHaveAttribute(
         "href",
         /\/documents\/.+chunk=/,
       );
       await expectMinTouchTarget(sourceSurface.getByTestId("source-capsule-preview-row").first());
-      if (viewport.sheet) {
-        await page.keyboard.press("Escape");
-        await expect(sourceSurface).toHaveCount(0);
-        await expect(sourceCapsule).toBeFocused();
-      } else {
+      await page.keyboard.press("Escape");
+      await expect(sourceSurface).toHaveCount(0);
+      await expect(sourceCapsule).toBeFocused();
+      if (!viewport.sheet) {
+        await sourceCapsule.click();
+        await expect(sourceSurface).toBeVisible();
         await sourceCapsule.click();
         await expect(sourceSurface).toHaveCount(0);
       }
@@ -2033,6 +2094,34 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(fitWidthScrollStyles.overflowX).toBe("hidden");
     expect(fitWidthScrollStyles.touchAction).toContain("pan-y");
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("document viewer bottom composer hides while scrolling down on phones", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(
+      page,
+      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+    );
+
+    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
+    const composer = page.locator("form.document-viewer-composer");
+    await expect(composer).toBeVisible();
+    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
+
+    // Hide on deliberate scroll down past the activation offset.
+    await page.evaluate(() => window.scrollTo({ top: 120, behavior: "auto" }));
+    await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
+
+    // Reappear on scroll up.
+    await page.evaluate(() => window.scrollTo({ top: 60, behavior: "auto" }));
+    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
+
+    // Keyboard focus inside the composer reveals it while hidden.
+    await page.evaluate(() => window.scrollTo({ top: 240, behavior: "auto" }));
+    await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
+    await composer.locator("input").focus();
+    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
   });
 
   test("document summary opens at the top with cleaned bold formatting", async ({ page }) => {

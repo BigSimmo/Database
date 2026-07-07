@@ -99,14 +99,14 @@
     "workflow:handoff": "node ../.local-dev/workflow-handoff.mjs"
   },
   "dependencies": {
-    "@next/env": "16.2.9",
+    "@next/env": "16.2.10",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.22.0",
     "mammoth": "^1.12.0",
-    "next": "16.2.9",
+    "next": "16.2.10",
     "openai": "^6.45.0",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^6.1.200",
@@ -123,7 +123,7 @@
     "uuid": "^11.1.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.1",
+    "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^24.13.2",
     "@types/pdf-parse": "^1.1.5",
     "@types/pdfkit": "^0.17.6",
@@ -131,9 +131,9 @@
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9.39.4",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.2.10",
     "playwright": "^1.61.1",
-    "prettier": "^3.9.1",
+    "prettier": "^3.9.4",
     "tailwindcss": "^4.3.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",

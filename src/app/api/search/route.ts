@@ -9,6 +9,7 @@ import { fetchRelatedDocuments, toDocumentMatch } from "@/lib/document-enrichmen
 import { jsonError, PublicApiError } from "@/lib/http";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { searchChunksWithTelemetry } from "@/lib/rag";
+import { weakRetrievalTopScoreThreshold } from "@/lib/rag-routing";
 import { classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag-provider";
@@ -31,6 +32,7 @@ import {
   queryTextForStorage,
 } from "@/lib/query-privacy";
 import { safeErrorLogDetails } from "@/lib/privacy";
+import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import type { ChunkImage, ClinicalSourceMetadata, SearchResult } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -311,6 +313,43 @@ function searchDegradedModeSignal(telemetry?: { embedding_skip_reason?: string |
   };
 }
 
+function buildDemoSearchPayload(body: SearchRequestBody, fallbackReason?: string) {
+  const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
+  const queryClass = queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;
+  const results = annotateSearchResults(
+    searchFocusQuery,
+    demoSearch(body.query, body.topK ?? 8, body.documentId, body.documentIds),
+  );
+  const relevance = buildEvidenceRelevance(searchFocusQuery, results);
+  const documentMatches = isSourceLibrarySearchMode(body.mode)
+    ? annotateDocumentMatches(searchFocusQuery, buildDocumentMatchesFromResults(results, body.documentLimit), results)
+    : [];
+  const cachedVisualEvidence = buildVisualEvidence(results);
+  return {
+    results: compactSearchResults(searchFocusQuery, results),
+    facets: buildSearchFacets(results),
+    visualEvidence: cachedVisualEvidence,
+    relevance,
+    smartPanel: {
+      ...buildSmartPanel(searchFocusQuery, results, { relevance, visualEvidence: cachedVisualEvidence }),
+      relevance,
+    },
+    smartApiPlan: buildSmartRagApiPlan({
+      query: searchFocusQuery,
+      queryClass,
+      results,
+      retrievalStrategy: "hybrid",
+      routeMode: isSourceLibrarySearchMode(body.mode) ? undefined : "fast",
+      preferredResponseMode: isSourceLibrarySearchMode(body.mode) ? "document_lookup" : undefined,
+    }),
+    relatedDocuments: [],
+    documentMatches,
+    demoMode: true,
+    degradedMode: fallbackReason ? { active: true, reason: fallbackReason } : searchDegradedModeSignal(),
+    ...(fallbackReason ? { fallbackMode: "non_production_demo", fallbackReason } : {}),
+  };
+}
+
 function facetCounts(values: Array<string | null | undefined>, limit = 12) {
   const counts = new Map<string, number>();
   for (const raw of values) {
@@ -401,7 +440,7 @@ function logWeakSearch(args: {
     args.results.length === 0 ||
     args.relevance.verdict === "none" ||
     args.relevance.verdict === "nearby" ||
-    topScore < 0.48;
+    topScore < weakRetrievalTopScoreThreshold;
   if (!weak) return;
   const promotions = candidatePromotions(args.query, args.results);
   void args.supabase
@@ -511,7 +550,7 @@ function logRetrievalDiagnostics(args: {
         args.results.length === 0 ||
         args.relevance.verdict === "none" ||
         args.relevance.verdict === "nearby" ||
-        topScore < 0.48;
+        topScore < weakRetrievalTopScoreThreshold;
       const latencyMs = telemetryLatencyMs(args.telemetry);
 
       await args.supabase.from("rag_retrieval_logs").insert({
@@ -845,47 +884,13 @@ function extractSqlState(error: unknown) {
 export async function POST(request: Request) {
   let supabase: ReturnType<typeof createAdminClient> | null = null;
   let ownerId: string | null = null;
+  let body: SearchRequestBody | null = null;
 
   try {
-    const body = await parseJsonBody(request, searchSchema, "Invalid search request.");
+    const searchBody = await parseJsonBody(request, searchSchema, "Invalid search request.");
+    body = searchBody;
     if (isDemoMode()) {
-      const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
-      const queryClass = queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;
-      const results = annotateSearchResults(
-        searchFocusQuery,
-        demoSearch(body.query, body.topK ?? 8, body.documentId, body.documentIds),
-      );
-      const relevance = buildEvidenceRelevance(searchFocusQuery, results);
-      const documentMatches = isSourceLibrarySearchMode(body.mode)
-        ? annotateDocumentMatches(
-            searchFocusQuery,
-            buildDocumentMatchesFromResults(results, body.documentLimit),
-            results,
-          )
-        : [];
-      const cachedVisualEvidence = buildVisualEvidence(results);
-      return NextResponse.json({
-        results: compactSearchResults(searchFocusQuery, results),
-        facets: buildSearchFacets(results),
-        visualEvidence: cachedVisualEvidence,
-        relevance,
-        smartPanel: {
-          ...buildSmartPanel(searchFocusQuery, results, { relevance, visualEvidence: cachedVisualEvidence }),
-          relevance,
-        },
-        smartApiPlan: buildSmartRagApiPlan({
-          query: searchFocusQuery,
-          queryClass,
-          results,
-          retrievalStrategy: "hybrid",
-          routeMode: isSourceLibrarySearchMode(body.mode) ? undefined : "fast",
-          preferredResponseMode: isSourceLibrarySearchMode(body.mode) ? "document_lookup" : undefined,
-        }),
-        relatedDocuments: [],
-        documentMatches,
-        demoMode: true,
-        degradedMode: searchDegradedModeSignal(),
-      });
+      return NextResponse.json(buildDemoSearchPayload(searchBody));
     }
 
     supabase = createAdminClient();
@@ -906,9 +911,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const key = scopedSearchKey(body, ownerId, publicOnly);
+    const key = scopedSearchKey(searchBody, ownerId, publicOnly);
     const { payload, coalesced } = await coalesceScopedSearch(key, () =>
-      buildScopedSearchPayload(body, supabase!, ownerId, publicOnly),
+      buildScopedSearchPayload(searchBody, supabase!, ownerId, publicOnly),
     );
     return NextResponse.json({
       ...payload,
@@ -929,6 +934,13 @@ export async function POST(request: Request) {
     }
     if (error instanceof Error && error.message.trim()) {
       const code = classifySearchFailure(error);
+      const fallbackBody = body;
+      const fallbackReason = fallbackBody ? nonProductionSupabaseDemoFallbackReason(error) : null;
+      if (fallbackBody && fallbackReason) {
+        return NextResponse.json(buildDemoSearchPayload(fallbackBody, fallbackReason), {
+          headers: { "X-Clinical-KB-Fallback": fallbackReason },
+        });
+      }
       const failurePayload = {
         results: [],
         telemetry: {

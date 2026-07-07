@@ -198,9 +198,9 @@ function MedicationHome({
 
 function resultMatchesFilter(result: MedicationResult, filter: MedicationResultFilter) {
   if (filter === "best") return true;
-  if (filter === "indication") return result.indication.toLowerCase().includes("alcohol");
-  if (filter === "safety") return result.action.toLowerCase().includes("check") || result.action.includes("renal");
-  return result.id === "acamprosate" || result.id === "baclofen";
+  if (filter === "indication") return result.match !== "Related match";
+  if (filter === "safety") return /check|avoid|caution|ceiling|max/i.test(result.action);
+  return /monitor|level|review|renal|hepatic/i.test(`${result.action} ${result.dose} ${result.ceiling}`);
 }
 
 function FilterStrip({
@@ -340,8 +340,8 @@ function MedicationResults({
             <span className="sr-only">Open</span>
           </div>
           <div className="divide-y divide-[color:var(--border)]">
-            {visibleMedicationResults.map((result) => {
-              const selected = result.id === "acamprosate";
+            {visibleMedicationResults.map((result, index) => {
+              const selected = index === 0 && Boolean(query.trim());
               const rowClassName = cn(
                 "grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
                 selected
@@ -412,8 +412,8 @@ function MedicationResults({
       ) : null}
 
       <div className="grid gap-2 md:hidden">
-        {visibleMedicationResults.map((result) => {
-          const selected = result.id === "acamprosate";
+        {visibleMedicationResults.map((result, index) => {
+          const selected = index === 0 && Boolean(query.trim());
           const cardClassName = cn(
             "w-full rounded-lg border bg-[color:var(--surface-raised)] p-2 text-left shadow-[var(--shadow-inset)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             selected
