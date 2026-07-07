@@ -412,6 +412,18 @@ type AnswerTurn = {
 
 const maxVisiblePriorTurns = 10;
 
+// Upper bound on a single answer request. The stream sends only progress events
+// then one `final` blob after the full server-side generation, so a hung stream
+// otherwise spins the UI forever with no close event. Generous enough not to
+// abort a legitimately slow generation; a wait past this is treated as a stall.
+const answerRequestTimeoutMs = 60_000;
+
+// Non-retryable so an aborted request does not immediately re-fetch against the
+// already-aborted signal; the user re-submits to try again.
+function answerTimedOutError() {
+  return makeSearchError("Answer generation timed out. Please try again.", 408, false);
+}
+
 /**
  * Read-only surface for a previous turn in the answer thread. Renders the
  * question bubble and the natural-language answer with its source capsule;
@@ -1638,6 +1650,7 @@ export function ClinicalDashboard({
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
     onProgress: (message: string) => void = setAnswerProgress,
+    signal?: AbortSignal,
   ) {
     let response: Response;
     try {
@@ -1653,8 +1666,13 @@ export function ClinicalDashboard({
           filters: compactScopeFilters(filtersOverride),
           queryMode: queryModeOverride,
         }),
+        signal,
       });
     } catch {
+      // An abort (timeout or a superseding search) surfaces here as a rejected
+      // fetch. A superseded request's error is discarded downstream by the
+      // request-sequence guard; a genuine timeout is shown so the spinner ends.
+      if (signal?.aborted) throw answerTimedOutError();
       throw searchNetworkFailure("Answer search");
     }
 
@@ -1668,7 +1686,15 @@ export function ClinicalDashboard({
       throw makeSearchError(message, response.status, isRetryableStatus(response.status));
     }
 
-    const payload = await readAnswerStream(response, onProgress);
+    let payload: AnswerPayload;
+    try {
+      payload = await readAnswerStream(response, onProgress);
+    } catch (error) {
+      // Aborting the fetch tears down the body stream, so a stalled read rejects
+      // here once the timeout fires.
+      if (signal?.aborted) throw answerTimedOutError();
+      throw error;
+    }
     return {
       kind: "answer" as const,
       query: queryText,
@@ -1709,6 +1735,10 @@ export function ClinicalDashboard({
   // error/loading state, or a stale response would display one query's answer
   // under another query's composer text.
   const searchRequestSeqRef = useRef(0);
+  // Aborts the in-flight answer stream. A new search aborts the prior request
+  // (stop wasted bandwidth on a superseded query) and a per-search timeout
+  // aborts a stalled stream so the UI can't spin indefinitely.
+  const answerAbortRef = useRef<AbortController | null>(null);
 
   function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
     if (payload.kind === "documents") {
@@ -1773,6 +1803,10 @@ export function ClinicalDashboard({
     // over-long PostgREST URL that fails on large corpora. Corpus search runs
     // unscoped (like Documents); users opt into label filters explicitly.
     const requestId = ++searchRequestSeqRef.current;
+    // A new search supersedes any in-flight answer stream: abort it so its
+    // socket closes instead of streaming to a result that can no longer commit.
+    answerAbortRef.current?.abort();
+    answerAbortRef.current = null;
 
     setSearchMode(targetMode);
     // Answer mode keeps the composer as the draft source until a successful
@@ -1861,6 +1895,13 @@ export function ClinicalDashboard({
           ]
         : [{ query: requestQuery, isKeyword: false }];
 
+    // Bound this search's answer stream with an abort + timeout. One controller
+    // spans the retry/keyword-fallback attempts; the timeout aborts a stalled
+    // stream so the UI recovers instead of spinning forever.
+    const answerAbort = new AbortController();
+    answerAbortRef.current = answerAbort;
+    const answerTimeout = window.setTimeout(() => answerAbort.abort(), answerRequestTimeoutMs);
+
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
@@ -1881,7 +1922,7 @@ export function ClinicalDashboard({
                   onProgress,
                 )
               : await runWithRetries(
-                  () => requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress),
+                  () => requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress, answerAbort.signal),
                   onProgress,
                 );
 
@@ -1939,6 +1980,9 @@ export function ClinicalDashboard({
         setError(requestError instanceof Error ? requestError.message : "Search failed");
       }
     } finally {
+      window.clearTimeout(answerTimeout);
+      // Only release the ref if a newer search has not already claimed it.
+      if (answerAbortRef.current === answerAbort) answerAbortRef.current = null;
       if (requestId === searchRequestSeqRef.current) {
         setLoading(false);
         setAnswerProgress(null);

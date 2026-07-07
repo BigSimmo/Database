@@ -1348,7 +1348,9 @@ export function MasterSearchHeader({
                 aria-expanded={commandDropdownOpen}
                 aria-controls={commandDropdownOpen ? commandListboxId : undefined}
                 aria-autocomplete="list"
-                onInput={(event) => onQueryChange(event.currentTarget.value)}
+                // React's onChange already fires on every input event; a duplicate
+                // onInput called onQueryChange twice per keystroke, doubling the
+                // controlled-state work on a large parent tree.
                 onChange={(event) => onQueryChange(event.target.value)}
                 onKeyDown={(event) => {
                   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();

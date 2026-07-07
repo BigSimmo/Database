@@ -69,6 +69,7 @@ export const SourceImage = memo(function SourceImage({
   const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const { authorizationHeader, markSessionExpired } = useAuthSession();
 
   useEffect(() => {
@@ -102,11 +103,13 @@ export const SourceImage = memo(function SourceImage({
     clearCachedSignedUrl(endpoint);
     setUrl(null);
     setFailed(false);
+    setLoaded(false);
     setAttempt((current) => current + 1);
   }
 
   function handleImageError() {
     clearCachedSignedUrl(endpoint);
+    setLoaded(false);
     setFailed(true);
   }
 
@@ -115,7 +118,7 @@ export const SourceImage = memo(function SourceImage({
       <div
         className={cn(
           className,
-          "grid min-h-36 place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
+          "grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
         )}
       >
         <div>
@@ -133,29 +136,38 @@ export const SourceImage = memo(function SourceImage({
     );
   }
 
-  if (!url) {
-    return (
-      <div
-        className={cn(
-          className,
-          "grid min-h-36 place-items-center rounded-lg bg-[color:var(--surface-inset)] text-xs font-semibold text-[color:var(--text-muted)]",
-        )}
-      >
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading image
-      </div>
-    );
-  }
-
+  // A fixed-aspect frame reserves the image's box up front so the loaded image
+  // never resizes the layout (the placeholder and the image share one box). The
+  // image object-contains within it and fades in on decode, so nothing below
+  // shifts when it arrives.
   return (
-    <img
-      src={url}
-      alt={caption?.trim() || "Clinical document image"}
-      loading="lazy"
-      decoding="async"
-      onError={handleImageError}
-      className={cn(className, "w-full rounded-lg object-contain")}
-    />
+    <div
+      className={cn(
+        className,
+        "relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-[color:var(--surface-inset)]",
+      )}
+    >
+      {url ? (
+        <img
+          src={url}
+          alt={caption?.trim() || "Clinical document image"}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={handleImageError}
+          className={cn(
+            "absolute inset-0 h-full w-full rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
+            loaded ? "opacity-100" : "opacity-0",
+          )}
+        />
+      ) : null}
+      {!url || !loaded ? (
+        <div className="absolute inset-0 grid place-items-center gap-1 text-xs font-semibold text-[color:var(--text-muted)]">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading image
+        </div>
+      ) : null}
+    </div>
   );
 });
 
