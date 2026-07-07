@@ -599,14 +599,14 @@ test.describe("Clinical KB tools launcher", () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
       for (const route of [
-        { path: "/services?q=13YARN&focus=1&run=1", compactBottomSearch: true },
-        { path: "/services/13yarn", compactBottomSearch: false },
-        { path: "/forms?q=transport&focus=1&run=1", compactBottomSearch: true },
-        { path: "/favourites?q=lithium&focus=1&run=1", compactBottomSearch: true },
-        { path: "/differentials?q=acute+confusion&focus=1&run=1", compactBottomSearch: true },
+        { path: "/services?q=13YARN&focus=1&run=1", modeButton: "Mode Services", compactBottomSearch: true },
+        { path: "/services/13yarn", modeButton: "Mode Services", compactBottomSearch: false },
+        { path: "/forms?q=transport&focus=1&run=1", modeButton: "Mode Forms", compactBottomSearch: true },
+        { path: "/favourites?q=lithium&focus=1&run=1", modeButton: "Mode Favourites", compactBottomSearch: true },
+        { path: "/differentials?q=acute+confusion&focus=1&run=1", modeButton: "Mode Differentials", compactBottomSearch: true },
       ] as const) {
         await gotoLauncher(page, route.path);
-        await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByRole("button", { name: route.modeButton })).toBeVisible({ timeout: 20_000 });
         await expect(visibleGlobalSearchInput(page), `${route.path} at ${viewport.name}`).toHaveCount(1, {
           timeout: 20_000,
         });

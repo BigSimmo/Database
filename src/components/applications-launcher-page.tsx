@@ -26,6 +26,7 @@ import { type FormEvent, useMemo, useState } from "react";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
+import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import {
   toolCatalogRecords,
   type ToolCatalogArea,
@@ -827,6 +828,8 @@ export function ApplicationsLauncherWorkspace({
   );
 }
 
-export function ApplicationsLauncherPage() {
-  return <ApplicationsLauncherWorkspace />;
+export function ApplicationsLauncherPage({ query }: { query?: string }) {
+  return (
+    <ApplicationsLauncherWorkspace query={query} desktopComposerSlotId={modeHomeDesktopComposerSlotId} />
+  );
 }
