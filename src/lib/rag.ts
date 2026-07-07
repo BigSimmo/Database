@@ -15,7 +15,18 @@ import {
   ragProviderMode,
   sourceOnlyReason,
 } from "@/lib/rag-provider";
-import { compactCitations } from "@/lib/citations";
+import { allowedChunkMap, citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
+import {
+  enrichGroundedReviewCitations,
+  sanitizeConflictsOrGaps,
+  sanitizeQuoteCards,
+} from "@/lib/rag-quote-verification";
+import { applyNumericVerification } from "@/lib/answer-verification";
+export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
+import { capPerDocumentCrowding, selectModelContextResults } from "@/lib/rag-context-selection";
+export { capPerDocumentCrowding, selectModelContextResults } from "@/lib/rag-context-selection";
+import { buildRagSourceBlock, compactContextText } from "@/lib/rag-source-block";
+export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
 import { extractNumericTokens, VERIFY_AGAINST_SOURCE_NOTE, verifyAnswerNumbers } from "@/lib/answer-verification";
 import {
   buildClinicalTextSearchQuery,
@@ -43,6 +54,7 @@ import {
   hasAdversarialManipulationIntent,
   hasDirectTitleSupport,
   shouldRetryWithStrongAfterFast,
+  appendRoutingReason,
 } from "@/lib/rag-routing";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
@@ -64,6 +76,8 @@ import {
   sanitizeAnswerText,
   sanitizeStructuredText,
   splitBalancedWords,
+  metadataText,
+  safeRecord,
 } from "@/lib/rag-answer-text";
 import {
   buildCrossDocumentFusionBrief,
@@ -275,8 +289,6 @@ export function answerJsonOutputSchemaForResults(results: SearchResult[]) {
   return schema;
 }
 
-const fastRoutineModelContextLimit = 4;
-
 const confidenceOrder = {
   unsupported: 0,
   low: 1,
@@ -286,15 +298,6 @@ const confidenceOrder = {
 
 export const machineReadableFallbackAnswer =
   "The indexed sources were not machine-readable enough to produce a formatted answer.";
-
-function safeRecord(value: unknown) {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-function metadataText(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
 
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
@@ -724,23 +727,6 @@ const answerJsonSchema = z.object({
     .default([]),
 });
 
-function resultCitation(result: SearchResult): Citation {
-  return {
-    chunk_id: result.id,
-    document_id: result.document_id,
-    title: result.title,
-    file_name: result.file_name,
-    page_number: result.page_number,
-    chunk_index: result.chunk_index,
-    similarity: result.similarity,
-    source_metadata: result.source_metadata,
-  };
-}
-
-function allowedChunkMap(results: SearchResult[]) {
-  return new Map(results.map((result) => [result.id, result]));
-}
-
 // Audit M1: confidence must reflect the strength of the evidence the answer
 // actually CITES. Taking the max similarity over ALL retrieved results let an
 // uncited high-similarity chunk grant "high" confidence to an answer built on
@@ -976,115 +962,6 @@ function sanitizeAnswerSections(
       return true;
     });
 }
-
-function normalizeQuoteVerificationText(text: string) {
-  return sourceTextForClinicalProse(text)
-    .normalize("NFKC")
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function tableFactQuoteText(fact: NonNullable<SearchResult["table_facts"]>[number]) {
-  // Mirrors tableFactText in answer-verification.ts: include the fact-metadata
-  // snippet fields that rich-mode prompts show the model (tableSnippetForFact),
-  // so quotes drawn from them verify as exact.
-  const metadata = safeRecord(fact.metadata);
-  const metadataString = (key: string) => (typeof metadata[key] === "string" ? (metadata[key] as string) : "");
-  const metadataCells = Array.isArray(metadata.cells) ? (metadata.cells as unknown[]).map(String).join(" ") : "";
-  return [
-    fact.table_title,
-    fact.row_label,
-    fact.clinical_parameter,
-    fact.threshold_value,
-    fact.action,
-    metadataString("accessible_table_markdown"),
-    metadataString("table_text_snippet"),
-    metadataCells,
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function sourceTextForQuoteVerification(source: SearchResult) {
-  const parts = [
-    source.content,
-    source.adjacent_context,
-    source.section_heading,
-    source.retrieval_synopsis,
-    source.table_facts?.map(tableFactQuoteText).join(" "),
-    source.memory_cards?.map((card) => card.content).join(" "),
-    source.index_unit ? [source.index_unit.title, source.index_unit.content].filter(Boolean).join(" ") : "",
-    source.images
-      ?.map((image) =>
-        [image.tableLabel, image.tableTitle, image.caption, image.tableTextSnippet, image.accessibleTableMarkdown]
-          .filter(Boolean)
-          .join(" "),
-      )
-      .join(" "),
-  ];
-  return parts.filter(Boolean).join(" ");
-}
-
-function isExactSourceQuote(quote: string, source: SearchResult) {
-  const normalizedQuote = normalizeQuoteVerificationText(quote);
-  if (normalizedQuote.length < 8) return false;
-  const normalizedSource = normalizeQuoteVerificationText(sourceTextForQuoteVerification(source));
-  return normalizedSource.includes(normalizedQuote);
-}
-
-function sanitizeQuoteCards(
-  cards: Array<{ chunk_id: string; quote: string; section_heading?: string | null }> | undefined,
-  results: SearchResult[],
-): QuoteCard[] {
-  const chunks = allowedChunkMap(results);
-  return (cards ?? [])
-    .map((card) => {
-      const source = chunks.get(card.chunk_id);
-      if (!source) return null;
-      const quote = sanitizeStructuredText(card.quote, { minLength: 8, minTokens: 2 });
-      if (!quote) return null;
-      if (!isExactSourceQuote(quote, source)) return null;
-      return {
-        ...resultCitation(source),
-        quote,
-        section_heading: card.section_heading ?? source.section_heading,
-      } satisfies QuoteCard;
-    })
-    .filter((card): card is QuoteCard => Boolean(card));
-}
-
-function sanitizeConflictsOrGaps(items: ConflictOrGap[] | undefined, results: SearchResult[]): ConflictOrGap[] {
-  const allowed = new Set(results.map((result) => result.id));
-  return (items ?? [])
-    .map((item) => ({
-      type: item.type,
-      message: sanitizeStructuredText(item.message, { minLength: 8, minTokens: 2 }) || item.message,
-      source_chunk_ids: item.source_chunk_ids?.filter((id) => allowed.has(id)),
-    }))
-    .filter((item) => !item.source_chunk_ids || item.source_chunk_ids.length > 0);
-}
-
-function enrichGroundedReviewCitations(answer: RagAnswer, results: SearchResult[], minCitations = 2): RagAnswer {
-  if (!answer.grounded || answer.confidence === "unsupported") return answer;
-  if (answer.citations.length >= minCitations) return answer;
-  if ((answer.unverifiedNumericTokens?.length ?? 0) > 0 || answer.faithfulnessWarning) return answer;
-
-  const existing = new Set(answer.citations.map((citation) => citation.chunk_id));
-  const additional = compactCitations(results)
-    .filter((citation) => !existing.has(citation.chunk_id))
-    .slice(0, minCitations - answer.citations.length);
-  if (additional.length === 0) return answer;
-
-  return {
-    ...answer,
-    citations: [...answer.citations, ...additional],
-    routingReason: appendRoutingReason(answer.routingReason, "review_citations_enriched"),
-  };
-}
-
 function normalizeSearchResults(results: SearchResult[]) {
   return results.map((result) => ({
     ...result,
@@ -6171,159 +6048,6 @@ export async function searchChunks(args: SearchChunksArgs) {
   return results;
 }
 
-// Boundary-aware, number-safe truncation for text handed to the model (P7). A naive char-boundary
-// cut splits sentences and numbers (e.g. "150 mg" -> "...15"), feeding the model clipped clinical
-// facts. Prefer the last sentence boundary that still keeps most of the budget (end cleanly, no
-// ellipsis); otherwise cut on a word boundary and never strand a bare number whose unit/context was
-// cut off, so a dose or threshold can never be presented as a truncated figure.
-export function truncateForModel(text: string, limit: number) {
-  if (text.length <= limit) return text;
-  const window = text.slice(0, limit);
-  const sentenceEnd = Math.max(window.lastIndexOf(". "), window.lastIndexOf("! "), window.lastIndexOf("? "));
-  if (sentenceEnd >= Math.floor(limit * 0.6)) {
-    return window.slice(0, sentenceEnd + 1).trim();
-  }
-  const wordCut = window.lastIndexOf(" ");
-  const base = (wordCut > 0 ? window.slice(0, wordCut) : window.slice(0, limit - 1)).trim();
-  // Drop a trailing bare number (its unit/context was cut off) so we never present "…150" alone.
-  const numberSafe = base.replace(/[\s(]+[<>]?\d[\d.,:/xX×^*-]*$/, "").trim();
-  return `${numberSafe || base}...`;
-}
-
-function compactContextText(text: string, limit: number) {
-  const compact = sourceTextForModel(text).replace(/\s+/g, " ").trim();
-  return truncateForModel(compact, limit);
-}
-
-type RagSourceBlockOptions = {
-  query?: string;
-  queryClass?: RagQueryClass;
-};
-
-function richTableSourceContextEnabled(options?: RagSourceBlockOptions) {
-  return options?.queryClass === "table_threshold" || options?.queryClass === "medication_dose_risk";
-}
-
-function tableSnippetForFact(result: SearchResult, fact: NonNullable<SearchResult["table_facts"]>[number]) {
-  const image = fact.source_image_id ? result.images?.find((candidate) => candidate.id === fact.source_image_id) : null;
-  const factMetadata = safeRecord(fact.metadata);
-  const metadataCells = Array.isArray(factMetadata.cells)
-    ? (factMetadata.cells as unknown[]).map(String).filter(Boolean).join(" | ")
-    : "";
-  const snippet =
-    image?.accessibleTableMarkdown ??
-    image?.tableTextSnippet ??
-    metadataText(factMetadata, "accessible_table_markdown") ??
-    metadataText(factMetadata, "table_text_snippet") ??
-    metadataCells;
-  return compactContextText(neutralizePromptInstructions(snippet), 420);
-}
-
-function formatTableFactForSourceBlock(
-  result: SearchResult,
-  fact: NonNullable<SearchResult["table_facts"]>[number],
-  rich: boolean,
-) {
-  if (!rich) {
-    return compactContextText(
-      neutralizePromptInstructions(
-        [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
-          .filter(Boolean)
-          .join(" | "),
-      ),
-      360,
-    );
-  }
-
-  const snippet = tableSnippetForFact(result, fact);
-  return compactContextText(
-    neutralizePromptInstructions(
-      [
-        fact.table_title ? `table title: ${fact.table_title}` : "",
-        fact.row_label ? `row label: ${fact.row_label}` : "",
-        fact.clinical_parameter ? `clinical parameter: ${fact.clinical_parameter}` : "",
-        fact.threshold_value ? `threshold_value: ${fact.threshold_value}` : "",
-        fact.action ? `action: ${fact.action}` : "",
-        fact.source_image_id ? `source_image_id: ${fact.source_image_id}` : "",
-        snippet ? `table snippet: ${snippet}` : "",
-      ]
-        .filter(Boolean)
-        .join(" | "),
-    ),
-    760,
-  );
-}
-
-export function buildRagSourceBlock(results: SearchResult[], options?: RagSourceBlockOptions) {
-  const richTableContext = richTableSourceContextEnabled(options);
-  return results
-    .map((result, index) => {
-      const page = result.page_number ? `page ${result.page_number}` : "page unavailable";
-      const searchableImages = result.images?.filter((image) => isClinicalImageEvidence(image));
-      const images = searchableImages?.length
-        ? `\nImages: ${searchableImages
-            .map((image) =>
-              [
-                image.tableLabel,
-                image.tableTitle,
-                image.caption,
-                image.tableTextSnippet
-                  ? `Table text: ${compactContextText(neutralizePromptInstructions(image.tableTextSnippet), 320)}`
-                  : "",
-              ]
-                .filter(Boolean)
-                .join(" - "),
-            )
-            .join(" | ")}`
-        : "";
-      const adjacentContext = result.adjacent_context
-        ? `\nNearby context from the same source: ${compactContextText(neutralizePromptInstructions(result.adjacent_context), 900)}`
-        : "";
-      const sectionPath = result.section_path?.length
-        ? `\nSection path: ${neutralizePromptInstructions(result.section_path.join(" > "))}`
-        : result.section_heading
-          ? `\nSection: ${neutralizePromptInstructions(result.section_heading)}`
-          : "";
-      const tableFacts = result.table_facts?.length
-        ? `\nStructured table facts: ${result.table_facts
-            .slice(0, richTableContext ? 3 : 4)
-            .map((fact) => formatTableFactForSourceBlock(result, fact, richTableContext))
-            .filter(Boolean)
-            .join(" ; ")}`
-        : "";
-      const indexWarnings = result.indexing_quality?.issues?.length
-        ? `\nIndex quality warnings: ${result.indexing_quality.issues.slice(0, 3).join("; ")}`
-        : "";
-      const memoryCards = result.memory_cards?.length
-        ? `\nStructured memory: ${result.memory_cards
-            .slice(0, 3)
-            .map((card) => `${card.card_type}: ${compactContextText(neutralizePromptInstructions(card.content), 300)}`)
-            .join(" | ")}`
-        : "";
-      const retrievalSynopsis = result.retrieval_synopsis
-        ? `\nRetrieval synopsis: ${compactContextText(neutralizePromptInstructions(result.retrieval_synopsis), 700)}`
-        : "";
-      const neutralizedContent = neutralizePromptInstructions(result.content);
-      const fencedContent = fenceSourceEvidence(compactContextText(neutralizedContent, 1800));
-      return [
-        [
-          `[${index + 1}] ${result.title} (${result.file_name}, ${page}, chunk ${result.chunk_index}, similarity ${result.similarity.toFixed(3)})`,
-          `citation_chunk_id: ${result.id}`,
-          `document_id: ${result.document_id}`,
-        ].join("\n"),
-        sectionPath,
-        retrievalSynopsis,
-        fencedContent,
-        adjacentContext,
-        tableFacts,
-        memoryCards,
-        images,
-        indexWarnings,
-      ].join("\n");
-    })
-    .join("\n\n---\n\n");
-}
-
 export function parseAnswerJson(raw: string, results: SearchResult[], query?: string): RagAnswer {
   try {
     const parsed = answerJsonSchema.parse(JSON.parse(raw));
@@ -6382,158 +6106,6 @@ function annotateAnswerWithDiagnostics<T extends RagAnswer>(
       retrievalReason: fallbackReason,
     },
   };
-}
-
-// GEN-C2 / GEN-H2: verify every numeric/dose/threshold token in the generated
-// answer against the text of its cited chunks. Unsupported figures are recorded
-// on the answer and an explicit "verify against source" caveat is appended so a
-// paraphrased/mis-transcribed dose can never read as authoritative.
-const actionableNumericAnswerPattern =
-  /\b(?:dose|dosage|dosing|mg|mcg|microgram|micrograms|route|oral|intramuscular|\bim\b|\bpo\b|frequency|daily|twice|weekly|monthly|hourly|threshold|cutoff|cut-off|anc|fbc|wbc|withhold|cease|stop|discontinue|red\s+(?:result|range|zone)|amber\s+(?:result|range|zone)|green\s+(?:result|range|zone)|monitor|monitoring|interval|repeat|review|risk\s+score|risk|score|escalat|urgent)\b/i;
-
-const actionableNumericSectionKinds = new Set<AnswerSectionKind>([
-  "medication_dose",
-  "thresholds",
-  "monitoring_timing",
-  "escalation_risk",
-  "required_actions",
-]);
-
-function hasActionableNumericContext(answer: RagAnswer) {
-  if (!answer.grounded || answer.confidence === "unsupported") return false;
-  if (answer.queryClass === "medication_dose_risk" || answer.queryClass === "table_threshold") return true;
-  if (
-    (answer.answerSections ?? []).some((section) => section.kind && actionableNumericSectionKinds.has(section.kind))
-  ) {
-    return true;
-  }
-  const text = [
-    answer.answer,
-    answer.routingReason,
-    ...(answer.answerSections ?? []).flatMap((section) => [section.heading, section.body]),
-  ]
-    .filter(Boolean)
-    .join(" ");
-  return actionableNumericAnswerPattern.test(text);
-}
-
-function appendRoutingReason(reason: string | undefined, addition: string) {
-  return reason ? `${reason}; ${addition}` : addition;
-}
-
-export function applyNumericVerification(answer: RagAnswer): RagAnswer {
-  const sources = answer.sources ?? [];
-  const unverified = new Set<string>();
-
-  // B4: the model is instructed to put dose details in structured
-  // answerSections (kind medication_dose), so a top-level-only scan never sees
-  // section-body doses. Verify the top-level answer AND every section body.
-  // Each section is scoped to its own citation_chunk_ids when present, so a
-  // dose is only credited against the chunks that section actually cites;
-  // sections with no citations fall back to the answer-level citations.
-  const answerVerification = verifyAnswerNumbers(answer.answer, answer.citations, sources);
-  for (const token of answerVerification.unverifiedTokens) unverified.add(token);
-
-  for (const section of answer.answerSections ?? []) {
-    const sectionCitations =
-      section.citation_chunk_ids.length > 0
-        ? section.citation_chunk_ids.map((chunk_id) => ({ chunk_id }))
-        : answer.citations;
-    const sectionVerification = verifyAnswerNumbers(section.body, sectionCitations, sources);
-    for (const token of sectionVerification.unverifiedTokens) unverified.add(token);
-  }
-
-  if (unverified.size === 0) return answer;
-
-  const unverifiedTokens = [...unverified];
-  answer.unverifiedNumericTokens = unverifiedTokens;
-  answer.faithfulnessWarning = VERIFY_AGAINST_SOURCE_NOTE;
-  // P8: never bold a figure the system could not verify against the cited sources — bold emphasis
-  // must track verification, or an unverified dose/threshold reads as authoritative while its caveat
-  // sits in a separate block. Un-wrap **…** only around segments carrying an unverified token.
-  answer.answer = unboldUnverifiedNumbers(answer.answer, unverified);
-  if (answer.answerSections?.length) {
-    answer.answerSections = answer.answerSections.map((section) => ({
-      ...section,
-      body: unboldUnverifiedNumbers(section.body, unverified),
-    }));
-  }
-  // Surface as a source gap so the UI's existing gap rendering shows it, and
-  // never let an answer with unverified clinical numbers claim high confidence.
-  // This gate runs more than once on the model path (parse-time and finalize-time), so REPLACE any
-  // earlier faithfulness caveat rather than appending a duplicate "CRITICAL…" gap; the latest run
-  // carries the freshest token list.
-  const caveat: ConflictOrGap = {
-    type: "gap",
-    message: `${VERIFY_AGAINST_SOURCE_NOTE} Unverified figures: ${unverifiedTokens.join(", ")}.`,
-  };
-  answer.conflictsOrGaps = [
-    ...(answer.conflictsOrGaps ?? []).filter((gap) => !gap.message.startsWith(VERIFY_AGAINST_SOURCE_NOTE)),
-    caveat,
-  ];
-  if (hasActionableNumericContext(answer)) {
-    answer.answer =
-      "I found source material, but the generated answer included clinical numbers that could not be matched verbatim to its cited source chunks. Review the source passages directly before using this for dose, threshold, route, timing, monitoring, or risk decisions.";
-    answer.grounded = false;
-    answer.confidence = "unsupported";
-    answer.responseMode = "evidence_gap";
-    answer.answerSections = [];
-    answer.citations = [];
-    answer.quoteCards = [];
-    answer.routingReason = appendRoutingReason(answer.routingReason, "numeric_faithfulness_gate_source_gap");
-    return answer;
-  }
-  if (answer.confidence === "high") answer.confidence = "medium";
-  return answer;
-}
-
-// Remove bold emphasis around any **…** segment that contains a numeric token the source-numeric
-// verification could not confirm, leaving the text intact (just un-emphasised). Verified bold stays.
-export function unboldUnverifiedNumbers(text: string, unverified: Set<string>): string {
-  if (!unverified.size || !text.includes("**")) return text;
-  return text.replace(/\*\*([^*]+)\*\*/g, (full, inner: string) =>
-    extractNumericTokens(inner).some((token) => unverified.has(token)) ? inner : full,
-  );
-}
-
-const maxContextChunksPerDocument = 3;
-
-// P9: keep one verbose document from dominating the sources the model sees. Cap each document to at
-// most `maxContextChunksPerDocument` chunks (order-preserving, no reranking/dedup), but only when the
-// result set spans multiple documents — a genuinely single-document answer must not be starved.
-export function capPerDocumentCrowding(results: SearchResult[], maxPerDocument = maxContextChunksPerDocument) {
-  if (results.length <= maxPerDocument) return results;
-  const distinctDocuments = new Set(results.map((result) => result.document_id)).size;
-  if (distinctDocuments < 2) return results;
-  const documentCounts = new Map<string, number>();
-  const capped: SearchResult[] = [];
-  for (const result of results) {
-    const count = documentCounts.get(result.document_id) ?? 0;
-    if (count >= maxPerDocument) continue;
-    documentCounts.set(result.document_id, count + 1);
-    capped.push(result);
-  }
-  return capped;
-}
-
-export function selectModelContextResults(args: {
-  routeMode: RagAnswer["routingMode"];
-  queryClass: RagQueryClass;
-  crossDocument: boolean;
-  results: SearchResult[];
-}) {
-  const results = capPerDocumentCrowding(args.results);
-  if (args.routeMode !== "fast") return results;
-  if (
-    args.crossDocument ||
-    args.queryClass === "comparison" ||
-    args.queryClass === "broad_summary" ||
-    args.queryClass === "medication_dose_risk" ||
-    args.queryClass === "table_threshold"
-  ) {
-    return results;
-  }
-  return results.slice(0, fastRoutineModelContextLimit);
 }
 
 export async function answerQuestion(query: string, documentId?: string) {
