@@ -785,7 +785,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.locator('input[placeholder="Ask or search a presentation"]:visible').first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Search presentations" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Compare differentials" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Recent work" })).toBeVisible();
+    await expect(
+      page.getByTestId("differentials-home").getByRole("region", { name: /^(Recent work|Library matches)$/ }),
+    ).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toHaveCount(1);
     const differentialsHomeSearch = page.getByTestId("differentials-home").getByTestId("global-search-input");
     await expect(differentialsHomeSearch).toBeVisible();
