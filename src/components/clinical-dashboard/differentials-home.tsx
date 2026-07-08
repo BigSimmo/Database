@@ -160,12 +160,19 @@ function statusLabel(status: DifferentialRecord["status"]) {
 }
 
 function statusTone(status: DifferentialRecord["status"]) {
-  if (status === "emergent")
-    return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
+  if (status === "emergent") return "border-transparent bg-[color:var(--danger)] text-white";
   if (status === "urgent") {
     return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
   }
   return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
+}
+
+function resultTypeTabCounts(results: DifferentialResult[]) {
+  return {
+    all: results.length,
+    presentations: results.filter((result) => result.href.includes("/presentations")).length,
+    diagnoses: results.filter((result) => result.href.includes("/diagnoses")).length,
+  };
 }
 
 function recordIcon(record: DifferentialRecord) {
@@ -230,14 +237,72 @@ function buildDifferentialResults(): DifferentialResult[] {
 function StatusBadge({ status, className }: { status: DifferentialRecord["status"]; className?: string }) {
   return (
     <span
+      data-testid="differential-status-badge"
       className={cn(
-        "inline-flex min-h-5 items-center rounded-md border px-1.5 text-3xs font-extrabold uppercase leading-none tracking-normal",
+        "inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-2xs font-extrabold uppercase leading-tight tracking-normal",
         statusTone(status),
         className,
       )}
     >
+      {status === "emergent" ? (
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/90" aria-hidden />
+      ) : null}
       {statusLabel(status)}
     </span>
+  );
+}
+
+function ResultTypeTabs({ results }: { results: DifferentialResult[] }) {
+  const counts = resultTypeTabCounts(results);
+  const tabs = [
+    { key: "all", label: "All", count: counts.all },
+    { key: "presentations", label: "Presentations", count: counts.presentations },
+    { key: "diagnoses", label: "Diagnoses", count: counts.diagnoses },
+  ] as const;
+
+  return (
+    <div
+      data-testid="differential-result-type-tabs"
+      className="polished-scroll flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
+    >
+      {tabs.map((tab, index) => {
+        const active = index === 0;
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            aria-pressed={active}
+            aria-label={`${tab.label} (${tab.count})`}
+            className={cn(
+              "inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-bold min-[390px]:text-sm",
+              active
+                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+            )}
+          >
+            {tab.label}
+            <span
+              className={cn(
+                "nums rounded-full px-1.5 text-3xs leading-tight",
+                active
+                  ? "bg-[color:var(--clinical-accent-contrast)]/15 text-[color:var(--clinical-accent-contrast)]"
+                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
+              )}
+            >
+              {tab.count}
+            </span>
+          </button>
+        );
+      })}
+      <button
+        type="button"
+        aria-label="Filters"
+        className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm"
+      >
+        <ListFilter className="h-4 w-4 shrink-0" aria-hidden />
+        <span className="hidden min-[430px]:inline">Filters</span>
+      </button>
+    </div>
   );
 }
 
@@ -755,39 +820,12 @@ function SearchResultsView({
 
           <div className="grid gap-2 lg:hidden">
             <BestAnswerCard best={best} selected={selectedIds.has(best.id)} onToggle={() => toggleSelected(best.id)} />
-            <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5">
-              {[
-                { label: "All (8)", compact: "All" },
-                { label: "Diagnosis (6)", compact: "Dx (6)" },
-                { label: "Mimics (2)", compact: "Mimics" },
-              ].map((item, index) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  aria-label={item.label}
-                  className={cn(
-                    "min-h-10 min-w-10 rounded-lg border px-2 text-xs font-bold min-[390px]:text-sm",
-                    index === 0
-                      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                      : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-                  )}
-                >
-                  <span className="hidden min-[430px]:inline">{item.label}</span>
-                  <span className="min-[430px]:hidden">{item.compact}</span>
-                </button>
-              ))}
-              <button
-                type="button"
-                aria-label="Filters"
-                className="inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm"
-              >
-                <ListFilter className="h-4 w-4" aria-hidden />
-                <span className="hidden min-[430px]:inline">Filters</span>
-              </button>
-            </div>
+            <ResultTypeTabs results={results} />
             <div className="flex items-center justify-between gap-2 text-sm font-medium text-[color:var(--text-muted)]">
               <span>
-                <strong className="text-[color:var(--text-heading)]">8 results</strong> ·{" "}
+                <strong className="text-[color:var(--text-heading)]">
+                  {results.length} result{results.length === 1 ? "" : "s"}
+                </strong> ·{" "}
                 {hasSourceEvidence ? "Ranked by relevance" : "Guided differential view"}
               </span>
               <button
