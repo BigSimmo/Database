@@ -2050,9 +2050,9 @@ parallel safe
 set search_path = public, pg_catalog
 as $$
   select case
-    when owner_filter is null then true
-    when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null
-    else row_owner_id = owner_filter
+    when owner_filter is null then false -- fail CLOSED (was: true) — no DB-level global escape hatch
+    when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null -- public corpus only
+    else row_owner_id = owner_filter -- exact owner
   end;
 $$;
 
