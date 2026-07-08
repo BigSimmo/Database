@@ -1480,6 +1480,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const answerSurface = page.locator('[data-dashboard-stage="answer-surface"]');
     const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
+    const rail = strip.getByTestId("cross-mode-links-rail");
+    await expect(rail).toBeVisible();
+    await expect(rail).toHaveClass(/overflow-x-auto/);
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
     await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
