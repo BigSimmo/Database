@@ -7,6 +7,7 @@ import {
   nextRetryAt,
   retryDelayMs,
   retryDocumentQueueUpdate,
+  shouldPersistJobProgress,
   terminalBatchStatus,
 } from "../src/lib/ingestion";
 
@@ -44,6 +45,61 @@ describe("ingestion retry helpers", () => {
     expect(Date.parse(nextRetryAt(1, new Date("2026-05-27T00:00:00.000Z")))).toBe(
       Date.parse("2026-05-27T00:01:00.000Z"),
     );
+  });
+});
+
+describe("job progress lease heartbeat (R1)", () => {
+  const opts = { minIntervalMs: 5_000, minDelta: 4, heartbeatMs: 900_000 };
+  const prev = { updatedAt: 1_000_000, progress: 50, stage: "embedding chunks 1-8/40" };
+
+  it("always writes the first progress update", () => {
+    expect(shouldPersistJobProgress({ next: { progress: 5, stage: "downloading" }, now: 0, ...opts })).toBe(true);
+  });
+
+  it("skips a throttled update with no meaningful change", () => {
+    expect(
+      shouldPersistJobProgress({
+        previous: prev,
+        next: { progress: 51, stage: prev.stage },
+        now: prev.updatedAt + 1_000,
+        ...opts,
+      }),
+    ).toBe(false);
+  });
+
+  it("writes once the progress delta is large enough", () => {
+    expect(
+      shouldPersistJobProgress({
+        previous: prev,
+        next: { progress: 55, stage: prev.stage },
+        now: prev.updatedAt + 1_000,
+        ...opts,
+      }),
+    ).toBe(true);
+  });
+
+  it("writes on a stage-prefix change even when throttled", () => {
+    expect(
+      shouldPersistJobProgress({
+        previous: prev,
+        next: { progress: 50, stage: "captioning images 1-8/20" },
+        now: prev.updatedAt + 1,
+        ...opts,
+      }),
+    ).toBe(true);
+  });
+
+  it("forces a heartbeat write during a long silent phase with no progress change", () => {
+    // Same stage/progress, but the heartbeat ceiling has elapsed — must write so
+    // locked_at stays fresh and the live job is not reclaimed as stale.
+    expect(
+      shouldPersistJobProgress({
+        previous: prev,
+        next: { progress: 50, stage: prev.stage },
+        now: prev.updatedAt + opts.heartbeatMs,
+        ...opts,
+      }),
+    ).toBe(true);
   });
 });
 

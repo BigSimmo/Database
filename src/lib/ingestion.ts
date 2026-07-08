@@ -107,3 +107,31 @@ export function buildStorageCleanupJobUpdate(args: {
   }
   return update;
 }
+
+// Audit R1: the worker never refreshes ingestion_jobs.locked_at during a job,
+// so any build longer than WORKER_STALE_AFTER_MINUTES is reclaimed by
+// claim_ingestion_jobs while the original worker is still alive → two workers
+// process one document (the enabler for the R2-R8 write-clobber class). Making
+// the periodic progress write double as a lease heartbeat keeps a healthy
+// worker's lease fresh. This decides WHEN that write happens: the existing
+// throttle (minIntervalMs / minDelta / stage-prefix change) plus a heartbeat
+// ceiling that forces a write during long silent phases (e.g. a single slow
+// OpenAI call) so the lease cannot age out mid-job. The worker scopes the write
+// itself to `locked_by = workerId`, so a worker that has already lost its lease
+// no-ops instead of stealing it back.
+export function shouldPersistJobProgress(args: {
+  previous?: { updatedAt: number; progress: number; stage: string };
+  next: { progress: number; stage: string };
+  now: number;
+  minIntervalMs: number;
+  minDelta: number;
+  heartbeatMs: number;
+}): boolean {
+  const { previous, next, now, minIntervalMs, minDelta, heartbeatMs } = args;
+  if (!previous) return true;
+  const elapsed = now - previous.updatedAt;
+  if (elapsed >= heartbeatMs) return true;
+  if (elapsed >= minIntervalMs) return true;
+  if (Math.abs(next.progress - previous.progress) >= minDelta) return true;
+  return next.stage.split(" ")[0] !== previous.stage.split(" ")[0];
+}
