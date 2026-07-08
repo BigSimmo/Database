@@ -38,7 +38,13 @@ env:
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-  RAG_EVAL_OWNER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+  # The live corpus is all-public (owner_id = NULL). Owner-scoped retrieval
+  # fail-closes on a null owner, so the eval must run as the public-owner
+  # sentinel. resolveEvalOwnerId (scripts/eval-utils.ts) defaults to that
+  # sentinel when no owner is set, so deliberately do NOT pin an eval owner
+  # here — pinning the E2E user (who owns 0 public docs) returns 0 candidates
+  # and fails the golden threshold. Set RAG_EVAL_OWNER_ID only if the corpus
+  # is ever re-scoped to a real owner.
 
 jobs:
   eval-canary:
@@ -56,7 +62,6 @@ jobs:
           missing=""
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
           [ -z "$OPENAI_API_KEY" ] && missing="$missing OPENAI_API_KEY"
-          [ -z "$RAG_EVAL_OWNER_EMAIL" ] && missing="$missing E2E_USER_EMAIL"
           if [ -n "$missing" ]; then
             echo "::error::Eval canary cannot run — missing repo secrets:$missing"
             exit 1
