@@ -262,7 +262,7 @@ function MapGraph({
             >
               {node.label}
               {node.likelihood === "must-not-miss" && interactive ? (
-                <span className="absolute -right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--danger)] text-3xs text-white shadow-[var(--shadow-tight)]">
+                <span className="absolute -right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--danger)] text-3xs font-bold text-[color:var(--danger-soft)] shadow-[var(--shadow-tight)]">
                   !
                 </span>
               ) : null}

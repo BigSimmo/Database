@@ -47,7 +47,8 @@ const commonPathways: ModeHomePill[] = [
     href: appModeHomeHref("services", { query: "crisis support services", focus: true, run: true }),
   },
   {
-    label: "Aboriginal and Torres Strait Islander",
+    label: "Aboriginal and Torres Strait Islander services",
+    shortLabel: "ATSI services",
     tone: "rose",
     href: appModeHomeHref("services", {
       query: "Aboriginal Torres Strait Islander services",
@@ -121,7 +122,7 @@ export function ServicesHomePage() {
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Service tasks"
         actions={hasRegistryRecords ? taskCards : []}
-        pillsTitle="Common pathways"
+        pillsTitle="Browse by need"
         pills={hasRegistryRecords ? commonPathways : []}
         footer={
           hasRegistryRecords ? (

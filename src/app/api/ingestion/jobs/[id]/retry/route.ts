@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+import { ingestionJobRetryRejectionReason, retryDocumentQueueUpdate } from "@/lib/ingestion";
 import { ingestionRollbackFenceStamp } from "@/lib/ingestion-mutation-safety";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -25,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { data: job, error: jobError } = await supabase
       .from("ingestion_jobs")
       .select(
-        "id,document_id,batch_id,status,stage,progress,error_message,attempt_count,max_attempts,locked_at,locked_by,next_run_at,completed_at,documents!inner(owner_id)",
+        "id,document_id,batch_id,status,stage,progress,error_message,attempt_count,max_attempts,locked_at,locked_by,next_run_at,completed_at,documents!inner(owner_id,status)",
       )
       .eq("id", id)
       .eq("documents.owner_id", user.id)
@@ -33,6 +34,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (jobError) throw new Error(jobError.message);
     if (!job) return NextResponse.json({ error: "Ingestion job not found." }, { status: 404 });
+
+    // IDX-R16: refuse to retry a job that already completed. Resetting a
+    // completed job re-pends terminal work; a worker then re-claims it and
+    // rebuilds against the live index (zombie re-ingest). Rebuild via reindex.
+    const retryRejection = ingestionJobRetryRejectionReason(job.status);
+    if (retryRejection) {
+      return NextResponse.json({ error: retryRejection }, { status: 409 });
+    }
 
     // IDX-C3 / B6: refuse to retry a job a live worker still holds, atomically.
     // A SELECT-then-UPDATE was a TOCTOU race: a worker could claim the job
@@ -88,9 +97,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // only re-queue; the prior index stays live until the worker commits a fresh one.
     // updated_at is stamped so the reindex routes' rollback fences (which
     // match on documents.updated_at) can see this competing queue-state write.
+    //
+    // IDX-R15: never demote an already-indexed document to `queued`. That write
+    // alone (independent of resetDocumentIndex above) forces the worker's
+    // destructive non-atomic path, which deletes the live index at job start.
+    // retryDocumentQueueUpdate keeps indexed documents on the atomic path.
+    const documentRow = (Array.isArray(job.documents) ? job.documents[0] : job.documents) as
+      { status?: string | null } | null | undefined;
     const { error: documentError } = await supabase
       .from("documents")
-      .update({ status: "queued", error_message: null, updated_at: ingestionRollbackFenceStamp() })
+      .update(
+        retryDocumentQueueUpdate({
+          documentStatus: documentRow?.status ?? null,
+          fenceStamp: ingestionRollbackFenceStamp(),
+        }),
+      )
       .eq("id", job.document_id)
       .eq("owner_id", user.id);
     if (documentError) {

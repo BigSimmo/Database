@@ -11,6 +11,7 @@ import {
   FileCheck2,
   FileText,
   Grid2X2,
+  Palette,
   Pill,
   Plus,
   Search,
@@ -24,8 +25,10 @@ import {
 import { type FormEvent, useMemo, useState } from "react";
 
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { cn } from "@/components/ui-primitives";
+import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
+import { cn, toneInfo, toneSuccess, toneWarning } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
+import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import {
   toolCatalogRecords,
   type ToolCatalogArea,
@@ -184,9 +187,9 @@ function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutra
     <span
       className={cn(
         "inline-flex min-h-6 items-center gap-1 rounded-md border px-2 text-2xs font-bold leading-none",
-        tone === "source" && "border-emerald-200 bg-emerald-50 text-emerald-700",
-        tone === "safety" && "border-orange-200 bg-orange-50 text-orange-700",
-        tone === "high" && "border-blue-200 bg-blue-50 text-blue-700",
+        tone === "source" && toneSuccess,
+        tone === "safety" && toneWarning,
+        tone === "high" && toneInfo,
         tone === "neutral" &&
           "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
       )}
@@ -666,11 +669,12 @@ export function ApplicationsLauncherWorkspace({
   desktopComposerSlotId,
   className,
 }: ApplicationsLauncherWorkspaceProps) {
+  const searchCommand = useSearchCommand();
   const [localQuery, setLocalQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
   const [detailOpen, setDetailOpen] = useState(false);
   const copy = toolsLauncherCopy;
-  const query = controlledQuery ?? localQuery;
+  const query = controlledQuery ?? searchCommand?.query ?? localQuery;
   const normalizedQuery = query.trim().toLowerCase();
   const queryDerivedId = useMemo(() => initialToolId(query), [query]);
   const [selection, setSelection] = useState(() => ({
@@ -711,7 +715,7 @@ export function ApplicationsLauncherWorkspace({
       : copy.allSectionLabel;
 
   function updateQuery(nextQuery: string) {
-    if (controlledQuery === undefined) setLocalQuery(nextQuery);
+    if (controlledQuery === undefined && !searchCommand) setLocalQuery(nextQuery);
   }
 
   function openTool(id: string) {
@@ -820,6 +824,19 @@ export function ApplicationsLauncherWorkspace({
         </p>
       </section>
 
+      <div className="mx-auto mt-6 flex w-full max-w-[86rem] justify-center">
+        <Link
+          href="/reference/colour-coding"
+          className={cn(
+            "inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+            focusRing,
+          )}
+        >
+          <Palette className="h-3.5 w-3.5" aria-hidden />
+          Colour coding reference
+        </Link>
+      </div>
+
       <ModeHomeVerificationFooter icon={ShieldCheck} label="Clinical tools" body="Source-backed workflows" />
 
       <DetailDialog app={selectedApp} open={detailOpen} onClose={() => setDetailOpen(false)} />
@@ -827,6 +844,6 @@ export function ApplicationsLauncherWorkspace({
   );
 }
 
-export function ApplicationsLauncherPage() {
-  return <ApplicationsLauncherWorkspace />;
+export function ApplicationsLauncherPage({ query }: { query?: string }) {
+  return <ApplicationsLauncherWorkspace query={query} desktopComposerSlotId={modeHomeDesktopComposerSlotId} />;
 }

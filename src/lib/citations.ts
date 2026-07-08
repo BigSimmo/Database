@@ -115,3 +115,7 @@ export function compactCitations(results: SearchResult[], limit = 6) {
 
   return citations;
 }
+
+export function allowedChunkMap(results: SearchResult[]) {
+  return new Map(results.map((result) => [result.id, result]));
+}

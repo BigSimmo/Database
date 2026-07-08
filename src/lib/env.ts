@@ -76,11 +76,13 @@ const envSchema = z.object({
   RAG_RANKING_CONFIG: z.string().optional(),
   // P8b extension: when strict-AND text retrieval returns weak-but-nonzero matches (sparse
   // result set or negligible top text_rank), append OR-relaxed recall behind the strict
-  // matches. Kill switch for the golden retrieval eval: set false to restore
-  // relax-only-on-empty behaviour without a code change.
+  // matches. Default OFF: with it on, the golden retrieval eval measured OR-noise displacing
+  // the expected document out of top-5 (opioid-withdrawal-doses docRecall@5 1.0 -> 0.0) —
+  // "append-only" at the RPC merge is not append-only after re-ranking. Opt-in experiment
+  // flag only; re-enable solely behind a fresh 34/34 golden run.
   RAG_TEXT_WEAK_OR_RELAXATION: z
     .enum(["true", "false"])
-    .default("true")
+    .default("false")
     .transform((value) => value === "true"),
   RAG_ANSWER_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(300000),
   RAG_ANSWER_CACHE_SIZE: z.coerce.number().int().nonnegative().default(100),
@@ -180,6 +182,20 @@ export function requireServerEnv(): {
 export function requireOpenAIEnv() {
   if (!env.OPENAI_API_KEY) {
     throw new Error("Missing OPENAI_API_KEY. See .env.example.");
+  }
+}
+
+// Clinical query text is redacted to a keyed HMAC pseudonym before it is logged
+// (see query-privacy.ts). Without RAG_QUERY_HASH_SECRET the hash silently degrades
+// to an unsalted, dictionary-reversible SHA-256, which defeats the redaction: a
+// reader of the log tables can hash candidate patient/drug strings offline and match
+// rows. Production must fail closed rather than log real clinical queries under the
+// weak digest. See docs/privacy-impact-assessment.md (PIA-2).
+export function requireQueryHashSecret() {
+  if (!env.RAG_QUERY_HASH_SECRET) {
+    throw new Error(
+      "Missing RAG_QUERY_HASH_SECRET. It is required in production so logged clinical-query hashes are keyed HMAC-SHA256 pseudonyms, not offline-reversible SHA-256. Set a random secret (min 16 chars). See docs/privacy-impact-assessment.md (PIA-2).",
+    );
   }
 }
 

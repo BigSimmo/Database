@@ -628,7 +628,7 @@ describe("retrieval source selection", () => {
   });
 });
 
-describe("saturated-score tie-breaking (pre-clamp)", () => {
+describe("saturated-score tie-breaking", () => {
   function saturatedExplanation(preClampFinalScore: number): NonNullable<SearchResult["score_explanation"]> {
     return {
       vectorScore: 0.9,
@@ -651,10 +651,13 @@ describe("saturated-score tie-breaking (pre-clamp)", () => {
     };
   }
 
-  it("orders fully-tied saturated candidates by pre-clamp score, not chunk id", () => {
-    // Both results are identical on every primary signal (score, lexical, rerank all tie at the
-    // 1.0 clamp). Without the pre-clamp tiebreak, ordering would fall through to
-    // chunkId.localeCompare and pick "chunk-a" first; the higher pre-clamp sum must win instead.
+  it("orders fully-tied saturated candidates by stable chunk id, ignoring pre-clamp boost magnitude", () => {
+    // Regression guard for the PR #325 golden-eval regression: tie-breaking selection by the
+    // pre-clamp boost sum re-ordered saturated top-5 sets by boost-stacking magnitude and buried
+    // golden documents (alcohol-ciwa-threshold and clozapine-cbc-abbreviation-threshold
+    // docRecall@5 1.0 -> 0.0, measured live 2026-07-07). The pre-clamp deep tiebreak belongs in
+    // rankClinicalResults (below the engineered rankingTieBreakScore); at the selection layer,
+    // fully-tied candidates must keep the stable chunk-id order that rankClinicalResults produced.
     const higherPreClamp = source({
       id: "chunk-b",
       hybrid_score: 1,
@@ -676,6 +679,6 @@ describe("saturated-score tie-breaking (pre-clamp)", () => {
       maxResultsPerDocument: 2,
     });
 
-    expect(selection.results.map((item) => item.id)).toEqual(["chunk-b", "chunk-a"]);
+    expect(selection.results.map((item) => item.id)).toEqual(["chunk-a", "chunk-b"]);
   });
 });

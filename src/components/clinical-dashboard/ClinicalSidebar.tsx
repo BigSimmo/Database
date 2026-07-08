@@ -22,7 +22,14 @@ import {
 } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
-import { cn, sidebarItem, statusDotReady, textMuted } from "@/components/ui-primitives";
+import {
+  cn,
+  fieldControlWithIcon,
+  fieldIcon,
+  sidebarItem,
+  statusDotReady,
+  textMuted,
+} from "@/components/ui-primitives";
 
 function useClientMounted() {
   return useSyncExternalStore(
@@ -161,14 +168,14 @@ export function ClinicalSidebarContent({
           pinned. */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto">
         <label className="relative block shrink-0">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
+          <Search className={fieldIcon} />
           <input
             type="search"
             placeholder="Search chats"
             value={chatFilter}
             onChange={(event) => setChatFilter(event.target.value)}
             aria-label="Search recent chats"
-            className="clinical-sidebar-search-input h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+            className={cn(fieldControlWithIcon, "font-medium")}
           />
         </label>
 

@@ -189,7 +189,15 @@ export function medicationToSearchResult(match: MedicationSearchMatch): Medicati
   };
 }
 
-export function rankMedicationRecords(records: MedicationRecord[], query: string, limit = 50): MedicationSearchMatch[] {
+export function rankMedicationRecords(
+  records: MedicationRecord[],
+  query: string,
+  limit = 50,
+  // Low-weight synonym/acronym/alias terms (e.g. from analyzeClinicalQuery) threaded into the
+  // shared ranker's expanded lane: they add recall via the content haystack without competing
+  // with exact name/prefix scoring. Empty by default so existing callers are unchanged.
+  expansions: string[] = [],
+): MedicationSearchMatch[] {
   return rankCatalogRecords(records, query, {
     fields: [
       {
@@ -215,6 +223,7 @@ export function rankMedicationRecords(records: MedicationRecord[], query: string
     exactBonus: 10,
     prefixValues: (medication) => [normalizeSearchText(medication.name), normalizeSearchText(medication.slug)],
     prefixBonus: 5,
+    expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
     limit,
     tieBreak: (left, right) => left.name.localeCompare(right.name),
   }).map(({ record, score, signals }) => ({
@@ -230,15 +239,7 @@ export function rankMedicationRecords(records: MedicationRecord[], query: string
   }));
 }
 
-export function medicationIdentityBadges(record: MedicationRecord) {
-  const badges: Array<{ label: string; tone?: "clinical" | "success" | "danger" | "warning" | "neutral" | "info" }> =
-    [];
-  if (record.tag) badges.push({ label: record.tag, tone: "neutral" });
-  if (record.schedule) badges.push({ label: record.schedule, tone: record.schedule === "S8" ? "danger" : "info" });
-  const brand = firstRowValue(record, "form", "brand");
-  if (brand) badges.push({ label: brand, tone: "neutral" });
-  return badges;
-}
+export { medicationIdentityBadges } from "@/lib/medication-badges";
 
 export function medicationDetailTiles(record: MedicationRecord) {
   const usualDose = medicationUsualDose(record);

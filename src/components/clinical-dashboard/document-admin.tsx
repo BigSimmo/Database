@@ -724,6 +724,7 @@ export function DocumentDrawer({
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           placeholder={mode === "source" ? "Find a source PDF" : "Find a document"}
+          aria-label={mode === "source" ? "Find a source PDF" : "Find a document"}
           className={fieldControlWithIcon}
         />
       </label>

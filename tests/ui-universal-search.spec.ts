@@ -91,3 +91,57 @@ test.describe("universal search typeahead", () => {
     await expect(page).not.toHaveURL(/\/medications\//);
   });
 });
+
+// Smart affordances: query interpretation banner, pinned best-bet, and the Answer-mode bridge.
+// The endpoint is mocked with the enriched response fields runUniversalSearch now returns.
+const smartPayload = {
+  ...universalPayload,
+  interpretation: {
+    correctedQuery: "acamprosate",
+    typoCorrections: [{ from: "acamprosat", to: "acamprosate" }],
+    queryClass: "medication_dose_risk",
+    intent: "drug_dosing",
+  },
+  domainOrder: ["medications", "forms"],
+  topHit: {
+    id: "acamprosate",
+    kind: "medications",
+    title: "Acamprosate",
+    subtitle: "Alcohol dependence — maintenance of abstinence",
+    href: "/medications/acamprosate",
+    score: 22,
+    badge: "S4",
+    confident: true,
+    reason: "Best match in medications",
+  },
+  answerAction: { href: "/?mode=answer&q=acamprosat&run=1", label: "Ask this question" },
+};
+
+test.describe("universal search smart affordances", () => {
+  async function mockSmartSearch(page: Page) {
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      await route.fulfill({ json: smartPayload });
+    });
+  }
+
+  test("shows the interpretation banner, a Best match, and an Ask-this bridge", async ({ page }) => {
+    await mockSmartSearch(page);
+    const input = await openComposer(page);
+    await input.fill("acamprosat");
+
+    await expect(page.getByText(/Showing results for/)).toBeVisible();
+    await expect(page.getByText("Best match")).toBeVisible();
+    await expect(page.getByRole("option", { name: /Ask this question/ })).toBeVisible();
+  });
+
+  test("the Ask-this bridge navigates into Answer mode", async ({ page }) => {
+    await mockSmartSearch(page);
+    const input = await openComposer(page);
+    await input.fill("acamprosat");
+
+    const ask = page.getByRole("option", { name: /Ask this question/ });
+    await expect(ask).toBeVisible();
+    await ask.click();
+    await expect(page).toHaveURL(/mode=answer/);
+  });
+});

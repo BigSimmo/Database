@@ -96,6 +96,18 @@ OPTIONS:
     const aliases = parseSearchAliases("| delirium | confusion, fluctuation |");
     expect(aliases.delirium).toContain("confusion");
   });
+
+  it("drops the document preamble and weight-table rows from presets and aliases", () => {
+    const presets = parseScenarioPresets(
+      `# Scenario Presets\n\nIntro prose mentioning Entry 26.\n\n## 1. Older adult acute confusion\n- **Query:** \`older adult acute confusion\``,
+    );
+    expect(presets).toHaveLength(1);
+    expect(presets[0]?.query).toBe("older adult acute confusion");
+
+    const aliases = parseSearchAliases("| tags | 1.1 |\n| delirium | confusion, 2.0, fluctuation |");
+    expect(aliases.tags).toBeUndefined();
+    expect(aliases.delirium).toEqual(["confusion", "fluctuation"]);
+  });
 });
 
 describe("differential records", () => {

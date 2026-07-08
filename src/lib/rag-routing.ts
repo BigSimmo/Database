@@ -599,3 +599,7 @@ export function shouldRetryWithStrongAfterFast(args: {
   if (args.route.reason === "clinical_fast_grounded_synthesis") return solidSourceSupport;
   return solidSourceSupport && args.results.length >= 2;
 }
+
+export function appendRoutingReason(reason: string | undefined, addition: string) {
+  return reason ? `${reason}; ${addition}` : addition;
+}

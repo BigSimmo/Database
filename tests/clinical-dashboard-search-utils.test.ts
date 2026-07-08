@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   answerPayloadIsUsable,
+  classifyAnswerError,
   isRetryableError,
   keywordQueryFromNaturalLanguage,
   makeSearchError,
@@ -59,5 +60,19 @@ describe("clinical dashboard search utilities", () => {
   it("formats retry progress without exposing impossible counts", () => {
     expect(progressForRetry(1)).toBe("Retrying...");
     expect(progressForRetry(10)).toBe("Retrying... (2/2)");
+  });
+
+  it("classifies a 404 as a calm no-results outcome and everything else as a retryable failure", () => {
+    // The executor uses makeSearchError("No usable results were found.", 404, false) as the empty-result sentinel.
+    expect(classifyAnswerError(makeSearchError("No usable results were found.", 404, false))).toBe("no-results");
+    expect(classifyAnswerError(makeSearchError("Answer generation failed.", 500, true))).toBe("failure");
+    expect(classifyAnswerError(makeSearchError("Search request was not authorized by the server.", 401))).toBe(
+      "failure",
+    );
+    // Bare network TypeError and unknown non-error values must never masquerade as no-results.
+    expect(classifyAnswerError(new TypeError("Failed to fetch"))).toBe("failure");
+    expect(classifyAnswerError(new Error("Search failed"))).toBe("failure");
+    expect(classifyAnswerError(null)).toBe("failure");
+    expect(classifyAnswerError("boom")).toBe("failure");
   });
 });
