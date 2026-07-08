@@ -63,24 +63,62 @@ alone is ~3 × 6.75 s of parallel DB CPU.**
 
 ## 2. Findings (ranked)
 
-### F1 — `match_document_table_facts_text` is already pathological: 6.75 s at 2k docs, ~linear in corpus (CRITICAL, live today)
+### F1 — `match_document_table_facts_text` is slow, but the cause is a generic query plan, not the predicate — CORRECTED 2026-07-08 (CRITICAL, live today)
 
-The candidate predicate ends in
-`or similarity(lower(coalesce(table_title,'')||' '||row_label||' '||clinical_parameter||' '||threshold_value||' '||action), query) >= 0.18`
-(schema.sql:3087-3100). This disjunct is unindexable twice over: the expression
-concatenates **five** columns while the trigram GIN index covers **three**
-(`document_table_facts_title_row_param_trgm_idx`), and `similarity(x,y) >= k`
-never uses a GIN index anyway (only the `%` operator with
-`pg_trgm.similarity_threshold` does). The OR therefore forces a full scan of
-all 35k rows computing per-row `similarity()` plus two `regexp_split_to_array`
-calls in the rank expression. Measured 6.75 s; the answer path calls it up to
-three times in parallel (rag.ts:2955-2961). At 10× (~350k rows): **~60-70 s per
-call** — the RPC is effectively down, and three concurrent copies of it will
-monopolize the connection pool. Mitigation (smallest safe): rewrite the fuzzy
-disjunct to `lower(...3-column expr...) % query.normalized` so it matches the
-existing index expression and uses the `%` operator (set
-`pg_trgm.similarity_threshold` locally), or gate the trigram arm behind
-"tsv/terms arms returned nothing". Verify with the same explain harness.
+**The original diagnosis in this section was wrong**, and the fix it proposed
+(rewrite the fuzzy disjunct to the `%` operator) **has already been applied to
+live** and did not help. Re-profiling on live (read-only) established the real
+cause:
+
+- Live `match_document_table_facts_text` already uses three bounded CTEs
+  (`fts_matches` / `term_matches` / `trgm_matches`), and the trigram arm already
+  uses `lower(3-col) % q.normalized` against
+  `document_table_facts_title_row_param_trgm_idx`. Each arm in isolation is fast:
+  measured **0.36 ms** (tsv `@@`), **5.5 ms** (`normalized_terms &&`), **158 ms**
+  (trigram `%`), and the full body with a **literal** query value runs in
+  **70 ms**.
+- Yet the RPC call itself measures **5.3 s**. The gap is a classic
+  **generic-plan** problem: the function is `LANGUAGE sql STABLE` **with
+  `SET search_path`**, which makes it non-inlinable, so its body is planned once
+  with an unknown parameter `$1`. The planner cannot estimate trigram/tsv
+  selectivity for an unknown text value, so it picks conservative
+  (near-seq-scan) join/scan strategies. Every call pays that bad plan.
+- Verification (live, read-only): `SET plan_cache_mode = force_custom_plan`
+  before the call drops it from **5.3 s → ~1.1 s** (≈4.8×). The residual gap to
+  the 70 ms literal-plan time is because `plan_cache_mode` only partially
+  reaches a non-inlined SQL function's cached body plan.
+
+**Mitigation (smallest safe, pure performance — results are byte-identical, so
+no eval:retrieval:quality gate is required):**
+
+```sql
+alter function public.match_document_table_facts_text(text, integer, uuid[], uuid)
+  set plan_cache_mode = 'force_custom_plan';
+```
+
+Body-agnostic (targets the function by argument signature), so it applies
+cleanly to the live CTE-form function without touching or colliding with the
+separate schema.sql↔live body drift on this RPC (schema.sql still carries the
+old pre-CTE body **and a 13-column return signature** vs live's 12-column CTE
+form — that reconciliation belongs to the drift backlog, not here). Delivers
+≈4.8× (5.3 s → ~1.1 s). Apply the same `plan_cache_mode` setting to the other
+non-inlined hybrid RPCs that showed the same signature (memory-cards 687 ms,
+index-units 444 ms, embedding-fields 520 ms) — same generic-plan cause, same
+one-line fix.
+
+**Full fix (recovers 5.3 s → ~70 ms, ≈75×, still results-identical, larger
+change):** convert the function to `LANGUAGE plpgsql` and run the body via
+`RETURN QUERY EXECUTE '<body>' USING …`. Dynamic `EXECUTE` re-plans per call
+with the actual bound values (a one-shot custom plan), sidestepping the cached
+generic plan entirely. Worth doing given the answer path calls this RPC up to
+three times in parallel (`rag.ts`), but it needs the drifted body reconciled to
+live first.
+
+Not runnable from the review environment: applying either fix needs the linked
+`supabase` CLI (operator credentials) — `db push`/`link` are not authenticated
+here, and the project's migration policy forbids `db push` on its divergent
+history. The `alter function` above is safe to run directly (dashboard SQL
+editor or a committed migration) since it changes only the plan mode.
 
 ### F2 — Index-unit "hybrid" retrieval has no vector arm at all; the missing HNSW index is being masked (HIGH, correctness-at-scale)
 
@@ -187,9 +225,13 @@ index_generation_id is not null`.
 
 ## 4. Ranked mitigation list
 
-1. **F1**: make the table-facts trigram disjunct indexable (`%` operator +
-   3-column expression matching the existing index) or short-circuit it.
-   Unbreaks the worst RPC today; mandatory before any growth.
+1. **F1** (corrected — the trigram `%` rewrite is already live and did not
+   help): `alter function public.match_document_table_facts_text(text, integer,
+uuid[], uuid) set plan_cache_mode = 'force_custom_plan';` — the RPC is slow
+   because the non-inlined SQL function runs a generic plan for an unknown
+   query value (5.3 s), not because of the predicate. Pure-performance, no eval
+   gate; ≈4.8× (→ ~1.1 s). Same one-liner for the memory-cards / index-units /
+   embedding-fields hybrids. Full ≈75× fix = plpgsql + `EXECUTE`. See §2 F1.
 2. **F3**: `set local hnsw.ef_search = greatest(match_count*6, 64)` (or enable
    iterative scan) inside the three vector-arm RPCs. One-line recall fix,
    eval-gate with `npm run eval:retrieval` content_mrr@10.
