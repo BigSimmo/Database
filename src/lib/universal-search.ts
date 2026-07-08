@@ -89,8 +89,7 @@ export type UniversalSearchResponse = {
   domainOrder?: UniversalSearchDomain[];
   topHit?: UniversalSearchTopHit;
   answerAction?: UniversalSearchAnswerAction;
-  demoMode?: boolean;
-  publicAccess?: boolean;
+  // demoMode / publicAccess are attached by the route to its JSON response, not by runUniversalSearch.
 };
 
 export type RunUniversalSearchArgs = {
