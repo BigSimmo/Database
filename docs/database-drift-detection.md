@@ -106,13 +106,18 @@ live project need explicit operator approval.
    `match_document_chunks_text` / `match_document_table_facts_text` (richer
    multi-strategy), `match_document_chunks_hybrid` (left-join quality_score),
    plus `match_documents_for_query`, `get_related_document_metadata`,
-   `retrieval_owner_matches`, `match_document_memory_cards_hybrid`,
-   `repair_strict_enrichment_gate_batch`. Applying the OLD `20260705210000`
-   bodies would regress live, so it is neutralized. Codify the **live** bodies
-   into schema.sql + a new migration (a generation script, not hand-editing —
-   the bodies are complex and actively churning) so the repo matches live and a
-   `db push` never regresses it. These are the currently-allowlisted retrieval
-   entries.
+   `match_document_memory_cards_hybrid`, `repair_strict_enrichment_gate_batch`.
+   Applying the OLD `20260705210000` bodies would regress live, so it is
+   neutralized. Codify the **live** bodies into schema.sql + a new migration (a
+   generation script, not hand-editing — the bodies are complex and actively
+   churning) so the repo matches live and a `db push` never regresses it. These
+   are the currently-allowlisted retrieval entries.
+   - **Partially reconciled 2026-07-08:** `retrieval_owner_matches` was in this
+     group by mistake — its **body is identical** to schema.sql; it only drifted
+     on `search_path` (live `pg_catalog` vs repo `pg_temp`) and ACL. The
+     search_path half is now codified into schema.sql + the manifest `def_hash`
+     (verified read-only against live via `schema_drift_snapshot`); only the
+     PUBLIC-execute ACL remains allowlisted, same as `search_document_chunks`.
 1. ✅ **DONE 2026-07-08** — applied `20260706010000`, `20260706130000`,
    `20260706200000`, `20260707000000` to live (verified). `check:drift` can now
    run against live once a service-role key is available in the environment.
