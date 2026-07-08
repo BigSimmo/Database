@@ -1,6 +1,11 @@
 import { loadEnvConfig } from "@next/env";
 import type { Json } from "@/lib/supabase/database.types";
-import { DEFAULT_REVIEW_CYCLE_YEARS, deriveUnknownStatus } from "@/lib/unknown-status-derivation";
+import {
+  DEFAULT_REVIEW_CYCLE_YEARS,
+  UNKNOWN_STATUS_DERIVATION_VERSION,
+  deriveUnknownStatus,
+  unknownStatusDerivationBasis,
+} from "@/lib/unknown-status-derivation";
 
 loadEnvConfig(process.cwd());
 
@@ -41,7 +46,6 @@ type DocumentRow = {
 };
 
 const APPLY = process.argv.includes("--apply");
-const DERIVATION_VERSION = "unknown_status_cycle_v1";
 
 function reviewCycleYears() {
   const raw = process.env.REVIEW_CYCLE_YEARS;
@@ -105,8 +109,8 @@ async function main() {
     metadata.document_status = result.status;
     metadata.review_date = result.reviewDate;
     metadata.review_date_inferred = true;
-    metadata.unknown_status_derivation_version = DERIVATION_VERSION;
-    metadata.unknown_status_derivation_basis = `inferred from publication_date + ${REVIEW_CYCLE_YEARS}-year standard review cycle; no explicit review date in source`;
+    metadata.unknown_status_derivation_version = UNKNOWN_STATUS_DERIVATION_VERSION;
+    metadata.unknown_status_derivation_basis = unknownStatusDerivationBasis(REVIEW_CYCLE_YEARS);
     metadata.unknown_status_derived_at = new Date().toISOString();
     derived.push({ document, metadata, reviewDate: result.reviewDate, status: result.status });
   }

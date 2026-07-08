@@ -1,5 +1,10 @@
 import { loadEnvConfig } from "@next/env";
 import type { Json } from "@/lib/supabase/database.types";
+import {
+  UNKNOWN_STATUS_DERIVATION_VERSION,
+  deriveUnknownStatus,
+  unknownStatusDerivationBasis,
+} from "@/lib/unknown-status-derivation";
 
 loadEnvConfig(process.cwd());
 
@@ -481,6 +486,17 @@ function deriveMetadata(document: DocumentRow, text: string, quality: QualityRow
   const extractedDates = extractDates(text);
   const dates = publisherCode === "BMJ" ? { ...extractedDates, review: null } : extractedDates;
   const documentStatus = documentStatusFor(dates, publisherCode);
+  // Automatic review-cycle inference: when no explicit/derivable review date
+  // exists but a publication date does, infer the status from the standard
+  // review cycle (same logic as `scripts/derive-unknown-status.ts`). Documents
+  // with NO date signal stay "unknown" so they remain visible to users, never
+  // hidden or marked outdated.
+  const inferredUnknownStatus =
+    documentStatus === "unknown" && dates.publication?.date
+      ? deriveUnknownStatus(dates.publication.date, { now: NOW })
+      : null;
+  const derivedStatus = inferredUnknownStatus?.kind === "derived" ? inferredUnknownStatus.status : documentStatus;
+  const inferredReviewDate = inferredUnknownStatus?.kind === "derived" ? inferredUnknownStatus.reviewDate : null;
   const existingValidation = String(metadata.clinical_validation_status ?? "unverified");
   const clinicalValidation = clinicalValidationEvidenceFor({
     publisherCode,
@@ -497,8 +513,13 @@ function deriveMetadata(document: DocumentRow, text: string, quality: QualityRow
   setIfChanged(metadata, "source_type", sourceTypeFor(document, text), changedKeys);
   setIfChanged(metadata, "category", categoryFor(document), changedKeys);
   setIfChanged(metadata, "publication_date", dates.publication?.date, changedKeys);
-  setIfChanged(metadata, "review_date", dates.review?.date, changedKeys);
-  setIfChanged(metadata, "document_status", documentStatus, changedKeys);
+  setIfChanged(metadata, "review_date", dates.review?.date ?? inferredReviewDate ?? undefined, changedKeys);
+  setIfChanged(metadata, "document_status", derivedStatus, changedKeys);
+  if (inferredReviewDate) {
+    setIfChanged(metadata, "review_date_inferred", true, changedKeys);
+    setIfChanged(metadata, "unknown_status_derivation_version", UNKNOWN_STATUS_DERIVATION_VERSION, changedKeys);
+    setIfChanged(metadata, "unknown_status_derivation_basis", unknownStatusDerivationBasis(), changedKeys);
+  }
   setIfChanged(metadata, "clinical_validation_status", clinicalValidationStatus, changedKeys);
   setIfChanged(
     metadata,
@@ -518,7 +539,12 @@ function deriveMetadata(document: DocumentRow, text: string, quality: QualityRow
     "source_metadata_backfill_basis",
     {
       publisher: publisherCode ? "filename/source_path code" : "not inferred",
-      document_status: dates.review?.raw ?? dates.lastUpdated?.raw ?? "not inferred",
+      document_status:
+        dates.review?.raw ??
+        dates.lastUpdated?.raw ??
+        (inferredReviewDate
+          ? `inferred review ${inferredReviewDate} from publication ${dates.publication?.date} + review cycle`
+          : "not inferred"),
       publication_date: dates.publication?.raw ?? "not inferred",
       clinical_validation_status: clinicalValidation.basis,
       extraction_quality: quality

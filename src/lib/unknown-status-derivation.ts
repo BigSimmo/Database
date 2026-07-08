@@ -13,6 +13,13 @@
 
 export const DEFAULT_REVIEW_CYCLE_YEARS = 3;
 
+/** Metadata version stamp written when a status is derived from the review cycle. */
+export const UNKNOWN_STATUS_DERIVATION_VERSION = "unknown_status_cycle_v1";
+
+/** Human-readable basis recorded alongside a cycle-inferred status. */
+export function unknownStatusDerivationBasis(reviewCycleYears = DEFAULT_REVIEW_CYCLE_YEARS) {
+  return `inferred from publication_date + ${reviewCycleYears}-year standard review cycle; no explicit review date in source`;
+}
 export type UnknownStatusDerivation =
   | { kind: "derived"; reviewDate: string; status: "current" | "review_due" }
   | { kind: "skip"; reason: "no_publication_date" | "unparseable_publication_date" | "future_publication_date" };
