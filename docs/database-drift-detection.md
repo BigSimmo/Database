@@ -123,8 +123,13 @@ live project need explicit operator approval.
    indexes after `pg_stat_user_indexes` scan verification; reshape 3
    (`import_batches_status_created_idx`, `ingestion_jobs_document_status_idx`,
    `ingestion_jobs_status_next_run_idx`).
-8. **Constraints**: add `ingestion_job_stages_job_id_fkey` to live; align the
-   `rag_visual_eval_*` document FK definitions.
+8. **Constraints**: ~~add `ingestion_job_stages_job_id_fkey` to live~~ RESOLVED
+   (audit R24e, migration `20260708140000`) — the FK was **removed from
+   schema.sql** instead of added to live. Live never had it; the edge agent
+   writes an `indexing_v3_agent_jobs` id into `job_id` (not an `ingestion_jobs`
+   id), and live carries 253 stage rows with no matching job, so a FK would
+   break the agent and fail VALIDATE. Still open: align the `rag_visual_eval_*`
+   document FK definitions.
 9. **`invoke_ingestion_worker`** hardcodes the project URL — migrate to the
    GUC pattern (`20260702160000` precedent).
 10. **Migration-chain fidelity** (affects Supabase Preview/branches, not

@@ -473,7 +473,13 @@ create table if not exists public.ingestion_jobs (
 
 create table if not exists public.ingestion_job_stages (
   id uuid primary key default gen_random_uuid(),
-  job_id uuid not null references public.ingestion_jobs(id) on delete cascade,
+  -- Audit R24e: intentionally NOT a foreign key to ingestion_jobs. The edge
+  -- agent's stageStart writes the indexing_v3_agent_jobs id here (not an
+  -- ingestion_jobs id), and live already carries 253 stage rows whose job_id
+  -- has no ingestion_jobs match (job deletions leave audit-log stages behind).
+  -- A FK would fail VALIDATE against those rows and would break the agent on
+  -- fresh/preview databases. Kept as an opaque correlation id to match live.
+  job_id uuid not null,
   document_id uuid not null references public.documents(id) on delete cascade,
   stage_name text not null,
   stage_status text not null default 'started'

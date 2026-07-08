@@ -285,10 +285,12 @@ describe("Supabase schema Data API grants", () => {
 
   it("keeps indexing-v3 enrichment claiming separate from raw ingestion jobs", () => {
     expect(schema).toContain("create table if not exists public.ingestion_job_stages");
-    expect(schema).toContain("job_id uuid not null references public.ingestion_jobs(id) on delete cascade");
-    expect(indexingV3AgentWorkerHardeningMigration).toContain(
-      "drop constraint if exists ingestion_job_stages_job_id_fkey",
-    );
+    // Audit R24e: job_id is intentionally NOT a foreign key to ingestion_jobs —
+    // the edge agent writes an indexing_v3_agent_jobs id there and live carries
+    // orphan stage rows, so a FK would break the agent and fail VALIDATE. The
+    // 20260625 hardening migration historically added the FK; 20260708140000
+    // drops it and schema.sql no longer declares it.
+    expect(schema).not.toContain("job_id uuid not null references public.ingestion_jobs(id)");
     expect(indexingV3AgentWorkerHardeningMigration).toContain(
       "add constraint ingestion_job_stages_job_id_fkey foreign key (job_id) references public.ingestion_jobs(id) on delete cascade",
     );
