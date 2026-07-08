@@ -564,6 +564,8 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain(
       "create or replace function public.retrieval_owner_matches(owner_filter uuid, row_owner_id uuid)",
     );
+    expect(schema).toContain("when owner_filter is null then false");
+    expect(schema).not.toContain("when owner_filter is null then true");
     expect(schema).toContain(
       "when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null",
     );
