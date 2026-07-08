@@ -869,10 +869,9 @@ describe("Supabase Preview replay guards", () => {
     );
   });
 
-  it("drops match_document_chunks_text before retrieval owner sentinel rewrites it", () => {
-    expect(retrievalOwnerFilterSentinelMigration).toContain(
-      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
-    );
+  it("keeps retrieval owner sentinel migration neutralized to avoid replay regressions", () => {
+    expect(retrievalOwnerFilterSentinelMigration).toContain("NEUTRALIZED 2026-07-08");
+    expect(retrievalOwnerFilterSentinelMigration).toContain("select 1 where false;");
   });
 
   it("guards pg_cron retention schedules for preview branches without cron.job", () => {

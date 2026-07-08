@@ -1,5 +1,5 @@
 {
-  "_comment": "Known live-vs-schema.sql divergence measured 2026-07-07 (see docs/database-drift-detection.md). Every entry must carry a reason; check:drift reports matches as warnings and fails on anything NOT listed here. Remove entries as the reconciliation backlog lands.",
+  "_comment": "Known live-vs-schema.sql divergence. BASELINE measured 2026-07-07; the safe pending migrations were APPLIED to live 2026-07-08 (search_schema_health M13 guard, embedding-fields-text owner fix, schema_drift_snapshot RPC, codify-observed-drift no-op, storage-cleanup index reshape). Migration 20260705210000 was NEUTRALIZED (would have regressed live retrieval). The live project is under active concurrent multi-session editing, so this allowlist is a point-in-time snapshot and needs regeneration (npm run drift:manifest + refresh) once churn settles. Every entry carries a reason; check:drift fails on anything NOT listed here.",
   "entries": [
     {
       "category": "constraints",
@@ -40,7 +40,7 @@
       "category": "functions",
       "key": "public.get_related_document_metadata(uuid[],uuid)",
       "kind": "mismatch",
-      "reason": "Pending migration 20260705210000_retrieval_owner_filter_sentinel (owner-sentinel rewrite) not yet applied to live; resolves on the next approved supabase db push. Remove after apply.",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
@@ -54,42 +54,42 @@
       "category": "functions",
       "key": "public.match_document_chunks(extensions.vector,integer,double precision,uuid,uuid)",
       "kind": "mismatch",
-      "reason": "Pending migration 20260705210000_retrieval_owner_filter_sentinel (owner-sentinel rewrite) not yet applied to live; resolves on the next approved supabase db push. Remove after apply.",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
       "category": "functions",
       "key": "public.match_document_chunks_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)",
       "kind": "mismatch",
-      "reason": "Pending migration 20260705210000_retrieval_owner_filter_sentinel (owner-sentinel rewrite) not yet applied to live; resolves on the next approved supabase db push. Remove after apply.",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
       "category": "functions",
       "key": "public.match_document_chunks_text(text,integer,uuid[],uuid)",
       "kind": "mismatch",
-      "reason": "Pending migration 20260705210000_retrieval_owner_filter_sentinel (owner-sentinel rewrite) not yet applied to live; resolves on the next approved supabase db push. Remove after apply.",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
       "category": "functions",
       "key": "public.match_document_embedding_fields_text(text,integer,double precision,uuid[],uuid)",
       "kind": "mismatch",
-      "reason": "Pending migration 20260706130000_fix_embedding_fields_text_owner_sentinel not yet applied to live. Remove after apply.",
+      "reason": "APPLIED to live 2026-07-08 via migration 20260706130000 (embedding-fields-text owner sentinel); live now matches schema.sql. Entry retained until the drift manifest is regenerated; safe to remove then. (Live may re-drift from concurrent multi-session edits.)",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
       "category": "functions",
       "key": "public.match_document_table_facts_text(text,integer,uuid[],uuid)",
       "kind": "mismatch",
-      "reason": "Pending migration 20260705210000_retrieval_owner_filter_sentinel (owner-sentinel rewrite) not yet applied to live; resolves on the next approved supabase db push. Remove after apply.",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
       "category": "functions",
       "key": "public.match_documents_for_query(text,integer,uuid)",
       "kind": "mismatch",
-      "reason": "Pending migration 20260705210000_retrieval_owner_filter_sentinel (owner-sentinel rewrite) not yet applied to live; resolves on the next approved supabase db push. Remove after apply.",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
@@ -103,14 +103,14 @@
       "category": "functions",
       "key": "public.repair_strict_enrichment_gate_batch(integer)",
       "kind": "mismatch",
-      "reason": "Pending migration 20260705210000_retrieval_owner_filter_sentinel (owner-sentinel rewrite) not yet applied to live; resolves on the next approved supabase db push. Remove after apply.",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
       "category": "functions",
       "key": "public.retrieval_owner_matches(uuid,uuid)",
       "kind": "mismatch",
-      "reason": "Pending migration 20260705210000_retrieval_owner_filter_sentinel (owner-sentinel rewrite) not yet applied to live; resolves on the next approved supabase db push. Remove after apply.",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
@@ -138,7 +138,7 @@
       "category": "functions",
       "key": "public.search_schema_health()",
       "kind": "mismatch",
-      "reason": "Pending migration 20260706010000_search_schema_health_m13_guard not yet applied to live. Remove after apply.",
+      "reason": "APPLIED to live 2026-07-08 via migration 20260706010000 (search_schema_health M13 guard); live now matches schema.sql. Entry retained until the drift manifest is regenerated; safe to remove then. (Live may re-drift from concurrent multi-session edits.)",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
@@ -722,35 +722,6 @@
       "key": "rag_retrieval_logs_owner_id_idx",
       "kind": "unexpected_live",
       "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "indexes",
-      "key": "storage_cleanup_jobs_document_idx",
-      "kind": "alias",
-      "live_key": "storage_cleanup_jobs_document_id_idx",
-      "reason": "Same index shape lives under a legacy migration-era name on live (search_schema_health index_aliases class). Rename on live via approved migration to retire this alias.",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "indexes",
-      "key": "storage_cleanup_jobs_owner_id_idx",
-      "kind": "unexpected_live",
-      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "indexes",
-      "key": "storage_cleanup_jobs_owner_status_idx",
-      "kind": "missing_live",
-      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "indexes",
-      "key": "storage_cleanup_jobs_status_created_idx",
-      "kind": "mismatch",
-      "reason": "Migration 20260703030000_reconcile_storage_cleanup_jobs_indexes is RECORDED as applied in live history but its effects are absent (partial index shape missing). Needs migration repair + re-apply with approval.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
