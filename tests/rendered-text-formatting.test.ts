@@ -20,11 +20,15 @@ describe("document-derived text must route through a formatter", () => {
   // the code as it moves out — assertions check the combined dashboard surfaces.
   const answerContent = componentSource("clinical-dashboard/answer-content.tsx");
   const evidenceContent = componentSource("clinical-dashboard/evidence-panels.tsx");
+  // evidenceMapRowsFromRenderModel (the evidence-map row projection) was extracted here so the
+  // dashboard can import it without the heavy evidence-panels chunk; scan it so its formatter
+  // guard travels with the code.
+  const evidenceMapModel = componentSource("clinical-dashboard/evidence-map-model.ts");
   const outputPanel = componentSource("clinical-dashboard/output-panel.tsx");
   const visualEvidence = componentSource("clinical-dashboard/visual-evidence.tsx");
   const documentResults = componentSource("clinical-dashboard/document-results.tsx");
   const answerResultSurface = componentSource("clinical-dashboard/answer-result-surface.tsx");
-  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}\n${outputPanel}\n${visualEvidence}\n${documentResults}\n${answerResultSurface}`;
+  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}\n${evidenceMapModel}\n${outputPanel}\n${visualEvidence}\n${documentResults}\n${answerResultSurface}`;
 
   it("renders exact quotes through the verbatim cleaner, never raw", () => {
     // Allow `${quote.quote}` inside template literals (React keys, clipboard text);

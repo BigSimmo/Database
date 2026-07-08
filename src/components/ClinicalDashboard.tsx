@@ -43,10 +43,8 @@ import {
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
-import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
@@ -77,7 +75,7 @@ import {
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
 import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
-import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-panels";
+import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { answerRecovery, errorCopy } from "@/lib/ui-copy";
@@ -113,7 +111,23 @@ const DocumentDrawer = dynamic(
   { ssr: false },
 );
 
-import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clinical-dashboard/document-search-results";
+// Results surfaces load lazily: they only render after a submitted search/answer, so their chunk
+// downloads behind the (multi-second) retrieval/answer request rather than bloating the initial
+// answer-home bundle. The answer surface keeps the same skeleton as generation to avoid a flash.
+const StagedAnswerResultSurface = dynamic(
+  () => import("@/components/clinical-dashboard/answer-result-surface").then((m) => m.StagedAnswerResultSurface),
+  { ssr: false, loading: () => <AnswerSkeleton /> },
+);
+const RelatedDocumentsPanel = dynamic(
+  () => import("@/components/clinical-dashboard/document-results").then((m) => m.RelatedDocumentsPanel),
+  { ssr: false },
+);
+const DocumentSearchResultsPanel = dynamic(
+  () => import("@/components/clinical-dashboard/document-search-results").then((m) => m.DocumentSearchResultsPanel),
+  { ssr: false },
+);
+
+import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
@@ -336,7 +350,12 @@ function findSseSeparator(buffer: string) {
   return match ? { index: match.index, length: match[0].length } : null;
 }
 
-async function readAnswerStream(response: Response, onProgress: (message: string) => void): Promise<AnswerPayload> {
+async function readAnswerStream(
+  response: Response,
+  onProgress: (message: string) => void,
+  onToken?: (delta: string) => void,
+  onRevising?: () => void,
+): Promise<AnswerPayload> {
   if (!response.body) throw makeSearchError("Answer stream could not be opened.", undefined, true);
 
   const reader = response.body.getReader();
@@ -360,6 +379,15 @@ async function readAnswerStream(response: Response, onProgress: (message: string
     if (event === "progress") {
       const message = answerStreamProgressMessage(data);
       if (message) onProgress(message);
+      return;
+    }
+    if (event === "token") {
+      const delta = data && typeof data === "object" ? (data as { delta?: unknown }).delta : null;
+      if (typeof delta === "string" && delta) onToken?.(delta);
+      return;
+    }
+    if (event === "revising") {
+      onRevising?.();
       return;
     }
     if (event === "error") {
@@ -413,6 +441,34 @@ async function readAnswerStream(response: Response, onProgress: (message: string
   if (buffer.trim() && processEvent(buffer.trim()) && finalPayload) return finalPayload as AnswerPayload;
   if (!finalPayload) throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
   return finalPayload as AnswerPayload;
+}
+
+// Provisional view shown while an answer streams in. The prose is content-preserving (the same
+// text the final payload will carry); the caret conveys that generation is still in flight. On a
+// quality-gate escalation the pipeline sends a `revising` signal and this switches to a neutral
+// "revising for accuracy" state so a clinician never acts on soon-to-be-replaced text.
+function StreamingAnswerPreview({ text, revising }: { text: string; revising: boolean }) {
+  if (revising) {
+    return (
+      <div className={cn(answerSurface, "p-4")} data-testid="answer-streaming-revising" aria-live="polite">
+        <div className="flex items-center gap-2 text-sm font-medium text-[color:var(--text-muted)]">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Revising for accuracy…
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={cn(answerSurface, "p-4")} data-testid="answer-streaming" aria-live="polite">
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-[color:var(--text)]">
+        {text}
+        <span
+          className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-[color:var(--text-muted)] align-text-bottom"
+          aria-hidden
+        />
+      </p>
+    </div>
+  );
 }
 
 function normalizeNavigationHash(hash: string) {
@@ -786,6 +842,11 @@ export function ClinicalDashboard({
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
+  // In-progress streamed answer prose (content-preserving — the final committed answer still comes
+  // from the parsed `final` payload). null between searches; `{ text, revising }` while generating.
+  // `revising` = the quality gates dropped a provisional answer and are re-generating, so a
+  // "revising for accuracy" state shows instead of stale text.
+  const [streamingAnswer, setStreamingAnswer] = useState<{ text: string; revising: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Companion state for `error`, used to pick the right recovery UI (retry vs.
   // a calm no-results panel) and to re-run the exact query that failed. Only read
@@ -1691,6 +1752,7 @@ export function ClinicalDashboard({
     onProgress: (message: string) => void = setAnswerProgress,
     signal?: AbortSignal,
   ) {
+    setStreamingAnswer(null);
     let response: Response;
     try {
       response = await fetch("/api/answer/stream", {
@@ -1725,7 +1787,12 @@ export function ClinicalDashboard({
 
     let payload: AnswerPayload;
     try {
-      payload = await readAnswerStream(response, onProgress);
+      payload = await readAnswerStream(
+        response,
+        onProgress,
+        (delta) => setStreamingAnswer((prev) => ({ text: (prev?.text ?? "") + delta, revising: false })),
+        () => setStreamingAnswer({ text: "", revising: true }),
+      );
     } catch (error) {
       if (answerTimedOutRef.current) throw answerTimedOutError();
       if (isAbortError(error)) throw error;
@@ -3356,7 +3423,11 @@ export function ClinicalDashboard({
                     </>
                   )
                 ) : showAnswerPending ? (
-                  <AnswerSkeleton />
+                  streamingAnswer && (streamingAnswer.text || streamingAnswer.revising) ? (
+                    <StreamingAnswerPreview text={streamingAnswer.text} revising={streamingAnswer.revising} />
+                  ) : (
+                    <AnswerSkeleton />
+                  )
                 ) : answer && answerRenderModel ? (
                   stagedDashboardExtraction.answerSurface ? (
                     <>
