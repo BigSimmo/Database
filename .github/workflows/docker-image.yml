@@ -1,0 +1,71 @@
+name: Docker image build
+
+# Validates that the production app and worker images build cleanly from the
+# tree — the deploy contract in docs/deployment-architecture.md ("Images are
+# built from main"). Runs the exact `npm ci` + `next build` the Fly.io / Cloud
+# Run deploy runs, on a runner with enough memory for the build's 8 GiB heap
+# (local Docker Desktop OOMs on this build; GitHub runners have ~16 GiB).
+#
+# Non-blocking: this is a standalone workflow, not part of the required `verify`
+# check. Nothing is pushed to a registry — the build either succeeds or fails.
+# Gated to main / release / dispatch / schedule (not every PR) to bound CI cost;
+# run it on a branch on demand via the "Run workflow" button.
+
+on:
+  push:
+    branches: [main, "release/**"]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * 0"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  app-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build app image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          # The publishable key is public-by-design and only inlines into the
+          # client bundle, so the CI placeholder is enough to validate the build.
+          # Real production images are built with the real key at deploy time.
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-ci-publishable-key
+
+  worker-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build worker image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.worker
+          push: false
