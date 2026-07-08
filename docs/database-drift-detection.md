@@ -91,17 +91,34 @@ live inventory. 166 divergent keys, fully classified:
 Ordered; each item removes allowlist entries when it lands. Items touching the
 live project need explicit operator approval.
 
-1. **Apply the pending migrations** (`supabase db push` after review):
-   `20260705210000` (owner-sentinel rewrite — 8 live function bodies stale),
-   `20260706010000` (search_schema_health M13 guard), `20260706130000`
-   (embedding-fields-text sentinel), `20260706200000` (drift snapshot RPC —
-   required before check:drift can run at all), `20260707000000` (codification
-   wave; no-op on live by construction).
-2. **`20260703030000` is recorded as applied but its effects are absent on
-   live** (storage_cleanup_jobs still has the legacy index names and the
-   non-partial status index). Recorded-but-ineffective is the exact original
-   incident class, recurring. Re-apply its idempotent statements under a new
-   version with approval; do not trust history presence.
+> **2026-07-08 update:** the safe pending migrations were **applied to live**
+> (`20260706010000`, `20260706130000`, `20260706200000`, `20260707000000`, and
+> `20260708000000` re-applying `20260703030000`'s storage-index effects — items 1
+> and 2 below are DONE, verified byte-faithful + site retrieval green).
+> `20260705210000` was **NOT applied and was neutralized** — the investigation
+> found live had diverged _forward_ from its retrieval bodies (item 0, new).
+> Live is under active concurrent multi-session editing, so the allowlist is a
+> point-in-time snapshot needing periodic regeneration.
+
+0. **NEW — forward-codify the live-ahead retrieval RPCs** (was the "apply
+   20260705210000" item, inverted). Live carries newer raw-SQL retrieval bodies
+   than the repo: `match_document_chunks` (hnsw.ef_search=100 plpgsql wrapper),
+   `match_document_chunks_text` / `match_document_table_facts_text` (richer
+   multi-strategy), `match_document_chunks_hybrid` (left-join quality_score),
+   plus `match_documents_for_query`, `get_related_document_metadata`,
+   `retrieval_owner_matches`, `match_document_memory_cards_hybrid`,
+   `repair_strict_enrichment_gate_batch`. Applying the OLD `20260705210000`
+   bodies would regress live, so it is neutralized. Codify the **live** bodies
+   into schema.sql + a new migration (a generation script, not hand-editing —
+   the bodies are complex and actively churning) so the repo matches live and a
+   `db push` never regresses it. These are the currently-allowlisted retrieval
+   entries.
+1. ✅ **DONE 2026-07-08** — applied `20260706010000`, `20260706130000`,
+   `20260706200000`, `20260707000000` to live (verified). `check:drift` can now
+   run against live once a service-role key is available in the environment.
+2. ✅ **DONE 2026-07-08** — `20260703030000`'s effects (recorded-but-absent on
+   live) re-applied via `20260708000000_reapply_storage_cleanup_jobs_indexes`;
+   live storage_cleanup_jobs indexes now match schema.sql.
 3. **Codify the remaining live-only functions**: `get_visual_evidence_cards`,
    `repair_enrichment_quality_batch`, `run_all_visual_eval_cases`,
    `run_visual_eval_case` (same pattern as `20260707000000`).
