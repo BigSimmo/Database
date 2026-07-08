@@ -2048,6 +2048,13 @@ export type Database = {
         Args: { p_document_id?: string | null; p_dry_run?: boolean; p_limit?: number };
         Returns: Json;
       };
+      apply_document_metadata_patch: {
+        Args: {
+          p_document_id: string;
+          p_metadata_patch?: Json;
+        };
+        Returns: undefined;
+      };
       commit_document_index_generation: {
         Args: {
           p_chunk_count?: number;
@@ -2059,6 +2066,13 @@ export type Database = {
           p_pages?: Json;
           p_quality?: Json;
           p_status?: string;
+        };
+        Returns: Json;
+      };
+      jsonb_merge_deep: {
+        Args: {
+          patch_obj?: Json;
+          target_obj?: Json;
         };
         Returns: Json;
       };

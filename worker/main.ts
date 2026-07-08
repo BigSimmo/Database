@@ -167,9 +167,23 @@ async function updateJobProgress(jobId: string, patch: { stage: string; progress
 }
 
 async function updateDocument(documentId: string, patch: TablesUpdate<"documents">) {
-  const sanitized = patch.metadata ? { ...patch, metadata: sanitizeJsonbRecord(patch.metadata) } : patch;
-  const { error } = await supabase.from("documents").update(sanitized).eq("id", documentId);
-  if (error) throw supabaseStageError("update document", error);
+  const { metadata, ...remainingPatch } = patch as TablesUpdate<"documents">;
+  const updatePayload = remainingPatch;
+  const hasUpdatePayload = Object.keys(updatePayload).length > 0;
+  if (hasUpdatePayload) {
+    const { error } = await supabase.from("documents").update(updatePayload).eq("id", documentId);
+    if (error) throw supabaseStageError("update document", error);
+  }
+
+  // R5: deep-merge worker-owned metadata keys onto live documents.metadata so
+  // concurrent renames / bulk-metadata / agent patches survive reclaim races.
+  if (typeof metadata !== "undefined") {
+    const { error } = await supabase.rpc("apply_document_metadata_patch", {
+      p_document_id: documentId,
+      p_metadata_patch: sanitizeJsonbRecord(metadata),
+    });
+    if (error) throw supabaseStageError("apply document metadata patch", error);
+  }
 }
 
 async function markSupersededSiblingJobs(job: JobRow) {
@@ -1677,8 +1691,10 @@ async function processJob(job: JobRow) {
 
     const indexedAt = new Date().toISOString();
     const coreAgentMessage = "Core index committed; enrichment pending.";
+    // R5: send only worker-owned key deltas. apply_document_metadata_patch /
+    // commit_document_index_generation deep-merge onto live metadata so
+    // concurrent renames and agent patches are not clobbered by a stale job snapshot.
     const committedCoreMetadata = {
-      ...(job.documents.metadata ?? {}),
       indexed_at: indexedAt,
       index_generation_id: indexGenerationId,
       rag_enrichment_version: ragEnrichmentVersion,
