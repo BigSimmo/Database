@@ -147,6 +147,8 @@ export function rankServiceRecords(
   records: ServiceRecord[],
   query: string,
   limit = records.length,
+  // Low-weight synonym/acronym/alias terms (see rankMedicationRecords) for the expanded lane.
+  expansions: string[] = [],
 ): ServiceSearchMatch[] {
   return rankCatalogRecords(records, query, {
     fields: [
@@ -164,6 +166,7 @@ export function rankServiceRecords(
     phraseBonus: 4,
     broadTerms: ["service", "services", "pathway", "pathways"],
     broadBonus: 1,
+    expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
     limit,
     tieBreak: (left, right) => left.title.localeCompare(right.title),
   }).map(({ record, score, signals }) => ({

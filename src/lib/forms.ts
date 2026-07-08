@@ -277,7 +277,13 @@ export function formNavigatorQuery(form: FormRecord) {
   );
 }
 
-export function rankFormRecords(records: FormRecord[], query: string, limit = records.length): FormSearchMatch[] {
+export function rankFormRecords(
+  records: FormRecord[],
+  query: string,
+  limit = records.length,
+  // Low-weight synonym/acronym/alias terms (see rankMedicationRecords) for the expanded lane.
+  expansions: string[] = [],
+): FormSearchMatch[] {
   const normalizedQuery = normalizeSearchText(query);
   if (!normalizedQuery) return [];
   // A bare "service(s)" query belongs to the services catalogue, not forms.
@@ -306,6 +312,7 @@ export function rankFormRecords(records: FormRecord[], query: string, limit = re
       "assessment",
     ],
     broadBonus: 1,
+    expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
     limit,
     // No tieBreak: forms historically tie-break by catalogue (input) order, which is the
     // generic ranker's default.
