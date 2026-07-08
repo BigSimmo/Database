@@ -1589,6 +1589,32 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(parentNodeErrors).toEqual([]);
   });
 
+  test("prescribing workflow shows full mobile action text without horizontal cutoff", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
+
+    const acamprosateCard = page.getByTestId("medication-result-acamprosate-phone");
+    await expect(acamprosateCard).toBeVisible({ timeout: 30_000 });
+    await expect(acamprosateCard).toContainText("Contraindicated in renal insufficiency");
+    await expect(acamprosateCard).toContainText("micromol/L");
+
+    const actionOverflow = await acamprosateCard.evaluate((card) => {
+      const action = Array.from(card.querySelectorAll("p")).find((node) =>
+        node.textContent?.includes("Contraindicated in renal insufficiency"),
+      );
+      if (!action) return { found: false, overflows: true };
+      return {
+        found: true,
+        overflows: action.scrollWidth > action.clientWidth + 1,
+        textOverflow: getComputedStyle(action).textOverflow,
+      };
+    });
+    expect(actionOverflow.found).toBe(true);
+    expect(actionOverflow.overflows).toBe(false);
+    expect(actionOverflow.textOverflow).not.toBe("ellipsis");
+  });
+
   test("document search mode lists matching documents and scope actions", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
