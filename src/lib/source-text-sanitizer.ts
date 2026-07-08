@@ -6,7 +6,14 @@ const leadingImageDataBlockRemainderPattern = /^[\s\S]*?\[\[IMAGE_DATA_END\]\]/g
 // bookkeeping that must never render or be copied.
 const omittedImageDataBlockPattern = /\[\[IMAGE_DATA_OMITTED\]\][\s\S]*?\[\[\/IMAGE_DATA_OMITTED\]\]/g;
 const omittedImageDataMarkerPattern = /\[\[\/?IMAGE_DATA_OMITTED\]\]/g;
-const evidenceFenceSentinelPattern = /<<<(?:END_)?[A-Z][A-Z0-9_]{0,63}>>>/g;
+// Case-INSENSITIVE: a forged close-then-reopen only needs to match the model's
+// parse of the fence, and models read `<<<end_source_excerpt>>>` the same as the
+// uppercase form. Matching only ALL-CAPS (the pre-hardening behaviour) let a
+// lowercase/mixed-case forged sentinel straddle the real block (threat model
+// Vector E / INJ-3, INJ-12). The real wrapper is added by fenceSourceEvidence
+// AFTER escaping runs on the inner text, so broadening this never escapes the
+// genuine outer fence.
+const evidenceFenceSentinelPattern = /<<<(?:END[_-]?)?[A-Za-z][A-Za-z0-9_]{0,63}>>>/gi;
 
 const internalImageMetadataPattern =
   /\b(?:Image ID|Source kind|Image type|Table role|Clinical use class|Clinical use reason|Clinical signal score|Admin signal score|Storage path|Image path)\s*:\s*[^;|]+[;|]?\s*/gi;
@@ -219,7 +226,15 @@ function stripLowYieldLines(value: string) {
       const isControlLine = sourceControlLinePattern.test(normalized);
       const hasSourceMarker =
         sourceDocumentCodeTestPattern.test(normalized) || pageBoilerplateTestPattern.test(normalized);
-      const hasClinicalSignal = clinicalSignalPattern.test(normalized);
+      // H2 (line-level): extraction glues control markers ("Document owner:",
+      // "review date") onto body text, and several callers compact the whole
+      // excerpt to a single line before this filter runs — so dropping the
+      // line deletes clinical content along with the marker. A line carrying
+      // threshold-bearing values ("8 or below", "3 to 15") must survive even
+      // when it lacks a clinical keyword, same generous bias as the
+      // fragment-level rescue below.
+      const hasClinicalSignal =
+        clinicalSignalPattern.test(normalized) || clinicalThresholdSignalPattern.test(normalized);
       if (isControlLine && !hasClinicalSignal) return false;
       if (hasSourceMarker && normalized.length <= 140 && !hasClinicalSignal) return false;
       return true;

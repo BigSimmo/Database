@@ -534,6 +534,23 @@ describe("Supabase schema Data API grants", () => {
     expect(functionBody).toContain("f.metadata");
   });
 
+  it("declares the corpus topic term stats function with retrieval-equivalent scoping", () => {
+    // Finding #11 corpus grounding (migration 20260707100000): the stats the unsupported
+    // soft tail grounds on must be scoped exactly like retrieval — owner filter, indexed
+    // status, and committed generation — and stay service_role-only.
+    expect(schema).toContain("create or replace function public.corpus_topic_term_stats(");
+    const corpusStatsBody = schema.slice(
+      schema.indexOf("create or replace function public.corpus_topic_term_stats("),
+      schema.indexOf("create or replace function public.match_document_chunks("),
+    );
+    expect(corpusStatsBody).toContain("public.retrieval_owner_matches(owner_filter, d.owner_id)");
+    expect(corpusStatsBody).toContain("d.status = 'indexed'");
+    expect(corpusStatsBody).toContain("public.is_committed_document_generation(c.index_generation_id, d.metadata)");
+    expect(corpusStatsBody).toContain(
+      "grant execute on function public.corpus_topic_term_stats(text[], uuid) to service_role;",
+    );
+  });
+
   it("filters hybrid retrieval by owner inside Postgres", () => {
     expect(schema).toContain("owner_filter uuid default null");
     expect(schema).toContain(

@@ -1197,6 +1197,40 @@ export const ragEvalCases: RagEvalCase[] = [
     minCitations: 0,
     latencyTargetMs: 2000,
   },
+  // Finding #11 invented-term controls (docs/process-hardening.md): bare topic-shaped queries
+  // built from terms the corpus has NEVER seen. Corpus grounding must classify them
+  // out_of_corpus (the invented head noun is chunk-absent) and refuse deterministically —
+  // without the LLM classifier lottery that used to decide these. The scaffolding words
+  // ("syndrome", "disorder", "treatment", "management") are all corpus-present, so these also
+  // prove that generic-word presence alone cannot rescue an invented topic.
+  {
+    id: "unsupported-invented-florbizone",
+    question: "florbizone syndrome management",
+    category: "unsupported",
+    suite: "false_positive",
+    relevanceGrade: "unsupported",
+    expectedQueryClass: "unsupported_or_general",
+    falsePositiveControl: true,
+    supported: false,
+    expectedFiles: [],
+    allowedRoutes: ["unsupported"],
+    minCitations: 0,
+    latencyTargetMs: 4000,
+  },
+  {
+    id: "unsupported-invented-quxbyria",
+    question: "quxbyria disorder treatment",
+    category: "unsupported",
+    suite: "false_positive",
+    relevanceGrade: "unsupported",
+    expectedQueryClass: "unsupported_or_general",
+    falsePositiveControl: true,
+    supported: false,
+    expectedFiles: [],
+    allowedRoutes: ["unsupported"],
+    minCitations: 0,
+    latencyTargetMs: 4000,
+  },
 ];
 
 export function selectRagEvalCases(args: { limit?: number; question?: string }) {

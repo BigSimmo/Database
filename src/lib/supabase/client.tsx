@@ -14,6 +14,8 @@ type AuthContextValue = {
   session: Session | null;
   status: AuthStatus;
   error: string | null;
+  /** Non-error confirmation (e.g. "check your email"); rendered as a success status, not an alert. */
+  notice: string | null;
   isConfigured: boolean;
   authorizationHeader: Record<string, string>;
   signInWithEmail: (email: string) => Promise<void>;
@@ -96,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<AuthStatus>(client ? "loading" : "unconfigured");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!client) return () => undefined;
@@ -118,8 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus(data.session ? "authenticated" : "signed_out");
         if (data.session) {
           setError(null);
+          setNotice(null);
         } else if (callbackError) {
           setError(decodeURIComponent(callbackError));
+          setNotice(null);
         }
       } catch {
         if (!active) return;
@@ -135,7 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = client.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setStatus(nextSession ? "authenticated" : "signed_out");
-      if (nextSession) setError(null);
+      if (nextSession) {
+        setError(null);
+        setNotice(null);
+      }
     });
 
     return () => {
@@ -147,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const requireClient = useCallback(() => {
     if (client) return client;
     setStatus("unconfigured");
+    setNotice(null);
     setError("Supabase browser authentication is not configured.");
     return null;
   }, [client]);
@@ -157,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!active) return;
       setStatus("loading");
       setError(null);
+      setNotice(null);
       const { error: signInError } = await active.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: authCallbackRedirect() },
@@ -167,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       setStatus("signed_out");
-      setError("Check your email for the sign-in link.");
+      setNotice("Check your email for the sign-in link.");
     },
     [requireClient],
   );
@@ -178,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!active) return;
       setStatus("loading");
       setError(null);
+      setNotice(null);
       const { error: signInError } = await active.auth.signInWithPassword({ email, password });
       if (signInError) {
         setStatus("error");
@@ -194,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!active) return;
       setStatus("loading");
       setError(null);
+      setNotice(null);
       const { data, error: signUpError } = await active.auth.signUp({
         email,
         password,
@@ -207,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // With "Confirm email" ON, no session is returned until confirmation.
       if (!data.session) {
         setStatus("signed_out");
-        setError("Check your email to confirm your account, then sign in.");
+        setNotice("Check your email to confirm your account, then sign in.");
       }
     },
     [requireClient],
@@ -219,6 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!active) return;
       setStatus("loading");
       setError(null);
+      setNotice(null);
       const { error: oauthError } = await active.auth.signInWithOAuth({
         provider,
         options: { redirectTo: authCallbackRedirect() },
@@ -239,32 +252,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setStatus("signed_out");
     setError(null);
+    setNotice(null);
   }, [client]);
 
   const markSessionExpired = useCallback(() => {
     clearPersistedAnswerThread();
     setSession(null);
     setStatus("expired");
+    setNotice(null);
     setError("Your session expired. Sign in again to use private documents.");
   }, []);
 
   const accessToken = session?.access_token ?? null;
   const authorizationHeader = useMemo(() => authorizationHeadersForAccessToken(accessToken), [accessToken]);
 
-  const value: AuthContextValue = {
-    client,
-    session,
-    status,
-    error,
-    isConfigured: Boolean(client),
-    authorizationHeader,
-    signInWithEmail,
-    signInWithPassword,
-    signUpWithPassword,
-    signInWithOAuth,
-    signOut,
-    markSessionExpired,
-  };
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      client,
+      session,
+      status,
+      error,
+      notice,
+      isConfigured: Boolean(client),
+      authorizationHeader,
+      signInWithEmail,
+      signInWithPassword,
+      signUpWithPassword,
+      signInWithOAuth,
+      signOut,
+      markSessionExpired,
+    }),
+    [
+      client,
+      session,
+      status,
+      error,
+      notice,
+      authorizationHeader,
+      signInWithEmail,
+      signInWithPassword,
+      signUpWithPassword,
+      signInWithOAuth,
+      signOut,
+      markSessionExpired,
+    ],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

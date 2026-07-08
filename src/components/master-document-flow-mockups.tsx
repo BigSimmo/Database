@@ -274,16 +274,14 @@ function findDocument(slug: string | null) {
   return documents.find((document) => document.slug === slug) ?? defaultDocument;
 }
 
-function findEvidence(document: DocumentFixture, id: string | null) {
-  return document.evidence.find((evidence) => evidence.id === id) ?? primaryEvidence(document);
+function findEvidence(document: DocumentFixture, id: string | null): EvidenceFixture | undefined {
+  // Only this document's own evidence: falling back to another document's
+  // fixture rendered mismatched evidence under the wrong title on deep links.
+  return document.evidence.find((evidence) => evidence.id === id) ?? document.evidence[0];
 }
 
 function searchHref(query = defaultQuery) {
   return documentsSearchHref({ query });
-}
-
-function primaryEvidence(document: DocumentFixture) {
-  return document.evidence[0] ?? defaultDocument.evidence[0];
 }
 
 function evidenceForType(document: DocumentFixture, type: "all" | EvidenceType) {
@@ -917,7 +915,7 @@ export function MasterDocumentSearch() {
   );
 }
 
-function DocumentPreview({ selectedEvidence }: { selectedEvidence: EvidenceFixture }) {
+function DocumentPreview({ selectedEvidence }: { selectedEvidence?: EvidenceFixture }) {
   return (
     <div className="relative mx-auto max-w-4xl rounded-lg border border-[color:var(--border-lux)] bg-white p-5 shadow-[0_16px_45px_rgb(15_23_42_/_10%)]">
       <div className="space-y-5">
@@ -963,7 +961,7 @@ function DocumentPreview({ selectedEvidence }: { selectedEvidence: EvidenceFixtu
                       key={cell}
                       className="border border-[color:var(--border)] px-3 py-3 font-medium text-[color:var(--text-heading)]"
                     >
-                      {selectedEvidence.type === "table" && rowIndex === 0 ? (
+                      {selectedEvidence?.type === "table" && rowIndex === 0 ? (
                         <mark className="rounded bg-amber-100 px-1 py-0.5">{cell}</mark>
                       ) : (
                         cell
@@ -1218,9 +1216,11 @@ export function MasterDocumentReader() {
             <DocumentPreview selectedEvidence={selectedEvidence} />
             <div className="mx-auto hidden max-w-4xl flex-wrap items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-soft)] sm:flex">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-extrabold text-[color:var(--text-heading)]">Highlighted hit 1 of 3</p>
+                <p className="text-sm font-extrabold text-[color:var(--text-heading)]">
+                  {selectedEvidence ? "Highlighted hit 1 of 3" : "No extracted evidence"}
+                </p>
                 <p className="truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                  {selectedEvidence.title}
+                  {selectedEvidence ? selectedEvidence.title : "This document has no extracted evidence yet."}
                 </p>
               </div>
               <button
@@ -1317,7 +1317,7 @@ export function MasterDocumentReader() {
                       document={document}
                       evidence={evidence}
                       query={query}
-                      selected={evidence.id === selectedEvidence.id}
+                      selected={evidence.id === selectedEvidence?.id}
                     />
                   ))}
                 </section>
@@ -1417,7 +1417,7 @@ export function MasterDocumentReader() {
                     document={document}
                     evidence={evidence}
                     query={query}
-                    selected={evidence.id === selectedEvidence.id}
+                    selected={evidence.id === selectedEvidence?.id}
                   />
                 ))}
               </div>
@@ -1524,6 +1524,54 @@ export function MasterEvidenceDetail() {
   const query = searchParams.get("q")?.trim() || defaultQuery;
   const document = findDocument(searchParams.get("document"));
   const evidence = findEvidence(document, searchParams.get("evidence") ?? searchParams.get("chunk"));
+
+  if (!evidence) {
+    return (
+      <DocumentShell hideSidebar>
+        <div className="mx-auto max-w-3xl px-3 py-10 sm:px-5">
+          <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-6 text-center shadow-[var(--shadow-soft)]">
+            <h1 className="text-xl font-extrabold text-[color:var(--text-heading)]">No extracted evidence</h1>
+            <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+              {document.title} has no extracted evidence yet, so there is no evidence detail to show.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              <Link
+                href={documentHref(document, query)}
+                className={cn(
+                  "inline-flex min-h-10 items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]",
+                  focusRing,
+                )}
+              >
+                Open document
+              </Link>
+              <Link
+                href={searchHref(query)}
+                className={cn(
+                  "inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-4 text-sm font-bold text-[color:var(--text-heading)]",
+                  focusRing,
+                )}
+              >
+                Back to results
+              </Link>
+            </div>
+          </div>
+        </div>
+      </DocumentShell>
+    );
+  }
+
+  return <MasterEvidenceDetailContent document={document} evidence={evidence} query={query} />;
+}
+
+function MasterEvidenceDetailContent({
+  document,
+  evidence,
+  query,
+}: {
+  document: DocumentFixture;
+  evidence: EvidenceFixture;
+  query: string;
+}) {
   const [tab, setTab] = useState<EvidenceTab>(
     evidence.type === "quote" ? "Quote" : evidence.type === "image" ? "Image" : "Table",
   );

@@ -1,4 +1,5 @@
-import { Loader2, type LucideIcon } from "lucide-react";
+import { Loader2, X, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import {
   extractionQualityLabel,
   formatClinicalDate,
@@ -74,7 +75,7 @@ export const chatActionRow =
 export const chatMicroAction =
   "inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
 export const sourceCapsule =
-  "source-capsule-hover focus-ring-premium inline-flex min-h-tap items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent)]";
+  "source-capsule-hover focus-ring-premium inline-flex min-h-tap min-w-tap items-center gap-2 rounded-full border border-[color:var(--clinical-accent-border)]/90 bg-[color-mix(in_srgb,var(--clinical-accent-soft)_78%,var(--surface-lux))] px-3.5 py-2 text-xs font-semibold tabular-nums tracking-tight leading-none text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]";
 export const evidenceRow =
   "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 export const clinicalNotesRow =
@@ -126,6 +127,63 @@ export const searchResultsSection =
 export const searchFocusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
+export type NoticeTone = "success" | "warning" | "danger" | "info" | "neutral";
+
+function noticeToneClass(tone: NoticeTone) {
+  if (tone === "success") return toneSuccess;
+  if (tone === "danger") return toneDanger;
+  if (tone === "info") return toneInfo;
+  if (tone === "warning") return toneWarning;
+  return toneNeutral;
+}
+
+/**
+ * Shared inline feedback banner used across surfaces (auth panel, action
+ * notices, upload) so success/warning/error feedback looks and announces the
+ * same everywhere. Success/info announce politely (role=status); warning/danger
+ * assert (role=alert). Pass onDismiss to render a dismiss control.
+ */
+export function InlineNotice({
+  tone,
+  children,
+  onDismiss,
+  dismissLabel = "Dismiss notification",
+  animated = false,
+  className,
+}: {
+  tone: NoticeTone;
+  children: ReactNode;
+  onDismiss?: () => void;
+  dismissLabel?: string;
+  animated?: boolean;
+  className?: string;
+}) {
+  const assertive = tone === "danger" || tone === "warning";
+  return (
+    <div
+      role={assertive ? "alert" : "status"}
+      className={cn(
+        "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium",
+        animated && "motion-safe:animate-fade-up",
+        noticeToneClass(tone),
+        className,
+      )}
+    >
+      <span className="min-w-0">{children}</span>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label={dismissLabel}
+          className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export type SemanticChipTone = "danger" | "info" | "warning" | "success" | "neutral";
 
 export function semanticChipTone(tone: SemanticChipTone | undefined | null) {
@@ -139,29 +197,57 @@ export function semanticChipTone(tone: SemanticChipTone | undefined | null) {
 export function ToggleSwitch({
   enabled,
   className,
+  onToggle,
+  disabled = false,
   "aria-label": ariaLabel,
 }: {
   enabled: boolean;
   className?: string;
+  // When provided the switch is an operable control; when omitted it renders as a
+  // read-only presentational indicator (no interactive role is advertised).
+  onToggle?: () => void;
+  disabled?: boolean;
   "aria-label"?: string;
 }) {
-  return (
+  const track = cn(
+    "relative inline-flex h-6 w-10 shrink-0 rounded-full transition",
+    enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
+    className,
+  );
+  const knob = (
     <span
-      role="switch"
-      aria-checked={enabled}
-      aria-label={ariaLabel}
+      aria-hidden
       className={cn(
-        "relative inline-flex h-6 w-10 shrink-0 rounded-full transition",
-        enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
-        className,
+        "absolute top-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm transition",
+        enabled ? "right-1" : "left-1",
       )}
-    >
-      <span
+    />
+  );
+
+  if (onToggle) {
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        onClick={onToggle}
         className={cn(
-          "absolute top-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm transition",
-          enabled ? "right-1" : "left-1",
+          track,
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50",
         )}
-      />
+      >
+        {knob}
+      </button>
+    );
+  }
+
+  // Read-only: expose the state as an image label so assistive tech announces
+  // on/off without implying the control can be operated.
+  return (
+    <span role="img" aria-label={ariaLabel ? `${ariaLabel}: ${enabled ? "on" : "off"}` : undefined} className={track}>
+      {knob}
     </span>
   );
 }

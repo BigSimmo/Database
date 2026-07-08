@@ -30,6 +30,7 @@ import {
   queryDerivedTokensForStorage,
   queryPrivacyMetadata,
   queryTextForStorage,
+  queryVocabularyAliasesForStorage,
 } from "@/lib/query-privacy";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
@@ -414,8 +415,12 @@ function candidatePromotions(query: string, results: SearchResult[]) {
       document_id: label.document_id,
       confidence: label.confidence,
     }));
+  const rawTokens = queryDerivedTokensForStorage(Array.from(new Set(queryTerms)).slice(0, 10));
   return {
-    aliases: queryDerivedTokensForStorage(Array.from(new Set(queryTerms)).slice(0, 10)),
+    // With raw retention off, fall back to curated clinical-vocabulary matches — output text
+    // comes from the fixed vocabulary table, never the query, so it is RET-H4 safe and keeps
+    // the alias-promotion pipeline fed (rag-hybrid-findings item 17).
+    aliases: rawTokens.length ? rawTokens : queryVocabularyAliasesForStorage(query),
     labels: topLabels,
   };
 }
@@ -528,6 +533,11 @@ function retrievalDecisionTelemetry(telemetry: Record<string, unknown>) {
     second_stage_rerank_used: telemetryBoolean(telemetry, "second_stage_rerank_used"),
     second_stage_rerank_latency_ms: telemetryNumber(telemetry, "second_stage_rerank_latency_ms"),
     visual_direct_image_count: telemetryNumber(telemetry, "visual_direct_image_count"),
+    // RC9/P8b observability: these feed the synthetic-similarity gate recalibration and the
+    // weak-match OR-augmentation review (rag-hybrid-findings items 21 and the P8b extension) —
+    // without persisting them the recalibration has no data to work from.
+    text_or_relaxation_used: telemetryString(telemetry, "text_or_relaxation_used"),
+    synthetic_similarity_count: telemetryNumber(telemetry, "synthetic_similarity_count"),
   };
 }
 

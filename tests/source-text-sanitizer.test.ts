@@ -130,6 +130,26 @@ describe("source text sanitizer", () => {
     expect(usefulness.text).toContain("Assess the patient on admission");
   });
 
+  // H2 line-level residue (found by the fast-check property suite,
+  // 2026-07-06): extraction glues document-control markers onto body text and
+  // stripInternalImageDataBlocks compacts the excerpt to a single line, so the
+  // control-line filter in stripLowYieldLines deleted the whole line — GCS
+  // thresholds included — when the sentence carried values but no clinical
+  // keyword.
+  it("keeps threshold-bearing lines glued to document-control markers (H2 line-level)", () => {
+    const text =
+      "The Glasgow Coma Scale ranges from 3 to 15 with 8 or below indicating severe head injury. Document owner: Pharmacy Department.";
+
+    expect(sourceTextForDisplay(text)).toContain("8 or below");
+    expect(clinicalProseUsefulness(text).text).toContain("ranges from 3 to 15");
+  });
+
+  it("still drops pure document-control lines without clinical values", () => {
+    const text = "Document owner: Pharmacy Department.\nUncontrolled when printed.";
+
+    expect(sourceTextForDisplay(text)).toBe("");
+  });
+
   it("still drops bare-integer title noise like 'Guideline Appendix 1' (H2 guard)", () => {
     const noisy =
       "Dose evidence: LUNSERS (Liverpool University Neuroleptic Side Effect Rating Scale) - using for monitoring Neuroleptic side effect Guideline Appendix 1.";
