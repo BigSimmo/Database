@@ -2,13 +2,19 @@ import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { env } from "@/lib/env";
+import { env, publicUploadsEnabled, publicWorkspaceOwnerId } from "@/lib/env";
 import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
+import {
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSubjectApiRateLimit,
+  rateLimitJsonResponse,
+} from "@/lib/api-rate-limit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
 import { optionalFormText, parseFormDataFields } from "@/lib/validation/form-data";
 
@@ -21,6 +27,60 @@ const uploadMetadataSchema = z
   })
   .strict();
 
+function isContentHashDuplicateError(error: unknown) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : error && typeof error === "object" && "message" in error && typeof error.message === "string"
+        ? error.message
+        : String(error);
+  return (
+    /duplicate key value violates unique constraint/i.test(message) &&
+    /content_hash|documents_owner_content_hash/i.test(message)
+  );
+}
+
+async function duplicateUploadResponse(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  ownerId: string;
+  contentHash: string;
+  storagePath: string | null;
+}) {
+  if (args.storagePath) {
+    const { error: cleanupStorageError } = await args.supabase.storage
+      .from(env.SUPABASE_DOCUMENT_BUCKET)
+      .remove([args.storagePath]);
+    if (cleanupStorageError) {
+      logger.warn("Duplicate upload storage cleanup failed", {
+        storagePath: args.storagePath,
+        message: cleanupStorageError.message,
+      });
+    }
+  }
+
+  const { data: duplicate, error: duplicateError } = await args.supabase
+    .from("documents")
+    .select("id,title,file_name,status,page_count,chunk_count,image_count,created_at")
+    .eq("owner_id", args.ownerId)
+    .eq("content_hash", args.contentHash)
+    .maybeSingle();
+
+  if (duplicateError) throw new Error(duplicateError.message);
+  if (!duplicate?.id) {
+    throw new PublicApiError(
+      "Upload conflicted with an existing document but the duplicate could not be resolved.",
+      409,
+    );
+  }
+
+  return NextResponse.json({
+    document: duplicate,
+    duplicate: true,
+    duplicateReason: "exact_content_hash",
+    message: `Exact copy already exists as "${duplicate.title}"; no duplicate job was queued.`,
+  });
+}
+
 export async function POST(request: Request) {
   let supabase: ReturnType<typeof createAdminClient> | null = null;
   let uploadedPath: string | null = null;
@@ -30,7 +90,25 @@ export async function POST(request: Request) {
   try {
     supabase = createAdminClient();
     const adminSupabase = supabase;
-    const user = await requireAuthenticatedUser(request, adminSupabase);
+    const access = await publicAccessContext(request, adminSupabase);
+    const uploadOwnerId = access.ownerId ?? (publicUploadsEnabled() ? publicWorkspaceOwnerId() : null);
+    if (!uploadOwnerId) {
+      return NextResponse.json({ error: "Public uploads are not configured for this workspace." }, { status: 503 });
+    }
+
+    const rateLimit = await consumeSubjectApiRateLimit({
+      supabase: adminSupabase,
+      subject: access.rateLimitSubject,
+      bucket: "document_upload",
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse(
+        "Document upload is temporarily rate limited because too many requests were received. Retry shortly.",
+        rateLimit,
+      );
+    }
+
     const formData = await request.formData().catch((cause) => {
       throw new PublicApiError("Invalid upload form data.", 400, {
         code: "invalid_form_data",
@@ -53,7 +131,7 @@ export async function POST(request: Request) {
 
     const documentId = randomUUID();
     const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
-    const storagePath = `${user.id}/documents/${documentId}/${safeName}`;
+    const storagePath = `${uploadOwnerId}/documents/${documentId}/${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     // The declared MIME type is client-supplied; verify the real byte signature
     // before persisting a clinical document.
@@ -63,7 +141,7 @@ export async function POST(request: Request) {
     const { data: duplicate, error: duplicateError } = await adminSupabase
       .from("documents")
       .select("id,title,file_name,status,page_count,chunk_count,image_count,created_at")
-      .eq("owner_id", user.id)
+      .eq("owner_id", uploadOwnerId)
       .eq("content_hash", contentHash)
       .maybeSingle();
 
@@ -93,7 +171,7 @@ export async function POST(request: Request) {
     };
     const namePlan = await planDocumentName({
       supabase: namingSupabase,
-      ownerId: user.id,
+      ownerId: uploadOwnerId,
       fileName: file.name,
       requestedTitle: uploadMetadata.title,
       contentHash,
@@ -106,7 +184,7 @@ export async function POST(request: Request) {
       .from("documents")
       .insert({
         id: documentId,
-        owner_id: user.id,
+        owner_id: uploadOwnerId,
         title,
         description,
         file_name: file.name,
@@ -124,7 +202,7 @@ export async function POST(request: Request) {
           review_date: null,
           uploaded_at: uploadedAt,
           indexed_at: null,
-          uploaded_by: user.id,
+          uploaded_by: uploadOwnerId,
           original_file_name: namePlan.originalFileName,
           original_title: namePlan.originalTitle,
           smart_title_base: namePlan.baseTitle,
@@ -142,9 +220,21 @@ export async function POST(request: Request) {
       .select()
       .single();
 
-    if (documentError) throw new Error(documentError.message);
+    if (documentError) {
+      if (isContentHashDuplicateError(documentError)) {
+        insertedDocumentId = null;
+        insertedDocumentOwnerId = null;
+        return duplicateUploadResponse({
+          supabase,
+          ownerId: uploadOwnerId,
+          contentHash,
+          storagePath: uploadedPath,
+        });
+      }
+      throw new Error(documentError.message);
+    }
     insertedDocumentId = documentId;
-    insertedDocumentOwnerId = user.id;
+    insertedDocumentOwnerId = uploadOwnerId;
 
     const { data: job, error: jobError } = await supabase
       .from("ingestion_jobs")
@@ -164,7 +254,7 @@ export async function POST(request: Request) {
         .from("documents")
         .delete()
         .eq("id", documentId)
-        .eq("owner_id", user.id);
+        .eq("owner_id", uploadOwnerId);
       if (rollbackDocumentError) {
         throw new Error(
           `Failed to enqueue ingestion job: ${jobError.message}; rollback failed: ${rollbackDocumentError.message}`,
@@ -176,7 +266,7 @@ export async function POST(request: Request) {
     }
 
     await writeAuditLog(supabase, {
-      ownerId: user.id,
+      ownerId: uploadOwnerId,
       action: "document_upload",
       resourceType: "document",
       resourceId: documentId,

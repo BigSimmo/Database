@@ -87,7 +87,11 @@ export function SearchResultsHeaderBand({
           </label>
         ) : null}
         {onViewChange ? (
-          <div className="inline-flex overflow-hidden rounded-lg border border-[color:var(--border)]" role="group" aria-label="Results view">
+          <div
+            className="inline-flex overflow-hidden rounded-lg border border-[color:var(--border)]"
+            role="group"
+            aria-label="Results view"
+          >
             <button
               type="button"
               aria-pressed={view === "table"}
@@ -95,7 +99,9 @@ export function SearchResultsHeaderBand({
               className={cn(
                 "grid h-9 w-9 place-items-center",
                 focusRing,
-                view === "table" ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
+                view === "table"
+                  ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                  : "text-[color:var(--text-muted)]",
               )}
             >
               <Table2 className="h-4 w-4" aria-hidden />
@@ -108,7 +114,9 @@ export function SearchResultsHeaderBand({
               className={cn(
                 "grid h-9 w-9 place-items-center border-l border-[color:var(--border)]",
                 focusRing,
-                view === "list" ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
+                view === "list"
+                  ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                  : "text-[color:var(--text-muted)]",
               )}
             >
               <LayoutList className="h-4 w-4" aria-hidden />

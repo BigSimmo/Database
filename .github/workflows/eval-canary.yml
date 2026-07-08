@@ -1,0 +1,126 @@
+# Nightly production eval canary. See docs/observability-slos.md §3.
+#
+# Runs the golden retrieval eval (which PR CI can never run — it needs live
+# Supabase + OpenAI keys) plus a small answer-quality subset against the live
+# project, and fails loudly on regression: red run + a GitHub issue on
+# scheduled failures.
+#
+# The schedule only fires from the default branch. After merging, trigger one
+# workflow_dispatch run and confirm it is green before trusting the nightly
+# cadence.
+name: Eval Canary
+
+on:
+  workflow_dispatch:
+    inputs:
+      answer_case_limit:
+        description: "Number of answer-quality cases to run (--limit)"
+        required: false
+        default: "8"
+  schedule:
+    # 18:00 UTC = 02:00 Australia/Perth — off-peak for clinicians.
+    - cron: "0 18 * * *"
+
+concurrency:
+  group: eval-canary
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+  SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
+  SUPABASE_PROJECT_NAME: Clinical KB Database
+  # Evals use the service-role admin client; the publishable key only needs to
+  # satisfy env validation (same placeholder approach as ci.yml).
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  # The live corpus is all-public (owner_id = NULL). Owner-scoped retrieval
+  # fail-closes on a null owner, so the eval must run as the public-owner
+  # sentinel. resolveEvalOwnerId (scripts/eval-utils.ts) defaults to that
+  # sentinel when no owner is set, so deliberately do NOT pin an eval owner
+  # here — pinning the E2E user (who owns 0 public docs) returns 0 candidates
+  # and fails the golden threshold. Set RAG_EVAL_OWNER_ID only if the corpus
+  # is ever re-scoped to a real owner.
+
+jobs:
+  eval-canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preflight required secrets
+        run: |
+          missing=""
+          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          [ -z "$OPENAI_API_KEY" ] && missing="$missing OPENAI_API_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Eval canary cannot run — missing repo secrets:$missing"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Guard Supabase project identity
+        run: npm run check:supabase-project
+
+      - name: Golden retrieval eval (live corpus)
+        run: npm run eval:retrieval:quality -- --fail-on-threshold
+
+      - name: Answer-quality subset (live generation)
+        run: npm run eval:quality -- --rag-only --limit ${{ github.event.inputs.answer_case_limit || '8' }} --fail-on-threshold
+
+      - name: Open or update regression issue
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const label = "eval-canary";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `Nightly eval canary failed on ${new Date().toISOString()}.`,
+              "",
+              `Run: ${runUrl}`,
+              "",
+              "Triage order (docs/observability-slos.md §3): rerun via workflow_dispatch,",
+              "check hybrid_rpc_errors and `npm run check:indexing`, then bisect code.",
+              "A failure can be corpus-state-dependent — confirm before reverting anything.",
+            ].join("\n");
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: label,
+            });
+            if (existing.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: "Eval canary regression: nightly golden eval failed",
+                labels: [label],
+                body,
+              });
+            }

@@ -29,6 +29,12 @@ type TextGenerationOptions = {
   timeoutMs?: number;
   maxRetries?: number;
   signal?: AbortSignal;
+  // When set, the request is streamed and this is invoked with each raw output-text delta as it
+  // arrives. The returned OpenAITextResult is identical to the non-streaming path (same accumulated
+  // text, usage, and completion status), so streaming never changes what is generated — only when
+  // the caller sees it. Retries are disabled for streamed requests (a half-streamed retry would
+  // double-emit), so callers must tolerate that.
+  onOutputTextDelta?: (delta: string) => void;
 };
 
 type ResolvedTextGenerationOptions = Required<Pick<TextGenerationOptions, "model" | "maxOutputTokens">> &
@@ -141,7 +147,7 @@ function requestOptions(options?: Pick<TextGenerationOptions, "operation" | "tim
 function promptCacheKeyFor(operation: OpenAIOperation) {
   switch (operation) {
     case "answer":
-      return "clinical-rag-answer-v17";
+      return "clinical-rag-answer-v18";
     case "summary":
       return "clinical-document-summary-v1";
     case "vision_caption":
@@ -376,20 +382,41 @@ async function createTextResult(
 ): Promise<OpenAITextResult> {
   const operation = options.operation ?? "text_generation";
   const startedAt = Date.now();
+  let streamedRequestId: string | null = null;
+
+  // Buffered (non-streaming) request — the baseline behaviour. The `responses.create` overloads are
+  // incompatible with our generic call-site; the double-cast works around the SDK type mismatch.
+  async function requestBuffered(client: ReturnType<typeof createOpenAIClient>): Promise<unknown> {
+    const request = client.responses.create(responseBody(input, options, format) as never, requestOptions(options));
+    const { data: responseData, request_id } = await unwrapOpenAIResponse(
+      request as unknown as APIPromiseLike<unknown>,
+    );
+    streamedRequestId = request_id ?? null;
+    return responseData;
+  }
 
   try {
     const client = createOpenAIClient();
-    // The `responses.create` overloads are incompatible with our generic call-site; the double-cast
-    // here works around the SDK type mismatch without changing runtime behaviour.
-    const request = client.responses.create(responseBody(input, options, format) as never, requestOptions(options));
-    const { data, request_id: requestId } = await unwrapOpenAIResponse(request as unknown as APIPromiseLike<unknown>);
+    let data: unknown;
+    if (options.onOutputTextDelta) {
+      try {
+        data = await streamResponseData(client, input, options, format);
+      } catch {
+        // A streaming-specific failure must never make the answer worse than the buffered baseline:
+        // fall back to a normal generation so the caller still gets a complete answer. A genuine
+        // API failure (quota/auth) will also throw here and propagate exactly as it would today.
+        data = await requestBuffered(client);
+      }
+    } else {
+      data = await requestBuffered(client);
+    }
     const completion = extractCompletionStatus(data);
     return {
       text: extractOutputText(data),
       model: options.model,
       operation,
       latencyMs: Date.now() - startedAt,
-      requestId: requestId ?? getRequestId(data),
+      requestId: streamedRequestId ?? getRequestId(data),
       usage: extractUsage(data),
       status: completion.status,
       truncated: completion.truncated,
@@ -398,7 +425,39 @@ async function createTextResult(
   } catch (error) {
     throw mapOpenAIError(error, operation);
   }
+
+  // Streamed Responses request: iterate the event stream, forwarding each output-text delta to the
+  // caller, and return the final full Response object (identical shape to the non-streaming path)
+  // captured from the terminal completed/incomplete/failed event. maxRetries is forced to 0 because
+  // a retry mid-stream would re-emit already-delivered deltas.
+  async function streamResponseData(
+    client: ReturnType<typeof createOpenAIClient>,
+    streamInput: OpenAIResponseInput,
+    streamOptions: ResolvedTextGenerationOptions,
+    streamFormat?: Record<string, unknown>,
+  ): Promise<unknown> {
+    const stream = (await client.responses.create(
+      { ...responseBody(streamInput, streamOptions, streamFormat), stream: true } as never,
+      { ...requestOptions(streamOptions), maxRetries: 0 },
+    )) as unknown as AsyncIterable<StreamEvent>;
+    let finalResponse: unknown = null;
+    for await (const event of stream) {
+      if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
+        streamOptions.onOutputTextDelta?.(event.delta);
+      } else if (
+        event.type === "response.completed" ||
+        event.type === "response.incomplete" ||
+        event.type === "response.failed"
+      ) {
+        finalResponse = event.response;
+      }
+    }
+    if (!finalResponse) throw new Error("OpenAI stream ended without a final response.");
+    return finalResponse;
+  }
 }
+
+type StreamEvent = { type: string; delta?: string; response?: unknown };
 
 export function clearOpenAICaches() {
   queryEmbeddingCache.clear();

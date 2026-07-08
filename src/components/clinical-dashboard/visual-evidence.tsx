@@ -29,7 +29,6 @@ import {
   evidenceTabOrder,
   QuoteCards,
   simpleClinicalTableProps,
-  VerificationWorkspace,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { QueryCoverageChips } from "@/components/clinical-dashboard/relevance";
 import {
@@ -145,7 +144,7 @@ function VisualEvidenceStrip({
                     caption={sourceHeader.caption || sourceHeader.title}
                   />
                 </div>
-                <figcaption className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
+                <figcaption className="mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text)] sm:mt-3">
                   {!hasStructuredTable ? <p className="font-semibold">{sourceHeader.title}</p> : null}
                   {!hasStructuredTable && sourceHeader.caption ? <p>{sourceHeader.caption}</p> : null}
                   <AccessibleTable
@@ -165,7 +164,7 @@ function VisualEvidenceStrip({
                   {displayLabels.length ? (
                     <div className="flex flex-wrap gap-1.5">
                       {displayLabels.map((label) => (
-                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>
+                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-3xs")}>
                           {label}
                         </span>
                       ))}
@@ -178,14 +177,14 @@ function VisualEvidenceStrip({
                     clinicalDivider,
                   )}
                 >
-                  <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
+                  <span className={cn("text-base-minus font-semibold leading-6 sm:hidden", textMuted)}>
                     {formatCompactCitationLabel(item)}
                   </span>
                   <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
                     {cleanDisplayTitle(item.title)}, page {item.page_number ?? "n/a"}
                   </span>
                   {item.image_type && (
-                    <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+                    <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
                       {item.image_type.replaceAll("_", " ")}
                     </span>
                   )}
@@ -246,6 +245,11 @@ export function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
           densePreview
           clinicalOnly
           dialogTitle={item.tableTitle || item.caption || title}
+          lowConfidenceFallback={
+            item.signed_url_endpoint ? (
+              <SourceImage endpoint={item.signed_url_endpoint} caption={item.tableTitle || item.caption || title} />
+            ) : undefined
+          }
         />
       </div>
       <div className={cn(tableMicroActionRow, "hidden sm:flex")}>
@@ -378,7 +382,7 @@ function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
           key={`${warning}:${index}`}
           className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2"
         >
-          <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-[10px] font-bold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
+          <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-3xs font-bold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
             {index + 1}
           </span>
           <p className="line-clamp-2 text-xs leading-5 text-[color:var(--text)]">{warning}</p>
@@ -392,7 +396,6 @@ export function MobileEvidenceSheetContent({
   answer,
   sources,
   renderModel,
-  query,
   visualEvidence,
   answerEvidenceMapRows,
   sourceGovernanceWarnings,
@@ -408,7 +411,6 @@ export function MobileEvidenceSheetContent({
   answer: RagAnswer;
   sources: SearchResult[];
   renderModel: AnswerRenderModel;
-  query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   sourceGovernanceWarnings: SourceGovernanceWarning[];
@@ -477,7 +479,7 @@ export function MobileEvidenceSheetContent({
               >
                 <Icon className="h-3.5 w-3.5" />
                 {tab}
-                {count ? <span className="nums text-[11px] opacity-80">{count}</span> : null}
+                {count ? <span className="nums text-2xs opacity-80">{count}</span> : null}
               </button>
             );
           })}
@@ -501,7 +503,6 @@ export function MobileEvidenceSheetContent({
                 <MobileEvidenceTabPanel
                   tab={tab}
                   renderModel={renderModel}
-                  query={query}
                   visualEvidence={visualEvidence}
                   answerEvidenceMapRows={answerEvidenceMapRows}
                   copiedQuotes={copiedQuotes}
@@ -562,7 +563,6 @@ export function MobileEvidenceSheetContent({
 function MobileEvidenceTabPanel({
   tab,
   renderModel,
-  query,
   visualEvidence,
   answerEvidenceMapRows,
   copiedQuotes,
@@ -572,7 +572,6 @@ function MobileEvidenceTabPanel({
 }: {
   tab: EvidenceTabName;
   renderModel: AnswerRenderModel;
-  query: string;
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   copiedQuotes: boolean;
@@ -635,134 +634,4 @@ function MobileEvidenceTabPanel({
   return <EvidenceGapsPanel warnings={renderModel.warnings} />;
 }
 
-function UnifiedEvidenceDrawerContent({
-  answer,
-  renderModel,
-  query,
-  visualEvidence,
-  answerEvidenceMapRows,
-  pendingFeedback,
-  copiedQuotes,
-  onCopyQuotes,
-  onSubmitFeedback,
-  onFollowUpQuote,
-  onScopeDocument,
-}: {
-  answer: RagAnswer;
-  renderModel: AnswerRenderModel;
-  query: string;
-  visualEvidence: VisualEvidenceCard[];
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  pendingFeedback: AnswerFeedbackType | null;
-  copiedQuotes: boolean;
-  onCopyQuotes: () => void;
-  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  const order = evidenceTabOrder(answer, renderModel);
-
-  return (
-    <div className="space-y-4">
-      <VerificationWorkspace
-        renderModel={renderModel}
-        query={query}
-        answerEvidenceMapRows={answerEvidenceMapRows}
-        pendingFeedback={pendingFeedback}
-        onSubmitFeedback={onSubmitFeedback}
-        onScopeDocument={onScopeDocument}
-      />
-
-      <div className="flex flex-wrap gap-1.5" aria-label="Evidence sections">
-        {order.map((item) => (
-          <span key={item} className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
-            {item}
-          </span>
-        ))}
-      </div>
-
-      {order.map((section) => {
-        if (section === "Claims") {
-          return (
-            <section key={section} className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Claims</p>
-              <EvidenceClaimsList rows={answerEvidenceMapRows} renderModel={renderModel} />
-            </section>
-          );
-        }
-
-        if (section === "Tables") {
-          return (
-            <section key={section} className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tables</p>
-              {visualEvidence.some((item) => item.accessibleTableMarkdown || item.tableRows?.length) ? (
-                <div className="grid gap-2">
-                  {visualEvidence
-                    .filter((item) => item.accessibleTableMarkdown || item.tableRows?.length)
-                    .slice(0, 3)
-                    .map((item) => (
-                      <div key={item.id} className={cn(tableCard, "p-3")}>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-[color:var(--text-heading)]">
-                            {compactClinicalTableCaption(item)}
-                          </p>
-                          <span className={cn(metadataPill, "text-[11px]")}>p.{item.page_number ?? "n/a"}</span>
-                        </div>
-                        <div className={cn(tableMicroActionRow, "mt-2 border-t-0 px-0")}>
-                          <Link href={item.viewer_href} className={chatMicroAction}>
-                            Expand
-                          </Link>
-                          <Link href={item.viewer_href} className={chatMicroAction}>
-                            Source
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <EmptyState icon={ListChecks} title={emptyStates.tablesUsed.title} body={emptyStates.tablesUsed.body} />
-              )}
-            </section>
-          );
-        }
-
-        if (section === "Images") {
-          return (
-            <section key={section} className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Images</p>
-              <UtilityDrawer
-                icon={FileImage}
-                title={`Images ${visualEvidence.length}`}
-                summary="Open to view table images, PDF page crops, and figures."
-                mobileSummary={`${visualEvidence.length} images`}
-              >
-                <VisualEvidenceStrip evidence={visualEvidence} embedded />
-              </UtilityDrawer>
-            </section>
-          );
-        }
-
-        if (section === "Quotes") {
-          return (
-            <section key={section} className="space-y-2">
-              <QuoteCards
-                quotes={renderModel.quoteCards}
-                copiedQuotes={copiedQuotes}
-                onCopyQuotes={onCopyQuotes}
-                onFollowUp={onFollowUpQuote}
-                onScopeDocument={onScopeDocument}
-              />
-            </section>
-          );
-        }
-
-        return (
-          <section key={section} className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Gaps</p>
-            <EvidenceGapsPanel warnings={renderModel.warnings} />
-          </section>
-        );
-      })}
-    </div>
-  );
-}
+// UnifiedEvidenceDrawerContent was removed as it was defined but never used.

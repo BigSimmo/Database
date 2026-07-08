@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { DifferentialDetailPage } from "@/components/differentials/differential-detail-page";
+import { DifferentialDiagnosisPageClient } from "@/components/differentials/differential-diagnosis-page-client";
 import { differentialStaticParams, getDifferentialRecord } from "@/lib/differentials";
 
 type DifferentialDiagnosisRouteProps = {
@@ -28,5 +28,5 @@ export default async function DifferentialDiagnosisRoute({ params }: Differentia
   const record = getDifferentialRecord(slug);
   if (!record) notFound();
 
-  return <DifferentialDetailPage record={record} />;
+  return <DifferentialDiagnosisPageClient slug={slug} fallbackRecord={record} />;
 }

@@ -10,7 +10,6 @@ import {
   ChevronDown,
   Copy,
   ExternalLink,
-  Layers,
   Loader2,
   ShieldCheck,
   Sparkles,
@@ -24,12 +23,12 @@ import {
   chatMicroAction,
   cn,
   sourceCapsule,
-  sourceCapsuleCountBadge,
   statusDotMuted,
   statusDotReady,
   statusDotReview,
   subtleStatusPill,
   textMuted,
+  toneWarningQuiet,
 } from "@/components/ui-primitives";
 import { sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import {
@@ -38,6 +37,7 @@ import {
   sanitizeAnswerDisplayText,
 } from "@/components/clinical-dashboard/display-text";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
+import { SourcePreviewPopover } from "@/components/clinical-dashboard/source-preview-popover";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
@@ -69,6 +69,7 @@ export const SourceImage = memo(function SourceImage({
   const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const { authorizationHeader, markSessionExpired } = useAuthSession();
 
   useEffect(() => {
@@ -102,11 +103,13 @@ export const SourceImage = memo(function SourceImage({
     clearCachedSignedUrl(endpoint);
     setUrl(null);
     setFailed(false);
+    setLoaded(false);
     setAttempt((current) => current + 1);
   }
 
   function handleImageError() {
     clearCachedSignedUrl(endpoint);
+    setLoaded(false);
     setFailed(true);
   }
 
@@ -115,7 +118,7 @@ export const SourceImage = memo(function SourceImage({
       <div
         className={cn(
           className,
-          "grid min-h-36 place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
+          "grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
         )}
       >
         <div>
@@ -133,29 +136,38 @@ export const SourceImage = memo(function SourceImage({
     );
   }
 
-  if (!url) {
-    return (
-      <div
-        className={cn(
-          className,
-          "grid min-h-36 place-items-center rounded-lg bg-[color:var(--surface-inset)] text-xs font-semibold text-[color:var(--text-muted)]",
-        )}
-      >
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading image
-      </div>
-    );
-  }
-
+  // A fixed-aspect frame reserves the image's box up front so the loaded image
+  // never resizes the layout (the placeholder and the image share one box). The
+  // image object-contains within it and fades in on decode, so nothing below
+  // shifts when it arrives.
   return (
-    <img
-      src={url}
-      alt={caption}
-      loading="lazy"
-      decoding="async"
-      onError={handleImageError}
-      className={cn(className, "w-full rounded-lg object-contain")}
-    />
+    <div
+      className={cn(
+        className,
+        "relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-[color:var(--surface-inset)]",
+      )}
+    >
+      {url ? (
+        <img
+          src={url}
+          alt={caption?.trim() || "Clinical document image"}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={handleImageError}
+          className={cn(
+            "absolute inset-0 h-full w-full rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
+            loaded ? "opacity-100" : "opacity-0",
+          )}
+        />
+      ) : null}
+      {!url || !loaded ? (
+        <div className="absolute inset-0 grid place-items-center gap-1 text-xs font-semibold text-[color:var(--text-muted)]">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading image
+        </div>
+      ) : null}
+    </div>
   );
 });
 
@@ -181,14 +193,14 @@ export function ScopeAndGovernanceNotice({
         </p>
       ) : null}
       {scope?.warnings?.length ? (
-        <ul className="grid gap-0.5 text-[11px] font-medium text-[color:var(--warning)]">
+        <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
           {scope.warnings.slice(0, 3).map((warning) => (
             <li key={warning}>{warning}</li>
           ))}
         </ul>
       ) : null}
       {groupedWarnings.length ? (
-        <ul className="grid gap-0.5 text-[11px] font-medium text-[color:var(--warning)]">
+        <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
           {groupedWarnings.map((warning) => (
             <li key={warning.code}>
               {warning.message}
@@ -245,7 +257,7 @@ function primaryAnswerDisplayText(value: string) {
     .replace(/[;,:-]\s*$/, "")}...`;
 }
 
-function sourceCapsuleDisplay({
+function sourceCapsuleText({
   sourceCount,
   weakEvidence,
   grounded,
@@ -253,11 +265,11 @@ function sourceCapsuleDisplay({
   sourceCount: number;
   weakEvidence: boolean;
   grounded: boolean;
-}): { label: string; showCountBadge: boolean } {
-  if (sourceCount <= 0) return { label: "No direct source found", showCountBadge: false };
-  if (!grounded) return { label: "Review nearby sources", showCountBadge: false };
-  if (weakEvidence) return { label: "Review sources", showCountBadge: false };
-  return { label: "Sources", showCountBadge: true };
+}) {
+  if (sourceCount <= 0) return "No direct source found";
+  if (!grounded) return "Review nearby sources";
+  if (weakEvidence) return "Review sources";
+  return `${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
 }
 
 export function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined) {
@@ -393,7 +405,7 @@ function SourcePreviewContent({
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <p className="text-base font-semibold text-[color:var(--text-heading)]">Sources</p>
-              <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
+              <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
                 {sourcePreviewPageCountLabel(previewSources)}
               </span>
             </div>
@@ -417,7 +429,7 @@ function SourcePreviewContent({
             )}
           >
             {index === 0 ? (
-              <p className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[color:var(--clinical-accent)]">
+              <p className="mb-2 inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)]">
                 <Sparkles className="h-3.5 w-3.5" />
                 Best match
               </p>
@@ -560,7 +572,7 @@ export function NaturalLanguageAnswer({
   }, []);
   const cleaned = primaryAnswerDisplayText(text);
   if (!cleaned) return null;
-  const capsuleDisplay = sourceCapsuleDisplay({ sourceCount, weakEvidence, grounded });
+  const capsuleText = sourceCapsuleText({ sourceCount, weakEvidence, grounded });
   const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);
   const quoteText = sourceLinks.find((source) => source.snippet)?.snippet || bestSource?.quote || bestSource?.snippet;
   const canOpenSourcePreview = previewSources.length > 0;
@@ -575,25 +587,32 @@ export function NaturalLanguageAnswer({
       setCopiedSourceQuote(false);
     }
   }
+  const cautionCapsule = weakEvidence || !grounded;
   const sourceCapsuleButton = (
     <button
       type="button"
       ref={sourceCapsuleRef}
-      className={cn(sourceCapsule, "w-fit")}
+      className={cn(sourceCapsule, "w-fit", cautionCapsule && toneWarningQuiet)}
       aria-label="Open answer sources"
       aria-expanded={sourcePreviewOpen}
       onClick={() => {
         if (canOpenSourcePreview) setSourcePreviewOpen((current) => !current);
       }}
     >
-      <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
-      <span className="min-w-0 truncate">{capsuleDisplay.label}</span>
-      {capsuleDisplay.showCountBadge ? (
-        <span className={sourceCapsuleCountBadge}>{sourceCount}</span>
-      ) : null}
+      {sourceCount > 0 ? (
+        <>
+          <span className="leading-none sm:hidden">
+            {sourceCount} source{sourceCount === 1 ? "" : "s"}
+          </span>
+          <span className="hidden leading-none sm:inline">{capsuleText}</span>
+        </>
+      ) : (
+        <span className="leading-none">{capsuleText}</span>
+      )}
       {canOpenSourcePreview ? (
         <ChevronDown
-          className={cn("h-3.5 w-3.5 shrink-0 transition-transform", sourcePreviewOpen && "rotate-180")}
+          className={cn("h-4 w-4 shrink-0 transition-transform", sourcePreviewOpen && "rotate-180")}
+          strokeWidth={2.25}
           aria-hidden
         />
       ) : null}
@@ -613,13 +632,12 @@ export function NaturalLanguageAnswer({
       >
         <ShieldCheck className="h-[18px] w-[18px]" />
       </span>
-      <div className="min-w-0 space-y-1.5">
+      <div className="min-w-0 space-y-2.5">
         <p className={chatAnswerText}>
           <span data-testid="plain-answer-prose">
             <SafeBoldText text={cleaned} />
           </span>
         </p>
-        <div className="space-y-1">
         {sourceOnly ? (
           <section
             data-testid="source-only-disclosure"
@@ -638,7 +656,7 @@ export function NaturalLanguageAnswer({
             >
               <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
               <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
-              <span className="shrink-0 text-[11px] text-[color:var(--text-muted)]">· verify passages</span>
+              <span className="shrink-0 text-2xs text-[color:var(--text-muted)]">· verify passages</span>
               <ChevronDown
                 className={cn(
                   "ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition-transform",
@@ -650,21 +668,22 @@ export function NaturalLanguageAnswer({
             {sourceOnlyNoticeOpen ? (
               <div
                 id="source-only-disclosure-detail"
-                className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-[11px] leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+                className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-2xs leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
               >
                 <p>
-                  This answer was assembled from your documents without the AI model, so it may be less complete.
-                  Verify dose, threshold, route, timing, monitoring, and risk details against the cited passages below.
+                  This answer was assembled from your documents without the AI model, so it may be less complete. Verify
+                  dose, threshold, route, timing, monitoring, and risk details against the cited passages below.
                 </p>
               </div>
             ) : null}
           </section>
         ) : null}
         {sourceCapsuleButton}
-        {sourcePreviewOpen && canOpenSourcePreview && !usePreviewSheet ? (
-          <div
-            data-testid="source-capsule-preview"
-            className="max-h-[22rem] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
+        {canOpenSourcePreview && !usePreviewSheet ? (
+          <SourcePreviewPopover
+            open={sourcePreviewOpen}
+            onClose={() => setSourcePreviewOpen(false)}
+            anchorRef={sourceCapsuleRef}
           >
             <SourcePreviewContent
               previewSources={previewSources}
@@ -672,7 +691,7 @@ export function NaturalLanguageAnswer({
               copiedQuote={copiedSourceQuote}
               onCopyQuote={copySourceQuote}
             />
-          </div>
+          </SourcePreviewPopover>
         ) : null}
         <Sheet
           open={sourcePreviewOpen && canOpenSourcePreview && usePreviewSheet}
@@ -680,7 +699,7 @@ export function NaturalLanguageAnswer({
           title="Sources"
           description="Open the original PDF page."
           titleAccessory={
-            <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-[11px]")}>
+            <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
               {sourcePreviewPageCountLabel(previewSources)}
             </span>
           }
@@ -699,8 +718,7 @@ export function NaturalLanguageAnswer({
             />
           </div>
         </Sheet>
-        </div>
-        <div className={chatActionRow} aria-label="Answer actions">
+        <div className={cn(chatActionRow, "mt-0.5")} aria-label="Answer actions">
           <button
             type="button"
             onClick={onCopy}

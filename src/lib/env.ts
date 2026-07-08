@@ -6,11 +6,21 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   SUPABASE_PROJECT_REF: z.string().optional(),
   SUPABASE_PROJECT_NAME: z.string().optional(),
+  // Optional: declares a second accepted (staging) Supabase project so the
+  // identity guard accepts it. Both must be set; the ref must differ from
+  // production. See docs/staging-setup.md and src/lib/supabase/project.ts.
+  SUPABASE_STAGING_PROJECT_REF: z.string().optional(),
+  SUPABASE_STAGING_PROJECT_NAME: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_DB_URL: z.string().url().optional(),
+  HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
   NEXT_PUBLIC_LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
   LOCAL_NO_AUTH_OWNER_ID: z.string().optional(),
+  PUBLIC_WORKSPACE_OWNER_ID: z.string().uuid().optional(),
+  NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED: z.enum(["true", "false"]).optional(),
+  NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
@@ -69,6 +79,16 @@ const envSchema = z.object({
   // Lets tuning/eval experiments adjust the second-stage rerank weights, document-diversity
   // demotion, and freshness decay WITHOUT a code change. Omitted/malformed => current defaults.
   RAG_RANKING_CONFIG: z.string().optional(),
+  // P8b extension: when strict-AND text retrieval returns weak-but-nonzero matches (sparse
+  // result set or negligible top text_rank), append OR-relaxed recall behind the strict
+  // matches. Default OFF: with it on, the golden retrieval eval measured OR-noise displacing
+  // the expected document out of top-5 (opioid-withdrawal-doses docRecall@5 1.0 -> 0.0) —
+  // "append-only" at the RPC merge is not append-only after re-ranking. Opt-in experiment
+  // flag only; re-enable solely behind a fresh 34/34 golden run.
+  RAG_TEXT_WEAK_OR_RELAXATION: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   RAG_ANSWER_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(300000),
   RAG_ANSWER_CACHE_SIZE: z.coerce.number().int().nonnegative().default(100),
   RAG_SEARCH_CACHE_TTL_MS: z.coerce.number().int().nonnegative().default(60000),
@@ -170,6 +190,20 @@ export function requireOpenAIEnv() {
   }
 }
 
+// Clinical query text is redacted to a keyed HMAC pseudonym before it is logged
+// (see query-privacy.ts). Without RAG_QUERY_HASH_SECRET the hash silently degrades
+// to an unsalted, dictionary-reversible SHA-256, which defeats the redaction: a
+// reader of the log tables can hash candidate patient/drug strings offline and match
+// rows. Production must fail closed rather than log real clinical queries under the
+// weak digest. See docs/privacy-impact-assessment.md (PIA-2).
+export function requireQueryHashSecret() {
+  if (!env.RAG_QUERY_HASH_SECRET) {
+    throw new Error(
+      "Missing RAG_QUERY_HASH_SECRET. It is required in production so logged clinical-query hashes are keyed HMAC-SHA256 pseudonyms, not offline-reversible SHA-256. Set a random secret (min 16 chars). See docs/privacy-impact-assessment.md (PIA-2).",
+    );
+  }
+}
+
 export function isDemoMode() {
   // Explicit opt-in is honored in every environment (e.g. a deliberate demo deploy).
   if (env.NEXT_PUBLIC_DEMO_MODE === "true") {
@@ -191,4 +225,22 @@ export function isLocalNoAuthMode() {
   const serverNoAuth = typeof window === "undefined" && env.LOCAL_NO_AUTH === "true";
 
   return process.env.NODE_ENV !== "production" && (publicNoAuth || serverNoAuth);
+}
+
+export function publicWorkspaceOwnerId() {
+  return env.PUBLIC_WORKSPACE_OWNER_ID?.trim() || null;
+}
+
+export function publicUploadsEnabled() {
+  return env.NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED === "true";
+}
+
+export function mockupsEnabled() {
+  // Design-exploration mockup routes (/mockups/*) are a development surface.
+  // They stay reachable in dev/test builds, but a production deploy 404s them
+  // unless explicitly opted in (mirrors the prod guard in isLocalNoAuthMode).
+  if (process.env.NODE_ENV !== "production") {
+    return true;
+  }
+  return env.NEXT_PUBLIC_MOCKUPS_ENABLED === "true";
 }

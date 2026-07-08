@@ -11,6 +11,7 @@ import {
   shouldApplyUnsupportedSearchShortCircuit,
   textCandidateBudgetForQueryClass,
   relaxVariantToOrQuery,
+  shouldRelaxWeakTextMatches,
 } from "../src/lib/rag";
 import type { SearchResult } from "../src/lib/types";
 
@@ -125,6 +126,18 @@ describe("retrieval query variants", () => {
     expect(textCandidateBudgetForQueryClass("medication_dose_risk", 12)).toBe(48);
     expect(textCandidateBudgetForQueryClass("comparison", 12)).toBe(84);
     expect(textCandidateBudgetForQueryClass("unsupported_or_general", 12)).toBe(24);
+  });
+
+  it("keeps forced-embedding retrieval out of the ordinary search cache key", () => {
+    const baseArgs = {
+      query: "How is panic disorder managed?",
+      topK: 8,
+      minSimilarity: 0.12,
+    };
+
+    expect(retrievalPlanCacheQuery(baseArgs, "broad_summary")).not.toBe(
+      retrievalPlanCacheQuery({ ...baseArgs, forceEmbedding: true }, "broad_summary"),
+    );
   });
 
   it("allows direct document title hits to skip embedding retrieval", () => {
@@ -1020,5 +1033,49 @@ describe("relaxVariantToOrQuery (8b over-conjunction fallback)", () => {
   it("returns null when there is nothing to relax", () => {
     expect(relaxVariantToOrQuery("")).toBeNull();
     expect(relaxVariantToOrQuery("clozapine")).toBeNull();
+  });
+});
+
+describe("shouldRelaxWeakTextMatches (P8b weak-augment)", () => {
+  it("never fires on an empty strict result set (that is the empty_fallback path)", () => {
+    expect(shouldRelaxWeakTextMatches([])).toBe(false);
+  });
+
+  it("fires when strict-AND returned a sparse set of middling matches", () => {
+    expect(shouldRelaxWeakTextMatches([result({ text_rank: 0.1 })])).toBe(true);
+    expect(
+      shouldRelaxWeakTextMatches([result({ id: "a", text_rank: 0.12 }), result({ id: "b", text_rank: 0.08 })]),
+    ).toBe(true);
+  });
+
+  it("does not fire when a sparse set is anchored by a strong lexical hit", () => {
+    // A single precise match (e.g. an exact table lookup) must stay a one-RPC retrieval.
+    expect(shouldRelaxWeakTextMatches([result({ text_rank: 1.1 })])).toBe(false);
+    expect(
+      shouldRelaxWeakTextMatches([result({ id: "a", text_rank: 0.4 }), result({ id: "b", text_rank: 0.05 })]),
+    ).toBe(false);
+  });
+
+  it("fires when the best strict text rank is below the meaningful-signal floor", () => {
+    const weak = [
+      result({ id: "a", text_rank: 0.01 }),
+      result({ id: "b", text_rank: 0.02 }),
+      result({ id: "c", text_rank: 0.04 }),
+    ];
+    expect(shouldRelaxWeakTextMatches(weak)).toBe(true);
+  });
+
+  it("does not fire when strict-AND already carries meaningful lexical evidence", () => {
+    const strong = [
+      result({ id: "a", text_rank: 0.4 }),
+      result({ id: "b", text_rank: 0.2 }),
+      result({ id: "c", text_rank: 0.1 }),
+    ];
+    expect(shouldRelaxWeakTextMatches(strong)).toBe(false);
+  });
+
+  it("treats a missing text_rank as no lexical evidence", () => {
+    const missing = [result({ id: "a" }), result({ id: "b" }), result({ id: "c" })];
+    expect(shouldRelaxWeakTextMatches(missing)).toBe(true);
   });
 });

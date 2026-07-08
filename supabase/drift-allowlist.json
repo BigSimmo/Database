@@ -1,0 +1,847 @@
+{
+  "_comment": "Known live-vs-schema.sql divergence. BASELINE measured 2026-07-07; the safe pending migrations were APPLIED to live 2026-07-08 (search_schema_health M13 guard, embedding-fields-text owner fix, schema_drift_snapshot RPC, codify-observed-drift no-op, storage-cleanup index reshape). Migration 20260705210000 was NEUTRALIZED (would have regressed live retrieval). The live project is under active concurrent multi-session editing, so this allowlist is a point-in-time snapshot and needs regeneration (npm run drift:manifest + refresh) once churn settles. Every entry carries a reason; check:drift fails on anything NOT listed here.",
+  "entries": [
+    {
+      "category": "constraints",
+      "key": "rag_visual_eval_cases.rag_visual_eval_cases_document_id_fkey",
+      "kind": "mismatch",
+      "reason": "Live FK definition differs from the codified repo definition (rag_visual_eval_* document FKs); align via approved migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "constraints",
+      "key": "rag_visual_eval_runs.rag_visual_eval_runs_document_id_fkey",
+      "kind": "mismatch",
+      "reason": "Live FK definition differs from the codified repo definition (rag_visual_eval_* document FKs); align via approved migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.detect_legacy_ivfflat_indexes()",
+      "kind": "mismatch",
+      "reason": "Live retains default PUBLIC execute (security-invoker fn, RLS still applies); schema.sql declares service-role-only. Revoke on live via an approved hardening migration. Remove after apply.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.document_label_metadata(uuid)",
+      "kind": "mismatch",
+      "reason": "schema.sql is AHEAD of live: hidden-label filtering (review_status/hidden metadata) was added to schema.sql without a migration. Ship a migration or revert schema.sql; see backlog.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.document_summary_text(uuid)",
+      "kind": "mismatch",
+      "reason": "Live retains default PUBLIC execute (security-invoker fn, RLS still applies); schema.sql declares service-role-only. Revoke on live via an approved hardening migration. Remove after apply.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.get_related_document_metadata(uuid[],uuid)",
+      "kind": "mismatch",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.get_visual_evidence_cards(uuid,integer)",
+      "kind": "unexpected_live",
+      "reason": "Live-only function (raw-SQL era) not yet codified into schema.sql/migrations; codification wave follow-up (same pattern as 20260705230000 and 20260707000000).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.match_document_chunks(extensions.vector,integer,double precision,uuid,uuid)",
+      "kind": "mismatch",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.match_document_chunks_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)",
+      "kind": "mismatch",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.match_document_chunks_text(text,integer,uuid[],uuid)",
+      "kind": "mismatch",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.match_document_embedding_fields_text(text,integer,double precision,uuid[],uuid)",
+      "kind": "mismatch",
+      "reason": "APPLIED to live 2026-07-08 via migration 20260706130000 (embedding-fields-text owner sentinel); live now matches schema.sql. Entry retained until the drift manifest is regenerated; safe to remove then. (Live may re-drift from concurrent multi-session edits.)",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.match_document_table_facts_text(text,integer,uuid[],uuid)",
+      "kind": "mismatch",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.match_documents_for_query(text,integer,uuid)",
+      "kind": "mismatch",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.repair_enrichment_quality_batch(integer)",
+      "kind": "unexpected_live",
+      "reason": "Live-only function (raw-SQL era) not yet codified into schema.sql/migrations; codification wave follow-up (same pattern as 20260705230000 and 20260707000000).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.repair_strict_enrichment_gate_batch(integer)",
+      "kind": "mismatch",
+      "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.retrieval_owner_matches(uuid,uuid)",
+      "kind": "mismatch",
+      "reason": "Body+ACL drift until migration 20260708160000 is applied on live: schema.sql now fails CLOSED on NULL owner_filter (tenancy defense-in-depth §6 item 1); live still has the prior fail-open body until that migration runs. Independently, live retains a default PUBLIC execute grant (=X/postgres) that schema.sql (service-role-only) does not — same ACL posture as search_document_chunks; revoke on live via an approved hardening migration, then remove this entry. Security-invoker helper; RLS still applies. Not one of the raw-SQL retrieval RPCs whose bodies genuinely diverge.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.run_all_visual_eval_cases(integer)",
+      "kind": "unexpected_live",
+      "reason": "Live-only function (raw-SQL era) not yet codified into schema.sql/migrations; codification wave follow-up (same pattern as 20260705230000 and 20260707000000).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.run_visual_eval_case(uuid,integer)",
+      "kind": "unexpected_live",
+      "reason": "Live-only function (raw-SQL era) not yet codified into schema.sql/migrations; codification wave follow-up (same pattern as 20260705230000 and 20260707000000).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.search_document_chunks(uuid,text,integer,uuid)",
+      "kind": "mismatch",
+      "reason": "Live retains default PUBLIC execute (security-invoker fn, RLS still applies); schema.sql declares service-role-only. Revoke on live via an approved hardening migration. Remove after apply.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.search_schema_health()",
+      "kind": "mismatch",
+      "reason": "APPLIED to live 2026-07-08 via migration 20260706010000 (search_schema_health M13 guard); live now matches schema.sql. Entry retained until the drift manifest is regenerated; safe to remove then. (Live may re-drift from concurrent multi-session edits.)",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.set_document_embedding_field_content_hash()",
+      "kind": "mismatch",
+      "reason": "Live retains default PUBLIC execute (security-invoker fn, RLS still applies); schema.sql declares service-role-only. Revoke on live via an approved hardening migration. Remove after apply.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "api_rate_limits_bucket_updated_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "audit_logs_action_created_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "audit_logs_owner_created_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "audit_logs_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "clinical_registry_record_sources_document_idx",
+      "kind": "alias",
+      "live_key": "clinical_registry_record_sources_document_id_idx",
+      "reason": "Same index shape lives under a legacy migration-era name on live (search_schema_health index_aliases class). Rename on live via approved migration to retire this alias.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "clinical_registry_record_sources_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "differential_records_owner_slug_kind_uidx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_chunks_anchor_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_chunks_document_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_chunks_meta_rag_indexing_version_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_chunks_search_idx",
+      "kind": "alias",
+      "live_key": "document_chunks_search_tsv_idx",
+      "reason": "Same index shape lives under a legacy migration-era name on live (search_schema_health index_aliases class). Rename on live via approved migration to retire this alias.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_embedding_fields_document_generation_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_embedding_fields_document_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_images_created_at_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_images_document_generation_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_images_document_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_images_duplicate_group_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_images_hash_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_images_priority_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_images_searchable_idx1",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_images_structured_profile_gin_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_images_visual_intelligence_version_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_index_quality_document_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_index_quality_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_index_quality_owner_score_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_index_units_document_generation_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_index_units_document_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_index_units_heading_path_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_index_units_owner_document_created_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_index_units_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_index_units_source_chunk_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_index_units_source_image_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_labels_document_idx",
+      "kind": "alias",
+      "live_key": "document_labels_document_id_idx",
+      "reason": "Same index shape lives under a legacy migration-era name on live (search_schema_health index_aliases class). Rename on live via approved migration to retire this alias.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_labels_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_labels_owner_label_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_memory_cards_document_generation_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_memory_cards_document_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_memory_cards_owner_document_created_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_memory_cards_owner_idx",
+      "kind": "alias",
+      "live_key": "document_memory_cards_owner_id_idx",
+      "reason": "Same index shape lives under a legacy migration-era name on live (search_schema_health index_aliases class). Rename on live via approved migration to retire this alias.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_memory_cards_section_idx",
+      "kind": "alias",
+      "live_key": "document_memory_cards_section_id_idx",
+      "reason": "Same index shape lives under a legacy migration-era name on live (search_schema_health index_aliases class). Rename on live via approved migration to retire this alias.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_sections_document_generation_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_sections_document_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_sections_owner_idx",
+      "kind": "alias",
+      "live_key": "document_sections_owner_id_idx",
+      "reason": "Same index shape lives under a legacy migration-era name on live (search_schema_health index_aliases class). Rename on live via approved migration to retire this alias.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_summaries_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_summaries_owner_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_table_facts_chunk_idx",
+      "kind": "alias",
+      "live_key": "document_table_facts_source_chunk_id_idx",
+      "reason": "Same index shape lives under a legacy migration-era name on live (search_schema_health index_aliases class). Rename on live via approved migration to retire this alias.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_table_facts_document_generation_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_table_facts_document_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_table_facts_owner_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "document_table_facts_title_row_param_trgm_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "documents_import_batch_idx",
+      "kind": "alias",
+      "live_key": "documents_import_batch_id_idx",
+      "reason": "Same index shape lives under a legacy migration-era name on live (search_schema_health index_aliases class). Rename on live via approved migration to retire this alias.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "documents_indexed_updated_at_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "documents_owner_content_hash_unique_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "documents_search_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "documents_title_search_idx",
+      "kind": "alias",
+      "live_key": "documents_title_search_tsv_idx",
+      "reason": "Same index shape lives under a legacy migration-era name on live (search_schema_health index_aliases class). Rename on live via approved migration to retire this alias.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "image_caption_cache_owner_hash_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "image_caption_cache_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "import_batches_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "import_batches_owner_status_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "import_batches_status_created_idx",
+      "kind": "mismatch",
+      "reason": "Live carries a pre-hardening index shape under the schema.sql name; reconcile via approved migration (same class as 20260703030000).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "ingestion_job_stages_job_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "ingestion_job_stages_job_stage_started_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "ingestion_jobs_document_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "ingestion_jobs_document_status_idx",
+      "kind": "mismatch",
+      "reason": "Live carries a pre-hardening index shape under the schema.sql name; reconcile via approved migration (same class as 20260703030000).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "ingestion_jobs_status_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "ingestion_jobs_status_next_run_idx",
+      "kind": "mismatch",
+      "reason": "Live carries a pre-hardening index shape under the schema.sql name; reconcile via approved migration (same class as 20260703030000).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "ingestion_jobs_updated_at_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_aliases_alias_trgm_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_aliases_type_enabled_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_queries_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_queries_owner_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_queries_source_chunk_ids_gin_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_query_misses_aliases_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_query_misses_expected_chunk_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_query_misses_expected_document_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_query_misses_normalized_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_query_misses_owner_created_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_query_misses_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_query_misses_owner_review_status_created_idx",
+      "kind": "missing_live",
+      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_response_cache_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "rag_retrieval_logs_owner_id_idx",
+      "kind": "unexpected_live",
+      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "document_chunks",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "document_embedding_fields",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "document_images",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "document_index_quality",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "document_index_units",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "document_labels",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "document_pages",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "document_summaries",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "document_table_facts",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "documents",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "import_batches",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "ingestion_jobs",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "rag_aliases",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "rag_queries",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "rag_query_misses",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "rag_retrieval_logs",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "tables",
+      "key": "storage_cleanup_jobs",
+      "kind": "mismatch",
+      "reason": "Live revoked the authenticated-role Data API grants that schema.sql (and the owner-read RLS policies) still declare; app access is service-role only. Open posture decision: codify the revokes or restore the grants via migration.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    }
+  ]
+}

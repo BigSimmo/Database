@@ -4,7 +4,7 @@ import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search
 
 export default function FavouritesLayout({ children }: { children: ReactNode }) {
   return (
-    <GlobalSearchShell initialMode="favourites" availableModeIds={["favourites"]}>
+    <GlobalSearchShell initialMode="favourites" availableModeIds={["favourites"]} desktopSearchPlacement="hero">
       {children}
     </GlobalSearchShell>
   );

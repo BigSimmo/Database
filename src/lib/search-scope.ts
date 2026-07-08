@@ -180,6 +180,7 @@ function metadataMatchesLocality(row: ScopeDocumentRow, filters: SearchScopeFilt
 export async function resolveSearchScope(args: {
   supabase: SupabaseClient;
   ownerId?: string | null;
+  publicOnly?: boolean;
   documentIds?: string[];
   filters?: SearchScopeFilters;
   maxResolvedDocuments?: number;
@@ -188,8 +189,9 @@ export async function resolveSearchScope(args: {
   const explicitIds = unique(args.documentIds ?? []);
   const activeFilterCount = activeScopeFilterCount(filters);
   const warnings: string[] = [];
+  const publicOnly = args.publicOnly ?? !args.ownerId;
 
-  if (activeFilterCount === 0) {
+  if (activeFilterCount === 0 && !publicOnly && !(args.ownerId && explicitIds.length)) {
     return {
       documentIds: explicitIds.length ? explicitIds : undefined,
       filters,
@@ -216,6 +218,7 @@ export async function resolveSearchScope(args: {
       .order("id", { ascending: true })
       .range(offset, Math.min(offset + documentScopeQueryPageSize - 1, maxResolvedDocuments - 1));
     if (args.ownerId) documentQuery = documentQuery.eq("owner_id", args.ownerId);
+    else if (publicOnly) documentQuery = documentQuery.is("owner_id", null);
     if (explicitIds.length) documentQuery = documentQuery.in("id", explicitIds);
 
     // Push metadata enum filters into SQL using JSONB text extraction. Keep

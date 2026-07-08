@@ -57,6 +57,7 @@ The preflight response also includes active job counts and job metadata for oper
 - Do not enable inline enrichment during recovery unless core indexing is stable.
 - Do not run imports, reindexing, queue recovery mutations, or evals when `npm run supabase:recovery-status` reports `supabase_unavailable`.
 - Do not use `--force-large-import` unless Supabase health is stable and you have intentionally chosen a larger import wave.
+- Do not re-index to fix "OCR corruption" or to add table/heading-aware chunking without new evidence. Both were measured negligible/neutral on 2026-07-08 (`noisy_unit_rate` is a saturated visual-coverage metric, not corruption; heading/table-aware chunking already exists and chunks are well-bounded). See `docs/chunking-ocr-reindex-lever-finding-2026-07-08.md`.
 
 ## Recommended recovery defaults
 

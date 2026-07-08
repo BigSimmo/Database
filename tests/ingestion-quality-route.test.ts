@@ -124,6 +124,59 @@ describe("/api/ingestion/quality", () => {
     expect(client.from).toHaveBeenCalledWith("document_index_quality");
   });
 
+  it("does not expose agent stage job ids as ingestion retry targets", async () => {
+    const agentJobId = "44444444-4444-4444-8444-444444444444";
+    const client = clientWithTables({
+      documents: [
+        {
+          id: documentId,
+          title: "Scanned guideline",
+          file_name: "scanned.pdf",
+          status: "indexed",
+          page_count: 1,
+          chunk_count: 0,
+          image_count: 0,
+          error_message: null,
+          metadata: {},
+          updated_at: "2026-06-25T00:00:00.000Z",
+        },
+      ],
+      document_index_quality: [],
+      ingestion_jobs: [],
+      ingestion_job_stages: [
+        {
+          id: "55555555-5555-4555-8555-555555555555",
+          document_id: documentId,
+          job_id: agentJobId,
+          stage_name: "ocr",
+          stage_status: "failed",
+          error_message: "Agent OCR failed.",
+          metadata: {},
+          artifact_counts: {},
+          started_at: "2026-06-25T00:02:00.000Z",
+          finished_at: "2026-06-25T00:03:00.000Z",
+        },
+      ],
+      document_pages: [],
+      document_images: [],
+    });
+    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { GET } = await import("../src/app/api/ingestion/quality/route");
+
+    const response = await GET(new Request("http://localhost/api/ingestion/quality"));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    const failedOcr = payload.items.find((item: { type: string }) => item.type === "failed_ocr");
+    expect(failedOcr).toMatchObject({ type: "failed_ocr", jobId: null });
+  });
+
   it("returns an empty demo payload without querying Supabase", async () => {
     const client = clientWithTables({});
     vi.doMock("@/lib/env", () => ({ isDemoMode: () => true }));

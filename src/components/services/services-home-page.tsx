@@ -47,7 +47,8 @@ const commonPathways: ModeHomePill[] = [
     href: appModeHomeHref("services", { query: "crisis support services", focus: true, run: true }),
   },
   {
-    label: "Aboriginal and Torres Strait Islander",
+    label: "Aboriginal and Torres Strait Islander services",
+    shortLabel: "ATSI services",
     tone: "rose",
     href: appModeHomeHref("services", {
       query: "Aboriginal Torres Strait Islander services",
@@ -92,10 +93,10 @@ export function ServicesHomePage() {
     ) : registry.status === "unauthorized" ? (
       <ModeHomeStatusNotice
         icon={ShieldAlert}
-        title="Sign in required"
-        body="Sign in to open private service records and referral pathways."
+        title="Session expired"
+        body="Your session expired. Sign in again to open private service records and referral pathways."
         actionHref="/"
-        actionLabel="Go to sign in"
+        actionLabel="Open account setup"
       />
     ) : registry.status === "error" ? (
       <ModeHomeStatusNotice
@@ -121,7 +122,7 @@ export function ServicesHomePage() {
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Service tasks"
         actions={hasRegistryRecords ? taskCards : []}
-        pillsTitle="Common pathways"
+        pillsTitle="Browse by need"
         pills={hasRegistryRecords ? commonPathways : []}
         footer={
           hasRegistryRecords ? (

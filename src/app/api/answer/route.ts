@@ -4,7 +4,11 @@ import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { answerQuestionWithScope } from "@/lib/rag";
 import { jsonError, PublicApiError } from "@/lib/http";
-import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import {
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSubjectApiRateLimit,
+  rateLimitJsonResponse,
+} from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
@@ -17,6 +21,8 @@ import {
 } from "@/lib/source-governance";
 import { parseJsonBody } from "@/lib/validation/body";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
+import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
 import type { RagAnswer } from "@/lib/types";
 
@@ -31,6 +37,8 @@ const answerSchema = z.object({
   skipCache: z.boolean().optional().default(false),
 });
 
+type AnswerRequestBody = z.infer<typeof answerSchema>;
+
 function answerDegradedModeSignal(answer?: Pick<RagAnswer, "degradedMode" | "answerQualityTier" | "fallbackReason">) {
   if (answer?.degradedMode) return answer.degradedMode;
   const active = answer?.answerQualityTier === "source_only";
@@ -40,36 +48,44 @@ function answerDegradedModeSignal(answer?: Pick<RagAnswer, "degradedMode" | "ans
   };
 }
 
+function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string) {
+  const answer = demoAnswer(body.query, body.documentId, body.documentIds);
+  const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
+  const smartApiPlan = buildSmartRagApiPlan({
+    query: answerFocusQuery,
+    queryClass: queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
+    results: answer.sources,
+    routeMode: answer.routingMode,
+    retrievalStrategy: "hybrid",
+  });
+  return {
+    ...answer,
+    responseMode: smartApiPlan.displayMode,
+    smartApiPlan,
+    demoMode: true,
+    degradedMode: fallbackReason ? { active: true, reason: fallbackReason } : answerDegradedModeSignal(answer),
+    ...(fallbackReason ? { fallbackMode: "non_production_demo", fallbackReason } : {}),
+  };
+}
+
 export async function POST(request: Request) {
+  let body: AnswerRequestBody | null = null;
   try {
-    const body = await parseJsonBody(request, answerSchema, "Invalid answer request.");
+    const answerBody = await parseJsonBody(request, answerSchema, "Invalid answer request.");
+    body = answerBody;
     if (isDemoMode()) {
-      const answer = demoAnswer(body.query, body.documentId, body.documentIds);
-      const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
-      const smartApiPlan = buildSmartRagApiPlan({
-        query: answerFocusQuery,
-        queryClass: queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
-        results: answer.sources,
-        routeMode: answer.routingMode,
-        retrievalStrategy: "hybrid",
-      });
-      return NextResponse.json({
-        ...answer,
-        responseMode: smartApiPlan.displayMode,
-        smartApiPlan,
-        demoMode: true,
-        degradedMode: answerDegradedModeSignal(answer),
-      });
+      return NextResponse.json(buildDemoAnswerPayload(answerBody));
     }
 
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
+    const publicOnly = !access.authenticated && !isLocalNoAuthMode();
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
       subject: access.rateLimitSubject,
       bucket: "answer",
-      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
@@ -78,8 +94,9 @@ export async function POST(request: Request) {
     const scope = await resolveSearchScope({
       supabase,
       ownerId: access.ownerId,
-      documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
-      filters: body.filters,
+      publicOnly,
+      documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
+      filters: answerBody.filters,
     });
     if (scope.documentIds?.length === 0) {
       return NextResponse.json({
@@ -90,22 +107,26 @@ export async function POST(request: Request) {
         citations: [],
         sources: [],
         degradedMode: answerDegradedModeSignal(),
-        scope: { ...scope, queryMode: body.queryMode },
+        scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
       });
     }
 
-    const singleDocumentScope = Boolean(body.documentId && !body.documentIds?.length && scope.activeFilterCount === 0);
+    const singleDocumentScope = Boolean(
+      answerBody.documentId && !answerBody.documentIds?.length && scope.activeFilterCount === 0,
+    );
     const answer = await answerQuestionWithScope({
-      query: body.query,
-      documentId: singleDocumentScope ? body.documentId : undefined,
+      query: answerBody.query,
+      documentId: singleDocumentScope ? answerBody.documentId : undefined,
       documentIds: singleDocumentScope
         ? undefined
-        : (scope.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
+        : (scope.documentIds ??
+          answerBody.documentIds ??
+          (answerBody.documentId ? [answerBody.documentId] : undefined)),
       ownerId: access.ownerId,
       allowGlobalSearch: !access.ownerId,
-      queryMode: body.queryMode,
-      skipCache: body.skipCache,
+      queryMode: answerBody.queryMode,
+      skipCache: answerBody.skipCache,
       signal: request.signal,
     });
     const warnings = sourceGovernanceWarnings({
@@ -126,15 +147,17 @@ export async function POST(request: Request) {
         citations: [],
         sources: [],
         degradedMode: answerDegradedModeSignal(answer),
-        scope: { ...scope, queryMode: body.queryMode },
+        scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: warnings,
       });
     }
 
+    logAnswerDiagnostics({ supabase, query: answerBody.query, ownerId: access.ownerId, answer });
+
     return NextResponse.json({
       ...answer,
       degradedMode: answerDegradedModeSignal(answer),
-      scope: { ...scope, queryMode: body.queryMode },
+      scope: { ...scope, queryMode: answerBody.queryMode },
       sourceGovernanceWarnings: warnings,
     });
   } catch (error) {
@@ -148,6 +171,13 @@ export async function POST(request: Request) {
       return jsonError(error, error.status);
     }
     if (error instanceof Error) {
+      const fallbackBody = body;
+      const fallbackReason = fallbackBody ? nonProductionSupabaseDemoFallbackReason(error) : null;
+      if (fallbackBody && fallbackReason) {
+        return NextResponse.json(buildDemoAnswerPayload(fallbackBody, fallbackReason), {
+          headers: { "X-Clinical-KB-Fallback": fallbackReason },
+        });
+      }
       return jsonError(
         new PublicApiError("Answer generation failed. Retry with a narrower question.", 500, { code: error.name }),
         500,

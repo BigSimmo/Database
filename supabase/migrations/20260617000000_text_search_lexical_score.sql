@@ -29,6 +29,7 @@ returns table (
   chunk_index integer,
   section_heading text,
   content text,
+  retrieval_synopsis text,
   image_ids uuid[],
   source_metadata jsonb,
   document_labels jsonb,
@@ -56,6 +57,7 @@ as $$
       c.chunk_index,
       c.section_heading,
       c.content,
+      c.retrieval_synopsis,
       c.image_ids,
       d.metadata as source_metadata,
       (
@@ -84,6 +86,7 @@ as $$
     ranked.chunk_index,
     ranked.section_heading,
     ranked.content,
+    ranked.retrieval_synopsis,
     ranked.image_ids,
     ranked.source_metadata,
     coalesce(public.document_label_metadata(ranked.document_id), '[]'::jsonb) as document_labels,

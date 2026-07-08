@@ -208,14 +208,14 @@ function DocumentLabelReviewPanel({
                   >
                     {documentDisplayTitle(item.document)}
                   </Link>
-                  <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
+                  <p className={cn("mt-1 text-2xs font-semibold", textMuted)}>
                     {item.visible.length} visible · {item.ranking.length} ranking · {item.hidden.length} hidden
                   </p>
                 </div>
                 {item.needsReview ? (
-                  <span className={cn(metadataPill, toneWarning, "min-h-7 text-[11px]")}>Needs review</span>
+                  <span className={cn(metadataPill, toneWarning, "min-h-7 text-2xs")}>Needs review</span>
                 ) : (
-                  <span className={cn(metadataPill, toneSuccess, "min-h-7 text-[11px]")}>Reviewed</span>
+                  <span className={cn(metadataPill, toneSuccess, "min-h-7 text-2xs")}>Reviewed</span>
                 )}
               </div>
 
@@ -229,7 +229,7 @@ function DocumentLabelReviewPanel({
                 if (!labelRows.length) return null;
                 return (
                   <section key={title} className="grid gap-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                    <p className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                       {title}
                     </p>
                     <div className="grid gap-1.5">
@@ -243,14 +243,14 @@ function DocumentLabelReviewPanel({
                               <span className="truncate text-xs font-semibold text-[color:var(--text)]">
                                 {label.displayLabel}
                               </span>
-                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-[10px]")}>
+                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-3xs")}>
                                 {label.tier}
                               </span>
-                              <span className={cn(metadataPill, "min-h-6 text-[10px]")}>
+                              <span className={cn(metadataPill, "min-h-6 text-3xs")}>
                                 {labelTypeDisplay(label.labelType)}
                               </span>
                             </div>
-                            <p className={cn("mt-1 text-[11px] font-semibold", textMuted)}>
+                            <p className={cn("mt-1 text-2xs font-semibold", textMuted)}>
                               {label.source} · {Math.round(label.confidence * 100)}% · {label.reviewStatus}
                             </p>
                           </div>
@@ -267,7 +267,7 @@ function DocumentLabelReviewPanel({
                                     `restore:${label.id}`,
                                   )
                                 }
-                                className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
+                                className={cn(floatingControl, "min-h-8 px-2 text-2xs")}
                               >
                                 Restore
                               </button>
@@ -284,7 +284,7 @@ function DocumentLabelReviewPanel({
                                       `approve:${label.id}`,
                                     )
                                   }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px]")}
+                                  className={cn(floatingControl, "min-h-8 px-2 text-2xs")}
                                 >
                                   Approve
                                 </button>
@@ -299,7 +299,7 @@ function DocumentLabelReviewPanel({
                                       `hide:${label.id}`,
                                     )
                                   }
-                                  className={cn(floatingControl, "min-h-8 px-2 text-[11px] text-[color:var(--danger)]")}
+                                  className={cn(floatingControl, "min-h-8 px-2 text-2xs text-[color:var(--danger)]")}
                                 >
                                   Hide
                                 </button>
@@ -401,7 +401,7 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
       <div className="mt-3 space-y-3">
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(counts) as SmartDocumentTagQualityIssueKind[]).map((kind) => (
-            <span key={kind} className={cn(metadataPill, "min-h-7 px-2 text-[11px]", tagQualityTone[kind])}>
+            <span key={kind} className={cn(metadataPill, "min-h-7 px-2 text-2xs", tagQualityTone[kind])}>
               {tagQualityLabel(kind)}: {counts[kind]}
             </span>
           ))}
@@ -414,17 +414,17 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn(metadataPill, "min-h-6 px-2 text-[10px]", tagQualityTone[issue.kind])}>
+                  <span className={cn(metadataPill, "min-h-6 px-2 text-3xs", tagQualityTone[issue.kind])}>
                     {tagQualityLabel(issue.kind)}
                   </span>
                   <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{issue.label}</p>
                   {issue.count > 1 ? (
-                    <span className={cn("text-[11px] font-semibold", textMuted)}>{issue.count} hits</span>
+                    <span className={cn("text-2xs font-semibold", textMuted)}>{issue.count} hits</span>
                   ) : null}
                 </div>
                 <p className={cn("mt-1 text-xs leading-5", textMuted)}>{issue.reason}</p>
                 {issue.examples.length || issue.documentTitles.length ? (
-                  <p className={cn("mt-1 truncate text-[11px] font-semibold", textMuted)}>
+                  <p className={cn("mt-1 truncate text-2xs font-semibold", textMuted)}>
                     {[
                       issue.examples.length ? `examples: ${issue.examples.join(", ")}` : "",
                       issue.documentTitles.length ? `docs: ${issue.documentTitles.join(", ")}` : "",
@@ -496,16 +496,16 @@ function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[]
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{item.document.title}</p>
-              <span className={cn(metadataPill, "nums text-[11px]")}>
+              <span className={cn(metadataPill, "nums text-2xs")}>
                 index {Number.isFinite(item.score) ? item.score.toFixed(2) : "n/a"}
               </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className={cn(metadataPill, "text-[11px]")}>extraction:{item.extractionQuality}</span>
-              <span className={cn(metadataPill, "text-[11px]")}>sections:{item.sectionCount}</span>
-              <span className={cn(metadataPill, "text-[11px]")}>memory:{item.memoryCardCount}</span>
+              <span className={cn(metadataPill, "text-2xs")}>extraction:{item.extractionQuality}</span>
+              <span className={cn(metadataPill, "text-2xs")}>sections:{item.sectionCount}</span>
+              <span className={cn(metadataPill, "text-2xs")}>memory:{item.memoryCardCount}</span>
               {item.issues.slice(0, 4).map((issue) => (
-                <span key={issue} className={cn(metadataPill, "text-[11px]")}>
+                <span key={issue} className={cn(metadataPill, "text-2xs")}>
                   {issue}
                 </span>
               ))}
@@ -724,6 +724,7 @@ export function DocumentDrawer({
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           placeholder={mode === "source" ? "Find a source PDF" : "Find a document"}
+          aria-label={mode === "source" ? "Find a source PDF" : "Find a document"}
           className={fieldControlWithIcon}
         />
       </label>
@@ -733,7 +734,7 @@ export function DocumentDrawer({
         <div>
           <label
             htmlFor="browse-filter-type"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+            className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
           >
             Type
           </label>
@@ -755,7 +756,7 @@ export function DocumentDrawer({
         <div>
           <label
             htmlFor="browse-filter-site"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+            className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
           >
             Site
           </label>
@@ -777,7 +778,7 @@ export function DocumentDrawer({
         <div>
           <label
             htmlFor="browse-filter-topic"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+            className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
           >
             Topic
           </label>
@@ -799,7 +800,7 @@ export function DocumentDrawer({
         <div>
           <label
             htmlFor="browse-filter-population"
-            className="text-[10px] font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+            className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
           >
             Population
           </label>
@@ -1032,7 +1033,7 @@ export function DocumentDrawer({
                     {document.page_count} pages · {document.chunk_count} chunks · {document.image_count} images
                   </p>
                   {document.summary?.summary && (
-                    <p className={cn("mt-2 line-clamp-2 text-[13px] leading-5", textMuted)}>
+                    <p className={cn("mt-2 line-clamp-2 text-sm-minus leading-5", textMuted)}>
                       <SafeBoldText text={document.summary.summary} />
                     </p>
                   )}
@@ -1112,6 +1113,6 @@ function statusFilterLabel(filter: DocumentDrawerStatusFilter) {
 
 export function DrawerGroupLabel({ title }: { title: string }) {
   return (
-    <p className="px-1 pt-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
+    <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
   );
 }

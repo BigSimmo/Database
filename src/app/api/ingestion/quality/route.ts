@@ -174,6 +174,7 @@ function buildReviewItems(args: {
     const documentPages = pagesByDocument.get(document.id) ?? [];
     const documentImages = imagesByDocument.get(document.id) ?? [];
     const failedJob = documentJobs.find((job) => job.status === "failed");
+    const ingestionJobIds = new Set(documentJobs.map((job) => job.id));
     const failedOcrStage = documentStages.find(
       (stage) =>
         stage.stage_status === "failed" &&
@@ -211,7 +212,7 @@ function buildReviewItems(args: {
         title: "OCR or extraction failed",
         detail:
           failedOcrStage?.error_message || ocrWarning || "OCR/extraction warnings were recorded for this document.",
-        jobId: failedOcrStage?.job_id ?? null,
+        jobId: failedOcrStage?.job_id && ingestionJobIds.has(failedOcrStage.job_id) ? failedOcrStage.job_id : null,
         qualityScore: normalizedQualityScore,
         extractionQuality,
         reasons: unique([failedOcrStage?.stage_name, failedOcrStage?.error_message, ocrWarning]),

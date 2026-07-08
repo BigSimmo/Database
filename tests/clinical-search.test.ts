@@ -628,6 +628,28 @@ describe("clinical search query normalization", () => {
     expect(hasStructuredThresholdEvidence(tableResult)).toBe(true);
   });
 
+  it("treats retrieval synopsis text as dose evidence support", () => {
+    const synopsisResult = result({
+      title: "Medication chart",
+      content: "Administrative note only.",
+      retrieval_synopsis: "Lorazepam 1 mg IM route with repeat dose review guidance.",
+    });
+
+    expect(hasDoseEvidenceSupport(synopsisResult)).toBe(true);
+    expect(hasNumericOrTableEvidence(synopsisResult)).toBe(true);
+    expect(
+      rankClinicalResults("What dose and route are shown for lorazepam?", [
+        result({
+          id: "generic-higher-score",
+          title: "Medication overview",
+          content: "Administrative review note only.",
+          hybrid_score: 0.72,
+        }),
+        { ...synopsisResult, id: "synopsis-dose", hybrid_score: 0.58 },
+      ])[0].id,
+    ).toBe("synopsis-dose");
+  });
+
   it("detects structured threshold support from index units and table images", () => {
     expect(
       hasStructuredThresholdEvidence(
@@ -847,5 +869,19 @@ describe("clinical rank score bounding and penalty caps (RET-H1, RET-H2)", () =>
 
     const ranked = rankClinicalResults(query, [boilerplate, tableRow]);
     expect(ranked[0].id).toBe("dose-table-row");
+  });
+});
+
+describe("pre-clamp final score emission", () => {
+  it("emits preClampFinalScore on every ranked result for downstream tie-breaking", () => {
+    const ranked = rankClinicalResults("clozapine monitoring requirements", [
+      result({ id: "a", title: "Clozapine Prescribing and Monitoring", hybrid_score: 0.9 }),
+      result({ id: "b", title: "General Notes", hybrid_score: 0.4 }),
+    ]);
+
+    for (const item of ranked) {
+      expect(typeof item.score_explanation?.preClampFinalScore).toBe("number");
+      expect(Number.isFinite(item.score_explanation?.preClampFinalScore)).toBe(true);
+    }
   });
 });

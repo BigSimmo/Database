@@ -1,23 +1,16 @@
 "use client";
 
-import {
-  AlertTriangle,
-  Clock,
-  CornerDownLeft,
-  Search,
-  X,
-} from "lucide-react";
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
-} from "react";
+import { AlertTriangle, Clock, CornerDownLeft, Loader2, Search, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useId, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 
-import { modeActionItemsFor, type ModeActionId, type ModeActionSetId } from "@/components/clinical-dashboard/mode-action-popup";
+import {
+  modeActionItemsFor,
+  type ModeActionId,
+  type ModeActionSetId,
+} from "@/components/clinical-dashboard/mode-action-popup";
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
+import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -27,23 +20,38 @@ import {
   isFormCodeQuery,
   searchCommandSurfaceConfig,
 } from "@/lib/search-command-surface";
+import type { UniversalSearchDomain } from "@/lib/universal-search";
 
-const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+// Reverse of modeIdByDomain for chip counts: the domain whose live result total a
+// cross-mode chip should show. Answer/favourites chips have no countable domain.
+const domainByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain>> = {
+  documents: "documents",
+  prescribing: "medications",
+  services: "services",
+  forms: "forms",
+  differentials: "differentials",
+  tools: "tools",
+};
 
-function subscribeReducedMotion(onChange: () => void) {
-  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
+const modeIdByDomain: Record<UniversalSearchDomain, AppModeId> = {
+  documents: "documents",
+  medications: "prescribing",
+  services: "services",
+  forms: "forms",
+  differentials: "differentials",
+  tools: "tools",
+};
 
-function usePrefersReducedMotion() {
-  return useSyncExternalStore(
-    subscribeReducedMotion,
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    () => false,
-  );
-}
+const domainHeadings: Record<UniversalSearchDomain, string> = {
+  documents: "Documents",
+  medications: "Medications",
+  services: "Services",
+  forms: "Forms",
+  differentials: "Differentials",
+  tools: "Tools",
+};
+
+const SMART_HINT_ROTATION_MS = 3200;
 
 type DropdownItem = {
   id: string;
@@ -77,111 +85,41 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
 
 export type CommandSurfacePlacement = "bottom-dock" | "inline";
 
-function ContextHintRow({
-  modeId,
-  examples,
-  onPickExample,
-  placement,
-}: {
-  modeId: AppModeId;
-  examples: string[];
-  onPickExample: (example: string) => void;
-  placement: CommandSurfacePlacement;
-}) {
-  const reducedMotion = usePrefersReducedMotion();
-  const [index, setIndex] = useState(0);
-  const mode = appModeDefinition(modeId);
-  const ModeIcon = appModeIcons[modeId];
+function SmartRotatingHint({ examples, modeLabel }: { examples: string[]; modeLabel: string }) {
+  const [activeExampleIndex, setActiveExampleIndex] = useState(0);
+  const activeExample = examples[activeExampleIndex % examples.length];
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setIndex((current) => (current + 1) % examples.length);
-    }, 4500);
-    return () => window.clearInterval(timer);
+    if (examples.length <= 1) return;
+    const intervalId = window.setInterval(() => {
+      setActiveExampleIndex((current) => (current + 1) % examples.length);
+    }, SMART_HINT_ROTATION_MS);
+    return () => window.clearInterval(intervalId);
   }, [examples]);
 
-  const example = examples[index % examples.length];
+  if (!activeExample) return null;
 
   return (
-    <div
-      className={cn(
-        "min-h-8 items-center gap-2 px-1 text-xs font-semibold text-[color:var(--text-muted)]",
-        placement === "bottom-dock" ? "flex" : "hidden lg:flex",
-      )}
-    >
-      <span className="inline-flex shrink-0 items-center gap-1.5">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-          <ModeIcon className="h-3 w-3" />
-        </span>
-        Searching {mode.label.toLowerCase()}
-      </span>
-      <span aria-hidden className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--border-strong)]" />
-      <span className="flex min-w-0 items-center gap-1.5 overflow-hidden" aria-live="polite">
-        <span className="shrink-0 text-[color:var(--text-soft)]">Try:</span>
-        <button
-          key={example}
-          type="button"
-          onClick={() => onPickExample(example)}
-          className={cn(
-            "truncate rounded-md px-1 py-0.5 text-left font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
-            focusRing,
-            !reducedMotion && "motion-safe:animate-[universal-command-fade_360ms_ease]",
-          )}
-        >
-          {example}
-        </button>
-      </span>
-      <span className="ml-auto hidden shrink-0 items-center gap-1 text-2xs font-bold text-[color:var(--text-soft)] xl:inline-flex">
-        Press
-        <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 py-0.5 font-mono text-2xs shadow-[var(--shadow-inset)]">
-          /
-        </kbd>
-        to search
+    <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text" aria-live="polite">
+      <span>Smart search</span>
+      <span aria-hidden="true">·</span>
+      <span>
+        Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
       </span>
     </div>
   );
 }
 
-function ScopeChipRow({
-  scopes,
-  activeScopes,
-  onToggle,
-  modeLabel,
-}: {
-  scopes: Array<{ id: string; label: string }>;
-  activeScopes: string[];
-  onToggle: (id: string) => void;
-  modeLabel: string;
-}) {
-  if (!scopes.length) return null;
-
+function SmartPromptRow({ examples, onPickExample }: { examples: string[]; onPickExample: (example: string) => void }) {
   return (
-    <div
-      className="hidden flex-wrap items-center justify-center gap-1.5 lg:flex"
-      role="group"
-      aria-label={`${modeLabel} search scope`}
-    >
-      {scopes.map((scope) => {
-        const active = activeScopes.includes(scope.id);
-        return (
-          <button
-            key={scope.id}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onToggle(scope.id)}
-            className={cn(
-              "answer-footer-search-chip",
-              focusRing,
-              active &&
-                "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-            )}
-          >
-            {active ? <X className="h-3.5 w-3.5" aria-hidden /> : null}
-            {scope.label}
-          </button>
-        );
-      })}
-    </div>
+    <AnswerSuggestionChips
+      suggestions={examples}
+      onPick={onPickExample}
+      label="Prompts"
+      testId="smart-search-prompt-row"
+      layout="scroll"
+      className="smart-search-prompt-row"
+    />
   );
 }
 
@@ -192,6 +130,8 @@ function CommandDropdown({
   activeItemId,
   sections,
   showSafetyBanner,
+  interpretationLabel,
+  universalPending,
   onHoverItem,
   placement,
 }: {
@@ -201,6 +141,8 @@ function CommandDropdown({
   activeItemId: string | null;
   sections: Array<{ key: string; heading?: string; layout?: "list" | "chips"; items: DropdownItem[] }>;
   showSafetyBanner: boolean;
+  interpretationLabel: string | null;
+  universalPending: boolean;
   onHoverItem: (id: string) => void;
   placement: CommandSurfacePlacement;
 }) {
@@ -227,6 +169,13 @@ function CommandDropdown({
         </div>
       ) : null}
 
+      {interpretationLabel ? (
+        <div className="flex items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+          <span className="min-w-0 truncate">{interpretationLabel}</span>
+        </div>
+      ) : null}
+
       <div
         id={listboxId}
         role="listbox"
@@ -246,7 +195,11 @@ function CommandDropdown({
               ) : null}
               {section.layout === "chips" ? (
                 <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5">
-                  <span className="text-xs font-semibold text-[color:var(--text-muted)]">Search &ldquo;{query}&rdquo; in</span>
+                  {query ? (
+                    <span className="text-xs font-semibold text-[color:var(--text-muted)]">
+                      Search &ldquo;{query}&rdquo; in
+                    </span>
+                  ) : null}
                   {section.items.map((item) => (
                     <div
                       key={item.id}
@@ -285,7 +238,16 @@ function CommandDropdown({
             </div>
           ) : null,
         )}
-        {!hasItems ? (
+        {universalPending ? (
+          <div
+            role="presentation"
+            className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[color:var(--text-soft)]"
+          >
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            Searching across Clinical KB…
+          </div>
+        ) : null}
+        {!hasItems && !universalPending ? (
           <div className="px-3 py-4 text-sm font-semibold text-[color:var(--text-muted)]">
             Press Enter to run the full {mode.label.toLowerCase()} search.
           </div>
@@ -342,21 +304,106 @@ export function UniversalSearchCommandSurface({
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
+  void commandScopes;
+  void onCommandScopesChange;
   const config = searchCommandSurfaceConfig(modeId);
   const listboxId = useId();
+  const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
   const mode = appModeDefinition(modeId);
+  // A true "everything" view: the active mode's own domain is included (no excludeDomain) so
+  // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
+  const universal = useUniversalSearch({
+    query: trimmedQuery,
+    enabled: dropdownOpen && Boolean(config),
+  });
 
   const showSafetyBanner =
     modeId === "differentials" && differentialRedFlagTerms.some((term) => trimmedQuery.toLowerCase().includes(term));
   const showFormCodeHint = modeId === "forms" && isFormCodeQuery(trimmedQuery);
+  const {
+    groups: universalGroups,
+    query: universalQuery,
+    interpretation: universalInterpretation,
+    domainOrder: universalDomainOrder,
+    topHit: universalTopHit,
+    answerAction: universalAnswerAction,
+  } = universal;
+
+  // Render the cross-entity groups in the server's intent-aware order (drug query → medications
+  // first, etc.); fall back to fetched order. Only ordering changes, never the items/scores.
+  const orderedUniversalGroups = useMemo(() => {
+    if (!universalDomainOrder?.length) return universalGroups;
+    const rank = new Map(universalDomainOrder.map((domain, index) => [domain, index] as const));
+    return [...universalGroups].sort(
+      (left, right) =>
+        (rank.get(left.kind) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right.kind) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }, [universalGroups, universalDomainOrder]);
+
+  // Build the interpretation affordance ("Showing results for… / Including related terms").
+  const interpretationLabel = useMemo(() => {
+    if (!universalInterpretation) return null;
+    const corrected = universalInterpretation.correctedQuery?.trim();
+    if (corrected && corrected.toLowerCase() !== trimmedQuery.toLowerCase()) {
+      return `Showing results for “${corrected}”`;
+    }
+    const expansions = universalInterpretation.appliedExpansions ?? [];
+    if (expansions.length) {
+      return `Including related terms: ${expansions.slice(0, 4).join(", ")}`;
+    }
+    return null;
+  }, [universalInterpretation, trimmedQuery]);
 
   const sections = useMemo(() => {
     if (!config) return [];
     const built: Array<{ key: string; heading?: string; layout?: "list" | "chips"; items: DropdownItem[] }> = [];
     let counter = 0;
     const nextId = () => `${listboxId}-item-${counter++}`;
+
+    // Best-bet: a single near-exact match pinned to the top so the strongest hit is one keystroke
+    // away regardless of which domain it lives in.
+    if (trimmedQuery && universalQuery === trimmedQuery && universalTopHit) {
+      const HitIcon = appModeIcons[modeIdByDomain[universalTopHit.kind]];
+      const hit = universalTopHit;
+      built.push({
+        key: "top-hit",
+        heading: "Best match",
+        items: [
+          {
+            id: nextId(),
+            label: hit.title,
+            onSelect: () => {
+              onDropdownOpenChange(false);
+              router.push(hit.href);
+            },
+            render: (active) => (
+              <OptionShell active={active} hint="Open">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                  <HitIcon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-extrabold text-[color:var(--text-heading)]">
+                    {hit.title}
+                  </span>
+                  {hit.subtitle ? (
+                    <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                      {hit.subtitle}
+                    </span>
+                  ) : null}
+                </span>
+                {hit.badge ? (
+                  <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
+                    {hit.badge}
+                  </span>
+                ) : null}
+              </OptionShell>
+            ),
+          },
+        ],
+      });
+    }
 
     if (showFormCodeHint) {
       built.push({
@@ -430,13 +477,112 @@ export function UniversalSearchCommandSurface({
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
                   <Search className="h-4 w-4" />
                 </span>
-                <span className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{suggestion.text}</span>
+                <span className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">
+                  {suggestion.text}
+                </span>
                 <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
                   {suggestion.meta}
                 </span>
               </OptionShell>
             ),
           })),
+        });
+      }
+    }
+
+    // Ask-this bridge: for question-like queries, offer a jump into Answer mode for a cited
+    // answer. Suppressed in Answer mode (Enter there already runs the answer).
+    if (trimmedQuery && modeId !== "answer" && universalQuery === trimmedQuery && universalAnswerAction) {
+      const action = universalAnswerAction;
+      built.push({
+        key: "answer-action",
+        items: [
+          {
+            id: nextId(),
+            label: action.label,
+            onSelect: () => {
+              onDropdownOpenChange(false);
+              router.push(action.href);
+            },
+            render: (active) => (
+              <OptionShell active={active} hint="Answer">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{action.label}</span>
+                  <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                    Get a cited answer in Answer mode
+                  </span>
+                </span>
+              </OptionShell>
+            ),
+          },
+        ],
+      });
+    }
+
+    // Cross-entity typeahead ("Across Clinical KB"): live grouped matches from the universal
+    // search endpoint across every domain (including the active mode's own), rendered in the
+    // server's intent-aware order. Selecting an item navigates straight to the record; each group
+    // ends with a cross-mode "view all" that re-runs the query in the owning mode. Enter with
+    // nothing highlighted still runs the mode-scoped search.
+    if (trimmedQuery && universalQuery === trimmedQuery && orderedUniversalGroups.length) {
+      for (const group of orderedUniversalGroups) {
+        const targetModeId = modeIdByDomain[group.kind];
+        const targetMode = appModeDefinition(targetModeId);
+        const GroupIcon = appModeIcons[targetModeId];
+        built.push({
+          key: `universal-${group.kind}`,
+          heading: `${domainHeadings[group.kind]} · ${group.total}`,
+          items: [
+            ...group.items.map((item) => ({
+              id: nextId(),
+              label: item.title,
+              onSelect: () => {
+                onDropdownOpenChange(false);
+                router.push(item.href);
+              },
+              render: (active: boolean) => (
+                <OptionShell active={active} hint="Open">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                    <GroupIcon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{item.title}</span>
+                    {item.subtitle ? (
+                      <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                        {item.subtitle}
+                      </span>
+                    ) : null}
+                  </span>
+                  {item.badge ? (
+                    <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </OptionShell>
+              ),
+            })),
+            {
+              id: nextId(),
+              label: `View all in ${targetMode.label}`,
+              onSelect: () => {
+                onDropdownOpenChange(false);
+                onCrossMode(targetModeId, trimmedQuery);
+              },
+              render: (active: boolean) => (
+                <OptionShell active={active} hint="Search">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+                    <Search className="h-4 w-4" />
+                  </span>
+                  <span className="truncate text-sm font-semibold text-[color:var(--text-muted)]">
+                    View all in {targetMode.label}
+                  </span>
+                </OptionShell>
+              ),
+            },
+          ],
         });
       }
     }
@@ -492,6 +638,13 @@ export function UniversalSearchCommandSurface({
         items: config.crossModes.map((target) => {
           const targetMode = appModeDefinition(target);
           const TargetIcon = appModeIcons[target];
+          // Live count from the universal typeahead response ("Forms (2)") — only shown when
+          // fresh results for this exact query exist, so the chip never shows a stale number.
+          const targetDomain = domainByTargetMode[target];
+          const targetCount =
+            targetDomain && universalQuery === trimmedQuery
+              ? universalGroups.find((group) => group.kind === targetDomain)?.total
+              : undefined;
           return {
             id: nextId(),
             label: targetMode.label,
@@ -510,6 +663,7 @@ export function UniversalSearchCommandSurface({
               >
                 <TargetIcon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
                 {targetMode.label}
+                {typeof targetCount === "number" ? ` (${targetCount})` : ""}
               </span>
             ),
           };
@@ -530,18 +684,18 @@ export function UniversalSearchCommandSurface({
     onRunModeAction,
     onSearch,
     recentQueries,
+    router,
     showFormCodeHint,
     trimmedQuery,
+    universalGroups,
+    orderedUniversalGroups,
+    universalQuery,
+    universalTopHit,
+    universalAnswerAction,
   ]);
 
   const flatItems = useMemo(() => sections.flatMap((section) => section.items), [sections]);
   const activeItemId = activeIndex >= 0 && activeIndex < flatItems.length ? flatItems[activeIndex].id : null;
-
-  function toggleScope(id: string) {
-    onCommandScopesChange(
-      commandScopes.includes(id) ? commandScopes.filter((scope) => scope !== id) : [...commandScopes, id],
-    );
-  }
 
   function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
@@ -589,7 +743,10 @@ export function UniversalSearchCommandSurface({
       const target = event.target as HTMLElement | null;
       if (
         target &&
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable)
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
       ) {
         return;
       }
@@ -605,17 +762,13 @@ export function UniversalSearchCommandSurface({
   }
 
   return (
-    <div className="universal-command-surface relative z-10 flex w-full flex-col gap-2">
-      <ContextHintRow
-        modeId={modeId}
-        examples={config.examples}
-        placement={placement}
-        onPickExample={(example) => {
-          onQueryChange(example);
-          onDropdownOpenChange(true);
-          onFocusSearchInput?.();
-        }}
-      />
+    <div
+      className={cn(
+        "universal-command-surface relative z-10 flex w-full flex-col",
+        placement === "bottom-dock" ? "gap-1" : "gap-2",
+      )}
+    >
+      <SmartRotatingHint examples={config.examples} modeLabel={mode.label} />
       <div
         className="relative w-full"
         onKeyDownCapture={(event) => {
@@ -640,6 +793,8 @@ export function UniversalSearchCommandSurface({
             activeItemId={activeItemId}
             sections={sections}
             showSafetyBanner={showSafetyBanner}
+            interpretationLabel={interpretationLabel}
+            universalPending={universal.loading && Boolean(trimmedQuery)}
             placement={placement}
             onHoverItem={(id) => {
               const index = flatItems.findIndex((item) => item.id === id);
@@ -648,13 +803,14 @@ export function UniversalSearchCommandSurface({
           />
         ) : null}
       </div>
-      <ScopeChipRow
-        scopes={config.scopes}
-        activeScopes={commandScopes}
-        onToggle={toggleScope}
-        modeLabel={mode.label}
+      <SmartPromptRow
+        examples={config.examples}
+        onPickExample={(example) => {
+          onQueryChange(example);
+          onDropdownOpenChange(true);
+          onFocusSearchInput?.();
+        }}
       />
-      <style>{`@keyframes universal-command-fade { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }`}</style>
     </div>
   );
 }

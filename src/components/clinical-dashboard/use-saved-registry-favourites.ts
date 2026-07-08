@@ -6,22 +6,13 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { FavouriteItem } from "@/components/clinical-dashboard/favourites-prototype-data";
 import type { ServiceRecord } from "@/lib/services";
+import {
+  readSavedRegistrySlugs,
+  savedFormsStorageKey,
+  savedServicesStorageKey,
+  subscribeSavedRegistrySlugs,
+} from "@/lib/saved-registry-storage";
 import { useRegistryRecords } from "@/lib/use-registry-records";
-
-// localStorage keys written by the service/form detail pages when a record is
-// saved (see service-detail-page.tsx / form-detail-page.tsx).
-const savedServicesKey = "clinical-kb-saved-services";
-const savedFormsKey = "clinical-kb-saved-forms";
-
-function readSavedSlugs(key: string): string[] {
-  try {
-    const raw = window.localStorage.getItem(key);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
-  }
-}
 
 function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): FavouriteItem {
   return {
@@ -38,25 +29,17 @@ function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): F
   };
 }
 
-/**
- * Hydrate the user's saved services/forms into the FavouriteItem shape the hub
- * renders. Slugs live in localStorage; titles/metadata come from the owner's
- * registry via useRegistryRecords (demo mode serves fixtures, so this also
- * works env-less). Fetching is gated on there being saved slugs, so the common
- * "nothing saved" case makes no request.
- */
 export function useSavedRegistryFavourites(): FavouriteItem[] {
   const [savedServices, setSavedServices] = useState<string[]>([]);
   const [savedForms, setSavedForms] = useState<string[]>([]);
 
   useEffect(() => {
     const refresh = () => {
-      setSavedServices(readSavedSlugs(savedServicesKey));
-      setSavedForms(readSavedSlugs(savedFormsKey));
+      setSavedServices(readSavedRegistrySlugs(savedServicesStorageKey));
+      setSavedForms(readSavedRegistrySlugs(savedFormsStorageKey));
     };
     refresh();
-    window.addEventListener("storage", refresh);
-    return () => window.removeEventListener("storage", refresh);
+    return subscribeSavedRegistrySlugs(refresh);
   }, []);
 
   const services = useRegistryRecords("service", { enabled: savedServices.length > 0 });

@@ -12,6 +12,16 @@
  *   rounded-md  chips, inner elements, metadata pills
  *   rounded-lg  controls, inputs, buttons, cards, panels, drawers
  *   rounded-xl  bottom sheets, dialogs, large shells
+ *
+ * Z-index ladder (Tailwind v4 has no z theme namespace; arbitrary values are
+ * the idiom — pick an existing rung, never invent a new number):
+ *   0–40    in-page layering: sticky headers, badges, count bubbles
+ *   60      app chrome: master search header, mode menus
+ *   80–85   document overlays: viewer fullscreen (80), table fullscreen (85)
+ *   95      popovers that must beat overlays (source preview)
+ *   100     modal layer — the Sheet primitive — and the skip link
+ *   max     mockup-only diagnostics; never in live routes
+ * New overlays go through components/ui/sheet.tsx rather than a new layer.
  */
 @theme {
   --radius-xs: 0.25rem;
@@ -72,6 +82,7 @@
   --animate-sheet-up: sheet-up 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-sheet-left: sheet-left 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-pop-in: pop-in 180ms cubic-bezier(0.34, 1.3, 0.64, 1) both;
+  --animate-dialog-rise: dialog-rise 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-action-tray-in: action-tray-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
 }
@@ -490,11 +501,13 @@ summary::-webkit-details-marker {
  * scripts/capture-chrome-parity.ts). Responsive padding overrides are nested
  * here so the whole class stays in one layer.
  *
- * The COMPOSER chrome further below (answer-footer-search-*,
- * document-mobile-search-pill) stays INTENTIONALLY
- * UNLAYERED: its call sites stack utilities from shared ui-primitives
- * constants that rely on the class winning, and PR #171's frosted rework
- * left ~40 value conflicts there. Reconciling those is tracked in
+ * The COMPOSER PILL surface below (answer-footer-search-pill, a <form>) is now
+ * ALSO layered via a chatComposerShell base/delta split (see its comment). The
+ * pill-interior controls (answer-footer-search-input/-send/-action) and the
+ * composer POSITIONING chrome (*-composer-edge, *-search-edge/-dock/-backdrop,
+ * -pill-open, document-mobile-search-*) stay INTENTIONALLY UNLAYERED — the
+ * controls are <input>/<button> governed by unlayered global resets, the
+ * positioning chrome conflicts with inline responsive utilities. See
  * docs/process-hardening.md ("CSS cascade layering").
  */
 @layer components {
@@ -568,6 +581,7 @@ summary::-webkit-details-marker {
   width: min(100%, clamp(19rem, 90vw, 52rem));
   max-width: calc(100vw - 1rem - var(--safe-area-left) - var(--safe-area-right));
   margin-inline: auto;
+  overflow: visible;
 }
 
 .universal-home-search-edge {
@@ -589,22 +603,36 @@ summary::-webkit-details-marker {
   bottom: max(0.45rem, calc(var(--safe-area-bottom) + 0.35rem));
 }
 
-.answer-footer-search-pill {
-  min-height: 3.8rem;
-  gap: 0.375rem;
-  border: 1px solid color-mix(in srgb, var(--border-strong) 80%, transparent);
-  background: color-mix(in srgb, var(--surface) 97%, transparent);
-  padding-inline: 0.5rem;
-  box-shadow:
-    0 1px 2px rgb(16 24 40 / 4%),
-    0 6px 16px rgb(16 24 40 / 7%),
-    0 20px 48px rgb(16 24 40 / 12%);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
+/* Composer pill surface — LAYERED (2026-07-08). The pill is a <form>, so no
+ * global element reset targets it, and its call sites now use
+ * `chatComposerShellBase` (the size/colour/shadow "delta" this class owns is
+ * dropped at the call site — see the base/delta note in
+ * src/components/ui-primitives.tsx). Moving it into @layer components lets
+ * Tailwind utilities on the pill win normally. The pill-INTERIOR controls
+ * (answer-footer-search-input/-send/-action) stay UNLAYERED on purpose: they are
+ * <input>/<button> elements governed by the intentionally-unlayered global resets
+ * above (`font: inherit`, the ≤640px 16px font-size floor, the button transition
+ * reset). Layering those controls drops them below those resets and regresses
+ * computed style — and gains nothing, since utilities can't beat the unlayered
+ * resets either. Pill layering proven byte-identical across 16 states with
+ * scripts/capture-chrome-parity.ts. */
+@layer components {
+  .answer-footer-search-pill {
+    min-height: 3.25rem;
+    gap: 0.375rem;
+    border: 1px solid color-mix(in srgb, var(--border-strong) 80%, transparent);
+    background: color-mix(in srgb, var(--surface) 97%, transparent);
+    padding-inline: 0.375rem;
+    box-shadow:
+      0 1px 2px rgb(16 24 40 / 4%),
+      0 8px 24px rgb(16 24 40 / 8%);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      transform 180ms ease;
+  }
 }
 
 .answer-footer-search-backdrop {
@@ -696,7 +724,14 @@ summary::-webkit-details-marker {
   backdrop-filter: blur(8px) saturate(130%);
   -webkit-backdrop-filter: blur(8px) saturate(130%);
   mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 35%) 20%, black 45%, black 80%, transparent 100%);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 35%) 20%, black 45%, black 80%, transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(0 0 0 / 35%) 20%,
+    black 45%,
+    black 80%,
+    transparent 100%
+  );
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop::after {
@@ -744,20 +779,22 @@ summary::-webkit-details-marker {
   }
 }
 
-.answer-footer-search-pill:hover {
-  border-color: var(--border-strong);
-  box-shadow:
-    0 1px 2px rgb(16 24 40 / 5%),
-    0 8px 20px rgb(16 24 40 / 9%),
-    0 24px 56px rgb(16 24 40 / 14%);
-}
+@layer components {
+  .answer-footer-search-pill:hover {
+    border-color: var(--border-strong);
+    box-shadow:
+      0 1px 2px rgb(16 24 40 / 5%),
+      0 8px 20px rgb(16 24 40 / 9%),
+      0 24px 56px rgb(16 24 40 / 14%);
+  }
 
-.answer-footer-search-pill:focus-within {
-  border-color: var(--clinical-accent);
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--clinical-accent) 16%, transparent),
-    0 8px 20px rgb(16 24 40 / 8%),
-    0 20px 48px rgb(16 24 40 / 12%);
+  .answer-footer-search-pill:focus-within {
+    border-color: var(--clinical-accent);
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--clinical-accent) 16%, transparent),
+      0 8px 20px rgb(16 24 40 / 8%),
+      0 20px 48px rgb(16 24 40 / 12%);
+  }
 }
 
 .answer-footer-search-pill-open {
@@ -1094,14 +1131,14 @@ summary::-webkit-details-marker {
 
   .answer-footer-search-action,
   .answer-footer-search-send {
-    height: 2.05rem;
-    width: 2.05rem;
+    height: 2.75rem;
+    width: 2.75rem;
   }
 
   .answer-footer-search-action svg,
   .answer-footer-search-send svg {
-    height: 1rem;
-    width: 1rem;
+    height: 1.1rem;
+    width: 1.1rem;
   }
 }
 
@@ -1118,7 +1155,8 @@ summary::-webkit-details-marker {
 .answer-footer-search-action {
   height: 2.75rem;
   width: 2.75rem;
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--text-muted);
   box-shadow: none;
 }
@@ -1139,15 +1177,15 @@ summary::-webkit-details-marker {
 
 .answer-footer-search-divider {
   display: none;
-  height: 2.25rem;
+  height: 2rem;
   width: 1px;
   flex: 0 0 auto;
   background: color-mix(in srgb, var(--border-strong) 58%, transparent);
 }
 
 .answer-footer-search-send {
-  height: 2.8rem;
-  width: 2.8rem;
+  height: 2.75rem;
+  width: 2.75rem;
   background: var(--clinical-accent);
   color: var(--clinical-accent-contrast);
   box-shadow: 0 3px 10px color-mix(in srgb, var(--clinical-accent) 32%, transparent);
@@ -1165,21 +1203,23 @@ summary::-webkit-details-marker {
 @media (max-width: 430px) {
   .answer-footer-search-action,
   .answer-footer-search-send {
-    height: 2.05rem !important;
-    width: 2.05rem !important;
+    height: 2.75rem !important;
+    width: 2.75rem !important;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
   }
 
   .answer-footer-search-action svg,
   .answer-footer-search-send svg {
-    height: 1rem;
-    width: 1rem;
+    height: 1.1rem;
+    width: 1.1rem;
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .answer-footer-search-send:active {
-    transform: scale(0.96);
-  }
+.answer-footer-search-send:active {
+  /* Match the global button press metaphor (translateY) rather than a scale so
+     the composer send button feels consistent with every other control. */
+  transform: translateY(1px);
 }
 
 .answer-footer-search-chip {
@@ -1213,6 +1253,206 @@ summary::-webkit-details-marker {
   height: 0.875rem;
   width: 0.875rem;
   color: var(--clinical-accent);
+}
+
+.answer-suggestion-row {
+  display: flex;
+  min-height: 1.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-inline: 0.125rem;
+}
+
+.answer-suggestion-row-scroll {
+  min-width: 0;
+}
+
+.smart-search-rotating-text,
+.smart-search-prompt-row,
+.smart-search-suggestion-row {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .smart-search-rotating-text {
+    display: flex;
+  }
+
+  .smart-search-prompt-row,
+  .smart-search-suggestion-row {
+    display: flex;
+  }
+}
+
+.smart-search-rotating-text {
+  min-height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding-inline: 0.25rem;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.smart-search-rotating-query {
+  color: var(--clinical-accent);
+}
+
+.answer-suggestion-label {
+  color: var(--text-soft);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.answer-suggestion-chips {
+  display: flex;
+  min-width: 0;
+  gap: 0.375rem;
+}
+
+.answer-suggestion-chips-wrap {
+  flex-wrap: wrap;
+}
+
+.answer-suggestion-chips-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
+  -webkit-mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
+}
+
+@media (min-width: 640px) {
+  .answer-suggestion-chips-scroll {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+}
+
+.answer-suggestion-chips-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.answer-suggestion-chip {
+  display: inline-flex;
+  max-width: min(100%, 18rem);
+  min-height: 1.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  padding-inline: 0.625rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.answer-suggestion-chip:hover:not(:disabled) {
+  border-color: var(--clinical-accent-border);
+  background: var(--clinical-accent-soft);
+  color: var(--clinical-accent);
+}
+
+.answer-suggestion-chip:disabled {
+  cursor: not-allowed;
+}
+
+.answer-suggestion-chip-icon {
+  width: 0.8125rem;
+  height: 0.8125rem;
+  flex-shrink: 0;
+  margin-right: 0.3125rem;
+  color: var(--text-soft);
+}
+
+.answer-suggestion-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Quick actions on the answer home — deliberately lighter than the recent /
+   prompt pills so the two rows read as distinct tiers (content vs. actions). */
+.answer-quick-actions {
+  display: flex;
+  min-height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.875rem;
+}
+
+.answer-quick-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border: 0;
+  background: transparent;
+  padding: 0.25rem;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  transition: color 160ms ease;
+}
+
+.answer-quick-action:hover {
+  color: var(--clinical-accent);
+}
+
+.answer-quick-action:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.answer-quick-action-icon {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  flex-shrink: 0;
+}
+
+.answer-quick-action-divider {
+  width: 1px;
+  height: 0.75rem;
+  flex-shrink: 0;
+  background: var(--border);
+}
+
+.answer-footer-search-edge .answer-suggestion-row {
+  padding-inline: 0.25rem;
+}
+
+.answer-footer-search-edge .answer-suggestion-row-composer-followups {
+  margin-bottom: -0.125rem;
+}
+
+@media (min-width: 640px) {
+  .answer-suggestion-chip {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .answer-footer-search-dock .answer-suggestion-chip {
+    background: var(--surface);
+  }
 }
 
 .dark .answer-footer-search-action,
@@ -1265,10 +1505,12 @@ summary::-webkit-details-marker {
     width: min(calc(100vw - 48px - var(--safe-area-left) - var(--safe-area-right)), 680px);
   }
 
-  .answer-footer-search-pill {
-    min-height: 3.8rem;
-    gap: 0.5rem;
-    padding-inline: 0.625rem;
+  @layer components {
+    .answer-footer-search-pill {
+      min-height: 3.5rem;
+      gap: 0.5rem;
+      padding-inline: 0.5rem;
+    }
   }
 
   .answer-footer-search-input {
@@ -1277,8 +1519,8 @@ summary::-webkit-details-marker {
 
   .answer-footer-search-action,
   .answer-footer-search-send {
-    height: 3.3rem;
-    width: 3.3rem;
+    height: 3rem;
+    width: 3rem;
   }
 
   .answer-footer-search-divider {
@@ -1373,6 +1615,23 @@ summary::-webkit-details-marker {
     padding-bottom: max(0.45rem, var(--safe-area-bottom));
   }
 
+  /* Must beat the edge-to-edge dock rule above (transform: none) so scroll-hide
+     actually slides the bar off-screen once data-scroll-hidden is set. */
+  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-scroll-hidden="true"],
+  .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + env(safe-area-inset-bottom)));
+    pointer-events: none;
+  }
+
+  /* Document viewer bottom composer mirrors the dock's hide-on-scroll. Unlike
+     the full-bleed dock it floats with a bottom gap (.floating-composer-edge,
+     bottom: max(0.75rem, safe-area)), so the exit transform must also clear
+     that gap. translateY-only: this form centres with mx-auto, not translateX. */
+  .document-viewer-composer[data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + max(0.75rem, var(--safe-area-bottom))));
+    pointer-events: none;
+  }
+
   .answer-footer-search-dock .answer-footer-search-pill {
     border-color: var(--border-strong);
     background: var(--surface);
@@ -1419,11 +1678,12 @@ summary::-webkit-details-marker {
   }
 
   .dashboard-composer-edge.answer-footer-search-edge {
-    left: calc(
-      var(--clinical-sidebar-width-md, 0px) + (100vw - var(--clinical-sidebar-width-md, 0px)) / 2
-    );
+    left: calc(var(--clinical-sidebar-width-md, 0px) + (100vw - var(--clinical-sidebar-width-md, 0px)) / 2);
     right: auto;
-    width: min(calc(100vw - var(--clinical-sidebar-width-md, 0px) - 48px - var(--safe-area-left) - var(--safe-area-right)), 680px);
+    width: min(
+      calc(100vw - var(--clinical-sidebar-width-md, 0px) - 48px - var(--safe-area-left) - var(--safe-area-right)),
+      680px
+    );
   }
 }
 
@@ -1560,6 +1820,17 @@ summary::-webkit-details-marker {
   }
 }
 
+@keyframes dialog-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes action-tray-in {
   from {
     opacity: 0;
@@ -1605,16 +1876,33 @@ summary::-webkit-details-marker {
 /*
  * Helper classes with no same-property utility conflicts at any call site
  * live in @layer components so Tailwind utilities can override them.
- * Audited 2026-07-02: the chrome classes above (edge-glass-header,
- * universal-header-*, answer-footer-search-*, *-composer-edge) DO
- * conflict with call-site utilities and stay
- * unlayered deliberately — layering them changes rendered pixels. When
- * adding a utility to an element carrying one of those classes, check the
- * class body first; the class wins.
+ * Audited 2026-07-02 / 2026-07-08: the header chrome (edge-glass-header,
+ * universal-header-*) and the composer pill surface (answer-footer-search-pill)
+ * ARE layered — their call sites drop the conflicting "delta" utilities. Still
+ * UNLAYERED deliberately: the composer pill-interior controls
+ * (answer-footer-search-input/-send/-action, governed by unlayered global
+ * <input>/<button> resets) and the positioning chrome (*-composer-edge,
+ * *-search-edge/-dock/-backdrop, document-mobile-search-*) — layering those
+ * changes rendered pixels. When adding a utility to an element carrying one of
+ * those unlayered classes, check the class body first; the class wins.
  */
 @layer components {
   .app-edge-backdrop {
     background: var(--background);
+  }
+
+  /*
+   * Skip layout + paint for offscreen list cards while reserving their space
+   * with an intrinsic-size estimate, so long result lists stay cheap to render
+   * and scroll without virtualization. `auto` remembers each card's real size
+   * after first paint; the 320px fallback only prevents scrollbar jump before
+   * then. Degrades to normal rendering where content-visibility is unsupported.
+   * Apply only to simple, non-focus-trapping cards (not elements measured for
+   * sticky/container-query layout or opened via off-screen focus).
+   */
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
   }
 
   .mobile-app-shell {
@@ -1666,17 +1954,29 @@ summary::-webkit-details-marker {
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 25%, transparent) !important;
   }
 
-  /* Subtle hover for source capsules */
+  /* Premium hover transitions for source capsules */
   .source-capsule-hover {
+    box-shadow: var(--glow-soft), var(--shadow-inset);
     transition:
+      transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1),
       border-color 150ms ease,
-      box-shadow 150ms ease,
-      transform 150ms ease !important;
+      background-color 150ms ease !important;
   }
 
   .source-capsule-hover:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: var(--shadow-tight) !important;
+    transform: translateY(-1px) scale(1.01);
+    box-shadow: var(--shadow-tight), var(--shadow-inset);
+  }
+
+  .source-capsule-hover[aria-expanded="true"] {
+    border-color: var(--clinical-accent);
+    box-shadow: var(--glow-soft), var(--shadow-inset);
+  }
+
+  .source-capsule-hover[aria-expanded="true"]:hover {
+    transform: translateY(-1px) scale(1.01);
+    box-shadow: var(--shadow-tight), var(--shadow-inset);
   }
 
   .polished-scroll {
@@ -1718,6 +2018,11 @@ summary::-webkit-details-marker {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .source-capsule-hover:hover,
+  .source-capsule-hover[aria-expanded="true"]:hover {
+    transform: none !important;
   }
 }
 

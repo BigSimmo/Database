@@ -14,5 +14,7 @@ export default async function FavouritesPage({ searchParams }: FavouritesPagePro
   const params = searchParams ? await searchParams : {};
   const query = firstSearchParam(params.q)?.trim() ?? "";
 
-  return <FavouritesCommandLibraryPage key={query} query={query} />;
+  // No key={query} remount: query is a pure prop, and remounting on query
+  // change wiped the set/type/view/sort selections when clearing a search.
+  return <FavouritesCommandLibraryPage query={query} />;
 }

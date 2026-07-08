@@ -175,7 +175,7 @@ async function main() {
     console.log(`Low confidence generated labels: ${report.analytics.lowConfidence}`);
     console.log(`Quality warnings: ${report.analytics.qualityIssues.length}`);
     console.log(`Blocking quality issues: ${report.analytics.blockingQualityIssues.length}`);
-    console.log(`Missing gold-label rows: ${report.analytics.missingGoldLabels.length}`);
+    console.log(`Missing gold-label rows (advisory): ${report.analytics.missingGoldLabels.length}`);
     console.log(
       `Relevance checks: ${report.relevanceChecks.filter((check) => check.passed).length}/${report.relevanceChecks.length} passed`,
     );

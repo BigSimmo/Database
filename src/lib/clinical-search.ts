@@ -1,4 +1,5 @@
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import { clinicalResultEvidenceHaystack } from "@/lib/clinical-evidence-haystack";
 import { expandClinicalVocabularyText } from "@/lib/clinical-vocabulary";
 import { freshnessDecayPenalty, rankingConfig } from "@/lib/ranking-config";
 import type {
@@ -720,30 +721,14 @@ function evidenceDensityBoost(result: SearchResult, tokens: string[]) {
 }
 
 export function hasDoseEvidenceSupport(result: SearchResult) {
-  const haystack = `${result.section_heading ?? ""} ${result.content} ${(result.table_facts ?? [])
-    .map(
-      (fact) =>
-        `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.clinical_parameter ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`,
-    )
-    .join(" ")} ${(result.memory_cards ?? []).map((card) => `${card.title} ${card.content}`).join(" ")} ${(
-    result.images ?? []
-  )
-    .map((image) => `${image.tableTextSnippet ?? ""} ${image.caption ?? ""} ${image.tableTitle ?? ""}`)
-    .join(" ")}`.toLowerCase();
+  const haystack = clinicalResultEvidenceHaystack(result);
   return /\b(?:dose|dosage|dosing|mg|mcg|microgram|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer\w*|titration|titrate|frequency|maximum|tablet|injection|antipsychotic|benzodiazepine|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
     haystack,
   );
 }
 
 function hasMedicationDoseAmountEvidence(result: SearchResult) {
-  const haystack = `${result.section_heading ?? ""} ${result.content} ${(result.table_facts ?? [])
-    .map(
-      (fact) =>
-        `${fact.table_title ?? ""} ${fact.row_label ?? ""} ${fact.clinical_parameter ?? ""} ${fact.threshold_value ?? ""} ${fact.action ?? ""}`,
-    )
-    .join(" ")} ${(result.images ?? [])
-    .map((image) => `${image.tableTextSnippet ?? ""} ${image.caption ?? ""} ${image.tableTitle ?? ""}`)
-    .join(" ")}`.toLowerCase();
+  const haystack = clinicalResultEvidenceHaystack(result);
   return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(haystack);
 }
 
@@ -762,13 +747,13 @@ export function hasNumericOrTableEvidence(result: SearchResult) {
   ) {
     return true;
   }
-  const content = `${result.section_heading ?? ""} ${result.content}`;
+  const haystack = clinicalResultEvidenceHaystack(result);
   // number + clinical unit, or an explicit threshold/range token.
-  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|g|ml|mmol|mol|units?|%|x10\^?9|\/l|cells?)\b/i.test(content)
+  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|g|ml|mmol|mol|units?|%|x10\^?9|\/l|cells?)\b/i.test(haystack)
     ? true
-    : /\b\d/.test(content) &&
+    : /\b\d/.test(haystack) &&
         /\b(?:threshold|cut[\s-]?off|withhold|cease|range|level|anc|wbc|fbc|neutrophil|titrat|maximum|max\b)/i.test(
-          content,
+          haystack,
         );
 }
 
@@ -1729,6 +1714,7 @@ export function rankClinicalResults(query: string, results: SearchResult[]) {
       score_explanation: {
         ...entry.explanation,
         finalRank: index + 1,
+        preClampFinalScore: roundScore(entry.preClampFinalScore),
       },
     }));
 

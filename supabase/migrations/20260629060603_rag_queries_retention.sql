@@ -22,6 +22,22 @@ $$;
 
 revoke all on function public.purge_expired_rag_queries(integer) from public, anon, authenticated;
 
--- Daily purge at 03:30 UTC. Re-create idempotently by clearing any prior job first.
-select cron.unschedule(jobid) from cron.job where jobname = 'purge-expired-rag-queries';
-select cron.schedule('purge-expired-rag-queries', '30 3 * * *', $$select public.purge_expired_rag_queries(30);$$);
+-- Daily purge at 03:30 UTC. Preview/branch databases may not ship pg_cron; skip
+-- scheduling there while still installing the purge function.
+do $cron$
+begin
+  if to_regnamespace('cron') is null then
+    return;
+  end if;
+
+  perform cron.unschedule(j.jobid)
+  from cron.job j
+  where j.jobname = 'purge-expired-rag-queries';
+
+  perform cron.schedule(
+    'purge-expired-rag-queries',
+    '30 3 * * *',
+    $job$select public.purge_expired_rag_queries(30);$job$
+  );
+end
+$cron$;

@@ -3,6 +3,7 @@ import {
   chooseAnswerRoute,
   hasAdversarialManipulationIntent,
   shouldRetryWithStrongAfterFast,
+  weakRetrievalTopScoreThreshold,
 } from "../src/lib/rag-routing";
 import { ragEvalCases } from "../src/lib/rag-eval-cases";
 import type { SearchResult } from "../src/lib/types";
@@ -398,5 +399,17 @@ describe("adversarial-manipulation query guard", () => {
         expect(flagged, evalCase.id).toBe(false);
       }
     }
+  });
+});
+
+describe("weakRetrievalTopScoreThreshold", () => {
+  it("sits between the unsupported (0.32) and strong (0.64) routing thresholds", () => {
+    // Telemetry "weak search" labeling must be stricter than the unsupported routing floor
+    // (otherwise every routed answer would log as a miss) and looser than the strong-route
+    // bar (otherwise genuinely weak retrievals would never be logged for alias curation).
+    expect(weakRetrievalTopScoreThreshold).toBeGreaterThan(0.32);
+    expect(weakRetrievalTopScoreThreshold).toBeLessThan(0.64);
+    expect(0.64).toBeLessThan(0.76);
+    expect(weakRetrievalTopScoreThreshold).toBe(0.48);
   });
 });

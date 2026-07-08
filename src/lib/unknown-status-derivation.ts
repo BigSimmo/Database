@@ -1,0 +1,74 @@
+/**
+ * Pure status-derivation logic for documents left at `document_status = "unknown"`.
+ *
+ * A document that carries a `publication_date` but no explicit review date can
+ * be assigned a defensible status by assuming the standard review cycle: its
+ * review date is `publication_date + reviewCycleYears`, and it is `current`
+ * while that inferred date is in the future, else `review_due`.
+ *
+ * This encodes a policy assumption (the review cycle) and is intentionally
+ * conservative: date-less docs and future/implausible publication dates are not
+ * derived. See `scripts/derive-unknown-status.ts` for the live backfill driver.
+ */
+
+export const DEFAULT_REVIEW_CYCLE_YEARS = 3;
+
+/** Metadata version stamp written when a status is derived from the review cycle. */
+export const UNKNOWN_STATUS_DERIVATION_VERSION = "unknown_status_cycle_v1";
+
+/** Human-readable basis recorded alongside a cycle-inferred status. */
+export function unknownStatusDerivationBasis(reviewCycleYears = DEFAULT_REVIEW_CYCLE_YEARS) {
+  return `inferred from publication_date + ${reviewCycleYears}-year standard review cycle; no explicit review date in source`;
+}
+export type UnknownStatusDerivation =
+  | { kind: "derived"; reviewDate: string; status: "current" | "review_due" }
+  | { kind: "skip"; reason: "no_publication_date" | "unparseable_publication_date" | "future_publication_date" };
+
+function pad(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+/** Parse a strict `YYYY-MM-DD` date; null when absent or not a real calendar date. */
+export function parseIsoDate(value: unknown): { year: number; month: number; day: number } | null {
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) {
+    return null;
+  }
+  return { year, month, day };
+}
+
+/**
+ * Derive a document status from a publication date and a review cycle.
+ *
+ * @param publicationDate raw metadata value (`YYYY-MM-DD` string expected)
+ * @param options.reviewCycleYears cycle length in years (default 3, WA standard)
+ * @param options.now reference "today" (Perth end-of-day comparison)
+ */
+export function deriveUnknownStatus(
+  publicationDate: unknown,
+  options: { reviewCycleYears?: number; now?: Date } = {},
+): UnknownStatusDerivation {
+  const reviewCycleYears = options.reviewCycleYears ?? DEFAULT_REVIEW_CYCLE_YEARS;
+  const now = options.now ?? new Date();
+
+  if (publicationDate == null || publicationDate === "") {
+    return { kind: "skip", reason: "no_publication_date" };
+  }
+  const pub = parseIsoDate(publicationDate);
+  if (!pub) return { kind: "skip", reason: "unparseable_publication_date" };
+
+  // A publication date in the future is almost certainly a mis-extraction; do
+  // not let it fabricate an inferred review date that reads as "current".
+  const pubDate = new Date(`${pub.year}-${pad(pub.month)}-${pad(pub.day)}T00:00:00+08:00`);
+  if (pubDate > now) return { kind: "skip", reason: "future_publication_date" };
+
+  const reviewDate = `${pub.year + reviewCycleYears}-${pad(pub.month)}-${pad(pub.day)}`;
+  const status = new Date(`${reviewDate}T23:59:59+08:00`) >= now ? "current" : "review_due";
+  return { kind: "derived", reviewDate, status };
+}

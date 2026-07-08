@@ -22,7 +22,9 @@ import { cn } from "@/components/ui-primitives";
 import {
   acuteConfusionPresentationWorkflow,
   getDifferentialRecord,
+  getPresentationWorkflow,
   type DifferentialComparisonCriterion,
+  type DifferentialPresentationWorkflow,
   type DifferentialRecord,
   type DifferentialSection,
 } from "@/lib/differentials";
@@ -85,10 +87,10 @@ function CandidateGlyph({ record, className }: { record: DifferentialRecord; cla
   return <BrainCircuit className={className} aria-hidden />;
 }
 
-function comparisonCopy(candidates: CandidateView[]) {
+function comparisonCopy(workflow: DifferentialPresentationWorkflow, candidates: CandidateView[]) {
   return [
-    `${acuteConfusionPresentationWorkflow.title} comparison`,
-    acuteConfusionPresentationWorkflow.safetySnapshot.summary,
+    `${workflow.title} comparison`,
+    workflow.safetySnapshot.summary,
     "",
     ...candidates
       .filter((candidate) => candidate.selected)
@@ -100,8 +102,8 @@ function comparisonCopy(candidates: CandidateView[]) {
   ].join("\n");
 }
 
-function getCandidates(): CandidateView[] {
-  return acuteConfusionPresentationWorkflow.candidates.flatMap((candidate) => {
+function getCandidates(workflow: DifferentialPresentationWorkflow): CandidateView[] {
+  return workflow.candidates.flatMap((candidate) => {
     const record = getDifferentialRecord(candidate.slug);
     if (!record) return [];
     return [
@@ -177,8 +179,13 @@ function CandidateHeader({ candidate }: { candidate: CandidateView }) {
   );
 }
 
-function DesktopComparisonTable({ candidates }: { candidates: CandidateView[] }) {
-  const workflow = acuteConfusionPresentationWorkflow;
+function DesktopComparisonTable({
+  workflow,
+  candidates,
+}: {
+  workflow: DifferentialPresentationWorkflow;
+  candidates: CandidateView[];
+}) {
   return (
     <section className="hidden md:block" aria-label="Differential comparison table">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
@@ -263,8 +270,7 @@ function DesktopComparisonTable({ candidates }: { candidates: CandidateView[] })
   );
 }
 
-function SafetySnapshot() {
-  const workflow = acuteConfusionPresentationWorkflow;
+function SafetySnapshot({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
   return (
     <section
       className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/85 p-3 shadow-[var(--shadow-inset)] xl:p-4"
@@ -298,13 +304,19 @@ function SafetySnapshot() {
   );
 }
 
-function SelectedDifferentialsPanel({ candidates }: { candidates: CandidateView[] }) {
+function SelectedDifferentialsPanel({
+  workflow,
+  candidates,
+}: {
+  workflow: DifferentialPresentationWorkflow;
+  candidates: CandidateView[];
+}) {
   const selectedCandidates = candidates.filter((candidate) => candidate.selected);
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">
-          Selected differentials ({selectedCandidates.length} of {acuteConfusionPresentationWorkflow.totalCount})
+          Selected differentials ({selectedCandidates.length} of {workflow.totalCount})
         </h2>
         <span className="text-xs font-bold text-[color:var(--clinical-accent)]">+2</span>
       </div>
@@ -337,7 +349,13 @@ function SelectedDifferentialsPanel({ candidates }: { candidates: CandidateView[
   );
 }
 
-function HighestUrgencyPanel({ candidates }: { candidates: CandidateView[] }) {
+function HighestUrgencyPanel({
+  workflow,
+  candidates,
+}: {
+  workflow: DifferentialPresentationWorkflow;
+  candidates: CandidateView[];
+}) {
   const emergent = candidates.filter((candidate) => candidate.selected && candidate.record.status === "emergent");
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
@@ -350,20 +368,18 @@ function HighestUrgencyPanel({ candidates }: { candidates: CandidateView[] }) {
             <li key={candidate.record.slug}>{candidate.record.title}</li>
           ))}
         </ul>
-        <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">
-          {acuteConfusionPresentationWorkflow.highestUrgencyNote}
-        </p>
+        <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">{workflow.highestUrgencyNote}</p>
       </div>
     </section>
   );
 }
 
-function ReviewPanel() {
+function ReviewPanel({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
       <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Review & handoff</h2>
       <ul className="mt-3 grid gap-2">
-        {acuteConfusionPresentationWorkflow.reviewChecklist.map((item) => (
+        {workflow.reviewChecklist.map((item) => (
           <li key={item} className="flex gap-2 text-xs font-bold leading-5 text-[color:var(--text-heading)]">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
             {item}
@@ -396,21 +412,27 @@ function CopyAfterReviewPanel({ text }: { text: string }) {
 /** The review/handoff panels shared by the desktop side rail (stacked) and the
  *  tablet reflow grid below the comparison table. Safety snapshot is rendered
  *  separately so it can lead each layout. */
-function ReviewPanels({ candidates }: { candidates: CandidateView[] }) {
+function ReviewPanels({
+  workflow,
+  candidates,
+}: {
+  workflow: DifferentialPresentationWorkflow;
+  candidates: CandidateView[];
+}) {
   const selectedCandidates = candidates.filter((candidate) => candidate.selected);
   return (
     <>
-      <SelectedDifferentialsPanel candidates={candidates} />
-      <HighestUrgencyPanel candidates={candidates} />
-      <ReviewPanel />
-      <CopyAfterReviewPanel text={comparisonCopy(selectedCandidates)} />
-      <SourceStatusPanel />
+      <SelectedDifferentialsPanel workflow={workflow} candidates={candidates} />
+      <HighestUrgencyPanel workflow={workflow} candidates={candidates} />
+      <ReviewPanel workflow={workflow} />
+      <CopyAfterReviewPanel text={comparisonCopy(workflow, selectedCandidates)} />
+      <SourceStatusPanel workflow={workflow} />
     </>
   );
 }
 
-function SourceStatusPanel() {
-  const status = acuteConfusionPresentationWorkflow.sourceStatus;
+function SourceStatusPanel({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
+  const status = workflow.sourceStatus;
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
       <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Source status</h2>
@@ -431,7 +453,15 @@ function SourceStatusPanel() {
   );
 }
 
-function MobileCandidateCard({ candidate, index }: { candidate: CandidateView; index: number }) {
+function MobileCandidateCard({
+  workflow,
+  candidate,
+  index,
+}: {
+  workflow: DifferentialPresentationWorkflow;
+  candidate: CandidateView;
+  index: number;
+}) {
   return (
     <details
       className="group rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
@@ -453,7 +483,7 @@ function MobileCandidateCard({ candidate, index }: { candidate: CandidateView; i
         <ChevronDown className="h-4 w-4 text-[color:var(--text-muted)] transition group-open:rotate-180" aria-hidden />
       </summary>
       <div className="border-t border-[color:var(--border)] px-3 pb-2">
-        {acuteConfusionPresentationWorkflow.criteria.map((criterion) => {
+        {workflow.criteria.map((criterion) => {
           const Icon = criterionIcon[criterion.tone];
           return (
             <div
@@ -479,7 +509,13 @@ function MobileCandidateCard({ candidate, index }: { candidate: CandidateView; i
   );
 }
 
-function MobileComparison({ candidates }: { candidates: CandidateView[] }) {
+function MobileComparison({
+  workflow,
+  candidates,
+}: {
+  workflow: DifferentialPresentationWorkflow;
+  candidates: CandidateView[];
+}) {
   const selected = candidates.filter((candidate) => candidate.selected);
   return (
     <section className="grid gap-3 md:hidden" aria-label="Mobile differential comparison">
@@ -490,8 +526,7 @@ function MobileComparison({ candidates }: { candidates: CandidateView[] }) {
         >
           <span className="inline-flex min-w-0 items-center gap-2">
             <BrainCircuit className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-            {acuteConfusionPresentationWorkflow.selectedCount} of {acuteConfusionPresentationWorkflow.totalCount}{" "}
-            selected
+            {workflow.selectedCount} of {workflow.totalCount} selected
           </span>
           <ChevronDown className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
         </button>
@@ -503,22 +538,22 @@ function MobileComparison({ candidates }: { candidates: CandidateView[] }) {
           <Filter className="h-4 w-4" aria-hidden />
         </button>
       </div>
-      <SafetySnapshot />
+      <SafetySnapshot workflow={workflow} />
       <div className="grid gap-3">
         {selected.map((candidate, index) => (
-          <MobileCandidateCard key={candidate.record.slug} candidate={candidate} index={index} />
+          <MobileCandidateCard key={candidate.record.slug} workflow={workflow} candidate={candidate} index={index} />
         ))}
       </div>
       <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-elevated)]">
         <Link
-          href="/differentials/presentations"
+          href={`/differentials/presentations/${workflow.id}`}
           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-contrast)]/40 bg-[color:var(--clinical-accent-contrast)]/5 px-2 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] sm:text-sm"
         >
           <GitCompareArrows className="h-4 w-4" aria-hidden />
-          Compare ({acuteConfusionPresentationWorkflow.selectedCount} selected)
+          Compare ({workflow.selectedCount} selected)
         </Link>
         <CopyAfterReviewButton
-          text={comparisonCopy(candidates)}
+          text={comparisonCopy(workflow, candidates)}
           className="min-h-11 bg-[color:var(--surface)] px-2 !text-xs !text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)] sm:!text-sm"
         />
       </div>
@@ -526,7 +561,8 @@ function MobileComparison({ candidates }: { candidates: CandidateView[] }) {
   );
 }
 
-function MobileTabs() {
+function MobileTabs({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
+  const firstCandidate = workflow.candidates[0]?.slug ?? "delirium";
   return (
     <nav
       aria-label="Differential presentation sections"
@@ -537,7 +573,7 @@ function MobileTabs() {
         return (
           <Link
             key={item}
-            href={active ? "/differentials/presentations" : "/differentials/diagnoses/delirium"}
+            href={active ? `/differentials/presentations/${workflow.id}` : `/differentials/diagnoses/${firstCandidate}`}
             aria-current={active ? "page" : undefined}
             className={cn(
               "min-h-11 border-b-2 px-1 py-3",
@@ -554,9 +590,15 @@ function MobileTabs() {
   );
 }
 
-export function DifferentialPresentationWorkflowPage({ query = "" }: { query?: string }) {
-  const workflow = acuteConfusionPresentationWorkflow;
-  const candidates = getCandidates();
+export function DifferentialPresentationWorkflowPage({
+  query = "",
+  presentationSlug = "acute-confusion-encephalopathy",
+}: {
+  query?: string;
+  presentationSlug?: string;
+}) {
+  const workflow = getPresentationWorkflow(presentationSlug) ?? acuteConfusionPresentationWorkflow;
+  const candidates = getCandidates(workflow);
 
   return (
     <main
@@ -617,13 +659,19 @@ export function DifferentialPresentationWorkflowPage({ query = "" }: { query?: s
               <div className="inline-flex rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]">
                 <button
                   type="button"
-                  className="min-h-9 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)]"
+                  disabled
+                  aria-disabled
+                  title="Soon"
+                  className="min-h-9 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Compact
                 </button>
                 <button
                   type="button"
-                  className="min-h-9 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)]"
+                  disabled
+                  aria-disabled
+                  title="Soon"
+                  className="min-h-9 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Detailed
                 </button>
@@ -631,22 +679,22 @@ export function DifferentialPresentationWorkflowPage({ query = "" }: { query?: s
             </div>
           </section>
 
-          <MobileTabs />
+          <MobileTabs workflow={workflow} />
           {/* Tablet / mid (md–lg): safety leads, then the scrollable table, then
               the review panels reflow into a grid below — no fixed side rail. */}
           <div className="mb-4 hidden md:block xl:hidden">
-            <SafetySnapshot />
+            <SafetySnapshot workflow={workflow} />
           </div>
-          <DesktopComparisonTable candidates={candidates} />
-          <MobileComparison candidates={candidates} />
+          <DesktopComparisonTable workflow={workflow} candidates={candidates} />
+          <MobileComparison workflow={workflow} candidates={candidates} />
           <div className="mt-4 hidden items-start gap-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:hidden">
-            <ReviewPanels candidates={candidates} />
+            <ReviewPanels workflow={workflow} candidates={candidates} />
           </div>
         </div>
 
         <aside className="hidden min-w-0 gap-4 xl:grid" aria-label="Differential review sidebar">
-          <SafetySnapshot />
-          <ReviewPanels candidates={candidates} />
+          <SafetySnapshot workflow={workflow} />
+          <ReviewPanels workflow={workflow} candidates={candidates} />
         </aside>
       </div>
 

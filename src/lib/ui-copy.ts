@@ -16,6 +16,8 @@ export const answerEmptyState = {
   heading: "How can I help?",
   subheading: "Ask a clinical question or search your documents.",
   starterActionsLabel: "Starter actions",
+  quickActionsLabel: "Quick actions",
+  recentLabel: "Recent searches",
   starters: {
     ask: {
       title: "Ask a question",
@@ -30,6 +32,19 @@ export const answerEmptyState = {
       title: "Upload document",
       description: "Add a guideline, PDF, or local source.",
     },
+  },
+} as const;
+
+// Recovery copy for the answer flow — actions and calm no-results guidance shown
+// when a question fails or returns nothing usable.
+export const answerRecovery = {
+  retry: "Retry",
+  searchDocuments: "Search documents instead",
+  rephrase: "Rephrase question",
+  failureHint: "Something interrupted this answer.",
+  noResults: {
+    heading: "No answer for that yet",
+    body: "Nothing in the indexed library matched this question. Try rephrasing it, or search the documents directly.",
   },
 } as const;
 

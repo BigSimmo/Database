@@ -138,6 +138,13 @@ create table if not exists public.document_images (
   perceptual_hash text,
   labels text[] not null default '{}',
   index_generation_id uuid,
+  caption_confidence real,
+  clinical_priority_score real,
+  crop_completeness real,
+  image_quality_score real,
+  ocr_text_density real,
+  structured_extraction_confidence real,
+  visual_duplicate_group text,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
@@ -271,7 +278,7 @@ create table if not exists public.document_chunks (
   anchor_id text,
   content text not null,
   retrieval_synopsis text,
-  content_hash text not null,
+  content_hash text,
   index_generation_id uuid,
   token_estimate integer not null default 0,
   image_ids uuid[] not null default '{}',
@@ -330,7 +337,7 @@ create table if not exists public.document_embedding_fields (
     )
   ),
   content text not null,
-  content_hash text,
+  content_hash text not null,
   embedding extensions.vector(1536) not null,
   index_generation_id uuid,
   metadata jsonb not null default '{}'::jsonb,
@@ -347,10 +354,102 @@ create table if not exists public.document_index_quality (
   quality_score real not null default 0 check (quality_score >= 0 and quality_score <= 1),
   extraction_quality text not null default 'unknown'
     check (extraction_quality in ('good', 'partial', 'poor', 'unknown')),
+  anchor_coverage real,
+  model_fallback_rate real,
+  noisy_unit_rate real,
+  retrievable_visual_hit boolean,
+  source_span_coverage real,
+  typed_unit_coverage real,
   metrics jsonb not null default '{}'::jsonb,
   issues text[] not null default '{}',
   updated_at timestamptz not null default now()
 );
+
+-- NOTE: this table is declared here, before document_strict_gate_status and the
+-- late grant/RLS sections that reference it, so a from-scratch replay of this
+-- file succeeds (DR rehearsal 2026-07-06; see docs/disaster-recovery-runbook.md).
+-- Its updated_at trigger stays below with the other triggers (set_updated_at is
+-- defined later in this file).
+create table if not exists public.document_index_units (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete set null,
+  document_id uuid not null references public.documents(id) on delete cascade,
+  unit_type text not null check (unit_type in ('document_profile', 'section_summary', 'page_text', 'chunk_evidence', 'table_fact', 'askable_question', 'clinical_fact', 'threshold', 'workflow_step', 'medication_monitoring', 'alias', 'vocabulary_term', 'visual_summary', 'flowchart_step', 'diagram_decision', 'risk_matrix_cell', 'medication_chart_row', 'chart_finding', 'visual_askable_question', 'table_threshold')),
+  source_chunk_id uuid references public.document_chunks(id) on delete cascade,
+  source_image_id uuid references public.document_images(id) on delete set null,
+  page_start integer,
+  page_end integer,
+  heading_path text[] not null default '{}',
+  title text not null,
+  content text not null,
+  normalized_terms text[] not null default '{}',
+  source_span jsonb,
+  quality_score real not null default 0.7 check (quality_score >= 0 and quality_score <= 1),
+  extraction_mode text not null default 'deterministic' check (extraction_mode in ('deterministic', 'model_heavy', 'hybrid')),
+  index_generation_id uuid,
+  embedding extensions.vector(1536) not null,
+  metadata jsonb not null default '{}'::jsonb,
+  search_tsv tsvector generated always as (to_tsvector('english', coalesce(unit_type, '') || ' ' || coalesce(title, '') || ' ' || coalesce(content, ''))) stored,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists document_index_units_document_idx on public.document_index_units(document_id, unit_type, page_start);
+create index if not exists document_index_units_owner_type_idx on public.document_index_units(owner_id, unit_type, quality_score desc);
+create index if not exists document_index_units_owner_chunk_type_idx
+  on public.document_index_units(owner_id, source_chunk_id, unit_type)
+  where source_chunk_id is not null;
+create index if not exists document_index_units_chunk_idx on public.document_index_units(source_chunk_id) where source_chunk_id is not null;
+create index if not exists document_index_units_image_idx on public.document_index_units(source_image_id) where source_image_id is not null;
+create index if not exists document_index_units_terms_idx on public.document_index_units using gin(normalized_terms);
+create index if not exists document_index_units_heading_path_idx on public.document_index_units using gin(heading_path);
+create index if not exists document_index_units_search_idx on public.document_index_units using gin(search_tsv);
+-- Intentionally no HNSW index on document_index_units.embedding: the hybrid RPC is
+-- text-candidate-gated so the vector path never used it (0 lifetime scans; dropped
+-- live 2026-07-02 by the drop_legacy_vector_indexes migration). Re-add only if the
+-- RPC is rewritten to take a vector-first candidate path.
+
+-- Autovacuum tuning observed live on the high-churn RAG tables (advisor-era).
+-- Values must match live exactly; `npm run check:drift` compares reloptions.
+alter table public.document_chunks set (
+  autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000,
+  autovacuum_analyze_scale_factor = 0.02, autovacuum_analyze_threshold = 500
+);
+alter table public.document_pages set (
+  autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000,
+  autovacuum_analyze_scale_factor = 0.02, autovacuum_analyze_threshold = 500
+);
+alter table public.document_images set (
+  autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000,
+  autovacuum_analyze_scale_factor = 0.02, autovacuum_analyze_threshold = 500
+);
+alter table public.document_table_facts set (
+  autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000,
+  autovacuum_analyze_scale_factor = 0.02, autovacuum_analyze_threshold = 500
+);
+alter table public.document_labels set (
+  autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 200,
+  autovacuum_analyze_scale_factor = 0.02, autovacuum_analyze_threshold = 100
+);
+
+-- Content-quality guards observed live (added there as NOT VALID; codified
+-- byte-identically -- pg_get_constraintdef includes the NOT VALID marker).
+do $guard$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'document_chunks_content_not_blank') then
+    alter table public.document_chunks
+      add constraint document_chunks_content_not_blank check (length(btrim(content)) > 0) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'document_embedding_fields_content_not_blank') then
+    alter table public.document_embedding_fields
+      add constraint document_embedding_fields_content_not_blank check (length(btrim(content)) > 0) not valid;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'document_index_units_content_not_blank') then
+    alter table public.document_index_units
+      add constraint document_index_units_content_not_blank check (length(btrim(content)) > 0) not valid;
+  end if;
+end
+$guard$;
 
 create table if not exists public.ingestion_jobs (
   id uuid primary key default gen_random_uuid(),
@@ -374,11 +473,16 @@ create table if not exists public.ingestion_jobs (
 
 create table if not exists public.ingestion_job_stages (
   id uuid primary key default gen_random_uuid(),
-  job_id uuid not null references public.ingestion_jobs(id) on delete cascade,
+  -- R24e: no FK to ingestion_jobs. Live has no such constraint and job_id holds
+  -- indexing_v3_agent_jobs ids, not ingestion_jobs ids (see migration
+  -- 20260708140000). document_id -> documents ON DELETE CASCADE is the real FK.
+  job_id uuid not null,
   document_id uuid not null references public.documents(id) on delete cascade,
   stage_name text not null,
   stage_status text not null default 'started'
     check (stage_status in ('started', 'completed', 'failed')),
+  error_class text,
+  retry_count integer not null default 0,
   metadata jsonb not null default '{}'::jsonb,
   artifact_counts jsonb not null default '{}'::jsonb,
   error_message text,
@@ -673,6 +777,15 @@ create index if not exists ingestion_jobs_status_next_run_idx
   where status in ('pending', 'processing', 'failed');
 create index if not exists ingestion_jobs_document_status_idx
   on public.ingestion_jobs(document_id, status, created_at);
+-- R17 (docs/ingestion-concurrency-fix-workorder.md): structural guard against
+-- more than one open job per document. Migration
+-- 20260708160000_ingestion_jobs_one_open_per_document.sql creates the live
+-- equivalent with CONCURRENTLY (manual apply — see that file's header); this
+-- non-concurrent form is for fresh/scratch replay only, where there is no
+-- concurrent traffic to block.
+create unique index if not exists ingestion_jobs_one_open_per_document_uidx
+  on public.ingestion_jobs(document_id)
+  where status in ('pending', 'processing');
 drop index if exists public.ingestion_job_stages_doc_idx;
 create index if not exists ingestion_job_stages_document_started_idx
   on public.ingestion_job_stages(document_id, started_at desc);
@@ -825,6 +938,100 @@ begin
 end;
 $$;
 
+create table if not exists public.api_rate_limit_subjects (
+  subject_key text not null,
+  bucket text not null,
+  window_start timestamptz not null default now(),
+  request_count integer not null default 0 check (request_count >= 0),
+  updated_at timestamptz not null default now(),
+  primary key (subject_key, bucket),
+  constraint api_rate_limit_subjects_subject_key_nonempty check (btrim(subject_key) <> ''),
+  constraint api_rate_limit_subjects_bucket_nonempty check (btrim(bucket) <> '')
+);
+
+create index if not exists api_rate_limit_subjects_bucket_updated_idx
+  on public.api_rate_limit_subjects(bucket, updated_at desc);
+
+create or replace function public.consume_api_subject_rate_limit(
+  p_subject_key text,
+  p_bucket text,
+  p_limit integer,
+  p_window_seconds integer
+)
+returns table (
+  limited boolean,
+  limit_value integer,
+  remaining integer,
+  retry_after_seconds integer,
+  reset_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_now timestamptz := now();
+  v_window_start timestamptz := v_now;
+  v_count integer;
+  v_reset_at timestamptz;
+begin
+  if p_subject_key is null or btrim(p_subject_key) = '' then
+    raise exception 'subject_key is required';
+  end if;
+  if p_bucket is null or btrim(p_bucket) = '' then
+    raise exception 'bucket is required';
+  end if;
+  if p_limit < 1 then
+    raise exception 'limit must be positive';
+  end if;
+  if p_window_seconds < 1 then
+    raise exception 'window must be positive';
+  end if;
+
+  loop
+    update public.api_rate_limit_subjects
+    set
+      window_start = case
+        when window_start + make_interval(secs => p_window_seconds) <= v_now then v_window_start
+        else window_start
+      end,
+      request_count = case
+        when window_start + make_interval(secs => p_window_seconds) <= v_now then 1
+        else request_count + 1
+      end,
+      updated_at = v_now
+    where subject_key = p_subject_key
+      and bucket = p_bucket
+    returning request_count, window_start + make_interval(secs => p_window_seconds)
+      into v_count, v_reset_at;
+
+    exit when found;
+
+    begin
+      insert into public.api_rate_limit_subjects(subject_key, bucket, window_start, request_count, updated_at)
+      values (p_subject_key, p_bucket, v_window_start, 1, v_now)
+      returning request_count, window_start + make_interval(secs => p_window_seconds)
+        into v_count, v_reset_at;
+      exit;
+    exception when unique_violation then
+    end;
+  end loop;
+
+  return query
+  select
+    v_count > p_limit as limited,
+    p_limit as limit_value,
+    greatest(p_limit - v_count, 0) as remaining,
+    greatest(1, ceiling(extract(epoch from (v_reset_at - v_now)))::integer) as retry_after_seconds,
+    v_reset_at as reset_at;
+end;
+$$;
+
+revoke all privileges on table public.api_rate_limit_subjects from public, anon, authenticated;
+grant select, insert, update, delete on table public.api_rate_limit_subjects to service_role;
+revoke execute on function public.consume_api_subject_rate_limit(text, text, integer, integer) from public, anon, authenticated;
+grant execute on function public.consume_api_subject_rate_limit(text, text, integer, integer) to service_role;
+
 drop trigger if exists import_batches_updated_at on public.import_batches;
 create trigger import_batches_updated_at
 before update on public.import_batches
@@ -970,70 +1177,55 @@ create or replace function public.claim_indexing_v3_agent_jobs(
   p_stale_after_minutes integer default 45
 )
 returns table (
-  id uuid,
-  document_id uuid,
-  batch_id uuid,
-  status text,
-  stage text,
-  progress integer,
-  error_message text,
-  attempt_count integer,
-  max_attempts integer,
-  locked_at timestamptz,
-  locked_by text,
-  documents jsonb
+  id uuid, document_id uuid, batch_id uuid, status text, stage text, progress integer,
+  error_message text, attempt_count integer, max_attempts integer, locked_at timestamptz,
+  locked_by text, documents jsonb
 )
 language plpgsql
 set search_path = public, extensions, pg_temp
 as $$
--- Dual-write compatibility note:
--- This RPC claims via the jobs table (SKIP LOCKED) and also patches
--- documents.metadata so the edge function continues to read correct
--- state. Once the edge function writes completions to this table,
--- the documents.metadata patch below should be removed.
 begin
+  insert into public.indexing_v3_agent_jobs (
+    document_id, status, enrichment_status, next_run_at, version, metadata, created_at, updated_at
+  )
+  select d.id, 'pending', coalesce(d.metadata->>'enrichment_status', 'pending'),
+    case when coalesce(d.metadata->>'indexing_v3_agent_next_run_at', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+      then (d.metadata->>'indexing_v3_agent_next_run_at')::timestamptz else null end,
+    coalesce(nullif(d.metadata->>'indexing_v3_agent_version', ''), 'visual-core-v3'),
+    '{}'::jsonb, coalesce(d.created_at, now()), now()
+  from public.documents d
+  where d.status = 'indexed'
+    and d.metadata ? 'indexing_v3_agent_status'
+    and coalesce(d.metadata->>'indexing_v3_agent_status', 'pending')
+          not in ('completed', 'needs_enrichment_artifacts')
+  on conflict (document_id) do nothing;
+
   return query
   with eligible_jobs as (
     select j.id, j.document_id, j.attempt_count, j.max_attempts
     from public.indexing_v3_agent_jobs j
-    -- must join documents to confirm document.status = 'indexed'
-    -- and to gate on enrichment_status (also stored in the job row)
+    join public.documents d on d.id = j.document_id and d.status = 'indexed'
     where j.status not in ('completed', 'needs_enrichment_artifacts')
       and j.enrichment_status in ('pending', 'failed', 'processing')
       and j.attempt_count < j.max_attempts
       and coalesce(j.next_run_at, now()) <= now()
-      and (
-        j.status <> 'processing'
-        or j.locked_at is null
-        or j.locked_at < now() - make_interval(mins => p_stale_after_minutes)
-      )
+      and (j.status <> 'processing' or j.locked_at is null
+        or j.locked_at < now() - make_interval(mins => p_stale_after_minutes))
     order by coalesce(j.next_run_at, j.updated_at), j.id
     limit greatest(p_claim_limit, 1)
     for update of j skip locked
   ),
   claimed_jobs as (
     update public.indexing_v3_agent_jobs j
-    set
-      status = 'processing',
-      enrichment_status = 'processing',
-      locked_by = p_worker_id,
-      locked_at = now(),
-      attempt_count = e.attempt_count + 1,
-      last_error = null,
-      next_run_at = null,
-      updated_at = now()
-    from eligible_jobs e
-    where j.id = e.id
-    returning j.*
+    set status = 'processing', enrichment_status = 'processing', locked_by = p_worker_id,
+      locked_at = now(), attempt_count = e.attempt_count + 1, last_error = null,
+      next_run_at = null, updated_at = now()
+    from eligible_jobs e where j.id = e.id returning j.*
   ),
-  -- Patch documents.metadata for backward compatibility with edge function
   patched_documents as (
     update public.documents d
-    set
-      metadata = jsonb_strip_nulls(
-        (coalesce(d.metadata, '{}'::jsonb)
-          - 'indexing_v3_agent_next_run_at'
-          - 'indexing_v3_agent_last_error')
+    set metadata = jsonb_strip_nulls(
+        (coalesce(d.metadata, '{}'::jsonb) - 'indexing_v3_agent_next_run_at' - 'indexing_v3_agent_last_error')
         || jsonb_build_object(
           'indexing_v3_agent_status', 'processing',
           'indexing_v3_agent_version', cj.version,
@@ -1044,28 +1236,71 @@ begin
           'indexing_v3_agent_updated_at', now(),
           'enrichment_status', 'processing'
         )
-      ),
-      updated_at = now()
+      ), updated_at = now()
     from claimed_jobs cj
-    where d.id = cj.document_id
-      and d.status = 'indexed'  -- safety: only touch documents still eligible
+    where d.id = cj.document_id and d.status = 'indexed'
     returning d.*, cj.id as job_id, cj.attempt_count as job_attempt_count,
               cj.max_attempts as job_max_attempts, cj.locked_at as job_locked_at
   )
-  select
-    pd.job_id as id,
-    pd.id as document_id,
-    pd.import_batch_id as batch_id,
-    'processing'::text as status,
-    'v3 enrichment claimed'::text as stage,
-    95::integer as progress,
-    null::text as error_message,
-    pd.job_attempt_count,
-    pd.job_max_attempts,
-    pd.job_locked_at as locked_at,
-    p_worker_id as locked_by,
-    to_jsonb(pd.*) - 'job_id' - 'job_attempt_count' - 'job_max_attempts' - 'job_locked_at' as documents
+  select pd.job_id, pd.id, pd.import_batch_id, 'processing'::text, 'v3 enrichment claimed'::text,
+    95::integer, null::text, pd.job_attempt_count, pd.job_max_attempts, pd.job_locked_at,
+    p_worker_id,
+    to_jsonb(pd.*) - 'job_id' - 'job_attempt_count' - 'job_max_attempts' - 'job_locked_at'
   from patched_documents pd;
+end;
+$$;
+
+create or replace function public.jsonb_merge_deep(target_obj jsonb, patch_obj jsonb)
+returns jsonb
+language plpgsql
+immutable
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  merged jsonb := coalesce(target_obj, '{}'::jsonb);
+  key text;
+  incoming_value jsonb;
+begin
+  for key, incoming_value in
+    select j.key, j.value
+    from jsonb_each(coalesce(patch_obj, '{}'::jsonb)) as j
+  loop
+    -- JSON null means "delete this key" so worker deltas can clear sticky
+    -- error/gate fields that the old full-replace used to wipe implicitly.
+    if incoming_value = 'null'::jsonb then
+      merged := merged - key;
+    elsif jsonb_typeof(merged -> key) = 'object' and jsonb_typeof(incoming_value) = 'object' then
+      merged := jsonb_set(
+        merged,
+        array[key],
+        public.jsonb_merge_deep(merged -> key, incoming_value),
+        true
+      );
+    else
+      merged := jsonb_set(merged, array[key], incoming_value, true);
+    end if;
+  end loop;
+  return merged;
+end;
+$$;
+
+create or replace function public.apply_document_metadata_patch(
+  p_document_id uuid,
+  p_metadata_patch jsonb
+)
+returns void
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  update public.documents
+  set
+    metadata = public.jsonb_merge_deep(
+      coalesce(metadata, '{}'::jsonb),
+      coalesce(p_metadata_patch, '{}'::jsonb)
+    ),
+    updated_at = now()
+  where id = p_document_id;
 end;
 $$;
 
@@ -1094,9 +1329,14 @@ begin
     chunk_count = p_chunk_count,
     image_count = p_image_count,
     error_message = null,
-    metadata = coalesce(p_metadata, '{}'::jsonb) || jsonb_build_object('index_generation_id', p_index_generation_id),
     updated_at = now()
   where id = p_document_id;
+
+  -- R5: merge worker-owned keys onto live metadata instead of full-replace.
+  perform public.apply_document_metadata_patch(
+    p_document_id,
+    coalesce(p_metadata, '{}'::jsonb) || jsonb_build_object('index_generation_id', p_index_generation_id)
+  );
 
   if p_pages is not null then
     delete from public.document_pages
@@ -1473,6 +1713,22 @@ begin
     and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
   if not coalesce(p_dry_run, true) then
+    -- Audit R23: the pending/processing-job guard was only evaluated during
+    -- candidate selection, before the seven count statements above. A reindex
+    -- enqueued and claimed in that window would have its freshly-staged (still
+    -- uncommitted, generation-mismatched) rows deleted mid-build. Re-filter to
+    -- documents that STILL have no open job immediately before deleting, so the
+    -- exposure window shrinks to this block instead of spanning candidate
+    -- selection plus the counts.
+    select coalesce(array_agg(doc_id), '{}'::uuid[])
+    into target_document_ids
+    from unnest(target_document_ids) as doc_id
+    where not exists (
+      select 1 from public.ingestion_jobs j
+      where j.document_id = doc_id
+        and j.status in ('pending', 'processing')
+    );
+
     delete from public.document_chunks c
     using public.documents d
     where d.id = c.document_id
@@ -1556,6 +1812,14 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'missing_batch_id');
   end if;
 
+  -- Audit R9: two jobs of the same batch finishing in overlapping transactions
+  -- each counted the batch before the other committed, so both computed
+  -- 'processing' and the second write pinned the batch as processing forever.
+  -- Locking the import_batches row first serializes concurrent refreshes: the
+  -- second caller blocks here until the first commits, then its count below
+  -- sees the first's committed job state.
+  perform 1 from public.import_batches where id = p_batch_id for update;
+
   select
     count(*) filter (where status = 'pending'),
     count(*) filter (where status = 'processing'),
@@ -1591,13 +1855,21 @@ create or replace function public.complete_ingestion_job(
   p_job_id uuid,
   p_document_id uuid,
   p_batch_id uuid default null,
-  p_stage text default 'indexed'
+  p_stage text default 'indexed',
+  p_worker_id text default null
 )
 returns jsonb
 language plpgsql
 set search_path = public, extensions, pg_temp
 as $$
+declare
+  v_matched integer;
 begin
+  -- Audit R1/R2: when the caller passes its worker id, fence the completion on
+  -- `locked_by = p_worker_id`. A worker that lost its lease to a stale reclaim
+  -- (or a resumed zombie) then matches 0 rows and returns lease_lost WITHOUT
+  -- superseding siblings or touching the batch — the reclaimer owns the outcome.
+  -- p_worker_id null preserves the pre-fence behavior for older callers.
   update public.ingestion_jobs
   set
     status = 'completed',
@@ -1608,7 +1880,13 @@ begin
     locked_by = null,
     completed_at = now()
   where id = p_job_id
-    and document_id = p_document_id;
+    and document_id = p_document_id
+    and (p_worker_id is null or locked_by = p_worker_id);
+  get diagnostics v_matched = row_count;
+
+  if p_worker_id is not null and v_matched = 0 then
+    return jsonb_build_object('ok', false, 'reason', 'lease_lost', 'job_id', p_job_id, 'document_id', p_document_id);
+  end if;
 
   update public.ingestion_jobs
   set
@@ -1639,13 +1917,36 @@ create or replace function public.fail_or_retry_ingestion_job(
   p_document_status text default 'failed',
   p_stage text default 'failed',
   p_error_message text default null,
-  p_next_run_at timestamptz default null
+  p_next_run_at timestamptz default null,
+  p_worker_id text default null
 )
 returns jsonb
 language plpgsql
 set search_path = public, extensions, pg_temp
 as $$
+declare
+  v_job public.ingestion_jobs%rowtype;
+  v_retry boolean;
 begin
+  -- Lock the job row so the ownership check and the write are atomic.
+  select * into v_job
+  from public.ingestion_jobs
+  where id = p_job_id and document_id = p_document_id
+  for update;
+
+  -- Audit R1/R2: a fenced caller (p_worker_id set) must still hold the lease,
+  -- otherwise a resumed zombie could demote a document the reclaimer already
+  -- indexed. Return lease_lost without touching the document or job.
+  if p_worker_id is not null and (v_job.id is null or v_job.locked_by is distinct from p_worker_id) then
+    return jsonb_build_object('ok', false, 'reason', 'lease_lost', 'job_id', p_job_id, 'document_id', p_document_id, 'retry', false);
+  end if;
+
+  -- Audit R7: re-pending a job whose attempt_count already reached max_attempts
+  -- would strand it as permanently-unclaimable 'pending' (claim requires
+  -- attempt_count < max_attempts), pinning its batch as 'processing' forever.
+  -- Downgrade such a retry to terminal 'failed' so the queue can drain.
+  v_retry := p_retry and coalesce(v_job.attempt_count, 0) < coalesce(v_job.max_attempts, 0);
+
   update public.documents
   set
     status = p_document_status,
@@ -1654,14 +1955,14 @@ begin
 
   update public.ingestion_jobs
   set
-    status = case when p_retry then 'pending' else 'failed' end,
+    status = case when v_retry then 'pending' else 'failed' end,
     stage = p_stage,
-    progress = case when p_retry then 0 else 100 end,
+    progress = case when v_retry then 0 else 100 end,
     error_message = p_error_message,
     locked_at = null,
     locked_by = null,
     next_run_at = coalesce(p_next_run_at, next_run_at),
-    completed_at = case when p_retry then null else now() end
+    completed_at = case when v_retry then null else now() end
   where id = p_job_id
     and document_id = p_document_id;
 
@@ -1669,7 +1970,7 @@ begin
     perform public.refresh_import_batch_status(p_batch_id);
   end if;
 
-  return jsonb_build_object('ok', true, 'job_id', p_job_id, 'document_id', p_document_id, 'retry', p_retry);
+  return jsonb_build_object('ok', true, 'job_id', p_job_id, 'document_id', p_document_id, 'retry', v_retry);
 end;
 $$;
 
@@ -1809,6 +2110,82 @@ as $$
       nullif(coalesce(document_metadata, '{}'::jsonb)->>'index_generation_id', '');
 $$;
 
+create or replace function public.retrieval_owner_matches(owner_filter uuid, row_owner_id uuid)
+returns boolean
+language sql
+immutable
+parallel safe
+set search_path = public, pg_catalog
+as $$
+  select case
+    when owner_filter is null then false -- fail CLOSED (was: true) — no DB-level global escape hatch
+    when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null -- public corpus only
+    else row_owner_id = owner_filter -- exact owner
+  end;
+$$;
+
+-- Finding #11 (corpus-grounded relevance): deterministic in/out-of-corpus signal for the
+-- unsupported-query soft tail. Reports, per query term and scoped exactly like retrieval,
+-- whether the term stems to a usable tsquery, how many indexed document titles match it (the
+-- corpus's own topic vocabulary), whether any committed chunk has ever seen it, and the scoped
+-- corpus size for genericity shares. Read-only, additive, service_role-only.
+-- App-side consumer: src/lib/corpus-grounding.ts. Migration: 20260707100000.
+create or replace function public.corpus_topic_term_stats(
+  terms text[],
+  owner_filter uuid default null
+)
+returns table (
+  term text,
+  has_ts_signal boolean,
+  title_doc_count integer,
+  chunk_present boolean,
+  total_doc_count integer
+)
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  with input_terms as (
+    select distinct lower(btrim(t.term)) as term
+    from unnest(coalesce(terms, array[]::text[])) with ordinality as t(term, ord)
+    where btrim(t.term) <> ''
+      and t.ord <= 8
+  ),
+  totals as (
+    select count(*)::integer as total_doc_count
+    from public.documents d
+    where public.retrieval_owner_matches(owner_filter, d.owner_id)
+      and d.status = 'indexed'
+  )
+  select
+    it.term,
+    plainto_tsquery('english', it.term) <> ''::tsquery as has_ts_signal,
+    (
+      select count(*)::integer
+      from public.documents d
+      where public.retrieval_owner_matches(owner_filter, d.owner_id)
+        and d.status = 'indexed'
+        and d.title_search_tsv @@ plainto_tsquery('english', it.term)
+    ) as title_doc_count,
+    exists (
+      select 1
+      from public.document_chunks c
+      join public.documents d on d.id = c.document_id
+      where public.retrieval_owner_matches(owner_filter, d.owner_id)
+        and d.status = 'indexed'
+        and public.is_committed_document_generation(c.index_generation_id, d.metadata)
+        and c.search_tsv @@ plainto_tsquery('english', it.term)
+    ) as chunk_present,
+    totals.total_doc_count
+  from input_terms it
+  cross join totals;
+$$;
+
+revoke all on function public.corpus_topic_term_stats(text[], uuid) from public;
+revoke all on function public.corpus_topic_term_stats(text[], uuid) from anon;
+revoke all on function public.corpus_topic_term_stats(text[], uuid) from authenticated;
+grant execute on function public.corpus_topic_term_stats(text[], uuid) to service_role;
+
 create or replace function public.match_document_chunks(
   query_embedding extensions.vector(1536),
   match_count integer default 8,
@@ -1856,7 +2233,7 @@ as $$
   from public.document_chunks c
   join public.documents d on d.id = c.document_id
   where (document_filter is null or c.document_id = document_filter)
-    and (owner_filter is null or d.owner_id = owner_filter)
+    and public.retrieval_owner_matches(owner_filter, d.owner_id)
     and d.status = 'indexed'
     and public.is_committed_document_generation(c.index_generation_id, d.metadata)
     and 1 - (c.embedding <=> query_embedding) >= min_similarity
@@ -1924,7 +2301,7 @@ as $$
     join public.documents d on d.id = c.document_id
     cross join query
     where (document_filters is null or c.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and 1 - (c.embedding <=> query_embedding) >= min_similarity
@@ -1965,7 +2342,7 @@ as $$
     join public.documents d on d.id = c.document_id
     cross join query
     where (document_filters is null or c.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and c.search_tsv @@ query.tsq
@@ -2117,7 +2494,7 @@ as $$
     join public.documents d on d.id = m.document_id
     cross join query
     where (document_filters is null or m.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(m.metadata, d.metadata)
       and (1 - (m.embedding <=> query_embedding)) >= min_similarity
@@ -2137,7 +2514,7 @@ as $$
     join public.documents d on d.id = m.document_id
     cross join query
     where (document_filters is null or m.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(m.metadata, d.metadata)
       and m.search_tsv @@ query.tsq
@@ -2215,10 +2592,10 @@ language plpgsql
 stable
 set search_path = public, extensions, pg_temp
 as $$
-begin
-  perform set_config('hnsw.ef_search', '100', true);
-  return query
-  select *
+BEGIN
+  PERFORM set_config('hnsw.ef_search', '100', true);
+  RETURN QUERY
+select *
   from public.match_document_memory_cards_hybrid_v2(
     query_embedding,
     query_text,
@@ -2227,7 +2604,7 @@ begin
     document_filters,
     owner_filter
   );
-end
+END
 $$;
 
 create or replace function public.detect_legacy_ivfflat_indexes()
@@ -2278,6 +2655,7 @@ declare
     'match_document_memory_cards_hybrid'
   ];
   rpc_name text;
+  commit_fn_def text;
   required_indexes constant text[] := array[
     'documents_title_trgm_idx',
     'document_chunks_content_trgm_idx',
@@ -2302,6 +2680,15 @@ declare
     'rag_retrieval_logs_miss_idx',
     'rag_retrieval_logs_strategy_idx'
   ];
+  -- Verified live equivalents: same table/column intent, different migration-era name.
+  index_aliases constant jsonb := jsonb_build_object(
+    'documents_title_trgm_idx', jsonb_build_array('documents_title_search_tsv_idx', 'documents_title_search_idx'),
+    'document_chunks_content_trgm_idx', jsonb_build_array('document_chunks_search_tsv_idx', 'document_chunks_search_idx'),
+    'document_table_facts_owner_document_page_idx', jsonb_build_array('document_table_facts_owner_idx'),
+    'document_pages_document_idx', jsonb_build_array('document_pages_document_id_page_number_key'),
+    'document_sections_document_idx', jsonb_build_array('document_sections_document_id_idx'),
+    'rag_retrieval_logs_owner_created_idx', jsonb_build_array('rag_retrieval_logs_owner_id_idx')
+  );
 begin
   select t.oid, n.nspname
   into vector_type_oid, vector_schema
@@ -2360,6 +2747,19 @@ begin
       where ns.nspname = 'public'
         and c.relname = index_name
         and c.relkind = 'i'
+    )
+    and not (
+      index_aliases ? index_name
+      and exists (
+        select 1
+        from pg_class c
+        join pg_namespace ns on ns.oid = c.relnamespace
+        where ns.nspname = 'public'
+          and c.relkind = 'i'
+          and c.relname in (
+            select jsonb_array_elements_text(index_aliases -> index_name)
+          )
+      )
     ) then
       missing := array_append(missing, index_name);
     end if;
@@ -2387,6 +2787,22 @@ begin
     end loop;
   end if;
 
+  -- Audit M13: live DB must include the preserve-legacy-artifacts guard from
+  -- 20260702000000_commit_generation_preserve_legacy_artifacts.sql.
+  commit_fn_def := pg_get_functiondef(
+    to_regprocedure(
+      'public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb)'
+    )
+  );
+  if commit_fn_def is null then
+    missing := array_append(missing, 'commit_document_index_generation.signature');
+  elsif position('from public.document_chunks replacement' in commit_fn_def) = 0 then
+    missing := array_append(
+      missing,
+      'commit_document_index_generation.preserve_legacy_artifacts_migration'
+    );
+  end if;
+
   select public.detect_legacy_ivfflat_indexes() into legacy_ivfflat_indexes;
 
   return jsonb_build_object(
@@ -2402,6 +2818,298 @@ $$;
 
 revoke execute on function public.search_schema_health() from public, anon, authenticated;
 grant execute on function public.search_schema_health() to service_role;
+
+-- ============================================================================
+-- Live-only objects codified 2026-07-07 (drift reconciliation).
+-- These functions/triggers existed on the live project (raw-SQL era) but in
+-- neither this file nor any migration. Captured verbatim from live
+-- pg_get_functiondef; migration 20260707000000_codify_live_observed_drift.sql
+-- carries the same definitions so branch databases converge.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.set_owner_id_from_auth_uid()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'auth'
+AS $function$
+begin
+  if new.owner_id is null then
+    new.owner_id := auth.uid();
+  end if;
+  return new;
+end;
+$function$;
+
+revoke execute on function public.set_owner_id_from_auth_uid() from public, anon, authenticated;
+grant execute on function public.set_owner_id_from_auth_uid() to service_role;
+
+drop trigger if exists trg_set_owner_id_rag_queries on public.rag_queries;
+create trigger trg_set_owner_id_rag_queries
+before insert on public.rag_queries
+for each row execute function public.set_owner_id_from_auth_uid();
+
+drop trigger if exists trg_set_owner_id_rag_query_misses on public.rag_query_misses;
+create trigger trg_set_owner_id_rag_query_misses
+before insert on public.rag_query_misses
+for each row execute function public.set_owner_id_from_auth_uid();
+
+CREATE OR REPLACE FUNCTION public.purge_expired_rag_queries(p_retention_days integer DEFAULT 30)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+AS $function$
+declare
+  v_deleted integer;
+begin
+  if p_retention_days < 1 then
+    raise exception 'retention days must be positive';
+  end if;
+  delete from public.rag_queries where created_at < now() - make_interval(days => p_retention_days);
+  get diagnostics v_deleted = row_count;
+  return v_deleted;
+end;
+$function$;
+
+revoke execute on function public.purge_expired_rag_queries(integer) from public, anon, authenticated;
+grant execute on function public.purge_expired_rag_queries(integer) to service_role;
+
+CREATE OR REPLACE FUNCTION public.correct_clinical_query_terms(input_query text, min_sim real DEFAULT 0.45)
+ RETURNS text
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'extensions', 'pg_temp'
+AS $function$
+declare
+  vocab text[];
+  tokens text[];
+  tok text;
+  best text;
+  best_sim real;
+  corrected text[] := array[]::text[];
+  changed boolean := false;
+begin
+  if input_query is null or length(trim(input_query)) = 0 then
+    return input_query;
+  end if;
+
+  -- Build the known-term vocabulary once per call.
+  select array_agg(distinct term) into vocab
+  from (
+    select lower(alias) as term from public.rag_aliases where enabled and length(alias) between 4 and 40
+    union
+    select lower(canonical) from public.rag_aliases where enabled and length(canonical) between 4 and 40
+    union
+    select w from public.documents d, lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as w
+    where d.status = 'indexed' and length(w) between 4 and 40
+  ) t;
+
+  tokens := regexp_split_to_array(lower(input_query), '\s+');
+  foreach tok in array tokens loop
+    if length(tok) < 4 or tok = any(vocab) then
+      corrected := corrected || tok;
+      continue;
+    end if;
+    best := null;
+    best_sim := 0;
+    select v, similarity(v, tok) into best, best_sim
+    from unnest(vocab) as v
+    order by similarity(v, tok) desc
+    limit 1;
+    if best is not null and best_sim >= min_sim and best <> tok and length(best) >= length(tok) then
+      corrected := corrected || best;
+      changed := true;
+    else
+      corrected := corrected || tok;
+    end if;
+  end loop;
+
+  if not changed then
+    return input_query;
+  end if;
+  return array_to_string(corrected, ' ');
+end;
+$function$;
+
+revoke execute on function public.correct_clinical_query_terms(text, real) from public, anon, authenticated;
+grant execute on function public.correct_clinical_query_terms(text, real) to service_role;
+
+-- NOTE: unlike invoke_indexing_v3_agent (URL moved to a GUC by 20260702160000),
+-- the live definition still hardcodes the project URL. Codified as-is; migrate
+-- to the GUC pattern in a follow-up if this RPC stays.
+CREATE OR REPLACE FUNCTION public.invoke_ingestion_worker(p_limit integer DEFAULT 25)
+ RETURNS bigint
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'extensions', 'vault', 'pg_temp'
+AS $function$
+declare
+  v_request_id bigint;
+  v_jwt text;
+  v_limit integer := greatest(1, least(coalesce("p_limit", 25), 200));
+begin
+  select "decrypted_secret" into v_jwt
+  from "vault"."decrypted_secrets"
+  where "name" = 'cron_ingestion_jwt'
+  limit 1;
+
+  if v_jwt is null or length(trim(v_jwt)) = 0 then
+    raise exception 'Missing Vault secret: cron_ingestion_jwt';
+  end if;
+
+  select "net"."http_post"(
+    url := 'https://sjrfecxgysukkwxsowpy.supabase.co/functions/v1/ingestion-worker?limit=' || v_limit::text,
+    headers := jsonb_build_object(
+      'Content-Type','application/json',
+      'Authorization','Bearer ' || v_jwt
+    ),
+    body := jsonb_build_object('source','pg_cron','worker','ingestion-worker','ts', now()),
+    timeout_milliseconds := 60000
+  )
+  into v_request_id;
+
+  return v_request_id;
+end;
+$function$;
+
+revoke execute on function public.invoke_ingestion_worker(integer) from public, anon, authenticated;
+grant execute on function public.invoke_ingestion_worker(integer) to service_role;
+
+-- Full-inventory drift snapshot backing `npm run check:drift`. The expected
+-- state lives in supabase/drift-manifest.json (generated from a scratch replay
+-- of this file via `npm run drift:manifest`). Keep this definition byte-identical
+-- to supabase/migrations/20260706200000_schema_drift_snapshot.sql; a unit test
+-- in tests/supabase-schema.test.ts enforces it. See docs/database-drift-detection.md.
+create or replace function public.schema_drift_snapshot()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path to ''
+as $$
+declare
+  snapshot jsonb;
+  buckets jsonb := '[]'::jsonb;
+begin
+  select jsonb_build_object(
+    'snapshot_version', 1,
+    'captured_at', now(),
+    'extensions', coalesce((
+      select jsonb_agg(jsonb_build_object('name', e.extname, 'schema', n.nspname) order by e.extname)
+      from pg_extension e
+      join pg_namespace n on n.oid = e.extnamespace
+      where e.extname <> 'plpgsql'
+    ), '[]'::jsonb),
+    'tables', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'name', c.relname,
+        'rls_enabled', c.relrowsecurity,
+        'rls_forced', c.relforcerowsecurity,
+        'reloptions', (select array_agg(o.opt order by o.opt) from unnest(c.reloptions) o(opt)),
+        'acl', (select array_agg(a.item::text order by a.item::text) from unnest(coalesce(c.relacl, acldefault('r', c.relowner))) a(item)),
+        'columns', (
+          select jsonb_agg(jsonb_build_object(
+            'name', att.attname,
+            'type', format_type(att.atttypid, att.atttypmod),
+            'not_null', att.attnotnull,
+            'identity', att.attidentity,
+            'generated', att.attgenerated,
+            'default', pg_get_expr(ad.adbin, ad.adrelid)
+          ) order by att.attname)
+          from pg_attribute att
+          left join pg_attrdef ad on ad.adrelid = att.attrelid and ad.adnum = att.attnum
+          where att.attrelid = c.oid and att.attnum > 0 and not att.attisdropped
+        )
+      ) order by c.relname)
+      from pg_class c
+      where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
+    ), '[]'::jsonb),
+    'views', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'name', c.relname,
+        'def_hash', md5(regexp_replace(pg_get_viewdef(c.oid), '\s+', '', 'g'))
+      ) order by c.relname)
+      from pg_class c
+      where c.relnamespace = 'public'::regnamespace and c.relkind in ('v', 'm')
+    ), '[]'::jsonb),
+    'functions', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'signature', p.oid::regprocedure::text,
+        'def_hash', md5(regexp_replace(regexp_replace(regexp_replace(pg_get_functiondef(p.oid), '/\*.*?\*/', '', 'gs'), '--[^\n]*', '', 'g'), '\s+', '', 'g')),
+        'acl', (select array_agg(a.item::text order by a.item::text) from unnest(coalesce(p.proacl, acldefault('f', p.proowner))) a(item))
+      ) order by p.oid::regprocedure::text)
+      from pg_proc p
+      where p.pronamespace = 'public'::regnamespace
+        and p.prokind = 'f'
+        and not exists (
+          select 1 from pg_depend dep
+          where dep.classid = 'pg_proc'::regclass and dep.objid = p.oid and dep.deptype = 'e'
+        )
+    ), '[]'::jsonb),
+    'indexes', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'name', ci.relname,
+        'table', ct.relname,
+        'def', pg_get_indexdef(ci.oid),
+        'def_hash', md5(regexp_replace(pg_get_indexdef(ci.oid), '\s+', '', 'g'))
+      ) order by ci.relname)
+      from pg_index i
+      join pg_class ci on ci.oid = i.indexrelid
+      join pg_class ct on ct.oid = i.indrelid
+      where ct.relnamespace = 'public'::regnamespace
+        and ci.relnamespace = 'public'::regnamespace
+    ), '[]'::jsonb),
+    'policies', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'schema', pol.schemaname,
+        'table', pol.tablename,
+        'name', pol.policyname,
+        'permissive', pol.permissive,
+        'roles', (select array_agg(r.role::text order by r.role::text) from unnest(pol.roles) r(role)),
+        'cmd', pol.cmd,
+        'qual', pol.qual,
+        'with_check', pol.with_check
+      ) order by pol.schemaname, pol.tablename, pol.policyname)
+      from pg_policies pol
+      where pol.schemaname in ('public', 'storage')
+    ), '[]'::jsonb),
+    'constraints', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'table', ct.relname,
+        'name', con.conname,
+        'def', pg_get_constraintdef(con.oid)
+      ) order by ct.relname, con.conname)
+      from pg_constraint con
+      join pg_class ct on ct.oid = con.conrelid
+      where con.connamespace = 'public'::regnamespace and ct.relkind = 'r'
+    ), '[]'::jsonb),
+    'triggers', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'table', ct.relname,
+        'name', t.tgname,
+        'def', pg_get_triggerdef(t.oid)
+      ) order by ct.relname, t.tgname)
+      from pg_trigger t
+      join pg_class ct on ct.oid = t.tgrelid
+      where ct.relnamespace = 'public'::regnamespace and not t.tgisinternal
+    ), '[]'::jsonb)
+  ) into snapshot;
+
+  if to_regclass('storage.buckets') is not null then
+    execute 'select coalesce(jsonb_agg(jsonb_build_object('
+      || '''id'', b.id, ''public'', b.public, ''file_size_limit'', b.file_size_limit, '
+      || '''allowed_mime_types'', b.allowed_mime_types) order by b.id), ''[]''::jsonb) '
+      || 'from storage.buckets b'
+      into buckets;
+  end if;
+
+  return snapshot || jsonb_build_object('storage_buckets', buckets);
+end;
+$$;
+
+revoke execute on function public.schema_drift_snapshot() from public, anon, authenticated;
+grant execute on function public.schema_drift_snapshot() to service_role;
 
 create or replace function public.explain_retrieval_rpc(
   p_rpc text,
@@ -2513,7 +3221,7 @@ as $$
       and coalesce(l.metadata->>'hidden', 'false') <> 'true'
     left join public.document_summaries s on s.document_id = d.id
     cross join query
-    where (owner_filter is null or d.owner_id = owner_filter)
+    where public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and (
         d.title_search_tsv @@ query.tsq
@@ -2532,6 +3240,8 @@ as $$
   order by text_rank desc, page_count desc, title asc
   limit match_count;
 $$;
+
+drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid);
 
 create or replace function public.match_document_chunks_text(
   query_text text,
@@ -2587,7 +3297,7 @@ as $$
     join public.documents d on d.id = c.document_id
     cross join query
     where (document_filters is null or c.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
@@ -2720,7 +3430,7 @@ as $$
   cross join query
   where document_filters is not null
     and c.document_id = any(document_filters)
-    and (owner_filter is null or d.owner_id = owner_filter)
+    and public.retrieval_owner_matches(owner_filter, d.owner_id)
     and d.status = 'indexed'
     and public.is_committed_document_generation(c.index_generation_id, d.metadata)
     and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
@@ -2730,6 +3440,76 @@ $$;
 
 revoke execute on function public.match_document_lookup_chunks_text(text, uuid[], integer, uuid) from public, anon, authenticated;
 grant execute on function public.match_document_lookup_chunks_text(text, uuid[], integer, uuid) to service_role;
+
+create or replace function public.search_document_chunks(
+  p_document_id uuid,
+  p_query text,
+  match_count integer default 20,
+  p_owner_id uuid default null
+)
+returns table (
+  id uuid,
+  page_number integer,
+  chunk_index integer,
+  section_heading text,
+  content text,
+  image_ids uuid[],
+  text_rank real,
+  trigram_score real
+)
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  with normalized as (
+    select
+      websearch_to_tsquery('english', coalesce(p_query, '')) as query_tsv,
+      lower(trim(coalesce(p_query, ''))) as query_text
+  ),
+  tokens as (
+    select distinct token
+    from normalized,
+      lateral regexp_split_to_table(normalized.query_text, '\s+') as token
+    where length(token) >= 3
+  )
+  select
+    c.id,
+    c.page_number,
+    c.chunk_index,
+    c.section_heading,
+    c.content,
+    c.image_ids,
+    ts_rank_cd(c.search_tsv, normalized.query_tsv)::real as text_rank,
+    similarity(lower(coalesce(c.section_heading, '') || ' ' || c.content), normalized.query_text)::real as trigram_score
+  from public.document_chunks c
+  join public.documents d on d.id = c.document_id
+  cross join normalized
+  where c.document_id = p_document_id
+    and d.status = 'indexed'
+    and (
+      (p_owner_id is null and d.owner_id is null)
+      or (p_owner_id is not null and (d.owner_id is null or d.owner_id = p_owner_id))
+    )
+    and (
+      c.search_tsv @@ normalized.query_tsv
+      or lower(coalesce(c.section_heading, '') || ' ' || c.content) % normalized.query_text
+      or lower(coalesce(c.section_heading, '') || ' ' || c.content) like '%' || normalized.query_text || '%'
+      or exists (
+        select 1
+        from tokens t
+        where lower(coalesce(c.section_heading, '') || ' ' || c.content) like '%' || t.token || '%'
+          or lower(coalesce(c.section_heading, '') || ' ' || c.content) % t.token
+      )
+    )
+  order by
+    ts_rank_cd(c.search_tsv, normalized.query_tsv) desc,
+    similarity(lower(coalesce(c.section_heading, '') || ' ' || c.content), normalized.query_text) desc,
+    c.chunk_index asc
+  limit least(greatest(match_count, 1), 80);
+$$;
+
+revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
+grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;
 
 create or replace function public.get_related_document_metadata(
   document_ids uuid[],
@@ -2765,7 +3545,7 @@ as $$
         )
         from public.document_labels l
         where l.document_id = d.id
-          and (owner_filter is null or l.owner_id = owner_filter)
+          and public.retrieval_owner_matches(owner_filter, l.owner_id)
           and coalesce(l.metadata->>'review_status', 'new') <> 'hidden'
           and coalesce(l.metadata->>'hidden', 'false') <> 'true'
       ),
@@ -2775,13 +3555,13 @@ as $$
       select s.summary
       from public.document_summaries s
       where s.document_id = d.id
-        and (owner_filter is null or s.owner_id = owner_filter)
+        and public.retrieval_owner_matches(owner_filter, s.owner_id)
       order by s.generated_at desc
       limit 1
     ) as summary
   from public.documents d
   where d.id = any(document_ids)
-    and (owner_filter is null or d.owner_id = owner_filter);
+    and public.retrieval_owner_matches(owner_filter, d.owner_id);
 $$;
 
 create or replace function public.match_document_table_facts_text(
@@ -2862,7 +3642,7 @@ as $$
     join public.documents d on d.id = f.document_id
     cross join query
     where (document_filters is null or f.document_id = any(document_filters))
-      and (owner_filter is null or f.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, f.owner_id)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(f.metadata, d.metadata)
       and (
@@ -2917,7 +3697,7 @@ as $$
     from public.document_embedding_fields f
     join public.documents d on d.id = f.document_id
     where (document_filters is null or f.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(f.metadata, d.metadata)
       and f.source_chunk_id is not null
@@ -2931,7 +3711,7 @@ as $$
     join public.documents d on d.id = f.document_id
     cross join query
     where (document_filters is null or f.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(f.metadata, d.metadata)
       and f.source_chunk_id is not null
@@ -2959,6 +3739,31 @@ as $$
   from ranked
   order by hybrid_score desc, similarity desc, text_rank desc
   limit match_count;
+$$;
+
+create or replace function public.match_document_embedding_fields_text(
+  query_text text, match_count integer default 16, min_text_rank double precision default 0.0,
+  document_filters uuid[] default null, owner_filter uuid default null
+)
+returns table (
+  id uuid, document_id uuid, source_chunk_id uuid, field_type text, content text, text_rank double precision
+)
+language sql stable set search_path = public, extensions, pg_temp
+as $$
+  with q as (select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq),
+  ranked as (
+    select f.id, f.document_id, f.source_chunk_id, f.field_type, f.content,
+      ts_rank_cd(f.search_tsv, q.tsq)::double precision as text_rank
+    from public.document_embedding_fields f
+    join public.documents d on d.id = f.document_id
+    cross join q
+    where f.source_chunk_id is not null
+      and (document_filters is null or f.document_id = any(document_filters))
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
+      and d.status = 'indexed' and f.search_tsv @@ q.tsq
+  )
+  select * from ranked where text_rank >= min_text_rank
+  order by text_rank desc, id limit match_count;
 $$;
 
 create or replace view public.document_strict_gate_status
@@ -3548,6 +4353,7 @@ grant select, insert, update, delete on table
   public.rag_aliases,
   public.rag_response_cache,
   public.api_rate_limits,
+  public.api_rate_limit_subjects,
   public.audit_logs,
   public.storage_cleanup_jobs,
   public.rag_retrieval_logs
@@ -3560,6 +4366,8 @@ grant usage, select on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
 revoke execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) from public, anon, authenticated;
 grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role;
+revoke execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) from public, anon, authenticated;
+grant execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) to service_role;
 revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated;
 grant execute on function public.invoke_indexing_v3_agent(integer) to service_role;
 
@@ -3604,6 +4412,7 @@ alter table public.rag_query_misses enable row level security;
 alter table public.rag_aliases enable row level security;
 alter table public.rag_response_cache enable row level security;
 alter table public.api_rate_limits enable row level security;
+alter table public.api_rate_limit_subjects enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.storage_cleanup_jobs enable row level security;
 alter table public.rag_retrieval_logs enable row level security;
@@ -3625,18 +4434,22 @@ create policy "images owner read" on public.document_images
   );
 
 create policy "labels owner read" on public.document_labels
-  for select to authenticated using (owner_id = (select auth.uid()));
+  for select to authenticated
+  using ((select auth.uid()) = owner_id);
 create policy "labels owner manual insert" on public.document_labels
-  for insert to authenticated with check (owner_id = (select auth.uid()) and source = 'manual');
+  for insert to authenticated
+  with check ((select auth.uid()) = owner_id and source = 'manual');
 create policy "labels owner manual update" on public.document_labels
   for update to authenticated
-  using (owner_id = (select auth.uid()) and source = 'manual')
-  with check (owner_id = (select auth.uid()) and source = 'manual');
+  using ((select auth.uid()) = owner_id and source = 'manual')
+  with check ((select auth.uid()) = owner_id and source = 'manual');
 create policy "labels owner manual delete" on public.document_labels
-  for delete to authenticated using (owner_id = (select auth.uid()) and source = 'manual');
+  for delete to authenticated
+  using ((select auth.uid()) = owner_id and source = 'manual');
 
 create policy "summaries owner read" on public.document_summaries
-  for select to authenticated using (owner_id = (select auth.uid()));
+  for select to authenticated
+  using ((select auth.uid()) = owner_id);
 
 create policy "document sections owner all" on public.document_sections
   for all to authenticated
@@ -3703,13 +4516,19 @@ create policy "api rate limits service role all" on public.api_rate_limits
   using (true)
   with check (true);
 
+create policy "api rate limit subjects service role all" on public.api_rate_limit_subjects
+  for all to service_role
+  using (true)
+  with check (true);
+
 create policy "audit logs service role all" on public.audit_logs
   for all to service_role
   using (true)
   with check (true);
 
 create policy "storage cleanup owner read" on public.storage_cleanup_jobs
-  for select to authenticated using (owner_id = (select auth.uid()));
+for select to authenticated
+using ((select auth.uid()) = owner_id);
 
 create policy "document storage owner read" on storage.objects
   for select to authenticated
@@ -3718,45 +4537,6 @@ create policy "document storage owner read" on storage.objects
 create policy "image storage owner read" on storage.objects
   for select to authenticated
   using (bucket_id = 'clinical-images' and (storage.foldername(name))[1] = (select auth.uid())::text);
-
-create table if not exists public.document_index_units (
-  id uuid primary key default gen_random_uuid(),
-  owner_id uuid references auth.users(id) on delete set null,
-  document_id uuid not null references public.documents(id) on delete cascade,
-  unit_type text not null check (unit_type in ('document_profile', 'section_summary', 'page_text', 'chunk_evidence', 'table_fact', 'askable_question', 'clinical_fact', 'threshold', 'workflow_step', 'medication_monitoring', 'alias', 'vocabulary_term', 'visual_summary', 'flowchart_step', 'diagram_decision', 'risk_matrix_cell', 'medication_chart_row', 'chart_finding', 'visual_askable_question', 'table_threshold')),
-  source_chunk_id uuid references public.document_chunks(id) on delete cascade,
-  source_image_id uuid references public.document_images(id) on delete set null,
-  page_start integer,
-  page_end integer,
-  heading_path text[] not null default '{}',
-  title text not null,
-  content text not null,
-  normalized_terms text[] not null default '{}',
-  source_span jsonb,
-  quality_score real not null default 0.7 check (quality_score >= 0 and quality_score <= 1),
-  extraction_mode text not null default 'deterministic' check (extraction_mode in ('deterministic', 'model_heavy', 'hybrid')),
-  index_generation_id uuid,
-  embedding extensions.vector(1536) not null,
-  metadata jsonb not null default '{}'::jsonb,
-  search_tsv tsvector generated always as (to_tsvector('english', coalesce(unit_type, '') || ' ' || coalesce(title, '') || ' ' || coalesce(content, ''))) stored,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create index if not exists document_index_units_document_idx on public.document_index_units(document_id, unit_type, page_start);
-create index if not exists document_index_units_owner_type_idx on public.document_index_units(owner_id, unit_type, quality_score desc);
-create index if not exists document_index_units_owner_chunk_type_idx
-  on public.document_index_units(owner_id, source_chunk_id, unit_type)
-  where source_chunk_id is not null;
-create index if not exists document_index_units_chunk_idx on public.document_index_units(source_chunk_id) where source_chunk_id is not null;
-create index if not exists document_index_units_image_idx on public.document_index_units(source_image_id) where source_image_id is not null;
-create index if not exists document_index_units_terms_idx on public.document_index_units using gin(normalized_terms);
-create index if not exists document_index_units_heading_path_idx on public.document_index_units using gin(heading_path);
-create index if not exists document_index_units_search_idx on public.document_index_units using gin(search_tsv);
--- Intentionally no HNSW index on document_index_units.embedding: the hybrid RPC is
--- text-candidate-gated so the vector path never used it (0 lifetime scans; dropped
--- live 2026-07-02 by the drop_legacy_vector_indexes migration). Re-add only if the
--- RPC is rewritten to take a vector-first candidate path.
 
 drop trigger if exists document_index_units_updated_at on public.document_index_units;
 create trigger document_index_units_updated_at
@@ -3815,7 +4595,7 @@ as $$
     cross join query
     where d.status = 'indexed'
       and (document_filters is null or u.document_id = any(document_filters))
-      and (owner_filter is null or d.owner_id = owner_filter)
+      and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and public.is_committed_artifact_generation(u.metadata, d.metadata)
       and u.source_chunk_id is not null
       and (u.search_tsv @@ query.tsq or u.normalized_terms && query.terms)
@@ -3858,18 +4638,39 @@ begin
 end;
 $$;
 
+revoke execute on function public.reset_document_index(uuid) from public, anon, authenticated;
+grant execute on function public.reset_document_index(uuid) to service_role;
+
 create or replace function public.analyze_rag_tables()
 returns void
 language plpgsql
 set search_path = public, extensions, pg_temp
 as $$
+declare
+  table_names constant text[] := array[
+    'documents',
+    'document_chunks',
+    'document_pages',
+    'document_images',
+    'document_sections',
+    'document_memory_cards',
+    'document_table_facts',
+    'document_embedding_fields',
+    'document_index_quality',
+    'document_index_units',
+    'rag_queries',
+    'rag_query_misses',
+    'rag_retrieval_logs',
+    'rag_aliases',
+    'ingestion_jobs'
+  ];
+  table_name text;
 begin
-  analyze public.document_chunks;
-  analyze public.document_memory_cards;
-  analyze public.document_index_units;
-  analyze public.document_embedding_fields;
-  analyze public.document_table_facts;
-  analyze public.documents;
+  foreach table_name in array table_names loop
+    if to_regclass(format('public.%I', table_name)) is not null then
+      execute format('analyze public.%I', table_name);
+    end if;
+  end loop;
 end;
 $$;
 
@@ -3879,7 +4680,12 @@ grant execute on function public.analyze_rag_tables() to service_role;
 alter table public.document_index_units enable row level security;
 grant select, insert, update, delete on table public.document_index_units to service_role;
 grant select on table public.document_index_units to authenticated;
+revoke execute on function public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid) from public, anon, authenticated;
 grant execute on function public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid) to service_role;
+revoke execute on function public.jsonb_merge_deep(jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.jsonb_merge_deep(jsonb, jsonb) to service_role;
+revoke execute on function public.apply_document_metadata_patch(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.apply_document_metadata_patch(uuid, jsonb) to service_role;
 revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role;
 revoke execute on function public.cleanup_abandoned_document_index_generations(uuid, integer, boolean) from public, anon, authenticated;
@@ -3890,14 +4696,18 @@ revoke execute on function public.is_committed_artifact_generation(jsonb, jsonb)
 grant execute on function public.is_committed_artifact_generation(jsonb, jsonb) to service_role;
 
 -- Typed overload: NULL keeps legacy artifacts visible; otherwise compare to committed id
-create or replace function public.is_committed_artifact_generation(p_artifact_gen_id uuid, p_document_metadata jsonb)
+create or replace function public.is_committed_artifact_generation(
+  artifact_generation_id uuid,
+  document_metadata jsonb
+)
 returns boolean
 language sql
 stable
 set search_path = public, extensions, pg_temp
 as $$
-  select p_artifact_gen_id is null
-    or p_artifact_gen_id::text = nullif(coalesce(p_document_metadata, '{}'::jsonb)->>'index_generation_id', '');
+  select artifact_generation_id is null
+    or artifact_generation_id::text =
+       nullif(coalesce(document_metadata, '{}'::jsonb)->>'index_generation_id', '');
 $$;
 
 revoke execute on function public.is_committed_artifact_generation(uuid, jsonb) from public, anon, authenticated;
@@ -3915,7 +4725,7 @@ create policy "document index units owner read" on public.document_index_units
 -- -------------------------------------------------------------------------
 
 create table if not exists public.indexing_v3_agent_jobs (
-  id uuid primary key default gen_random_uuid(),
+  id uuid primary key default extensions.gen_random_uuid(),
   document_id uuid not null references public.documents(id) on delete cascade,
   -- v3 agent processing status (mirrors metadata->>'indexing_v3_agent_status')
   status text not null default 'pending'
@@ -4016,6 +4826,41 @@ comment on index public.documents_indexing_v3_agent_claim_idx is
 comment on table public.indexing_v3_agent_jobs is
   'Dedicated worker-state table for the v3 indexing / enrichment agent. Replaces JSONB state in documents.metadata. claim_indexing_v3_agent_jobs uses SKIP LOCKED here; update_indexing_v3_agent_job_status completes/fails a job. See migration 20260702190000 for transition notes.';
 
+create table if not exists public.rag_visual_eval_cases (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references auth.users(id) on delete set null,
+  document_id uuid references public.documents(id) on delete set null,
+  case_name text not null, query text not null,
+  expected_unit_types text[] not null default '{}'::text[],
+  expected_terms text[] not null default '{}'::text[],
+  expected_image_type text, active boolean not null default true,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists rag_visual_eval_cases_doc_idx on public.rag_visual_eval_cases(document_id, active);
+create index if not exists rag_visual_eval_cases_owner_id_idx on public.rag_visual_eval_cases(owner_id);
+
+create table if not exists public.rag_visual_eval_runs (
+  id uuid primary key default gen_random_uuid(),
+  case_id uuid not null references public.rag_visual_eval_cases(id) on delete cascade,
+  document_id uuid references public.documents(id) on delete set null,
+  passed boolean not null, top_hit boolean not null, matched_count integer not null default 0,
+  hit_payload jsonb not null default '{}'::jsonb, run_metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists rag_visual_eval_runs_case_id_idx on public.rag_visual_eval_runs(case_id);
+create index if not exists rag_visual_eval_runs_document_id_idx on public.rag_visual_eval_runs(document_id);
+
+alter table public.rag_visual_eval_cases enable row level security;
+alter table public.rag_visual_eval_runs enable row level security;
+drop policy if exists "rag visual eval cases service role all" on public.rag_visual_eval_cases;
+create policy "rag visual eval cases service role all" on public.rag_visual_eval_cases for all to service_role using (true) with check (true);
+drop policy if exists "rag visual eval runs service role all" on public.rag_visual_eval_runs;
+create policy "rag visual eval runs service role all" on public.rag_visual_eval_runs for all to service_role using (true) with check (true);
+grant select, insert, update, delete on table public.rag_visual_eval_cases to service_role;
+grant select, insert, update, delete on table public.rag_visual_eval_runs to service_role;
+
 -- Curated clinical registry backing the Services and Forms modes: structured
 -- records (contacts, eligibility, referral pathways, criteria) for real WA
 -- entities, seeded from reviewed fixtures and linkable to verifying source
@@ -4046,6 +4891,7 @@ create table if not exists public.clinical_registry_records (
   criteria jsonb not null default '[]'::jsonb,
   verification jsonb not null default '{}'::jsonb,
   source jsonb not null default '{}'::jsonb,
+  catalog_payload jsonb not null default '{}'::jsonb,
   -- Governance columns mirror the search-scope enums so registry records carry
   -- the same conservative source metadata as documents (missing -> unknown).
   source_status text not null default 'unknown'
@@ -4100,4 +4946,102 @@ create policy "registry records service role all" on public.clinical_registry_re
 
 drop policy if exists "registry record sources service role all" on public.clinical_registry_record_sources;
 create policy "registry record sources service role all" on public.clinical_registry_record_sources
+  for all to service_role using (true) with check (true);
+
+-- -------------------------------------------------------------------------
+-- Medication catalogue (Prescribing mode)
+-- -------------------------------------------------------------------------
+
+create table if not exists public.medication_records (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  slug text not null check (btrim(slug) <> ''),
+  name text not null check (btrim(name) <> ''),
+  class text not null default '',
+  subclass text not null default '',
+  category text not null default '',
+  accent text not null default '#0f766e',
+  tag text not null default '',
+  schedule text not null default '',
+  stats jsonb not null default '[]'::jsonb,
+  sections jsonb not null default '[]'::jsonb,
+  quick jsonb not null default '[]'::jsonb,
+  source_status text not null default 'unknown'
+    check (source_status in ('current', 'review_due', 'outdated', 'unknown')),
+  validation_status text not null default 'unverified'
+    check (validation_status in ('unverified', 'locally_reviewed', 'approved')),
+  last_reviewed_at date,
+  review_due_at date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (owner_id, slug)
+);
+
+create index if not exists medication_records_owner_name_idx
+  on public.medication_records(owner_id, name);
+create index if not exists medication_records_owner_category_idx
+  on public.medication_records(owner_id, category);
+create index if not exists medication_records_owner_schedule_idx
+  on public.medication_records(owner_id, schedule);
+
+drop trigger if exists medication_records_updated_at on public.medication_records;
+create trigger medication_records_updated_at
+  before update on public.medication_records
+  for each row execute function public.set_updated_at();
+
+alter table public.medication_records enable row level security;
+
+revoke all on public.medication_records from anon, authenticated;
+
+grant select, insert, update, delete on table public.medication_records to service_role;
+
+drop policy if exists "medication records service role all" on public.medication_records;
+create policy "medication records service role all" on public.medication_records
+  for all to service_role using (true) with check (true);
+
+-- -------------------------------------------------------------------------
+-- Differential catalogue (Differentials mode)
+-- -------------------------------------------------------------------------
+
+create table if not exists public.differential_records (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  kind text not null check (kind in ('presentation', 'diagnosis')),
+  slug text not null check (btrim(slug) <> ''),
+  title text not null check (btrim(title) <> ''),
+  subtitle text,
+  status text not null check (status in ('emergent', 'urgent', 'routine')),
+  clinical_hinge text,
+  tags text[] not null default '{}',
+  payload jsonb not null default '{}'::jsonb,
+  source jsonb not null default '{}'::jsonb,
+  source_status text not null default 'unknown'
+    check (source_status in ('current', 'review_due', 'outdated', 'unknown')),
+  validation_status text not null default 'unverified'
+    check (validation_status in ('unverified', 'locally_reviewed', 'approved')),
+  last_reviewed_at date,
+  review_due_at date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (owner_id, kind, slug)
+);
+
+create index if not exists differential_records_owner_kind_title_idx
+  on public.differential_records(owner_id, kind, title);
+create index if not exists differential_records_owner_status_idx
+  on public.differential_records(owner_id, status);
+
+drop trigger if exists differential_records_updated_at on public.differential_records;
+create trigger differential_records_updated_at
+  before update on public.differential_records
+  for each row execute function public.set_updated_at();
+
+alter table public.differential_records enable row level security;
+
+revoke all on public.differential_records from anon, authenticated;
+
+grant select, insert, update, delete on table public.differential_records to service_role;
+
+drop policy if exists "differential records service role all" on public.differential_records;
+create policy "differential records service role all" on public.differential_records
   for all to service_role using (true) with check (true);

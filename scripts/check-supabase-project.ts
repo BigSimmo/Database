@@ -1,9 +1,5 @@
 import { loadEnvConfig } from "@next/env";
-import {
-  checkSupabaseProjectConfig,
-  expectedSupabaseProject,
-  formatSupabaseProjectCheck,
-} from "@/lib/supabase/project";
+import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 loadEnvConfig(process.cwd());
 
@@ -12,12 +8,16 @@ const check = checkSupabaseProjectConfig(
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     SUPABASE_PROJECT_REF: process.env.SUPABASE_PROJECT_REF,
     SUPABASE_PROJECT_NAME: process.env.SUPABASE_PROJECT_NAME,
+    SUPABASE_STAGING_PROJECT_REF: process.env.SUPABASE_STAGING_PROJECT_REF,
+    SUPABASE_STAGING_PROJECT_NAME: process.env.SUPABASE_STAGING_PROJECT_NAME,
   },
   { requireMetadata: true },
 );
 
-console.log(`Expected Supabase project: ${expectedSupabaseProject.name} (${expectedSupabaseProject.ref})`);
-console.log(`Expected Supabase URL: ${expectedSupabaseProject.url}`);
+console.log(
+  `Expected Supabase project: ${check.expected.name} (${check.expected.ref}) [${check.observed.environment}]`,
+);
+console.log(`Expected Supabase URL: ${check.expected.url}`);
 console.log(`Configured URL ref: ${check.observed.urlRef ?? "not set or not recognized"}`);
 console.log(`Configured SUPABASE_PROJECT_REF: ${check.observed.configuredRef ?? "not set"}`);
 console.log(`Configured SUPABASE_PROJECT_NAME: ${check.observed.configuredName ?? "not set"}`);

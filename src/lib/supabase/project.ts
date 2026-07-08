@@ -13,10 +13,23 @@ export const staleSupabaseProjects = [
   },
 ] as const;
 
+export type ExpectedSupabaseProject = {
+  name: string;
+  ref: string;
+  url: string;
+  region: string;
+};
+
 export type SupabaseProjectConfig = {
   NEXT_PUBLIC_SUPABASE_URL?: string | null;
   SUPABASE_PROJECT_REF?: string | null;
   SUPABASE_PROJECT_NAME?: string | null;
+  // Staging is declared explicitly, never inferred. Both must be set to enable
+  // a second accepted project; the ref must be a valid Supabase ref that is
+  // NOT the production or a stale ref (that would be the silent-point-at-prod
+  // footgun this guard exists to prevent). See docs/staging-setup.md.
+  SUPABASE_STAGING_PROJECT_REF?: string | null;
+  SUPABASE_STAGING_PROJECT_NAME?: string | null;
 };
 
 export type SupabaseProjectCheckStatus = "ready" | "missing" | "mismatch" | "warning";
@@ -27,12 +40,13 @@ type SupabaseProjectCheckOptions = {
 
 export type SupabaseProjectCheck = {
   status: SupabaseProjectCheckStatus;
-  expected: typeof expectedSupabaseProject;
+  expected: ExpectedSupabaseProject;
   observed: {
     url: string | null;
     urlRef: string | null;
     configuredRef: string | null;
     configuredName: string | null;
+    environment: "production" | "staging";
   };
   staleProject: (typeof staleSupabaseProjects)[number] | null;
   problems: string[];
@@ -63,6 +77,45 @@ function unique(values: Array<string | null>) {
   return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
+const reservedProjectRefs = new Set<string>([
+  expectedSupabaseProject.ref,
+  ...staleSupabaseProjects.map((project) => project.ref),
+]);
+
+/**
+ * Resolve an optional staging project declared via env. Returns the project
+ * when the declaration is valid, or a problem string when staging vars are
+ * partially/incorrectly set (so a broken staging declaration fails loud rather
+ * than silently falling through to the production guard).
+ */
+function resolveStagingProject(config: SupabaseProjectConfig): {
+  project: ExpectedSupabaseProject | null;
+  problem: string | null;
+} {
+  const stagingRef = trimmed(config.SUPABASE_STAGING_PROJECT_REF);
+  const stagingName = trimmed(config.SUPABASE_STAGING_PROJECT_NAME);
+  if (!stagingRef && !stagingName) return { project: null, problem: null };
+  if (!stagingRef || !stagingName) {
+    return {
+      project: null,
+      problem: "Set BOTH SUPABASE_STAGING_PROJECT_REF and SUPABASE_STAGING_PROJECT_NAME to enable the staging project.",
+    };
+  }
+  if (!/^[a-z0-9]{20}$/.test(stagingRef)) {
+    return { project: null, problem: `SUPABASE_STAGING_PROJECT_REF "${stagingRef}" is not a valid Supabase ref.` };
+  }
+  if (reservedProjectRefs.has(stagingRef)) {
+    return {
+      project: null,
+      problem: `SUPABASE_STAGING_PROJECT_REF ${stagingRef} collides with the production/stale project; staging must be a distinct project.`,
+    };
+  }
+  return {
+    project: { name: stagingName, ref: stagingRef, url: `https://${stagingRef}.supabase.co`, region: "ap-southeast-2" },
+    problem: null,
+  };
+}
+
 export function checkSupabaseProjectConfig(
   config: SupabaseProjectConfig,
   options: SupabaseProjectCheckOptions = {},
@@ -76,11 +129,22 @@ export function checkSupabaseProjectConfig(
   const problems: string[] = [];
   const warnings: string[] = [];
 
+  const { project: stagingProject, problem: stagingProblem } = resolveStagingProject(config);
+  // Pick which accepted project this config is targeting. Staging is only
+  // matched when the observed ref equals the explicitly-declared staging ref;
+  // everything else resolves to production, so production behavior is
+  // unchanged when no staging project is declared.
+  const expected: ExpectedSupabaseProject =
+    stagingProject && observedRefs.includes(stagingProject.ref) ? stagingProject : expectedSupabaseProject;
+  const environment: "production" | "staging" = expected === stagingProject ? "staging" : "production";
+
+  if (stagingProblem) problems.push(stagingProblem);
+
   if (!url) {
     return {
       status: "missing",
-      expected: expectedSupabaseProject,
-      observed: { url, urlRef, configuredRef, configuredName },
+      expected,
+      observed: { url, urlRef, configuredRef, configuredName, environment },
       staleProject,
       problems,
       warnings,
@@ -88,21 +152,19 @@ export function checkSupabaseProjectConfig(
   }
 
   if (!urlRef) {
-    problems.push(`NEXT_PUBLIC_SUPABASE_URL must be a Supabase project URL for ${expectedSupabaseProject.name}.`);
-  } else if (urlRef !== expectedSupabaseProject.ref) {
+    problems.push(`NEXT_PUBLIC_SUPABASE_URL must be a Supabase project URL for ${expected.name}.`);
+  } else if (urlRef !== expected.ref) {
     problems.push(
-      `NEXT_PUBLIC_SUPABASE_URL points to Supabase ref ${urlRef}; expected ${expectedSupabaseProject.ref} (${expectedSupabaseProject.name}).`,
+      `NEXT_PUBLIC_SUPABASE_URL points to Supabase ref ${urlRef}; expected ${expected.ref} (${expected.name}).`,
     );
   }
 
-  if (configuredRef && configuredRef !== expectedSupabaseProject.ref) {
-    problems.push(
-      `SUPABASE_PROJECT_REF is ${configuredRef}; expected ${expectedSupabaseProject.ref} (${expectedSupabaseProject.name}).`,
-    );
+  if (configuredRef && configuredRef !== expected.ref) {
+    problems.push(`SUPABASE_PROJECT_REF is ${configuredRef}; expected ${expected.ref} (${expected.name}).`);
   }
 
-  if (configuredName && configuredName !== expectedSupabaseProject.name) {
-    problems.push(`SUPABASE_PROJECT_NAME is "${configuredName}"; expected "${expectedSupabaseProject.name}".`);
+  if (configuredName && configuredName !== expected.name) {
+    problems.push(`SUPABASE_PROJECT_NAME is "${configuredName}"; expected "${expected.name}".`);
   }
 
   if (staleProject) {
@@ -111,19 +173,19 @@ export function checkSupabaseProjectConfig(
     );
   }
 
-  if (options.requireMetadata && urlRef === expectedSupabaseProject.ref && problems.length === 0) {
+  if (options.requireMetadata && urlRef === expected.ref && problems.length === 0) {
     if (!configuredRef) {
-      warnings.push(`Set SUPABASE_PROJECT_REF=${expectedSupabaseProject.ref} in .env.local.`);
+      warnings.push(`Set SUPABASE_PROJECT_REF=${expected.ref} in .env.local.`);
     }
     if (!configuredName) {
-      warnings.push(`Set SUPABASE_PROJECT_NAME="${expectedSupabaseProject.name}" in .env.local.`);
+      warnings.push(`Set SUPABASE_PROJECT_NAME="${expected.name}" in .env.local.`);
     }
   }
 
   return {
     status: problems.length > 0 ? "mismatch" : warnings.length > 0 ? "warning" : "ready",
-    expected: expectedSupabaseProject,
-    observed: { url, urlRef, configuredRef, configuredName },
+    expected,
+    observed: { url, urlRef, configuredRef, configuredName, environment },
     staleProject,
     problems,
     warnings,

@@ -82,10 +82,6 @@ const selectorGroups: Array<{ key: string; selector: string; pseudo?: string }> 
   { key: "composer-pill-children", selector: 'form:has([data-testid="global-search-input"]) > div > *' },
   { key: "composer-input", selector: '[data-testid="global-search-input"]', pseudo: "::placeholder" },
   { key: "composer-buttons", selector: 'form:has([data-testid="global-search-input"]) button' },
-  { key: "evidence-chip", selector: 'button[aria-label="Open evidence-backed answer sources"]' },
-  { key: "evidence-chip-icon", selector: 'button[aria-label="Open evidence-backed answer sources"] svg' },
-  { key: "scope-chip", selector: 'button[aria-label="Open source scope"]' },
-  { key: "scope-chip-icon", selector: 'button[aria-label="Open source scope"] svg' },
   { key: "viewer-header", selector: "main header, body > div > header", pseudo: "::after" },
   { key: "viewer-composer", selector: 'form:has(input[placeholder^="Search or answer"])' },
   { key: "viewer-composer-children", selector: 'form:has(input[placeholder^="Search or answer"]) > *' },
@@ -94,16 +90,16 @@ const selectorGroups: Array<{ key: string; selector: string; pseudo?: string }> 
 type Snapshot = Record<string, Record<string, string>>;
 
 async function mockApis(page: Page) {
-  await page.route("**/api/setup-status**", async (route) => {
+  await page.route("**/api/setup-status**", async (route: Route) => {
     await route.fulfill({ json: { demoMode: true, checks: readySetupChecks } });
   });
-  await page.route(/\/api\/documents\/[0-9a-f-]+(?:\?.*)?$/, async (route) => {
+  await page.route(/\/api\/documents\/[0-9a-f-]+(?:\?.*)?$/, async (route: Route) => {
     const id = new URL(route.request().url()).pathname.split("/").pop() ?? "";
     const payload = getDemoDocumentPayload(id);
     if (payload) await route.fulfill({ json: payload });
     else await route.fulfill({ status: 404, json: { error: "not found" } });
   });
-  await page.route(/\/api\/documents(?:\?.*)?$/, async (route) => {
+  await page.route(/\/api\/documents(?:\?.*)?$/, async (route: Route) => {
     await route.fulfill({
       json: {
         documents: demoDocuments,

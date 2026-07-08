@@ -1,11 +1,12 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { memo, type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { NaturalLanguageAnswer, UserQuestionBubble } from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerSupportSummaryCard,
@@ -24,6 +25,7 @@ import { InlineTableCard, MobileEvidenceSheetContent } from "@/components/clinic
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
+import { type AppModeId } from "@/lib/app-modes";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { type SourceGovernanceWarning } from "@/lib/source-governance";
 import type {
@@ -36,7 +38,7 @@ import type {
 } from "@/lib/types";
 import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-output";
 
-export function StagedAnswerResultSurface({
+function StagedAnswerResultSurfaceImpl({
   answer,
   query,
   safeAnswerText,
@@ -61,6 +63,8 @@ export function StagedAnswerResultSurface({
   followUpSuggestions,
   onPickFollowUpSuggestion,
   followUpSuggestionsDisabled = false,
+  crossModeQueries,
+  onCrossModeSearch,
 }: {
   answer: RagAnswer;
   query: string;
@@ -86,10 +90,15 @@ export function StagedAnswerResultSurface({
   followUpSuggestions?: string[];
   onPickFollowUpSuggestion?: (suggestion: string) => void;
   followUpSuggestionsDisabled?: boolean;
+  crossModeQueries?: Array<string | null | undefined>;
+  onCrossModeSearch?: (mode: AppModeId, query: string) => void;
 }) {
   const noteCount = clinicalNotesCount(answer);
   const showClinicalNotes =
-    safetyFindings.length > 0 || noteCount > 0 || answer.answerQualityTier === "source_only" || answerGrounded === false;
+    safetyFindings.length > 0 ||
+    noteCount > 0 ||
+    answer.answerQualityTier === "source_only" ||
+    answerGrounded === false;
   const clinicalNoteDisplayCount = clinicalNotesDisplayCountForAnswer(
     answer,
     answerViewMode,
@@ -144,6 +153,11 @@ export function StagedAnswerResultSurface({
     setEvidenceOpen(false);
     setEvidenceInitialTab(null);
     restoreFocusToTrigger(evidenceTriggerRef);
+  }
+  function handleQuoteFollowUp(quote: QuoteCard) {
+    setEvidenceOpen(false);
+    setEvidenceInitialTab(null);
+    onFollowUpQuote?.(quote);
   }
   function openTableEvidence() {
     setClinicalNotesOpen(false);
@@ -226,12 +240,18 @@ export function StagedAnswerResultSurface({
               />
             ) : null}
 
+            {crossModeQueries?.length && onCrossModeSearch ? (
+              <CrossModeLinksSection queries={crossModeQueries} onModeSearch={onCrossModeSearch} />
+            ) : null}
+
             {followUpSuggestions?.length && onPickFollowUpSuggestion ? (
-              <AnswerFollowUpSuggestions
-                suggestions={followUpSuggestions}
-                onPick={onPickFollowUpSuggestion}
-                disabled={followUpSuggestionsDisabled}
-              />
+              <div className="hidden sm:block">
+                <AnswerFollowUpSuggestions
+                  suggestions={followUpSuggestions}
+                  onPick={onPickFollowUpSuggestion}
+                  disabled={followUpSuggestionsDisabled}
+                />
+              </div>
             ) : null}
           </div>
 
@@ -255,7 +275,7 @@ export function StagedAnswerResultSurface({
               </span>
             }
             titleAccessory={
-              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-1 text-2xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                 {clinicalNoteDisplayCount}
               </span>
             }
@@ -271,10 +291,11 @@ export function StagedAnswerResultSurface({
               ) : null
             }
             headerClassName="gap-2 p-2.5 sm:p-3"
-            titleClassName="text-[15px] leading-5"
+            titleClassName="text-base-minus leading-5"
             closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-md"
             bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            desktopBackdropClassName="sm:bg-black/50"
             returnFocusRef={clinicalNotesTriggerRef}
             portal
           >
@@ -297,17 +318,16 @@ export function StagedAnswerResultSurface({
             onClose={closeEvidenceReview}
             title="Evidence"
             description="Review by evidence type."
-            titleAccessory={
-              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[11px]")}>{evidenceTrustLabel}</span>
-            }
+            titleAccessory={<span className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs")}>{evidenceTrustLabel}</span>}
             closeLabel="Close evidence"
             headerLeading={
               <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--clinical-accent)]")}>
                 <Layers className="h-3.5 w-3.5" />
               </span>
             }
-            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(88dvh,44rem)] sm:max-w-2xl"
+            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(88dvh,44rem)] sm:max-w-3xl"
             bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            desktopBackdropClassName="sm:bg-black/50"
             returnFocusRef={evidenceTriggerRef}
             portal
           >
@@ -315,7 +335,6 @@ export function StagedAnswerResultSurface({
               answer={answer}
               sources={sources}
               renderModel={renderModel}
-              query={query}
               visualEvidence={renderModel.visualEvidence}
               answerEvidenceMapRows={answerEvidenceMapRows}
               sourceGovernanceWarnings={sourceGovernanceWarnings}
@@ -325,7 +344,7 @@ export function StagedAnswerResultSurface({
               copiedQuotes={copiedQuotes}
               onCopyQuotes={copyQuotes}
               onSubmitFeedback={onSubmitFeedback}
-              onFollowUpQuote={onFollowUpQuote}
+              onFollowUpQuote={handleQuoteFollowUp}
               onScopeDocument={onScopeDocument}
             />
           </Sheet>
@@ -344,15 +363,16 @@ export function StagedAnswerResultSurface({
               </span>
             }
             titleAccessory={
-              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] px-1 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+              <span className="nums grid h-5 min-w-5 place-items-center rounded border border-[color:var(--warning)]/20 bg-[color:var(--warning-soft)] px-1 text-2xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                 {safetyFindings.length}
               </span>
             }
             headerClassName="gap-2 p-2.5 sm:p-3"
-            titleClassName="text-[15px] leading-5"
+            titleClassName="text-base-minus leading-5"
             closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
             bodyClassName="flex flex-col bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            desktopBackdropClassName="sm:bg-black/50"
             returnFocusRef={safetyTriggerRef}
             portal
           >
@@ -363,3 +383,11 @@ export function StagedAnswerResultSurface({
     </div>
   );
 }
+
+// Memoized so keystrokes in the follow-up composer (which live in the parent
+// ClinicalDashboard's `query` state) no longer re-render this 385-line answer +
+// evidence subtree. All props are stable across keystrokes: the parent
+// stabilizes its handlers with useCallback/useMemo and the `query` prop it
+// passes is `latestAnswerQuery ?? query`, which is non-null and stable once an
+// answer exists.
+export const StagedAnswerResultSurface = memo(StagedAnswerResultSurfaceImpl);

@@ -38,7 +38,11 @@ export function useDismissableLayer({
       if (event.key !== "Escape") return;
       event.preventDefault();
       onDismiss("escape");
-      window.requestAnimationFrame(() => restoreFocusRef?.current?.focus({ preventScroll: true }));
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          restoreFocusRef?.current?.focus({ preventScroll: true });
+        });
+      });
     }
 
     document.addEventListener("pointerdown", handlePointerDown, true);

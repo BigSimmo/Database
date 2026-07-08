@@ -9,28 +9,28 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ## Quick start
 
-| Step | Command |
-|------|---------|
-| Confirm Supabase target | `npm run check:supabase-project` |
-| Start app (project-specific port) | `npm run ensure` |
-| Start ingestion worker | `npm run worker` |
-| Cheap verification gate | `npm run verify:cheap` |
-| UI verification gate | `npm run verify:ui` |
+| Step                              | Command                          |
+| --------------------------------- | -------------------------------- |
+| Confirm Supabase target           | `npm run check:supabase-project` |
+| Start app (project-specific port) | `npm run ensure`                 |
+| Start ingestion worker            | `npm run worker`                 |
+| Cheap verification gate           | `npm run verify:cheap`           |
+| UI verification gate              | `npm run verify:ui`              |
 
 ---
 
 ## Top-level layout
 
-| Path | Purpose |
-|------|---------|
-| `src/` | Next.js App Router UI, API routes, shared lib, components |
-| `supabase/` | SQL migrations, schema mirror, Edge Functions, CLI config |
-| `worker/` | Local ingestion worker (parse, OCR, chunk, embed, DB writes) |
-| `scripts/` | CLI ops: reindex, eval, backfill, governance, dev-server helpers |
-| `tests/` | Vitest unit (`*.test.ts`) + Playwright E2E (`ui-*.spec.ts`) |
-| `docs/` | Runbooks, governance, search/RAG plans, generated sitemap |
-| `public/` | Static assets (`public/llms.txt`) |
-| `.github/` | CI workflows, PR template (clinical governance preflight) |
+| Path        | Purpose                                                          |
+| ----------- | ---------------------------------------------------------------- |
+| `src/`      | Next.js App Router UI, API routes, shared lib, components        |
+| `supabase/` | SQL migrations, schema mirror, Edge Functions, CLI config        |
+| `worker/`   | Local ingestion worker (parse, OCR, chunk, embed, DB writes)     |
+| `scripts/`  | CLI ops: reindex, eval, backfill, governance, dev-server helpers |
+| `tests/`    | Vitest unit (`*.test.ts`) + Playwright E2E (`ui-*.spec.ts`)      |
+| `docs/`     | Runbooks, governance, search/RAG plans, generated sitemap        |
+| `public/`   | Static assets (`public/llms.txt`)                                |
+| `.github/`  | CI workflows, PR template (clinical governance preflight)        |
 
 **Do not commit:** `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
 
@@ -48,32 +48,32 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### Product pages (`src/app/`)
 
-| Route | File |
-|-------|------|
-| `/` | `src/app/page.tsx` |
-| `/applications` | `src/app/applications/page.tsx` |
-| `/differentials`, `/diagnoses`, `/presentations` | `src/app/differentials/` |
-| `/documents/search`, `/source`, `/evidence`, `/[id]` | `src/app/documents/` |
-| `/favourites` | `src/app/favourites/page.tsx` |
-| `/forms`, `/forms/[slug]` | `src/app/forms/` |
-| `/medications`, `/medications/[slug]` | `src/app/medications/` |
-| `/services`, `/services/[slug]` | `src/app/services/` |
-| `/mockups/*` | `src/app/mockups/` (404 in production) |
-| `/auth/callback` | `src/app/auth/callback/route.ts` |
+| Route                                                | File                                   |
+| ---------------------------------------------------- | -------------------------------------- |
+| `/`                                                  | `src/app/page.tsx`                     |
+| `/applications`                                      | `src/app/applications/page.tsx`        |
+| `/differentials`, `/diagnoses`, `/presentations`     | `src/app/differentials/`               |
+| `/documents/search`, `/source`, `/evidence`, `/[id]` | `src/app/documents/`                   |
+| `/favourites`                                        | `src/app/favourites/page.tsx`          |
+| `/forms`, `/forms/[slug]`                            | `src/app/forms/`                       |
+| `/medications`, `/medications/[slug]`                | `src/app/medications/`                 |
+| `/services`, `/services/[slug]`                      | `src/app/services/`                    |
+| `/mockups/*`                                         | `src/app/mockups/` (404 in production) |
+| `/auth/callback`                                     | `src/app/auth/callback/route.ts`       |
 
 ### API routes (`src/app/api/`)
 
-| Area | Routes | Entry files |
-|------|--------|-------------|
-| Answers | `/api/answer`, `/api/answer/stream` | `answer/route.ts`, `answer/stream/route.ts` |
-| Search | `/api/search`, `/api/search/interaction` | `search/` |
-| Upload | `/api/upload` | `upload/route.ts` |
-| Documents | CRUD, bulk, reindex, labels, search, summarize, table-facts, signed-url | `documents/` |
-| Ingestion | batches, jobs, retry, quality | `ingestion/` |
-| Registry | records CRUD | `registry/records/` |
-| Images | signed URLs | `images/[id]/signed-url/route.ts` |
-| Ops | health, setup-status, local-project-id | `health/`, `setup-status/`, `local-project-id/` |
-| Eval / jobs | eval cases, job state | `eval-cases/`, `jobs/` |
+| Area        | Routes                                                                  | Entry files                                     |
+| ----------- | ----------------------------------------------------------------------- | ----------------------------------------------- |
+| Answers     | `/api/answer`, `/api/answer/stream`                                     | `answer/route.ts`, `answer/stream/route.ts`     |
+| Search      | `/api/search`, `/api/search/interaction`                                | `search/`                                       |
+| Upload      | `/api/upload`                                                           | `upload/route.ts`                               |
+| Documents   | CRUD, bulk, reindex, labels, search, summarize, table-facts, signed-url | `documents/`                                    |
+| Ingestion   | batches, jobs, retry, quality                                           | `ingestion/`                                    |
+| Registry    | records CRUD                                                            | `registry/records/`                             |
+| Images      | signed URLs                                                             | `images/[id]/signed-url/route.ts`               |
+| Ops         | health, setup-status, local-project-id                                  | `health/`, `setup-status/`, `local-project-id/` |
+| Eval / jobs | eval cases, job state                                                   | `eval-cases/`, `jobs/`                          |
 
 ---
 
@@ -81,57 +81,57 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### RAG, retrieval, answers
 
-| Module | Role |
-|--------|------|
-| `rag.ts` | Main answer pipeline orchestrator |
-| `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts` | Model routing, provider modes, API surface |
-| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts` | Query modes and retrieval selection |
-| `answer-ranking.ts`, `answer-verification.ts`, `answer-formatting.ts`, `answer-follow-up.ts`, `answer-render-policy.ts` | Answer quality and rendering |
-| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts` | Evidence and synthesis |
-| `ranking-config.ts`, `search-scope.ts`, `rag-eval-cases.ts` | Ranking tuning and eval fixtures |
+| Module                                                                                                                  | Role                                       |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `rag.ts`                                                                                                                | Main answer pipeline orchestrator          |
+| `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts`                                           | Model routing, provider modes, API surface |
+| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`                                                | Query modes and retrieval selection        |
+| `answer-ranking.ts`, `answer-verification.ts`, `answer-formatting.ts`, `answer-follow-up.ts`, `answer-render-policy.ts` | Answer quality and rendering               |
+| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                  | Evidence and synthesis                     |
+| `ranking-config.ts`, `search-scope.ts`, `rag-eval-cases.ts`                                                             | Ranking tuning and eval fixtures           |
 
 ### Ingestion and indexing
 
-| Module | Role |
-|--------|------|
+| Module                                                                  | Role                             |
+| ----------------------------------------------------------------------- | -------------------------------- |
 | `ingestion.ts`, `ingestion-recovery.ts`, `ingestion-mutation-safety.ts` | Job queue semantics and recovery |
-| `chunking.ts`, `extractors/document.ts` | Text extraction and chunking |
-| `document-index-units.ts`, `document-enrichment.ts`, `deep-memory.ts` | Index artifacts and enrichment |
-| `visual-intelligence.ts`, `image-filtering.ts` | Image captioning and filtering |
-| `index-quality.ts`, `indexing-coverage.ts`, `model-index-extraction.ts` | Index quality gates |
-| `reindex-pipeline.ts`, `reindex-eval-gate.ts`, `bulk-import.ts` | Atomic reindex and bulk import |
+| `chunking.ts`, `extractors/document.ts`                                 | Text extraction and chunking     |
+| `document-index-units.ts`, `document-enrichment.ts`, `deep-memory.ts`   | Index artifacts and enrichment   |
+| `visual-intelligence.ts`, `image-filtering.ts`                          | Image captioning and filtering   |
+| `index-quality.ts`, `indexing-coverage.ts`, `model-index-extraction.ts` | Index quality gates              |
+| `reindex-pipeline.ts`, `reindex-eval-gate.ts`, `bulk-import.ts`         | Atomic reindex and bulk import   |
 
 ### Source governance and metadata
 
-| Module | Role |
-|--------|------|
-| `source-metadata.ts`, `source-governance.ts`, `source-text-sanitizer.ts` | Source provenance and governance |
-| `document-label-governance.ts`, `document-tags.ts`, `document-organization.ts` | Labels and organization |
-| `table-review.ts`, `accessible-table-normalization.ts` | Table facts |
+| Module                                                                         | Role                             |
+| ------------------------------------------------------------------------------ | -------------------------------- |
+| `source-metadata.ts`, `source-governance.ts`, `source-text-sanitizer.ts`       | Source provenance and governance |
+| `document-label-governance.ts`, `document-tags.ts`, `document-organization.ts` | Labels and organization          |
+| `table-review.ts`, `accessible-table-normalization.ts`                         | Table facts                      |
 
 ### Supabase, auth, env
 
-| Module | Role |
-|--------|------|
-| `supabase/client.tsx`, `server.ts`, `admin.ts`, `auth.ts`, `health.ts`, `project.ts` | Clients and auth |
-| `supabase/database.types.ts` | Generated DB types |
-| `env.ts` | Zod-validated environment |
-| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts` | Multi-user scope and privacy |
+| Module                                                                               | Role                         |
+| ------------------------------------------------------------------------------------ | ---------------------------- |
+| `supabase/client.tsx`, `server.ts`, `admin.ts`, `auth.ts`, `health.ts`, `project.ts` | Clients and auth             |
+| `supabase/database.types.ts`                                                         | Generated DB types           |
+| `env.ts`                                                                             | Zod-validated environment    |
+| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                       | Multi-user scope and privacy |
 
 ### Clinical product data
 
-| Module | Role |
-|--------|------|
-| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Registry-backed content |
-| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts` | Safety copy and demo mode |
+| Module                                                               | Role                      |
+| -------------------------------------------------------------------- | ------------------------- |
+| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Registry-backed content   |
+| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode |
 
 ### Infra helpers
 
-| Module | Role |
-|--------|------|
-| `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts` | External APIs and rate limits |
-| `validation/` | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts` |
-| `shell-route-config.ts`, `document-flow-routes.ts`, `local-project-identity.ts` | Routing and project identity |
+| Module                                                                          | Role                                                          |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                     | External APIs and rate limits                                 |
+| `validation/`                                                                   | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts` |
+| `shell-route-config.ts`, `document-flow-routes.ts`, `local-project-identity.ts` | Routing and project identity                                  |
 
 ---
 
@@ -152,15 +152,15 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### Migration themes
 
-| Theme | Examples |
-|-------|----------|
-| Bulk ingestion and job queue | `20260527000000_bulk_ingestion.sql`, `20260616001000_ingestion_job_state_rpcs.sql` |
-| Hybrid retrieval RPCs | `20260607183245_search_trigram_indexes_and_response_cache.sql`, `20260701140631_codify_live_retrieval_rpcs.sql` |
-| Embeddings / HNSW | `20260623014639_finalize_embedding_fields_hnsw_health.sql` |
-| Deep memory / visual intelligence | `20260528009000_deep_memory_indexing.sql`, `20260623150000_visual_intelligence_v1.sql` |
-| Indexing v3 agent | `20260625000000_indexing_v3_agent_worker_hardening.sql`, `20260702190000_indexing_v3_agent_jobs_table.sql` |
-| Atomic reindex | `20260628000000_atomic_reindex_generation_commit.sql` |
-| Clinical registry | `20260703020000_clinical_registry_records.sql` |
+| Theme                             | Examples                                                                                                        |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Bulk ingestion and job queue      | `20260527000000_bulk_ingestion.sql`, `20260616001000_ingestion_job_state_rpcs.sql`                              |
+| Hybrid retrieval RPCs             | `20260607183245_search_trigram_indexes_and_response_cache.sql`, `20260701140631_codify_live_retrieval_rpcs.sql` |
+| Embeddings / HNSW                 | `20260623014639_finalize_embedding_fields_hnsw_health.sql`                                                      |
+| Deep memory / visual intelligence | `20260528009000_deep_memory_indexing.sql`, `20260623150000_visual_intelligence_v1.sql`                          |
+| Indexing v3 agent                 | `20260625000000_indexing_v3_agent_worker_hardening.sql`, `20260702190000_indexing_v3_agent_jobs_table.sql`      |
+| Atomic reindex                    | `20260628000000_atomic_reindex_generation_commit.sql`                                                           |
+| Clinical registry                 | `20260703020000_clinical_registry_records.sql`                                                                  |
 
 ### Key RPCs
 
@@ -171,8 +171,8 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### Edge Functions
 
-| Function | Path |
-|----------|------|
+| Function          | Path                                            |
+| ----------------- | ----------------------------------------------- |
 | indexing-v3-agent | `supabase/functions/indexing-v3-agent/index.ts` |
 
 Cron-triggered agent for indexing v3 completion gates. Auth via `INDEXING_V3_AGENT_SECRET`. Type-checked by `npm run check:edge:functions`.
@@ -181,14 +181,14 @@ Cron-triggered agent for indexing v3 completion gates. Auth via `INDEXING_V3_AGE
 
 ## Worker (`worker/`)
 
-| File | Role |
-|------|------|
-| `index.ts` | Bootstrap → `main.ts` |
-| `main.ts` | Polls `ingestion_jobs`, extracts, chunks, embeds, writes index artifacts |
-| `embedding-fields.ts` | Additional embedding field inputs |
-| `table-facts.ts` | Table fact extraction |
-| `prerequisites.ts` | Python/PDF OCR checks |
-| `python/extract_pdf_assets.py` | PDF asset extraction (PyMuPDF/Tesseract) |
+| File                           | Role                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| `index.ts`                     | Bootstrap → `main.ts`                                                    |
+| `main.ts`                      | Polls `ingestion_jobs`, extracts, chunks, embeds, writes index artifacts |
+| `embedding-fields.ts`          | Additional embedding field inputs                                        |
+| `table-facts.ts`               | Table fact extraction                                                    |
+| `prerequisites.ts`             | Python/PDF OCR checks                                                    |
+| `python/extract_pdf_assets.py` | PDF asset extraction (PyMuPDF/Tesseract)                                 |
 
 **Flow:** Upload → Storage + job queue → worker parses (PDF/DOCX/XLSX/TXT) → OCR fallback → image captioning → chunking → OpenAI embeddings → pgvector.
 
@@ -198,14 +198,14 @@ Cron-triggered agent for indexing v3 completion gates. Auth via `INDEXING_V3_AGE
 
 ## Scripts (grouped)
 
-| Group | Key scripts |
-|-------|-------------|
-| Dev/server | `ensure-local-server.mjs`, `dev-free-port.mjs`, `check-runtime.ts` |
-| Ingestion/indexing | `import-documents.ts`, `reindex.ts`, `reindex-health.ts`, `check-indexing.ts`, `backfill-smart-index.ts`, `recover-ingestion-queue.ts` |
-| Document intelligence | `enrich-documents.ts`, `classify-documents.ts`, `backfill-gold-document-labels.ts` |
-| Governance | `audit-source-governance.ts`, `production-readiness.ts`, `check-supabase-project.ts` |
-| RAG eval | `eval-rag.ts`, `eval-retrieval.ts`, `eval-quality.ts`, `retrieval-health.ts` |
-| Maintenance | `cleanup-storage.ts`, `generate-site-map.ts`, `seed-registry-records.ts` |
+| Group                 | Key scripts                                                                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Dev/server            | `ensure-local-server.mjs`, `dev-free-port.mjs`, `check-runtime.ts`                                                                     |
+| Ingestion/indexing    | `import-documents.ts`, `reindex.ts`, `reindex-health.ts`, `check-indexing.ts`, `backfill-smart-index.ts`, `recover-ingestion-queue.ts` |
+| Document intelligence | `enrich-documents.ts`, `classify-documents.ts`, `backfill-gold-document-labels.ts`                                                     |
+| Governance            | `audit-source-governance.ts`, `production-readiness.ts`, `check-supabase-project.ts`                                                   |
+| RAG eval              | `eval-rag.ts`, `eval-retrieval.ts`, `eval-quality.ts`, `retrieval-health.ts`                                                           |
+| Maintenance           | `cleanup-storage.ts`, `generate-site-map.ts`, `seed-registry-records.ts`                                                               |
 
 Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 
@@ -213,11 +213,11 @@ Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 
 ## Tests
 
-| Config | Path |
-|--------|------|
-| Unit (Vitest) | `vitest.config.mts` — `tests/**/*.test.ts` |
+| Config           | Path                                          |
+| ---------------- | --------------------------------------------- |
+| Unit (Vitest)    | `vitest.config.mts` — `tests/**/*.test.ts`    |
 | E2E (Playwright) | `playwright.config.ts` — `tests/ui-*.spec.ts` |
-| Visual E2E | `playwright.visual.config.ts` |
+| Visual E2E       | `playwright.visual.config.ts`                 |
 
 **Domain clusters in `tests/`:** RAG/answers, retrieval, ingestion/indexing, source governance, API routes, Supabase schema, shell/routing, UI formatting guards.
 
@@ -250,37 +250,47 @@ Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 - Registry modes: services, forms, medications, differentials
 - Demo mode: synthetic data when Supabase unavailable (`demo-data.ts`, `isDemoMode()` in `env.ts`)
 
+### Global search composer placement rules
+
+One shared composer (`master-search-header.tsx`) serves every mode. Placement:
+
+- **Mode homes** (`/services`, `/forms`, `/favourites`, `/differentials`, `/applications`, and dashboard homes): inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike.
+- **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
+- **Results routing**: standalone routes own their submitted searches via `?q=…&run=1` (`/services` → `ServicesNavigatorPage`, `/forms` → `FormsSearchResultsPage`, `/differentials` → `DifferentialsHome` results view, `/favourites` filters the command library in place). Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. `/?mode=favourites` redirects to `/favourites`; `/?mode=differentials` redirects to `/differentials`.
+- **Intentionally composer-free routes**: `/differentials/presentations/*` (comparison workflow owns its chrome), `/documents/[id]` viewer (has its own in-document ask composer), `/documents/source/*` (document flow owns mobile chrome). Do not re-flag these in search-consistency audits.
+- **Local filter fields** (sidebar "Search chats", document drawer "Find a document"/"Find a source PDF") are scoped filters, not global search; they share the `fieldControlWithIcon`/`fieldIcon` primitives.
+
 ---
 
 ## Key config files
 
-| File | Role |
-|------|------|
-| `package.json` | Scripts, deps, Node 24 / npm 11 |
-| `.env.example` | Full env template |
-| `next.config.ts` | CSP, security headers, build config |
-| `tsconfig.json` | Strict TS; excludes `supabase/functions/**` |
-| `eslint.config.mjs` | Lint scope |
-| `AGENTS.md` | Agent rules, verification gates, shortcuts |
-| `.github/workflows/ci.yml` | CI pipeline |
-| `docs/process-hardening.md` | Verification pyramid |
-| `docs/clinical-governance.md` | Clinical safety governance |
-| `docs/reindex-runbook.md` | Reindex operations |
-| `docs/retrieval-quality-runbook.md` | Retrieval tuning |
+| File                                | Role                                        |
+| ----------------------------------- | ------------------------------------------- |
+| `package.json`                      | Scripts, deps, Node 24 / npm 11             |
+| `.env.example`                      | Full env template                           |
+| `next.config.ts`                    | CSP, security headers, build config         |
+| `tsconfig.json`                     | Strict TS; excludes `supabase/functions/**` |
+| `eslint.config.mjs`                 | Lint scope                                  |
+| `AGENTS.md`                         | Agent rules, verification gates, shortcuts  |
+| `.github/workflows/ci.yml`          | CI pipeline                                 |
+| `docs/process-hardening.md`         | Verification pyramid                        |
+| `docs/clinical-governance.md`       | Clinical safety governance                  |
+| `docs/reindex-runbook.md`           | Reindex operations                          |
+| `docs/retrieval-quality-runbook.md` | Retrieval tuning                            |
 
 ---
 
 ## Related docs
 
-| Topic | Doc |
-|-------|-----|
-| Routes and modes | `docs/site-map.md` |
-| Search/RAG roadmap | `docs/search-rag-master-plan.md` |
-| Reindex operations | `docs/reindex-runbook.md` |
-| Production readiness | `docs/production-readiness-checklist.md` |
-| Frontend refactor | `docs/frontend-architecture-refactor-plan.md` |
-| Repo audit (2026-07-01) | `docs/audit/repo-audit-2026-07-01.md` |
+| Topic                   | Doc                                           |
+| ----------------------- | --------------------------------------------- |
+| Routes and modes        | `docs/site-map.md`                            |
+| Search/RAG roadmap      | `docs/search-rag-master-plan.md`              |
+| Reindex operations      | `docs/reindex-runbook.md`                     |
+| Production readiness    | `docs/production-readiness-checklist.md`      |
+| Frontend refactor       | `docs/frontend-architecture-refactor-plan.md` |
+| Repo audit (2026-07-01) | `docs/audit/repo-audit-2026-07-01.md`         |
 
 ---
 
-*Generated for agent onboarding. Update when adding major modules, API surfaces, or migration themes.*
+_Generated for agent onboarding. Update when adding major modules, API surfaces, or migration themes._

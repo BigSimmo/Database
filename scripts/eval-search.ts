@@ -12,10 +12,10 @@ import type { SearchResult } from "@/lib/types";
 import {
   expectedFileCoverage,
   expectedFileHit,
-  findOwnerIdByEmail,
   hasInvalidVisualEvidence,
   loadAdminClient,
   percentile,
+  resolveEvalOwnerId,
 } from "./eval-utils";
 
 loadEnvConfig(process.cwd());
@@ -201,8 +201,8 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
-  const ownerId = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
-  const scope = ownerId ? `owner:${args.ownerId ? "id" : args.ownerEmail}` : "public";
+  const ownerId = await resolveEvalOwnerId(supabase, args);
+  const scope = args.ownerId ? "owner:id" : args.ownerEmail ? `owner:${args.ownerEmail}` : "public";
   const baseCases = selectRagEvalCases({ question: args.question });
   const capturedCaseClient = supabase as unknown as SupabaseEvalCaseClient;
   const capturedCases = args.question

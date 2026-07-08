@@ -90,10 +90,10 @@ export function FormsHomePage() {
     ) : registry.status === "unauthorized" ? (
       <ModeHomeStatusNotice
         icon={ShieldAlert}
-        title="Sign in required"
-        body="Sign in to open private form records and pathways."
+        title="Session expired"
+        body="Your session expired. Sign in again to open private form records and pathways."
         actionHref="/"
-        actionLabel="Go to sign in"
+        actionLabel="Open account setup"
       />
     ) : registry.status === "error" ? (
       <ModeHomeStatusNotice
