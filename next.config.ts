@@ -1,13 +1,13 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildSecurityHeaders } from "./src/lib/security-headers";
+import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
 
-const isDevelopment = process.env.NODE_ENV === "development";
-const isLocalHttpRuntime = isDevelopment || process.env.PLAYWRIGHT_BASE_URL?.startsWith("http://localhost:");
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
-const securityHeaders = buildSecurityHeaders({ isDevelopment, isLocalHttpRuntime: Boolean(isLocalHttpRuntime) });
+// Static (non-CSP) headers for every route. The nonce'd CSP is emitted per
+// request from src/proxy.ts; both derive their runtime flags from the same helper.
+const securityHeaders = buildSecurityHeaders(resolveRuntimeFlags());
 
 const nextConfig: NextConfig = {
   devIndicators: false,

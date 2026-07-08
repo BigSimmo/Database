@@ -21,8 +21,46 @@ export type SecurityHeaderFlags = {
   isLocalHttpRuntime: boolean;
 };
 
-export function buildContentSecurityPolicy({ isDevelopment, isLocalHttpRuntime }: SecurityHeaderFlags): string {
-  const scriptSrc = `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}; `;
+// Single source of truth for the runtime flags that shape the policy. Both the
+// static headers (next.config.ts) and the per-request nonce CSP (src/proxy.ts)
+// derive from this, so the HSTS/upgrade-insecure-requests gating stays in lockstep
+// with the script-src gating instead of drifting between two hand-copied copies.
+export function resolveRuntimeFlags(): SecurityHeaderFlags {
+  const isDevelopment = process.env.NODE_ENV === "development";
+  return {
+    isDevelopment,
+    isLocalHttpRuntime: isDevelopment || process.env.PLAYWRIGHT_BASE_URL?.startsWith("http://localhost:") === true,
+  };
+}
+
+export type ContentSecurityPolicyOptions = SecurityHeaderFlags & {
+  // Per-request nonce (base64) generated in src/proxy.ts. script-src allow-lists
+  // this nonce instead of 'unsafe-inline', so only scripts carrying it execute.
+  nonce: string;
+};
+
+export function buildContentSecurityPolicy({
+  isDevelopment,
+  isLocalHttpRuntime,
+  nonce,
+}: ContentSecurityPolicyOptions): string {
+  // Production: nonce + 'strict-dynamic' is the modern strict-CSP shape. CSP3
+  // browsers ignore host allow-lists AND 'unsafe-inline' for scripts, running
+  // only the nonce'd bootstrap (and scripts it loads). Next.js reads the nonce
+  // from the request CSP header and stamps its own framework/bundle/flight
+  // scripts automatically; the one hand-authored inline script (theme-flash guard
+  // in app/layout.tsx) carries the nonce explicitly via the `x-nonce` header.
+  //
+  // Development: keep 'unsafe-inline' + 'unsafe-eval' and NO 'strict-dynamic'.
+  // The Turbopack dev server injects HMR/runtime and route-chunk <script src>
+  // tags that are not nonce-tagged; 'strict-dynamic' would disable the 'self'
+  // allow-list and block every one of them (blank page + broken interactions).
+  // Dev is not the shipped security boundary, so it retains the pre-migration
+  // policy. style-src keeps 'unsafe-inline' in both (Next's font + inline styles
+  // are not nonce-tagged); only production script-src is nonce-gated.
+  const scriptSrc = isDevelopment
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+    : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'; `;
   const upgradeInsecureRequests = isLocalHttpRuntime ? "" : "upgrade-insecure-requests; ";
 
   return (
@@ -43,6 +81,9 @@ export function buildContentSecurityPolicy({ isDevelopment, isLocalHttpRuntime }
   );
 }
 
+// Static security headers applied to every route via next.config.ts. NOTE:
+// Content-Security-Policy is intentionally NOT here — it carries a per-request
+// nonce and is emitted from src/proxy.ts (see buildContentSecurityPolicy).
 export function buildSecurityHeaders(flags: SecurityHeaderFlags): SecurityHeader[] {
   return [
     { key: "X-Content-Type-Options", value: "nosniff" },
@@ -53,7 +94,6 @@ export function buildSecurityHeaders(flags: SecurityHeaderFlags): SecurityHeader
     // No Cross-Origin-Embedder-Policy — see module header note.
     { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
     { key: "Origin-Agent-Cluster", value: "?1" },
-    { key: "Content-Security-Policy", value: buildContentSecurityPolicy(flags) },
     { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
     ...(flags.isLocalHttpRuntime
       ? []
