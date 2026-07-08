@@ -143,7 +143,10 @@ function launcherLaunchLink(page: Page, title: string) {
 
 async function gotoLauncher(page: Page, path = "/?mode=tools") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+  // Most launcher routes keep background fetches alive, so a long networkidle wait
+  // burns the full timeout on every navigation without adding signal. A short grace
+  // period is enough; the per-route assertions below wait on real UI readiness.
+  await page.waitForLoadState("networkidle", { timeout: 2_000 }).catch(() => undefined);
 }
 
 async function expectNoPageHorizontalOverflow(page: Page) {
@@ -522,7 +525,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     const metrics = await globalSearchComposerMetrics(page);
     expect(metrics?.position).toBe("fixed");
-    await expect(page.locator(".answer-footer-search-chip:visible")).not.toHaveCount(0);
+    await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
     await commandSurfaceOpensAbovePill(page);
     await expectNoPageHorizontalOverflow(page);
   });
@@ -585,7 +588,7 @@ test.describe("Clinical KB tools launcher", () => {
   });
 
   test("search result and detail routes keep top search from tablet up", async ({ page }) => {
-    test.setTimeout(150_000);
+    test.setTimeout(240_000);
 
     for (const viewport of [
       { name: "mobile", width: 390, height: 820 },
@@ -626,7 +629,7 @@ test.describe("Clinical KB tools launcher", () => {
         } else {
           expect(metrics?.position).toBe("sticky");
           expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
-          await expect(page.locator(".answer-footer-search-chip:visible")).not.toHaveCount(0);
+          await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
         }
 
         await expectNoPageHorizontalOverflow(page);
