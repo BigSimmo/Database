@@ -242,6 +242,3 @@ synthetic and must not be used as clinical guidance.
 by Git. The smaller `public/demo-documents/` set is tracked because the app uses
 it for demo-mode source and image rendering when live Supabase setup is
 unavailable.
-
-<!-- ci-retrigger 2026-07-09T01:06:08.0459011+08:00 -->
-
