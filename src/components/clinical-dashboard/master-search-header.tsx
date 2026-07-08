@@ -1198,13 +1198,17 @@ export function MasterSearchHeader({
               ? "floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto max-w-3xl lg:max-w-4xl"
               : usesMobileBottomStyle
                 ? cn(
-                    "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                    // Hero-placement mode-homes (services/forms) portal the composer into
-                    // the hero from sm up. Hide the default (non-portaled) composer at sm+
-                    // so it never briefly flashes as an overlapping float over the hero
-                    // before the portal activates; the mobile fixed-bottom slot still shows
-                    // below sm. Other homes keep a sticky bar until the portal lifts it.
-                    isHeroDesktopComposer ? "sm:hidden" : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+                    usesPhoneFooterDock
+                      ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
+                      : cn(
+                          "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                          // Hero-placement mode-homes (services/forms) portal the composer into
+                          // the hero from sm up. Hide the default (non-portaled) composer at sm+
+                          // so it never briefly flashes as an overlapping float over the hero
+                          // before the portal activates; the mobile fixed-bottom slot still shows
+                          // below sm. Other homes keep a sticky bar until the portal lifts it.
+                          isHeroDesktopComposer ? "sm:hidden" : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+                        ),
                   )
                 : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
           usesBottomComposerPlacement && "answer-footer-search-edge",

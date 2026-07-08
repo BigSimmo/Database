@@ -158,6 +158,13 @@ function GlobalMockupSearchShellClient({
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
+  const mobileComposerReserve = !shouldShowSearchComposer
+    ? "2rem"
+    : searchMode === "answer"
+      ? "calc(9rem + env(safe-area-inset-bottom))"
+      : useCompactBottomSearch
+        ? "calc(5.5rem + env(safe-area-inset-bottom))"
+        : "calc(9rem + env(safe-area-inset-bottom))";
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -312,7 +319,7 @@ function GlobalMockupSearchShellClient({
   return (
     <div
       className={cn(
-        "min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]",
+        "min-h-dvh max-sm:h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar && "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         shouldShowDesktopSidebar &&
@@ -322,6 +329,7 @@ function GlobalMockupSearchShellClient({
         {
           "--clinical-sidebar-width": effectiveSidebarWidth,
           "--clinical-sidebar-width-md": shouldShowDesktopSidebar ? "5.25rem" : "0px",
+          "--mobile-composer-reserve": mobileComposerReserve,
         } as CSSProperties
       }
     >
@@ -348,7 +356,7 @@ function GlobalMockupSearchShellClient({
         </div>
       ) : null}
 
-      <div className="flex min-h-dvh min-w-0 flex-col">
+      <div className="flex min-h-dvh min-w-0 flex-col max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden">
         {/* max-sm:contents lets the header's own `sticky top-0` engage against
             the document scroll on phones (a plain wrapper div otherwise caps
             its sticking range at its own height), which the phone
@@ -415,17 +423,16 @@ function GlobalMockupSearchShellClient({
           id="main-content"
           tabIndex={-1}
           className={cn(
-            // Phone: fill the space under the header exactly (the header is
-            // taller than the 4rem the calc assumed, which forced a phantom
-            // scrollbar on every standalone page). sm+ keeps the original calc.
-            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex-1 sm:min-h-[calc(100dvh-4rem)]",
+            // Phone: flex column fills the viewport under the header; composer
+            // clearance comes from --mobile-composer-reserve on the shell.
+            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:pb-[var(--mobile-composer-reserve)] sm:min-h-[calc(100dvh-4rem)]",
             !shouldShowSearchComposer
-              ? "pb-8"
+              ? "sm:pb-8"
               : searchMode === "answer"
-                ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
+                ? "sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
                 : useCompactBottomSearch
-                  ? "pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-8"
-                  : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
+                  ? "sm:pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-8"
+                  : "sm:pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
         <ClientHydrationBoundary
