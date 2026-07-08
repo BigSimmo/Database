@@ -27,7 +27,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   chatComposerIconButton,
   chatComposerInput,
-  chatComposerShell,
+  chatComposerShellBase,
   chatSendButton,
   cn,
 } from "@/components/ui-primitives";
@@ -1327,7 +1327,7 @@ function CommandSurfaceDemo({
           <div className="relative mt-1.5">
             {/* The pill bar itself — pixel copy of the production composer, untouched */}
             <form
-              className={cn(chatComposerShell, "answer-footer-search-pill relative z-10 w-full")}
+              className={cn(chatComposerShellBase, "answer-footer-search-pill relative z-10 w-full")}
               onSubmit={(event) => {
                 event.preventDefault();
                 runSearch();

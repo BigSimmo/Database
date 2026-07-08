@@ -47,7 +47,7 @@ import {
 import {
   cn,
   chatComposerInput,
-  chatComposerShell,
+  chatComposerShellBase,
   chatSendButton,
   floatingControl,
   shellChip,
@@ -1159,7 +1159,7 @@ export function MasterSearchHeader({
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
             className={cn(
-              chatComposerShell,
+              chatComposerShellBase,
               "answer-footer-search-pill relative z-10 w-full",
               actionMenuOpen && "answer-footer-search-pill-open",
               commandDropdownOpen && "answer-footer-search-pill-open",
