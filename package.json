@@ -54,6 +54,7 @@
     "index:backfill": "tsx scripts/backfill-smart-index.ts",
     "visual:backfill": "tsx scripts/backfill-visual-intelligence.ts",
     "backfill:text-normalization": "tsx scripts/backfill-text-normalization.ts",
+    "backfill:unknown-status": "tsx scripts/derive-unknown-status.ts",
     "check:supabase-project": "tsx scripts/check-supabase-project.ts",
     "check:indexing": "tsx scripts/check-indexing.ts",
     "check:m13-migration": "tsx scripts/check-m13-migration.ts",
