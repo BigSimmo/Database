@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-08T06:45:01.039Z",
+  "generated_at": "2026-07-08T16:31:51.432Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "cb34f64fc531fc042f545475ddaa7cc65edeeae0dfa4df0b8d7d58edb7123adf",
+  "schema_sha256": "3ee18ec46fd0d7f9586858f8b0345355c60dbdc235f0dd4a802c04c06d750f70",
   "replay_seconds": 13,
   "snapshot": {
     "views": [
@@ -4868,6 +4868,12 @@
         "name": "ingestion_jobs_document_status_idx",
         "table": "ingestion_jobs",
         "def_hash": "a59d61034f2cb9337c13283574b698d9"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX ingestion_jobs_one_open_per_document_uidx ON public.ingestion_jobs USING btree (document_id) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]))",
+        "name": "ingestion_jobs_one_open_per_document_uidx",
+        "table": "ingestion_jobs",
+        "def_hash": "2bf0e17b1b46c2b2b225128eaf6dbf0e"
       },
       {
         "def": "CREATE UNIQUE INDEX ingestion_jobs_pkey ON public.ingestion_jobs USING btree (id)",

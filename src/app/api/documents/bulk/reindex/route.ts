@@ -6,9 +6,12 @@ import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import {
+  activeIngestionJobColumns,
+  buildActiveJobsSafetyResult,
   checkIngestionMutationSafety,
   ingestionMutationSafetyPayload,
   ingestionRollbackFenceStamp,
+  type IngestionJobRow,
 } from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
@@ -227,6 +230,27 @@ export async function POST(request: Request) {
           .select("id")
           .single();
         if (jobError) {
+          // R17: same race as the single-document reindex route — a unique
+          // index on ingestion_jobs(document_id) where status in
+          // (pending,processing) can reject this insert with 23505 when a
+          // concurrent request won the race after the pre-check ran. Surface
+          // the friendly "already queued" message instead of the raw
+          // constraint-violation text.
+          if (jobError.code === "23505") {
+            const { data: raceJobs, error: raceJobsError } = await supabase
+              .from("ingestion_jobs")
+              .select(activeIngestionJobColumns)
+              .eq("document_id", document.id)
+              .in("status", ["pending", "processing"]);
+            if (!raceJobsError && (raceJobs?.length ?? 0) > 0) {
+              const safety = buildActiveJobsSafetyResult(
+                raceJobs as IngestionJobRow[],
+                env.WORKER_STALE_AFTER_MINUTES,
+                new Date().toISOString(),
+              );
+              throw new Error(safety.message);
+            }
+          }
           const { data: competingJobs, error: competingJobsError } = await supabase
             .from("ingestion_jobs")
             .select("id")
