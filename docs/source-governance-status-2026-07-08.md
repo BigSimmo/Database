@@ -57,8 +57,16 @@ lack detectable local document-control endorsement).
    review date exists). Conservative (32 → review_due; never asserts false
    currency). Reverse with:
    `update documents set metadata = metadata - 'review_date' - 'review_date_inferred' - 'unknown_status_derivation_version' - 'unknown_status_derivation_basis' - 'unknown_status_derived_at', ... set document_status back to 'unknown' where metadata->>'unknown_status_derivation_version' = 'unknown_status_cycle_v1'`
-   (or re-derive from source). To also cover future docs, wire
-   `npm run backfill:unknown-status -- --apply` into the enrichment cadence.
+   (or re-derive from source).
+
+   **Now automatic:** the cycle inference is folded into the canonical governance
+   backfill's `deriveMetadata` ([scripts/backfill-source-metadata.ts](../scripts/backfill-source-metadata.ts),
+   `npm run backfill:source-metadata`), so any governance refresh derives
+   cycle-based statuses for new docs without a separate pass. Date-less docs
+   still resolve to `unknown` and **remain visible to users** — governance never
+   hides or refuses an undated source (only `outdated` is penalised, which this
+   inference never produces). The standalone `backfill:unknown-status` pass
+   remains available for targeted re-runs.
 
 2. **Validation-approval policy for the 130 `unverified` docs — accept as-is
    (chosen default).** The "not locally validated" caveat is clinically honest

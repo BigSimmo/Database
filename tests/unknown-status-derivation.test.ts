@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { deriveUnknownStatus, parseIsoDate } from "../src/lib/unknown-status-derivation";
+import {
+  UNKNOWN_STATUS_DERIVATION_VERSION,
+  deriveUnknownStatus,
+  parseIsoDate,
+  unknownStatusDerivationBasis,
+} from "../src/lib/unknown-status-derivation";
 
 const NOW = new Date("2026-07-08T00:00:00+08:00");
 
@@ -50,6 +55,18 @@ describe("deriveUnknownStatus", () => {
       kind: "skip",
       reason: "future_publication_date",
     });
+  });
+});
+
+describe("shared derivation stamps", () => {
+  it("exposes a stable version stamp", () => {
+    expect(UNKNOWN_STATUS_DERIVATION_VERSION).toBe("unknown_status_cycle_v1");
+  });
+
+  it("builds a basis string that names the cycle length", () => {
+    expect(unknownStatusDerivationBasis()).toContain("3-year");
+    expect(unknownStatusDerivationBasis(5)).toContain("5-year");
+    expect(unknownStatusDerivationBasis()).toContain("no explicit review date");
   });
 });
 
