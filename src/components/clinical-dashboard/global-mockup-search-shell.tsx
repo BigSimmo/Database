@@ -15,6 +15,7 @@ import {
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import { ClientHydrationBoundary } from "@/components/client-hydration-boundary";
@@ -67,9 +68,11 @@ export function GlobalMockupSearchShell(props: GlobalMockupSearchShellProps) {
         // body below also renders {children} inside `#main-content`, and echoing
         // them in the fallback duplicated the page subtree (two `#main-content`
         // and two `data-testid` on medication/forms/services pages) whenever the
-        // fallback and resolved content briefly coexisted.
+        // fallback and resolved content briefly coexisted. A route-agnostic mode-home
+        // skeleton (the same one `loading.tsx` shows during navigation) reserves the
+        // layout so the first frame reads as "loading" instead of a blank background.
         <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
-          <div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden pb-8" />
+          <ModeHomeRouteLoading />
         </div>
       }
     >

@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn, toolbarButton } from "@/components/ui-primitives";
@@ -69,8 +77,43 @@ export function Sheet({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dragRef = useRef<{ startY: number; dragging: boolean }>({ startY: 0, dragging: false });
   const titleId = useId();
   const descId = useId();
+
+  // Swipe-to-dismiss for the mobile bottom sheet: dragging the grip down past a
+  // threshold closes the sheet; a shorter drag snaps back. Grip-initiated only,
+  // so it never competes with scrolling the sheet body. Keyboard/backdrop/close
+  // dismissal is unaffected.
+  function handleGripPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    const panel = panelRef.current;
+    if (!panel) return;
+    dragRef.current = { startY: event.clientY, dragging: true };
+    panel.style.transition = "none";
+    // Release the entry animation's `both` fill so the inline drag transform is
+    // not overridden by the finished keyframes (CSS animations beat inline style).
+    panel.style.animation = "none";
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handleGripPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!dragRef.current.dragging) return;
+    const delta = Math.max(0, event.clientY - dragRef.current.startY);
+    if (panelRef.current) panelRef.current.style.transform = `translateY(${delta}px)`;
+  }
+
+  function handleGripPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!dragRef.current.dragging) return;
+    const delta = Math.max(0, event.clientY - dragRef.current.startY);
+    dragRef.current = { startY: 0, dragging: false };
+    const panel = panelRef.current;
+    if (panel) {
+      // Restore the class-based transition so a non-dismiss snaps back smoothly.
+      panel.style.transition = "";
+      panel.style.transform = "";
+    }
+    if (delta > 96) onClose();
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -200,13 +243,19 @@ export function Sheet({
       >
         <div
           className={cn(
-            "mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-[color:var(--border-strong)] sm:hidden",
+            "mx-auto flex w-full shrink-0 cursor-grab touch-none justify-center pb-1 pt-2 active:cursor-grabbing sm:hidden",
             placement === "left" && "hidden",
             defaultSheetIsFullscreen && "hidden",
             defaultSheetIsTopAligned && "hidden",
           )}
           aria-hidden
-        />
+          onPointerDown={handleGripPointerDown}
+          onPointerMove={handleGripPointerMove}
+          onPointerUp={handleGripPointerUp}
+          onPointerCancel={handleGripPointerUp}
+        >
+          <span className="h-1 w-9 rounded-full bg-[color:var(--border-strong)]" />
+        </div>
         {title ? (
           <div
             className={cn(

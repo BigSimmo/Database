@@ -1,7 +1,15 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
 
 type SupabaseAdminClient = ReturnType<typeof createAdminClient>;
+
+type AgentEnrichmentJobRow = {
+  document_id: string | null;
+  status: string | null;
+  locked_at: string | null;
+  updated_at: string | null;
+};
 
 type IngestionJobStatus = "pending" | "processing" | "failed" | string;
 
@@ -75,6 +83,53 @@ function activeJobMessage(documentCount: number, staleCount: number) {
 export function ingestionRollbackFenceStamp(now = new Date()) {
   const microseconds = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
   return now.toISOString().replace("Z", `${microseconds}Z`);
+}
+
+// Audit R24d: route-mode enrichment (reindex `mode:'enrichment'`) and the
+// enrichment agent (edge function) both delete-then-insert the same artifact
+// families. `checkIngestionMutationSafety` only reads `ingestion_jobs`, so it
+// cannot see a live agent pass — route enrichment runs freely against one and
+// the interleaved deletes can leave a "completed/good" document with ZERO
+// enrichment artifacts. This predicate flags a genuinely-live agent pass: a
+// `processing` agent job whose lease is still fresh. The agent lease has no
+// heartbeat, so a lock older than the stale threshold (or missing timestamps on
+// an abandoned row) is treated as dead and does NOT block. Steady-state
+// `pending`/`completed` agent jobs never block (they are not processing).
+export function isActiveAgentEnrichmentJob(
+  job: { status: string | null; locked_at: string | null; updated_at: string | null },
+  staleAfterMinutes: number,
+  nowMs: number,
+): boolean {
+  if (job.status !== "processing") return false;
+  const lockedAge = minutesAgo(job.locked_at, nowMs);
+  const updatedAge = minutesAgo(job.updated_at, nowMs);
+  const age = lockedAge ?? updatedAge;
+  if (age === null) return true; // just claimed / no timestamps → treat as live
+  return age < staleAfterMinutes; // fresh lease → live; stale lease → dead
+}
+
+export async function hasActiveAgentEnrichmentJob(args: {
+  supabase: SupabaseAdminClient;
+  documentId: string;
+  staleAfterMinutes: number;
+  now?: Date;
+}): Promise<boolean> {
+  // indexing_v3_agent_jobs is not in the generated Database types (it is a
+  // worker-state table added by migration), so query it through an untyped
+  // client the same way the reindex route paginates dynamic tables.
+  const client = args.supabase as unknown as SupabaseClient;
+  const { data, error } = await client
+    .from("indexing_v3_agent_jobs")
+    .select("document_id,status,locked_at,updated_at")
+    .eq("document_id", args.documentId)
+    .eq("status", "processing")
+    .limit(1);
+  if (error) throw new Error(error.message);
+
+  const nowMs = (args.now ?? new Date()).getTime();
+  return ((data ?? []) as AgentEnrichmentJobRow[]).some((job) =>
+    isActiveAgentEnrichmentJob(job, args.staleAfterMinutes, nowMs),
+  );
 }
 
 export async function checkIngestionMutationSafety(args: {

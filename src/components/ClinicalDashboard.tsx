@@ -18,10 +18,10 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
+  Square,
   UploadCloud,
   WifiOff,
   Wrench,
-  X,
 } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
@@ -29,11 +29,23 @@ import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/env";
-import { appBackdrop, answerSurface, cn, textMuted, toneSuccess, toneWarning } from "@/components/ui-primitives";
+import {
+  appBackdrop,
+  answerSurface,
+  cn,
+  floatingControl,
+  InlineNotice,
+  primaryControl,
+  textMuted,
+  toneInfo,
+  toneSuccess,
+  toneWarning,
+} from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
+import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
@@ -68,7 +80,7 @@ import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboar
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-panels";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { errorCopy } from "@/lib/ui-copy";
+import { answerRecovery, errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 import {
   DrawerGroupLabel,
@@ -105,6 +117,7 @@ import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clin
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
+  classifyAnswerError,
   isRetryableError,
   isRetryableMessage,
   isRetryableStatus,
@@ -114,6 +127,7 @@ import {
   searchRetryCount,
   searchRetryDelaysMs,
   sleep,
+  type AnswerErrorKind,
   type AnswerPayload,
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
@@ -306,6 +320,11 @@ function parseSseData(lines: string[]) {
   }
 }
 
+/** True when an error originates from an AbortController (user pressed Stop / component unmounted). */
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 function answerStreamProgressMessage(data: unknown) {
   if (!data || typeof data !== "object") return null;
   const message = (data as { message?: unknown }).message;
@@ -412,6 +431,18 @@ type AnswerTurn = {
 
 const maxVisiblePriorTurns = 10;
 
+// Upper bound on a single answer request. The stream sends only progress events
+// then one `final` blob after the full server-side generation, so a hung stream
+// otherwise spins the UI forever with no close event. Generous enough not to
+// abort a legitimately slow generation; a wait past this is treated as a stall.
+const answerRequestTimeoutMs = 60_000;
+
+// Non-retryable so an aborted request does not immediately re-fetch against the
+// already-aborted signal; the user re-submits to try again.
+function answerTimedOutError() {
+  return makeSearchError("Answer generation timed out. Please try again.", 408, false);
+}
+
 /**
  * Read-only surface for a previous turn in the answer thread. Renders the
  * question bubble and the natural-language answer with its source capsule;
@@ -447,7 +478,11 @@ function PriorAnswerTurnSurface({
 
   return (
     <div
-      className="min-w-0 space-y-4 sm:space-y-5"
+      // Historical conversation turns grow unbounded and most are collapsed and
+      // scrolled off-screen; content-auto skips their layout/paint until near the
+      // viewport. Safe here — the surface has no overflowing popovers, and the
+      // expand toggle is only reachable once the turn is scrolled into view.
+      className="content-auto min-w-0 space-y-4 sm:space-y-5"
       data-dashboard-stage="answer-thread-turn"
       data-collapsed={collapsed ? "true" : "false"}
     >
@@ -752,6 +787,12 @@ export function ClinicalDashboard({
   const [loading, setLoading] = useState(false);
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Companion state for `error`, used to pick the right recovery UI (retry vs.
+  // a calm no-results panel) and to re-run the exact query that failed. Only read
+  // while `error` is truthy, and set alongside every `setError(<message>)` so a
+  // stale value can never leak into a later, unrelated error.
+  const [errorKind, setErrorKind] = useState<AnswerErrorKind | null>(null);
+  const [lastFailedQuery, setLastFailedQuery] = useState<string | null>(null);
   const [setupWarning, setSetupWarning] = useState<string | null>(null);
   const [setupChecks, setSetupChecks] = useState<SetupCheck[]>(fallbackSetupChecks);
   const [demoMode, setDemoMode] = useState(false);
@@ -1464,6 +1505,13 @@ export function ClinicalDashboard({
     return () => window.clearTimeout(timeout);
   }, [focusSearch]);
 
+  // Abort any in-flight answer/library search if the dashboard unmounts.
+  useEffect(() => {
+    return () => {
+      searchAbortRef.current?.abort();
+    };
+  }, []);
+
   useEffect(() => {
     const searchParamString = searchParams.toString();
     if (lastSyncedSearchParamsRef.current === searchParamString) return;
@@ -1584,6 +1632,7 @@ export function ClinicalDashboard({
     mode: SourceLibrarySearchMode = "documents",
     filtersOverride?: SearchScopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
+    signal?: AbortSignal,
   ) {
     const searchLabel = mode === "differentials" ? "Differentials search" : "Document search";
     let response: Response;
@@ -1603,8 +1652,10 @@ export function ClinicalDashboard({
           documentLimit: 30,
           topK: 20,
         }),
+        signal,
       });
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       throw searchNetworkFailure(searchLabel);
     }
 
@@ -1638,6 +1689,7 @@ export function ClinicalDashboard({
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
     onProgress: (message: string) => void = setAnswerProgress,
+    signal?: AbortSignal,
   ) {
     let response: Response;
     try {
@@ -1653,8 +1705,11 @@ export function ClinicalDashboard({
           filters: compactScopeFilters(filtersOverride),
           queryMode: queryModeOverride,
         }),
+        signal,
       });
-    } catch {
+    } catch (error) {
+      if (answerTimedOutRef.current) throw answerTimedOutError();
+      if (isAbortError(error)) throw error;
       throw searchNetworkFailure("Answer search");
     }
 
@@ -1668,7 +1723,14 @@ export function ClinicalDashboard({
       throw makeSearchError(message, response.status, isRetryableStatus(response.status));
     }
 
-    const payload = await readAnswerStream(response, onProgress);
+    let payload: AnswerPayload;
+    try {
+      payload = await readAnswerStream(response, onProgress);
+    } catch (error) {
+      if (answerTimedOutRef.current) throw answerTimedOutError();
+      if (isAbortError(error)) throw error;
+      throw error;
+    }
     return {
       kind: "answer" as const,
       query: queryText,
@@ -1709,6 +1771,15 @@ export function ClinicalDashboard({
   // error/loading state, or a stale response would display one query's answer
   // under another query's composer text.
   const searchRequestSeqRef = useRef(0);
+  // Aborts the in-flight answer/library search when the user presses Stop, a
+  // newer search supersedes the prior one, or the component unmounts.
+  const searchAbortRef = useRef<AbortController | null>(null);
+  // Distinguishes a timeout-driven abort from an explicit user/supersede abort.
+  const answerTimedOutRef = useRef(false);
+
+  function stopSearch() {
+    searchAbortRef.current?.abort();
+  }
 
   function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
     if (payload.kind === "documents") {
@@ -1824,6 +1895,8 @@ export function ClinicalDashboard({
       setLoading(false);
       setAnswerProgress(null);
       setError(errorCopy.searchSetupNotReady);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
     // M10 (diff-review hardening): progress updates emitted by this request's
@@ -1833,6 +1906,11 @@ export function ClinicalDashboard({
     const onProgress = (message: string | null) => {
       if (requestId === searchRequestSeqRef.current) setAnswerProgress(message);
     };
+    // A newer search already invalidated any prior request via requestId; abort
+    // its network work too so the server stops generating, then own the signal.
+    searchAbortRef.current?.abort();
+    const abortController = new AbortController();
+    searchAbortRef.current = abortController;
     setLoading(true);
     setError(null);
     setSearchRelevance(null);
@@ -1861,6 +1939,14 @@ export function ClinicalDashboard({
           ]
         : [{ query: requestQuery, isKeyword: false }];
 
+    // Bound this search with a timeout on the shared abort controller so a
+    // stalled answer stream recovers instead of spinning forever.
+    answerTimedOutRef.current = false;
+    const answerTimeout = window.setTimeout(() => {
+      answerTimedOutRef.current = true;
+      abortController.abort();
+    }, answerRequestTimeoutMs);
+
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
@@ -1877,11 +1963,19 @@ export function ClinicalDashboard({
           const payload =
             modeSearch.kind === "documents" || modeSearch.kind === "differentials"
               ? await runWithRetries(
-                  () => requestSourceLibrarySearch(entry.query, modeSearch.kind, filtersOverride, targetQueryMode),
+                  () =>
+                    requestSourceLibrarySearch(
+                      entry.query,
+                      modeSearch.kind,
+                      filtersOverride,
+                      targetQueryMode,
+                      abortController.signal,
+                    ),
                   onProgress,
                 )
               : await runWithRetries(
-                  () => requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress),
+                  () =>
+                    requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress, abortController.signal),
                   onProgress,
                 );
 
@@ -1935,10 +2029,15 @@ export function ClinicalDashboard({
         }
       }
     } catch (requestError) {
-      if (requestId === searchRequestSeqRef.current) {
+      if (requestId === searchRequestSeqRef.current && !isAbortError(requestError)) {
         setError(requestError instanceof Error ? requestError.message : "Search failed");
+        setErrorKind(classifyAnswerError(requestError));
+        setLastFailedQuery(trimmedQuery);
       }
     } finally {
+      window.clearTimeout(answerTimeout);
+      answerTimedOutRef.current = false;
+      if (searchAbortRef.current === abortController) searchAbortRef.current = null;
       if (requestId === searchRequestSeqRef.current) {
         setLoading(false);
         setAnswerProgress(null);
@@ -2150,6 +2249,8 @@ export function ClinicalDashboard({
     }
     if (!canRunSearch) {
       setError(errorCopy.searchSetupNotReady);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
 
@@ -2183,6 +2284,8 @@ export function ClinicalDashboard({
     } catch (requestError) {
       if (requestId === searchRequestSeqRef.current) {
         setError(requestError instanceof Error ? requestError.message : "Document search failed");
+        setErrorKind(null);
+        setLastFailedQuery(null);
       }
     } finally {
       if (requestId === searchRequestSeqRef.current) {
@@ -2500,6 +2603,8 @@ export function ClinicalDashboard({
     }
     if (!copied) {
       setError(errorCopy.clipboardCopyFailed);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
     setCopiedAction(action);
@@ -2826,6 +2931,31 @@ export function ClinicalDashboard({
           : FolderOpen;
   const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Library and admin" : "Sources";
 
+  // Stable-identity handlers for the React.memo children (StagedAnswerResultSurface,
+  // DocumentSearchResultsPanel). These close over the draft `query` or call the
+  // intentionally-unstable executeSearch, so plain useCallback can't isolate them
+  // from per-keystroke re-renders — useEventCallback keeps identity fixed while
+  // always invoking the latest closure. See use-event-callback.ts.
+  const handleScopeDocument = useEventCallback(scopeOnlyDocument);
+  const handleAnswerFromDocument = useEventCallback(answerFromDocument);
+  const handleSubmitAnswerFeedback = useEventCallback(submitAnswerFeedback);
+  const handleAnswerFollowUpQuote = useEventCallback(handleFollowUpQuote);
+  const handleFollowUpSuggestionPick = useEventCallback(handlePickFollowUpSuggestion);
+  const handleCrossModeSearch = useEventCallback(crossModeSearch);
+  const handleDocumentTagSearch = useEventCallback(handleTagSearch);
+  const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
+  const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
+  const handleOpenSourcePdfBrowser = useEventCallback(openSourcePdfBrowser);
+  const handleCopyAnswer = useEventCallback(() => {
+    copyText("answer", answerRenderModel?.copyText || safeAnswerText || answer?.answer || "");
+  });
+  // The answer thread's prior-query list, memoized so it isn't a fresh array on
+  // every keystroke (it feeds two memoized surfaces below).
+  const crossModeQueries = useMemo(
+    () => [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery],
+    [priorAnswerTurns, latestAnswerQuery],
+  );
+
   return (
     <div
       className={cn(
@@ -2927,7 +3057,14 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
-                : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                : // Phone answer view: the "Ask a follow-up" dock is fixed to the
+                  // bottom, so <main> reserves room for it. When that dock hides on
+                  // scroll, reclaim the reserved strip too — otherwise the near-black
+                  // shell background shows through as an empty band. (sm+ is inert:
+                  // bottomSearchScrollHidden only ever goes true on phones.)
+                  bottomSearchScrollHidden
+                  ? "mb-0 sm:mb-24"
+                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? bottomSearchScrollHidden
                   ? "mb-0 sm:mb-0"
@@ -2972,23 +3109,9 @@ export function ClinicalDashboard({
               )}
             >
               {actionNotice && (
-                <div
-                  role="status"
-                  className={cn(
-                    "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
-                    actionNotice.tone === "success" ? toneSuccess : toneWarning,
-                  )}
-                >
-                  <span className="min-w-0">{actionNotice.message}</span>
-                  <button
-                    type="button"
-                    onClick={() => setActionNotice(null)}
-                    aria-label="Dismiss notification"
-                    className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+                <InlineNotice tone={actionNotice.tone} onDismiss={() => setActionNotice(null)} animated>
+                  {actionNotice.message}
+                </InlineNotice>
               )}
               {showDegradedNotice && renderDegradedNotice()}
               {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
@@ -3013,25 +3136,131 @@ export function ClinicalDashboard({
                 <h2 data-testid="answer-section-heading" className="sr-only">
                   {activeModeSearch.resultHeading}
                 </h2>
-                {error && (
-                  <div
-                    role="alert"
-                    className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
-                  >
-                    <AlertCircle className="mr-2 inline h-4 w-4" />
-                    {error}
-                  </div>
-                )}
-
-                {loading && answerProgress && searchMode !== "prescribing" && (
+                {error && errorKind === "no-results" && activeModeResultKind === "answer" ? (
                   <div
                     role="status"
-                    className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                    data-testid="answer-no-results"
+                    className={cn("rounded-lg border p-4 text-sm", toneInfo)}
                   >
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
-                    <span className="min-w-0 truncate">{answerProgress}</span>
+                    <div className="flex items-start gap-2">
+                      <Search className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div className="min-w-0 space-y-1">
+                        <p className="font-semibold text-[color:var(--text-heading)]">
+                          {answerRecovery.noResults.heading}
+                        </p>
+                        <p className={textMuted}>{answerRecovery.noResults.body}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        data-testid="answer-no-results-rephrase"
+                        onClick={() => focusComposerInput()}
+                        className={cn(primaryControl, "text-xs")}
+                      >
+                        {answerRecovery.rephrase}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="answer-no-results-search-documents"
+                        onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
+                        className={cn(floatingControl, "text-xs")}
+                      >
+                        <FileText className="h-4 w-4" />
+                        {answerRecovery.searchDocuments}
+                      </button>
+                    </div>
                   </div>
-                )}
+                ) : error ? (
+                  <div
+                    role="alert"
+                    data-testid="answer-error"
+                    className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
+                  >
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span className="min-w-0">{error}</span>
+                    </div>
+                    {activeModeResultKind === "answer" && lastFailedQuery && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          data-testid="answer-error-retry"
+                          onClick={() => {
+                            const retryQuery = lastFailedQuery ?? query;
+                            setError(null);
+                            void ask(retryQuery);
+                          }}
+                          className={cn(floatingControl, "text-xs")}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          {answerRecovery.retry}
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="answer-error-search-documents"
+                          onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
+                          className={cn(floatingControl, "text-xs")}
+                        >
+                          <FileText className="h-4 w-4" />
+                          {answerRecovery.searchDocuments}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {searchMode !== "prescribing" &&
+                  (activeModeResultKind === "answer" && (loading || answer) ? (
+                    // Answer result view keeps this status slot mounted through the
+                    // whole loading→answer swap so its height never collapses and the
+                    // answer below it doesn't jump up (CLS). The accent chrome only
+                    // appears while a progress message is live; otherwise it's a
+                    // height-reserved, visually empty spacer.
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className={cn(
+                        "flex min-h-[44px] items-center gap-2 rounded-lg px-3 text-sm font-medium",
+                        loading && answerProgress
+                          ? "border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--text-heading)]"
+                          : "border border-transparent",
+                      )}
+                    >
+                      {loading && answerProgress ? (
+                        <>
+                          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                          <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
+                          <button
+                            type="button"
+                            onClick={stopSearch}
+                            data-testid="stop-answer"
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                          >
+                            <Square className="h-3 w-3 shrink-0 fill-current" />
+                            Stop
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : loading && answerProgress ? (
+                    <div
+                      role="status"
+                      className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                    >
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                      <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
+                      <button
+                        type="button"
+                        onClick={stopSearch}
+                        data-testid="stop-answer"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      >
+                        <Square className="h-3 w-3 shrink-0 fill-current" />
+                        Stop
+                      </button>
+                    </div>
+                  ) : null)}
 
                 {activeModeResultKind === "differentials" ? (
                   <DifferentialsHome
@@ -3115,12 +3344,12 @@ export function ClinicalDashboard({
                         apiUnavailable={apiUnavailable}
                         setupWarning={setupWarning}
                         facets={searchFacets}
-                        onScopeDocument={scopeOnlyDocument}
-                        onAnswerFromDocument={answerFromDocument}
-                        onOpenRecentDocuments={openRecentDocuments}
-                        onOpenLibrary={openSourceLibrary}
-                        onOpenSourcePdf={openSourcePdfBrowser}
-                        onTagSearch={handleTagSearch}
+                        onScopeDocument={handleScopeDocument}
+                        onAnswerFromDocument={handleAnswerFromDocument}
+                        onOpenRecentDocuments={handleOpenRecentDocuments}
+                        onOpenLibrary={handleOpenSourceLibrary}
+                        onOpenSourcePdf={handleOpenSourcePdfBrowser}
+                        onTagSearch={handleDocumentTagSearch}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
                       />
@@ -3162,7 +3391,7 @@ export function ClinicalDashboard({
                         weakEvidence={weakEvidence}
                         answerViewMode={answerViewMode}
                         answerEvidenceMapRows={answerEvidenceMapRows}
-                        onScopeDocument={scopeOnlyDocument}
+                        onScopeDocument={handleScopeDocument}
                         answerGrounded={answerGrounded}
                         sources={answerRenderModel.reviewSources}
                         demoMode={demoMode}
@@ -3170,16 +3399,14 @@ export function ClinicalDashboard({
                         safetyFindings={safetyFindings}
                         copiedAnswer={copiedAction === "answer"}
                         pendingFeedback={pendingFeedback}
-                        onCopyAnswer={() =>
-                          copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
-                        }
-                        onSubmitFeedback={submitAnswerFeedback}
-                        onFollowUpQuote={handleFollowUpQuote}
+                        onCopyAnswer={handleCopyAnswer}
+                        onSubmitFeedback={handleSubmitAnswerFeedback}
+                        onFollowUpQuote={handleAnswerFollowUpQuote}
                         followUpSuggestions={answerFollowUpSuggestions}
-                        onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
+                        onPickFollowUpSuggestion={handleFollowUpSuggestionPick}
                         followUpSuggestionsDisabled={loading}
-                        crossModeQueries={[...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery]}
-                        onCrossModeSearch={crossModeSearch}
+                        crossModeQueries={crossModeQueries}
+                        onCrossModeSearch={handleCrossModeSearch}
                       />
                     </>
                   ) : null
@@ -3188,6 +3415,11 @@ export function ClinicalDashboard({
                     onSearchDocuments={() => setSearchMode("documents")}
                     onUploadDocument={openUploadDrawer}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
+                    recentQueries={recentQueries}
+                    onSelectRecent={(recentQuery) => {
+                      setQuery(recentQuery);
+                      void ask(recentQuery);
+                    }}
                   />
                 ) : null}
               </section>
@@ -3195,10 +3427,7 @@ export function ClinicalDashboard({
               {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
 
               {activeModeResultKind === "answer" && answer && (
-                <CrossModeLinksSection
-                  queries={[...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery]}
-                  onModeSearch={crossModeSearch}
-                />
+                <CrossModeLinksSection queries={crossModeQueries} onModeSearch={handleCrossModeSearch} />
               )}
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel

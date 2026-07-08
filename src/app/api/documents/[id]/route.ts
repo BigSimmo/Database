@@ -5,6 +5,7 @@ import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { getDemoDocumentPayload } from "@/lib/demo-data";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
+import { buildStorageCleanupJobUpdate } from "@/lib/ingestion";
 import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -206,20 +207,21 @@ async function updateStorageCleanupJob(args: {
   status: "completed" | "failed";
   storageRemoved: number;
   warnings: string[];
+  // Audit R11: set on every DELETE abort path so the ledger row's storage paths
+  // are cleared — the document survives the abort, so the janitor must never see
+  // its live paths queued for removal.
+  aborted?: boolean;
 }) {
   const { error } = await args.supabase
     .from("storage_cleanup_jobs")
-    .update({
-      status: args.status,
-      attempts: 1,
-      storage_removed: args.storageRemoved,
-      last_error: args.warnings.length ? args.warnings.join("; ") : null,
-      completed_at: args.status === "completed" ? new Date().toISOString() : null,
-      metadata: {
-        operation: "permanent_document_delete",
-        storage_warnings: args.warnings,
-      },
-    })
+    .update(
+      buildStorageCleanupJobUpdate({
+        status: args.status,
+        storageRemoved: args.storageRemoved,
+        warnings: args.warnings,
+        aborted: args.aborted,
+      }),
+    )
     .eq("id", args.cleanupJobId);
 
   return error ? storageWarningsFrom(error, "Cleanup ledger") : null;
@@ -562,6 +564,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         status: "failed",
         storageRemoved: 0,
         warnings: [message],
+        aborted: true,
       });
       throw new PublicApiError(ledgerWarning ? `${message}; ${ledgerWarning}` : message, 409);
     }
@@ -576,6 +579,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         status: "failed",
         storageRemoved: 0,
         warnings: [message],
+        aborted: true,
       });
       throw new Error(ledgerWarning ? `${message}; ${ledgerWarning}` : message);
     }
@@ -588,6 +592,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         status: "failed",
         storageRemoved: 0,
         warnings: [`Database delete: ${deleteError.message}`],
+        aborted: true,
       });
       throw new Error(ledgerWarning ? `${deleteError.message}; ${ledgerWarning}` : deleteError.message);
     }

@@ -21,10 +21,16 @@ import {
   fieldIcon,
   fieldLabel,
   floatingControl,
+  InlineNotice,
   panelSubtle,
   primaryControl,
   textMuted,
 } from "@/components/ui-primitives";
+
+/** Pragmatic email shape check for inline feedback; the server remains the source of truth. */
+function isLikelyEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
 
 const authEmailChangeEvent = "clinical-kb-auth-email-change";
 
@@ -55,19 +61,31 @@ function subscribeAuthEmail(onStoreChange: () => void) {
 }
 
 export function AuthPanel() {
-  const { status, error, isConfigured, signInWithEmail, signInWithOAuth, signOut, session } = useAuthSession();
+  const { status, error, notice, isConfigured, signInWithEmail, signInWithOAuth, signOut, session } = useAuthSession();
   const savedEmail = useSyncExternalStore(subscribeAuthEmail, getAuthEmailSnapshot, getServerAuthEmailSnapshot);
   const [draftEmail, setDraftEmail] = useState<string | null>(null);
   const [providerNotice, setProviderNotice] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const email = draftEmail ?? savedEmail;
   const busy = status === "loading";
   const isExpired = status === "expired";
+  const emailInputId = "auth-email";
+  const emailErrorId = "auth-email-error";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!email.trim()) return;
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setEmailError("Enter your email address to continue.");
+      return;
+    }
+    if (!isLikelyEmail(trimmed)) {
+      setEmailError("Enter a valid email address, e.g. you@clinic.example.");
+      return;
+    }
+    setEmailError(null);
     setProviderNotice(null);
-    await signInWithEmail(email.trim());
+    await signInWithEmail(trimmed);
   }
 
   async function chooseProvider(provider: "Apple" | "Google" | "Microsoft") {
@@ -145,18 +163,49 @@ export function AuthPanel() {
       </div>
 
       <div className="space-y-3 p-4 sm:p-5">
-        <label className="block">
+        <label className="block" htmlFor={emailInputId}>
           <span className={fieldLabel}>Email address</span>
           <div className="relative">
             <Mail className={fieldIcon} />
             <input
+              id={emailInputId}
               type="email"
+              name="email"
               value={email}
-              onChange={(event) => setDraftEmail(event.target.value)}
+              onChange={(event) => {
+                setDraftEmail(event.target.value);
+                if (emailError) setEmailError(null);
+              }}
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                setEmailError(
+                  !value || isLikelyEmail(value) ? null : "Enter a valid email address, e.g. you@clinic.example.",
+                );
+              }}
+              aria-invalid={emailError ? true : undefined}
+              aria-describedby={emailError ? emailErrorId : undefined}
               placeholder="you@clinic.example"
+              // Mobile-keyboard + autofill polish: email keyboard, no
+              // auto-capitalisation/spellcheck of addresses, browser autofill,
+              // and an explicit "go" action key that submits the magic-link form.
+              autoComplete="email"
+              inputMode="email"
+              enterKeyHint="go"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className={fieldControlWithIcon}
             />
           </div>
+          {emailError && (
+            <span
+              id={emailErrorId}
+              role="alert"
+              className="mt-1.5 block text-xs font-medium leading-5 text-[color:var(--danger)]"
+            >
+              {emailError}
+            </span>
+          )}
         </label>
         <button type="submit" disabled={busy || !email.trim()} className={cn(primaryControl, "w-full")}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
@@ -186,17 +235,9 @@ export function AuthPanel() {
           Accounts save preferences and search history. No PHI is required.
         </p>
 
-        {(providerNotice || error) && (
-          <p
-            role="alert"
-            className={cn(
-              "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs leading-5",
-              textMuted,
-            )}
-          >
-            {providerNotice ?? error}
-          </p>
-        )}
+        {notice && <InlineNotice tone="success">{notice}</InlineNotice>}
+        {providerNotice && <InlineNotice tone="info">{providerNotice}</InlineNotice>}
+        {error && <InlineNotice tone="danger">{error}</InlineNotice>}
       </div>
     </form>
   );

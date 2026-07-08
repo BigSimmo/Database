@@ -29,3 +29,81 @@ export function terminalBatchStatus(args: { queued: number; processing: number; 
   if (args.queued > 0 || args.processing > 0) return "processing";
   return args.failed > 0 ? "completed_with_errors" : "completed";
 }
+
+// Audit R16: retrying a `completed` ingestion job resurrects a terminal row
+// into a zombie re-ingest — a worker can re-claim it and interleave a fresh
+// build against the live committed index. Completed work is re-run via the
+// reindex route (which enqueues a NEW job); retry is only for jobs that have
+// not completed. Returns a rejection message, or null when the retry may run.
+export function ingestionJobRetryRejectionReason(status: string | null | undefined): string | null {
+  if (status === "completed") {
+    return "This ingestion job already completed. Reindex the document to rebuild it instead of retrying a completed job.";
+  }
+  return null;
+}
+
+// Audit R15/R16: the retry route must NOT demote an already-indexed document to
+// `queued`. A queued document takes the worker's non-atomic path, which runs
+// reset_document_index at job start and deletes the entire live committed index
+// hours before any replacement commit — so a transient failure of a healthy
+// indexed document would otherwise destroy its clinical index. Indexed
+// documents keep their status (atomic reindex: the old index stays live until
+// the new commit swaps the generation); only non-indexed documents are
+// re-queued. Either way we clear error_message and stamp the rollback fence.
+export function retryDocumentQueueUpdate(args: { documentStatus: string | null | undefined; fenceStamp: string }): {
+  status?: "queued";
+  error_message: null;
+  updated_at: string;
+} {
+  const base = { error_message: null as null, updated_at: args.fenceStamp };
+  if (args.documentStatus === "indexed") {
+    return base;
+  }
+  return { status: "queued", ...base };
+}
+
+export type StorageCleanupJobUpdate = {
+  status: "completed" | "failed";
+  attempts: number;
+  storage_removed: number;
+  last_error: string | null;
+  completed_at: string | null;
+  metadata: { operation: string; storage_warnings: string[] };
+  document_paths?: string[];
+  image_paths?: string[];
+};
+
+// Audit R11: the DELETE route creates the storage_cleanup_jobs ledger row (with
+// the LIVE document's source-PDF + image paths) before the point of no return.
+// If the delete then aborts — late re-check 409, trace-cleanup failure, or the
+// DB delete failing — the document is still alive, but the ledger row keeps its
+// populated paths and only its status flips to `failed`. The storage janitor
+// (scripts/cleanup-storage.ts) drains rows in status ('pending','failed') and
+// never checks the document still exists, so one routine janitor run then
+// permanently deletes a live document's PDF and images. Clearing the paths on
+// every abort path defuses the ledger row: the janitor may still pick it up but
+// has nothing to remove. Successful cleanup keeps its paths for auditability.
+export function buildStorageCleanupJobUpdate(args: {
+  status: "completed" | "failed";
+  storageRemoved: number;
+  warnings: string[];
+  aborted?: boolean;
+  now?: Date;
+}): StorageCleanupJobUpdate {
+  const update: StorageCleanupJobUpdate = {
+    status: args.status,
+    attempts: 1,
+    storage_removed: args.storageRemoved,
+    last_error: args.warnings.length ? args.warnings.join("; ") : null,
+    completed_at: args.status === "completed" ? (args.now ?? new Date()).toISOString() : null,
+    metadata: {
+      operation: "permanent_document_delete",
+      storage_warnings: args.warnings,
+    },
+  };
+  if (args.aborted) {
+    update.document_paths = [];
+    update.image_paths = [];
+  }
+  return update;
+}
