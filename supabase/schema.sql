@@ -2047,7 +2047,7 @@ returns boolean
 language sql
 immutable
 parallel safe
-set search_path = public, pg_temp
+set search_path = public, pg_catalog
 as $$
   select case
     when owner_filter is null then true
