@@ -15,8 +15,6 @@ import {
 import { createPortal } from "react-dom";
 
 import {
-  Activity,
-  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
