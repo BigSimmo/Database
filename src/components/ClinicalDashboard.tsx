@@ -2460,6 +2460,11 @@ export function ClinicalDashboard({
     return () => window.cancelAnimationFrame(frame);
   }, [clearDifferentialModeResultState]);
 
+  const executeSearchRef = useRef(executeSearch);
+  executeSearchRef.current = executeSearch;
+  const scopeFiltersRef = useRef(scopeFilters);
+  scopeFiltersRef.current = scopeFilters;
+
   useEffect(() => {
     if (urlDocumentSearchBootstrappedRef.current) return;
     const params = new URLSearchParams(window.location.search);
@@ -2486,7 +2491,7 @@ export function ClinicalDashboard({
     const isRegistryOnlyMode = mode === "services" || mode === "forms";
     if (modeSearch.kind !== "tools" && modeSearch.kind !== "favourites" && !isRegistryOnlyMode && !canRunSearch) return;
     urlDocumentSearchBootstrappedRef.current = true;
-    void executeSearch(searchText, mode, scopeFilters);
+    void executeSearchRef.current(searchText, mode, scopeFiltersRef.current);
     // URL search intentionally runs once when the selected mode can execute.
   }, [canRunSearch, answerThreadBootstrapped]);
 
@@ -4129,7 +4134,6 @@ export function ClinicalDashboard({
                   ) : null
                 ) : showAnswerHome ? (
                   <AnswerEmptyState
-                    onPickSample={setQuery}
                     onSearchDocuments={() => setSearchMode("documents")}
                     onUploadDocument={openUploadDrawer}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
