@@ -212,8 +212,7 @@ function buildReviewItems(args: {
         title: "OCR or extraction failed",
         detail:
           failedOcrStage?.error_message || ocrWarning || "OCR/extraction warnings were recorded for this document.",
-        jobId:
-          failedOcrStage?.job_id && ingestionJobIds.has(failedOcrStage.job_id) ? failedOcrStage.job_id : null,
+        jobId: failedOcrStage?.job_id && ingestionJobIds.has(failedOcrStage.job_id) ? failedOcrStage.job_id : null,
         qualityScore: normalizedQualityScore,
         extractionQuality,
         reasons: unique([failedOcrStage?.stage_name, failedOcrStage?.error_message, ocrWarning]),
