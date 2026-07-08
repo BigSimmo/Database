@@ -60,7 +60,10 @@ describe("retrieval owner_filter callsite guard (finding #3)", () => {
     }
 
     // Fail loudly if the scan matched nothing (e.g. the RPC param was renamed) rather than passing vacuously.
-    expect(checked, "found no owner_filter RPC callsites to guard — has the param name changed?").toBeGreaterThanOrEqual(5);
+    expect(
+      checked,
+      "found no owner_filter RPC callsites to guard — has the param name changed?",
+    ).toBeGreaterThanOrEqual(5);
     expect(
       offenders,
       `owner_filter must come from retrievalOwnerFilter / requireOwnerScope / ` +
