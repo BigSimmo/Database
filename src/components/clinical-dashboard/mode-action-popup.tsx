@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -13,32 +14,38 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import {
-  BadgeCheck,
+  Activity,
+  AlertTriangle,
+  CalendarDays,
   Check,
   ChevronDown,
+  ChevronRight,
   Clock3,
-  ExternalLink,
   FileText,
   Filter,
   FolderOpen,
   GitBranch,
   Heart,
   ListChecks,
+  Lock,
+  MessageSquarePlus,
   Plus,
-  Quote,
   Search,
   ShieldCheck,
   Sparkles,
   Table2,
   UploadCloud,
   Wrench,
+  X,
   type LucideIcon,
 } from "lucide-react";
 
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
+import { Sheet } from "@/components/ui/sheet";
 import { cn, chatComposerIconButton } from "@/components/ui-primitives";
 
-export type ModeActionSetId = "answer" | "documents" | "services" | "favourites" | "tools" | "differentials";
+export type ModeActionSetId =
+  "answer" | "documents" | "services" | "forms" | "favourites" | "tools" | "differentials" | "prescribing";
 export type ModeActionPlacement = "up" | "down";
 
 type IntegratedSurfaceLayout = {
@@ -49,18 +56,13 @@ type IntegratedSurfaceLayout = {
   bottom?: number;
 };
 
-function integratedActionGridColumns(itemCount: number) {
-  if (itemCount >= 6) return 2;
-  if (itemCount >= 3) return 2;
-  return 2;
-}
-
-function estimateIntegratedMenuHeights(itemCount: number, integrated: boolean) {
-  const rows = Math.ceil(itemCount / integratedActionGridColumns(itemCount));
-  const rowHeight = 74;
-  const rowGap = 8;
+// The menu is a single-column vertical list; heights estimate one row per item so
+// the anchored popover can pick an up/down placement and a scroll cap that fit.
+function estimateActionListHeights(itemCount: number, integrated: boolean) {
+  const rowHeight = 60;
+  const rowGap = 6;
   const bodyPadding = integrated ? 24 : 20;
-  const minBodyHeight = rows * rowHeight + Math.max(0, rows - 1) * rowGap + bodyPadding;
+  const minBodyHeight = itemCount * rowHeight + Math.max(0, itemCount - 1) * rowGap + bodyPadding;
   const headerHeight = 92;
   return { minBodyHeight, minSurfaceHeight: minBodyHeight + headerHeight, headerHeight };
 }
@@ -88,12 +90,15 @@ export type ModeActionId =
   | "services-search"
   | "services-pathways"
   | "services-records"
+  | "services-documents"
   | "forms-records"
+  | "forms-documents"
   | "favourites-browse"
   | "favourites-sets"
   | "medication-dose"
   | "medication-safety"
   | "medication-monitoring"
+  | "medication-escalation"
   | "medication-access"
   | "tools-browse"
   | "tools-new"
@@ -111,136 +116,87 @@ export type ModeActionItem = {
   primary?: boolean;
 };
 
+// One curated, primary-first action list per mode. Keep the accessible name of each
+// item (its `label`) test-stable: Answer must expose "Scope"; Documents "Upload PDF".
 const modeActionSets = {
   answer: [
     {
-      id: "documents-upload",
-      label: "Add document",
-      description: "Upload a source",
-      icon: FileText,
+      id: "answer-new",
+      label: "New question",
+      description: "Clear the current thread",
+      icon: MessageSquarePlus,
+      primary: true,
     },
-    {
-      id: "documents-search",
-      label: "Search library",
-      shortLabel: "Search",
-      description: "Find indexed sources",
-      icon: Search,
-    },
-    {
-      id: "documents-scope",
-      label: "Scope sources",
-      shortLabel: "Scope",
-      description: "Limit source scope",
-      icon: Filter,
-    },
-    { id: "documents-tables", label: "Tables", description: "Search table evidence", icon: Table2 },
-    { id: "documents-viewer", label: "PDFs", description: "Open source PDFs", icon: FileText },
-    { id: "answer-quotes", label: "Quotes", description: "Review cited passages", icon: Quote },
+    { id: "documents-upload", label: "Add document", description: "Upload a source to the library", icon: UploadCloud },
+    { id: "documents-scope", label: "Scope", description: "Limit answers to chosen sources", icon: Filter },
     {
       id: "answer-evidence-map",
-      label: "Evidence map",
-      shortLabel: "Evidence map",
-      description: "Trace source support",
+      label: "View evidence",
+      description: "Trace quotes and source support",
       icon: ListChecks,
     },
-    {
-      id: "tools-browse",
-      label: "Clinical tools",
-      shortLabel: "Tools",
-      description: "Open clinical tools",
-      icon: Wrench,
-    },
+    { id: "documents-search", label: "Search library", description: "Find indexed sources", icon: Search },
+    { id: "tools-browse", label: "Clinical tools", description: "Open clinical tools", icon: Wrench },
   ],
   documents: [
     {
-      id: "documents-search",
-      label: "Search documents",
-      shortLabel: "Search",
-      description: "Find indexed clinical sources",
-      icon: Search,
-      primary: true,
-    },
-    {
       id: "documents-upload",
       label: "Upload PDF",
-      shortLabel: "Upload",
       description: "Add a source to the library",
       icon: UploadCloud,
+      primary: true,
     },
-    {
-      id: "documents-scope",
-      label: "Set scope",
-      shortLabel: "Scope",
-      description: "Limit answers to selected sources",
-      icon: Filter,
-    },
-    { id: "documents-recent", label: "Recent documents", shortLabel: "Recent", icon: Clock3 },
-    { id: "documents-tables", label: "Tables", icon: Table2 },
-    { id: "documents-status", label: "Status", icon: BadgeCheck },
-    { id: "documents-collections", label: "Collections", shortLabel: "Folders", icon: FolderOpen },
-    { id: "documents-viewer", label: "Open source", shortLabel: "Open", icon: ExternalLink },
+    { id: "documents-scope", label: "Scope sources", description: "Limit answers to selected sources", icon: Filter },
+    { id: "documents-recent", label: "Recent documents", description: "Browse recently updated", icon: Clock3 },
+    { id: "documents-collections", label: "Collections", description: "Open document folders", icon: FolderOpen },
+    { id: "documents-tables", label: "Tables", description: "Search table evidence", icon: Table2 },
+    { id: "documents-viewer", label: "Open source PDF", description: "View a source document", icon: FileText },
   ],
   services: [
     {
-      id: "services-search",
-      label: "Search services",
-      shortLabel: "Search",
-      description: "Find service records",
-      icon: Search,
+      id: "services-records",
+      label: "Browse directory",
+      description: "Verified service records",
+      icon: ShieldCheck,
       primary: true,
     },
+    { id: "services-pathways", label: "Referral pathways", description: "Find referral pathways", icon: ListChecks },
+    { id: "services-documents", label: "Find in documents", description: "Search supporting guidance", icon: FileText },
+  ],
+  forms: [
     {
-      id: "services-pathways",
-      label: "Pathways",
-      description: "Find referral pathways",
-      icon: ListChecks,
+      id: "forms-records",
+      label: "Browse form library",
+      description: "Open clinical forms",
+      icon: FolderOpen,
+      primary: true,
     },
-    {
-      id: "services-records",
-      label: "Records",
-      description: "Browse verified services",
-      icon: FileText,
-    },
+    { id: "forms-documents", label: "Find in documents", description: "Search supporting guidance", icon: FileText },
   ],
   favourites: [
     {
       id: "favourites-browse",
       label: "Browse favourites",
-      shortLabel: "Browse",
       description: "Open saved clinical items",
       icon: Heart,
       primary: true,
     },
-    {
-      id: "favourites-sets",
-      label: "Saved sets",
-      shortLabel: "Sets",
-      description: "Review grouped favourites",
-      icon: FolderOpen,
-    },
+    { id: "favourites-sets", label: "Saved sets", description: "Review grouped favourites", icon: FolderOpen },
   ],
   tools: [
     {
       id: "tools-browse",
       label: "Browse tools",
-      shortLabel: "Browse",
       description: "Open the applications registry",
       icon: Wrench,
       primary: true,
     },
-    {
-      id: "tools-new",
-      label: "New answer",
-      shortLabel: "New",
-      description: "Clear the current thread",
-      icon: Sparkles,
-    },
+    { id: "tools-new", label: "New answer", description: "Clear the current thread", icon: Sparkles },
   ],
   differentials: [
     {
       id: "differentials-build",
       label: "Build differential",
-      shortLabel: "Build",
       description: "Start a structured differential",
       icon: GitBranch,
       primary: true,
@@ -248,23 +204,39 @@ const modeActionSets = {
     {
       id: "differentials-criteria",
       label: "Compare criteria",
-      shortLabel: "Criteria",
       description: "Review distinguishing features",
       icon: ListChecks,
     },
     {
       id: "differentials-documents",
-      label: "Source documents",
-      shortLabel: "Sources",
+      label: "Supporting documents",
       description: "Search supporting documents",
       icon: FileText,
     },
+    { id: "differentials-evidence", label: "View evidence", description: "Review cited support", icon: ShieldCheck },
+  ],
+  prescribing: [
     {
-      id: "differentials-evidence",
-      label: "Evidence",
-      description: "Review cited support",
+      id: "medication-dose",
+      label: "Dose & thresholds",
+      description: "Check dosing and thresholds",
+      icon: CalendarDays,
+      primary: true,
+    },
+    {
+      id: "medication-safety",
+      label: "Contraindications",
+      description: "Cautions and interactions",
       icon: ShieldCheck,
     },
+    { id: "medication-monitoring", label: "Monitoring", description: "Baseline and ongoing checks", icon: Activity },
+    {
+      id: "medication-escalation",
+      label: "Escalation criteria",
+      description: "Red flags and urgent review",
+      icon: AlertTriangle,
+    },
+    { id: "medication-access", label: "Documentation", description: "Required forms and eligibility", icon: Lock },
   ],
 } as const satisfies Record<ModeActionSetId, readonly ModeActionItem[]>;
 
@@ -298,6 +270,7 @@ export function ModeActionPopup({
   triggerClassName,
   integrated = false,
   integratedChipRow = true,
+  useSheet = false,
   triggerRef,
   dismissIgnoreRefs,
 }: {
@@ -319,6 +292,9 @@ export function ModeActionPopup({
   integrated?: boolean;
   /** When false, the integrated menu skips the footer chip-row clearance offset. */
   integratedChipRow?: boolean;
+  /** Render the actions in a bottom sheet / centred dialog (phones + tablets ≤1023px)
+   *  instead of the anchored desktop popover. */
+  useSheet?: boolean;
   /** Header-owned controls (e.g. app mode trigger) that must stay clickable above the portaled menu. */
   dismissIgnoreRefs?: readonly RefObject<HTMLElement | null>[];
 }) {
@@ -328,6 +304,7 @@ export function ModeActionPopup({
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const actionDescId = useId();
   const [placement, setPlacement] = useState<ModeActionPlacement>("up");
   const [surfaceMaxHeight, setSurfaceMaxHeight] = useState<number | null>(null);
   const [bodyMaxHeight, setBodyMaxHeight] = useState<number | null>(null);
@@ -342,8 +319,10 @@ export function ModeActionPopup({
     window.requestAnimationFrame(() => buttonRef.current?.focus());
   }, [onOpenChange, setModeSelectorOpen]);
 
+  // The sheet owns its own focus trap, Escape, and backdrop dismissal; only the
+  // anchored popover needs the outside-click dismissable layer.
   useDismissableLayer({
-    enabled: open,
+    enabled: open && !useSheet,
     refs: [rootRef, surfaceRef, ...(dismissIgnoreRefs ?? [])],
     restoreFocusRef: buttonRef,
     onDismiss: () => {
@@ -370,7 +349,7 @@ export function ModeActionPopup({
     const edgePadding = 12;
     const availableAbove = Math.max(0, rect.top - viewportTop - edgePadding);
     const availableBelow = Math.max(0, viewportBottom - rect.bottom - edgePadding);
-    const { minSurfaceHeight, headerHeight } = estimateIntegratedMenuHeights(items.length, integrated);
+    const { minSurfaceHeight, headerHeight } = estimateActionListHeights(items.length, integrated);
     const detachedUpOffset = 16;
     const integratedDownOffset = integratedChipRow ? 58 : 14;
     const detachedDownOffset = integrated ? integratedDownOffset : 14;
@@ -394,7 +373,12 @@ export function ModeActionPopup({
       nextPlacement = availableBelow > availableAbove + 40 ? "down" : "up";
     }
 
-    const available = nextPlacement === "up" ? spaceAbove : spaceBelow;
+    // Cap an upward-opening menu so it stays clear of the sticky header + mode
+    // switcher (which otherwise gets covered, blocking its pointer events) when the
+    // trigger sits low enough that a full-height list would reach the top nav.
+    const headerSafeInset = 84;
+    const upwardHeightLimit = Math.max(0, rect.top - viewportTop - headerSafeInset);
+    const available = nextPlacement === "up" ? Math.min(spaceAbove, upwardHeightLimit) : spaceBelow;
     const nextSurfaceMaxHeight = Math.max(220, Math.floor(Math.min(available, viewportHeight - edgePadding * 2)));
     const nextBodyMaxHeight = Math.max(156, nextSurfaceMaxHeight - headerHeight);
 
@@ -403,7 +387,7 @@ export function ModeActionPopup({
     setBodyMaxHeight((current) => (current === nextBodyMaxHeight ? current : nextBodyMaxHeight));
 
     if (integrated) {
-      const maxSurfaceWidth = Math.min(window.innerWidth - edgePadding * 2, 400);
+      const maxSurfaceWidth = Math.min(window.innerWidth - edgePadding * 2, 360);
       const surfaceLeft = Math.max(edgePadding, Math.min(rect.left, window.innerWidth - maxSurfaceWidth - edgePadding));
       setIntegratedSurfaceLayout({
         placement: nextPlacement,
@@ -511,12 +495,6 @@ export function ModeActionPopup({
     window.requestAnimationFrame(() => modeButtonRef.current?.focus());
   }
 
-  const actionGridClass =
-    items.length >= 6
-      ? "grid-cols-2 min-[560px]:grid-cols-4"
-      : items.length >= 3
-        ? "grid-cols-2 sm:grid-cols-3"
-        : "grid-cols-2";
   const headerSubtitle =
     subtitle ||
     (title.toLowerCase() === "answer"
@@ -531,9 +509,9 @@ export function ModeActionPopup({
   }
 
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!open || useSheet) return;
     updatePlacement();
-  }, [items.length, open, title, updatePlacement]);
+  }, [items.length, open, title, updatePlacement, useSheet]);
 
   useEffect(() => {
     if (open) return;
@@ -541,12 +519,12 @@ export function ModeActionPopup({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || useSheet) return;
     onPlacementChange?.(placement);
-  }, [onPlacementChange, open, placement]);
+  }, [onPlacementChange, open, placement, useSheet]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || useSheet) return;
 
     updatePlacement();
     window.addEventListener("resize", updatePlacement);
@@ -559,7 +537,7 @@ export function ModeActionPopup({
       window.visualViewport?.removeEventListener("resize", updatePlacement);
       window.visualViewport?.removeEventListener("scroll", updatePlacement);
     };
-  }, [open, updatePlacement]);
+  }, [open, updatePlacement, useSheet]);
 
   const surfaceStyle = {
     "--mode-action-max-height": surfaceMaxHeight ? `${surfaceMaxHeight}px` : undefined,
@@ -576,169 +554,240 @@ export function ModeActionPopup({
 
   const integratedDownOffsetClass = integratedChipRow ? "top-[calc(100%+3.65rem)]" : "top-[calc(100%+0.875rem)]";
 
-  const actionSurface = open ? (
-    <div
-      ref={surfaceRef}
-      data-placement={placement}
-      style={surfaceStyle}
-      className={cn(
-        "mode-action-surface z-50 text-[color:var(--text)]",
-        integrated && integratedSurfaceLayout ? "fixed" : "absolute",
-        integrated && integratedSurfaceLayout ? null : integrated ? "inset-x-0" : "inset-x-0 sm:inset-x-auto sm:left-0",
-        !integrated || !integratedSurfaceLayout
-          ? placement === "up"
-            ? "bottom-[calc(100%+0.875rem)]"
-            : integrated
-              ? integratedDownOffsetClass
-              : "top-[calc(100%+0.875rem)]"
-          : null,
-        !integrated && (items.length <= 4 ? "sm:w-[min(22rem,100%)]" : "sm:w-[min(24rem,100%)]"),
-      )}
-    >
+  // Shared, presentation-agnostic action list — the same rows render inside the
+  // desktop popover and the phone/tablet sheet. Each row's accessible name is its
+  // `label`; the secondary description is exposed via aria-describedby (kept out of
+  // the name so exact-match tests like "Scope"/"Upload PDF" hold).
+  function renderActionRows() {
+    return (
       <div
-        className={cn(
-          "mode-action-panel overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[0_18px_42px_rgb(15_37_48_/_16%)] ring-1 ring-white/45 dark:ring-white/10",
-          integrated ? "rounded-[1.35rem] shadow-[0_20px_48px_rgb(15_37_48_/_18%)]" : "rounded-[1rem]",
-        )}
+        id="daily-actions-sheet"
+        data-testid="daily-actions-menu"
+        role="menu"
+        aria-label={title}
+        className={cn("polished-scroll", useSheet ? "" : cn("mode-action-body p-2.5", integrated && "p-3 sm:p-3.5"))}
       >
-        <div className="mode-action-header border-b border-white/15">
-          <div className="mode-action-selector-shell">
-            <button
-              type="button"
-              ref={modeButtonRef}
-              disabled={!canSwitchMode}
-              aria-haspopup={canSwitchMode ? "menu" : undefined}
-              aria-expanded={canSwitchMode ? modeSelectorOpen : undefined}
-              aria-controls={modeSelectorOpen ? "mode-action-mode-menu" : undefined}
-              onKeyDown={handleModeButtonKeyDown}
-              onClick={() => canSwitchMode && setModeSelectorOpen((current) => !current)}
-              className="mode-action-mode-button"
-            >
-              <span className="mode-action-mode-icon">
-                <TitleIcon className="h-4.5 w-4.5" />
-              </span>
-              <span className="min-w-0 truncate">{title}</span>
-              {canSwitchMode ? (
-                <ChevronDown
-                  className={cn("h-4.5 w-4.5 shrink-0 transition", modeSelectorOpen && "rotate-180")}
-                  aria-hidden="true"
-                />
-              ) : null}
-            </button>
-            {modeSelectorOpen && modeOptions?.length ? (
-              <div
-                id="mode-action-mode-menu"
-                role="menu"
-                aria-label="Choose search mode"
-                className="mode-action-mode-menu polished-scroll"
+        <div className="grid gap-1.5">
+          {items.map((item, index) => {
+            const Icon = item.icon;
+            const descriptionId = item.description ? `${actionDescId}-${index}` : undefined;
+            return (
+              <button
+                key={item.id}
+                ref={(element) => assignActionRef(element, index)}
+                type="button"
+                role="menuitem"
+                aria-describedby={descriptionId}
+                onKeyDown={(event) => handleItemKeyDown(event, index)}
+                onClick={() => runActionAndClose(item.id)}
+                className={cn(
+                  "group flex w-full items-center gap-3 rounded-xl border px-3 text-left transition motion-safe:duration-150",
+                  useSheet ? "min-h-14 py-2" : "min-h-12 py-1.5",
+                  item.primary
+                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45 hover:bg-[color:var(--clinical-accent-soft)]/60"
+                    : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--clinical-accent)]/40 hover:bg-[color:var(--clinical-accent-soft)]/24",
+                  "active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                )}
               >
-                {modeOptions.map((mode, index) => {
-                  const Icon = mode.icon;
-                  const active = mode.id === selectedModeId;
-                  return (
-                    <button
-                      key={mode.id}
-                      ref={(element) => {
-                        modeOptionRefs.current[index] = element;
-                      }}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={active}
-                      disabled={mode.disabled}
-                      onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
-                      onClick={() => selectMode(mode)}
-                      className={cn("mode-action-mode-option", active && "mode-action-mode-option-active")}
-                    >
-                      <span className="mode-action-mode-option-icon">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-extrabold">{mode.label}</span>
-                        {mode.description ? (
-                          <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
-                            {mode.description}
-                          </span>
-                        ) : null}
-                      </span>
-                      {active ? <Check className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-          <div className="mode-action-header-summary">
-            <span aria-hidden="true" className="mode-action-header-divider" />
-            <span className="min-w-0 truncate">{headerSubtitle}</span>
-          </div>
-          <button
-            type="button"
-            onClick={closeAndRestoreFocus}
-            className="mode-action-close"
-            aria-label={`Close ${title.toLowerCase()} options`}
-          >
-            <BadgeCheck className="h-4.5 w-4.5" />
-          </button>
-        </div>
-        <div
-          id="daily-actions-sheet"
-          data-testid="daily-actions-menu"
-          role="menu"
-          aria-label={title}
-          className={cn("mode-action-body polished-scroll p-2.5", integrated && "p-3 sm:p-3.5")}
-        >
-          <div className={cn("grid gap-2", actionGridClass)}>
-            {items.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  ref={(element) => assignActionRef(element, index)}
-                  type="button"
-                  role="menuitem"
-                  onKeyDown={(event) => handleItemKeyDown(event, index)}
-                  onClick={() => runActionAndClose(item.id)}
+                <span
                   className={cn(
-                    "group grid min-h-[4.6rem] place-items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-2 text-center shadow-[var(--shadow-inset)] transition motion-safe:duration-150 sm:min-h-[4.85rem]",
-                    "hover:border-[color:var(--clinical-accent)]/32 hover:bg-[color:var(--clinical-accent-soft)]/24 active:scale-[0.985]",
-                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                    "grid h-9 w-9 shrink-0 place-items-center rounded-lg border transition",
+                    item.primary
+                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                      : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]",
                   )}
                 >
-                  <span className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-heading)] transition group-hover:text-[color:var(--clinical-accent)]">
-                    <Icon className="h-5 w-5" />
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">
+                    {item.label}
                   </span>
-                  <span className="max-w-full text-balance text-xs font-bold leading-4 text-[color:var(--text-heading)]">
-                    {item.shortLabel ?? item.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                  {item.description ? (
+                    <span
+                      id={descriptionId}
+                      aria-hidden="true"
+                      className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-soft)]"
+                    >
+                      {item.description}
+                    </span>
+                  ) : null}
+                </span>
+                <ChevronRight
+                  className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
+                  aria-hidden="true"
+                />
+              </button>
+            );
+          })}
         </div>
       </div>
-      {!integrated ? (
-        <>
-          {placement === "up" ? (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-[6px] left-8 h-3 w-3 rotate-45 border-b border-r border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[4px_4px_10px_rgb(15_37_48_/_5%)]"
-            />
-          ) : (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -top-[6px] left-8 h-3 w-3 rotate-45 border-l border-t border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[-4px_-4px_10px_rgb(15_37_48_/_5%)]"
-            />
+    );
+  }
+
+  // Desktop popover header: the mode name doubles as the mode switcher, with the
+  // subtitle and a close control. Sheets use the Sheet component's own header.
+  function renderPopoverHeader() {
+    return (
+      <div className="mode-action-header border-b border-white/15">
+        <div className="mode-action-selector-shell">
+          <button
+            type="button"
+            ref={modeButtonRef}
+            disabled={!canSwitchMode}
+            aria-haspopup={canSwitchMode ? "menu" : undefined}
+            aria-expanded={canSwitchMode ? modeSelectorOpen : undefined}
+            aria-controls={modeSelectorOpen ? "mode-action-mode-menu" : undefined}
+            onKeyDown={handleModeButtonKeyDown}
+            onClick={() => canSwitchMode && setModeSelectorOpen((current) => !current)}
+            className="mode-action-mode-button"
+          >
+            <span className="mode-action-mode-icon">
+              <TitleIcon className="h-4.5 w-4.5" />
+            </span>
+            <span className="min-w-0 truncate">{title}</span>
+            {canSwitchMode ? (
+              <ChevronDown
+                className={cn("h-4.5 w-4.5 shrink-0 transition", modeSelectorOpen && "rotate-180")}
+                aria-hidden="true"
+              />
+            ) : null}
+          </button>
+          {modeSelectorOpen && modeOptions?.length ? (
+            <div
+              id="mode-action-mode-menu"
+              role="menu"
+              aria-label="Choose search mode"
+              className="mode-action-mode-menu polished-scroll"
+            >
+              {modeOptions.map((mode, index) => {
+                const Icon = mode.icon;
+                const active = mode.id === selectedModeId;
+                return (
+                  <button
+                    key={mode.id}
+                    ref={(element) => {
+                      modeOptionRefs.current[index] = element;
+                    }}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={active}
+                    disabled={mode.disabled}
+                    onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
+                    onClick={() => selectMode(mode)}
+                    className={cn("mode-action-mode-option", active && "mode-action-mode-option-active")}
+                  >
+                    <span className="mode-action-mode-option-icon">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-extrabold">{mode.label}</span>
+                      {mode.description ? (
+                        <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                          {mode.description}
+                        </span>
+                      ) : null}
+                    </span>
+                    {active ? <Check className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+        <div className="mode-action-header-summary">
+          <span aria-hidden="true" className="mode-action-header-divider" />
+          <span className="min-w-0 truncate">{headerSubtitle}</span>
+        </div>
+        <button
+          type="button"
+          onClick={closeAndRestoreFocus}
+          className="mode-action-close"
+          aria-label={`Close ${title.toLowerCase()} options`}
+        >
+          <X className="h-4.5 w-4.5" />
+        </button>
+      </div>
+    );
+  }
+
+  const actionSurface =
+    open && !useSheet ? (
+      <div
+        ref={surfaceRef}
+        data-placement={placement}
+        style={surfaceStyle}
+        className={cn(
+          "mode-action-surface z-50 text-[color:var(--text)]",
+          integrated && integratedSurfaceLayout ? "fixed" : "absolute",
+          integrated && integratedSurfaceLayout
+            ? null
+            : integrated
+              ? "inset-x-0"
+              : "inset-x-0 sm:inset-x-auto sm:left-0",
+          !integrated || !integratedSurfaceLayout
+            ? placement === "up"
+              ? "bottom-[calc(100%+0.875rem)]"
+              : integrated
+                ? integratedDownOffsetClass
+                : "top-[calc(100%+0.875rem)]"
+            : null,
+          !integrated && "sm:w-[min(22rem,100%)]",
+        )}
+      >
+        <div
+          className={cn(
+            "mode-action-panel overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[0_18px_42px_rgb(15_37_48_/_16%)] ring-1 ring-white/45 dark:ring-white/10",
+            integrated ? "rounded-[1.35rem] shadow-[0_20px_48px_rgb(15_37_48_/_18%)]" : "rounded-[1rem]",
           )}
-        </>
-      ) : null}
-    </div>
-  ) : null;
+        >
+          {renderPopoverHeader()}
+          {renderActionRows()}
+        </div>
+        {!integrated ? (
+          <>
+            {placement === "up" ? (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -bottom-[6px] left-8 h-3 w-3 rotate-45 border-b border-r border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[4px_4px_10px_rgb(15_37_48_/_5%)]"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -top-[6px] left-8 h-3 w-3 rotate-45 border-l border-t border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[-4px_-4px_10px_rgb(15_37_48_/_5%)]"
+              />
+            )}
+          </>
+        ) : null}
+      </div>
+    ) : null;
 
   return (
     <>
-      {integrated && open && typeof document !== "undefined"
-        ? createPortal(actionSurface, document.body)
-        : actionSurface}
+      {useSheet && open ? (
+        <Sheet
+          open={open}
+          onClose={closeAndRestoreFocus}
+          title={title}
+          description={headerSubtitle}
+          closeLabel={`Close ${title.toLowerCase()} options`}
+          returnFocusRef={buttonRef}
+          headerLeading={
+            <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+              <TitleIcon className="h-5 w-5" aria-hidden="true" />
+            </span>
+          }
+          mobilePlacement="bottom"
+          mobileSize="content"
+          portal
+        >
+          {renderActionRows()}
+        </Sheet>
+      ) : integrated && open && typeof document !== "undefined" ? (
+        createPortal(actionSurface, document.body)
+      ) : (
+        actionSurface
+      )}
 
       <div ref={rootRef} className="relative shrink-0">
         <button

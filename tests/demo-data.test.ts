@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { demoAnswer, demoDocuments, demoSearch, getDemoDocumentPayload } from "../src/lib/demo-data";
 
 describe("demo data mode", () => {
@@ -81,5 +81,27 @@ describe("demo data mode", () => {
     expect(payload?.pages.length).toBeGreaterThan(0);
     expect(payload?.chunks.length).toBeGreaterThan(0);
     expect(payload?.images[0].caption).toContain("monitoring table");
+  });
+});
+
+// Class-level guard so a future route cannot reintroduce the /api/search/universal leak: demo
+// fixtures must fail closed in a live production request and only run under an explicit demo deploy.
+describe("demoSearch production safety guard", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("refuses to serve synthetic demo data to a live production request", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { demoSearch: guarded } = await import("../src/lib/demo-data");
+    expect(() => guarded("lithium toxicity")).toThrow(/synthetic demo data/i);
+  });
+
+  it("still serves fixtures for an explicit NEXT_PUBLIC_DEMO_MODE=true deploy", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
+    const { demoSearch: guarded } = await import("../src/lib/demo-data");
+    expect(() => guarded("lithium toxicity")).not.toThrow();
   });
 });

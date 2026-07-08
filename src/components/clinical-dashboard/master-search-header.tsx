@@ -15,8 +15,6 @@ import {
 import { createPortal } from "react-dom";
 
 import {
-  Activity,
-  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -32,7 +30,6 @@ import {
   ShieldCheck,
   ArrowLeft,
   X,
-  Lock,
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
@@ -43,7 +40,6 @@ import {
   ModeActionPopup,
   modeActionItemsFor,
   type ModeActionId,
-  type ModeActionItem,
   type ModeActionModeOption,
   type ModeActionPlacement,
   type ModeActionSetId,
@@ -81,25 +77,6 @@ const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
 // hero exactly like desktop instead of floating over the heading.
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
-
-const medicationModeActionItems: readonly ModeActionItem[] = [
-  {
-    id: "medication-dose",
-    label: "Dose",
-    description: "Check dosing and thresholds",
-    icon: CalendarDays,
-    primary: true,
-  },
-  { id: "medication-safety", label: "Safety", description: "Contraindications and cautions", icon: ShieldCheck },
-  {
-    id: "medication-monitoring",
-    label: "Monitoring",
-    shortLabel: "Monitor",
-    description: "Baseline and ongoing checks",
-    icon: Activity,
-  },
-  { id: "medication-access", label: "Access", description: "Documentation and eligibility", icon: Lock },
-];
 
 function splitFilterText(value: string) {
   return value
@@ -430,19 +407,22 @@ export function MasterSearchHeader({
     [visibleAppModeOptions],
   );
   const actionMenuSetId: ModeActionSetId =
-    searchMode === "services"
-      ? "services"
-      : searchMode === "documents" || searchMode === "forms"
-        ? "documents"
-        : searchMode === "favourites"
-          ? "favourites"
-          : searchMode === "differentials"
-            ? "differentials"
-            : searchMode === "tools"
-              ? "tools"
-              : "answer";
-  const actionMenuItems =
-    searchMode === "prescribing" ? medicationModeActionItems : modeActionItemsFor(actionMenuSetId);
+    searchMode === "prescribing"
+      ? "prescribing"
+      : searchMode === "forms"
+        ? "forms"
+        : searchMode === "services"
+          ? "services"
+          : searchMode === "documents"
+            ? "documents"
+            : searchMode === "favourites"
+              ? "favourites"
+              : searchMode === "differentials"
+                ? "differentials"
+                : searchMode === "tools"
+                  ? "tools"
+                  : "answer";
+  const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
@@ -491,6 +471,11 @@ export function MasterSearchHeader({
     if (actionId === "medication-access") {
       onQueryModeChange("required_documentation");
       onQueryChange(trimmedQuery || "acamprosate PBS access");
+      return;
+    }
+    if (actionId === "medication-escalation") {
+      onQueryModeChange("escalation_criteria");
+      onQueryChange(trimmedQuery || "acamprosate escalation criteria");
       return;
     }
 
@@ -544,9 +529,19 @@ export function MasterSearchHeader({
       onQueryChange("");
       return;
     }
+    if (actionId === "services-documents") {
+      onSearchModeChange("documents");
+      onQueryChange(trimmedQuery || "service referral guidance");
+      return;
+    }
     if (actionId === "forms-records") {
       onSearchModeChange("forms");
       onQueryChange("");
+      return;
+    }
+    if (actionId === "forms-documents") {
+      onSearchModeChange("documents");
+      onQueryChange(trimmedQuery || "clinical form guidance");
       return;
     }
     if (actionId === "favourites-browse") {
@@ -1191,7 +1186,8 @@ export function MasterSearchHeader({
               triggerClassName="answer-footer-search-action"
               triggerRef={actionMenuTriggerRef}
               integrated={usesFooterChipLayout}
-              integratedChipRow={false}
+              integratedChipRow={showFooterSearchChips}
+              useSheet={usesScopeSheet}
               dismissIgnoreRefs={[modeMenuRef]}
             />
 
