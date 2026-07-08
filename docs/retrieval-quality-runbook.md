@@ -48,13 +48,16 @@ The command requires the same live-eval environment as the existing RAG eval scr
 
 - Supabase server env values for `Clinical KB Database`
 - `OPENAI_API_KEY`
-- `RAG_EVAL_OWNER_ID`, `LOCAL_NO_AUTH_OWNER_ID`, or `RAG_EVAL_OWNER_EMAIL`
+- Owner is **optional** — see below.
 
-Since the 2026-07-06 public promotion the live corpus is entirely `owner_id = NULL`, so set
-`RAG_EVAL_OWNER_ID=00000000-0000-0000-0000-000000000000` (the public-owner sentinel —
-`retrieval_owner_matches` maps it to NULL-owner rows, mirroring anonymous production search). A
-real owner UUID now scopes retrieval to zero documents and fails every case; leaving it unset
-throws the owner-scope guard.
+Since the 2026-07-06 public promotion the live corpus is entirely `owner_id = NULL`, the eval now
+**defaults its owner to the public-owner sentinel** `00000000-0000-0000-0000-000000000000`
+(`DEFAULT_EVAL_OWNER_ID` in `scripts/eval-retrieval.ts`). `retrieval_owner_matches` maps that
+sentinel to NULL-owner rows, mirroring anonymous production search, so no session has to set
+`RAG_EVAL_OWNER_ID` by hand. An explicit `RAG_EVAL_OWNER_ID`, `LOCAL_NO_AUTH_OWNER_ID`, or
+`RAG_EVAL_OWNER_EMAIL` (or `--owner-id` / `--owner-email`) still overrides the default. Note a real
+owner UUID now scopes retrieval to zero documents and fails every case, so only override when the
+corpus ownership actually changes.
 
 Optional cost fields:
 
