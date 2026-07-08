@@ -1,7 +1,10 @@
 import { loadEnvConfig } from "@next/env";
-import { countWrappedDoseUnitLines } from "@/lib/chunking";
 import { loadAdminClient } from "./eval-utils";
 
+// Must run before any import of @/lib/env (transitively via @/lib/chunking),
+// which snapshots process.env at module load. countWrappedDoseUnitLines is
+// therefore imported dynamically inside main(), after this call — the same
+// deferral loadAdminClient uses for the admin client.
 loadEnvConfig(process.cwd());
 
 // Measures how many indexed pages carry a dose whose unit the pre-fix chunker
@@ -43,6 +46,7 @@ function parseArgs(): Args {
 
 async function main() {
   const args = parseArgs();
+  const { countWrappedDoseUnitLines } = await import("@/lib/chunking");
   const supabase = await loadAdminClient();
 
   const pageSize = 1000;
