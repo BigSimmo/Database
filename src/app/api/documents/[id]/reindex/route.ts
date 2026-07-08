@@ -4,7 +4,7 @@ import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
-import { jsonError } from "@/lib/http";
+import { jsonError, PublicApiError } from "@/lib/http";
 import {
   checkIngestionMutationSafety,
   hasActiveAgentEnrichmentJob,
@@ -55,6 +55,12 @@ type ReindexImage = {
   clinical_relevance_score?: number | null;
   metadata?: Record<string, unknown> | null;
 };
+
+type SupabaseErrorLike = { code?: string };
+
+function isUniqueViolation(error: unknown): error is SupabaseErrorLike {
+  return typeof error === "object" && error !== null && (error as SupabaseErrorLike).code === "23505";
+}
 
 function committedReindexRows<T extends { metadata?: unknown }>(document: { metadata?: unknown }, rows: T[]) {
   const committedGeneration = committedIndexGeneration(document.metadata);
@@ -256,6 +262,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single();
 
     if (jobError) {
+      if (isUniqueViolation(jobError)) {
+        throw new PublicApiError("A reindex job is already queued for this document.", 409);
+      }
+
       const { data: competingJobs, error: competingJobsError } = await supabase
         .from("ingestion_jobs")
         .select("id")
@@ -285,6 +295,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ job }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
+    if (error instanceof PublicApiError) return jsonError(error, error.status);
     return jsonError(error);
   }
 }

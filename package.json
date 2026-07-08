@@ -71,6 +71,7 @@
     "reindex": "tsx scripts/reindex.ts",
     "reindex:health": "tsx scripts/reindex-health.ts",
     "reindex:cleanup-staged": "tsx scripts/cleanup-abandoned-reindex-generations.ts",
+    "images:re-stamp-generation": "tsx scripts/reindex-image-generation-metadata.ts",
     "supabase:recovery-status": "tsx scripts/supabase-recovery-status.ts",
     "promote:query-misses": "tsx scripts/promote-query-misses.ts",
     "promote:public-documents": "tsx scripts/promote-public-documents.ts",
@@ -82,6 +83,7 @@
     "eval:retrieval": "node scripts/run-eval-safe.mjs scripts/eval-retrieval.ts",
     "eval:retrieval:quality": "node scripts/run-eval-safe.mjs scripts/eval-retrieval.ts --mode quality",
     "eval:retrieval:latency": "node scripts/run-eval-safe.mjs scripts/eval-retrieval.ts --mode latency --case-timeout-ms 25000 --p90-ms 20000",
+    "eval:golden:live": "node scripts/run-golden-live-evals.mjs",
     "eval:search": "tsx scripts/eval-search.ts",
     "eval:search:api": "tsx scripts/eval-search-api.ts",
     "retrieval:health": "tsx scripts/retrieval-health.ts",
@@ -101,7 +103,8 @@
     "workflow:export": "node ../.local-dev/workflow-export.mjs",
     "workflow:handoff": "node ../.local-dev/workflow-handoff.mjs",
     "check:drift": "tsx scripts/check-drift.ts",
-    "drift:manifest": "tsx scripts/generate-drift-manifest.ts"
+    "drift:manifest": "tsx scripts/generate-drift-manifest.ts",
+    "schema:sync-retrieval-rpcs": "tsx scripts/sync-retrieval-rpcs-to-schema.ts"
   },
   "dependencies": {
     "@next/env": "16.2.10",

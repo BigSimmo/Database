@@ -777,6 +777,9 @@ create index if not exists ingestion_jobs_status_next_run_idx
   where status in ('pending', 'processing', 'failed');
 create index if not exists ingestion_jobs_document_status_idx
   on public.ingestion_jobs(document_id, status, created_at);
+create unique index if not exists ingestion_jobs_one_open_per_document_uidx
+  on public.ingestion_jobs(document_id)
+  where status in ('pending', 'processing');
 drop index if exists public.ingestion_job_stages_doc_idx;
 create index if not exists ingestion_job_stages_document_started_idx
   on public.ingestion_job_stages(document_id, started_at desc);
@@ -1241,6 +1244,50 @@ begin
 end;
 $$;
 
+create or replace function public.jsonb_merge_deep(target_obj jsonb, patch_obj jsonb)
+returns jsonb
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  merged jsonb := coalesce(target_obj, '{}'::jsonb);
+  key text;
+  incoming_value jsonb;
+begin
+  for key, incoming_value in
+    select j.key, j.value
+    from jsonb_each(coalesce(patch_obj, '{}'::jsonb)) as j
+  loop
+    if jsonb_typeof(merged -> key) = 'object' and jsonb_typeof(incoming_value) = 'object' then
+      merged := jsonb_set(
+        merged,
+        array[key],
+        public.jsonb_merge_deep(merged -> key, incoming_value),
+        true
+      );
+    else
+      merged := jsonb_set(merged, array[key], incoming_value, true);
+    end if;
+  end loop;
+  return merged;
+end;
+$$;
+
+create or replace function public.apply_document_metadata_patch(
+  p_document_id uuid,
+  p_metadata_patch jsonb
+)
+returns void
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  update public.documents
+  set metadata = public.jsonb_merge_deep(coalesce(metadata, '{}'::jsonb), coalesce(p_metadata_patch, '{}'::jsonb))
+  where id = p_document_id;
+end;
+$$;
+
 create or replace function public.commit_document_index_generation(
   p_document_id uuid,
   p_index_generation_id uuid,
@@ -1266,9 +1313,13 @@ begin
     chunk_count = p_chunk_count,
     image_count = p_image_count,
     error_message = null,
-    metadata = coalesce(p_metadata, '{}'::jsonb) || jsonb_build_object('index_generation_id', p_index_generation_id),
     updated_at = now()
   where id = p_document_id;
+
+  perform public.apply_document_metadata_patch(
+    p_document_id,
+    coalesce(p_metadata, '{}'::jsonb) || jsonb_build_object('index_generation_id', p_index_generation_id)
+  );
 
   if p_pages is not null then
     delete from public.document_pages
@@ -2225,15 +2276,13 @@ as $$
       null::bigint as text_match_rank,
       coalesce((d.metadata->'rag_indexing_version') is not null, false) as has_deep_index,
       d.updated_at as doc_updated_at,
-      coalesce(
-        (select q.quality_score from public.document_index_quality q where q.document_id = c.document_id),
-        0.7
-      ) as quality_score
+      coalesce(q.quality_score, 0.7)::double precision as quality_score
     from public.document_chunks c
     join public.documents d on d.id = c.document_id
+    left join public.document_index_quality q on q.document_id = c.document_id
     cross join query
     where (document_filters is null or c.document_id = any(document_filters))
-      and public.retrieval_owner_matches(owner_filter, d.owner_id)
+      and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
       and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and 1 - (c.embedding <=> query_embedding) >= min_similarity
@@ -2266,15 +2315,13 @@ as $$
       ) as text_match_rank,
       coalesce((d.metadata->'rag_indexing_version') is not null, false) as has_deep_index,
       d.updated_at as doc_updated_at,
-      coalesce(
-        (select q.quality_score from public.document_index_quality q where q.document_id = c.document_id),
-        0.7
-      ) as quality_score
+      coalesce(q.quality_score, 0.7)::double precision as quality_score
     from public.document_chunks c
     join public.documents d on d.id = c.document_id
+    left join public.document_index_quality q on q.document_id = c.document_id
     cross join query
     where (document_filters is null or c.document_id = any(document_filters))
-      and public.retrieval_owner_matches(owner_filter, d.owner_id)
+      and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
       and public.is_committed_document_generation(c.index_generation_id, d.metadata)
       and c.search_tsv @@ query.tsq
@@ -2426,7 +2473,7 @@ as $$
     join public.documents d on d.id = m.document_id
     cross join query
     where (document_filters is null or m.document_id = any(document_filters))
-      and public.retrieval_owner_matches(owner_filter, d.owner_id)
+      and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(m.metadata, d.metadata)
       and (1 - (m.embedding <=> query_embedding)) >= min_similarity
@@ -2446,7 +2493,7 @@ as $$
     join public.documents d on d.id = m.document_id
     cross join query
     where (document_filters is null or m.document_id = any(document_filters))
-      and public.retrieval_owner_matches(owner_filter, d.owner_id)
+      and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(m.metadata, d.metadata)
       and m.search_tsv @@ query.tsq
@@ -3629,7 +3676,7 @@ as $$
     from public.document_embedding_fields f
     join public.documents d on d.id = f.document_id
     where (document_filters is null or f.document_id = any(document_filters))
-      and public.retrieval_owner_matches(owner_filter, d.owner_id)
+      and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(f.metadata, d.metadata)
       and f.source_chunk_id is not null
@@ -3643,7 +3690,7 @@ as $$
     join public.documents d on d.id = f.document_id
     cross join query
     where (document_filters is null or f.document_id = any(document_filters))
-      and public.retrieval_owner_matches(owner_filter, d.owner_id)
+      and (owner_filter is null or d.owner_id = owner_filter)
       and d.status = 'indexed'
       and public.is_committed_artifact_generation(f.metadata, d.metadata)
       and f.source_chunk_id is not null
@@ -4517,9 +4564,25 @@ as $$
       (1 - (u.embedding <=> query_embedding))::double precision as similarity,
       (ts_rank_cd(u.search_tsv, query.tsq)
         + case when u.normalized_terms && query.terms then 0.25 else 0 end
-        + case when u.unit_type in ('askable_question', 'table_fact', 'clinical_fact', 'threshold', 'workflow_step', 'medication_monitoring', 'alias', 'visual_summary', 'flowchart_step', 'diagram_decision', 'risk_matrix_cell', 'medication_chart_row', 'chart_finding', 'visual_askable_question', 'table_threshold') then 0.06
-               when u.unit_type = 'section_summary' then 0.03
-               else 0 end
+        + case when u.unit_type in (
+            'askable_question',
+            'table_fact',
+            'clinical_fact',
+            'threshold',
+            'workflow_step',
+            'medication_monitoring',
+            'alias',
+            'visual_summary',
+            'flowchart_step',
+            'diagram_decision',
+            'risk_matrix_cell',
+            'medication_chart_row',
+            'chart_finding',
+            'visual_askable_question',
+            'table_threshold'
+          ) then 0.06
+          when u.unit_type = 'section_summary' then 0.03
+          else 0 end
       )::double precision as text_rank,
       u.metadata
     from public.document_index_units u
@@ -4527,7 +4590,7 @@ as $$
     cross join query
     where d.status = 'indexed'
       and (document_filters is null or u.document_id = any(document_filters))
-      and public.retrieval_owner_matches(owner_filter, d.owner_id)
+      and (owner_filter is null or d.owner_id = owner_filter)
       and public.is_committed_artifact_generation(u.metadata, d.metadata)
       and u.source_chunk_id is not null
       and (u.search_tsv @@ query.tsq or u.normalized_terms && query.terms)
@@ -4614,6 +4677,10 @@ grant select, insert, update, delete on table public.document_index_units to ser
 grant select on table public.document_index_units to authenticated;
 revoke execute on function public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid) from public, anon, authenticated;
 grant execute on function public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid) to service_role;
+revoke execute on function public.jsonb_merge_deep(jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.jsonb_merge_deep(jsonb, jsonb) to service_role;
+revoke execute on function public.apply_document_metadata_patch(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.apply_document_metadata_patch(uuid, jsonb) to service_role;
 revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role;
 revoke execute on function public.cleanup_abandoned_document_index_generations(uuid, integer, boolean) from public, anon, authenticated;

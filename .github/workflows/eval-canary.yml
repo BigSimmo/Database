@@ -81,13 +81,106 @@ jobs:
         run: npm run check:supabase-project
 
       - name: Golden retrieval eval (live corpus)
-        run: npm run eval:retrieval:quality -- --fail-on-threshold
+        id: retrieval_eval
+        shell: bash
+        continue-on-error: true
+        run: |
+          : > "$RUNNER_TEMP/retrieval-eval.log"
+          set +e
+          npm run eval:retrieval:quality -- --fail-on-threshold 2>&1 | tee "$RUNNER_TEMP/retrieval-eval.log"
+          status=${PIPESTATUS[0]}
+
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+          if [ "$status" -ne 0 ]; then
+            if grep -Eiq "(insufficient[_-]?quota|quota.*exceeded|exceeded your current quota|quota has been exceeded|billing hard limit)" \
+              "$RUNNER_TEMP/retrieval-eval.log"; then
+              echo "failure_category=provider_quota" >> "$GITHUB_OUTPUT"
+            else
+              echo "failure_category=other" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "failure_category=none" >> "$GITHUB_OUTPUT"
+          fi
+
+          exit 0
 
       - name: Answer-quality subset (live generation)
-        run: npm run eval:quality -- --rag-only --limit ${{ github.event.inputs.answer_case_limit || '8' }} --fail-on-threshold
+        id: answer_eval
+        shell: bash
+        continue-on-error: true
+        run: |
+          : > "$RUNNER_TEMP/answer-eval.log"
+          set +e
+          npm run eval:quality -- --rag-only --limit ${{ github.event.inputs.answer_case_limit || '8' }} --fail-on-threshold 2>&1 | \
+            tee "$RUNNER_TEMP/answer-eval.log"
+          status=${PIPESTATUS[0]}
+
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+          if [ "$status" -ne 0 ]; then
+            if grep -Eiq "(insufficient[_-]?quota|quota.*exceeded|exceeded your current quota|quota has been exceeded|billing hard limit)" \
+              "$RUNNER_TEMP/answer-eval.log"; then
+              echo "failure_category=provider_quota" >> "$GITHUB_OUTPUT"
+            else
+              echo "failure_category=other" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "failure_category=none" >> "$GITHUB_OUTPUT"
+          fi
+
+          exit 0
+
+      - name: Classify canary outcome
+        id: canary_failure
+        if: always()
+        shell: bash
+        run: |
+          retrieval_status="${{ steps.retrieval_eval.outputs.status }}"
+          answer_status="${{ steps.answer_eval.outputs.status }}"
+          retrieval_failure_category="${{ steps.retrieval_eval.outputs.failure_category }}"
+          answer_failure_category="${{ steps.answer_eval.outputs.failure_category }}"
+
+          has_failure=false
+          has_non_quota_failure=false
+
+          if [ -n "$retrieval_status" ] && [ "$retrieval_status" -ne 0 ]; then
+            has_failure=true
+            if [ "$retrieval_failure_category" != "provider_quota" ]; then
+              has_non_quota_failure=true
+            fi
+          fi
+
+          if [ -n "$answer_status" ] && [ "$answer_status" -ne 0 ]; then
+            has_failure=true
+            if [ "$answer_failure_category" != "provider_quota" ]; then
+              has_non_quota_failure=true
+            fi
+          fi
+
+          echo "has_failure=$has_failure" >> "$GITHUB_OUTPUT"
+          echo "has_non_quota_failure=$has_non_quota_failure" >> "$GITHUB_OUTPUT"
+
+      - name: Assert canary outcome
+        if: always()
+        run: |
+          if [ "${{ steps.canary_failure.outputs.has_failure }}" != "true" ]; then
+            exit 0
+          fi
+
+          if [ "${{ steps.canary_failure.outputs.has_non_quota_failure }}" = "true" ]; then
+            echo "::error::Eval canary failed for a non-quota reason."
+          else
+            echo "::warning::Eval canary failed because OpenAI reported quota/credit exhaustion. No regression inferred."
+          fi
+
+          exit 1
 
       - name: Open or update regression issue
-        if: failure() && github.event_name == 'schedule'
+        if: |
+          failure() &&
+          github.event_name == 'schedule' &&
+          steps.canary_failure.outputs.has_non_quota_failure == 'true'
         uses: actions/github-script@v8
         with:
           script: |

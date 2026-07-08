@@ -234,7 +234,7 @@ export function FavouritesHub({
             {tabMenuOpen ? (
               <div
                 id="favourites-type-listbox"
-                role="listbox"
+                role="tablist"
                 aria-label="Favourite type"
                 className="absolute left-0 top-[calc(100%+0.5rem)] z-40 grid w-[min(18rem,calc(100vw-1.5rem))] gap-1 overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 shadow-[var(--shadow-lux)] ring-1 ring-white/30 backdrop-blur-md dark:ring-white/10"
               >
@@ -249,7 +249,8 @@ export function FavouritesHub({
                         tabOptionRefs.current[index] = element;
                       }}
                       type="button"
-                      role="option"
+                      role="tab"
+                      id={`favourite-type-tab-${tab.id}`}
                       aria-selected={selected}
                       tabIndex={selected ? 0 : -1}
                       onKeyDown={(event) => handleFavouriteTabOptionKeyDown(event, index)}

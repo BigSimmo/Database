@@ -52,6 +52,12 @@ type ReindexImage = {
   metadata?: Record<string, unknown> | null;
 };
 
+type SupabaseErrorLike = { code?: string };
+
+function isUniqueViolation(error: unknown): error is SupabaseErrorLike {
+  return typeof error === "object" && error !== null && (error as SupabaseErrorLike).code === "23505";
+}
+
 function committedReindexRows<T extends { metadata?: unknown }>(document: { metadata?: unknown }, rows: T[]) {
   const committedGeneration = committedIndexGeneration(document.metadata);
   return rows.filter((row) =>
@@ -227,6 +233,15 @@ export async function POST(request: Request) {
           .select("id")
           .single();
         if (jobError) {
+          if (isUniqueViolation(jobError)) {
+            results.push({
+              documentId: document.id,
+              mode: parsed.mode,
+              ok: false,
+              error: "A reindex job is already queued for this document.",
+            });
+            continue;
+          }
           const { data: competingJobs, error: competingJobsError } = await supabase
             .from("ingestion_jobs")
             .select("id")

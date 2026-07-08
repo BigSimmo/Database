@@ -17,23 +17,9 @@
     },
     {
       "category": "functions",
-      "key": "public.detect_legacy_ivfflat_indexes()",
-      "kind": "mismatch",
-      "reason": "Live retains default PUBLIC execute (security-invoker fn, RLS still applies); schema.sql declares service-role-only. Revoke on live via an approved hardening migration. Remove after apply.",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "functions",
       "key": "public.document_label_metadata(uuid)",
       "kind": "mismatch",
       "reason": "schema.sql is AHEAD of live: hidden-label filtering (review_status/hidden metadata) was added to schema.sql without a migration. Ship a migration or revert schema.sql; see backlog.",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "functions",
-      "key": "public.document_summary_text(uuid)",
-      "kind": "mismatch",
-      "reason": "Live retains default PUBLIC execute (security-invoker fn, RLS still applies); schema.sql declares service-role-only. Revoke on live via an approved hardening migration. Remove after apply.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
@@ -139,13 +125,6 @@
       "key": "public.search_schema_health()",
       "kind": "mismatch",
       "reason": "Pending migration 20260706010000_search_schema_health_m13_guard not yet applied to live. Remove after apply.",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "functions",
-      "key": "public.set_document_embedding_field_content_hash()",
-      "kind": "mismatch",
-      "reason": "Live retains default PUBLIC execute (security-invoker fn, RLS still applies); schema.sql declares service-role-only. Revoke on live via an approved hardening migration. Remove after apply.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {
@@ -579,51 +558,9 @@
     },
     {
       "category": "indexes",
-      "key": "ingestion_job_stages_job_idx",
-      "kind": "unexpected_live",
-      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "indexes",
       "key": "ingestion_job_stages_job_stage_started_idx",
       "kind": "missing_live",
       "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "indexes",
-      "key": "ingestion_jobs_document_idx",
-      "kind": "missing_live",
-      "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "indexes",
-      "key": "ingestion_jobs_document_status_idx",
-      "kind": "mismatch",
-      "reason": "Live carries a pre-hardening index shape under the schema.sql name; reconcile via approved migration (same class as 20260703030000).",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "indexes",
-      "key": "ingestion_jobs_status_idx",
-      "kind": "unexpected_live",
-      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "indexes",
-      "key": "ingestion_jobs_status_next_run_idx",
-      "kind": "mismatch",
-      "reason": "Live carries a pre-hardening index shape under the schema.sql name; reconcile via approved migration (same class as 20260703030000).",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "indexes",
-      "key": "ingestion_jobs_updated_at_idx",
-      "kind": "unexpected_live",
-      "reason": "Live-only legacy/duplicate index with no schema.sql equivalent; drop candidates for a cleanup migration (verify pg_stat_user_indexes scans first).",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {

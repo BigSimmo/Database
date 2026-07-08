@@ -167,9 +167,23 @@ async function updateJobProgress(jobId: string, patch: { stage: string; progress
 }
 
 async function updateDocument(documentId: string, patch: TablesUpdate<"documents">) {
-  const sanitized = patch.metadata ? { ...patch, metadata: sanitizeJsonbRecord(patch.metadata) } : patch;
-  const { error } = await supabase.from("documents").update(sanitized).eq("id", documentId);
-  if (error) throw supabaseStageError("update document", error);
+  const { metadata, ...remainingPatch } = patch as TablesUpdate<"documents">;
+
+  const updatePayload = remainingPatch;
+  const hasUpdatePayload = Object.keys(updatePayload).length > 0;
+  if (hasUpdatePayload) {
+    const { error } = await supabase.from("documents").update(updatePayload).eq("id", documentId);
+    if (error) throw supabaseStageError("update document", error);
+  }
+
+  if (typeof metadata !== "undefined") {
+    const metadataPatch = sanitizeJsonbRecord(metadata);
+    const { error } = await supabase.rpc("apply_document_metadata_patch", {
+      p_document_id: documentId,
+      p_metadata_patch: metadataPatch,
+    });
+    if (error) throw supabaseStageError("apply document metadata patch", error);
+  }
 }
 
 async function markSupersededSiblingJobs(job: JobRow) {

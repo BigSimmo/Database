@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -453,6 +456,53 @@ function SourceStatusPanel({ workflow }: { workflow: DifferentialPresentationWor
   );
 }
 
+type PresentationTabId = "overview" | "compare" | "map" | "related";
+
+const presentationTabs: Array<{ id: PresentationTabId; label: string }> = [
+  { id: "overview", label: "Overview" },
+  { id: "compare", label: "Compare" },
+  { id: "map", label: "Map" },
+  { id: "related", label: "Related" },
+];
+
+function MobileTabs({
+  activeTab,
+  onChange,
+}: {
+  activeTab: PresentationTabId;
+  onChange: (tab: PresentationTabId) => void;
+}) {
+  return (
+    <nav
+      aria-label="Differential presentation sections"
+      role="tablist"
+      className="mb-4 grid grid-cols-4 border-b border-[color:var(--border)] text-center text-sm font-bold xl:hidden"
+    >
+      {presentationTabs.map((tab) => {
+        const isActive = tab.id === activeTab;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            aria-controls={`presentation-tab-panel-${tab.id}`}
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              "min-h-11 border-b-2 px-1 py-3",
+              isActive
+                ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
+                : "border-transparent text-[color:var(--text-muted)]",
+            )}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 function MobileCandidateCard({
   workflow,
   candidate,
@@ -561,32 +611,75 @@ function MobileComparison({
   );
 }
 
-function MobileTabs({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
-  const firstCandidate = workflow.candidates[0]?.slug ?? "delirium";
+function MobilePlaceholderPanel({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
   return (
-    <nav
-      aria-label="Differential presentation sections"
-      className="mb-4 grid grid-cols-4 border-b border-[color:var(--border)] text-center text-sm font-bold xl:hidden"
-    >
-      {["Overview", "Compare", "Map", "Related"].map((item) => {
-        const active = item === "Compare";
-        return (
-          <Link
-            key={item}
-            href={active ? `/differentials/presentations/${workflow.id}` : `/differentials/diagnoses/${firstCandidate}`}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "min-h-11 border-b-2 px-1 py-3",
-              active
-                ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
-                : "border-transparent text-[color:var(--text-muted)]",
-            )}
-          >
-            {item}
-          </Link>
-        );
-      })}
-    </nav>
+    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
+      <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">{title}</h2>
+      <p className="mt-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">{body}</p>
+    </section>
+  );
+}
+
+function PresentationWorkflowTabPanel({
+  activeTab,
+  workflow,
+  candidates,
+}: {
+  activeTab: PresentationTabId;
+  workflow: DifferentialPresentationWorkflow;
+  candidates: CandidateView[];
+}) {
+  const selected = candidates.filter((candidate) => candidate.selected);
+
+  if (activeTab === "overview") {
+    return (
+      <section className="grid gap-4 xl:hidden">
+        <SafetySnapshot workflow={workflow} />
+        <div className="grid gap-4">
+          <SelectedDifferentialsPanel workflow={workflow} candidates={candidates} />
+          <HighestUrgencyPanel workflow={workflow} candidates={candidates} />
+        </div>
+      </section>
+    );
+  }
+
+  if (activeTab === "map") {
+    return (
+      <MobilePlaceholderPanel
+        title="Map view"
+        body={`Map context is not available for presentations yet. Selected differential count: ${selected.length}.`}
+      />
+    );
+  }
+
+  if (activeTab === "related") {
+    return (
+      <MobilePlaceholderPanel
+        title="Related differential snapshots"
+        body={`Use candidate-specific diagnosis pages for related-differential graph exploration (${selected.length} selected).`}
+      />
+    );
+  }
+
+  return (
+    <>
+      {/* Tablet / mid (md–lg): safety leads, then the scrollable table, then review
+          panels reflow into a grid below — no fixed side rail. */}
+      <div className="mb-4 hidden md:block xl:hidden">
+        <SafetySnapshot workflow={workflow} />
+      </div>
+      <DesktopComparisonTable workflow={workflow} candidates={candidates} />
+      <MobileComparison workflow={workflow} candidates={candidates} />
+      <div className="mt-4 hidden items-start gap-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:hidden">
+        <ReviewPanels workflow={workflow} candidates={candidates} />
+      </div>
+    </>
   );
 }
 
@@ -599,6 +692,7 @@ export function DifferentialPresentationWorkflowPage({
 }) {
   const workflow = getPresentationWorkflow(presentationSlug) ?? acuteConfusionPresentationWorkflow;
   const candidates = getCandidates(workflow);
+  const [activeTab, setActiveTab] = useState<PresentationTabId>("compare");
 
   return (
     <main
@@ -679,16 +773,9 @@ export function DifferentialPresentationWorkflowPage({
             </div>
           </section>
 
-          <MobileTabs workflow={workflow} />
-          {/* Tablet / mid (md–lg): safety leads, then the scrollable table, then
-              the review panels reflow into a grid below — no fixed side rail. */}
-          <div className="mb-4 hidden md:block xl:hidden">
-            <SafetySnapshot workflow={workflow} />
-          </div>
-          <DesktopComparisonTable workflow={workflow} candidates={candidates} />
-          <MobileComparison workflow={workflow} candidates={candidates} />
-          <div className="mt-4 hidden items-start gap-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:hidden">
-            <ReviewPanels workflow={workflow} candidates={candidates} />
+          <MobileTabs activeTab={activeTab} onChange={setActiveTab} />
+          <div role="tabpanel" id={`presentation-tab-panel-${activeTab}`} aria-live="polite">
+            <PresentationWorkflowTabPanel activeTab={activeTab} workflow={workflow} candidates={candidates} />
           </div>
         </div>
 

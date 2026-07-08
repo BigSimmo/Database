@@ -37,6 +37,21 @@ npm run eval:quality -- --question "What ANC or FBC threshold should withhold cl
 npm run eval:quality -- --fail-on-threshold
 ```
 
+If the change is retrieval-centric and you need the standing merge-grade gate, use:
+
+```bash
+npm run eval:golden:live
+```
+
+It runs both required checks in order:
+
+- `eval:retrieval:quality`
+- `eval:quality -- --rag-only`
+
+The wrapper forces `RAG_TEXT_WEAK_OR_RELAXATION=false` so speculative weak-match OR
+augmentation is kept off during this gate; run the underlying scripts directly if you want to
+compare a different setting.
+
 The command writes ignored local artifacts under `output/evals/`:
 
 - `retrieval-quality-<timestamp>.json`
