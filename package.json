@@ -71,6 +71,7 @@
     "reindex": "tsx scripts/reindex.ts",
     "reindex:health": "tsx scripts/reindex-health.ts",
     "reindex:cleanup-staged": "tsx scripts/cleanup-abandoned-reindex-generations.ts",
+    "images:re-stamp-generation": "tsx scripts/reindex-image-generation-metadata.ts",
     "supabase:recovery-status": "tsx scripts/supabase-recovery-status.ts",
     "promote:query-misses": "tsx scripts/promote-query-misses.ts",
     "promote:public-documents": "tsx scripts/promote-public-documents.ts",
