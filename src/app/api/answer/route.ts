@@ -21,6 +21,7 @@ import {
 } from "@/lib/source-governance";
 import { parseJsonBody } from "@/lib/validation/body";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
 import type { RagAnswer } from "@/lib/types";
@@ -150,6 +151,8 @@ export async function POST(request: Request) {
         sourceGovernanceWarnings: warnings,
       });
     }
+
+    logAnswerDiagnostics({ supabase, query: answerBody.query, ownerId: access.ownerId, answer });
 
     return NextResponse.json({
       ...answer,
