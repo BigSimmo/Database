@@ -431,6 +431,18 @@ type AnswerTurn = {
 
 const maxVisiblePriorTurns = 10;
 
+// Upper bound on a single answer request. The stream sends only progress events
+// then one `final` blob after the full server-side generation, so a hung stream
+// otherwise spins the UI forever with no close event. Generous enough not to
+// abort a legitimately slow generation; a wait past this is treated as a stall.
+const answerRequestTimeoutMs = 60_000;
+
+// Non-retryable so an aborted request does not immediately re-fetch against the
+// already-aborted signal; the user re-submits to try again.
+function answerTimedOutError() {
+  return makeSearchError("Answer generation timed out. Please try again.", 408, false);
+}
+
 /**
  * Read-only surface for a previous turn in the answer thread. Renders the
  * question bubble and the natural-language answer with its source capsule;
@@ -1696,6 +1708,7 @@ export function ClinicalDashboard({
         signal,
       });
     } catch (error) {
+      if (answerTimedOutRef.current) throw answerTimedOutError();
       if (isAbortError(error)) throw error;
       throw searchNetworkFailure("Answer search");
     }
@@ -1710,7 +1723,14 @@ export function ClinicalDashboard({
       throw makeSearchError(message, response.status, isRetryableStatus(response.status));
     }
 
-    const payload = await readAnswerStream(response, onProgress);
+    let payload: AnswerPayload;
+    try {
+      payload = await readAnswerStream(response, onProgress);
+    } catch (error) {
+      if (answerTimedOutRef.current) throw answerTimedOutError();
+      if (isAbortError(error)) throw error;
+      throw error;
+    }
     return {
       kind: "answer" as const,
       query: queryText,
@@ -1751,10 +1771,11 @@ export function ClinicalDashboard({
   // error/loading state, or a stale response would display one query's answer
   // under another query's composer text.
   const searchRequestSeqRef = useRef(0);
-  // Aborts the in-flight answer/library search when the user presses Stop or the
-  // component unmounts, freeing the server-side generation instead of letting it
-  // run to completion behind the monotonic-seq guard.
+  // Aborts the in-flight answer/library search when the user presses Stop, a
+  // newer search supersedes the prior one, or the component unmounts.
   const searchAbortRef = useRef<AbortController | null>(null);
+  // Distinguishes a timeout-driven abort from an explicit user/supersede abort.
+  const answerTimedOutRef = useRef(false);
 
   function stopSearch() {
     searchAbortRef.current?.abort();
@@ -1918,6 +1939,14 @@ export function ClinicalDashboard({
           ]
         : [{ query: requestQuery, isKeyword: false }];
 
+    // Bound this search with a timeout on the shared abort controller so a
+    // stalled answer stream recovers instead of spinning forever.
+    answerTimedOutRef.current = false;
+    const answerTimeout = window.setTimeout(() => {
+      answerTimedOutRef.current = true;
+      abortController.abort();
+    }, answerRequestTimeoutMs);
+
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
@@ -2006,6 +2035,8 @@ export function ClinicalDashboard({
         setLastFailedQuery(trimmedQuery);
       }
     } finally {
+      window.clearTimeout(answerTimeout);
+      answerTimedOutRef.current = false;
       if (searchAbortRef.current === abortController) searchAbortRef.current = null;
       if (requestId === searchRequestSeqRef.current) {
         setLoading(false);
