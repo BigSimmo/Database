@@ -80,8 +80,35 @@ export const evidenceRow =
   "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 export const clinicalNotesRow =
   "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[color:var(--clinical-chat-sand-border)] bg-[color:var(--clinical-chat-sand)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-sand-border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-export const chatComposerShell =
-  "flex min-h-14 items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[0_1px_2px_rgb(16_24_40_/_5%),0_8px_22px_rgb(16_24_40_/_8%)] focus-within:border-[color:var(--clinical-accent)]";
+/*
+ * Composer SHELL constant — base/delta split (2026-07-08).
+ *
+ * The composer pill surface class `answer-footer-search-pill` (a <form>, in
+ * `src/app/globals.css`) now lives in `@layer components`, so plain Tailwind
+ * utilities on the pill win. To keep the class in control of the properties it
+ * owns, `chatComposerShell` is split:
+ *   - `chatComposerShellBase`  — utilities the pill class does NOT set (display,
+ *     align, radius, border-width). Safe to stack next to the layered class;
+ *     used at the composer pill call sites.
+ *   - `chatComposerShellDelta` — utilities that set a property the pill class
+ *     ALSO sets (min-height, gap, border-colour, background, padding, shadow,
+ *     focus-within border). These would beat the layered class, so they are
+ *     dropped at pill call sites and only reappear via the combined const.
+ * `chatComposerShell` = `base + delta` (byte-identical class set to before) for
+ * any call site that uses the pill surface WITHOUT the layered class.
+ *
+ * The pill-INTERIOR control constants (`chatComposerInput`, `chatSendButton`,
+ * `chatComposerIconButton`) are NOT split: their chrome classes stay unlayered
+ * because they land on <input>/<button> elements governed by unlayered global
+ * resets (`font: inherit`, the ≤640px 16px font-size floor, the button
+ * transition reset — see globals.css). An unlayered chrome class still beats
+ * those resets by specificity; a layered one would not. Verified byte-identical
+ * across 16 states with scripts/capture-chrome-parity.ts.
+ */
+export const chatComposerShellBase = "flex items-center rounded-full border";
+export const chatComposerShellDelta =
+  "min-h-14 gap-2 border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[0_1px_2px_rgb(16_24_40_/_5%),0_8px_22px_rgb(16_24_40_/_8%)] focus-within:border-[color:var(--clinical-accent)]";
+export const chatComposerShell = `${chatComposerShellBase} ${chatComposerShellDelta}`;
 export const chatComposerInput =
   "min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]";
 export const chatComposerIconButton =
