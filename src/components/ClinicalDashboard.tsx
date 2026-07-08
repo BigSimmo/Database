@@ -34,6 +34,7 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
+import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
@@ -452,7 +453,11 @@ function PriorAnswerTurnSurface({
 
   return (
     <div
-      className="min-w-0 space-y-4 sm:space-y-5"
+      // Historical conversation turns grow unbounded and most are collapsed and
+      // scrolled off-screen; content-auto skips their layout/paint until near the
+      // viewport. Safe here — the surface has no overflowing popovers, and the
+      // expand toggle is only reachable once the turn is scrolled into view.
+      className="content-auto min-w-0 space-y-4 sm:space-y-5"
       data-dashboard-stage="answer-thread-turn"
       data-collapsed={collapsed ? "true" : "false"}
     >
@@ -2866,6 +2871,31 @@ export function ClinicalDashboard({
           : FolderOpen;
   const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Library and admin" : "Sources";
 
+  // Stable-identity handlers for the React.memo children (StagedAnswerResultSurface,
+  // DocumentSearchResultsPanel). These close over the draft `query` or call the
+  // intentionally-unstable executeSearch, so plain useCallback can't isolate them
+  // from per-keystroke re-renders — useEventCallback keeps identity fixed while
+  // always invoking the latest closure. See use-event-callback.ts.
+  const handleScopeDocument = useEventCallback(scopeOnlyDocument);
+  const handleAnswerFromDocument = useEventCallback(answerFromDocument);
+  const handleSubmitAnswerFeedback = useEventCallback(submitAnswerFeedback);
+  const handleAnswerFollowUpQuote = useEventCallback(handleFollowUpQuote);
+  const handleFollowUpSuggestionPick = useEventCallback(handlePickFollowUpSuggestion);
+  const handleCrossModeSearch = useEventCallback(crossModeSearch);
+  const handleDocumentTagSearch = useEventCallback(handleTagSearch);
+  const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
+  const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
+  const handleOpenSourcePdfBrowser = useEventCallback(openSourcePdfBrowser);
+  const handleCopyAnswer = useEventCallback(() => {
+    copyText("answer", answerRenderModel?.copyText || safeAnswerText || answer?.answer || "");
+  });
+  // The answer thread's prior-query list, memoized so it isn't a fresh array on
+  // every keystroke (it feeds two memoized surfaces below).
+  const crossModeQueries = useMemo(
+    () => [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery],
+    [priorAnswerTurns, latestAnswerQuery],
+  );
+
   return (
     <div
       className={cn(
@@ -3056,24 +3086,57 @@ export function ClinicalDashboard({
                   </div>
                 )}
 
-                {loading && answerProgress && searchMode !== "prescribing" && (
-                  <div
-                    role="status"
-                    className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
-                  >
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
-                    <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
-                    <button
-                      type="button"
-                      onClick={stopSearch}
-                      data-testid="stop-answer"
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                {searchMode !== "prescribing" &&
+                  (activeModeResultKind === "answer" && (loading || answer) ? (
+                    // Answer result view keeps this status slot mounted through the
+                    // whole loading→answer swap so its height never collapses and the
+                    // answer below it doesn't jump up (CLS). The accent chrome only
+                    // appears while a progress message is live; otherwise it's a
+                    // height-reserved, visually empty spacer.
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className={cn(
+                        "flex min-h-[44px] items-center gap-2 rounded-lg px-3 text-sm font-medium",
+                        loading && answerProgress
+                          ? "border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--text-heading)]"
+                          : "border border-transparent",
+                      )}
                     >
-                      <Square className="h-3 w-3 shrink-0 fill-current" />
-                      Stop
-                    </button>
-                  </div>
-                )}
+                      {loading && answerProgress ? (
+                        <>
+                          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                          <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
+                          <button
+                            type="button"
+                            onClick={stopSearch}
+                            data-testid="stop-answer"
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                          >
+                            <Square className="h-3 w-3 shrink-0 fill-current" />
+                            Stop
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : loading && answerProgress ? (
+                    <div
+                      role="status"
+                      className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                    >
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                      <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
+                      <button
+                        type="button"
+                        onClick={stopSearch}
+                        data-testid="stop-answer"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      >
+                        <Square className="h-3 w-3 shrink-0 fill-current" />
+                        Stop
+                      </button>
+                    </div>
+                  ) : null)}
 
                 {activeModeResultKind === "differentials" ? (
                   <DifferentialsHome
@@ -3157,12 +3220,12 @@ export function ClinicalDashboard({
                         apiUnavailable={apiUnavailable}
                         setupWarning={setupWarning}
                         facets={searchFacets}
-                        onScopeDocument={scopeOnlyDocument}
-                        onAnswerFromDocument={answerFromDocument}
-                        onOpenRecentDocuments={openRecentDocuments}
-                        onOpenLibrary={openSourceLibrary}
-                        onOpenSourcePdf={openSourcePdfBrowser}
-                        onTagSearch={handleTagSearch}
+                        onScopeDocument={handleScopeDocument}
+                        onAnswerFromDocument={handleAnswerFromDocument}
+                        onOpenRecentDocuments={handleOpenRecentDocuments}
+                        onOpenLibrary={handleOpenSourceLibrary}
+                        onOpenSourcePdf={handleOpenSourcePdfBrowser}
+                        onTagSearch={handleDocumentTagSearch}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
                       />
@@ -3204,7 +3267,7 @@ export function ClinicalDashboard({
                         weakEvidence={weakEvidence}
                         answerViewMode={answerViewMode}
                         answerEvidenceMapRows={answerEvidenceMapRows}
-                        onScopeDocument={scopeOnlyDocument}
+                        onScopeDocument={handleScopeDocument}
                         answerGrounded={answerGrounded}
                         sources={answerRenderModel.reviewSources}
                         demoMode={demoMode}
@@ -3212,16 +3275,14 @@ export function ClinicalDashboard({
                         safetyFindings={safetyFindings}
                         copiedAnswer={copiedAction === "answer"}
                         pendingFeedback={pendingFeedback}
-                        onCopyAnswer={() =>
-                          copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
-                        }
-                        onSubmitFeedback={submitAnswerFeedback}
-                        onFollowUpQuote={handleFollowUpQuote}
+                        onCopyAnswer={handleCopyAnswer}
+                        onSubmitFeedback={handleSubmitAnswerFeedback}
+                        onFollowUpQuote={handleAnswerFollowUpQuote}
                         followUpSuggestions={answerFollowUpSuggestions}
-                        onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
+                        onPickFollowUpSuggestion={handleFollowUpSuggestionPick}
                         followUpSuggestionsDisabled={loading}
-                        crossModeQueries={[...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery]}
-                        onCrossModeSearch={crossModeSearch}
+                        crossModeQueries={crossModeQueries}
+                        onCrossModeSearch={handleCrossModeSearch}
                       />
                     </>
                   ) : null
@@ -3237,10 +3298,7 @@ export function ClinicalDashboard({
               {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
 
               {activeModeResultKind === "answer" && answer && (
-                <CrossModeLinksSection
-                  queries={[...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery]}
-                  onModeSearch={crossModeSearch}
-                />
+                <CrossModeLinksSection queries={crossModeQueries} onModeSearch={handleCrossModeSearch} />
               )}
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel

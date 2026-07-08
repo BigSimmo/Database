@@ -266,21 +266,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const accessToken = session?.access_token ?? null;
   const authorizationHeader = useMemo(() => authorizationHeadersForAccessToken(accessToken), [accessToken]);
 
-  const value: AuthContextValue = {
-    client,
-    session,
-    status,
-    error,
-    notice,
-    isConfigured: Boolean(client),
-    authorizationHeader,
-    signInWithEmail,
-    signInWithPassword,
-    signUpWithPassword,
-    signInWithOAuth,
-    signOut,
-    markSessionExpired,
-  };
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      client,
+      session,
+      status,
+      error,
+      notice,
+      isConfigured: Boolean(client),
+      authorizationHeader,
+      signInWithEmail,
+      signInWithPassword,
+      signUpWithPassword,
+      signInWithOAuth,
+      signOut,
+      markSessionExpired,
+    }),
+    [
+      client,
+      session,
+      status,
+      error,
+      notice,
+      authorizationHeader,
+      signInWithEmail,
+      signInWithPassword,
+      signUpWithPassword,
+      signInWithOAuth,
+      signOut,
+      markSessionExpired,
+    ],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

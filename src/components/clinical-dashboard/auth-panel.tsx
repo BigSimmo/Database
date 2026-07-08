@@ -170,9 +170,7 @@ export function AuthPanel() {
             <input
               id={emailInputId}
               type="email"
-              inputMode="email"
-              autoComplete="email"
-              enterKeyHint="go"
+              name="email"
               value={email}
               onChange={(event) => {
                 setDraftEmail(event.target.value);
@@ -187,6 +185,15 @@ export function AuthPanel() {
               aria-invalid={emailError ? true : undefined}
               aria-describedby={emailError ? emailErrorId : undefined}
               placeholder="you@clinic.example"
+              // Mobile-keyboard + autofill polish: email keyboard, no
+              // auto-capitalisation/spellcheck of addresses, browser autofill,
+              // and an explicit "go" action key that submits the magic-link form.
+              autoComplete="email"
+              inputMode="email"
+              enterKeyHint="go"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className={fieldControlWithIcon}
             />
           </div>

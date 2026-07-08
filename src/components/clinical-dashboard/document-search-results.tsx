@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   BookOpen,
   ChevronDown,
@@ -760,7 +760,7 @@ function RecordRegistryNotice({ status, mode }: { status: RegistryRequestStatus;
   );
 }
 
-export function DocumentSearchResultsPanel({
+function DocumentSearchResultsPanelImpl({
   matches,
   recordMatches = [],
   recordMode = "services",
@@ -1120,3 +1120,10 @@ export function DocumentSearchResultsPanel({
     </div>
   );
 }
+
+// Memoized so this panel (and its result list) stops re-rendering on unrelated
+// dashboard state changes. It still receives the live `query` prop for its
+// header, so keystrokes in documents mode re-render it, but the expensive
+// `matches` list only changes on submit; every other parent render is now
+// suppressed once the parent's callbacks are stabilized.
+export const DocumentSearchResultsPanel = memo(DocumentSearchResultsPanelImpl);
