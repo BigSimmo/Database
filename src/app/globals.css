@@ -1197,10 +1197,10 @@ summary::-webkit-details-marker {
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .answer-footer-search-send:active {
-    transform: scale(0.96);
-  }
+.answer-footer-search-send:active {
+  /* Match the global button press metaphor (translateY) rather than a scale so
+     the composer send button feels consistent with every other control. */
+  transform: translateY(1px);
 }
 
 .answer-footer-search-chip {

@@ -14,6 +14,7 @@ import {
   Loader2,
   Shield,
   ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Tag,
@@ -25,7 +26,7 @@ import {
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
-import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import {
@@ -343,11 +344,14 @@ function DocumentSearchHome({
         onClick: item.action,
       }))}
       footer={
-        documentCount > 0 ? (
-          <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
-            {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
-          </p>
-        ) : null
+        <div className="grid w-full gap-3">
+          <ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical document library" />
+          {documentCount > 0 ? (
+            <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
+              {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
+            </p>
+          ) : null}
+        </div>
       }
     />
   );

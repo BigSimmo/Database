@@ -18,10 +18,10 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
+  Square,
   UploadCloud,
   WifiOff,
   Wrench,
-  X,
 } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
@@ -29,7 +29,7 @@ import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/env";
-import { appBackdrop, answerSurface, cn, textMuted, toneSuccess, toneWarning } from "@/components/ui-primitives";
+import { appBackdrop, answerSurface, cn, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
@@ -305,6 +305,11 @@ function parseSseData(lines: string[]) {
   } catch {
     throw makeSearchError("Answer stream returned malformed data.", 500, true);
   }
+}
+
+/** True when an error originates from an AbortController (user pressed Stop / component unmounted). */
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function answerStreamProgressMessage(data: unknown) {
@@ -1469,6 +1474,13 @@ export function ClinicalDashboard({
     return () => window.clearTimeout(timeout);
   }, [focusSearch]);
 
+  // Abort any in-flight answer/library search if the dashboard unmounts.
+  useEffect(() => {
+    return () => {
+      searchAbortRef.current?.abort();
+    };
+  }, []);
+
   useEffect(() => {
     const searchParamString = searchParams.toString();
     if (lastSyncedSearchParamsRef.current === searchParamString) return;
@@ -1589,6 +1601,7 @@ export function ClinicalDashboard({
     mode: SourceLibrarySearchMode = "documents",
     filtersOverride?: SearchScopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
+    signal?: AbortSignal,
   ) {
     const searchLabel = mode === "differentials" ? "Differentials search" : "Document search";
     let response: Response;
@@ -1608,8 +1621,10 @@ export function ClinicalDashboard({
           documentLimit: 30,
           topK: 20,
         }),
+        signal,
       });
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       throw searchNetworkFailure(searchLabel);
     }
 
@@ -1643,6 +1658,7 @@ export function ClinicalDashboard({
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
     onProgress: (message: string) => void = setAnswerProgress,
+    signal?: AbortSignal,
   ) {
     let response: Response;
     try {
@@ -1658,8 +1674,10 @@ export function ClinicalDashboard({
           filters: compactScopeFilters(filtersOverride),
           queryMode: queryModeOverride,
         }),
+        signal,
       });
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       throw searchNetworkFailure("Answer search");
     }
 
@@ -1714,6 +1732,14 @@ export function ClinicalDashboard({
   // error/loading state, or a stale response would display one query's answer
   // under another query's composer text.
   const searchRequestSeqRef = useRef(0);
+  // Aborts the in-flight answer/library search when the user presses Stop or the
+  // component unmounts, freeing the server-side generation instead of letting it
+  // run to completion behind the monotonic-seq guard.
+  const searchAbortRef = useRef<AbortController | null>(null);
+
+  function stopSearch() {
+    searchAbortRef.current?.abort();
+  }
 
   function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
     if (payload.kind === "documents") {
@@ -1838,6 +1864,11 @@ export function ClinicalDashboard({
     const onProgress = (message: string | null) => {
       if (requestId === searchRequestSeqRef.current) setAnswerProgress(message);
     };
+    // A newer search already invalidated any prior request via requestId; abort
+    // its network work too so the server stops generating, then own the signal.
+    searchAbortRef.current?.abort();
+    const abortController = new AbortController();
+    searchAbortRef.current = abortController;
     setLoading(true);
     setError(null);
     setSearchRelevance(null);
@@ -1882,11 +1913,19 @@ export function ClinicalDashboard({
           const payload =
             modeSearch.kind === "documents" || modeSearch.kind === "differentials"
               ? await runWithRetries(
-                  () => requestSourceLibrarySearch(entry.query, modeSearch.kind, filtersOverride, targetQueryMode),
+                  () =>
+                    requestSourceLibrarySearch(
+                      entry.query,
+                      modeSearch.kind,
+                      filtersOverride,
+                      targetQueryMode,
+                      abortController.signal,
+                    ),
                   onProgress,
                 )
               : await runWithRetries(
-                  () => requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress),
+                  () =>
+                    requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress, abortController.signal),
                   onProgress,
                 );
 
@@ -1940,10 +1979,11 @@ export function ClinicalDashboard({
         }
       }
     } catch (requestError) {
-      if (requestId === searchRequestSeqRef.current) {
+      if (requestId === searchRequestSeqRef.current && !isAbortError(requestError)) {
         setError(requestError instanceof Error ? requestError.message : "Search failed");
       }
     } finally {
+      if (searchAbortRef.current === abortController) searchAbortRef.current = null;
       if (requestId === searchRequestSeqRef.current) {
         setLoading(false);
         setAnswerProgress(null);
@@ -2957,7 +2997,14 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
-                : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                : // Phone answer view: the "Ask a follow-up" dock is fixed to the
+                  // bottom, so <main> reserves room for it. When that dock hides on
+                  // scroll, reclaim the reserved strip too — otherwise the near-black
+                  // shell background shows through as an empty band. (sm+ is inert:
+                  // bottomSearchScrollHidden only ever goes true on phones.)
+                  bottomSearchScrollHidden
+                  ? "mb-0 sm:mb-24"
+                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? bottomSearchScrollHidden
                   ? "mb-0 sm:mb-0"
@@ -3002,23 +3049,9 @@ export function ClinicalDashboard({
               )}
             >
               {actionNotice && (
-                <div
-                  role="status"
-                  className={cn(
-                    "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
-                    actionNotice.tone === "success" ? toneSuccess : toneWarning,
-                  )}
-                >
-                  <span className="min-w-0">{actionNotice.message}</span>
-                  <button
-                    type="button"
-                    onClick={() => setActionNotice(null)}
-                    aria-label="Dismiss notification"
-                    className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+                <InlineNotice tone={actionNotice.tone} onDismiss={() => setActionNotice(null)} animated>
+                  {actionNotice.message}
+                </InlineNotice>
               )}
               {showDegradedNotice && renderDegradedNotice()}
               {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
@@ -3073,7 +3106,16 @@ export function ClinicalDashboard({
                       {loading && answerProgress ? (
                         <>
                           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
-                          <span className="min-w-0 truncate">{answerProgress}</span>
+                          <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
+                          <button
+                            type="button"
+                            onClick={stopSearch}
+                            data-testid="stop-answer"
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                          >
+                            <Square className="h-3 w-3 shrink-0 fill-current" />
+                            Stop
+                          </button>
                         </>
                       ) : null}
                     </div>
@@ -3083,7 +3125,16 @@ export function ClinicalDashboard({
                       className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
                     >
                       <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
-                      <span className="min-w-0 truncate">{answerProgress}</span>
+                      <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
+                      <button
+                        type="button"
+                        onClick={stopSearch}
+                        data-testid="stop-answer"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      >
+                        <Square className="h-3 w-3 shrink-0 fill-current" />
+                        Stop
+                      </button>
                     </div>
                   ) : null)}
 
