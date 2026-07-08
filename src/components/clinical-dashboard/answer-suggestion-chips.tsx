@@ -1,5 +1,7 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
+
 import { cn } from "@/components/ui-primitives";
 
 const focusRing =
@@ -13,6 +15,7 @@ export function AnswerSuggestionChips({
   testId,
   layout = "wrap",
   className,
+  icon: Icon,
 }: {
   suggestions: string[];
   onPick: (suggestion: string) => void;
@@ -21,6 +24,9 @@ export function AnswerSuggestionChips({
   testId?: string;
   layout?: "wrap" | "scroll";
   className?: string;
+  // Optional leading glyph rendered inside every chip — used to signal a chip's
+  // kind (e.g. a history icon on recent-search chips) without changing the label.
+  icon?: LucideIcon;
 }) {
   if (!suggestions.length) return null;
 
@@ -46,7 +52,14 @@ export function AnswerSuggestionChips({
             onClick={() => onPick(suggestion)}
             className={cn("answer-suggestion-chip", focusRing, disabled && "opacity-60")}
           >
-            {suggestion}
+            {Icon ? (
+              <>
+                <Icon className="answer-suggestion-chip-icon" aria-hidden="true" />
+                <span className="answer-suggestion-chip-label">{suggestion}</span>
+              </>
+            ) : (
+              suggestion
+            )}
           </button>
         ))}
       </div>

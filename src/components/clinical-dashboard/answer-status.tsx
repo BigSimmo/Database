@@ -1,6 +1,6 @@
 "use client";
 
-import { Clipboard, ClipboardCheck, MessageSquareText, ShieldCheck } from "lucide-react";
+import { Clipboard, ClipboardCheck, History, MessageSquareText, Search, ShieldCheck, Upload } from "lucide-react";
 
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
@@ -47,23 +47,9 @@ export function AnswerEmptyState({
   recentQueries?: string[];
   onSelectRecent?: (query: string) => void;
 }) {
-  const quickActions = [
-    answerEmptyState.starters.searchDocuments.title,
-    answerEmptyState.starters.uploadDocument.title,
-  ];
   // Returning users get their prior questions back as one-tap chips so they can
   // re-run without retyping. Capped for a calm surface; storage already dedupes.
   const recents = onSelectRecent ? recentQueries.filter((entry) => entry.trim().length > 0).slice(0, 5) : [];
-
-  function handleQuickAction(action: string) {
-    if (action === answerEmptyState.starters.searchDocuments.title) {
-      onSearchDocuments();
-      return;
-    }
-    if (action === answerEmptyState.starters.uploadDocument.title) {
-      onUploadDocument();
-    }
-  }
 
   return (
     <ModeHomeTemplate
@@ -85,15 +71,23 @@ export function AnswerEmptyState({
               label={answerEmptyState.recentLabel}
               layout="wrap"
               className="justify-center"
+              icon={History}
             />
           )}
-          <AnswerSuggestionChips
-            suggestions={quickActions}
-            onPick={handleQuickAction}
-            label={answerEmptyState.quickActionsLabel}
-            layout="wrap"
-            className="justify-center"
-          />
+          {/* Quick actions are secondary to the composer above, so they read as
+              light text links (not pills) with a hairline divider — this also
+              breaks the visual repetition of stacked equal-weight chip rows. */}
+          <div className="answer-quick-actions" role="group" aria-label={answerEmptyState.quickActionsLabel}>
+            <button type="button" className="answer-quick-action" onClick={onSearchDocuments}>
+              <Search className="answer-quick-action-icon" aria-hidden="true" />
+              {answerEmptyState.starters.searchDocuments.title}
+            </button>
+            <span className="answer-quick-action-divider" aria-hidden="true" />
+            <button type="button" className="answer-quick-action" onClick={onUploadDocument}>
+              <Upload className="answer-quick-action-icon" aria-hidden="true" />
+              {answerEmptyState.starters.uploadDocument.title}
+            </button>
+          </div>
           <ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical Guide library" />
         </div>
       }
