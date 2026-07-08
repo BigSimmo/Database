@@ -1,4 +1,4 @@
--- NEUTRALIZED 2026-07-08 — DO NOT RESTORE THE ORIGINAL BODIES.
+-- NEUTRALIZED 2026-07-08 — DO NOT RESTORE THE ORIGINAL RPC BODIES.
 --
 -- This migration originally rewrote retrieval_owner_matches() plus ~10 retrieval
 -- RPCs. It was never applied to the live project. The 2026-07-08 pre-apply
@@ -15,10 +15,23 @@
 --      a left-join for quality_score.
 --
 -- Applying the original migration would therefore REGRESS live retrieval
--- quality. It is neutralized to a no-op so a future `supabase db push` can never
--- overwrite the newer live bodies. The correct resolution is the opposite
--- direction — forward-codify the live bodies into supabase/schema.sql and a new
--- migration (tracked in the drift-detection reconciliation backlog). Until that
--- lands, check:drift allowlists these functions with the accurate reason.
+-- quality. The RPC rewrites are neutralized so a future `supabase db push` can
+-- never overwrite the newer live bodies. We still create retrieval_owner_matches
+-- here so later migrations (e.g. 20260706130000) succeed on fresh preview
+-- branches. Forward-codify the live RPC bodies separately (drift backlog).
 
-select 1 where false;
+set search_path = public, extensions, pg_temp;
+
+create or replace function public.retrieval_owner_matches(owner_filter uuid, row_owner_id uuid)
+returns boolean
+language sql
+immutable
+parallel safe
+set search_path = public, pg_catalog
+as $$
+  select case
+    when owner_filter is null then true
+    when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null
+    else row_owner_id = owner_filter
+  end;
+$$;
