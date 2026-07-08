@@ -250,7 +250,7 @@ function SmallChip({ children, className }: { children: React.ReactNode; classNa
   return (
     <span
       className={cn(
-        "inline-flex min-h-6 items-center gap-1 rounded-md border px-2 text-xs font-bold leading-none",
+        "inline-flex min-h-6 items-center gap-1 rounded-md border px-2 text-2xs font-semibold leading-none",
         className,
       )}
     >
@@ -298,7 +298,7 @@ function ActiveFilterChips({
           type="button"
           onClick={chip.onClear}
           className={cn(
-            "inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]/80",
+            "inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-2xs font-semibold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]/80",
             focusRing,
           )}
         >
@@ -329,10 +329,14 @@ function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id:
               className={cn("min-w-0 flex-1 text-left", focusRing)}
             >
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <p className="text-2xs font-black uppercase tracking-[0.08em] text-[color:var(--success)]">Continue</p>
-                <p className="min-w-0 text-sm font-black leading-snug text-[color:var(--text-heading)]">{item.title}</p>
+                <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--success)]">
+                  Continue
+                </p>
+                <p className="min-w-0 text-sm-minus font-bold leading-snug text-[color:var(--text-heading)]">
+                  {item.title}
+                </p>
               </div>
-              <p className="mt-0.5 text-xs font-semibold leading-snug text-[color:var(--text-muted)]">
+              <p className="mt-0.5 text-2xs font-medium leading-snug text-[color:var(--text-muted)]">
                 {item.set} · last opened {item.lastUsed}
               </p>
             </button>
@@ -340,7 +344,7 @@ function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id:
           <Link
             href={item.href}
             className={cn(
-              "inline-flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-black text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] sm:w-auto",
+              "inline-flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] sm:w-auto",
               focusRing,
             )}
           >
@@ -459,8 +463,10 @@ function FavouriteMobileCard({
       )}
     >
       <div className="min-w-0">
-        <h3 className="line-clamp-2 text-sm font-black leading-5 text-[color:var(--text-heading)]">{item.title}</h3>
-        <p className="mt-1 line-clamp-2 text-xs font-semibold leading-4 text-[color:var(--text-muted)]">
+        <h3 className="line-clamp-2 text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">
+          {item.title}
+        </h3>
+        <p className="mt-1 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
           {item.description}
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -473,7 +479,7 @@ function FavouriteMobileCard({
         </div>
       </div>
 
-      <dl className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3 text-xs font-bold">
+      <dl className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3 text-2xs font-semibold">
         <div className="flex min-w-0 items-center justify-between gap-3">
           <dt className="inline-flex items-center gap-1.5 text-[color:var(--text-muted)]">
             <Folder className="h-3.5 w-3.5" aria-hidden />
@@ -491,7 +497,7 @@ function FavouriteMobileCard({
         <Link
           href={item.href}
           className={cn(
-            "inline-flex h-10 min-w-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-black text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+            "inline-flex h-10 min-w-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
             focusRing,
           )}
         >
@@ -540,8 +546,8 @@ function FavouritesTable({
 
   return (
     <section className="min-w-0 max-w-full overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] px-3 py-3">
-        <p className="text-sm font-bold text-[color:var(--text-muted)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] px-3 py-2.5">
+        <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
           {tableRows.length} {tableRows.length === 1 ? "item" : "items"}
           {tableRows.length !== items.length ? ` of ${items.length}` : ""}
         </p>
@@ -567,7 +573,7 @@ function FavouritesTable({
       <div className="hidden overflow-x-auto sm:block">
         <table className="min-w-[36rem] w-full border-collapse text-left">
           <thead>
-            <tr className="h-11 border-b border-[color:var(--border)] bg-[color:var(--surface)] text-2xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <tr className="h-10 border-b border-[color:var(--border)] bg-[color:var(--surface)] text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
               <th scope="col" className="min-w-[12rem] px-3">
                 Item
               </th>
@@ -597,7 +603,7 @@ function FavouritesTable({
                   data-testid={`favourite-row-${item.id}`}
                   onClick={() => onSelectItem(item.id)}
                   className={cn(
-                    "relative h-16 cursor-pointer transition hover:bg-[color:var(--surface-subtle)]",
+                    "relative h-14 cursor-pointer transition hover:bg-[color:var(--surface-subtle)]",
                     selected &&
                       "bg-[color:var(--clinical-accent-soft)]/45 shadow-[inset_3px_0_0_var(--clinical-accent)]",
                   )}
@@ -609,10 +615,10 @@ function FavouritesTable({
                       aria-pressed={selected}
                       className={cn("min-w-0 max-w-full rounded-md text-left", focusRing)}
                     >
-                      <span className="line-clamp-1 block text-sm font-black text-[color:var(--text-heading)]">
+                      <span className="line-clamp-1 block text-sm-minus font-bold text-[color:var(--text-heading)]">
                         {item.title}
                       </span>
-                      <span className="mt-0.5 line-clamp-1 block text-xs font-semibold text-[color:var(--text-muted)]">
+                      <span className="mt-0.5 line-clamp-1 block text-2xs font-medium text-[color:var(--text-muted)]">
                         {item.description}
                       </span>
                     </button>
@@ -621,26 +627,26 @@ function FavouritesTable({
                     <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
                   </td>
                   <td className="px-3 align-middle">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[color:var(--text-muted)]">
+                    <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
                       <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden />
                       <span className="line-clamp-1">{item.set}</span>
                     </span>
                   </td>
                   <td className="hidden px-3 align-middle lg:table-cell">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[color:var(--clinical-accent)]">
+                    <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)]">
                       <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
                       <span className="line-clamp-1">{item.evidence}</span>
                     </span>
                   </td>
                   <td className="px-3 align-middle">
-                    <span className="text-xs font-bold text-[color:var(--text-heading)]">{item.lastUsed}</span>
+                    <span className="text-2xs font-semibold text-[color:var(--text-heading)]">{item.lastUsed}</span>
                   </td>
                   <td className="px-3 align-middle" onClick={(event) => event.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={item.href}
                         className={cn(
-                          "inline-flex h-9 min-w-16 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-black text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+                          "inline-flex h-9 min-w-16 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-2xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
                           focusRing,
                         )}
                       >
@@ -661,7 +667,7 @@ function FavouritesTable({
                 ].map(({ colSpan, className }) => (
                   <td key={colSpan} colSpan={colSpan} className={className}>
                     <Search className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
-                    <p className="font-black text-[color:var(--text-heading)]">No favourites match</p>
+                    <p className="font-bold text-[color:var(--text-heading)]">No favourites match</p>
                     <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
                       Clear filters or search to show saved clinical work.
                     </p>
@@ -685,7 +691,7 @@ function FavouritesTable({
         {tableRows.length === 0 ? (
           <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-8 text-center">
             <Search className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
-            <p className="font-black text-[color:var(--text-heading)]">No favourites match</p>
+            <p className="font-bold text-[color:var(--text-heading)]">No favourites match</p>
             <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
               Clear filters or search to show saved clinical work.
             </p>
@@ -707,7 +713,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
       data-testid="favourites-item-workspace"
     >
       <div className="flex min-h-10 items-center justify-between gap-3 border-b border-[color:var(--border)] pb-3">
-        <h2 className="text-sm font-black text-[color:var(--text-heading)]">Item workspace</h2>
+        <h2 className="text-sm-minus font-semibold text-[color:var(--text-heading)]">Item workspace</h2>
         <button
           type="button"
           onClick={onClose}
@@ -725,7 +731,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
         <div className="flex items-start gap-3">
           <MiniIconTile icon={Icon} active />
           <div className="min-w-0 flex-1">
-            <h3 className="text-xl font-black leading-tight text-[color:var(--text-heading)]">{item.title}</h3>
+            <h3 className="text-lg-minus font-bold leading-tight text-[color:var(--text-heading)]">{item.title}</h3>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
               {isSourceBacked(item) ? (
@@ -737,7 +743,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
           </div>
         </div>
 
-        <p className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[color:var(--text-muted)]">
+        <p className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)]">
           Saved in <Folder className="h-4 w-4" aria-hidden />{" "}
           <span className="text-[color:var(--text-heading)]">{item.set}</span>
         </p>
@@ -754,7 +760,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
             type="button"
             onClick={() => setActiveTab(id as "summary" | "evidence" | "notes")}
             className={cn(
-              "min-h-10 border-b-2 text-sm font-bold transition",
+              "min-h-10 border-b-2 text-sm-minus font-semibold transition",
               activeTab === id
                 ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
                 : "border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
@@ -769,28 +775,28 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
       <div className="mt-4 grid gap-5">
         {activeTab === "summary" ? (
           <section className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45 p-3">
-            <p className="text-xs font-black uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+            <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
               Next action
             </p>
             <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{item.description}</p>
-            <p className="mt-1 text-xs font-bold text-[color:var(--text-muted)]">Saved action: {actionLabel}</p>
+            <p className="mt-1 text-2xs font-medium text-[color:var(--text-muted)]">Saved action: {actionLabel}</p>
             <Link
               href={item.href}
               className={cn(
-                "mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-black text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]",
+                "mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]",
                 focusRing,
               )}
             >
               {actionLabel}
               <ExternalLink className="h-4 w-4" aria-hidden />
             </Link>
-            <p className="mt-2 text-xs font-bold text-[color:var(--text-muted)]">Last opened {item.lastUsed}</p>
+            <p className="mt-2 text-2xs font-medium text-[color:var(--text-muted)]">Last opened {item.lastUsed}</p>
           </section>
         ) : null}
 
         {activeTab === "evidence" ? (
           <section>
-            <h3 className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
               Sources (3)
             </h3>
             <div className="grid gap-2">
@@ -799,10 +805,12 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
                   key={source.title}
                   className="grid min-h-11 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5"
                 >
-                  <span className="nums grid h-5 w-5 place-items-center rounded bg-[color:var(--surface-subtle)] text-xs font-black text-[color:var(--text-muted)]">
+                  <span className="nums grid h-5 w-5 place-items-center rounded bg-[color:var(--surface-subtle)] text-2xs font-semibold text-[color:var(--text-muted)]">
                     {index + 1}
                   </span>
-                  <span className="truncate text-xs font-bold text-[color:var(--text-heading)]">{source.title}</span>
+                  <span className="truncate text-2xs font-semibold text-[color:var(--text-heading)]">
+                    {source.title}
+                  </span>
                   <SmallChip className="border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
                     {source.type}
                   </SmallChip>
@@ -815,13 +823,13 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
         {activeTab === "notes" ? (
           <section>
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+              <h3 className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                 Personal note
               </h3>
               <button
                 type="button"
                 className={cn(
-                  "inline-flex items-center gap-1 text-xs font-black text-[color:var(--clinical-accent)]",
+                  "inline-flex items-center gap-1 text-2xs font-bold text-[color:var(--clinical-accent)]",
                   focusRing,
                 )}
               >
@@ -833,13 +841,17 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
               <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                 Useful for older patients with fluctuating eGFR. Check adherence section on page 4.
               </p>
-              <span className="mt-3 block text-xs font-bold text-[color:var(--text-muted)]">Updated 11 May 2024</span>
+              <span className="mt-3 block text-2xs font-medium text-[color:var(--text-muted)]">
+                Updated 11 May 2024
+              </span>
             </div>
           </section>
         ) : null}
 
         <section className="border-t border-[color:var(--border)] pt-4">
-          <h3 className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">More</h3>
+          <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            More
+          </h3>
           <div className="grid gap-2">
             <button
               type="button"
@@ -956,17 +968,17 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
           onSelectViewMode={setViewMode}
         />
         <div className="min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 lg:px-7">
-          <div className="mx-auto grid min-w-0 max-w-[70rem] gap-4">
+          <div className="mx-auto grid min-w-0 max-w-[66rem] gap-3">
             <header>
               <div className="flex min-w-0 items-start gap-3">
                 <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                   <Heart className="h-4.5 w-4.5" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-balance text-2xl font-black leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-3xl">
+                  <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
                     Favourites command library
                   </h1>
-                  <p className="mt-1 text-pretty text-sm font-semibold leading-6 text-[color:var(--text-muted)]">
+                  <p className="mt-1 text-pretty text-sm-minus font-medium leading-6 text-[color:var(--text-muted)]">
                     Your saved clinical knowledge, sets and searches - action-ready and source-backed.
                   </p>
                 </div>

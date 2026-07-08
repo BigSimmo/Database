@@ -1,4 +1,5 @@
-import { Loader2, type LucideIcon } from "lucide-react";
+import { Loader2, X, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import {
   extractionQualityLabel,
   formatClinicalDate,
@@ -125,6 +126,63 @@ export const searchResultsSection =
   "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]";
 export const searchFocusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+export type NoticeTone = "success" | "warning" | "danger" | "info" | "neutral";
+
+function noticeToneClass(tone: NoticeTone) {
+  if (tone === "success") return toneSuccess;
+  if (tone === "danger") return toneDanger;
+  if (tone === "info") return toneInfo;
+  if (tone === "warning") return toneWarning;
+  return toneNeutral;
+}
+
+/**
+ * Shared inline feedback banner used across surfaces (auth panel, action
+ * notices, upload) so success/warning/error feedback looks and announces the
+ * same everywhere. Success/info announce politely (role=status); warning/danger
+ * assert (role=alert). Pass onDismiss to render a dismiss control.
+ */
+export function InlineNotice({
+  tone,
+  children,
+  onDismiss,
+  dismissLabel = "Dismiss notification",
+  animated = false,
+  className,
+}: {
+  tone: NoticeTone;
+  children: ReactNode;
+  onDismiss?: () => void;
+  dismissLabel?: string;
+  animated?: boolean;
+  className?: string;
+}) {
+  const assertive = tone === "danger" || tone === "warning";
+  return (
+    <div
+      role={assertive ? "alert" : "status"}
+      className={cn(
+        "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium",
+        animated && "motion-safe:animate-fade-up",
+        noticeToneClass(tone),
+        className,
+      )}
+    >
+      <span className="min-w-0">{children}</span>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label={dismissLabel}
+          className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 export type SemanticChipTone = "danger" | "info" | "warning" | "success" | "neutral";
 
