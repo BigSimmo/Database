@@ -89,8 +89,7 @@ export type UniversalSearchResponse = {
   domainOrder?: UniversalSearchDomain[];
   topHit?: UniversalSearchTopHit;
   answerAction?: UniversalSearchAnswerAction;
-  demoMode?: boolean;
-  publicAccess?: boolean;
+  // demoMode / publicAccess are attached by the route to its JSON response, not by runUniversalSearch.
 };
 
 export type RunUniversalSearchArgs = {
@@ -264,6 +263,10 @@ async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<Universa
     ownerId: args.ownerId,
     topK: Math.max(6, args.limitPerDomain),
     allowGlobalSearch: !args.ownerId,
+    // Typeahead preview only: lexical/trigram retrieval is enough for a short document list, so
+    // skip the per-keystroke OpenAI embedding round-trip. The Answer/Documents full-search paths
+    // still embed. Owner scoping and public-corpus behavior are unchanged (handled downstream).
+    lexicalOnly: true,
   });
   const related = await fetchRelatedDocuments({
     supabase: args.supabase,

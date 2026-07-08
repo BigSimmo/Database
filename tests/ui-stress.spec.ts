@@ -257,7 +257,10 @@ async function openScopeControl(page: Page) {
     }
 
     const dailyActions = await openDailyActions(page);
-    await dailyActions.getByRole("menuitem", { name: /^Scope\b/ }).click({ force: true });
+    // No force-click: the mobile "+" menu is a bottom sheet that slides up, so wait
+    // for the row to settle rather than clicking mid-animation (which lands on the
+    // adjacent row).
+    await dailyActions.getByRole("menuitem", { name: /^Scope\b/ }).click();
     await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 20_000 });
 }
@@ -276,7 +279,9 @@ test.describe("Clinical KB long-content stress coverage", () => {
 
       if (viewport.name === "mobile") {
         const dailyActions = await openDailyActions(page);
-        await dailyActions.getByRole("menuitem", { name: /Upload(?: PDF)?/ }).click({ force: true });
+        // Wait for the sliding bottom sheet to settle before clicking (no force) so
+        // the tap lands on Upload rather than an adjacent row mid-animation.
+        await dailyActions.getByRole("menuitem", { name: /Upload(?: PDF)?/ }).click();
         await expect(dailyActions).toBeHidden();
         const uploadSurface = page.getByRole("dialog", { name: "Upload and indexing" });
         await expect(uploadSurface).toBeVisible();

@@ -16,7 +16,7 @@ export async function register() {
     throw new Error("Refusing to start: local no-auth mode is enabled in a production build.");
   }
 
-  const { isDemoMode, requireOpenAIEnv, requireServerEnv } = await import("@/lib/env");
+  const { isDemoMode, requireOpenAIEnv, requireQueryHashSecret, requireServerEnv } = await import("@/lib/env");
 
   // A clinical production server must run against real, configured backends — never
   // in demo mode, which bypasses auth and serves canned content.
@@ -30,4 +30,8 @@ export async function register() {
   // is missing or points at the wrong project, instead of failing per-request.
   requireServerEnv();
   requireOpenAIEnv();
+
+  // A keyed HMAC secret must be present so clinical-query hashes written to the log
+  // tables are not reversible (PIA-2). Fail closed rather than degrade to weak SHA-256.
+  requireQueryHashSecret();
 }

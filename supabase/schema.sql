@@ -1642,6 +1642,22 @@ begin
     and a.index_generation_id::text is distinct from nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '');
 
   if not coalesce(p_dry_run, true) then
+    -- Audit R23: the pending/processing-job guard was only evaluated during
+    -- candidate selection, before the seven count statements above. A reindex
+    -- enqueued and claimed in that window would have its freshly-staged (still
+    -- uncommitted, generation-mismatched) rows deleted mid-build. Re-filter to
+    -- documents that STILL have no open job immediately before deleting, so the
+    -- exposure window shrinks to this block instead of spanning candidate
+    -- selection plus the counts.
+    select coalesce(array_agg(doc_id), '{}'::uuid[])
+    into target_document_ids
+    from unnest(target_document_ids) as doc_id
+    where not exists (
+      select 1 from public.ingestion_jobs j
+      where j.document_id = doc_id
+        and j.status in ('pending', 'processing')
+    );
+
     delete from public.document_chunks c
     using public.documents d
     where d.id = c.document_id
@@ -1725,6 +1741,14 @@ begin
     return jsonb_build_object('ok', false, 'reason', 'missing_batch_id');
   end if;
 
+  -- Audit R9: two jobs of the same batch finishing in overlapping transactions
+  -- each counted the batch before the other committed, so both computed
+  -- 'processing' and the second write pinned the batch as processing forever.
+  -- Locking the import_batches row first serializes concurrent refreshes: the
+  -- second caller blocks here until the first commits, then its count below
+  -- sees the first's committed job state.
+  perform 1 from public.import_batches where id = p_batch_id for update;
+
   select
     count(*) filter (where status = 'pending'),
     count(*) filter (where status = 'processing'),
@@ -1760,13 +1784,21 @@ create or replace function public.complete_ingestion_job(
   p_job_id uuid,
   p_document_id uuid,
   p_batch_id uuid default null,
-  p_stage text default 'indexed'
+  p_stage text default 'indexed',
+  p_worker_id text default null
 )
 returns jsonb
 language plpgsql
 set search_path = public, extensions, pg_temp
 as $$
+declare
+  v_matched integer;
 begin
+  -- Audit R1/R2: when the caller passes its worker id, fence the completion on
+  -- `locked_by = p_worker_id`. A worker that lost its lease to a stale reclaim
+  -- (or a resumed zombie) then matches 0 rows and returns lease_lost WITHOUT
+  -- superseding siblings or touching the batch — the reclaimer owns the outcome.
+  -- p_worker_id null preserves the pre-fence behavior for older callers.
   update public.ingestion_jobs
   set
     status = 'completed',
@@ -1777,7 +1809,13 @@ begin
     locked_by = null,
     completed_at = now()
   where id = p_job_id
-    and document_id = p_document_id;
+    and document_id = p_document_id
+    and (p_worker_id is null or locked_by = p_worker_id);
+  get diagnostics v_matched = row_count;
+
+  if p_worker_id is not null and v_matched = 0 then
+    return jsonb_build_object('ok', false, 'reason', 'lease_lost', 'job_id', p_job_id, 'document_id', p_document_id);
+  end if;
 
   update public.ingestion_jobs
   set
@@ -1808,13 +1846,36 @@ create or replace function public.fail_or_retry_ingestion_job(
   p_document_status text default 'failed',
   p_stage text default 'failed',
   p_error_message text default null,
-  p_next_run_at timestamptz default null
+  p_next_run_at timestamptz default null,
+  p_worker_id text default null
 )
 returns jsonb
 language plpgsql
 set search_path = public, extensions, pg_temp
 as $$
+declare
+  v_job public.ingestion_jobs%rowtype;
+  v_retry boolean;
 begin
+  -- Lock the job row so the ownership check and the write are atomic.
+  select * into v_job
+  from public.ingestion_jobs
+  where id = p_job_id and document_id = p_document_id
+  for update;
+
+  -- Audit R1/R2: a fenced caller (p_worker_id set) must still hold the lease,
+  -- otherwise a resumed zombie could demote a document the reclaimer already
+  -- indexed. Return lease_lost without touching the document or job.
+  if p_worker_id is not null and (v_job.id is null or v_job.locked_by is distinct from p_worker_id) then
+    return jsonb_build_object('ok', false, 'reason', 'lease_lost', 'job_id', p_job_id, 'document_id', p_document_id, 'retry', false);
+  end if;
+
+  -- Audit R7: re-pending a job whose attempt_count already reached max_attempts
+  -- would strand it as permanently-unclaimable 'pending' (claim requires
+  -- attempt_count < max_attempts), pinning its batch as 'processing' forever.
+  -- Downgrade such a retry to terminal 'failed' so the queue can drain.
+  v_retry := p_retry and coalesce(v_job.attempt_count, 0) < coalesce(v_job.max_attempts, 0);
+
   update public.documents
   set
     status = p_document_status,
@@ -1823,14 +1884,14 @@ begin
 
   update public.ingestion_jobs
   set
-    status = case when p_retry then 'pending' else 'failed' end,
+    status = case when v_retry then 'pending' else 'failed' end,
     stage = p_stage,
-    progress = case when p_retry then 0 else 100 end,
+    progress = case when v_retry then 0 else 100 end,
     error_message = p_error_message,
     locked_at = null,
     locked_by = null,
     next_run_at = coalesce(p_next_run_at, next_run_at),
-    completed_at = case when p_retry then null else now() end
+    completed_at = case when v_retry then null else now() end
   where id = p_job_id
     and document_id = p_document_id;
 
@@ -1838,7 +1899,7 @@ begin
     perform public.refresh_import_batch_status(p_batch_id);
   end if;
 
-  return jsonb_build_object('ok', true, 'job_id', p_job_id, 'document_id', p_document_id, 'retry', p_retry);
+  return jsonb_build_object('ok', true, 'job_id', p_job_id, 'document_id', p_document_id, 'retry', v_retry);
 end;
 $$;
 

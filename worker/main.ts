@@ -29,6 +29,7 @@ import {
   isPartialIndexWriteConflict,
   isRetryableIngestionError,
   nextRetryAt,
+  shouldPersistJobProgress,
   terminalBatchStatus,
 } from "../src/lib/ingestion";
 import { assessDocumentIndexQuality } from "../src/lib/index-quality";
@@ -72,6 +73,11 @@ const workerId = `${os.hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`;
 const progressUpdateState = new Map<string, { updatedAt: number; progress: number; stage: string }>();
 const progressUpdateMinIntervalMs = env.WORKER_PROGRESS_UPDATE_MIN_INTERVAL_MS;
 const progressUpdateMinDelta = 4;
+// Audit R1: force a lease-refreshing progress write at least this often so a
+// long silent phase cannot let locked_at age past WORKER_STALE_AFTER_MINUTES
+// and get the live job reclaimed. One-third of the stale window guarantees
+// several heartbeats before staleness; floored at 30s.
+const jobLeaseHeartbeatMs = Math.max(30_000, Math.floor((env.WORKER_STALE_AFTER_MINUTES * 60_000) / 3));
 const maxSupabaseBackoffMs = env.WORKER_HEALTH_BACKOFF_MS;
 const analyzeRagTablesThrottleMs = 45_000;
 let lastAnalyzeRagTablesAt = 0;
@@ -127,13 +133,29 @@ async function updateJob(jobId: string, patch: TablesUpdate<"ingestion_jobs">) {
 async function updateJobProgress(jobId: string, patch: { stage: string; progress: number }) {
   const previous = progressUpdateState.get(jobId);
   const now = Date.now();
-  const enoughTimeElapsed = !previous || now - previous.updatedAt >= progressUpdateMinIntervalMs;
-  const enoughProgressChanged = !previous || Math.abs(patch.progress - previous.progress) >= progressUpdateMinDelta;
-  const stagePrefixChanged = !previous || patch.stage.split(" ")[0] !== previous.stage.split(" ")[0];
 
-  if (!enoughTimeElapsed && !enoughProgressChanged && !stagePrefixChanged) return;
+  if (
+    !shouldPersistJobProgress({
+      previous,
+      next: patch,
+      now,
+      minIntervalMs: progressUpdateMinIntervalMs,
+      minDelta: progressUpdateMinDelta,
+      heartbeatMs: jobLeaseHeartbeatMs,
+    })
+  ) {
+    return;
+  }
 
-  const { error } = await supabase.from("ingestion_jobs").update(patch).eq("id", jobId);
+  // Audit R1: the progress write doubles as a lease heartbeat — refresh
+  // locked_at, but only while we still hold the lease (`locked_by = workerId`),
+  // so a worker that was already reclaimed no-ops instead of resurrecting or
+  // overwriting a lease another worker now owns.
+  const { error } = await supabase
+    .from("ingestion_jobs")
+    .update({ ...patch, locked_at: new Date().toISOString() })
+    .eq("id", jobId)
+    .eq("locked_by", workerId);
   if (error) {
     console.warn(
       "Ingestion progress update failed",
@@ -207,15 +229,23 @@ async function updateBatch(batchId: string | null) {
 }
 
 async function completeJob(job: JobRow, stage: string) {
-  const { error } = await supabase.rpc("complete_ingestion_job", {
+  const { data, error } = await supabase.rpc("complete_ingestion_job", {
     p_job_id: job.id,
     p_document_id: job.document_id,
     // SQL default for p_batch_id is null, so omitting the key when batch_id
     // is null sends the same value the explicit null did.
     p_batch_id: job.batch_id ?? undefined,
     p_stage: stage,
+    p_worker_id: workerId,
   });
   if (!error) {
+    // Audit R1: the RPC returns ok:false when this worker no longer holds the
+    // lease (a stale reclaim took it). The reclaiming worker owns the outcome —
+    // do not fall back or clobber its state.
+    if ((data as { ok?: boolean } | null)?.ok === false) {
+      console.warn("Ingestion completion skipped; lease lost to a reclaim", safeIngestionJobLog(job.id));
+      return;
+    }
     invalidateRagCachesForDocumentMutation(job.documents.owner_id ?? "anonymous");
     return;
   }
@@ -275,7 +305,7 @@ async function failOrRetryJob(args: {
   errorMessage: string;
   nextRunAt?: string;
 }) {
-  const { error } = await supabase.rpc("fail_or_retry_ingestion_job", {
+  const { data, error } = await supabase.rpc("fail_or_retry_ingestion_job", {
     p_job_id: args.job.id,
     p_document_id: args.job.document_id,
     p_batch_id: args.job.batch_id ?? undefined,
@@ -284,8 +314,17 @@ async function failOrRetryJob(args: {
     p_stage: args.stage,
     p_error_message: args.errorMessage,
     p_next_run_at: args.nextRunAt ?? undefined,
+    p_worker_id: workerId,
   });
-  if (!error) return;
+  if (!error) {
+    // Audit R1: ok:false means this worker lost the lease; the reclaimer owns
+    // the document/job state, so do not fall back and demote it.
+    if ((data as { ok?: boolean } | null)?.ok === false) {
+      console.warn("Ingestion fail/retry skipped; lease lost to a reclaim", safeIngestionJobLog(args.job.id));
+      return;
+    }
+    return;
+  }
   if (!isMissingSchemaError(error)) throw supabaseStageError("fail or retry ingestion job", error);
 
   await updateDocument(args.job.document_id, { status: args.documentStatus, error_message: args.errorMessage });
