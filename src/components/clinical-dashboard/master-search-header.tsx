@@ -16,17 +16,13 @@ import { createPortal } from "react-dom";
 
 import {
   Activity,
-  BadgeCheck,
   CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
   FileText,
   Filter,
-  FolderOpen,
-  GitBranch,
   Globe2,
-  ListChecks,
   Loader2,
   Menu,
   MessageSquarePlus,
@@ -362,7 +358,6 @@ export function MasterSearchHeader({
     [documentById, selectedDocumentIds],
   );
   const scopeSummary = selectedDocumentIds.length === 0 ? "All documents" : `${selectedDocumentIds.length} scoped`;
-  const footerScopeLabel = selectedDocumentIds.length === 0 ? "All sources" : `${selectedDocumentIds.length} scoped`;
   const scopePreview = useMemo(
     () =>
       selectedDocuments
@@ -1063,137 +1058,6 @@ export function MasterSearchHeader({
     );
   }
 
-  // "open-evidence" is the one footer-chip action that isn't already a mode-action
-  // id — every other chip dispatches through the existing runModeAction handler
-  // (the same dispatcher the "+" action menu already uses for these ids).
-  type FooterChipActionId = ModeActionId | "open-evidence";
-
-  type FooterActionChip = {
-    icon: typeof Search;
-    shortLabel: string;
-    longLabel: string;
-    actionId: FooterChipActionId;
-    ariaLabel: string;
-  };
-
-  function footerTrustChipFor(mode: AppModeId): FooterActionChip | null {
-    switch (mode) {
-      case "answer":
-        return {
-          icon: ListChecks,
-          shortLabel: "Evidence",
-          longLabel: "Evidence-based",
-          actionId: "open-evidence",
-          ariaLabel: "Open evidence-backed answer sources",
-        };
-      case "documents":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Indexed",
-          longLabel: "Fully indexed",
-          actionId: "documents-collections",
-          ariaLabel: "Open the indexed document library",
-        };
-      case "forms":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Library",
-          longLabel: "Form library",
-          actionId: "forms-records",
-          ariaLabel: "Open the form library",
-        };
-      case "services":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Verified",
-          longLabel: "Verified directory",
-          actionId: "services-records",
-          ariaLabel: "Browse verified service records",
-        };
-      case "favourites":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Trusted",
-          longLabel: "Trusted picks",
-          actionId: "favourites-browse",
-          ariaLabel: "Browse trusted favourites",
-        };
-      case "differentials":
-        return {
-          icon: ListChecks,
-          shortLabel: "Evidence",
-          longLabel: "Evidence-linked",
-          actionId: "differentials-evidence",
-          ariaLabel: "Review cited differential evidence",
-        };
-      case "prescribing":
-        return {
-          icon: ShieldCheck,
-          shortLabel: "Safety",
-          longLabel: "Safety-checked",
-          actionId: "medication-safety",
-          ariaLabel: "Review contraindications and cautions",
-        };
-      case "tools":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Curated",
-          longLabel: "Curated registry",
-          actionId: "tools-browse",
-          ariaLabel: "Browse the curated tools registry",
-        };
-      default:
-        return null;
-    }
-  }
-
-  function footerSecondaryChipFor(mode: AppModeId): FooterActionChip | null {
-    switch (mode) {
-      case "services":
-        return {
-          icon: ListChecks,
-          shortLabel: "Pathways",
-          longLabel: "Pathways",
-          actionId: "services-pathways",
-          ariaLabel: "Browse referral pathways",
-        };
-      case "favourites":
-        return {
-          icon: FolderOpen,
-          shortLabel: "Sets",
-          longLabel: "Sets",
-          actionId: "favourites-sets",
-          ariaLabel: "Open saved sets",
-        };
-      case "differentials":
-        return {
-          icon: GitBranch,
-          shortLabel: "Criteria",
-          longLabel: "Criteria",
-          actionId: "differentials-criteria",
-          ariaLabel: "Compare distinguishing criteria",
-        };
-      case "prescribing":
-        return {
-          icon: Activity,
-          shortLabel: "Monitor",
-          longLabel: "Monitoring",
-          actionId: "medication-monitoring",
-          ariaLabel: "Review the monitoring schedule",
-        };
-      default:
-        return null;
-    }
-  }
-
-  function runFooterChipAction(actionId: FooterChipActionId) {
-    if (actionId === "open-evidence") {
-      onOpenEvidence?.();
-      return;
-    }
-    runModeAction(actionId);
-  }
-
   function renderSearchComposer(placement: "default" | "desktop-home") {
     const isDesktopHomeComposer = placement === "desktop-home";
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
@@ -1209,10 +1073,6 @@ export function MasterSearchHeader({
     const usesModeIdentityAffordance = usesBottomComposerPlacement && !usesSendAffordance;
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
-    const trustFooterChip = footerTrustChipFor(searchMode);
-    const secondaryFooterChip = footerSecondaryChipFor(searchMode);
-    const TrustFooterChipIcon = trustFooterChip?.icon ?? BadgeCheck;
-    const SecondaryFooterChipIcon = secondaryFooterChip?.icon ?? ListChecks;
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
     const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
 
@@ -1331,7 +1191,7 @@ export function MasterSearchHeader({
               triggerClassName="answer-footer-search-action"
               triggerRef={actionMenuTriggerRef}
               integrated={usesFooterChipLayout}
-              integratedChipRow={showFooterSearchChips}
+              integratedChipRow={false}
               dismissIgnoreRefs={[modeMenuRef]}
             />
 
@@ -1395,48 +1255,6 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
-        {showFooterSearchChips && (trustFooterChip || hasScopeFooterChip || secondaryFooterChip) ? (
-          <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">
-            {trustFooterChip ? (
-              <button
-                type="button"
-                onClick={() => runFooterChipAction(trustFooterChip.actionId)}
-                className="answer-footer-search-chip"
-                aria-label={trustFooterChip.ariaLabel}
-              >
-                <TrustFooterChipIcon className="h-4 w-4" aria-hidden="true" />
-                <span className="sm:hidden">{trustFooterChip.shortLabel}</span>
-                <span className="hidden sm:inline">{trustFooterChip.longLabel}</span>
-              </button>
-            ) : null}
-            {hasScopeFooterChip ? (
-              <button
-                type="button"
-                data-testid="scope-trigger"
-                onClick={openScopePicker}
-                className="answer-footer-search-chip"
-                aria-expanded={usesScopeSheet ? scopeSheetOpen : scopeOpen}
-                aria-label="Open source scope"
-              >
-                <Filter className="h-4 w-4" aria-hidden="true" />
-                <span className="sm:hidden">{selectedDocumentIds.length === 0 ? "Sources" : footerScopeLabel}</span>
-                <span className="hidden sm:inline">{footerScopeLabel}</span>
-              </button>
-            ) : null}
-            {!hasScopeFooterChip && secondaryFooterChip ? (
-              <button
-                type="button"
-                onClick={() => runFooterChipAction(secondaryFooterChip.actionId)}
-                className="answer-footer-search-chip"
-                aria-label={secondaryFooterChip.ariaLabel}
-              >
-                <SecondaryFooterChipIcon className="h-4 w-4" aria-hidden="true" />
-                <span className="sm:hidden">{secondaryFooterChip.shortLabel}</span>
-                <span className="hidden sm:inline">{secondaryFooterChip.longLabel}</span>
-              </button>
-            ) : null}
-          </div>
-        ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
             open it even when the footer chip row is not shown. */}
         {hasScopeFooterChip && !usesScopeSheet && scopeOpen ? (
