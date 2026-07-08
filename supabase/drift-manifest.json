@@ -2,7 +2,7 @@
   "generated_at": "2026-07-08T06:45:01.039Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "6174f3657e00b3a9ec11258cc599b956b6bdad805d7e37472710d0d34f4f1591",
+  "schema_sha256": "430046a9221f4060286c2208800ef794eef407af8997fd4582f414de95e88c44",
   "replay_seconds": 13,
   "snapshot": {
     "views": [
@@ -6543,11 +6543,6 @@
       {
         "def": "FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE",
         "name": "ingestion_job_stages_document_id_fkey",
-        "table": "ingestion_job_stages"
-      },
-      {
-        "def": "FOREIGN KEY (job_id) REFERENCES public.ingestion_jobs(id) ON DELETE CASCADE",
-        "name": "ingestion_job_stages_job_id_fkey",
         "table": "ingestion_job_stages"
       },
       {

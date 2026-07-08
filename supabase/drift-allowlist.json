@@ -3,13 +3,6 @@
   "entries": [
     {
       "category": "constraints",
-      "key": "ingestion_job_stages.ingestion_job_stages_job_id_fkey",
-      "kind": "missing_live",
-      "reason": "FK declared in schema.sql and migrations but absent on live; add via approved migration (NOT VALID + VALIDATE pattern).",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "constraints",
       "key": "rag_visual_eval_cases.rag_visual_eval_cases_document_id_fkey",
       "kind": "mismatch",
       "reason": "Live FK definition differs from the codified repo definition (rag_visual_eval_* document FKs); align via approved migration.",
