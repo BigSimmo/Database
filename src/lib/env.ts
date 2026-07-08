@@ -6,6 +6,11 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   SUPABASE_PROJECT_REF: z.string().optional(),
   SUPABASE_PROJECT_NAME: z.string().optional(),
+  // Optional: declares a second accepted (staging) Supabase project so the
+  // identity guard accepts it. Both must be set; the ref must differ from
+  // production. See docs/staging-setup.md and src/lib/supabase/project.ts.
+  SUPABASE_STAGING_PROJECT_REF: z.string().optional(),
+  SUPABASE_STAGING_PROJECT_NAME: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_DB_URL: z.string().url().optional(),
   HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
