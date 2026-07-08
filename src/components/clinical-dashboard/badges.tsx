@@ -47,12 +47,15 @@ export function StatusBadge({ status }: { status: string }) {
 export function StrengthBadge({ strength }: { strength?: string }) {
   const label = strength ?? "source";
   const className = strength === "strong" ? toneSuccess : strength === "limited" ? toneWarning : toneInfo;
+  // A checkmark implies "verified"; limited support is a caution, so pair the
+  // warning tone with a caution icon rather than a misleading tick.
+  const Icon = strength === "limited" ? AlertCircle : CheckCircle2;
 
   return (
     <span
       className={cn("inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold", className)}
     >
-      <CheckCircle2 className="h-3.5 w-3.5" />
+      <Icon className="h-3.5 w-3.5" />
       {label}
     </span>
   );
