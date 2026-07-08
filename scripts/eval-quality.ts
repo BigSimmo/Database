@@ -13,9 +13,9 @@ import {
 } from "./eval-retrieval";
 import {
   estimateCostUsd,
-  findOwnerIdByEmail,
   loadAdminClient,
   percentile,
+  resolveEvalOwnerId,
   validateRagAnswer,
   withProviderBackoff,
 } from "./eval-utils";
@@ -941,7 +941,7 @@ async function main() {
     ? await loadSourceMetadataDebtAcceptance(args.sourceMetadataDebt)
     : undefined;
 
-  const ownerId = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
+  const ownerId = await resolveEvalOwnerId(supabase, args);
   const retrievalResults = args.ragOnly ? [] : await runRetrievalQualityCases({ ...args, ownerId, supabase });
   const ragResults = args.retrievalOnly ? [] : await runRagQualityCases({ ...args, ownerId, supabase });
   const report = buildEvalQualityReport({ retrievalResults, ragResults, sourceMetadataDebtAcceptance });

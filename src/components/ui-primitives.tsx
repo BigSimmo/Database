@@ -1,4 +1,4 @@
-import { Loader2, X, type LucideIcon } from "lucide-react";
+import { Ban, Loader2, TriangleAlert, X, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   extractionQualityLabel,
@@ -264,24 +264,29 @@ export function SourceStatusBadge({
   showTitle?: boolean;
 }) {
   const source = normalizeSourceMetadata(metadata);
+  const status = source.document_status;
   const toneClassName =
-    source.document_status === "current"
+    status === "current"
       ? toneSuccess
-      : source.document_status === "outdated"
+      : status === "outdated"
         ? toneDanger
-        : source.document_status === "review_due"
+        : status === "review_due"
           ? toneWarning
           : toneWarningQuiet;
+  // Danger/warning states carry an icon so they stay distinguishable without
+  // colour (forced-colors, fast scanning). "Current" stays quiet and iconless.
+  const Icon = status === "outdated" ? Ban : status === "current" ? null : TriangleAlert;
 
   return (
     <span
       title={showTitle ? sourceStatusLabel(source) : undefined}
       className={cn(
-        "inline-flex min-h-7 items-center rounded-md border px-2 text-xs font-semibold",
+        "inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold",
         toneClassName,
         className,
       )}
     >
+      {Icon ? <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : null}
       {sourceStatusLabel(source)}
     </span>
   );

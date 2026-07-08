@@ -1,19 +1,10 @@
-import type { ClinicalBadgeTone } from "@/components/clinical-dashboard/clinical-badge";
+import { SEMANTIC_TONE_PRIORITY, type SemanticIconKey, type SemanticTone } from "@/lib/semantic-tone";
 import type {
   MedicationPatientMetadata,
   MedicationRecord,
   MedicationSectionRow,
   MedicationStat,
 } from "@/lib/medications";
-
-const clinicalBadgeTonePriority: Record<ClinicalBadgeTone, number> = {
-  danger: 6,
-  warning: 5,
-  clinical: 4,
-  success: 3,
-  neutral: 2,
-  info: 1,
-};
 
 export type MedicationGovernance = {
   sourceStatus?: string;
@@ -23,10 +14,14 @@ export type MedicationGovernance = {
 export type MedicationBadge = {
   id: string;
   label: string;
-  tone: ClinicalBadgeTone;
+  tone: SemanticTone;
+  // Optional semantic icon key resolved by ClinicalBadge (e.g. controlled-drug
+  // lock). Danger/warning badges already get a default icon from their tone, so
+  // this is only set where a specific icon is meaningful.
+  iconKey?: SemanticIconKey;
 };
 
-const TAG_TONES: Record<string, ClinicalBadgeTone> = {
+const TAG_TONES: Record<string, SemanticTone> = {
   PBS: "success",
   TGA: "info",
   OFF: "warning",
@@ -83,7 +78,7 @@ export function dedupeBadges(badges: MedicationBadge[]): MedicationBadge[] {
 }
 
 export function sortBadgesByPriority(badges: MedicationBadge[]): MedicationBadge[] {
-  return [...badges].sort((a, b) => clinicalBadgeTonePriority[b.tone] - clinicalBadgeTonePriority[a.tone]);
+  return [...badges].sort((a, b) => SEMANTIC_TONE_PRIORITY[b.tone] - SEMANTIC_TONE_PRIORITY[a.tone]);
 }
 
 function formulationShortLabel(value: string): string | null {
@@ -160,7 +155,7 @@ function patientBadges(patient: MedicationPatientMetadata, prefix: string, badge
 
   const action = patient.action ?? "";
   const severity = patient.severity === "danger" ? "danger" : action === "contraindication" ? "danger" : "warning";
-  const factorTone: ClinicalBadgeTone =
+  const factorTone: SemanticTone =
     action === "monitor" || action === "dose-adjust" ? "clinical" : severity === "danger" ? "danger" : "warning";
 
   for (const factor of patient.factors ?? []) {
@@ -227,10 +222,15 @@ export function medicationIdentityBadges(
     pushBadge(badges, { id: "identity-tag", label: record.tag, tone: "neutral" });
   }
   if (record.schedule) {
+    // S8 (controlled drug) is a regulatory classification, not a clinical stop
+    // state. Give it a dedicated "controlled" treatment — warning tone + lock
+    // icon — so red stays reserved for true contraindications/do-not-use.
+    const isControlled = record.schedule === "S8";
     pushBadge(badges, {
       id: "identity-schedule",
       label: record.schedule,
-      tone: record.schedule === "S8" ? "danger" : "info",
+      tone: isControlled ? "warning" : "info",
+      ...(isControlled ? { iconKey: "controlled" as const } : {}),
     });
   }
 
@@ -320,7 +320,7 @@ export function medicationAccessBadges(record: MedicationRecord): MedicationBadg
   return sortBadgesByPriority(dedupeBadges(badges)).slice(0, 4);
 }
 
-export function medicationStatTone(stat: MedicationStat): ClinicalBadgeTone {
+export function medicationStatTone(stat: MedicationStat): SemanticTone {
   const cls = stat.cls?.toLowerCase() ?? "";
   const flag = stat.flag?.toLowerCase() ?? "";
   if (cls === "hi" || flag === "hi") return "danger";

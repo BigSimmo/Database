@@ -185,6 +185,20 @@ export function requireOpenAIEnv() {
   }
 }
 
+// Clinical query text is redacted to a keyed HMAC pseudonym before it is logged
+// (see query-privacy.ts). Without RAG_QUERY_HASH_SECRET the hash silently degrades
+// to an unsalted, dictionary-reversible SHA-256, which defeats the redaction: a
+// reader of the log tables can hash candidate patient/drug strings offline and match
+// rows. Production must fail closed rather than log real clinical queries under the
+// weak digest. See docs/privacy-impact-assessment.md (PIA-2).
+export function requireQueryHashSecret() {
+  if (!env.RAG_QUERY_HASH_SECRET) {
+    throw new Error(
+      "Missing RAG_QUERY_HASH_SECRET. It is required in production so logged clinical-query hashes are keyed HMAC-SHA256 pseudonyms, not offline-reversible SHA-256. Set a random secret (min 16 chars). See docs/privacy-impact-assessment.md (PIA-2).",
+    );
+  }
+}
+
 export function isDemoMode() {
   // Explicit opt-in is honored in every environment (e.g. a deliberate demo deploy).
   if (env.NEXT_PUBLIC_DEMO_MODE === "true") {

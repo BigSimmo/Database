@@ -16,7 +16,7 @@ import {
   type AnswerQualityMetric,
 } from "@/lib/rag-eval-cases";
 import type { RagAnswer } from "@/lib/types";
-import { findOwnerIdByEmail, loadAdminClient, withProviderBackoff } from "./eval-utils";
+import { loadAdminClient, resolveEvalOwnerId, withProviderBackoff } from "./eval-utils";
 
 loadEnvConfig(process.cwd());
 
@@ -64,7 +64,7 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
-  const ownerId = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
+  const ownerId = await resolveEvalOwnerId(supabase, args);
   let cases: AnswerQualityEvalCase[] = answerQualityEvalCases;
   if (args.intent) cases = cases.filter((testCase) => testCase.expectedIntent === args.intent);
   if (args.limit) cases = cases.slice(0, args.limit);
