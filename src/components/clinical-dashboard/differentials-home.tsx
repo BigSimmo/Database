@@ -252,7 +252,6 @@ function ResultTypeTabs({
             type="button"
             role="tab"
             aria-selected={active}
-            aria-pressed={active}
             aria-label={`${tab.label} (${tab.count})`}
             onClick={() => onFilterChange(tab.id)}
             className={cn(
