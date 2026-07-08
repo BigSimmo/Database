@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Clock, CornerDownLeft, Loader2, Search, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Clock, CornerDownLeft, Loader2, Search, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 
@@ -50,9 +50,6 @@ const domainHeadings: Record<UniversalSearchDomain, string> = {
   differentials: "Differentials",
   tools: "Tools",
 };
-
-const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 const SMART_HINT_ROTATION_MS = 3200;
 
@@ -123,49 +120,6 @@ function SmartPromptRow({ examples, onPickExample }: { examples: string[]; onPic
       layout="scroll"
       className="smart-search-prompt-row"
     />
-  );
-}
-
-function ScopeChipRow({
-  scopes,
-  activeScopes,
-  onToggle,
-  modeLabel,
-}: {
-  scopes: Array<{ id: string; label: string }>;
-  activeScopes: string[];
-  onToggle: (id: string) => void;
-  modeLabel: string;
-}) {
-  if (!scopes.length) return null;
-
-  return (
-    <div
-      className="hidden flex-wrap items-center justify-center gap-1.5 lg:flex"
-      role="group"
-      aria-label={`${modeLabel} search scope`}
-    >
-      {scopes.map((scope) => {
-        const active = activeScopes.includes(scope.id);
-        return (
-          <button
-            key={scope.id}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onToggle(scope.id)}
-            className={cn(
-              "answer-footer-search-chip",
-              focusRing,
-              active &&
-                "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-            )}
-          >
-            {active ? <X className="h-3.5 w-3.5" aria-hidden /> : null}
-            {scope.label}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -350,6 +304,8 @@ export function UniversalSearchCommandSurface({
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
+  void commandScopes;
+  void onCommandScopesChange;
   const config = searchCommandSurfaceConfig(modeId);
   const listboxId = useId();
   const router = useRouter();
@@ -741,12 +697,6 @@ export function UniversalSearchCommandSurface({
   const flatItems = useMemo(() => sections.flatMap((section) => section.items), [sections]);
   const activeItemId = activeIndex >= 0 && activeIndex < flatItems.length ? flatItems[activeIndex].id : null;
 
-  function toggleScope(id: string) {
-    onCommandScopesChange(
-      commandScopes.includes(id) ? commandScopes.filter((scope) => scope !== id) : [...commandScopes, id],
-    );
-  }
-
   function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -861,8 +811,6 @@ export function UniversalSearchCommandSurface({
           onFocusSearchInput?.();
         }}
       />
-      <ScopeChipRow scopes={config.scopes} activeScopes={commandScopes} onToggle={toggleScope} modeLabel={mode.label} />
-      <style>{`@keyframes universal-command-fade { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }`}</style>
     </div>
   );
 }
