@@ -1,0 +1,52 @@
+name: SAST
+
+on:
+  push:
+    branches: [main, "release/**"]
+  pull_request:
+    branches: [main, "release/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Static application security testing. Semgrep is used instead of CodeQL
+  # because this repository is private without GitHub Advanced Security, so the
+  # code-scanning SARIF upload CodeQL relies on is unavailable; a build-failing
+  # scan mirrors the existing `npm audit` gate in ci.yml. The document parsers
+  # (pdf-parse, pdfjs-dist, mammoth, exceljs, jszip) and the answer/ingestion
+  # paths process untrusted uploaded documents, so ERROR-severity findings block
+  # the merge. Runs OSS-engine only — no Semgrep account or token required.
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: semgrep/semgrep:1.168.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Semgrep scan
+        # --error fails the job on any ERROR-severity finding; --oss-only keeps
+        # it token-free; --metrics off sends no telemetry. Rulesets are pinned by
+        # name (no network `auto` inference). Secrets are covered by Gitleaks in
+        # secret-scan.yml, so no p/secrets here. Scope is source only.
+        run: >
+          semgrep scan
+          --error
+          --severity ERROR
+          --oss-only
+          --metrics off
+          --config p/typescript
+          --config p/javascript
+          --config p/react
+          --config p/nodejs
+          src worker scripts
