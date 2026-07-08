@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-06T18:30:39.629Z",
+  "generated_at": "2026-07-08T06:45:01.039Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "8a88db3fcd974fae74807a91da118e8b0f9f4bcbf02df65b8b5670b22c32e24c",
-  "replay_seconds": 15,
+  "schema_sha256": "6174f3657e00b3a9ec11258cc599b956b6bdad805d7e37472710d0d34f4f1591",
+  "replay_seconds": 13,
   "snapshot": {
     "views": [
       {
@@ -5658,7 +5658,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "7ae76db3475c957f6af5199d59fa05ff",
+        "def_hash": "4ee148dcab28d6bbe10cfa542213f0f6",
         "signature": "public.cleanup_abandoned_document_index_generations(uuid,integer,boolean)"
       },
       {
@@ -5674,8 +5674,8 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "de9b9a4cc8ee9398b23488ca5a4749b9",
-        "signature": "public.complete_ingestion_job(uuid,uuid,uuid,text)"
+        "def_hash": "6406ade971963fa9b6d952765a697bd9",
+        "signature": "public.complete_ingestion_job(uuid,uuid,uuid,text,text)"
       },
       {
         "acl": [
@@ -5700,6 +5700,14 @@
         ],
         "def_hash": "e263f3819b05177abcf2eedd3f468991",
         "signature": "public.consume_api_subject_rate_limit(text,text,integer,integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "c270be1b09209a63fd55f924748f40a2",
+        "signature": "public.corpus_topic_term_stats(text[],uuid)"
       },
       {
         "acl": [
@@ -5746,8 +5754,8 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "bdc7c13da9993cd550a10202b2c725e5",
-        "signature": "public.fail_or_retry_ingestion_job(uuid,uuid,uuid,boolean,text,text,text,timestamp with time zone)"
+        "def_hash": "0bbcb829db375283a92627aba610e6df",
+        "signature": "public.fail_or_retry_ingestion_job(uuid,uuid,uuid,boolean,text,text,text,timestamp with time zone,text)"
       },
       {
         "acl": [
@@ -5898,7 +5906,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "ded3c523452e1483097d15a7ac8a4639",
+        "def_hash": "843e3e00240d7fcbf6465bdfd3801525",
         "signature": "public.refresh_import_batch_status(uuid)"
       },
       {

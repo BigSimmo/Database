@@ -229,15 +229,23 @@ async function updateBatch(batchId: string | null) {
 }
 
 async function completeJob(job: JobRow, stage: string) {
-  const { error } = await supabase.rpc("complete_ingestion_job", {
+  const { data, error } = await supabase.rpc("complete_ingestion_job", {
     p_job_id: job.id,
     p_document_id: job.document_id,
     // SQL default for p_batch_id is null, so omitting the key when batch_id
     // is null sends the same value the explicit null did.
     p_batch_id: job.batch_id ?? undefined,
     p_stage: stage,
+    p_worker_id: workerId,
   });
   if (!error) {
+    // Audit R1: the RPC returns ok:false when this worker no longer holds the
+    // lease (a stale reclaim took it). The reclaiming worker owns the outcome —
+    // do not fall back or clobber its state.
+    if ((data as { ok?: boolean } | null)?.ok === false) {
+      console.warn("Ingestion completion skipped; lease lost to a reclaim", safeIngestionJobLog(job.id));
+      return;
+    }
     invalidateRagCachesForDocumentMutation(job.documents.owner_id ?? "anonymous");
     return;
   }
@@ -297,7 +305,7 @@ async function failOrRetryJob(args: {
   errorMessage: string;
   nextRunAt?: string;
 }) {
-  const { error } = await supabase.rpc("fail_or_retry_ingestion_job", {
+  const { data, error } = await supabase.rpc("fail_or_retry_ingestion_job", {
     p_job_id: args.job.id,
     p_document_id: args.job.document_id,
     p_batch_id: args.job.batch_id ?? undefined,
@@ -306,8 +314,17 @@ async function failOrRetryJob(args: {
     p_stage: args.stage,
     p_error_message: args.errorMessage,
     p_next_run_at: args.nextRunAt ?? undefined,
+    p_worker_id: workerId,
   });
-  if (!error) return;
+  if (!error) {
+    // Audit R1: ok:false means this worker lost the lease; the reclaimer owns
+    // the document/job state, so do not fall back and demote it.
+    if ((data as { ok?: boolean } | null)?.ok === false) {
+      console.warn("Ingestion fail/retry skipped; lease lost to a reclaim", safeIngestionJobLog(args.job.id));
+      return;
+    }
+    return;
+  }
   if (!isMissingSchemaError(error)) throw supabaseStageError("fail or retry ingestion job", error);
 
   await updateDocument(args.job.document_id, { status: args.documentStatus, error_message: args.errorMessage });
