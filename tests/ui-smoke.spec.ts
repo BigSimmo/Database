@@ -904,6 +904,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
     }
   });
 
+  test("served response headers do not block cross-origin Supabase images", async ({ page }) => {
+    // Regression guard for the "all images fail to render" incident: document
+    // page images load cross-origin from Supabase Storage signed URLs. A
+    // Cross-Origin-Embedder-Policy: require-corp header (or a CSP that drops
+    // https: images / the *.supabase.co origin) silently breaks every image
+    // while all other tests still pass. Assert the actual served headers.
+    const response = await page.request.get("/");
+    expect(response.status()).toBe(200);
+    const headers = response.headers();
+
+    expect(headers["cross-origin-embedder-policy"]).toBeUndefined();
+
+    const csp = headers["content-security-policy"] ?? "";
+    expect(csp).toContain("img-src");
+    const imgSrc = csp.split(";").find((directive) => directive.trim().startsWith("img-src"));
+    expect(imgSrc).toContain("https:");
+    expect(csp).toContain("https://*.supabase.co");
+  });
+
   test("static agent guidance is available and documents mode avoids the app error boundary", async ({ page }) => {
     const llms = await page.request.get("/llms.txt");
     expect(llms.status()).toBe(200);
