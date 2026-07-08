@@ -53,6 +53,45 @@ describe("ingestion queue recovery planning", () => {
     expect(plan.actions[0]).toMatchObject({ action: "supersede", jobId: "old-failure" });
   });
 
+  it("leaves a queued (pending) reindex of an indexed document alone (R22)", () => {
+    const plan = buildIngestionRecoveryPlan({
+      now,
+      staleAfterMinutes: 45,
+      jobs: [
+        {
+          id: "queued-reindex",
+          document_id: "doc-indexed",
+          status: "pending",
+          documents: { status: "indexed", chunk_count: 42 },
+        },
+      ],
+    });
+
+    // Must neither supersede (cancels the reindex) nor retry (resets the live
+    // index). The worker's atomic reindex path handles the pending job.
+    expect(plan.supersedeCount).toBe(0);
+    expect(plan.retryCount).toBe(0);
+    expect(plan.actions).toHaveLength(0);
+    expect(plan.resetDocumentIds).toHaveLength(0);
+  });
+
+  it("still supersedes a failed job on an indexed document (R22 scope guard)", () => {
+    const plan = buildIngestionRecoveryPlan({
+      now,
+      staleAfterMinutes: 45,
+      jobs: [
+        {
+          id: "failed-on-indexed",
+          document_id: "doc-indexed",
+          status: "failed",
+          documents: { status: "indexed", chunk_count: 42 },
+        },
+      ],
+    });
+    expect(plan.supersedeCount).toBe(1);
+    expect(plan.retryCount).toBe(0);
+  });
+
   it("does not reclaim fresh processing jobs", () => {
     expect(
       isStaleProcessingJob(

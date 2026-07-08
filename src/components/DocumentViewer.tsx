@@ -67,6 +67,7 @@ import {
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { formatClinicalDate } from "@/lib/source-metadata";
+import { partitionViewerImages } from "@/lib/image-filtering";
 import { isLocalNoAuthMode } from "@/lib/env";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -273,6 +274,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
+  const [loaded, setLoaded] = useState(false);
   const figureRef = useRef<HTMLElement | null>(null);
   const { authorizationHeader, markSessionExpired } = useAuthSession();
 
@@ -341,12 +343,14 @@ function DocumentImage({ image }: { image: ImageRow }) {
     clearCachedSignedUrl(endpoint);
     setUrl(null);
     setFailed(false);
+    setLoaded(false);
     setShouldLoad(true);
     setAttempt((current) => current + 1);
   }
 
   function handleImageError() {
     clearCachedSignedUrl(endpoint);
+    setLoaded(false);
     setFailed(true);
   }
 
@@ -379,7 +383,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
       </p>
       <div className="mt-2 rounded-lg bg-[color:var(--surface-inset)] p-3">
         {failed ? (
-          <div className="grid h-32 place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-3 text-center text-xs font-semibold text-[color:var(--warning)]">
+          <div className="grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-3 text-center text-xs font-semibold text-[color:var(--warning)]">
             <div>
               <AlertCircle className="mx-auto mb-2 h-4 w-4" />
               Image preview failed.
@@ -392,23 +396,36 @@ function DocumentImage({ image }: { image: ImageRow }) {
               </button>
             </div>
           </div>
-        ) : url ? (
-          <img
-            src={url}
-            alt={cleanCaption || tableHeading || "Document image"}
-            loading="lazy"
-            decoding="async"
-            onError={handleImageError}
-            className="max-h-52 w-full rounded-lg object-contain"
-          />
-        ) : shouldLoad ? (
-          <div className="grid h-32 place-items-center rounded-lg text-xs font-semibold text-[color:var(--text-muted)]">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading image
-          </div>
         ) : (
-          <div className="grid h-32 place-items-center rounded-lg border border-dashed border-[color:var(--border)] text-center text-xs font-semibold text-[color:var(--text-muted)]">
-            Image preview will load when visible
+          // Fixed-aspect frame: placeholder and image share one reserved box so
+          // the loaded image never resizes the layout (no content shift on load).
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
+            {url ? (
+              <img
+                src={url}
+                alt={cleanCaption || tableHeading || "Document image"}
+                loading="lazy"
+                decoding="async"
+                onLoad={() => setLoaded(true)}
+                onError={handleImageError}
+                className={cn(
+                  "absolute inset-0 h-full w-full rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
+                  loaded ? "opacity-100" : "opacity-0",
+                )}
+              />
+            ) : null}
+            {!url || !loaded ? (
+              <div className="absolute inset-0 grid place-items-center gap-1 rounded-lg text-center text-xs font-semibold text-[color:var(--text-muted)]">
+                {shouldLoad ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading image
+                  </>
+                ) : (
+                  "Image preview will load when visible"
+                )}
+              </div>
+            ) : null}
           </div>
         )}
       </div>
@@ -2305,15 +2322,7 @@ export function DocumentViewer({
   const summarizeTitle = canSummarizeDocument ? "Answer from this document" : "Load a source document before answering";
   const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
   const selectedChunk = chunkId ? chunks.find((chunk) => chunk.id === chunkId) : undefined;
-  const clinicalImages = images.filter(
-    (image) => image.searchable !== false && (image.clinicalUseClass ?? "clinical_evidence") === "clinical_evidence",
-  );
-  const auditImages = images.filter(
-    (image) =>
-      image.source_kind === "table_crop" &&
-      (image.searchable === false ||
-        ["administrative", "reference"].includes(String(image.clinicalUseClass ?? image.tableRole ?? ""))),
-  );
+  const { clinicalImages, auditImages } = partitionViewerImages(images);
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
   const usefulPageCount = usefulDocumentPages(initialPage, pages).length || 1;
   useEffect(() => {

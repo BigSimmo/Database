@@ -6,7 +6,14 @@ const leadingImageDataBlockRemainderPattern = /^[\s\S]*?\[\[IMAGE_DATA_END\]\]/g
 // bookkeeping that must never render or be copied.
 const omittedImageDataBlockPattern = /\[\[IMAGE_DATA_OMITTED\]\][\s\S]*?\[\[\/IMAGE_DATA_OMITTED\]\]/g;
 const omittedImageDataMarkerPattern = /\[\[\/?IMAGE_DATA_OMITTED\]\]/g;
-const evidenceFenceSentinelPattern = /<<<(?:END_)?[A-Z][A-Z0-9_]{0,63}>>>/g;
+// Case-INSENSITIVE: a forged close-then-reopen only needs to match the model's
+// parse of the fence, and models read `<<<end_source_excerpt>>>` the same as the
+// uppercase form. Matching only ALL-CAPS (the pre-hardening behaviour) let a
+// lowercase/mixed-case forged sentinel straddle the real block (threat model
+// Vector E / INJ-3, INJ-12). The real wrapper is added by fenceSourceEvidence
+// AFTER escaping runs on the inner text, so broadening this never escapes the
+// genuine outer fence.
+const evidenceFenceSentinelPattern = /<<<(?:END[_-]?)?[A-Za-z][A-Za-z0-9_]{0,63}>>>/gi;
 
 const internalImageMetadataPattern =
   /\b(?:Image ID|Source kind|Image type|Table role|Clinical use class|Clinical use reason|Clinical signal score|Admin signal score|Storage path|Image path)\s*:\s*[^;|]+[;|]?\s*/gi;

@@ -274,6 +274,34 @@ export function isClinicalImageEvidence(image: {
   return assessment.clinical_use_class === "clinical_evidence";
 }
 
+export type ViewerImagePartitionInput = {
+  searchable?: boolean | null;
+  source_kind?: string | null;
+  clinicalUseClass?: string | null;
+  tableRole?: string | null;
+};
+
+// Administrative/reference table crops are retained for audit and shown in a separate,
+// collapsed group in the document viewer rather than the main clinical list.
+export function isAuditTableImage(image: ViewerImagePartitionInput): boolean {
+  return (
+    image.source_kind === "table_crop" &&
+    (image.searchable === false ||
+      ["administrative", "reference"].includes(String(image.clinicalUseClass ?? image.tableRole ?? "")))
+  );
+}
+
+// Split the document-viewer image list into the main clinical list and the audit group.
+// The server already decides searchability (searchable === true ⇔ clinical evidence), so the
+// viewer trusts that flag instead of re-gating on the exact clinical_use_class string — this
+// keeps searchable diagrams/figures/tables visible even when their stored class has drifted or
+// is missing, while still routing genuine admin/reference table crops into the audit group.
+export function partitionViewerImages<T extends ViewerImagePartitionInput>(images: T[]) {
+  const auditImages = images.filter(isAuditTableImage);
+  const clinicalImages = images.filter((image) => image.searchable !== false && !isAuditTableImage(image));
+  return { clinicalImages, auditImages };
+}
+
 // Accept numbers and numeric strings, but not null/booleans/empty strings — bare
 // Number(...) coercion would turn those into a plausible-looking 0 coordinate
 // instead of rejecting the malformed row.

@@ -189,7 +189,15 @@ export function medicationToSearchResult(match: MedicationSearchMatch): Medicati
   };
 }
 
-export function rankMedicationRecords(records: MedicationRecord[], query: string, limit = 50): MedicationSearchMatch[] {
+export function rankMedicationRecords(
+  records: MedicationRecord[],
+  query: string,
+  limit = 50,
+  // Low-weight synonym/acronym/alias terms (e.g. from analyzeClinicalQuery) threaded into the
+  // shared ranker's expanded lane: they add recall via the content haystack without competing
+  // with exact name/prefix scoring. Empty by default so existing callers are unchanged.
+  expansions: string[] = [],
+): MedicationSearchMatch[] {
   return rankCatalogRecords(records, query, {
     fields: [
       {
@@ -215,6 +223,7 @@ export function rankMedicationRecords(records: MedicationRecord[], query: string
     exactBonus: 10,
     prefixValues: (medication) => [normalizeSearchText(medication.name), normalizeSearchText(medication.slug)],
     prefixBonus: 5,
+    expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
     limit,
     tieBreak: (left, right) => left.name.localeCompare(right.name),
   }).map(({ record, score, signals }) => ({
