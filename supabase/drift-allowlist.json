@@ -110,7 +110,7 @@
       "category": "functions",
       "key": "public.retrieval_owner_matches(uuid,uuid)",
       "kind": "mismatch",
-      "reason": "ACL-only drift: live retains a default PUBLIC execute grant (=X/postgres) that schema.sql (service-role-only) does not. Same posture as search_document_chunks — this is a security-invoker helper, RLS still applies; revoke on live via an approved hardening migration, then remove. The prior search_path half of this drift (live pg_catalog vs schema.sql pg_temp) was reconciled 2026-07-08: schema.sql + drift-manifest def_hash now match live's body (verified read-only via schema_drift_snapshot). This function is a stable boolean owner-scoping helper — NOT one of the raw-SQL retrieval RPCs (match_document_chunks et al.) whose bodies genuinely diverge; do not conflate.",
+      "reason": "Body+ACL drift until migration 20260708160000 is applied on live: schema.sql now fails CLOSED on NULL owner_filter (tenancy defense-in-depth §6 item 1); live still has the prior fail-open body until that migration runs. Independently, live retains a default PUBLIC execute grant (=X/postgres) that schema.sql (service-role-only) does not — same ACL posture as search_document_chunks; revoke on live via an approved hardening migration, then remove this entry. Security-invoker helper; RLS still applies. Not one of the raw-SQL retrieval RPCs whose bodies genuinely diverge.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {

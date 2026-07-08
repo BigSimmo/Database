@@ -20,6 +20,7 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
@@ -216,6 +217,10 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
               sourceGovernanceWarnings: warnings,
             });
             return;
+          }
+
+          if (!isDemoMode()) {
+            logAnswerDiagnostics({ supabase: createAdminClient(), query: body.query, ownerId, answer });
           }
 
           send("final", {

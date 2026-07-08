@@ -777,6 +777,15 @@ create index if not exists ingestion_jobs_status_next_run_idx
   where status in ('pending', 'processing', 'failed');
 create index if not exists ingestion_jobs_document_status_idx
   on public.ingestion_jobs(document_id, status, created_at);
+-- R17 (docs/ingestion-concurrency-fix-workorder.md): structural guard against
+-- more than one open job per document. Migration
+-- 20260708160000_ingestion_jobs_one_open_per_document.sql creates the live
+-- equivalent with CONCURRENTLY (manual apply — see that file's header); this
+-- non-concurrent form is for fresh/scratch replay only, where there is no
+-- concurrent traffic to block.
+create unique index if not exists ingestion_jobs_one_open_per_document_uidx
+  on public.ingestion_jobs(document_id)
+  where status in ('pending', 'processing');
 drop index if exists public.ingestion_job_stages_doc_idx;
 create index if not exists ingestion_job_stages_document_started_idx
   on public.ingestion_job_stages(document_id, started_at desc);
@@ -2109,9 +2118,9 @@ parallel safe
 set search_path = public, pg_catalog
 as $$
   select case
-    when owner_filter is null then true
-    when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null
-    else row_owner_id = owner_filter
+    when owner_filter is null then false -- fail CLOSED (was: true) — no DB-level global escape hatch
+    when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null -- public corpus only
+    else row_owner_id = owner_filter -- exact owner
   end;
 $$;
 

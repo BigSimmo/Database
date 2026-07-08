@@ -1,0 +1,32 @@
+﻿name: Regen drift manifest
+on:
+  push:
+    paths:
+      - ".github/triggers/regen-drift-manifest"
+      - ".github/workflows/regen-drift-manifest.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: regen-drift-manifest-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run drift:manifest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drift-manifest
+          path: supabase/drift-manifest.json
+          if-no-files-found: error

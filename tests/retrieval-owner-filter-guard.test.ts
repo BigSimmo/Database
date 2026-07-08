@@ -5,13 +5,13 @@ import { describe, expect, it } from "vitest";
 
 // Guard for the retrieval owner-scope boundary (48h-review finding #3).
 //
-// The SQL `retrieval_owner_matches(owner_filter, row_owner_id)` returns TRUE for EVERY row when
-// `owner_filter IS NULL` (fails open by design; RLS is service-role-only, so the app filter is the
-// sole tenant boundary). Until a migration makes null fail closed — gated on the Supabase Preview
-// drift fix so the SQL change can be verified — this test is the tripwire: no `.rpc(...)` call in
-// `src/` may pass a *literal* null/undefined `owner_filter`, and every owner_filter value must come
-// from the sanctioned scope helpers (which fail closed in production) or the public sentinel — never
-// a raw/unaudited value that could reach the RPC as null and silently return another tenant's rows.
+// The SQL `retrieval_owner_matches(owner_filter, row_owner_id)` now fails CLOSED when
+// `owner_filter IS NULL` (migration 20260708160000_retrieval_owner_matches_fail_closed), and
+// src/lib/owner-scope.ts no longer emits null — so the database has a real tenant floor. This
+// test remains as defense-in-depth on the app side: no `.rpc(...)` call in `src/` may pass a
+// *literal* null/undefined `owner_filter`, and every owner_filter value must come from the
+// sanctioned scope helpers (which fail closed in production) or the public sentinel — never a
+// raw/unaudited value.
 
 const SRC_DIR = join(process.cwd(), "src");
 
