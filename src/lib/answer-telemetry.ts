@@ -15,8 +15,9 @@ import type { RagAnswer } from "@/lib/types";
 // this a zero-migration, zero-schema-drift change; a dedicated `rag_answer_logs`
 // table with typed cost columns is the fuller Phase-7 design.
 //
-// Rows are tagged `metadata.log_source = "answer"` so answer-path retrievals are
-// filterable apart from the search-path retrieval telemetry that shares the table.
+// Rows are tagged `metadata.answer.log_source = "answer"` so answer-path
+// retrievals are filterable apart from the search-path retrieval telemetry that
+// shares the table.
 
 const UUID_PATTERN = /^[0-9a-f-]{36}$/i;
 
