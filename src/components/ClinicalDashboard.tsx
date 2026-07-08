@@ -43,10 +43,8 @@ import {
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
-import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
@@ -77,7 +75,7 @@ import {
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
 import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
-import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-panels";
+import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { answerRecovery, errorCopy } from "@/lib/ui-copy";
@@ -113,7 +111,23 @@ const DocumentDrawer = dynamic(
   { ssr: false },
 );
 
-import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clinical-dashboard/document-search-results";
+// Results surfaces load lazily: they only render after a submitted search/answer, so their chunk
+// downloads behind the (multi-second) retrieval/answer request rather than bloating the initial
+// answer-home bundle. The answer surface keeps the same skeleton as generation to avoid a flash.
+const StagedAnswerResultSurface = dynamic(
+  () => import("@/components/clinical-dashboard/answer-result-surface").then((m) => m.StagedAnswerResultSurface),
+  { ssr: false, loading: () => <AnswerSkeleton /> },
+);
+const RelatedDocumentsPanel = dynamic(
+  () => import("@/components/clinical-dashboard/document-results").then((m) => m.RelatedDocumentsPanel),
+  { ssr: false },
+);
+const DocumentSearchResultsPanel = dynamic(
+  () => import("@/components/clinical-dashboard/document-search-results").then((m) => m.DocumentSearchResultsPanel),
+  { ssr: false },
+);
+
+import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,

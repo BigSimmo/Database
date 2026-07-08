@@ -74,11 +74,7 @@ import {
   type SafetyFindingKind,
 } from "@/lib/clinical-safety";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
-import {
-  normalizeExtractedGlyphs,
-  sourceTextForCompactDisplay,
-  sourceTextForVerbatimQuote,
-} from "@/lib/source-text-sanitizer";
+import { normalizeExtractedGlyphs, sourceTextForVerbatimQuote } from "@/lib/source-text-sanitizer";
 import type {
   AnswerSection,
   BestSourceRecommendation,
@@ -1331,22 +1327,9 @@ function compactEvidenceCell(value: string | null | undefined, max = 140) {
   return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
 }
 
-export function evidenceMapRowsFromRenderModel(renderModel: AnswerRenderModel): AnswerEvidenceMapRow[] {
-  return renderModel.evidenceRows.map((row, index) => ({
-    id: row.id || `${row.source.chunk_id}:${index}`,
-    section: row.section || "Source evidence",
-    detail:
-      sourceTextForCompactDisplay(row.quote || row.source.snippet || row.source.reason || "") ||
-      cleanDisplayTitle(row.source.title),
-    supportLevel: row.supportLevel || row.source.sourceStrength,
-    citationCount: 1,
-    sourceStatus:
-      row.source.sourceStrength === "none" ? "Source requires review" : `${row.source.sourceStrength} source support`,
-    bestSourceLabel: row.source.label,
-    bestLinkedPassage: row.quote || row.source.snippet || row.source.reason,
-    href: row.source.href,
-  }));
-}
+// Moved to a light module so the dashboard can import it without pulling this heavy component
+// tree into the initial bundle; re-exported here to keep evidence-panels' public API stable.
+export { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 
 export function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
   if (rows.length === 0) {
