@@ -946,6 +946,87 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
   });
 
+  test("differentials search badges stay single-line on narrow viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    await page.route(/\/api\/setup-status(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        json: {
+          demoMode: true,
+          checks: [
+            { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
+            { id: "project", label: "[REDACTED] target", status: "ready", detail: "Test project ready." },
+            { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
+            { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search ready." },
+            { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
+          ],
+        },
+      });
+    });
+    await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        json: {
+          results: [],
+          visualEvidence: [],
+          relatedDocuments: [],
+          documentMatches: [
+            {
+              document_id: "11111111-1111-4111-8111-111111111111",
+              title: "Acute confusion differential guide",
+              file_name: "acute-confusion-differentials.pdf",
+              labels: [],
+              summarySnippet: "Reviewed acute confusion differential guidance.",
+              bestPages: [1],
+              bestChunkIds: ["chunk-acute-confusion"],
+              imageCount: 0,
+              tableCount: 0,
+              matchReason: "Matched indexed passage",
+              score: 0.93,
+            },
+          ],
+          relevance: { verdict: "strong", score: 0.91, directSourceCount: 1, weakSourceCount: 0 },
+          smartPanel: {},
+          telemetry: { query_class: "differential_compare", retrieval_strategy: "text_fast_path" },
+          scope: { queryMode: "compare_guidance" },
+          sourceGovernanceWarnings: [],
+          demoMode: true,
+        },
+      });
+    });
+
+    await gotoLauncher(page, "/differentials");
+    await page.locator('input[placeholder="Ask or search a presentation"]:visible').first().fill("acute confusion");
+    await page.locator('button[aria-label="Search differential presentations"]:visible').click();
+
+    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    const tabs = page.getByTestId("differential-result-type-tabs");
+    await expect(tabs).toBeVisible();
+    await expect(tabs.getByRole("tab", { name: /All \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("tab", { name: /Presentations \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("tab", { name: /Diagnoses \(\d+\)/ })).toBeVisible();
+
+    const tabMetrics = await tabs.getByRole("tab").evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const rect = button.getBoundingClientRect();
+        return { height: rect.height, scrollHeight: button.scrollHeight };
+      }),
+    );
+    for (const tab of tabMetrics) {
+      expect(tab.scrollHeight).toBeLessThanOrEqual(tab.height + 1);
+    }
+
+    const emergentBadge = page.getByTestId("differential-status-badge").first();
+    await expect(emergentBadge).toBeVisible();
+    await expect(emergentBadge).toHaveText(/Emergent/i);
+    const badgeMetrics = await emergentBadge.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { height: rect.height, scrollHeight: element.scrollHeight };
+    });
+    expect(badgeMetrics.height).toBeGreaterThanOrEqual(22);
+    expect(badgeMetrics.scrollHeight).toBeLessThanOrEqual(badgeMetrics.height + 1);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
     const workflow = acuteConfusionPresentationWorkflow;

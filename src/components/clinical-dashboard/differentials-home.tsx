@@ -161,8 +161,7 @@ function statusLabel(status: DifferentialRecord["status"]) {
 }
 
 function statusTone(status: DifferentialRecord["status"]) {
-  if (status === "emergent")
-    return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
+  if (status === "emergent") return "border-transparent bg-[color:var(--danger)] text-white";
   if (status === "urgent") {
     return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
   }
@@ -199,14 +198,97 @@ function toDifferentialResult(item: DifferentialSearchResultItem): DifferentialR
 function StatusBadge({ status, className }: { status: DifferentialRecord["status"]; className?: string }) {
   return (
     <span
+      data-testid="differential-status-badge"
       className={cn(
-        "inline-flex min-h-5 items-center rounded-md border px-1.5 text-3xs font-extrabold uppercase leading-none tracking-normal",
+        "inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-2xs font-extrabold uppercase leading-tight tracking-normal",
         statusTone(status),
         className,
       )}
     >
+      {status === "emergent" ? (
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/90" aria-hidden />
+      ) : null}
       {statusLabel(status)}
     </span>
+  );
+}
+
+type KindFilter = "all" | "presentation" | "diagnosis";
+
+const resultTypeTabFocusRing =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+function ResultTypeTabs({
+  activeFilter,
+  onFilterChange,
+  allCount,
+  presentationCount,
+  diagnosisCount,
+}: {
+  activeFilter: KindFilter;
+  onFilterChange: (filter: KindFilter) => void;
+  allCount: number;
+  presentationCount: number;
+  diagnosisCount: number;
+}) {
+  const tabs = [
+    { id: "all" as const, label: "All", count: allCount },
+    { id: "presentation" as const, label: "Presentations", count: presentationCount },
+    { id: "diagnosis" as const, label: "Diagnoses", count: diagnosisCount },
+  ];
+
+  return (
+    <div
+      data-testid="differential-result-type-tabs"
+      role="tablist"
+      aria-label="Result type"
+      className="polished-scroll flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
+    >
+      {tabs.map((tab) => {
+        const active = activeFilter === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            aria-pressed={active}
+            aria-label={`${tab.label} (${tab.count})`}
+            onClick={() => onFilterChange(tab.id)}
+            className={cn(
+              "inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-bold min-[390px]:text-sm",
+              resultTypeTabFocusRing,
+              active
+                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+            )}
+          >
+            {tab.label}
+            <span
+              className={cn(
+                "nums rounded-full px-1.5 text-3xs leading-tight",
+                active
+                  ? "bg-[color:var(--clinical-accent-contrast)]/15 text-[color:var(--clinical-accent-contrast)]"
+                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
+              )}
+            >
+              {tab.count}
+            </span>
+          </button>
+        );
+      })}
+      <button
+        type="button"
+        aria-label="Filters"
+        className={cn(
+          "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm",
+          resultTypeTabFocusRing,
+        )}
+      >
+        <ListFilter className="h-4 w-4 shrink-0" aria-hidden />
+        <span className="hidden min-[430px]:inline">Filters</span>
+      </button>
+    </div>
   );
 }
 
@@ -683,16 +765,6 @@ function SearchResultsView({
     if (trimmedQuery && onRunSearch) onRunSearch(trimmedQuery);
   }
 
-  const kindFilterOptions = [
-    { id: "all" as const, label: `All (${results.length})`, compact: "All" },
-    {
-      id: "presentation" as const,
-      label: `Presentations (${presentationCount})`,
-      compact: `Pres (${presentationCount})`,
-    },
-    { id: "diagnosis" as const, label: `Diagnoses (${diagnosisCount})`, compact: `Dx (${diagnosisCount})` },
-  ];
-
   return (
     <div
       data-testid="differentials-search-results"
@@ -826,34 +898,13 @@ function SearchResultsView({
                 selected={selectedIds.has(best.id)}
                 onToggle={() => toggleSelected(best.id)}
               />
-              <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5">
-                {kindFilterOptions.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    aria-label={item.label}
-                    aria-pressed={kindFilter === item.id}
-                    onClick={() => setKindFilter(item.id)}
-                    className={cn(
-                      "min-h-10 min-w-10 rounded-lg border px-2 text-xs font-bold min-[390px]:text-sm",
-                      kindFilter === item.id
-                        ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-                    )}
-                  >
-                    <span className="hidden min-[430px]:inline">{item.label}</span>
-                    <span className="min-[430px]:hidden">{item.compact}</span>
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  aria-label="Filters"
-                  className="inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm"
-                >
-                  <ListFilter className="h-4 w-4" aria-hidden />
-                  <span className="hidden min-[430px]:inline">Filters</span>
-                </button>
-              </div>
+              <ResultTypeTabs
+                activeFilter={kindFilter}
+                onFilterChange={setKindFilter}
+                allCount={results.length}
+                presentationCount={presentationCount}
+                diagnosisCount={diagnosisCount}
+              />
               <div className="flex items-center justify-between gap-2 text-sm font-medium text-[color:var(--text-muted)]">
                 <span>
                   <strong className="text-[color:var(--text-heading)]">
