@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Copy,
   ExternalLink,
+  Layers,
   Loader2,
   ShieldCheck,
   Sparkles,
@@ -23,12 +24,12 @@ import {
   chatMicroAction,
   cn,
   sourceCapsule,
+  sourceCapsuleCountBadge,
   statusDotMuted,
   statusDotReady,
   statusDotReview,
   subtleStatusPill,
   textMuted,
-  toneWarningQuiet,
 } from "@/components/ui-primitives";
 import { sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import {
@@ -257,7 +258,7 @@ function primaryAnswerDisplayText(value: string) {
     .replace(/[;,:-]\s*$/, "")}...`;
 }
 
-function sourceCapsuleText({
+function sourceCapsuleDisplay({
   sourceCount,
   weakEvidence,
   grounded,
@@ -265,11 +266,11 @@ function sourceCapsuleText({
   sourceCount: number;
   weakEvidence: boolean;
   grounded: boolean;
-}) {
-  if (sourceCount <= 0) return "No direct source found";
-  if (!grounded) return "Review nearby sources";
-  if (weakEvidence) return "Review sources";
-  return `${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
+}): { label: string; showCountBadge: boolean } {
+  if (sourceCount <= 0) return { label: "No direct source found", showCountBadge: false };
+  if (!grounded) return { label: "Review nearby sources", showCountBadge: false };
+  if (weakEvidence) return { label: "Review sources", showCountBadge: false };
+  return { label: "Sources", showCountBadge: true };
 }
 
 export function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined) {
@@ -572,7 +573,7 @@ export function NaturalLanguageAnswer({
   }, []);
   const cleaned = primaryAnswerDisplayText(text);
   if (!cleaned) return null;
-  const capsuleText = sourceCapsuleText({ sourceCount, weakEvidence, grounded });
+  const capsuleDisplay = sourceCapsuleDisplay({ sourceCount, weakEvidence, grounded });
   const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);
   const quoteText = sourceLinks.find((source) => source.snippet)?.snippet || bestSource?.quote || bestSource?.snippet;
   const canOpenSourcePreview = previewSources.length > 0;
@@ -587,31 +588,23 @@ export function NaturalLanguageAnswer({
       setCopiedSourceQuote(false);
     }
   }
-  const cautionCapsule = weakEvidence || !grounded;
   const sourceCapsuleButton = (
     <button
       type="button"
       ref={sourceCapsuleRef}
-      className={cn(sourceCapsule, "w-fit", cautionCapsule && toneWarningQuiet)}
+      className={cn(sourceCapsule, "w-fit")}
       aria-label="Open answer sources"
       aria-expanded={sourcePreviewOpen}
       onClick={() => {
         if (canOpenSourcePreview) setSourcePreviewOpen((current) => !current);
       }}
     >
-      {sourceCount > 0 ? (
-        <>
-          <span className="leading-none sm:hidden">
-            {sourceCount} source{sourceCount === 1 ? "" : "s"}
-          </span>
-          <span className="hidden leading-none sm:inline">{capsuleText}</span>
-        </>
-      ) : (
-        <span className="leading-none">{capsuleText}</span>
-      )}
+      <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate">{capsuleDisplay.label}</span>
+      {capsuleDisplay.showCountBadge ? <span className={sourceCapsuleCountBadge}>{sourceCount}</span> : null}
       {canOpenSourcePreview ? (
         <ChevronDown
-          className={cn("h-4 w-4 shrink-0 transition-transform", sourcePreviewOpen && "rotate-180")}
+          className={cn("h-3.5 w-3.5 shrink-0 transition-transform", sourcePreviewOpen && "rotate-180")}
           strokeWidth={2.25}
           aria-hidden
         />
@@ -632,12 +625,13 @@ export function NaturalLanguageAnswer({
       >
         <ShieldCheck className="h-[18px] w-[18px]" />
       </span>
-      <div className="min-w-0 space-y-2.5">
+      <div className="min-w-0 space-y-1.5">
         <p className={chatAnswerText}>
           <span data-testid="plain-answer-prose">
             <SafeBoldText text={cleaned} />
           </span>
         </p>
+        <div className="space-y-1">
         {sourceOnly ? (
           <section
             data-testid="source-only-disclosure"
@@ -679,6 +673,7 @@ export function NaturalLanguageAnswer({
           </section>
         ) : null}
         {sourceCapsuleButton}
+        </div>
         {canOpenSourcePreview && !usePreviewSheet ? (
           <SourcePreviewPopover
             open={sourcePreviewOpen}
