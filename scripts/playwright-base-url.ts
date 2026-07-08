@@ -4,7 +4,7 @@ import { appName, localProjectId, stableProjectPort } from "./local-server-utils
 
 const projectRoot = path.resolve(__dirname, "..");
 const ensureScript = path.join(projectRoot, "scripts", "ensure-local-server.mjs");
-const localUrlPattern = /^http:\/\/localhost:\d+$/;
+const localUrlPattern = /^http:\/\/(?:localhost|127\.0\.0\.1):\d+$/;
 const identityScript = `
 const http = require("node:http");
 const url = process.argv[1] + "/api/local-project-id";
@@ -74,7 +74,7 @@ function tryVerifiedLocalProjectUrl(baseUrl: string) {
 
 function findExistingLocalProjectUrl() {
   const stablePort = stableProjectPort(projectRoot);
-  return tryVerifiedLocalProjectUrl(`http://localhost:${stablePort}`);
+  return tryVerifiedLocalProjectUrl(`http://127.0.0.1:${stablePort}`);
 }
 
 export function getPlaywrightBaseUrl() {
