@@ -1,0 +1,100 @@
+name: Reindex Image Generation Remediation
+
+on:
+  workflow_dispatch:
+    inputs:
+      document-id:
+        description: "Optional document id to repair"
+        required: false
+        type: string
+      owner-id:
+        description: "Optional owner id to repair"
+        required: false
+        type: string
+      all-owners:
+        description: "Repair all indexed documents (ignores document-id/owner-id)"
+        required: false
+        type: boolean
+        default: false
+      limit:
+        description: "Maximum documents per owner/doc filter"
+        required: false
+        default: "25"
+      write:
+        description: "Apply updates (defaults to dry run)"
+        required: false
+        type: boolean
+        default: false
+      confirm:
+        description: "Skip interactive confirmation when write=true"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+  SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
+  SUPABASE_PROJECT_NAME: Clinical KB Database
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+concurrency:
+  group: reindex-image-generation-remediation
+  cancel-in-progress: false
+
+jobs:
+  images-remediation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preflight required secrets
+        run: |
+          if [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+            echo "::error::Missing required secret: SUPABASE_SERVICE_ROLE_KEY"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify target project
+        run: npm run check:supabase-project
+
+      - name: Run image generation metadata remediation
+        shell: bash
+        run: |
+          args=(--limit "${{ github.event.inputs.limit }}")
+
+          if [ "${{ github.event.inputs.all-owners }}" = "true" ]; then
+            args+=(--all-owners)
+          fi
+          if [ -n "${{ github.event.inputs.document-id }}" ]; then
+            args+=(--document-id "${{ github.event.inputs.document-id }}")
+          fi
+          if [ -n "${{ github.event.inputs.owner-id }}" ]; then
+            args+=(--owner-id "${{ github.event.inputs.owner-id }}")
+          fi
+          if [ "${{ github.event.inputs.write }}" = "true" ]; then
+            args+=(--write)
+          fi
+          if [ "${{ github.event.inputs.confirm }}" = "true" ]; then
+            args+=(--confirm)
+          fi
+
+          npm run images:re-stamp-generation -- "${args[@]}"
