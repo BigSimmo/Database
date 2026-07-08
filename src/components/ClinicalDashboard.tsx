@@ -1820,10 +1820,6 @@ export function ClinicalDashboard({
     // over-long PostgREST URL that fails on large corpora. Corpus search runs
     // unscoped (like Documents); users opt into label filters explicitly.
     const requestId = ++searchRequestSeqRef.current;
-    // A new search supersedes any in-flight answer stream: abort it so its
-    // socket closes instead of streaming to a result that can no longer commit.
-    answerAbortRef.current?.abort();
-    answerAbortRef.current = null;
 
     setSearchMode(targetMode);
     // Answer mode keeps the composer as the draft source until a successful
