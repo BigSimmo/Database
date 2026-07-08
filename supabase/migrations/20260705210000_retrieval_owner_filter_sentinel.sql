@@ -20,6 +20,8 @@
 -- here so later migrations (e.g. 20260706130000) succeed on fresh preview
 -- branches. Forward-codify the live RPC bodies separately (drift backlog).
 
+select 1 where false; -- neutralized sentinel: original ~10 RPC rewrites removed
+
 set search_path = public, extensions, pg_temp;
 
 create or replace function public.retrieval_owner_matches(owner_filter uuid, row_owner_id uuid)
