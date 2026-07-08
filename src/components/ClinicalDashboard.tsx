@@ -2927,7 +2927,14 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
-                : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                : // Phone answer view: the "Ask a follow-up" dock is fixed to the
+                  // bottom, so <main> reserves room for it. When that dock hides on
+                  // scroll, reclaim the reserved strip too — otherwise the near-black
+                  // shell background shows through as an empty band. (sm+ is inert:
+                  // bottomSearchScrollHidden only ever goes true on phones.)
+                  bottomSearchScrollHidden
+                  ? "mb-0 sm:mb-24"
+                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? bottomSearchScrollHidden
                   ? "mb-0 sm:mb-0"
