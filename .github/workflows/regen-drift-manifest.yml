@@ -1,11 +1,15 @@
 name: Regen drift manifest
 
-# One-shot helper for hosts where Docker Desktop / WSL cannot start.
-# Dispatches on a branch, regenerates supabase/drift-manifest.json from
-# schema.sql in a scratch postgres container, and uploads it as an artifact
-# for the operator to commit. Does not push.
+# Regenerates supabase/drift-manifest.json when local Docker Desktop / WSL
+# cannot start. Triggered by pushing the marker file below (workflow_dispatch
+# is also supported once this file exists on the default branch). Uploads the
+# manifest as an artifact for the operator to commit — does not push.
 
 on:
+  push:
+    paths:
+      - ".github/triggers/regen-drift-manifest"
+      - ".github/workflows/regen-drift-manifest.yml"
   workflow_dispatch:
 
 permissions:
