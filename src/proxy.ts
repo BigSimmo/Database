@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { env } from "@/lib/env";
-import { buildContentSecurityPolicy } from "@/lib/security-headers";
+import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
 
 // Next 16 renamed the `middleware` file convention to `proxy` (see
 // node_modules/next/dist/docs/.../file-conventions/proxy.md). Proxy defaults to
@@ -27,11 +27,10 @@ const documentFlowRedirects: Record<string, string> = {
   "/mockups/document-search/source/evidence": "/documents/source/evidence",
 };
 
-// Mirror the runtime flags next.config.ts derives for the static headers, so the
-// nonce'd CSP matches the rest of the policy (unsafe-eval in dev, HTTPS upgrade
-// off local http). Evaluated once at module load; both read the same env.
-const isDevelopment = process.env.NODE_ENV === "development";
-const isLocalHttpRuntime = isDevelopment || process.env.PLAYWRIGHT_BASE_URL?.startsWith("http://localhost:") === true;
+// Same runtime flags next.config.ts uses for the static headers, so the nonce'd
+// CSP matches the rest of the policy (unsafe-eval in dev, HTTPS upgrade off local
+// http). Evaluated once at module load.
+const { isDevelopment, isLocalHttpRuntime } = resolveRuntimeFlags();
 
 export async function proxy(request: NextRequest) {
   // A fresh, unguessable nonce per request (see Next.js CSP guide). Buffer+base64

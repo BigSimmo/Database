@@ -21,6 +21,18 @@ export type SecurityHeaderFlags = {
   isLocalHttpRuntime: boolean;
 };
 
+// Single source of truth for the runtime flags that shape the policy. Both the
+// static headers (next.config.ts) and the per-request nonce CSP (src/proxy.ts)
+// derive from this, so the HSTS/upgrade-insecure-requests gating stays in lockstep
+// with the script-src gating instead of drifting between two hand-copied copies.
+export function resolveRuntimeFlags(): SecurityHeaderFlags {
+  const isDevelopment = process.env.NODE_ENV === "development";
+  return {
+    isDevelopment,
+    isLocalHttpRuntime: isDevelopment || process.env.PLAYWRIGHT_BASE_URL?.startsWith("http://localhost:") === true,
+  };
+}
+
 export type ContentSecurityPolicyOptions = SecurityHeaderFlags & {
   // Per-request nonce (base64) generated in src/proxy.ts. script-src allow-lists
   // this nonce instead of 'unsafe-inline', so only scripts carrying it execute.

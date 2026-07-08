@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { buildContentSecurityPolicy, buildSecurityHeaders } from "../src/lib/security-headers";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildContentSecurityPolicy, buildSecurityHeaders, resolveRuntimeFlags } from "../src/lib/security-headers";
 
 // Regression guard for the "all images fail to render" incident. Document page
 // images and the PDF embed load cross-origin from Supabase Storage signed URLs
@@ -107,5 +107,30 @@ describe("security headers", () => {
       const headers = buildSecurityHeaders(flags);
       expect(headers.some((header) => header.key === "Content-Security-Policy")).toBe(false);
     }
+  });
+
+  // Single source of truth shared by next.config.ts and proxy.ts. The
+  // isLocalHttpRuntime flag gates HTTPS-only hardening (HSTS,
+  // upgrade-insecure-requests), so its derivation is security-relevant.
+  describe("resolveRuntimeFlags", () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    it("treats development as local http", () => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubEnv("PLAYWRIGHT_BASE_URL", "");
+      expect(resolveRuntimeFlags()).toEqual({ isDevelopment: true, isLocalHttpRuntime: true });
+    });
+
+    it("keeps production HTTPS-hardened unless Playwright targets local http", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("PLAYWRIGHT_BASE_URL", "");
+      expect(resolveRuntimeFlags()).toEqual({ isDevelopment: false, isLocalHttpRuntime: false });
+
+      vi.stubEnv("PLAYWRIGHT_BASE_URL", "http://localhost:4788");
+      expect(resolveRuntimeFlags()).toEqual({ isDevelopment: false, isLocalHttpRuntime: true });
+
+      vi.stubEnv("PLAYWRIGHT_BASE_URL", "https://staging.example.com");
+      expect(resolveRuntimeFlags()).toEqual({ isDevelopment: false, isLocalHttpRuntime: false });
+    });
   });
 });
