@@ -3,9 +3,9 @@ import { selectRagEvalCases, type RagEvalCase } from "@/lib/rag-eval-cases";
 import type { RagAnswer } from "@/lib/types";
 import {
   estimateCostUsd,
-  findOwnerIdByEmail,
   loadAdminClient,
   percentile,
+  resolveEvalOwnerId,
   validateRagAnswer,
   withProviderBackoff,
 } from "./eval-utils";
@@ -212,8 +212,8 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
-  const ownerId = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
-  const scope = ownerId ? `owner:${args.ownerId ? "id" : args.ownerEmail}` : "public";
+  const ownerId = await resolveEvalOwnerId(supabase, args);
+  const scope = args.ownerId ? "owner:id" : args.ownerEmail ? `owner:${args.ownerEmail}` : "public";
   const cases = selectRagEvalCases({ limit: args.limit, question: args.question });
   const results: EvalResult[] = [];
 

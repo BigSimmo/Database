@@ -5,16 +5,9 @@ import { loadEnvConfig } from "@next/env";
 import { z } from "zod";
 import { loadCapturedRagEvalCases, type RagEvalCase, type SupabaseEvalCaseClient } from "@/lib/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
-import { findOwnerIdByEmail, loadAdminClient, percentile, withProviderBackoff } from "./eval-utils";
+import { loadAdminClient, percentile, resolveEvalOwnerId, withProviderBackoff } from "./eval-utils";
 
 loadEnvConfig(process.cwd());
-
-// Committed default eval owner. Since the 2026-07-06 public promotion the live corpus is
-// entirely owner_id = NULL, so owner-scoped retrieval must run as the public-owner sentinel
-// (retrieval_owner_matches maps it to NULL-owner rows, mirroring anonymous production search).
-// An explicit RAG_EVAL_OWNER_ID / LOCAL_NO_AUTH_OWNER_ID / RAG_EVAL_OWNER_EMAIL (or --owner-id /
-// --owner-email) still overrides this. See docs/retrieval-quality-runbook.md.
-const DEFAULT_EVAL_OWNER_ID = "00000000-0000-0000-0000-000000000000";
 
 const contentExpectationSchema = z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]);
 
@@ -819,10 +812,7 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
-  const ownerId =
-    args.ownerId ??
-    (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined) ??
-    DEFAULT_EVAL_OWNER_ID;
+  const ownerId = await resolveEvalOwnerId(supabase, args);
   const capturedCaseClient = supabase as unknown as SupabaseEvalCaseClient;
   const capturedCases = await loadCapturedRagEvalCases({ supabase: capturedCaseClient, ownerId, limit: args.limit });
   const allCases = [...capturedCases.map(capturedRagCaseToGoldenCase), ...loadGoldenRetrievalCases(args.fixture)];

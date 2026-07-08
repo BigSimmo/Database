@@ -75,6 +75,36 @@ export async function findOwnerIdByEmail(supabase: SupabaseAdmin, email: string)
   throw new Error(`No Supabase Auth user found for ${email}. Sign in once before running evals.`);
 }
 
+/**
+ * Committed default eval owner. Since the 2026-07-06 public promotion the live corpus is entirely
+ * `owner_id = NULL`, so owner-scoped retrieval must run as the public-owner sentinel
+ * (`retrieval_owner_matches` maps it to NULL-owner rows, mirroring anonymous production search). A
+ * real owner UUID now scopes retrieval to zero documents. See docs/retrieval-quality-runbook.md.
+ */
+export const DEFAULT_EVAL_OWNER_ID = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * Resolve the owner id for a READ/eval run. Precedence: explicit `--owner-id` / `RAG_EVAL_OWNER_ID`
+ * / `LOCAL_NO_AUTH_OWNER_ID` (already folded into `args.ownerId`) → `--owner-email` /
+ * `RAG_EVAL_OWNER_EMAIL` lookup → the public-owner sentinel. Emits a one-line warning when it falls
+ * back to the sentinel so the narrowing to public-only scope is visible, not silent.
+ *
+ * Do NOT use in write/backfill scripts — defaulting an owner there could write under the wrong owner.
+ */
+export async function resolveEvalOwnerId(
+  supabase: SupabaseAdmin,
+  args: { ownerId?: string; ownerEmail?: string },
+): Promise<string> {
+  const resolved = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
+  if (resolved) return resolved;
+  console.warn(
+    `[eval] No eval owner set (RAG_EVAL_OWNER_ID / LOCAL_NO_AUTH_OWNER_ID / --owner-id / --owner-email); ` +
+      `defaulting to the public-owner sentinel ${DEFAULT_EVAL_OWNER_ID}. The live corpus is all-public ` +
+      `(owner_id = NULL); set an explicit owner to scope the eval to a real owner instead.`,
+  );
+  return DEFAULT_EVAL_OWNER_ID;
+}
+
 export function percentile(values: number[], percentileValue: number) {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);

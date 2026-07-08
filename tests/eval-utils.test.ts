@@ -1,9 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  DEFAULT_EVAL_OWNER_ID,
   expectedFileCoverage,
   isProviderRateLimitError,
+  resolveEvalOwnerId,
   validateRagAnswer,
   withProviderBackoff,
+  type SupabaseAdmin,
 } from "../scripts/eval-utils";
 import type { RagEvalCase } from "../src/lib/rag-eval-cases";
 import type { RagAnswer } from "../src/lib/types";
@@ -93,5 +96,54 @@ describe("RAG eval source identity matching", () => {
     expect(result).toBe("ok");
     expect(attempts).toBe(2);
     expect(isProviderRateLimitError(new Error("429 too many requests"))).toBe(true);
+  });
+});
+
+describe("resolveEvalOwnerId", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function adminClientWithUsers(users: Array<{ id: string; email: string }>): SupabaseAdmin {
+    return {
+      auth: { admin: { listUsers: async () => ({ data: { users }, error: null }) } },
+    } as unknown as SupabaseAdmin;
+  }
+
+  it("prefers an explicit ownerId over email lookup and the sentinel", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const listUsers = vi.fn();
+    const supabase = { auth: { admin: { listUsers } } } as unknown as SupabaseAdmin;
+
+    const ownerId = await resolveEvalOwnerId(supabase, {
+      ownerId: "explicit-owner",
+      ownerEmail: "user@example.com",
+    });
+
+    expect(ownerId).toBe("explicit-owner");
+    expect(listUsers).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("resolves ownerEmail via Supabase Auth when no ownerId is set", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const supabase = adminClientWithUsers([{ id: "user-123", email: "Clinician@Example.com" }]);
+
+    const ownerId = await resolveEvalOwnerId(supabase, { ownerEmail: "clinician@example.com" });
+
+    expect(ownerId).toBe("user-123");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the public-owner sentinel and warns when no owner is provided", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const supabase = adminClientWithUsers([]);
+
+    const ownerId = await resolveEvalOwnerId(supabase, {});
+
+    expect(ownerId).toBe(DEFAULT_EVAL_OWNER_ID);
+    expect(DEFAULT_EVAL_OWNER_ID).toBe("00000000-0000-0000-0000-000000000000");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toContain(DEFAULT_EVAL_OWNER_ID);
   });
 });

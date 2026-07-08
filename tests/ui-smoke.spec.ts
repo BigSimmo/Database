@@ -770,7 +770,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         const dailyActions = await openDailyActions(page);
         const searchAction = dailyActions.getByRole("menuitem", { name: "Search" });
         await expect(searchAction).toBeVisible();
-        await expect(dailyActions.getByRole("menuitem", { name: "Evidence map" })).toBeVisible();
+        await expect(dailyActions.getByRole("menuitem", { name: "View evidence" })).toBeVisible();
         await expectMinTouchTarget(searchAction);
         await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
         await page.keyboard.press("Escape");

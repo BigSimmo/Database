@@ -807,9 +807,11 @@ const answerJsonSchema = z.object({
 // chunk loader, and table-fact signal matches), not a real cosine. Those fabrications routinely
 // clear the 0.82 bar (memory-card hybrid reaches 0.89, document-lookup 0.94), which let a
 // lexical-only citation mint "high" confidence. Synthetic-origin evidence is therefore capped at
-// "medium": "high" requires at least one cited result whose similarity is a genuine cosine.
-// Ordering, routing, and coverage gates are untouched — this only stops the fabricated scale
-// from masquerading as strong semantic evidence in the clinician-facing confidence label.
+// "medium": "high" requires at least one cited result whose score is NOT a fabricated synthetic
+// similarity. (`strongestNonSynthetic` below excludes `synthetic_text` origins but is still the
+// hybrid score via scoreValue, not a pure cosine — a stricter pure-`similarity` gate would change
+// behaviour and needs eval validation.) Ordering, routing, and coverage gates are untouched — this
+// only stops the fabricated scale from masquerading as strong semantic evidence in the label.
 export function deriveConfidence(
   results: SearchResult[],
   acceptedCitations: Array<Pick<Citation, "chunk_id">>,
@@ -818,11 +820,11 @@ export function deriveConfidence(
   const citedIds = new Set(acceptedCitations.map((citation) => citation.chunk_id));
   const citedResults = results.filter((result) => citedIds.has(result.id));
   const strongest = citedResults.reduce((max, result) => Math.max(max, scoreValue(result)), 0);
-  const strongestCosine = citedResults.reduce(
+  const strongestNonSynthetic = citedResults.reduce(
     (max, result) => (result.similarity_origin === "synthetic_text" ? max : Math.max(max, scoreValue(result))),
     0,
   );
-  if (strongestCosine >= 0.82 && acceptedCitations.length >= 2) return "high";
+  if (strongestNonSynthetic >= 0.82 && acceptedCitations.length >= 2) return "high";
   if (strongest >= 0.64) return "medium";
   return "low";
 }
