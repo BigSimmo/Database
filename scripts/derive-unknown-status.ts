@@ -1,6 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import type { Json } from "@/lib/supabase/database.types";
-import { deriveUnknownStatus } from "@/lib/unknown-status-derivation";
+import { DEFAULT_REVIEW_CYCLE_YEARS, deriveUnknownStatus } from "@/lib/unknown-status-derivation";
 
 loadEnvConfig(process.cwd());
 
@@ -29,8 +29,8 @@ loadEnvConfig(process.cwd());
  *    basis recorded, so every change is auditable and reversible by querying the
  *    version stamp.
  *
- * This encodes a policy assumption (the standard review cycle). Run `--dry-run`
- * (default) first and confirm the split before `--apply`.
+ * This encodes a policy assumption (the standard review cycle). Runs in dry-run
+ * by default; review the reported split, then pass `--apply` to write.
  */
 
 type DocumentRow = {
@@ -45,7 +45,7 @@ const DERIVATION_VERSION = "unknown_status_cycle_v1";
 
 function reviewCycleYears() {
   const raw = process.env.REVIEW_CYCLE_YEARS;
-  if (!raw) return 3;
+  if (!raw) return DEFAULT_REVIEW_CYCLE_YEARS;
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 1 || value > 10) {
     throw new Error(`Invalid REVIEW_CYCLE_YEARS: ${raw} (expected integer 1-10)`);
