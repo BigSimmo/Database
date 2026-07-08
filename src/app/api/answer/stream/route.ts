@@ -146,6 +146,10 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
           controller.enqueue(encoder.encode(encodeSse(event, data)));
         };
         const onProgress = (event: AnswerProgressEvent) => send("progress", event);
+        // Stream the answer prose as it generates (content-preserving) and signal a reset when a
+        // provisional answer is being revised by the quality gates.
+        const onToken = (delta: string) => send("token", { delta });
+        const onRevising = (reason: string) => send("revising", { reason });
 
         try {
           send("progress", { stage: "retrieving", message: "Searching indexed documents." });
@@ -188,6 +192,8 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
                 queryMode: body.queryMode,
                 skipCache: body.skipCache,
                 onProgress,
+                onToken,
+                onRevising,
                 signal,
               });
           const warnings = sourceGovernanceWarnings({

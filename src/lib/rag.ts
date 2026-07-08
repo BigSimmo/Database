@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOwnerScope } from "@/lib/owner-scope";
 import { classifyCorpusGrounding } from "@/lib/corpus-grounding";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import { createStreamingAnswerExtractor } from "@/lib/answer-stream-extractor";
 import { embedTextWithTelemetry, generateStructuredTextResult, type OpenAITextResult } from "@/lib/openai";
 import {
   SOURCE_ONLY_EMBEDDING_SKIP_REASON,
@@ -401,6 +402,13 @@ export type AnswerProgressEvent = {
 type AnswerQuestionWithScopeArgs = SearchChunksArgs & {
   logQuery?: boolean;
   onProgress?: (event: AnswerProgressEvent) => void | Promise<void>;
+  // Streaming hooks. onToken receives the answer prose as it generates (content-preserving — the
+  // same text arrives incrementally). onRevising fires when a generated answer fails a quality
+  // gate and the pipeline re-generates with the strong model, so the UI can clear the provisional
+  // text and show a "revising for accuracy" state before the corrected answer streams in. Only the
+  // streaming route sets these; the non-streaming path leaves them undefined.
+  onToken?: (delta: string) => void;
+  onRevising?: (reason: string) => void;
   signal?: AbortSignal;
 };
 
@@ -4445,6 +4453,11 @@ Quality retry instruction:
 ${qualityRetryInstruction}`
       : buildAnswerInput(contextResults);
     const generationStartedAt = Date.now();
+    // Fresh per-generation extractor: each generateWithModel call is a separate JSON stream, so the
+    // answer prose restarts from zero. Deltas are forwarded only for the answer field; the rest of
+    // the structured JSON (sections, citations) is delivered in the final payload as before.
+    const streamExtractor = args.onToken ? createStreamingAnswerExtractor() : null;
+    let streamRawBuffer = "";
     try {
       const result = await generateStructuredTextResult(input, answerJsonOutputSchemaForResults(contextResults), {
         model,
@@ -4458,6 +4471,14 @@ ${qualityRetryInstruction}`
           ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)
           : env.OPENAI_FAST_REASONING_EFFORT,
         signal: args.signal,
+        onOutputTextDelta:
+          streamExtractor && args.onToken
+            ? (delta) => {
+                streamRawBuffer += delta;
+                const prose = streamExtractor.push(streamRawBuffer);
+                if (prose) args.onToken?.(prose);
+              }
+            : undefined,
       });
       openAIUsage = addOpenAIUsage(openAIUsage, result.usage);
       if (result.requestId) openAIRequestIds.push(result.requestId);
@@ -4607,6 +4628,9 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
+      // Any prose already streamed to the client is now provisional — tell the UI to clear it and
+      // show a "revising for accuracy" state before the corrected strong answer streams in.
+      args.onRevising?.(retryReason);
       // Widen the retry context from the trimmed fast set to the full result set, but keep the P9
       // per-document crowding cap — the strong-initial route is capped, so the retry must be too.
       packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
@@ -4679,6 +4703,7 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
+      args.onRevising?.(retryReason);
       // Same as the truncation retry above: widen but keep the P9 per-document crowding cap.
       packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, { strong: true });
@@ -4713,6 +4738,7 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
+      args.onRevising?.("strong_quality_retry");
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
         strong: true,
         qualityRetryInstruction: `The previous answer failed deterministic validation (${strongQualityFailureReason}). Return schema-valid output only, with a complete natural clinical synthesis in the answer field. The first sentence must directly answer the question as a full sentence. Every clinical claim must be supported by valid retrieved citation_chunk_id values; do not invent citation IDs. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the evidence cannot support the requested clinical answer, return a concise source-gap answer instead. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.`,
