@@ -762,13 +762,22 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(dock).toBeVisible();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
-    await page.evaluate(() => window.scrollTo({ top: 120, behavior: "auto" }));
+    await page.evaluate(() => {
+      window.scrollTo({ top: 120, behavior: "auto" });
+      // WebKit doesn't reliably emit a native scroll event for a programmatic scrollTo, so the
+      // hide-on-scroll listener never ran and data-scroll-hidden stayed unset (release-browser-matrix
+      // WebKit flake). Dispatch one explicitly; harmless on Chromium/Firefox (the rAF guard dedupes).
+      window.dispatchEvent(new Event("scroll"));
+    });
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
     await expect
       .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"))
       .toBe(true);
 
-    await page.evaluate(() => window.scrollTo({ top: 60, behavior: "auto" }));
+    await page.evaluate(() => {
+      window.scrollTo({ top: 60, behavior: "auto" });
+      window.dispatchEvent(new Event("scroll"));
+    });
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect
       .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform === "none"))
