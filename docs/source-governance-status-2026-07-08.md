@@ -44,20 +44,25 @@ lack detectable local document-control endorsement).
 - **Unknown-status derivation pass** (PR #387, branch `claude/derive-unknown-status`).
   Derives `document_status` for the date-inferable subset of the 132 unknowns:
   `publication_date + 3y` (WA standard, env-overridable) → current/review_due.
-  Live dry-run: 55 derived (23 current, 32 review_due), 76 date-less left
-  unknown, 1 future/mis-extracted date guarded. Conservative, flagged
-  (`review_date_inferred`), and reversible via the `unknown_status_cycle_v1`
-  version stamp. **Not applied** — see decision 1.
+  **Applied 2026-07-08.** 55 statuses written (23 current, 32 review_due);
+  verified live: current 1452→1475, review_due 481→513, unknown 132→77 (the 77 =
+  76 date-less + 1 future/mis-extracted date guarded). Every write is flagged
+  (`review_date_inferred`) and reversible via the `unknown_status_cycle_v1`
+  version stamp.
 
-## Open decisions (owner: maintainer — not code)
+## Decisions
 
-1. **Apply the unknown-status pass?** `npm run backfill:unknown-status -- --apply`
-   writes 55 statuses. It encodes a policy assumption (3-year review cycle from
-   publication when no explicit review date exists). Net effect is conservative
-   (32 → review_due, flags for review; never asserts false currency). Improves
-   provenance-line clarity for those 55 docs; does not change the warning rate.
+1. **Apply the unknown-status pass — DONE (applied 2026-07-08).** Encoded the
+   policy assumption (3-year review cycle from publication when no explicit
+   review date exists). Conservative (32 → review_due; never asserts false
+   currency). Reverse with:
+   `update documents set metadata = metadata - 'review_date' - 'review_date_inferred' - 'unknown_status_derivation_version' - 'unknown_status_derivation_basis' - 'unknown_status_derived_at', ... set document_status back to 'unknown' where metadata->>'unknown_status_derivation_version' = 'unknown_status_cycle_v1'`
+   (or re-derive from source). To also cover future docs, wire
+   `npm run backfill:unknown-status -- --apply` into the enrichment cadence.
 
-2. **Validation-approval policy for the 130 `unverified` docs.** Options:
+2. **Validation-approval policy for the 130 `unverified` docs — accept as-is
+   (chosen default).** The "not locally validated" caveat is clinically honest
+   for these sources; no reclassification. Options considered:
    - _Accept as-is_ (recommended default): the "not locally validated" caveat is
      clinically honest for these sources; no change.
    - _Manual approval workflow_: a reviewer marks specific sources `approved`
