@@ -19,7 +19,7 @@ project (`sjrfecxgysukkwxsowpy`) on 2026-07-08. No worker, no re-index, no spend
   buys nothing (see `docs/reindex-runbook.md`); a re-index only pays off if chunk
   boundaries change (heading/table-aware) or the text changes (OCR repair).
 - Retrieval is already strong: `content_mrr@10 ≈ 0.90`, `document_recall@5 =
-  content_recall@5 = 1.0` on the 24-case golden set — recall headroom is zero.
+content_recall@5 = 1.0` on the 24-case golden set — recall headroom is zero.
 - A full re-index re-embeds ~69k chunks against OpenAI = real spend, and needs explicit
   owner go.
 
@@ -38,7 +38,7 @@ via `noisy_unit_rate > 0.2`. That is a misread of the column.
   rows). The identity `noisy_unit_rate = 1 - visual_units/total_units` holds exactly
   (0 violations).
 - Gotcha for future queries: `document_index_quality.metrics` is a JSON **array**, and the
-  `indexing_v3_agent` payload is a *stringified* JSON element inside it. Extract with
+  `indexing_v3_agent` payload is a _stringified_ JSON element inside it. Extract with
   `jsonb_array_elements_text(metrics)` filtered to elements `like '%indexing_v3_agent%'`,
   then cast to `jsonb`.
 
@@ -47,12 +47,12 @@ via `noisy_unit_rate > 0.2`. That is a misread of the column.
 Measured directly on all 111,991 rows of `document_index_units` (the layer the concern
 named; raw `document_chunks` answer context is clean):
 
-| Signal | Count | % of 111,991 units |
-| --- | --- | --- |
-| Exact cited signature (`p ycho`, ` ocial`) | **0** | 0% |
-| Interior single-consonant proxy ` [b-hj-z] ` | 4,398 | 3.9% |
-| — of which bullet-"o" glyph (`○`/`•` → "o", words intact; cosmetic) | 3,633 | 82.6% of proxy |
-| — non-"o", excluding dose/dimension tokens (upper bound) | **84** | **0.075%** |
+| Signal                                                              | Count  | % of 111,991 units |
+| ------------------------------------------------------------------- | ------ | ------------------ |
+| Exact cited signature (`p ycho`, ` ocial`)                          | **0**  | 0%                 |
+| Interior single-consonant proxy `[b-hj-z]`                          | 4,398  | 3.9%               |
+| — of which bullet-"o" glyph (`○`/`•` → "o", words intact; cosmetic) | 3,633  | 82.6% of proxy     |
+| — non-"o", excluding dose/dimension tokens (upper bound)            | **84** | **0.075%**         |
 
 The 84 residual units are almost all legitimate clinical/measurement tokens
 (`2 g IV`, `x 109/L`, `type b (Hib)`, `10cm x 15cm`). The only genuine artifacts are a
