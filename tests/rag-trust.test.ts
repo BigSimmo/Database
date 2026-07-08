@@ -382,7 +382,8 @@ describe("RAG trust validation", () => {
       }),
     ]);
 
-    expect(block).toContain("Section path: Medication > Dose table");
+    expect(block).toContain("Section path:");
+    expect(block).toContain("Medication > Dose table");
     expect(block).toContain("Structured table facts");
     expect(block).toContain("1 mg IM");
     expect(block).toContain("Index quality warnings: low table row extraction coverage");

@@ -1,6 +1,12 @@
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { metadataText, safeRecord } from "@/lib/rag-answer-text";
-import { fenceSourceEvidence, neutralizePromptInstructions, sourceTextForModel } from "@/lib/source-text-sanitizer";
+import {
+  escapeEvidenceFenceSentinels,
+  fenceSourceEvidence,
+  neutralizePromptInstructions,
+  normalizeExtractedGlyphs,
+  sourceTextForModel,
+} from "@/lib/source-text-sanitizer";
 import type { RagQueryClass, SearchResult } from "@/lib/types";
 
 // Boundary-aware, number-safe truncation for text handed to the model (P7). A naive char-boundary
@@ -27,6 +33,41 @@ export function compactContextText(text: string, limit: number) {
   return truncateForModel(compact, limit);
 }
 
+// Evidence-safe compaction for the derived/context fields (synopsis, adjacent context,
+// table facts, memory cards, image table text). Two orderings matter:
+//   1. Neutralization runs AFTER glyph normalization, not before: sourceTextForModel
+//      repairs zero-width / homoglyph / ligature obfuscation (via normalizeExtractedGlyphs),
+//      so neutralizing its output — rather than the raw string — closes the
+//      "ig​nore all previous instructions" evasion where the denylist regex never
+//      matched the obfuscated raw text (threat model mitigation #3).
+//   2. escapeEvidenceFenceSentinels defuses any forged `<<<…>>>` sentinel the field
+//      carries, so an attacker who lands text in an UNfenced derived field can no longer
+//      emit a close-then-reopen pair that straddles the real evidence fence (Vector E).
+// Only result.content is wrapped in a full fence; every other field is escaped in place
+// here, which closes the same hole at a fraction of the prompt-token / latency cost of a
+// per-field wrapper (measured: full per-field wrapping added ~940 input tokens/answer and
+// tipped near-timeout strong-route answers over budget). The answerInstructions provenance
+// boundary already declares every source-derived field untrusted, fenced or not.
+export function compactEvidenceText(text: string, limit: number) {
+  const compact = escapeEvidenceFenceSentinels(neutralizePromptInstructions(sourceTextForModel(text)))
+    .replace(/\s+/g, " ")
+    .trim();
+  return truncateForModel(compact, limit);
+}
+
+// Short document-identity fields (title, file name, image caption/label/title, index
+// warnings) are NOT free clinical prose, so they skip the noise-stripping model
+// pipeline — but they still reach the prompt and were previously inserted RAW
+// (threat model Vectors B and C: a title/filename/caption is a viable injection
+// channel). Glyph-normalize first so obfuscation can't evade the denylist, then
+// neutralize, then escape any forged fence sentinel. Kept on one line; never
+// truncated, so a real source title is intact.
+export function neutralizeIdentityField(text: string) {
+  return escapeEvidenceFenceSentinels(neutralizePromptInstructions(normalizeExtractedGlyphs(text)))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 type RagSourceBlockOptions = {
   query?: string;
   queryClass?: RagQueryClass;
@@ -48,7 +89,7 @@ function tableSnippetForFact(result: SearchResult, fact: NonNullable<SearchResul
     metadataText(factMetadata, "accessible_table_markdown") ??
     metadataText(factMetadata, "table_text_snippet") ??
     metadataCells;
-  return compactContextText(neutralizePromptInstructions(snippet), 420);
+  return compactEvidenceText(snippet, 420);
 }
 
 function formatTableFactForSourceBlock(
@@ -57,31 +98,27 @@ function formatTableFactForSourceBlock(
   rich: boolean,
 ) {
   if (!rich) {
-    return compactContextText(
-      neutralizePromptInstructions(
-        [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
-          .filter(Boolean)
-          .join(" | "),
-      ),
+    return compactEvidenceText(
+      [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+        .filter(Boolean)
+        .join(" | "),
       360,
     );
   }
 
   const snippet = tableSnippetForFact(result, fact);
-  return compactContextText(
-    neutralizePromptInstructions(
-      [
-        fact.table_title ? `table title: ${fact.table_title}` : "",
-        fact.row_label ? `row label: ${fact.row_label}` : "",
-        fact.clinical_parameter ? `clinical parameter: ${fact.clinical_parameter}` : "",
-        fact.threshold_value ? `threshold_value: ${fact.threshold_value}` : "",
-        fact.action ? `action: ${fact.action}` : "",
-        fact.source_image_id ? `source_image_id: ${fact.source_image_id}` : "",
-        snippet ? `table snippet: ${snippet}` : "",
-      ]
-        .filter(Boolean)
-        .join(" | "),
-    ),
+  return compactEvidenceText(
+    [
+      fact.table_title ? `table title: ${fact.table_title}` : "",
+      fact.row_label ? `row label: ${fact.row_label}` : "",
+      fact.clinical_parameter ? `clinical parameter: ${fact.clinical_parameter}` : "",
+      fact.threshold_value ? `threshold_value: ${fact.threshold_value}` : "",
+      fact.action ? `action: ${fact.action}` : "",
+      fact.source_image_id ? `source_image_id: ${fact.source_image_id}` : "",
+      snippet ? `table snippet: ${snippet}` : "",
+    ]
+      .filter(Boolean)
+      .join(" | "),
     760,
   );
 }
@@ -92,16 +129,18 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
     .map((result, index) => {
       const page = result.page_number ? `page ${result.page_number}` : "page unavailable";
       const searchableImages = result.images?.filter((image) => isClinicalImageEvidence(image));
+      // Image label/title/caption were RAW (skipped both defenses), the most-exploitable
+      // channel in the threat model (Vector B / INJ-4): a poisoned caption reached the model
+      // verbatim. They now pass through neutralizeIdentityField / compactEvidenceText, which
+      // neutralize denylisted idioms and escape any forged fence sentinel in place.
       const images = searchableImages?.length
         ? `\nImages: ${searchableImages
             .map((image) =>
               [
-                image.tableLabel,
-                image.tableTitle,
-                image.caption,
-                image.tableTextSnippet
-                  ? `Table text: ${compactContextText(neutralizePromptInstructions(image.tableTextSnippet), 320)}`
-                  : "",
+                neutralizeIdentityField(image.tableLabel ?? ""),
+                neutralizeIdentityField(image.tableTitle ?? ""),
+                neutralizeIdentityField(image.caption ?? ""),
+                image.tableTextSnippet ? `Table text: ${compactEvidenceText(image.tableTextSnippet, 320)}` : "",
               ]
                 .filter(Boolean)
                 .join(" - "),
@@ -109,12 +148,12 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
             .join(" | ")}`
         : "";
       const adjacentContext = result.adjacent_context
-        ? `\nNearby context from the same source: ${compactContextText(neutralizePromptInstructions(result.adjacent_context), 900)}`
+        ? `\nNearby context from the same source: ${compactEvidenceText(result.adjacent_context, 900)}`
         : "";
       const sectionPath = result.section_path?.length
-        ? `\nSection path: ${neutralizePromptInstructions(result.section_path.join(" > "))}`
+        ? `\nSection path: ${neutralizeIdentityField(result.section_path.join(" > "))}`
         : result.section_heading
-          ? `\nSection: ${neutralizePromptInstructions(result.section_heading)}`
+          ? `\nSection: ${neutralizeIdentityField(result.section_heading)}`
           : "";
       const tableFacts = result.table_facts?.length
         ? `\nStructured table facts: ${result.table_facts
@@ -124,22 +163,24 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
             .join(" ; ")}`
         : "";
       const indexWarnings = result.indexing_quality?.issues?.length
-        ? `\nIndex quality warnings: ${result.indexing_quality.issues.slice(0, 3).join("; ")}`
+        ? `\nIndex quality warnings: ${neutralizeIdentityField(result.indexing_quality.issues.slice(0, 3).join("; "))}`
         : "";
       const memoryCards = result.memory_cards?.length
         ? `\nStructured memory: ${result.memory_cards
             .slice(0, 3)
-            .map((card) => `${card.card_type}: ${compactContextText(neutralizePromptInstructions(card.content), 300)}`)
+            .map((card) => `${card.card_type}: ${compactEvidenceText(card.content, 300)}`)
             .join(" | ")}`
         : "";
       const retrievalSynopsis = result.retrieval_synopsis
-        ? `\nRetrieval synopsis: ${compactContextText(neutralizePromptInstructions(result.retrieval_synopsis), 700)}`
+        ? `\nRetrieval synopsis: ${compactEvidenceText(result.retrieval_synopsis, 700)}`
         : "";
-      const neutralizedContent = neutralizePromptInstructions(result.content);
-      const fencedContent = fenceSourceEvidence(compactContextText(neutralizedContent, 1800));
+      // Only the primary chunk body gets a full fence wrapper (the boundary the
+      // answerInstructions security clause references). Every other field is escaped in
+      // place above, closing Vector E without the per-field wrapper token cost.
+      const fencedContent = fenceSourceEvidence(compactEvidenceText(result.content, 1800));
       return [
         [
-          `[${index + 1}] ${result.title} (${result.file_name}, ${page}, chunk ${result.chunk_index}, similarity ${result.similarity.toFixed(3)})`,
+          `[${index + 1}] ${neutralizeIdentityField(result.title)} (${neutralizeIdentityField(result.file_name)}, ${page}, chunk ${result.chunk_index}, similarity ${result.similarity.toFixed(3)})`,
           `citation_chunk_id: ${result.id}`,
           `document_id: ${result.document_id}`,
         ].join("\n"),
