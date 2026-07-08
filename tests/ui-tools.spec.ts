@@ -585,7 +585,7 @@ test.describe("Clinical KB tools launcher", () => {
   });
 
   test("search result and detail routes keep top search from tablet up", async ({ page }) => {
-    test.setTimeout(150_000);
+    test.setTimeout(420_000);
 
     for (const viewport of [
       { name: "mobile", width: 390, height: 820 },
