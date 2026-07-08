@@ -84,7 +84,7 @@ export {
   packedContextCacheKey,
   retrievalPlanCacheQuery,
 } from "@/lib/rag-cache";
-import { buildRagSourceBlock, compactContextText } from "@/lib/rag-source-block";
+import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag-source-block";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
 import { extractNumericTokens, VERIFY_AGAINST_SOURCE_NOTE, verifyAnswerNumbers } from "@/lib/answer-verification";
 import {
@@ -5111,8 +5111,12 @@ export async function summarizeDocument(documentId: string, ownerId?: string) {
   const summaryInstructions = `Summarize a clinical document for practical psychiatric use in Perth, Australia.
 Use only the excerpts provided. Use a layered response: make the answer field a plain high-yield clinical paragraph, usually 1-3 short sentences and 35-75 words, then use answerSections for distinct structured support when it improves scanability. Do not prefix the answer with "Summary", "Key practical points", "Direct answer", or similar labels, and do not use bullets in the answer field. Focus on high-yield actions, thresholds, medication or risk monitoring, exceptions, comparisons, source gaps, and citations. Exclude administrative document-control details unless they change clinical action.
 Return data matching the supplied structured output schema.`;
+  // Threat model Vectors B/C: document.title is attacker-influenceable (upload
+  // filename/title metadata) and was reaching the prompt raw here, in the
+  // highest-trust "Document:" header position — unlike the per-result titles
+  // inside buildRagSourceBlock, which already neutralize.
   const summaryInput = `Document:
-${document.title}
+${neutralizeIdentityField(document.title)}
 
 Sources:
 ${buildRagSourceBlock(results)}`;

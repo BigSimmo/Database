@@ -1,4 +1,5 @@
 import type { RagQueryClass, SearchResult } from "@/lib/types";
+import { neutralizeIdentityField } from "@/lib/rag-source-block";
 import { sourceTextForModel } from "@/lib/source-text-sanitizer";
 
 export type CrossDocumentSynthesisPlan = {
@@ -217,7 +218,10 @@ export function buildCrossDocumentSourceGuide(results: SearchResult[]) {
   const grouped = new Map<string, { title: string; pages: Set<number>; chunks: string[] }>();
   for (const result of results) {
     const existing = grouped.get(result.document_id) ?? {
-      title: result.title,
+      // Threat model Vectors B/C: document title is attacker-influenceable (upload
+      // filename/title metadata) and reaches the prompt raw here, unlike
+      // buildRagSourceBlock's per-result titles which already neutralize.
+      title: neutralizeIdentityField(result.title),
       pages: new Set<number>(),
       chunks: [],
     };
@@ -257,7 +261,7 @@ export function buildCrossDocumentFusionBrief(query: string, results: SearchResu
 ${points
   .map((point, index) => {
     const page = point.result.page_number ? `p.${point.result.page_number}` : "page unavailable";
-    return `${index + 1}. ${point.result.title} (${page}): ${point.sentence}`;
+    return `${index + 1}. ${neutralizeIdentityField(point.result.title)} (${page}): ${point.sentence}`;
   })
   .join("\n")}`;
 
