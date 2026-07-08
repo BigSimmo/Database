@@ -99,10 +99,16 @@ function CrossModeLinkActions({
   );
 }
 
-function CrossModeLinkCardMobile({ link, Icon, query, onModeSearch }: CrossModeLinkCardProps) {
+function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCardProps) {
   return (
-    <article className={cn(sourceCard, "p-3 sm:p-3.5")}>
-      <div className="flex items-start gap-3">
+    <article
+      className={cn(
+        sourceCard,
+        "flex shrink-0 flex-col gap-2 p-3",
+        "w-full md:w-[16.5rem] md:min-w-[15rem] md:max-w-[18rem]",
+      )}
+    >
+      <div className="flex items-start gap-2.5 md:gap-3">
         <span className={iconTile}>
           <Icon className="h-4 w-4" aria-hidden />
         </span>
@@ -111,46 +117,15 @@ function CrossModeLinkCardMobile({ link, Icon, query, onModeSearch }: CrossModeL
             <Link
               href={link.detailHref}
               onClick={() => logCrossModeLinkOpen(query, link)}
-              className="inline-flex min-h-11 items-center text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="inline-flex min-h-11 items-center text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9"
             >
-              <span className="line-clamp-2">{link.title}</span>
+              <span className="line-clamp-2 md:line-clamp-1">{link.title}</span>
             </Link>
             <span className={cn(subtleStatusPill, "shrink-0")}>{link.modeLabel}</span>
           </div>
-          {link.subtitle ? <p className={cn("text-xs leading-5 line-clamp-2", textMuted)}>{link.subtitle}</p> : null}
-          <CrossModeLinkBadges badges={link.badges} />
-          <CrossModeLinkActions link={link} query={query} onModeSearch={onModeSearch} />
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function CrossModeLinkCardDesktop({ link, Icon, query, onModeSearch }: CrossModeLinkCardProps) {
-  return (
-    <article
-      className={cn(
-        sourceCard,
-        "flex w-[16.5rem] shrink-0 flex-col gap-2 p-3",
-        "min-w-[15rem] max-w-[18rem]",
-      )}
-    >
-      <div className="flex items-start gap-2.5">
-        <span className={iconTile}>
-          <Icon className="h-4 w-4" aria-hidden />
-        </span>
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex items-start justify-between gap-2">
-            <Link
-              href={link.detailHref}
-              onClick={() => logCrossModeLinkOpen(query, link)}
-              className="inline-flex min-h-9 items-center text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            >
-              <span className="line-clamp-1">{link.title}</span>
-            </Link>
-            <span className={cn(subtleStatusPill, "shrink-0")}>{link.modeLabel}</span>
-          </div>
-          {link.subtitle ? <p className={cn("text-xs leading-5 line-clamp-1", textMuted)}>{link.subtitle}</p> : null}
+          {link.subtitle ? (
+            <p className={cn("text-xs leading-5 line-clamp-2 md:line-clamp-1", textMuted)}>{link.subtitle}</p>
+          ) : null}
           <CrossModeLinkBadges badges={link.badges} />
         </div>
       </div>
@@ -244,11 +219,14 @@ export function CrossModeLinksStrip({
         ) : null}
       </p>
 
-      <div className="grid gap-2 md:hidden">
+      <div
+        className="cross-mode-links-rail polished-scroll grid gap-2 overflow-x-auto overscroll-x-contain pb-1 md:flex md:w-max md:max-w-full md:gap-2.5"
+        data-testid="cross-mode-links-rail"
+      >
         {links.map((link) => {
           const Icon = appModeIcons[link.modeId];
           return (
-            <CrossModeLinkCardMobile
+            <CrossModeLinkCard
               key={`${link.modeId}:${link.slug}`}
               link={link}
               Icon={Icon}
@@ -257,26 +235,6 @@ export function CrossModeLinksStrip({
             />
           );
         })}
-      </div>
-
-      <div
-        className="cross-mode-links-rail polished-scroll hidden overflow-x-auto overscroll-x-contain pb-1 md:block"
-        data-testid="cross-mode-links-rail"
-      >
-        <div className="flex w-max gap-2.5 pr-1">
-          {links.map((link) => {
-            const Icon = appModeIcons[link.modeId];
-            return (
-              <CrossModeLinkCardDesktop
-                key={`${link.modeId}:${link.slug}`}
-                link={link}
-                Icon={Icon}
-                query={query}
-                onModeSearch={onModeSearch}
-              />
-            );
-          })}
-        </div>
       </div>
     </section>
   );
