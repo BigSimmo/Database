@@ -77,7 +77,7 @@ export function ModeHomeHero({
 
   return (
     <section
-      className={cn("grid justify-items-center sm:gap-4", compact ? "gap-2" : "gap-3")}
+      className={cn("grid justify-items-center px-4 sm:gap-4 sm:px-0", compact ? "gap-2" : "gap-3")}
       aria-labelledby={`${testId ?? "mode-home"}-title`}
     >
       <span
@@ -129,14 +129,10 @@ export function ModeHomeMain({
     <main
       data-testid={testId}
       className={cn(
-        // Phone: content is vertically centred (not bottom-anchored) so the page
-        // no longer collapses all its slack into a void above the hero. The
-        // standalone shell (#main-content) already reserves 9rem of bottom
-        // padding for the fixed mobile composer, so this main only subtracts
-        // that space from its min-height instead of re-adding the padding —
-        // otherwise short homes scroll by exactly the duplicated reservation.
-        // From sm up the composer moves into the hero, so the reserve drops away.
-        "grid min-h-[calc(100dvh-13.75rem-env(safe-area-inset-bottom))] items-center justify-items-center bg-[color:var(--background)] px-4 pb-4 pt-[clamp(1.25rem,4vh,2.25rem)] text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
+        // Phone: stretch to fill the shell's flex column; the shell reserves
+        // composer clearance via --mobile-composer-reserve. Background is
+        // full-bleed; inner template content carries safe-area-aware inset.
+        "flex min-h-0 w-full flex-1 flex-col items-center justify-center bg-[color:var(--background)] px-0 pt-[clamp(1.25rem,4vh,2.25rem)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
         className,
       )}
     >
@@ -228,20 +224,23 @@ export function ModeHomeTemplate({
     <div
       data-testid={testId}
       className={cn(
-        "mode-home-template mx-auto box-border flex w-full max-w-[64rem] flex-col items-center justify-center gap-3.5 px-0 text-center sm:gap-6 lg:gap-7",
+        "mode-home-template mx-auto box-border flex w-full max-w-none flex-col items-center justify-center gap-3.5 px-0 text-center sm:max-w-[64rem] sm:gap-6 lg:gap-7",
         className,
       )}
     >
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} compact />
 
       {desktopComposerSlotId ? (
-        <div id={desktopComposerSlotId} className="mode-home-composer-slot hidden w-full sm:[&:not(:empty)]:block" />
+        <div
+          id={desktopComposerSlotId}
+          className="mode-home-composer-slot hidden w-full px-4 sm:px-0 sm:[&:not(:empty)]:block"
+        />
       ) : null}
 
       {actions.length ? (
         <section
           aria-label={actionsLabel}
-          className="grid w-full max-w-3xl overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] lg:max-w-none lg:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] lg:gap-5 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
+          className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-3xl sm:rounded-xl sm:border sm:shadow-[var(--shadow-card)] lg:max-w-none lg:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] lg:gap-5 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
         >
           {actions.map((action, index) => {
             const ActionIcon = action.icon;
@@ -294,7 +293,7 @@ export function ModeHomeTemplate({
       ) : null}
 
       {pills?.length ? (
-        <section className="grid w-full max-w-none self-stretch gap-3 border-t border-[color:var(--border)] pt-3 sm:gap-4 sm:pt-6">
+        <section className="grid w-full max-w-none self-stretch gap-3 border-t border-[color:var(--border)] px-4 pt-3 sm:gap-4 sm:px-0 sm:pt-6">
           {pillsTitle || pillsAction ? (
             <div
               className={cn(
@@ -341,7 +340,7 @@ export function ModeHomeTemplate({
         </section>
       ) : null}
 
-      {footer ? <div className="w-full">{footer}</div> : null}
+      {footer ? <div className="w-full px-4 sm:px-0">{footer}</div> : null}
     </div>
   );
 }

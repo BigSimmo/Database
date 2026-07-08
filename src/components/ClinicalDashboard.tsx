@@ -4258,6 +4258,13 @@ export function ClinicalDashboard({
   const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
+  const mobileComposerReserve = !hasMobileBottomSearch
+    ? "0px"
+    : compactMobileBottomSearch
+      ? differentialsCompareAddonActive
+        ? "calc(8.75rem + env(safe-area-inset-bottom))"
+        : "calc(5rem + env(safe-area-inset-bottom))"
+      : "calc(5.25rem + env(safe-area-inset-bottom))";
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -4376,6 +4383,7 @@ export function ClinicalDashboard({
         {
           "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
           "--clinical-sidebar-width-md": "5.25rem",
+          "--mobile-composer-reserve": mobileComposerReserve,
         } as CSSProperties
       }
     >
@@ -4482,6 +4490,7 @@ export function ClinicalDashboard({
           <div
             className={cn(
               "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+              compactMobileModeHome && "max-sm:px-0",
               // Centred mode homes carry little content, so drop the large
               // mobile bottom padding (the fixed composer already has its own
               // reserved margin on <main>) to avoid a needless scrollbar.
@@ -4523,7 +4532,9 @@ export function ClinicalDashboard({
 
             <section
               className={cn(
-                "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
+                compactMobileModeHome
+                  ? "max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:justify-center"
+                  : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                 centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
                   ? // On tall phones the centred home leans slightly toward the
                     // bottom composer (matches the committed vertical-weighting
