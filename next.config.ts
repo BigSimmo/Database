@@ -14,7 +14,13 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Cross-Origin-Resource-Policy", value: "same-site" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-  { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+  // NOTE: Do not set Cross-Origin-Embedder-Policy: require-corp here. Under
+  // require-corp the browser blocks every cross-origin subresource that lacks a
+  // CORP/CORS opt-in, and Supabase Storage signed URLs (document page images and
+  // the PDF embed, served from *.supabase.co) do not send a CORP header — so all
+  // image previews failed to render ("Image preview failed"). Nothing in the app
+  // needs cross-origin isolation (no SharedArrayBuffer/crossOriginIsolated usage),
+  // so COEP is omitted rather than reintroducing that failure mode.
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
   { key: "Origin-Agent-Cluster", value: "?1" },
   {
