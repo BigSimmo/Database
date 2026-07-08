@@ -32,10 +32,7 @@ function jsonbMergeDeep(
       typeof incoming === "object" &&
       !Array.isArray(incoming)
     ) {
-      merged[key] = jsonbMergeDeep(
-        existing as Record<string, unknown>,
-        incoming as Record<string, unknown>,
-      );
+      merged[key] = jsonbMergeDeep(existing as Record<string, unknown>, incoming as Record<string, unknown>);
     } else {
       merged[key] = incoming;
     }
