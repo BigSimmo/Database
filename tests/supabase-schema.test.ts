@@ -210,6 +210,11 @@ describe("Supabase schema Data API grants", () => {
       expect(sql).toContain("insert into public.document_pages");
       expect(sql).toContain("insert into public.document_index_quality");
     }
+    // R5 helpers live only in schema.sql (+ the dedicated migration), not in the
+    // original atomic-reindex migration snapshot.
+    expect(schema).toContain("create or replace function public.jsonb_merge_deep");
+    expect(schema).toContain("create or replace function public.apply_document_metadata_patch");
+    expect(schema).toContain("perform public.apply_document_metadata_patch");
     expect(schema).toContain("public.is_committed_document_generation(c.index_generation_id, d.metadata)");
     expect(schema).toContain("public.is_committed_artifact_generation(m.metadata, d.metadata)");
     expect(schema).toContain("public.is_committed_artifact_generation(f.metadata, d.metadata)");

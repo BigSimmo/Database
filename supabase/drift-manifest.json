@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-08T16:31:51.432Z",
+  "generated_at": "2026-07-08T17:13:03.597Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "3ee18ec46fd0d7f9586858f8b0345355c60dbdc235f0dd4a802c04c06d750f70",
-  "replay_seconds": 13,
+  "schema_sha256": "c004ebf92005475495394533bed3880f5372f16b90aab24f1a790e4d748d052c",
+  "replay_seconds": 31,
   "snapshot": {
     "views": [
       {
@@ -5640,6 +5640,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "91318c428667d073d12d42e2f7bf5505",
+        "signature": "public.apply_document_metadata_patch(uuid,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "e518193f2ffad7f87ae9bcd18164e099",
         "signature": "public.chunk_image_metadata(uuid[])"
       },
@@ -5672,7 +5680,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "b9b0836c354240f45f61ccfe40392317",
+        "def_hash": "594b1f715fbbfa1df1b1f1183a7fef5a",
         "signature": "public.commit_document_index_generation(uuid,uuid,text,integer,integer,integer,jsonb,jsonb,jsonb)"
       },
       {
@@ -5810,6 +5818,14 @@
         ],
         "def_hash": "d4913081cb28b11030c854deaa55c816",
         "signature": "public.is_committed_document_generation(uuid,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "69c0b6affcaeb9a0e23a8673d4bbe7c0",
+        "signature": "public.jsonb_merge_deep(jsonb,jsonb)"
       },
       {
         "acl": [
