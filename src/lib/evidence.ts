@@ -453,13 +453,129 @@ export function buildEvidenceSummary(results: SearchResult[], quoteCards: QuoteC
   };
 }
 
+// Cross-source safety-threshold disagreement (threat-model #10 / INJ-10).
+//
+// detectConflictsOrGaps previously compared only document count and top
+// similarity, so a poisoned or OCR-corrupted upload that faithfully STATES a
+// wrong withholding threshold (e.g. "withhold clozapine if ANC < 0.2 ×10⁹/L"
+// against the corpus-standard "< 1.5") passed every gate — the number is in a
+// cited chunk, so numeric verification "confirms" it. This surfaces the
+// disagreement as a {type:"conflict"} so the clinician sees it.
+//
+// It is deliberately narrow to keep false positives near zero on real clinical
+// prose: it only compares values that are (a) tied to a WITHHOLDING action
+// (cease/withhold/stop) — so legitimate red/amber monitoring bands and titration
+// schedules never trip it — (b) for a small set of haematological threshold
+// parameters, and (c) contradicting ACROSS two different documents. A single
+// document listing several zone cutoffs is not a cross-source conflict.
+const WITHHOLD_ACTION_PATTERN =
+  /\b(?:withhold|withheld|withholding|cease|ceased|ceasing|stop(?:ped|ping)?|discontinue|discontinued|suspend(?:ed)?|do not (?:give|administer|prescribe)|hold\b)\b/i;
+
+type ThresholdParameter = { key: string; label: string; pattern: RegExp };
+const THRESHOLD_PARAMETERS: ThresholdParameter[] = [
+  {
+    key: "anc",
+    label: "ANC (absolute neutrophil count)",
+    pattern: /\b(?:anc|absolute neutrophil count|neutrophils?)\b/i,
+  },
+  {
+    key: "wbc",
+    label: "white cell count (WBC)",
+    pattern: /\b(?:wbc|white (?:blood )?cell(?: count)?|leu[ck]ocytes?)\b/i,
+  },
+  { key: "platelet", label: "platelet count", pattern: /\bplatelets?\b/i },
+];
+
+// A threshold parameter within a short window of a "below" comparator and a
+// numeric value. Only "below"-type comparators (a floor for stopping therapy)
+// are matched — an upper ceiling is a different clinical statement.
+const THRESHOLD_SPAN_PATTERN =
+  /\b(anc|absolute neutrophil count|neutrophils?|wbc|white (?:blood )?cell(?: count)?|leu[ck]ocytes?|platelets?)\b[^.\n;]{0,32}?(?:<|≤|<=|less than|below|under|lower than|fall(?:s|ing)? below|drops? below)\s*(\d+(?:\.\d+)?)/gi;
+
+function thresholdParameterFor(raw: string): ThresholdParameter | undefined {
+  return THRESHOLD_PARAMETERS.find((parameter) => parameter.pattern.test(raw));
+}
+
+// Canonicalize "1.50" / "1.5" / "01.5" to one key so cosmetic formatting is not
+// mistaken for disagreement; invalid/zero-length values are dropped.
+function canonicalThresholdValue(raw: string): string | null {
+  const value = Number.parseFloat(raw);
+  return Number.isFinite(value) ? String(value) : null;
+}
+
+type ThresholdObservation = { value: string; documentId: string; chunkId: string };
+
+function collectWithholdThresholds(results: SearchResult[]): Map<string, ThresholdObservation[]> {
+  const byParameter = new Map<string, ThresholdObservation[]>();
+  const record = (parameterKey: string, value: string | null, documentId: string, chunkId: string) => {
+    if (!value) return;
+    const list = byParameter.get(parameterKey) ?? [];
+    list.push({ value, documentId, chunkId });
+    byParameter.set(parameterKey, list);
+  };
+
+  for (const result of results) {
+    // Prose: only sentences that express a withholding action contribute, so a
+    // "continue monitoring if ANC 0.5–1.5" band in the same chunk is ignored.
+    const prose = [result.content ?? "", result.adjacent_context ?? ""].filter(Boolean).join(" ");
+    for (const sentence of prose.split(/(?<=[.;:\n])\s+|\n+/)) {
+      if (!WITHHOLD_ACTION_PATTERN.test(sentence)) continue;
+      for (const match of sentence.matchAll(THRESHOLD_SPAN_PATTERN)) {
+        const parameter = thresholdParameterFor(match[1]);
+        if (parameter) record(parameter.key, canonicalThresholdValue(match[2]), result.document_id, result.id);
+      }
+    }
+
+    // Structured table facts carry the action and threshold in separate columns
+    // (no comparator), so extract them directly rather than via the prose regex.
+    for (const fact of result.table_facts ?? []) {
+      if (!fact.action || !fact.clinical_parameter || !fact.threshold_value) continue;
+      if (!WITHHOLD_ACTION_PATTERN.test(fact.action)) continue;
+      const parameter = thresholdParameterFor(fact.clinical_parameter);
+      if (parameter) {
+        record(
+          parameter.key,
+          canonicalThresholdValue(fact.threshold_value),
+          result.document_id,
+          fact.source_chunk_id ?? result.id,
+        );
+      }
+    }
+  }
+
+  return byParameter;
+}
+
+function detectThresholdDisagreements(results: SearchResult[]): ConflictOrGap[] {
+  const conflicts: ConflictOrGap[] = [];
+  for (const [parameterKey, observations] of collectWithholdThresholds(results)) {
+    const distinctValues = new Set(observations.map((observation) => observation.value));
+    const distinctDocuments = new Set(observations.map((observation) => observation.documentId));
+    // A cross-source conflict needs two different values reported by two
+    // different documents; one document that contradicts itself, or agreeing
+    // sources, are not flagged here.
+    if (distinctValues.size < 2 || distinctDocuments.size < 2) continue;
+    const label =
+      THRESHOLD_PARAMETERS.find((candidate) => candidate.key === parameterKey)?.label ?? "clinical threshold";
+    const values = [...distinctValues].sort((a, b) => Number(a) - Number(b));
+    conflicts.push({
+      type: "conflict",
+      message: `Sources disagree on the ${label} withholding threshold (${values.join(
+        " vs ",
+      )}). Confirm the correct cut-off against the primary guideline before acting on any single source.`,
+      source_chunk_ids: [...new Set(observations.map((observation) => observation.chunkId))].slice(0, 4),
+    });
+  }
+  return conflicts;
+}
+
 export function detectConflictsOrGaps(results: SearchResult[]): ConflictOrGap[] {
   if (results.length === 0) {
     return [{ type: "gap", message: "No indexed passages were strong enough to support an answer." }];
   }
 
   const documents = new Set(results.map((source) => source.document_id));
-  const gaps: ConflictOrGap[] = [];
+  const gaps: ConflictOrGap[] = [...detectThresholdDisagreements(results)];
 
   if (documents.size === 1) {
     gaps.push({
