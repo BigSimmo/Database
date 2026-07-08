@@ -178,11 +178,33 @@ async function updateDocument(documentId: string, patch: TablesUpdate<"documents
   // R5: deep-merge worker-owned metadata keys onto live documents.metadata so
   // concurrent renames / bulk-metadata / agent patches survive reclaim races.
   if (typeof metadata !== "undefined") {
+    const metadataPatch = sanitizeJsonbRecord(metadata);
     const { error } = await supabase.rpc("apply_document_metadata_patch", {
       p_document_id: documentId,
-      p_metadata_patch: sanitizeJsonbRecord(metadata),
+      p_metadata_patch: metadataPatch,
     });
-    if (error) throw supabaseStageError("apply document metadata patch", error);
+    if (!error) return;
+    if (!isMissingSchemaError(error)) throw supabaseStageError("apply document metadata patch", error);
+
+    // Expand/contract fallback before the R5 migration is applied: best-effort
+    // shallow merge against the current row (still races under reclaim, same as
+    // the pre-R5 path). Prefer the RPC once live has the migration.
+    const { data: current, error: readError } = await supabase
+      .from("documents")
+      .select("metadata")
+      .eq("id", documentId)
+      .maybeSingle();
+    if (readError) throw supabaseStageError("read document metadata for merge fallback", readError);
+    const { error: fallbackError } = await supabase
+      .from("documents")
+      .update({
+        metadata: sanitizeJsonbRecord({
+          ...((current?.metadata as Record<string, unknown> | null) ?? {}),
+          ...metadataPatch,
+        }),
+      })
+      .eq("id", documentId);
+    if (fallbackError) throw supabaseStageError("fallback document metadata merge", fallbackError);
   }
 }
 
@@ -1827,8 +1849,10 @@ async function processJob(job: JobRow) {
           }
         : {
             indexing_v3_agent_status: "completed",
+            // JSON null deletes sticky keys via jsonb_merge_deep (R5).
             indexing_v3_agent_last_error: null,
             indexing_v3_agent_repair_reason: null,
+            completion_gate_missing: null,
             indexing_v3_agent_updated_at: enrichmentUpdatedAt ?? new Date().toISOString(),
           }),
       embedding_model: env.OPENAI_EMBEDDING_MODEL,

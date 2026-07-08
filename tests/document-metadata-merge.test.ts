@@ -11,7 +11,8 @@ const r5Migration = readFileSync(
 /**
  * Mirrors public.jsonb_merge_deep so the worker-owned-delta contract stays
  * covered offline (the SQL helper is exercise-checked via migration + live
- * apply). Nested objects merge recursively; scalars/arrays/null overwrite.
+ * apply). Nested objects merge recursively; scalars/arrays overwrite; JSON
+ * null deletes the key (same as `merged - key` in SQL).
  */
 function jsonbMergeDeep(
   targetObj: Record<string, unknown> | null | undefined,
@@ -19,12 +20,15 @@ function jsonbMergeDeep(
 ): Record<string, unknown> {
   const merged: Record<string, unknown> = { ...(targetObj ?? {}) };
   for (const [key, incoming] of Object.entries(patchObj ?? {})) {
+    if (incoming === null) {
+      delete merged[key];
+      continue;
+    }
     const existing = merged[key];
     if (
       existing !== null &&
       typeof existing === "object" &&
       !Array.isArray(existing) &&
-      incoming !== null &&
       typeof incoming === "object" &&
       !Array.isArray(incoming)
     ) {
@@ -89,7 +93,7 @@ describe("R5 document metadata deep-merge", () => {
   it("overwrites scalar and array keys from the patch", () => {
     expect(
       jsonbMergeDeep(
-        { enrichment_status: "completed", issues: ["a"], note: null },
+        { enrichment_status: "completed", issues: ["a"], note: "old" },
         { enrichment_status: "failed", issues: ["b"], note: "set" },
       ),
     ).toEqual({
@@ -97,6 +101,22 @@ describe("R5 document metadata deep-merge", () => {
       issues: ["b"],
       note: "set",
     });
+  });
+
+  it("deletes sticky keys when the patch sends JSON null", () => {
+    expect(
+      jsonbMergeDeep(
+        {
+          indexing_v3_agent_last_error: "old",
+          completion_gate_missing: ["image_caption"],
+          keep: true,
+        },
+        {
+          indexing_v3_agent_last_error: null,
+          completion_gate_missing: null,
+        },
+      ),
+    ).toEqual({ keep: true });
   });
 
   it("keeps the SQL merge helpers + grant posture in schema and the R5 migration", () => {

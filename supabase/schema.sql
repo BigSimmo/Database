@@ -1256,7 +1256,11 @@ begin
     select j.key, j.value
     from jsonb_each(coalesce(patch_obj, '{}'::jsonb)) as j
   loop
-    if jsonb_typeof(merged -> key) = 'object' and jsonb_typeof(incoming_value) = 'object' then
+    -- JSON null means "delete this key" so worker deltas can clear sticky
+    -- error/gate fields that the old full-replace used to wipe implicitly.
+    if incoming_value = 'null'::jsonb then
+      merged := merged - key;
+    elsif jsonb_typeof(merged -> key) = 'object' and jsonb_typeof(incoming_value) = 'object' then
       merged := jsonb_set(
         merged,
         array[key],

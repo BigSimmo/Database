@@ -1983,6 +1983,13 @@ export type Database = {
     };
     Functions: {
       analyze_rag_tables: { Args: never; Returns: undefined };
+      apply_document_metadata_patch: {
+        Args: {
+          p_document_id: string;
+          p_metadata_patch?: Json;
+        };
+        Returns: undefined;
+      };
       consume_api_subject_rate_limit: {
         Args: {
           p_subject_key: string;
@@ -2048,13 +2055,6 @@ export type Database = {
         Args: { p_document_id?: string | null; p_dry_run?: boolean; p_limit?: number };
         Returns: Json;
       };
-      apply_document_metadata_patch: {
-        Args: {
-          p_document_id: string;
-          p_metadata_patch?: Json;
-        };
-        Returns: undefined;
-      };
       commit_document_index_generation: {
         Args: {
           p_chunk_count?: number;
@@ -2066,13 +2066,6 @@ export type Database = {
           p_pages?: Json;
           p_quality?: Json;
           p_status?: string;
-        };
-        Returns: Json;
-      };
-      jsonb_merge_deep: {
-        Args: {
-          patch_obj?: Json;
-          target_obj?: Json;
         };
         Returns: Json;
       };
@@ -2199,6 +2192,13 @@ export type Database = {
       is_committed_document_generation: {
         Args: { document_metadata: Json; row_generation: string };
         Returns: boolean;
+      };
+      jsonb_merge_deep: {
+        Args: {
+          patch_obj?: Json;
+          target_obj?: Json;
+        };
+        Returns: Json;
       };
       match_document_chunks: {
         Args: {
