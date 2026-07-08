@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import { AuthProvider } from "@/lib/supabase/client";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import "./globals.css";
@@ -36,11 +37,17 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Per-request CSP nonce set by src/proxy.ts. Next.js stamps its own scripts
+  // automatically, but the hand-authored theme-flash <script> below is ours, so
+  // it must carry the nonce explicitly or the strict script-src blocks it (a
+  // silent runtime failure: theme flash returns). Reading headers() opts the app
+  // into dynamic rendering — inherent to nonce-based CSP.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html
       lang="en"
@@ -53,6 +60,10 @@ export default function RootLayout({
             Mirrors resolveThemePreference in src/lib/theme.ts: stored choice wins,
             otherwise the OS preference. Key must match use-theme.ts. */}
         <script
+          nonce={nonce}
+          // Next.js strips the nonce from the client payload (so scripts can't
+          // read it), which reads as a hydration mismatch on this attribute.
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem("clinical-kb-theme");var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);}catch(e){}})();`,
           }}
