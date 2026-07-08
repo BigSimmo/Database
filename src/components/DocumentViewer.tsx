@@ -67,6 +67,7 @@ import {
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { formatClinicalDate } from "@/lib/source-metadata";
+import { partitionViewerImages } from "@/lib/image-filtering";
 import { isLocalNoAuthMode } from "@/lib/env";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -2305,15 +2306,7 @@ export function DocumentViewer({
   const summarizeTitle = canSummarizeDocument ? "Answer from this document" : "Load a source document before answering";
   const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
   const selectedChunk = chunkId ? chunks.find((chunk) => chunk.id === chunkId) : undefined;
-  const clinicalImages = images.filter(
-    (image) => image.searchable !== false && (image.clinicalUseClass ?? "clinical_evidence") === "clinical_evidence",
-  );
-  const auditImages = images.filter(
-    (image) =>
-      image.source_kind === "table_crop" &&
-      (image.searchable === false ||
-        ["administrative", "reference"].includes(String(image.clinicalUseClass ?? image.tableRole ?? ""))),
-  );
+  const { clinicalImages, auditImages } = partitionViewerImages(images);
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
   const usefulPageCount = usefulDocumentPages(initialPage, pages).length || 1;
   useEffect(() => {
