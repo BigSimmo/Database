@@ -197,29 +197,57 @@ export function semanticChipTone(tone: SemanticChipTone | undefined | null) {
 export function ToggleSwitch({
   enabled,
   className,
+  onToggle,
+  disabled = false,
   "aria-label": ariaLabel,
 }: {
   enabled: boolean;
   className?: string;
+  // When provided the switch is an operable control; when omitted it renders as a
+  // read-only presentational indicator (no interactive role is advertised).
+  onToggle?: () => void;
+  disabled?: boolean;
   "aria-label"?: string;
 }) {
-  return (
+  const track = cn(
+    "relative inline-flex h-6 w-10 shrink-0 rounded-full transition",
+    enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
+    className,
+  );
+  const knob = (
     <span
-      role="switch"
-      aria-checked={enabled}
-      aria-label={ariaLabel}
+      aria-hidden
       className={cn(
-        "relative inline-flex h-6 w-10 shrink-0 rounded-full transition",
-        enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
-        className,
+        "absolute top-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm transition",
+        enabled ? "right-1" : "left-1",
       )}
-    >
-      <span
+    />
+  );
+
+  if (onToggle) {
+    return (
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        onClick={onToggle}
         className={cn(
-          "absolute top-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm transition",
-          enabled ? "right-1" : "left-1",
+          track,
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50",
         )}
-      />
+      >
+        {knob}
+      </button>
+    );
+  }
+
+  // Read-only: expose the state as an image label so assistive tech announces
+  // on/off without implying the control can be operated.
+  return (
+    <span role="img" aria-label={ariaLabel ? `${ariaLabel}: ${enabled ? "on" : "off"}` : undefined} className={track}>
+      {knob}
     </span>
   );
 }

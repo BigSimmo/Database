@@ -25,7 +25,7 @@ import { type FormEvent, useMemo, useState } from "react";
 
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
-import { cn } from "@/components/ui-primitives";
+import { cn, toneInfo, toneSuccess, toneWarning } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import {
@@ -186,9 +186,9 @@ function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutra
     <span
       className={cn(
         "inline-flex min-h-6 items-center gap-1 rounded-md border px-2 text-2xs font-bold leading-none",
-        tone === "source" && "border-emerald-200 bg-emerald-50 text-emerald-700",
-        tone === "safety" && "border-orange-200 bg-orange-50 text-orange-700",
-        tone === "high" && "border-blue-200 bg-blue-50 text-blue-700",
+        tone === "source" && toneSuccess,
+        tone === "safety" && toneWarning,
+        tone === "high" && toneInfo,
         tone === "neutral" &&
           "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
       )}
