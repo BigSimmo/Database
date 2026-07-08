@@ -13,10 +13,17 @@ export function readSavedRegistrySlugs(key: string): string[] {
   }
 }
 
-export function writeSavedRegistrySlugs(key: string, slugs: string[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(slugs));
-  window.dispatchEvent(new CustomEvent(savedRegistryStorageChangedEvent, { detail: { key } }));
+export function writeSavedRegistrySlugs(key: string, slugs: string[]): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(slugs));
+    window.dispatchEvent(new CustomEvent(savedRegistryStorageChangedEvent, { detail: { key } }));
+    return true;
+  } catch {
+    // Quota exceeded, private-mode, or blocked storage: report failure so callers
+    // can surface a save-failed state instead of throwing unhandled.
+    return false;
+  }
 }
 
 export function subscribeSavedRegistrySlugs(onChange: () => void) {

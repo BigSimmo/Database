@@ -449,7 +449,6 @@ export function buildRetrievalCandidates(
       lexicalScore: 0,
       semanticScore: result.similarity,
       rerankScore: result.score_explanation?.finalScore ?? result.hybrid_score,
-      preClampScore: result.score_explanation?.preClampFinalScore,
       matchedSignals: [],
       sourceHref: documentCitationHref(citationFromResult(result)),
     };
@@ -558,11 +557,6 @@ export function selectRetrievalEvidence(args: {
     if ((right.lexicalScore ?? 0) !== (left.lexicalScore ?? 0))
       return (right.lexicalScore ?? 0) - (left.lexicalScore ?? 0);
     if ((right.rerankScore ?? 0) !== (left.rerankScore ?? 0)) return (right.rerankScore ?? 0) - (left.rerankScore ?? 0);
-    // rerankScore is the clamped finalScore, which saturates at 1.0 for heavily-boosted results;
-    // the pre-clamp sum still discriminates within that saturated region. Tie-only by
-    // construction — every primary signal above has already tied when this fires.
-    if ((right.preClampScore ?? 0) !== (left.preClampScore ?? 0))
-      return (right.preClampScore ?? 0) - (left.preClampScore ?? 0);
     return left.chunkId.localeCompare(right.chunkId);
   });
   const selectedCandidates: RetrievalCandidate[] = [];

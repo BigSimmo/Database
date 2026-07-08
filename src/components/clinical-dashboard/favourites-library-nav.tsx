@@ -50,10 +50,10 @@ const favouritesNavCollapsedKey = "clinical-kb-favourites-nav-collapsed";
 const favouritesNavCollapsedEvent = "clinical-kb-favourites-nav-collapsed-change";
 
 const setAccentBars = [
-  "bg-gradient-to-r from-[color:var(--clinical-accent)] to-teal-600",
-  "bg-gradient-to-r from-blue-500 to-indigo-500",
-  "bg-gradient-to-r from-violet-500 to-purple-600",
-  "bg-gradient-to-r from-amber-500 to-orange-500",
+  "bg-gradient-to-r from-[color:var(--clinical-accent)] to-[color:var(--tone-indigo)]",
+  "bg-gradient-to-r from-[color:var(--info)] to-[color:var(--tone-indigo)]",
+  "bg-gradient-to-r from-[color:var(--tone-purple)] to-[color:var(--tone-rose)]",
+  "bg-gradient-to-r from-[color:var(--warning)] to-[color:var(--tone-rose)]",
 ];
 
 function getSetAccentBar(index: number) {
@@ -210,7 +210,7 @@ function SidebarRow({ entry }: { entry: SidebarEntry }) {
       aria-pressed={entry.active}
       onClick={entry.onClick}
       className={cn(
-        "flex min-h-10 w-full items-center gap-2.5 rounded-lg border px-2.5 text-left text-sm font-bold transition",
+        "flex min-h-9 w-full items-center gap-2.5 rounded-lg border px-2.5 text-left text-sm-minus font-semibold transition",
         entry.active
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[inset_2px_0_0_var(--clinical-accent)]"
           : "border-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
@@ -219,7 +219,7 @@ function SidebarRow({ entry }: { entry: SidebarEntry }) {
     >
       <Icon className="h-4 w-4 shrink-0" aria-hidden />
       <span className="min-w-0 flex-1 truncate">{entry.label}</span>
-      <span className="nums shrink-0 text-xs font-black opacity-75">{entry.count}</span>
+      <span className="nums shrink-0 text-2xs font-bold opacity-75">{entry.count}</span>
     </button>
   );
 }
@@ -277,7 +277,7 @@ export function FavouritesSidebar({
                     )}
                   >
                     <Icon className="h-4 w-4" aria-hidden />
-                    <span className="nums absolute -right-0.5 -top-0.5 grid min-h-4 min-w-4 place-items-center rounded-full border border-[color:var(--surface)] bg-[color:var(--command)] px-1 text-3xs font-black leading-none text-[color:var(--command-contrast)]">
+                    <span className="nums absolute -right-0.5 -top-0.5 grid min-h-4 min-w-4 place-items-center rounded-full border border-[color:var(--surface)] bg-[color:var(--command)] px-1 text-3xs font-bold leading-none text-[color:var(--command-contrast)]">
                       {entry.count}
                     </span>
                   </button>
@@ -297,7 +297,7 @@ export function FavouritesSidebar({
       className="hidden min-w-0 overflow-y-auto border-r border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-5 shadow-[var(--shadow-soft)] lg:block lg:w-[17.5rem]"
     >
       <div className="mb-4 flex items-center justify-between gap-2">
-        <h2 className="truncate text-sm font-black text-[color:var(--text-heading)]">Library</h2>
+        <h2 className="truncate text-sm-minus font-semibold text-[color:var(--text-heading)]">Library</h2>
         <button
           type="button"
           onClick={() => onCollapsedChange(true)}
@@ -314,7 +314,7 @@ export function FavouritesSidebar({
       <nav className="grid gap-5">
         {sections.map((section) => (
           <section key={section.id}>
-            <h3 className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
               {section.title}
             </h3>
             <div className="grid gap-1">
@@ -346,7 +346,7 @@ function SetBrowseCard({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "relative min-w-[8.75rem] max-w-[9.75rem] shrink-0 overflow-hidden rounded-xl border p-3 text-left shadow-[var(--shadow-tight)] transition hover:-translate-y-px hover:shadow-[var(--shadow-soft)] sm:min-w-[9.5rem] sm:max-w-[10.5rem]",
+        "relative min-w-[8.75rem] max-w-[9.75rem] shrink-0 overflow-hidden rounded-xl border p-2.5 text-left shadow-[var(--shadow-tight)] transition hover:-translate-y-px hover:shadow-[var(--shadow-soft)] sm:min-w-[9.5rem] sm:max-w-[10.5rem]",
         active
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/40 ring-2 ring-[color:var(--clinical-accent)]/20"
           : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--clinical-accent-border)]",
@@ -365,11 +365,11 @@ function SetBrowseCard({
         >
           <Folder className="h-4 w-4" aria-hidden />
         </span>
-        <span className="nums rounded-md border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2 py-0.5 text-xs font-black text-[color:var(--text-heading)]">
+        <span className="nums rounded-md border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2 py-0.5 text-2xs font-bold text-[color:var(--text-heading)]">
           {set.count}
         </span>
       </div>
-      <p className="mt-2 truncate text-sm font-black text-[color:var(--text-heading)]">{set.title}</p>
+      <p className="mt-2 truncate text-sm-minus font-bold text-[color:var(--text-heading)]">{set.title}</p>
     </button>
   );
 }
@@ -385,7 +385,7 @@ export function FavouritesMobileBrowseRail({
 
   return (
     <section className="min-w-0 max-w-full lg:hidden" data-testid="favourites-set-carousel" aria-label="Saved sets">
-      <h2 className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
         Browse sets
       </h2>
       <div className="-mx-4 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:thin] sm:-mx-6 sm:px-6">

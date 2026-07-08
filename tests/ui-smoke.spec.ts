@@ -770,7 +770,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         const dailyActions = await openDailyActions(page);
         const searchAction = dailyActions.getByRole("menuitem", { name: "Search" });
         await expect(searchAction).toBeVisible();
-        await expect(dailyActions.getByRole("menuitem", { name: "Evidence map" })).toBeVisible();
+        await expect(dailyActions.getByRole("menuitem", { name: "View evidence" })).toBeVisible();
         await expectMinTouchTarget(searchAction);
         await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
         await page.keyboard.press("Escape");
@@ -902,6 +902,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(activeLink).toBeVisible();
       await expect(activeLink).toHaveAttribute("aria-current", "page");
     }
+  });
+
+  test("served response headers do not block cross-origin Supabase images", async ({ page }) => {
+    // Regression guard for the "all images fail to render" incident: document
+    // page images load cross-origin from Supabase Storage signed URLs. A
+    // Cross-Origin-Embedder-Policy: require-corp header (or a CSP that drops
+    // https: images / the *.supabase.co origin) silently breaks every image
+    // while all other tests still pass. Assert the actual served headers.
+    const response = await page.request.get("/");
+    expect(response.status()).toBe(200);
+    const headers = response.headers();
+
+    expect(headers["cross-origin-embedder-policy"]).toBeUndefined();
+
+    const csp = headers["content-security-policy"] ?? "";
+    expect(csp).toContain("img-src");
+    const imgSrc = csp.split(";").find((directive) => directive.trim().startsWith("img-src"));
+    expect(imgSrc).toContain("https:");
+    expect(csp).toContain("https://*.supabase.co");
   });
 
   test("static agent guidance is available and documents mode avoids the app error boundary", async ({ page }) => {
@@ -1327,6 +1346,101 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("answer failure offers a retry action that re-runs the question", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const answerRequests: string[] = [];
+    let answerMode: "error" | "ok" = "error";
+    await mockDemoApi(page);
+    // Override the answer route so the first attempt fails (non-retryable), then
+    // succeeds once the user taps Retry. Registered after mockDemoApi so it wins.
+    await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
+      const body = route.request().postDataJSON() as { query?: string; documentId?: string; documentIds?: string[] };
+      answerRequests.push(body.query ?? "");
+      if (answerMode === "error") {
+        await route.fulfill({
+          body: `event: error\ndata: ${JSON.stringify({ error: "Answer generation failed for this question.", status: 400 })}\n\n`,
+          contentType: "text/event-stream; charset=utf-8",
+          headers: { "Cache-Control": "no-cache, no-transform" },
+        });
+        return;
+      }
+      await fulfillAnswerResponse(route, {
+        ...demoAnswer(body.query ?? "", body.documentId, body.documentIds),
+        demoMode: true,
+      });
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "What lithium monitoring is required?");
+    await visibleAnswerSubmitButton(page).click();
+
+    const retry = page.getByTestId("answer-error-retry");
+    await expect(retry).toBeVisible();
+    await expect(page.getByTestId("answer-error")).toContainText("Answer generation failed for this question.");
+    await expect(page.getByTestId("answer-error-search-documents")).toBeVisible();
+    const requestsBeforeRetry = answerRequests.length;
+
+    answerMode = "ok";
+    await retry.click();
+
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible();
+    await expect(page.getByTestId("answer-error-retry")).toHaveCount(0);
+    expect(answerRequests.length).toBeGreaterThan(requestsBeforeRetry);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("answer with no usable results shows a calm recovery panel, not an error alert", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page, {
+      // Empty answer text makes the payload unusable, which the executor surfaces
+      // as the "No usable results were found." 404 sentinel.
+      answerOverride: (query, documentId, documentIds) => ({
+        ...demoAnswer(query, documentId, documentIds),
+        answer: "",
+      }),
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "A question with no indexed match at all");
+    await visibleAnswerSubmitButton(page).click();
+
+    const panel = page.getByTestId("answer-no-results");
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText("No answer for that yet");
+    await expect(page.getByTestId("answer-no-results-rephrase")).toBeVisible();
+    await expect(page.getByTestId("answer-no-results-search-documents")).toBeVisible();
+    // A calm status panel, never the alarming red error banner.
+    await expect(page.getByTestId("answer-error")).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const answerRequests: string[] = [];
+    await mockDemoApi(page, { onAnswerRequest: (query) => answerRequests.push(query) });
+    const recent = "clozapine monitoring schedule";
+    // Seed persisted recent queries before the app loads (key mirrors
+    // `recentQueryStorageKey` in ClinicalDashboard.tsx).
+    await page.addInitScript((value) => {
+      window.localStorage.setItem("clinical-kb-recent-queries", JSON.stringify([value]));
+    }, recent);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const recentChips = page.getByTestId("answer-recent-queries");
+    await expect(recentChips).toBeVisible();
+    await expect(recentChips).toContainText("Recent searches");
+    const chip = recentChips.getByRole("button", { name: recent });
+    await expect(chip).toBeVisible();
+    await chip.click();
+
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible();
+    expect(answerRequests).toContain(recent);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("answer search URL opens chat without the answer home copy", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     const answerRequests: string[] = [];
@@ -1363,12 +1477,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
 
-    const strip = page.getByTestId("cross-mode-links");
+    const answerSurface = page.locator('[data-dashboard-stage="answer-surface"]');
+    const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
-    // Close the composer command palette if it opened over the results.
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
     await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
+
+    const followUps = answerSurface.getByTestId("answer-follow-up-suggestions");
+    if (await followUps.isVisible()) {
+      const stripBox = await strip.boundingBox();
+      const followUpBox = await followUps.boundingBox();
+      expect(stripBox).toBeTruthy();
+      expect(followUpBox).toBeTruthy();
+      expect(stripBox!.y).toBeLessThan(followUpBox!.y);
+    }
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
     await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
@@ -1682,6 +1805,46 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(expandButton).toBeFocused();
     });
   }
+
+  test("dashboard favourites mode param redirects to the standalone favourites route", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
+
+    await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1$/);
+    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+  });
+
+  test("dashboard differentials mode param redirects to the standalone differentials route", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
+
+    await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1$/);
+    await expect(page.getByTestId("differentials-home")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
+  });
+
+  test("submitted differentials searches stay on the standalone differentials route", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/differentials?q=acute+confusion&focus=1&run=1");
+
+    await expect(page.getByTestId("differentials-search-results")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
+    await expect(page.getByTestId("differentials-home")).toHaveCount(0);
+  });
+
+  test("submitted favourites searches stay on the command library route", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/favourites?q=lithium%20set&focus=1&run=1");
+
+    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    await expect(page.getByTestId("favourites-active-filters")).toBeVisible();
+  });
 
   test("favourites route opens the favourites home", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });

@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { clinicalVocabularyMatches } from "@/lib/clinical-vocabulary";
 import { env } from "@/lib/env";
 
 export function normalizeQueryText(query: string) {
@@ -44,6 +45,16 @@ export function queryCacheKeyForStorage(cacheKey: string): string {
 
 export function queryDerivedTokensForStorage(tokens: string[]): string[] {
   return env.RAG_PERSIST_RAW_QUERY_TEXT ? tokens : [];
+}
+
+// RET-H4-safe candidate aliases for the alias-promotion pipeline (rag-hybrid-findings
+// item 17): every returned string is a canonical term from the curated clinical
+// vocabulary that the query MATCHED — the output text comes from the fixed vocabulary
+// table, never from the raw query — so patient-identifying text cannot leak even with
+// raw retention off. This unblocks rag_query_misses.candidate_aliases, which was always
+// empty under redaction and starved data-driven promotion into rag_aliases.
+export function queryVocabularyAliasesForStorage(query: string, limit = 10): string[] {
+  return Array.from(new Set(clinicalVocabularyMatches(query, limit).map((entry) => entry.canonical))).slice(0, limit);
 }
 
 // Privacy metadata to fold into a logged row's `metadata` jsonb: a stable hash

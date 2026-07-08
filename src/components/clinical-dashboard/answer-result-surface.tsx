@@ -1,11 +1,12 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { memo, type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { NaturalLanguageAnswer, UserQuestionBubble } from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerSupportSummaryCard,
@@ -24,6 +25,7 @@ import { InlineTableCard, MobileEvidenceSheetContent } from "@/components/clinic
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
+import { type AppModeId } from "@/lib/app-modes";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { type SourceGovernanceWarning } from "@/lib/source-governance";
 import type {
@@ -36,7 +38,7 @@ import type {
 } from "@/lib/types";
 import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-output";
 
-export function StagedAnswerResultSurface({
+function StagedAnswerResultSurfaceImpl({
   answer,
   query,
   safeAnswerText,
@@ -61,6 +63,8 @@ export function StagedAnswerResultSurface({
   followUpSuggestions,
   onPickFollowUpSuggestion,
   followUpSuggestionsDisabled = false,
+  crossModeQueries,
+  onCrossModeSearch,
 }: {
   answer: RagAnswer;
   query: string;
@@ -86,6 +90,8 @@ export function StagedAnswerResultSurface({
   followUpSuggestions?: string[];
   onPickFollowUpSuggestion?: (suggestion: string) => void;
   followUpSuggestionsDisabled?: boolean;
+  crossModeQueries?: Array<string | null | undefined>;
+  onCrossModeSearch?: (mode: AppModeId, query: string) => void;
 }) {
   const noteCount = clinicalNotesCount(answer);
   const showClinicalNotes =
@@ -234,6 +240,10 @@ export function StagedAnswerResultSurface({
               />
             ) : null}
 
+            {crossModeQueries?.length && onCrossModeSearch ? (
+              <CrossModeLinksSection queries={crossModeQueries} onModeSearch={onCrossModeSearch} />
+            ) : null}
+
             {followUpSuggestions?.length && onPickFollowUpSuggestion ? (
               <div className="hidden sm:block">
                 <AnswerFollowUpSuggestions
@@ -373,3 +383,11 @@ export function StagedAnswerResultSurface({
     </div>
   );
 }
+
+// Memoized so keystrokes in the follow-up composer (which live in the parent
+// ClinicalDashboard's `query` state) no longer re-render this 385-line answer +
+// evidence subtree. All props are stable across keystrokes: the parent
+// stabilizes its handlers with useCallback/useMemo and the `query` prop it
+// passes is `latestAnswerQuery ?? query`, which is non-null and stable once an
+// answer exists.
+export const StagedAnswerResultSurface = memo(StagedAnswerResultSurfaceImpl);

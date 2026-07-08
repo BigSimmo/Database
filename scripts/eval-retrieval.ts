@@ -5,7 +5,7 @@ import { loadEnvConfig } from "@next/env";
 import { z } from "zod";
 import { loadCapturedRagEvalCases, type RagEvalCase, type SupabaseEvalCaseClient } from "@/lib/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
-import { findOwnerIdByEmail, loadAdminClient, percentile, withProviderBackoff } from "./eval-utils";
+import { loadAdminClient, percentile, resolveEvalOwnerId, withProviderBackoff } from "./eval-utils";
 
 loadEnvConfig(process.cwd());
 
@@ -812,7 +812,7 @@ async function main() {
   requireServerEnv();
   requireOpenAIEnv();
 
-  const ownerId = args.ownerId ?? (args.ownerEmail ? await findOwnerIdByEmail(supabase, args.ownerEmail) : undefined);
+  const ownerId = await resolveEvalOwnerId(supabase, args);
   const capturedCaseClient = supabase as unknown as SupabaseEvalCaseClient;
   const capturedCases = await loadCapturedRagEvalCases({ supabase: capturedCaseClient, ownerId, limit: args.limit });
   const allCases = [...capturedCases.map(capturedRagCaseToGoldenCase), ...loadGoldenRetrievalCases(args.fixture)];

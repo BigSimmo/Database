@@ -69,7 +69,6 @@ describe("shared derivation stamps", () => {
     expect(unknownStatusDerivationBasis()).toContain("no explicit review date");
   });
 });
-
 describe("parseIsoDate", () => {
   it("parses strict ISO dates and rejects everything else", () => {
     expect(parseIsoDate("2025-01-31")).toEqual({ year: 2025, month: 1, day: 31 });

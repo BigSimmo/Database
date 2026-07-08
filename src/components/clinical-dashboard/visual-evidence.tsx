@@ -245,6 +245,11 @@ export function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
           densePreview
           clinicalOnly
           dialogTitle={item.tableTitle || item.caption || title}
+          lowConfidenceFallback={
+            item.signed_url_endpoint ? (
+              <SourceImage endpoint={item.signed_url_endpoint} caption={item.tableTitle || item.caption || title} />
+            ) : undefined
+          }
         />
       </div>
       <div className={cn(tableMicroActionRow, "hidden sm:flex")}>

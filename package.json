@@ -39,6 +39,7 @@
     "worker:once": "tsx worker/index.ts --once",
     "import:docs": "tsx scripts/import-documents.ts",
     "import:docs:20": "tsx scripts/import-documents.ts --queue-batch-size 20",
+    "measure:wrapped-dose-units": "tsx scripts/measure-wrapped-dose-prevalence.ts",
     "enrich:documents": "tsx scripts/enrich-documents.ts",
     "enrich:backfill": "tsx scripts/backfill-enrichment.ts",
     "classify:documents": "tsx scripts/classify-documents.ts",
@@ -98,7 +99,9 @@
     "workflow:deps": "node ../.local-dev/workflow-deps.mjs",
     "workflow:clean-state": "node ../.local-dev/workflow-clean-state.mjs",
     "workflow:export": "node ../.local-dev/workflow-export.mjs",
-    "workflow:handoff": "node ../.local-dev/workflow-handoff.mjs"
+    "workflow:handoff": "node ../.local-dev/workflow-handoff.mjs",
+    "check:drift": "tsx scripts/check-drift.ts",
+    "drift:manifest": "tsx scripts/generate-drift-manifest.ts"
   },
   "dependencies": {
     "@next/env": "16.2.10",
@@ -134,6 +137,7 @@
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.10",
+    "fast-check": "^4.8.0",
     "playwright": "^1.61.1",
     "prettier": "^3.9.4",
     "tailwindcss": "^4.3.1",

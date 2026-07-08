@@ -89,17 +89,30 @@ export function SourcePreviewPopover({
   useEffect(() => {
     if (!open) return undefined;
 
-    const handleViewportChange = () => updateLayout();
+    // Capture-phase scroll fires for every scrollable ancestor on each frame; a
+    // raw handler ran getBoundingClientRect + setState per event, so scrolling
+    // with the popover open could stutter. Coalesce into one rAF per frame and
+    // register scroll listeners passive so they never block the scroll thread.
+    let frame: number | null = null;
+    const handleViewportChange = () => {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        updateLayout();
+      });
+    };
+    const scrollOptions: AddEventListenerOptions = { capture: true, passive: true };
     window.addEventListener("resize", handleViewportChange);
     window.visualViewport?.addEventListener("resize", handleViewportChange);
-    window.visualViewport?.addEventListener("scroll", handleViewportChange);
-    window.addEventListener("scroll", handleViewportChange, true);
+    window.visualViewport?.addEventListener("scroll", handleViewportChange, { passive: true });
+    window.addEventListener("scroll", handleViewportChange, scrollOptions);
 
     return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", handleViewportChange);
       window.visualViewport?.removeEventListener("resize", handleViewportChange);
       window.visualViewport?.removeEventListener("scroll", handleViewportChange);
-      window.removeEventListener("scroll", handleViewportChange, true);
+      window.removeEventListener("scroll", handleViewportChange, scrollOptions);
     };
   }, [open, updateLayout]);
 

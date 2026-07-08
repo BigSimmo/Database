@@ -257,7 +257,12 @@ export function toolSearchText(tool: ToolCatalogRecord) {
 
 export type ToolSearchMatch = { tool: ToolCatalogRecord; score: number; reasons: string[] };
 
-export function rankToolRecords(query: string, limit?: number): ToolSearchMatch[] {
+export function rankToolRecords(
+  query: string,
+  limit?: number,
+  // Low-weight synonym/acronym/alias terms (see rankMedicationRecords) for the expanded lane.
+  expansions: string[] = [],
+): ToolSearchMatch[] {
   return rankCatalogRecords(toolCatalogRecords, query, {
     fields: [
       {
@@ -270,6 +275,7 @@ export function rankToolRecords(query: string, limit?: number): ToolSearchMatch[
     fullText: toolSearchText,
     contentWeight: 2,
     phraseBonus: 4,
+    expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
     limit,
     tieBreak: (left, right) => left.title.localeCompare(right.title),
   }).map(({ record, score, signals }) => ({

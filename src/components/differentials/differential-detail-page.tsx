@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -212,7 +215,7 @@ function RelatedDiagnoses({ record }: { record: DifferentialRecord }) {
         Related diagnoses
       </h2>
       <ul className="mt-3 grid gap-2">
-        {record.related.slice(0, 4).map((node) => {
+        {record.related.map((node) => {
           const tag = likelihoodTag(node.likelihood);
           return (
             <li key={node.id} className="flex items-center justify-between gap-2 text-xs font-bold">
@@ -229,13 +232,6 @@ function RelatedDiagnoses({ record }: { record: DifferentialRecord }) {
           );
         })}
       </ul>
-      <Link
-        href="#related"
-        className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
-      >
-        View all related ({record.related.length})
-        <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-      </Link>
     </section>
   );
 }
@@ -271,7 +267,7 @@ function CompareBasket({ record }: { record: DifferentialRecord }) {
   ];
 
   return (
-    <section className="hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)] lg:block">
+    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
           Compare basket ({items.length})
@@ -419,32 +415,51 @@ function HeaderChrome() {
   );
 }
 
-function Tabs() {
+type TabId = "overview" | "compare" | "map" | "related" | "source";
+
+const detailTabs: Array<{ id: TabId; label: string }> = [
+  { id: "overview", label: "Overview" },
+  { id: "compare", label: "Compare" },
+  { id: "map", label: "Map" },
+  { id: "related", label: "Related" },
+  { id: "source", label: "Source" },
+];
+
+function Tabs({ active, onChange }: { active: TabId; onChange: (id: TabId) => void }) {
   return (
     <nav
+      role="tablist"
       className="flex border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)]"
       aria-label="Diagnosis sections"
     >
-      {["Overview", "Compare", "Map", "Related", "Source"].map((tab, index) => (
-        <a
-          key={tab}
-          href={`#${tab.toLowerCase()}`}
-          className={cn(
-            "min-h-11 flex-1 px-2 py-3 text-center sm:flex-none sm:px-4",
-            index === 0
-              ? "border-b-2 border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
-              : "hover:text-[color:var(--text-heading)]",
-            tab === "Source" && "hidden sm:block",
-          )}
-        >
-          {tab}
-        </a>
-      ))}
+      {detailTabs.map((tab) => {
+        const isActive = tab.id === active;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            id={`differential-tab-${tab.id}`}
+            aria-selected={isActive}
+            aria-controls={`differential-panel-${tab.id}`}
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              "min-h-11 flex-1 px-2 py-3 text-center sm:flex-none sm:px-4",
+              isActive
+                ? "border-b-2 border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
+                : "hover:text-[color:var(--text-heading)]",
+            )}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
     </nav>
   );
 }
 
 export function DifferentialDetailPage({ record }: { record: DifferentialRecord }) {
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
   return (
     <main
       data-testid="differential-detail-page"
@@ -488,36 +503,43 @@ export function DifferentialDetailPage({ record }: { record: DifferentialRecord 
           <TopActions />
         </div>
 
-        <Tabs />
+        <Tabs active={activeTab} onChange={setActiveTab} />
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[minmax(0,1fr)_27rem]">
-          <section className="grid gap-4">
-            <SafetySnapshot record={record} />
-            <div className="h-44 lg:hidden" aria-hidden />
-            <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
-              {record.sections.map((section) => (
-                <SectionRow key={section.id} section={section} />
-              ))}
-            </div>
-            <div className="lg:hidden">
-              <DiagnosisMapPanel record={record} />
-            </div>
-            <MobilePrimaryActions />
-            <FooterStatus />
-          </section>
+        <div
+          role="tabpanel"
+          id={`differential-panel-${activeTab}`}
+          aria-labelledby={`differential-tab-${activeTab}`}
+          className="grid gap-4"
+        >
+          {activeTab === "overview" ? (
+            <>
+              <SafetySnapshot record={record} />
+              <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
+                {record.sections.map((section) => (
+                  <SectionRow key={section.id} section={section} />
+                ))}
+              </div>
+            </>
+          ) : null}
 
-          <aside className="grid content-start gap-4">
-            <div className="hidden lg:block">
-              <DiagnosisMapPanel record={record} />
-            </div>
-            <RelatedDiagnoses record={record} />
-            <CurrentPresentation record={record} />
-            <CompareBasket record={record} />
-            <p className="hidden rounded-lg border border-transparent px-1 text-xs leading-5 text-[color:var(--text-muted)] lg:block">
-              Clinical decision support only. Review before use.
-            </p>
-          </aside>
+          {activeTab === "compare" ? <CompareBasket record={record} /> : null}
+
+          {activeTab === "map" ? <DiagnosisMapPanel record={record} /> : null}
+
+          {activeTab === "related" ? (
+            <>
+              <RelatedDiagnoses record={record} />
+              <CurrentPresentation record={record} />
+            </>
+          ) : null}
+
+          {activeTab === "source" ? <FooterStatus /> : null}
         </div>
+
+        <MobilePrimaryActions />
+        <p className="rounded-lg border border-transparent px-1 text-xs leading-5 text-[color:var(--text-muted)]">
+          Clinical decision support only. Review before use.
+        </p>
       </div>
     </main>
   );

@@ -159,6 +159,48 @@ export function SetupChecklist({ checks }: { checks: SetupCheck[] }) {
   );
 }
 
+/**
+ * Uploads one file via XMLHttpRequest so the browser reports byte-level upload
+ * progress (fetch offers no request-body progress). Resolves on 2xx, rejects
+ * with the server's error message otherwise.
+ */
+function uploadFileWithProgress(
+  file: File,
+  authorizationHeader: Record<string, string>,
+  onProgress: (fraction: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload");
+    // FormData sets its own multipart Content-Type (with boundary); only the
+    // auth header is forwarded, matching the previous fetch() call.
+    for (const [key, value] of Object.entries(authorizationHeader)) {
+      xhr.setRequestHeader(key, value);
+    }
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) onProgress(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      let payload: { error?: string } = {};
+      try {
+        payload = JSON.parse(xhr.responseText || "{}");
+      } catch {
+        payload = {};
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(1);
+        resolve();
+      } else {
+        reject(new Error(payload.error || "Upload failed"));
+      }
+    };
+    xhr.onerror = () => reject(new Error(errorCopy.uploadFailed));
+    const formData = new FormData();
+    formData.append("file", file);
+    xhr.send(formData);
+  });
+}
+
 export function UploadPanel({
   onUploaded,
   demoMode,
@@ -175,6 +217,7 @@ export function UploadPanel({
   setStatus?: (status: string | null) => void;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -202,29 +245,29 @@ export function UploadPanel({
     }
 
     setUploading(true);
+    setUploadPercent(0);
     changeStatus(
-      files.length === 1
-        ? "Uploading document to Supabase Storage..."
-        : `Uploading 1 of ${files.length}: ${files[0].name}`,
+      files.length === 1 ? `Uploading ${files[0].name}...` : `Uploading 1 of ${files.length}: ${files[0].name}`,
     );
 
     const failures: string[] = [];
     for (let index = 0; index < files.length; index++) {
       const file = files[index];
       try {
-        if (index > 0) {
-          changeStatus(`Uploading ${index + 1} of ${files.length}: ${file.name}`);
-        }
-        const formData = new FormData();
-        formData.append("file", file);
-        const response = await fetch("/api/upload", { method: "POST", headers: authorizationHeader, body: formData });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error || "Upload failed");
+        changeStatus(
+          files.length === 1 ? `Uploading ${file.name}...` : `Uploading ${index + 1} of ${files.length}: ${file.name}`,
+        );
+        // Overall percent spans all files: completed files + the current file's
+        // byte fraction, so the bar advances smoothly across a multi-file batch.
+        await uploadFileWithProgress(file, authorizationHeader, (fraction) => {
+          setUploadPercent(Math.min(100, Math.round(((index + fraction) / files.length) * 100)));
+        });
       } catch (error) {
         failures.push(`${file.name}: ${error instanceof Error ? error.message : errorCopy.uploadFailed}`);
       }
     }
 
+    setUploadPercent(failures.length === 0 ? 100 : null);
     if (failures.length === 0) {
       changeStatus(
         files.length === 1
@@ -237,6 +280,7 @@ export function UploadPanel({
       changeStatus(`Upload complete with failures: ${failures.join("; ")}`);
     }
     setUploading(false);
+    setUploadPercent(null);
   }
 
   return (
@@ -264,6 +308,23 @@ export function UploadPanel({
           Upload guidelines
         </button>
       </div>
+      {uploading && uploadPercent !== null && (
+        <div className="mt-2" aria-hidden="false">
+          <div
+            role="progressbar"
+            aria-label="Upload progress"
+            aria-valuenow={uploadPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
+          >
+            <div
+              className="h-full rounded-full bg-[color:var(--clinical-accent)] transition-[width] duration-200 ease-out motion-reduce:transition-none"
+              style={{ width: `${uploadPercent}%` }}
+            />
+          </div>
+        </div>
+      )}
       {(displayStatus || demoMode) && (
         <p className="mt-2 text-xs leading-5 text-[color:var(--text-muted)]" data-testid="upload-status">
           {displayStatus ?? demoUploadReadOnlyMessage}

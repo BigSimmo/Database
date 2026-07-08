@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type RefObject, useState } from "react";
+import { type RefObject, useId, useState } from "react";
 import {
   Activity,
   AlertCircle,
@@ -731,6 +731,9 @@ export function ClinicalNotesChecklistPanel({
   const tabs = clinicalNotesAvailableTabs(detailSections);
   const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
   const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(defaultTab);
+  const tabBaseId = useId();
+  const tabButtonId = (id: ClinicalNotesTabId) => `${tabBaseId}-tab-${id}`;
+  const notesPanelId = `${tabBaseId}-panel`;
   const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : defaultTab;
   const rows = clinicalNotesRowsForTab(detailSections, activeTab, sourceLinks, bestSource);
   const tableEvidenceCount = clinicalNotesTableEvidenceCount(answer);
@@ -765,7 +768,10 @@ export function ClinicalNotesChecklistPanel({
                   key={tab.id}
                   type="button"
                   role="tab"
+                  id={tabButtonId(tab.id)}
                   aria-selected={selected}
+                  aria-controls={notesPanelId}
+                  tabIndex={selected ? 0 : -1}
                   aria-label={`${tab.label} (${tab.count})`}
                   onClick={() => setRequestedTab(tab.id)}
                   className={cn(
@@ -807,6 +813,9 @@ export function ClinicalNotesChecklistPanel({
       ) : null}
 
       <div
+        id={showTabStrip ? notesPanelId : undefined}
+        role={showTabStrip ? "tabpanel" : undefined}
+        aria-labelledby={showTabStrip ? tabButtonId(activeTab) : undefined}
         className={cn(
           "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
           showTabStrip || (tableEvidenceCount > 0 && onOpenTables) ? "mt-3" : "mt-0",

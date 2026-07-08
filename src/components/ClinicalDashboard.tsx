@@ -4,45 +4,27 @@ import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   AlertCircle,
-  Bell,
   BookOpen,
   ChevronDown,
-  ChevronRight,
-  CircleUserRound,
   Clock3,
   ExternalLink,
   FileImage,
   FileText,
   FolderOpen,
-  Globe2,
-  HelpCircle,
   Heart,
-  Keyboard,
   ListChecks,
   Loader2,
-  LogOut,
-  Mail,
-  LockKeyhole,
-  Palette,
-  PanelTop,
   Quote,
   RefreshCw,
   Search,
-  Settings as SettingsIcon,
   ShieldAlert,
-  ShieldCheck,
-  SlidersHorizontal,
-  Sparkles,
-  Stethoscope,
+  Square,
   UploadCloud,
-  UserRound,
   WifiOff,
   Wrench,
-  X,
 } from "lucide-react";
-import { type CSSProperties, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
-import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
@@ -51,25 +33,26 @@ import {
   appBackdrop,
   answerSurface,
   cn,
-  fieldControlWithIcon,
-  fieldIcon,
   floatingControl,
+  InlineNotice,
   primaryControl,
   textMuted,
+  toneInfo,
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
-import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
+import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
+import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
+import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import {
-  type SidebarIdentity,
   deriveSidebarIdentity,
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
@@ -97,7 +80,7 @@ import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboar
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-panels";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { errorCopy } from "@/lib/ui-copy";
+import { answerRecovery, errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 import {
   DrawerGroupLabel,
@@ -134,6 +117,7 @@ import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clin
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
+  classifyAnswerError,
   isRetryableError,
   isRetryableMessage,
   isRetryableStatus,
@@ -143,6 +127,7 @@ import {
   searchRetryCount,
   searchRetryDelaysMs,
   sleep,
+  type AnswerErrorKind,
   type AnswerPayload,
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
@@ -335,6 +320,11 @@ function parseSseData(lines: string[]) {
   }
 }
 
+/** True when an error originates from an AbortController (user pressed Stop / component unmounted). */
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 function answerStreamProgressMessage(data: unknown) {
   if (!data || typeof data !== "object") return null;
   const message = (data as { message?: unknown }).message;
@@ -441,6 +431,18 @@ type AnswerTurn = {
 
 const maxVisiblePriorTurns = 10;
 
+// Upper bound on a single answer request. The stream sends only progress events
+// then one `final` blob after the full server-side generation, so a hung stream
+// otherwise spins the UI forever with no close event. Generous enough not to
+// abort a legitimately slow generation; a wait past this is treated as a stall.
+const answerRequestTimeoutMs = 60_000;
+
+// Non-retryable so an aborted request does not immediately re-fetch against the
+// already-aborted signal; the user re-submits to try again.
+function answerTimedOutError() {
+  return makeSearchError("Answer generation timed out. Please try again.", 408, false);
+}
+
 /**
  * Read-only surface for a previous turn in the answer thread. Renders the
  * question bubble and the natural-language answer with its source capsule;
@@ -476,7 +478,11 @@ function PriorAnswerTurnSurface({
 
   return (
     <div
-      className="min-w-0 space-y-4 sm:space-y-5"
+      // Historical conversation turns grow unbounded and most are collapsed and
+      // scrolled off-screen; content-auto skips their layout/paint until near the
+      // viewport. Safe here — the surface has no overflowing popovers, and the
+      // expand toggle is only reachable once the turn is scrolled into view.
+      className="content-auto min-w-0 space-y-4 sm:space-y-5"
       data-dashboard-stage="answer-thread-turn"
       data-collapsed={collapsed ? "true" : "false"}
     >
@@ -515,923 +521,6 @@ function PriorAnswerTurnSurface({
 type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 type IndexingMonitorFilter = "all" | "active" | "failed";
 type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
-
-export function SettingsDialog({
-  open,
-  onClose,
-  identity,
-  theme,
-  onToggleTheme,
-  onSignOut,
-  onOpenGuide,
-}: {
-  open: boolean;
-  onClose: () => void;
-  identity: SidebarIdentity;
-  theme: "light" | "dark";
-  onToggleTheme: () => void;
-  onSignOut: () => void;
-  onOpenGuide: () => void;
-}) {
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
-  const currentThemeLabel = theme === "dark" ? "Dark" : "Light";
-  const auth = useAuthSession();
-  const [settingsEmail, setSettingsEmail] = useState("");
-  const [emailEntryOpen, setEmailEntryOpen] = useState(false);
-  const [settingsEmailAttempted, setSettingsEmailAttempted] = useState(false);
-  const [accountNotice, setAccountNotice] = useState<string | null>(null);
-  const settingsAuthBusy = auth.status === "loading";
-  const signedOutAccount = !identity.signedIn;
-
-  async function submitSettingsEmail(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!settingsEmail.trim()) return;
-    setAccountNotice(null);
-    setSettingsEmailAttempted(true);
-    await auth.signInWithEmail(settingsEmail.trim());
-  }
-
-  function openSettingsEmailEntry() {
-    setEmailEntryOpen(true);
-    setAccountNotice(null);
-  }
-
-  function chooseSettingsProvider(provider: string) {
-    setAccountNotice(`${provider} sign-in is a placeholder for now. Continue with email to use this workspace.`);
-  }
-
-  useEffect(() => {
-    if (!emailEntryOpen) return;
-    const focusFrame = window.requestAnimationFrame(() => {
-      settingsEmailInputRef.current?.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(focusFrame);
-  }, [emailEntryOpen]);
-
-  const settingSections = [
-    {
-      title: "Account",
-      rows: [
-        { icon: UserRound, label: "Profile", value: identity.displayName },
-        { icon: Stethoscope, label: "Clinical role", value: "Consultant psychiatrist" },
-      ],
-    },
-    {
-      title: "Clinical defaults",
-      rows: [
-        { icon: Globe2, label: "Jurisdiction", value: "Western Australia", active: true },
-        { icon: CircleUserRound, label: "Default population", value: "Adults" },
-        { icon: SlidersHorizontal, label: "Answer style", value: "Conservative" },
-      ],
-    },
-    {
-      title: "App preferences",
-      rows: [
-        {
-          icon: Palette,
-          label: "Appearance",
-          value: currentThemeLabel,
-          onClick: onToggleTheme,
-          actionLabel: `Switch to ${theme === "dark" ? "light" : "dark"} mode`,
-        },
-        { icon: SettingsIcon, label: "Interface density", value: "Comfortable" },
-      ],
-    },
-  ];
-  const navItems = [
-    { icon: SettingsIcon, label: "General" },
-    { icon: Stethoscope, label: "Clinical defaults" },
-    { icon: Sparkles, label: "Personalisation" },
-    { icon: Bell, label: "Notifications" },
-    { icon: LockKeyhole, label: "Security" },
-    { icon: CircleUserRound, label: "Account", active: true },
-    { icon: Keyboard, label: "Keyboard" },
-    {
-      icon: HelpCircle,
-      label: "Help & About",
-      onClick: () => {
-        onClose();
-        onOpenGuide();
-      },
-    },
-  ];
-
-  const closeButton = (
-    <button
-      ref={closeButtonRef}
-      type="button"
-      onClick={onClose}
-      aria-label="Close settings"
-      className="absolute right-2.5 top-[max(0.45rem,env(safe-area-inset-top))] z-10 grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:left-4 lg:right-auto lg:top-4 lg:h-10 lg:w-10"
-    >
-      <X className="h-4.5 w-4.5" />
-    </button>
-  );
-
-  return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      closeLabel="Close settings"
-      labelledBy="account-settings-title"
-      initialFocusRef={closeButtonRef}
-      mobilePlacement="fullscreen"
-      contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--background)] font-sans shadow-none lg:max-w-[900px] lg:bg-[color:var(--surface-lux)] lg:shadow-[var(--shadow-lux)]"
-      bodyClassName="p-0"
-    >
-      <div className="relative grid h-dvh max-h-dvh min-h-0 overflow-hidden lg:h-auto lg:max-h-[min(86dvh,820px)] lg:grid-cols-[250px_minmax(0,1fr)]">
-        {closeButton}
-        <aside className="hidden border-r border-[color:var(--border-lux)] bg-[color:var(--surface)]/72 px-4 pb-5 pt-16 lg:flex lg:flex-col">
-          <nav aria-label="Settings sections" className="grid gap-1.5">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = item.active;
-              return (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={item.onClick}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium leading-5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                    active
-                      ? "bg-[color:var(--surface-lux)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] ring-1 ring-[color:var(--clinical-accent)]/10"
-                      : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-lux)]/80 hover:text-[color:var(--text-heading)]",
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        <div className="mx-auto min-h-0 w-full max-w-[460px] overflow-y-auto bg-[color:var(--background)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-[max(2.45rem,calc(0.7rem+env(safe-area-inset-top)))] polished-scroll sm:px-5 lg:mx-0 lg:max-w-none lg:bg-transparent lg:px-7 lg:pb-7 lg:pt-6">
-          <div className="mb-2 flex items-center justify-between gap-4 lg:mb-5">
-            <div className="min-w-0">
-              <h2
-                id="account-settings-title"
-                className="truncate text-lg leading-normal font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-[1.45rem] lg:leading-8"
-              >
-                Account &amp; app
-              </h2>
-            </div>
-            <span className="hidden min-h-7 shrink-0 items-center rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-xs font-semibold leading-none text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] lg:inline-flex">
-              Clinician account
-            </span>
-          </div>
-
-          <section className="rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.06),var(--shadow-inset)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.32),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:p-4 lg:shadow-[var(--shadow-inset)]">
-            <h3 className="mb-3 px-0.5 text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
-              Clinical Guide account
-            </h3>
-            <div className="flex items-center gap-3 lg:gap-3">
-              <span
-                className={cn(
-                  "relative grid h-12 w-12 shrink-0 place-items-center rounded-full text-sm font-bold leading-none ring-1 lg:h-12 lg:w-12",
-                  signedOutAccount
-                    ? "bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] ring-[color:var(--border)]"
-                    : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] ring-[color:var(--clinical-accent)]/10",
-                )}
-              >
-                {signedOutAccount ? <UserRound className="h-5 w-5" /> : identity.initials}
-                {identity.signedIn ? (
-                  <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
-                ) : null}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-semibold leading-6 text-[color:var(--text-heading)]">
-                  {identity.displayName}
-                </p>
-                <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                  {signedOutAccount ? "Sign in or create an account" : "Consultant psychiatrist, Western Australia"}
-                </p>
-              </div>
-              {signedOutAccount ? (
-                <div className="hidden w-[220px] shrink-0 grid-cols-1 gap-2 lg:grid">
-                  <button
-                    type="button"
-                    onClick={openSettingsEmailEntry}
-                    className={cn(primaryControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
-                  >
-                    Create account
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openSettingsEmailEntry}
-                    className={cn(floatingControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
-                  >
-                    Sign in
-                  </button>
-                </div>
-              ) : (
-                <div className="hidden shrink-0 items-center gap-2 lg:flex">
-                  <SettingsChip label="Private" />
-                  <SettingsChip label="No PHI" />
-                </div>
-              )}
-            </div>
-
-            {signedOutAccount ? (
-              <div className="mt-4 grid gap-3">
-                <div className="grid grid-cols-2 gap-2 lg:hidden">
-                  <button
-                    type="button"
-                    onClick={openSettingsEmailEntry}
-                    className={cn(primaryControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
-                  >
-                    Create account
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openSettingsEmailEntry}
-                    className={cn(floatingControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
-                  >
-                    Sign in
-                  </button>
-                </div>
-
-                {emailEntryOpen ? (
-                  <form
-                    onSubmit={submitSettingsEmail}
-                    className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]"
-                  >
-                    <label className="block">
-                      <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
-                        Email address
-                      </span>
-                      <div className="relative">
-                        <Mail className={fieldIcon} />
-                        <input
-                          ref={settingsEmailInputRef}
-                          type="email"
-                          value={settingsEmail}
-                          onChange={(event) => setSettingsEmail(event.target.value)}
-                          placeholder="you@clinic.example"
-                          className={fieldControlWithIcon}
-                        />
-                      </div>
-                    </label>
-                    <button
-                      type="submit"
-                      disabled={settingsAuthBusy || !settingsEmail.trim() || !auth.isConfigured}
-                      className={cn(primaryControl, "w-full")}
-                    >
-                      {settingsAuthBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                      Continue with email
-                    </button>
-                  </form>
-                ) : null}
-
-                <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
-                  <span className="h-px flex-1 bg-[color:var(--border)]" />
-                  <span>or continue with</span>
-                  <span className="h-px flex-1 bg-[color:var(--border)]" />
-                </div>
-
-                <div className="grid gap-2">
-                  <SettingsProviderRow provider="Apple" onClick={() => chooseSettingsProvider("Apple")} />
-                  <SettingsProviderRow provider="Google" onClick={() => chooseSettingsProvider("Google")} />
-                  <SettingsProviderRow provider="Microsoft" onClick={() => chooseSettingsProvider("Microsoft")} />
-                  <SettingsProviderRow provider="email" onClick={openSettingsEmailEntry} />
-                </div>
-
-                <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                  <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
-                  Accounts save preferences and search history. Do not enter PHI.
-                </p>
-
-                {(accountNotice || !auth.isConfigured || (settingsEmailAttempted && auth.error)) && (
-                  <p
-                    role="alert"
-                    className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
-                  >
-                    {accountNotice ??
-                      (settingsEmailAttempted ? auth.error : null) ??
-                      "Supabase browser authentication is not configured for account sign-in."}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <SettingsClinicalContextStrip />
-            )}
-          </section>
-
-          <div className={cn("hidden lg:mt-4 lg:grid-cols-3 lg:gap-3", signedOutAccount ? "lg:hidden" : "lg:grid")}>
-            <SettingsSummaryTile icon={UserRound} label="Profile" value={identity.displayName} />
-            <SettingsSummaryTile icon={Stethoscope} label="Clinical setup" value="WA, adults" emphasized />
-            <SettingsSummaryTile icon={PanelTop} label="Default view" value="Ask" />
-          </div>
-
-          <section className="mt-3.5 grid gap-3 lg:mt-4 lg:rounded-xl lg:border lg:border-[color:var(--border-lux)] lg:bg-[color:var(--surface)] lg:px-5 lg:py-4 lg:shadow-[var(--shadow-inset)]">
-            <div className="grid gap-3 lg:gap-4">
-              {settingSections.map((section) => (
-                <div key={section.title} className="min-w-0">
-                  <h3 className="mb-1 px-1 text-xs leading-normal font-semibold tracking-normal text-[color:var(--text-muted)] lg:mb-1.5 lg:text-sm-minus lg:text-[color:var(--text-heading)]">
-                    {section.title}
-                  </h3>
-                  <div className="overflow-hidden rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[0_8px_22px_rgba(0,0,0,0.04),var(--shadow-inset)] dark:shadow-[0_12px_26px_rgba(0,0,0,0.24),var(--shadow-inset)] lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none">
-                    {section.rows.map((row) => (
-                      <SettingsRow key={`${section.title}-${row.label}`} {...row} />
-                    ))}
-                    {section.title === "Account" && identity.signedIn ? (
-                      <SettingsRow
-                        icon={LogOut}
-                        label="Sign out"
-                        value=""
-                        onClick={() => {
-                          onSignOut();
-                          onClose();
-                        }}
-                        actionLabel="Sign out"
-                      />
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <SettingsHelpFooter
-              onClick={() => {
-                onClose();
-                onOpenGuide();
-              }}
-            />
-          </section>
-        </div>
-      </div>
-    </Sheet>
-  );
-}
-
-function SettingsChip({ label }: { label: string }) {
-  return (
-    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
-      {label}
-    </span>
-  );
-}
-
-function SettingsProviderRow({
-  provider,
-  onClick,
-}: {
-  provider: "Apple" | "Google" | "Microsoft" | "email";
-  onClick: () => void;
-}) {
-  const label = provider === "email" ? "Use email instead" : provider;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-    >
-      {provider === "email" ? (
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
-          <Mail className="h-4 w-4" />
-        </span>
-      ) : (
-        <SettingsProviderMark provider={provider} />
-      )}
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
-    </button>
-  );
-}
-
-function SettingsProviderMark({ provider }: { provider: "Apple" | "Google" | "Microsoft" }) {
-  if (provider === "Microsoft") {
-    return (
-      <span
-        className="grid h-7 w-7 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
-        aria-hidden="true"
-      >
-        <span className="bg-[#f25022]" />
-        <span className="bg-[#7fba00]" />
-        <span className="bg-[#00a4ef]" />
-        <span className="bg-[#ffb900]" />
-      </span>
-    );
-  }
-
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-base font-bold leading-none shadow-[var(--shadow-inset)]",
-        provider === "Apple" ? "text-[color:var(--text-heading)]" : "text-[#4285f4]",
-      )}
-    >
-      {provider === "Apple" ? "A" : "G"}
-    </span>
-  );
-}
-
-function SettingsClinicalContextStrip() {
-  return (
-    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
-      <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-      <span className="min-w-0 truncate">
-        Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
-        <span className="px-1 text-[color:var(--text-soft)]">·</span> WA{" "}
-        <span className="px-1 text-[color:var(--text-soft)]">·</span> No PHI
-      </span>
-    </div>
-  );
-}
-
-function SettingsSummaryTile({
-  icon: Icon,
-  label,
-  value,
-  emphasized = false,
-}: {
-  icon: typeof UserRound;
-  label: string;
-  value: string;
-  emphasized?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "min-w-0 rounded-2xl border p-2 shadow-[var(--shadow-inset)] lg:rounded-xl lg:p-3",
-        emphasized
-          ? "border-[color:var(--clinical-accent)]/26 bg-[color:var(--clinical-accent-soft)]/72"
-          : "border-[color:var(--border-lux)] bg-[color:var(--surface)]",
-      )}
-    >
-      <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center lg:min-h-[44px] lg:flex-row lg:justify-start lg:gap-2.5 lg:text-left">
-        <span
-          className={cn(
-            "grid h-8 w-8 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] lg:rounded-lg",
-            emphasized
-              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-              : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
-          )}
-        >
-          <Icon className="h-4 w-4" />
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-3xs font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
-            {label}
-          </span>
-          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-heading)] lg:text-sm-minus">
-            {value}
-          </span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function SettingsRow({
-  icon: Icon,
-  label,
-  value,
-  active = false,
-  onClick,
-  actionLabel,
-}: {
-  icon: typeof UserRound;
-  label: string;
-  value: string;
-  active?: boolean;
-  onClick?: () => void;
-  actionLabel?: string;
-}) {
-  const content = (
-    <>
-      <span
-        className={cn(
-          "grid h-7 w-7 shrink-0 place-items-center rounded-full transition sm:h-8 sm:w-8 lg:rounded-lg lg:border lg:shadow-[var(--shadow-inset)]",
-          active
-            ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-accent)_24%,transparent)] lg:border-[color:var(--clinical-accent)]"
-            : "bg-transparent text-[color:var(--text-muted)] lg:border-[color:var(--border)] lg:bg-[color:var(--surface-lux)]",
-        )}
-      >
-        <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-      </span>
-      <span className="min-w-0 flex-1 min-[360px]:flex min-[360px]:items-center min-[360px]:justify-between min-[360px]:gap-3">
-        <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{label}</span>
-        {value ? (
-          <span className="mt-0.5 block max-w-full truncate text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-sm-minus">
-            {value}
-          </span>
-        ) : null}
-      </span>
-      <ChevronDown className="-rotate-90 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)] lg:h-4 lg:w-4" />
-    </>
-  );
-
-  const className =
-    "flex min-h-[50px] w-full items-center gap-2.5 border-b border-[color:var(--border)]/70 px-3 py-1.5 text-left last:border-b-0 transition hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:min-h-[54px] sm:gap-3 sm:px-3.5 sm:py-2 lg:min-h-10 lg:gap-3 lg:px-0 lg:py-0 lg:hover:bg-[color:var(--surface-lux)]/55";
-  const testId = `settings-row-${label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")}`;
-
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={actionLabel ?? label}
-        className={className}
-        data-testid={testId}
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <div className={className} data-testid={testId}>
-      {content}
-    </div>
-  );
-}
-
-function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
-  return (
-    <div className="px-1 pt-0.5 lg:hidden">
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-sm-minus font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-        data-testid="settings-row-guide-help"
-      >
-        <BookOpen className="h-4 w-4" />
-        <span>Guide &amp; help</span>
-        <ChevronDown className="-rotate-90 h-3.5 w-3.5 text-[color:var(--text-soft)]" />
-      </button>
-    </div>
-  );
-}
-
-function ToolsHub({ query, desktopComposerSlotId }: { query: string; desktopComposerSlotId?: string }) {
-  return <ApplicationsLauncherWorkspace query={query} desktopComposerSlotId={desktopComposerSlotId} />;
-}
-
-type MobileSectionFabItem = {
-  label: string;
-  description: string;
-  icon: typeof FileText;
-  href: (typeof navigationHashes)[number];
-  count: number | null;
-  empty?: boolean;
-};
-
-type MobileSectionFabTone = "neutral" | "ready" | "warning" | "empty";
-
-type MobileSectionFabState = {
-  statusLabel: string;
-  statusTone: MobileSectionFabTone;
-  nextStep: string;
-  badgeLabel: string | null;
-  badgeTone: MobileSectionFabTone;
-};
-
-function mobileSectionItemLabel(item: MobileSectionFabItem) {
-  if (item.count === null) return item.label;
-  return `${item.label}, ${item.count} item${item.count === 1 ? "" : "s"}`;
-}
-
-function fabToneClassName(tone: MobileSectionFabTone) {
-  if (tone === "ready") {
-    return "border-[color:var(--success)]/25 bg-[color:var(--success-soft)] text-[color:var(--success)]";
-  }
-  if (tone === "warning") {
-    return "border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-  }
-  if (tone === "empty") {
-    return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
-  }
-  return "border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
-}
-
-function buildMobileSectionFabState({
-  hasAnswer,
-  searchMode,
-  sourceCount,
-  quoteCount,
-  weakEvidence,
-  governanceWarningCount,
-}: {
-  hasAnswer: boolean;
-  searchMode: AppModeId;
-  sourceCount: number;
-  quoteCount: number;
-  weakEvidence: boolean;
-  governanceWarningCount: number;
-}): MobileSectionFabState {
-  const modeSearch = appModeSearchConfig(searchMode);
-  if (!hasAnswer) {
-    if (modeSearch.resultKind === "tools") {
-      return {
-        statusLabel: "Tools",
-        statusTone: "neutral",
-        nextStep: "Launch a clinical tool",
-        badgeLabel: null,
-        badgeTone: "neutral",
-      };
-    }
-    if (modeSearch.resultKind === "differentials") {
-      return {
-        statusLabel: "Diffs",
-        statusTone: "neutral",
-        nextStep: modeSearch.nextStep,
-        badgeLabel: null,
-        badgeTone: "neutral",
-      };
-    }
-    return {
-      statusLabel:
-        modeSearch.resultKind === "documents" || modeSearch.resultKind === "forms"
-          ? modeSearch.statusLabel
-          : "No answer yet",
-      statusTone: "empty",
-      nextStep: modeSearch.nextStep,
-      badgeLabel: modeSearch.badgeLabel,
-      badgeTone: "empty",
-    };
-  }
-
-  if (weakEvidence) {
-    return {
-      statusLabel: "Weak support",
-      statusTone: "warning",
-      nextStep: "Verify source before using",
-      badgeLabel: "!",
-      badgeTone: "warning",
-    };
-  }
-
-  if (governanceWarningCount > 0) {
-    return {
-      statusLabel: "Needs source check",
-      statusTone: "warning",
-      nextStep: `${governanceWarningCount} source warning${governanceWarningCount === 1 ? "" : "s"}`,
-      badgeLabel: "!",
-      badgeTone: "warning",
-    };
-  }
-
-  if (quoteCount > 0) {
-    return {
-      statusLabel: "Ready to verify",
-      statusTone: "ready",
-      nextStep: "Next: review exact quotes",
-      badgeLabel: String(quoteCount),
-      badgeTone: "ready",
-    };
-  }
-
-  if (sourceCount > 0) {
-    return {
-      statusLabel: "Ready to verify",
-      statusTone: "ready",
-      nextStep: "Next: verify sources",
-      badgeLabel: String(sourceCount),
-      badgeTone: "ready",
-    };
-  }
-
-  return {
-    statusLabel: "Answer ready",
-    statusTone: "neutral",
-    nextStep: "Review answer structure",
-    badgeLabel: null,
-    badgeTone: "neutral",
-  };
-}
-
-function MobileSectionFab({
-  items,
-  activeHash,
-  state,
-  hidden = false,
-  onNavigate,
-}: {
-  items: readonly MobileSectionFabItem[];
-  activeHash: string;
-  state: MobileSectionFabState;
-  hidden?: boolean;
-  onNavigate: (href: MobileSectionFabItem["href"]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLElement | null>(null);
-  const panelId = "mobile-section-fab-menu";
-  const labelId = "mobile-section-fab-label";
-  const activeItem = items.find((item) => item.href === activeHash) ?? items[0];
-  const ActiveIcon = activeItem.icon;
-  const activeItemLabel = mobileSectionItemLabel(activeItem);
-
-  const closeMenu = useCallback((options: { restoreFocus?: boolean } = {}) => {
-    setOpen(false);
-    if (options.restoreFocus ?? true) {
-      window.requestAnimationFrame(() => buttonRef.current?.focus());
-    }
-  }, []);
-  const dismissMobileSectionMenu = useCallback(() => closeMenu(), [closeMenu]);
-
-  useDismissableLayer({
-    enabled: open,
-    refs: [buttonRef, panelRef],
-    restoreFocusRef: buttonRef,
-    onDismiss: dismissMobileSectionMenu,
-  });
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia(mobileSectionFabMediaQuery);
-    const syncActivation = () => {
-      const matches = mediaQuery.matches;
-      setActive(matches);
-      if (!matches) closeMenu({ restoreFocus: false });
-    };
-
-    const frame = window.requestAnimationFrame(syncActivation);
-    mediaQuery.addEventListener("change", syncActivation);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      mediaQuery.removeEventListener("change", syncActivation);
-    };
-  }, [closeMenu]);
-
-  useEffect(() => {
-    if (!open) return;
-    const closeForRouteChange = () => closeMenu({ restoreFocus: false });
-    window.addEventListener("hashchange", closeForRouteChange);
-    return () => window.removeEventListener("hashchange", closeForRouteChange);
-  }, [closeMenu, open]);
-
-  useEffect(() => {
-    if (!hidden) return;
-    const frame = window.requestAnimationFrame(() => closeMenu({ restoreFocus: false }));
-    return () => window.cancelAnimationFrame(frame);
-  }, [closeMenu, hidden]);
-
-  if (hidden || !active) return null;
-
-  return (
-    <div data-testid="mobile-section-fab">
-      {open ? (
-        <div
-          aria-hidden="true"
-          className="fixed inset-0 z-30 bg-transparent"
-          onPointerDown={(event) => {
-            if (event.target === event.currentTarget) closeMenu();
-          }}
-        />
-      ) : null}
-
-      <button
-        ref={buttonRef}
-        type="button"
-        data-testid="mobile-section-fab-button"
-        aria-label={open ? "Close answer section menu" : `Open answer section menu, current section ${activeItemLabel}`}
-        aria-expanded={open}
-        aria-controls={panelId}
-        className={cn(
-          "fixed z-40 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--command)] bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-elevated)] transition motion-safe:duration-150 hover:-translate-y-0.5 hover:bg-[color:var(--command-hover)] active:translate-y-px",
-          open && "bg-[color:var(--command-hover)]",
-        )}
-        style={{
-          right: "max(0.75rem, env(safe-area-inset-right))",
-          bottom: "max(0.75rem, env(safe-area-inset-bottom))",
-        }}
-        onClick={() => setOpen((current) => !current)}
-      >
-        {open ? <X className="h-6 w-6" /> : <ActiveIcon className="h-6 w-6" />}
-        {(state.badgeLabel ?? (activeItem.count !== null ? String(activeItem.count) : null)) ? (
-          <span
-            aria-hidden="true"
-            className={cn(
-              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-3xs font-bold leading-4 shadow-[var(--shadow-tight)]",
-              fabToneClassName(state.badgeTone),
-            )}
-          >
-            {state.badgeLabel ?? activeItem.count}
-          </span>
-        ) : null}
-      </button>
-
-      <section
-        ref={panelRef}
-        id={panelId}
-        data-testid="mobile-section-fab-menu"
-        role="region"
-        aria-labelledby={labelId}
-        aria-hidden={!open}
-        inert={!open}
-        hidden={!open}
-        className="fixed z-40 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-[color:var(--border-strong)]/20 backdrop-blur-md dark:ring-[color:var(--border-strong)]/10"
-        style={{
-          right: "max(0.75rem, env(safe-area-inset-right))",
-          bottom: "calc(max(0.75rem, env(safe-area-inset-bottom)) + 4.5rem)",
-          maxHeight: "min(25rem, calc(100dvh - 7rem))",
-          width: "min(20rem, calc(100vw - 1.5rem))",
-        }}
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2.5 shadow-[var(--shadow-inset)]">
-          <span
-            aria-hidden="true"
-            className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/70"
-          />
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-            <div className="min-w-0">
-              <p id={labelId} className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                Answer navigator
-              </p>
-              <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                Current: {activeItem.label}
-              </p>
-            </div>
-            <span
-              data-testid="mobile-section-fab-status"
-              className={cn("rounded-full border px-2 py-1 text-2xs font-bold", fabToneClassName(state.statusTone))}
-            >
-              {state.statusLabel}
-            </span>
-          </div>
-          <p
-            data-testid="mobile-section-fab-next-step"
-            className="mt-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]"
-          >
-            {state.nextStep}
-          </p>
-        </div>
-
-        <div className="polished-scroll grid max-h-[min(17rem,calc(100dvh-14rem))] gap-1 overflow-y-auto overscroll-contain p-2">
-          {items.map((item) => {
-            const Icon = item.icon;
-            const active = activeHash === item.href;
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                aria-label={mobileSectionItemLabel(item)}
-                aria-current={active ? "page" : undefined}
-                onClick={(event) => {
-                  event.preventDefault();
-                  onNavigate(item.href);
-                  closeMenu();
-                }}
-                className={cn(
-                  "relative grid min-h-[58px] grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-transparent py-1.5 pl-3 pr-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                  item.empty && !active && "opacity-75",
-                  active &&
-                    "border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute bottom-2 left-1 top-2 w-1 rounded-full bg-transparent",
-                    active && "bg-[color:var(--clinical-accent)]",
-                  )}
-                />
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]",
-                    item.empty && !active && "bg-[color:var(--surface-subtle)]",
-                    active &&
-                      "border-[color:var(--clinical-accent)]/25 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
-                  )}
-                >
-                  <Icon className="h-4.5 w-4.5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate">{item.label}</span>
-                  <span className="mt-0.5 block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
-                    {item.description}
-                  </span>
-                </span>
-                {item.count !== null ? (
-                  <span
-                    className={cn(
-                      "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-2xs font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
-                      item.empty && "text-[color:var(--text-muted)]",
-                      active &&
-                        "border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
-                    )}
-                  >
-                    {item.count}
-                  </span>
-                ) : null}
-              </a>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  );
-}
 
 function answerReferencesDocument(answer: RagAnswer | null, documentId: string) {
   if (!answer) return false;
@@ -1698,6 +787,12 @@ export function ClinicalDashboard({
   const [loading, setLoading] = useState(false);
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Companion state for `error`, used to pick the right recovery UI (retry vs.
+  // a calm no-results panel) and to re-run the exact query that failed. Only read
+  // while `error` is truthy, and set alongside every `setError(<message>)` so a
+  // stale value can never leak into a later, unrelated error.
+  const [errorKind, setErrorKind] = useState<AnswerErrorKind | null>(null);
+  const [lastFailedQuery, setLastFailedQuery] = useState<string | null>(null);
   const [setupWarning, setSetupWarning] = useState<string | null>(null);
   const [setupChecks, setSetupChecks] = useState<SetupCheck[]>(fallbackSetupChecks);
   const [demoMode, setDemoMode] = useState(false);
@@ -2410,6 +1505,13 @@ export function ClinicalDashboard({
     return () => window.clearTimeout(timeout);
   }, [focusSearch]);
 
+  // Abort any in-flight answer/library search if the dashboard unmounts.
+  useEffect(() => {
+    return () => {
+      searchAbortRef.current?.abort();
+    };
+  }, []);
+
   useEffect(() => {
     const searchParamString = searchParams.toString();
     if (lastSyncedSearchParamsRef.current === searchParamString) return;
@@ -2535,6 +1637,7 @@ export function ClinicalDashboard({
     mode: SourceLibrarySearchMode = "documents",
     filtersOverride?: SearchScopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
+    signal?: AbortSignal,
   ) {
     const searchLabel = mode === "differentials" ? "Differentials search" : "Document search";
     let response: Response;
@@ -2554,8 +1657,10 @@ export function ClinicalDashboard({
           documentLimit: 30,
           topK: 20,
         }),
+        signal,
       });
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       throw searchNetworkFailure(searchLabel);
     }
 
@@ -2589,6 +1694,7 @@ export function ClinicalDashboard({
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
     onProgress: (message: string) => void = setAnswerProgress,
+    signal?: AbortSignal,
   ) {
     let response: Response;
     try {
@@ -2604,8 +1710,11 @@ export function ClinicalDashboard({
           filters: compactScopeFilters(filtersOverride),
           queryMode: queryModeOverride,
         }),
+        signal,
       });
-    } catch {
+    } catch (error) {
+      if (answerTimedOutRef.current) throw answerTimedOutError();
+      if (isAbortError(error)) throw error;
       throw searchNetworkFailure("Answer search");
     }
 
@@ -2619,7 +1728,14 @@ export function ClinicalDashboard({
       throw makeSearchError(message, response.status, isRetryableStatus(response.status));
     }
 
-    const payload = await readAnswerStream(response, onProgress);
+    let payload: AnswerPayload;
+    try {
+      payload = await readAnswerStream(response, onProgress);
+    } catch (error) {
+      if (answerTimedOutRef.current) throw answerTimedOutError();
+      if (isAbortError(error)) throw error;
+      throw error;
+    }
     return {
       kind: "answer" as const,
       query: queryText,
@@ -2660,6 +1776,15 @@ export function ClinicalDashboard({
   // error/loading state, or a stale response would display one query's answer
   // under another query's composer text.
   const searchRequestSeqRef = useRef(0);
+  // Aborts the in-flight answer/library search when the user presses Stop, a
+  // newer search supersedes the prior one, or the component unmounts.
+  const searchAbortRef = useRef<AbortController | null>(null);
+  // Distinguishes a timeout-driven abort from an explicit user/supersede abort.
+  const answerTimedOutRef = useRef(false);
+
+  function stopSearch() {
+    searchAbortRef.current?.abort();
+  }
 
   function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
     if (payload.kind === "documents") {
@@ -2775,6 +1900,8 @@ export function ClinicalDashboard({
       setLoading(false);
       setAnswerProgress(null);
       setError(errorCopy.searchSetupNotReady);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
     // M10 (diff-review hardening): progress updates emitted by this request's
@@ -2784,6 +1911,11 @@ export function ClinicalDashboard({
     const onProgress = (message: string | null) => {
       if (requestId === searchRequestSeqRef.current) setAnswerProgress(message);
     };
+    // A newer search already invalidated any prior request via requestId; abort
+    // its network work too so the server stops generating, then own the signal.
+    searchAbortRef.current?.abort();
+    const abortController = new AbortController();
+    searchAbortRef.current = abortController;
     setLoading(true);
     setError(null);
     setSearchRelevance(null);
@@ -2812,6 +1944,14 @@ export function ClinicalDashboard({
           ]
         : [{ query: requestQuery, isKeyword: false }];
 
+    // Bound this search with a timeout on the shared abort controller so a
+    // stalled answer stream recovers instead of spinning forever.
+    answerTimedOutRef.current = false;
+    const answerTimeout = window.setTimeout(() => {
+      answerTimedOutRef.current = true;
+      abortController.abort();
+    }, answerRequestTimeoutMs);
+
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
@@ -2828,11 +1968,19 @@ export function ClinicalDashboard({
           const payload =
             modeSearch.kind === "documents" || modeSearch.kind === "differentials"
               ? await runWithRetries(
-                  () => requestSourceLibrarySearch(entry.query, modeSearch.kind, filtersOverride, targetQueryMode),
+                  () =>
+                    requestSourceLibrarySearch(
+                      entry.query,
+                      modeSearch.kind,
+                      filtersOverride,
+                      targetQueryMode,
+                      abortController.signal,
+                    ),
                   onProgress,
                 )
               : await runWithRetries(
-                  () => requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress),
+                  () =>
+                    requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress, abortController.signal),
                   onProgress,
                 );
 
@@ -2886,10 +2034,15 @@ export function ClinicalDashboard({
         }
       }
     } catch (requestError) {
-      if (requestId === searchRequestSeqRef.current) {
+      if (requestId === searchRequestSeqRef.current && !isAbortError(requestError)) {
         setError(requestError instanceof Error ? requestError.message : "Search failed");
+        setErrorKind(classifyAnswerError(requestError));
+        setLastFailedQuery(trimmedQuery);
       }
     } finally {
+      window.clearTimeout(answerTimeout);
+      answerTimedOutRef.current = false;
+      if (searchAbortRef.current === abortController) searchAbortRef.current = null;
       if (requestId === searchRequestSeqRef.current) {
         setLoading(false);
         setAnswerProgress(null);
@@ -3101,6 +2254,8 @@ export function ClinicalDashboard({
     }
     if (!canRunSearch) {
       setError(errorCopy.searchSetupNotReady);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
 
@@ -3134,6 +2289,8 @@ export function ClinicalDashboard({
     } catch (requestError) {
       if (requestId === searchRequestSeqRef.current) {
         setError(requestError instanceof Error ? requestError.message : "Document search failed");
+        setErrorKind(null);
+        setLastFailedQuery(null);
       }
     } finally {
       if (requestId === searchRequestSeqRef.current) {
@@ -3451,6 +2608,8 @@ export function ClinicalDashboard({
     }
     if (!copied) {
       setError(errorCopy.clipboardCopyFailed);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
     setCopiedAction(action);
@@ -3777,6 +2936,31 @@ export function ClinicalDashboard({
           : FolderOpen;
   const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Library and admin" : "Sources";
 
+  // Stable-identity handlers for the React.memo children (StagedAnswerResultSurface,
+  // DocumentSearchResultsPanel). These close over the draft `query` or call the
+  // intentionally-unstable executeSearch, so plain useCallback can't isolate them
+  // from per-keystroke re-renders — useEventCallback keeps identity fixed while
+  // always invoking the latest closure. See use-event-callback.ts.
+  const handleScopeDocument = useEventCallback(scopeOnlyDocument);
+  const handleAnswerFromDocument = useEventCallback(answerFromDocument);
+  const handleSubmitAnswerFeedback = useEventCallback(submitAnswerFeedback);
+  const handleAnswerFollowUpQuote = useEventCallback(handleFollowUpQuote);
+  const handleFollowUpSuggestionPick = useEventCallback(handlePickFollowUpSuggestion);
+  const handleCrossModeSearch = useEventCallback(crossModeSearch);
+  const handleDocumentTagSearch = useEventCallback(handleTagSearch);
+  const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
+  const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
+  const handleOpenSourcePdfBrowser = useEventCallback(openSourcePdfBrowser);
+  const handleCopyAnswer = useEventCallback(() => {
+    copyText("answer", answerRenderModel?.copyText || safeAnswerText || answer?.answer || "");
+  });
+  // The answer thread's prior-query list, memoized so it isn't a fresh array on
+  // every keystroke (it feeds two memoized surfaces below).
+  const crossModeQueries = useMemo(
+    () => [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery],
+    [priorAnswerTurns, latestAnswerQuery],
+  );
+
   return (
     <div
       className={cn(
@@ -3878,7 +3062,14 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
-                : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                : // Phone answer view: the "Ask a follow-up" dock is fixed to the
+                  // bottom, so <main> reserves room for it. When that dock hides on
+                  // scroll, reclaim the reserved strip too — otherwise the near-black
+                  // shell background shows through as an empty band. (sm+ is inert:
+                  // bottomSearchScrollHidden only ever goes true on phones.)
+                  bottomSearchScrollHidden
+                  ? "mb-0 sm:mb-24"
+                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? bottomSearchScrollHidden
                   ? "mb-0 sm:mb-0"
@@ -3923,23 +3114,9 @@ export function ClinicalDashboard({
               )}
             >
               {actionNotice && (
-                <div
-                  role="status"
-                  className={cn(
-                    "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
-                    actionNotice.tone === "success" ? toneSuccess : toneWarning,
-                  )}
-                >
-                  <span className="min-w-0">{actionNotice.message}</span>
-                  <button
-                    type="button"
-                    onClick={() => setActionNotice(null)}
-                    aria-label="Dismiss notification"
-                    className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+                <InlineNotice tone={actionNotice.tone} onDismiss={() => setActionNotice(null)} animated>
+                  {actionNotice.message}
+                </InlineNotice>
               )}
               {showDegradedNotice && renderDegradedNotice()}
               {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
@@ -3964,25 +3141,131 @@ export function ClinicalDashboard({
                 <h2 data-testid="answer-section-heading" className="sr-only">
                   {activeModeSearch.resultHeading}
                 </h2>
-                {error && (
-                  <div
-                    role="alert"
-                    className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
-                  >
-                    <AlertCircle className="mr-2 inline h-4 w-4" />
-                    {error}
-                  </div>
-                )}
-
-                {loading && answerProgress && searchMode !== "prescribing" && (
+                {error && errorKind === "no-results" && activeModeResultKind === "answer" ? (
                   <div
                     role="status"
-                    className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                    data-testid="answer-no-results"
+                    className={cn("rounded-lg border p-4 text-sm", toneInfo)}
                   >
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
-                    <span className="min-w-0 truncate">{answerProgress}</span>
+                    <div className="flex items-start gap-2">
+                      <Search className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div className="min-w-0 space-y-1">
+                        <p className="font-semibold text-[color:var(--text-heading)]">
+                          {answerRecovery.noResults.heading}
+                        </p>
+                        <p className={textMuted}>{answerRecovery.noResults.body}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        data-testid="answer-no-results-rephrase"
+                        onClick={() => focusComposerInput()}
+                        className={cn(primaryControl, "text-xs")}
+                      >
+                        {answerRecovery.rephrase}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="answer-no-results-search-documents"
+                        onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
+                        className={cn(floatingControl, "text-xs")}
+                      >
+                        <FileText className="h-4 w-4" />
+                        {answerRecovery.searchDocuments}
+                      </button>
+                    </div>
                   </div>
-                )}
+                ) : error ? (
+                  <div
+                    role="alert"
+                    data-testid="answer-error"
+                    className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
+                  >
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span className="min-w-0">{error}</span>
+                    </div>
+                    {activeModeResultKind === "answer" && lastFailedQuery && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          data-testid="answer-error-retry"
+                          onClick={() => {
+                            const retryQuery = lastFailedQuery ?? query;
+                            setError(null);
+                            void ask(retryQuery);
+                          }}
+                          className={cn(floatingControl, "text-xs")}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          {answerRecovery.retry}
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="answer-error-search-documents"
+                          onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
+                          className={cn(floatingControl, "text-xs")}
+                        >
+                          <FileText className="h-4 w-4" />
+                          {answerRecovery.searchDocuments}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {searchMode !== "prescribing" &&
+                  (activeModeResultKind === "answer" && (loading || answer) ? (
+                    // Answer result view keeps this status slot mounted through the
+                    // whole loading→answer swap so its height never collapses and the
+                    // answer below it doesn't jump up (CLS). The accent chrome only
+                    // appears while a progress message is live; otherwise it's a
+                    // height-reserved, visually empty spacer.
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className={cn(
+                        "flex min-h-[44px] items-center gap-2 rounded-lg px-3 text-sm font-medium",
+                        loading && answerProgress
+                          ? "border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--text-heading)]"
+                          : "border border-transparent",
+                      )}
+                    >
+                      {loading && answerProgress ? (
+                        <>
+                          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                          <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
+                          <button
+                            type="button"
+                            onClick={stopSearch}
+                            data-testid="stop-answer"
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                          >
+                            <Square className="h-3 w-3 shrink-0 fill-current" />
+                            Stop
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : loading && answerProgress ? (
+                    <div
+                      role="status"
+                      className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                    >
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                      <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
+                      <button
+                        type="button"
+                        onClick={stopSearch}
+                        data-testid="stop-answer"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      >
+                        <Square className="h-3 w-3 shrink-0 fill-current" />
+                        Stop
+                      </button>
+                    </div>
+                  ) : null)}
 
                 {activeModeResultKind === "differentials" ? (
                   <DifferentialsHome
@@ -4066,12 +3349,12 @@ export function ClinicalDashboard({
                         apiUnavailable={apiUnavailable}
                         setupWarning={setupWarning}
                         facets={searchFacets}
-                        onScopeDocument={scopeOnlyDocument}
-                        onAnswerFromDocument={answerFromDocument}
-                        onOpenRecentDocuments={openRecentDocuments}
-                        onOpenLibrary={openSourceLibrary}
-                        onOpenSourcePdf={openSourcePdfBrowser}
-                        onTagSearch={handleTagSearch}
+                        onScopeDocument={handleScopeDocument}
+                        onAnswerFromDocument={handleAnswerFromDocument}
+                        onOpenRecentDocuments={handleOpenRecentDocuments}
+                        onOpenLibrary={handleOpenSourceLibrary}
+                        onOpenSourcePdf={handleOpenSourcePdfBrowser}
+                        onTagSearch={handleDocumentTagSearch}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
                       />
@@ -4113,7 +3396,7 @@ export function ClinicalDashboard({
                         weakEvidence={weakEvidence}
                         answerViewMode={answerViewMode}
                         answerEvidenceMapRows={answerEvidenceMapRows}
-                        onScopeDocument={scopeOnlyDocument}
+                        onScopeDocument={handleScopeDocument}
                         answerGrounded={answerGrounded}
                         sources={answerRenderModel.reviewSources}
                         demoMode={demoMode}
@@ -4121,14 +3404,14 @@ export function ClinicalDashboard({
                         safetyFindings={safetyFindings}
                         copiedAnswer={copiedAction === "answer"}
                         pendingFeedback={pendingFeedback}
-                        onCopyAnswer={() =>
-                          copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
-                        }
-                        onSubmitFeedback={submitAnswerFeedback}
-                        onFollowUpQuote={handleFollowUpQuote}
+                        onCopyAnswer={handleCopyAnswer}
+                        onSubmitFeedback={handleSubmitAnswerFeedback}
+                        onFollowUpQuote={handleAnswerFollowUpQuote}
                         followUpSuggestions={answerFollowUpSuggestions}
-                        onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
+                        onPickFollowUpSuggestion={handleFollowUpSuggestionPick}
                         followUpSuggestionsDisabled={loading}
+                        crossModeQueries={crossModeQueries}
+                        onCrossModeSearch={handleCrossModeSearch}
                       />
                     </>
                   ) : null
@@ -4137,6 +3420,11 @@ export function ClinicalDashboard({
                     onSearchDocuments={() => setSearchMode("documents")}
                     onUploadDocument={openUploadDrawer}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
+                    recentQueries={recentQueries}
+                    onSelectRecent={(recentQuery) => {
+                      setQuery(recentQuery);
+                      void ask(recentQuery);
+                    }}
                   />
                 ) : null}
               </section>
@@ -4144,10 +3432,7 @@ export function ClinicalDashboard({
               {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
 
               {activeModeResultKind === "answer" && answer && (
-                <CrossModeLinksSection
-                  queries={[...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery]}
-                  onModeSearch={crossModeSearch}
-                />
+                <CrossModeLinksSection queries={crossModeQueries} onModeSearch={handleCrossModeSearch} />
               )}
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel
