@@ -175,6 +175,9 @@ export function rankDifferentialRecords(
   records: DifferentialRecord[],
   query: string,
   limit = 50,
+  // Low-weight synonym/acronym/alias terms (see rankMedicationRecords) composed onto the
+  // catalogue's own symptom-alias expansion for the shared ranker's expanded lane.
+  expansions: string[] = [],
 ): DifferentialRecordMatch[] {
   return rankCatalogRecords(records, query, {
     fields: [
@@ -188,7 +191,7 @@ export function rankDifferentialRecords(
     phraseBonus: 4,
     exactValues: (record) => [normalizeSearchText(record.title), normalizeSearchText(record.slug)],
     exactBonus: 10,
-    expandTokens: expandQueryTerms,
+    expandTokens: expansions.length ? (terms) => [...expandQueryTerms(terms), ...expansions] : expandQueryTerms,
     limit,
     tieBreak: (left, right) =>
       differentialStatusRank[left.status] - differentialStatusRank[right.status] ||

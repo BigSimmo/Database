@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Clock, CornerDownLeft, Loader2, Search, X } from "lucide-react";
+import { AlertTriangle, Clock, CornerDownLeft, Loader2, Search, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 
@@ -21,18 +21,6 @@ import {
   searchCommandSurfaceConfig,
 } from "@/lib/search-command-surface";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
-
-// Each mode's own domain is excluded from the cross-entity typeahead — its results already
-// come from the mode search itself. Answer mode maps to documents (that is its corpus).
-const excludedDomainByMode: Partial<Record<AppModeId, UniversalSearchDomain>> = {
-  answer: "documents",
-  documents: "documents",
-  services: "services",
-  forms: "forms",
-  differentials: "differentials",
-  prescribing: "medications",
-  tools: "tools",
-};
 
 // Reverse of modeIdByDomain for chip counts: the domain whose live result total a
 // cross-mode chip should show. Answer/favourites chips have no countable domain.
@@ -188,6 +176,7 @@ function CommandDropdown({
   activeItemId,
   sections,
   showSafetyBanner,
+  interpretationLabel,
   universalPending,
   onHoverItem,
   placement,
@@ -198,6 +187,7 @@ function CommandDropdown({
   activeItemId: string | null;
   sections: Array<{ key: string; heading?: string; layout?: "list" | "chips"; items: DropdownItem[] }>;
   showSafetyBanner: boolean;
+  interpretationLabel: string | null;
   universalPending: boolean;
   onHoverItem: (id: string) => void;
   placement: CommandSurfacePlacement;
@@ -222,6 +212,13 @@ function CommandDropdown({
             <span className="font-extrabold uppercase tracking-wide text-[color:var(--danger)]">Safety first · </span>
             Stabilise ABCs, check BGL, sats, attention test, collateral, review meds/substances.
           </div>
+        </div>
+      ) : null}
+
+      {interpretationLabel ? (
+        <div className="flex items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+          <span className="min-w-0 truncate">{interpretationLabel}</span>
         </div>
       ) : null}
 
@@ -359,22 +356,98 @@ export function UniversalSearchCommandSurface({
   const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
   const mode = appModeDefinition(modeId);
+  // A true "everything" view: the active mode's own domain is included (no excludeDomain) so
+  // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
     query: trimmedQuery,
     enabled: dropdownOpen && Boolean(config),
-    excludeDomain: excludedDomainByMode[modeId],
   });
 
   const showSafetyBanner =
     modeId === "differentials" && differentialRedFlagTerms.some((term) => trimmedQuery.toLowerCase().includes(term));
   const showFormCodeHint = modeId === "forms" && isFormCodeQuery(trimmedQuery);
-  const { groups: universalGroups, query: universalQuery } = universal;
+  const {
+    groups: universalGroups,
+    query: universalQuery,
+    interpretation: universalInterpretation,
+    domainOrder: universalDomainOrder,
+    topHit: universalTopHit,
+    answerAction: universalAnswerAction,
+  } = universal;
+
+  // Render the cross-entity groups in the server's intent-aware order (drug query → medications
+  // first, etc.); fall back to fetched order. Only ordering changes, never the items/scores.
+  const orderedUniversalGroups = useMemo(() => {
+    if (!universalDomainOrder?.length) return universalGroups;
+    const rank = new Map(universalDomainOrder.map((domain, index) => [domain, index] as const));
+    return [...universalGroups].sort(
+      (left, right) =>
+        (rank.get(left.kind) ?? Number.MAX_SAFE_INTEGER) - (rank.get(right.kind) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }, [universalGroups, universalDomainOrder]);
+
+  // Build the interpretation affordance ("Showing results for… / Including related terms").
+  const interpretationLabel = useMemo(() => {
+    if (!universalInterpretation) return null;
+    const corrected = universalInterpretation.correctedQuery?.trim();
+    if (corrected && corrected.toLowerCase() !== trimmedQuery.toLowerCase()) {
+      return `Showing results for “${corrected}”`;
+    }
+    const expansions = universalInterpretation.appliedExpansions ?? [];
+    if (expansions.length) {
+      return `Including related terms: ${expansions.slice(0, 4).join(", ")}`;
+    }
+    return null;
+  }, [universalInterpretation, trimmedQuery]);
 
   const sections = useMemo(() => {
     if (!config) return [];
     const built: Array<{ key: string; heading?: string; layout?: "list" | "chips"; items: DropdownItem[] }> = [];
     let counter = 0;
     const nextId = () => `${listboxId}-item-${counter++}`;
+
+    // Best-bet: a single near-exact match pinned to the top so the strongest hit is one keystroke
+    // away regardless of which domain it lives in.
+    if (trimmedQuery && universalQuery === trimmedQuery && universalTopHit) {
+      const HitIcon = appModeIcons[modeIdByDomain[universalTopHit.kind]];
+      const hit = universalTopHit;
+      built.push({
+        key: "top-hit",
+        heading: "Best match",
+        items: [
+          {
+            id: nextId(),
+            label: hit.title,
+            onSelect: () => {
+              onDropdownOpenChange(false);
+              router.push(hit.href);
+            },
+            render: (active) => (
+              <OptionShell active={active} hint="Open">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                  <HitIcon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-extrabold text-[color:var(--text-heading)]">
+                    {hit.title}
+                  </span>
+                  {hit.subtitle ? (
+                    <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                      {hit.subtitle}
+                    </span>
+                  ) : null}
+                </span>
+                {hit.badge ? (
+                  <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
+                    {hit.badge}
+                  </span>
+                ) : null}
+              </OptionShell>
+            ),
+          },
+        ],
+      });
+    }
 
     if (showFormCodeHint) {
       built.push({
@@ -461,12 +534,45 @@ export function UniversalSearchCommandSurface({
       }
     }
 
+    // Ask-this bridge: for question-like queries, offer a jump into Answer mode for a cited
+    // answer. Suppressed in Answer mode (Enter there already runs the answer).
+    if (trimmedQuery && modeId !== "answer" && universalQuery === trimmedQuery && universalAnswerAction) {
+      const action = universalAnswerAction;
+      built.push({
+        key: "answer-action",
+        items: [
+          {
+            id: nextId(),
+            label: action.label,
+            onSelect: () => {
+              onDropdownOpenChange(false);
+              router.push(action.href);
+            },
+            render: (active) => (
+              <OptionShell active={active} hint="Answer">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{action.label}</span>
+                  <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                    Get a cited answer in Answer mode
+                  </span>
+                </span>
+              </OptionShell>
+            ),
+          },
+        ],
+      });
+    }
+
     // Cross-entity typeahead ("Across Clinical KB"): live grouped matches from the universal
-    // search endpoint, excluding this mode's own domain. Selecting an item navigates straight
-    // to the record; each group ends with a cross-mode "view all" that re-runs the query in
-    // the owning mode. Enter with nothing highlighted still runs the mode-scoped search.
-    if (trimmedQuery && universalQuery === trimmedQuery && universalGroups.length) {
-      for (const group of universalGroups) {
+    // search endpoint across every domain (including the active mode's own), rendered in the
+    // server's intent-aware order. Selecting an item navigates straight to the record; each group
+    // ends with a cross-mode "view all" that re-runs the query in the owning mode. Enter with
+    // nothing highlighted still runs the mode-scoped search.
+    if (trimmedQuery && universalQuery === trimmedQuery && orderedUniversalGroups.length) {
+      for (const group of orderedUniversalGroups) {
         const targetModeId = modeIdByDomain[group.kind];
         const targetMode = appModeDefinition(targetModeId);
         const GroupIcon = appModeIcons[targetModeId];
@@ -626,7 +732,10 @@ export function UniversalSearchCommandSurface({
     showFormCodeHint,
     trimmedQuery,
     universalGroups,
+    orderedUniversalGroups,
     universalQuery,
+    universalTopHit,
+    universalAnswerAction,
   ]);
 
   const flatItems = useMemo(() => sections.flatMap((section) => section.items), [sections]);
@@ -734,6 +843,7 @@ export function UniversalSearchCommandSurface({
             activeItemId={activeItemId}
             sections={sections}
             showSafetyBanner={showSafetyBanner}
+            interpretationLabel={interpretationLabel}
             universalPending={universal.loading && Boolean(trimmedQuery)}
             placement={placement}
             onHoverItem={(id) => {
