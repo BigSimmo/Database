@@ -29,10 +29,12 @@ const SANCTIONED_SOURCES = [
 const OWNER_FILTER_ARG = /\b(?:p_)?owner_filter\s*:\s*(.+?)\s*,?\s*$/;
 
 function sourceFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true, recursive: true })
-    .filter((entry) => entry.isFile() && /\.tsx?$/.test(entry.name) && !entry.name.endsWith(".d.ts"))
-    .map((entry) => join((entry as { parentPath?: string; path?: string }).parentPath ?? entry.path ?? dir, entry.name))
-    .filter((path) => !path.includes("database.types"));
+  // `recursive: true` without `withFileTypes` returns relative paths as strings — avoids the
+  // Dirent.parentPath/path typing churn across @types/node versions.
+  return readdirSync(dir, { recursive: true })
+    .map((entry) => String(entry))
+    .filter((name) => /\.tsx?$/.test(name) && !name.endsWith(".d.ts") && !name.includes("database.types"))
+    .map((name) => join(dir, name));
 }
 
 describe("retrieval owner_filter callsite guard (finding #3)", () => {
