@@ -8,12 +8,32 @@ name: Docker image build
 #
 # Non-blocking: this is a standalone workflow, not part of the required `verify`
 # check. Nothing is pushed to a registry — the build either succeeds or fails.
-# Gated to main / release / dispatch / schedule (not every PR) to bound CI cost;
-# run it on a branch on demand via the "Run workflow" button.
+# Runs on main/release pushes, the weekly schedule, manual dispatch, and PRs that
+# touch container-affecting files (Dockerfiles, deps, engine/build guards) — not
+# every src-only PR, since `verify` already runs `next build` for those.
 
 on:
   push:
     branches: [main, "release/**"]
+  # PRs only rebuild the images when a container-affecting file changes — the
+  # `verify` job already runs `next build` for src changes, so this stays focused
+  # on containerization (Dockerfiles, dependency install, engine guard, OCR deps)
+  # and does not rebuild on every src-only PR.
+  pull_request:
+    branches: [main, "release/**"]
+    paths:
+      - "Dockerfile"
+      - "Dockerfile.worker"
+      - ".dockerignore"
+      - "package.json"
+      - "package-lock.json"
+      - ".npmrc"
+      - ".nvmrc"
+      - "next.config.ts"
+      - "worker/python/requirements.txt"
+      - "scripts/check-node-engine.cjs"
+      - "scripts/guard-next-build.mjs"
+      - ".github/workflows/docker-image.yml"
   workflow_dispatch:
   schedule:
     - cron: "0 18 * * 0"
