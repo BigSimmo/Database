@@ -331,7 +331,25 @@ function scoreChunk(query: string, chunk: SearchResult) {
   return Math.min(0.98, chunk.similarity * 0.6 + keywordScore + tokenScore);
 }
 
+// Fail closed: synthetic demo content must never reach a live production request. Reads
+// process.env directly (not isDemoMode) so it cannot be silently disabled by a test that mocks
+// @/lib/env, and so every current/future caller of demoSearch is covered — this is what prevents
+// a recurrence of the /api/search/universal leak. In production isLocalNoAuthMode and the
+// Supabase-config demo fallback are already disabled, so an explicit NEXT_PUBLIC_DEMO_MODE=true
+// deploy is the sole legitimate case. Mirrors the fail-closed requireOwnerScope retrieval guard.
+function assertDemoDataAllowed(context: string) {
+  if (process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_DEMO_MODE !== "true") {
+    throw new Error(
+      `Refusing to serve synthetic demo data (${context}) to a live production request. ` +
+        "Demo fixtures are only permitted when NEXT_PUBLIC_DEMO_MODE=true.",
+    );
+  }
+}
+
 export function demoSearch(query: string, topK = 8, documentId?: string, documentIds?: string[]) {
+  // Single choke point for synthetic document search (demoAnswer routes through here too), so the
+  // guard covers any current or future caller, not just the routes audited today.
+  assertDemoDataAllowed("demoSearch");
   const filters = documentIds?.length ? documentIds : documentId ? [documentId] : null;
   return demoChunks
     .filter((chunk) => !filters || filters.includes(chunk.document_id))
