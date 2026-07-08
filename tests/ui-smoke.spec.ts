@@ -1,6 +1,9 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
+import { deriveGovernanceFromSections } from "../src/lib/medication-records";
+import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
+import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
 
 const dashboardViewports = [
   { name: "small-mobile", width: 320, height: 720 },
@@ -193,6 +196,48 @@ async function mockDemoApi(page: Page, options: { answerOverride?: DemoAnswerOve
           nextOffset: demoDocuments.length,
           hasMore: false,
         },
+      },
+    });
+  });
+  await page.route(/\/api\/medications(?:\/([^/?]+))?(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const slug = url.pathname.match(/\/api\/medications\/([^/]+)$/)?.[1];
+    if (slug) {
+      const record = getMedicationRecord(decodeURIComponent(slug));
+      if (!record) {
+        await route.fulfill({ status: 404, json: { error: `No medication found for "${slug}".` } });
+        return;
+      }
+      const governance = deriveGovernanceFromSections(record);
+      await route.fulfill({
+        json: {
+          record,
+          governance: {
+            sourceStatus: governance.source_status,
+            validationStatus: governance.validation_status,
+          },
+          demoMode: true,
+        },
+      });
+      return;
+    }
+
+    const query = url.searchParams.get("q")?.trim() || undefined;
+    const limit = Number(url.searchParams.get("limit") ?? "50");
+    const records = loadMedicationSnapshot();
+    const matches = query ? rankMedicationRecords(records, query, limit) : undefined;
+    await route.fulfill({
+      json: {
+        records,
+        matches: matches?.map((match) => ({
+          medication: match.medication,
+          result: medicationToSearchResult(match),
+          score: match.score,
+          reasons: match.reasons,
+        })),
+        total: records.length,
+        governance: {},
+        demoMode: true,
       },
     });
   });
@@ -1156,6 +1201,40 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(scopePopover).toBeHidden();
     await expect(scopeTrigger(page)).toBeFocused();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("answer results surface cross-mode quick links", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    const question = "What is the maximum dose of clozapine?";
+    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+
+    await expect(page.getByTestId("cross-mode-links")).toHaveCount(1, { timeout: 15_000 });
+
+    const answerSurface = page.locator('[data-dashboard-stage="answer-surface"]');
+    const strip = answerSurface.getByTestId("cross-mode-links");
+    await expect(strip).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
+    await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
+
+    const followUps = answerSurface.getByTestId("answer-follow-up-suggestions");
+    if (await followUps.isVisible()) {
+      const stripBox = await strip.boundingBox();
+      const followUpBox = await followUps.boundingBox();
+      expect(stripBox).toBeTruthy();
+      expect(followUpBox).toBeTruthy();
+      expect(stripBox!.y).toBeLessThan(followUpBox!.y);
+    }
+
+    const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
+    await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
+    await medicationLink.click();
+    await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 15_000 });
     await expectNoPageHorizontalOverflow(page);
   });
 
