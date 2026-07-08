@@ -62,6 +62,71 @@ describe("Supabase project guard", () => {
     expect(formatSupabaseProjectCheck(check)).toContain("older unused project");
   });
 
+  const stagingRef = "abcdefghijklmnopqrst";
+  const stagingProject = {
+    url: `https://${stagingRef}.supabase.co`,
+    ref: stagingRef,
+    name: "Clinical KB Staging",
+  };
+
+  it("accepts an explicitly declared staging project", () => {
+    const check = checkSupabaseProjectConfig(
+      {
+        NEXT_PUBLIC_SUPABASE_URL: stagingProject.url,
+        SUPABASE_PROJECT_REF: stagingProject.ref,
+        SUPABASE_PROJECT_NAME: stagingProject.name,
+        SUPABASE_STAGING_PROJECT_REF: stagingProject.ref,
+        SUPABASE_STAGING_PROJECT_NAME: stagingProject.name,
+      },
+      { requireMetadata: true },
+    );
+
+    expect(check.status).toBe("ready");
+    expect(check.observed.environment).toBe("staging");
+    expect(check.expected.ref).toBe(stagingProject.ref);
+    expect(formatSupabaseProjectCheck(check)).toContain(stagingProject.name);
+  });
+
+  it("keeps production behavior unchanged even when a staging project is declared", () => {
+    const check = checkSupabaseProjectConfig(
+      {
+        NEXT_PUBLIC_SUPABASE_URL: expectedSupabaseProject.url,
+        SUPABASE_PROJECT_REF: expectedSupabaseProject.ref,
+        SUPABASE_PROJECT_NAME: expectedSupabaseProject.name,
+        SUPABASE_STAGING_PROJECT_REF: stagingProject.ref,
+        SUPABASE_STAGING_PROJECT_NAME: stagingProject.name,
+      },
+      { requireMetadata: true },
+    );
+
+    expect(check.status).toBe("ready");
+    expect(check.observed.environment).toBe("production");
+    expect(check.expected.ref).toBe(expectedSupabaseProject.ref);
+  });
+
+  it("rejects a staging declaration that collides with the production ref (silent-point-at-prod footgun)", () => {
+    const check = checkSupabaseProjectConfig({
+      NEXT_PUBLIC_SUPABASE_URL: expectedSupabaseProject.url,
+      SUPABASE_STAGING_PROJECT_REF: expectedSupabaseProject.ref,
+      SUPABASE_STAGING_PROJECT_NAME: "Clinical KB Staging",
+    });
+
+    expect(check.status).toBe("mismatch");
+    expect(check.problems.join(" ")).toContain("collides with the production");
+  });
+
+  it("rejects a partial staging declaration (only one of the two vars set)", () => {
+    const check = checkSupabaseProjectConfig({
+      NEXT_PUBLIC_SUPABASE_URL: expectedSupabaseProject.url,
+      SUPABASE_PROJECT_REF: expectedSupabaseProject.ref,
+      SUPABASE_PROJECT_NAME: expectedSupabaseProject.name,
+      SUPABASE_STAGING_PROJECT_REF: stagingRef,
+    });
+
+    expect(check.status).toBe("mismatch");
+    expect(check.problems.join(" ")).toContain("BOTH");
+  });
+
   it("blocks server env when configured for a stale project ref", async () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", staleProject.url);
     vi.stubEnv("SUPABASE_PROJECT_REF", staleProject.ref);
