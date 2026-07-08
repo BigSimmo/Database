@@ -1,23 +1,43 @@
-import type { LucideIcon } from "lucide-react";
+import { Ban, Lock, TriangleAlert, type LucideIcon } from "lucide-react";
 
 import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
+import {
+  SEMANTIC_TONE_META,
+  SEMANTIC_TONE_PRIORITY,
+  type SemanticIconKey,
+  type SemanticTone,
+} from "@/lib/semantic-tone";
 
-export type ClinicalBadgeTone = "clinical" | "success" | "danger" | "warning" | "neutral" | "info";
+// Clinical badge tones are the shared semantic tones. Aliased for backwards
+// compatibility with existing call sites; the definition lives in semantic-tone.ts.
+export type ClinicalBadgeTone = SemanticTone;
 
 export type ClinicalBadgeItem = {
   id?: string;
   label: string;
   tone?: ClinicalBadgeTone;
+  // Explicit icon component (existing callers that pass a lucide icon directly).
   icon?: LucideIcon;
+  // Semantic icon key resolved here (e.g. controlled-drug lock). Takes priority
+  // over the tone's default icon but not over an explicit `icon`.
+  iconKey?: SemanticIconKey;
 };
 
-export const clinicalBadgeTonePriority: Record<ClinicalBadgeTone, number> = {
-  danger: 6,
-  warning: 5,
-  clinical: 4,
-  success: 3,
-  neutral: 2,
-  info: 1,
+// Re-exported so existing importers keep working; there is now exactly one map.
+export const clinicalBadgeTonePriority = SEMANTIC_TONE_PRIORITY;
+
+const SEMANTIC_ICONS: Record<SemanticIconKey, LucideIcon> = {
+  danger: Ban,
+  warning: TriangleAlert,
+  controlled: Lock,
+};
+
+// Only the two safety tones carry a default icon so danger/warning stay
+// distinguishable without colour (forced-colors, colour-blindness). Neutral,
+// info, success, and clinical stay icon-free to keep badges quiet.
+const TONE_DEFAULT_ICON: Partial<Record<ClinicalBadgeTone, SemanticIconKey>> = {
+  danger: "danger",
+  warning: "warning",
 };
 
 export function clinicalBadgeToneClass(tone: ClinicalBadgeTone): string {
@@ -36,9 +56,19 @@ export function clinicalBadgeToneClass(tone: ClinicalBadgeTone): string {
 export function ClinicalBadge({
   label,
   tone = "neutral",
-  icon: Icon,
+  icon,
+  iconKey,
   compact = false,
 }: ClinicalBadgeItem & { compact?: boolean }) {
+  // Resolve to an icon *key* first (a string), then index the static component
+  // map — mirrors StatusBadge and avoids the react-hooks/static-components rule
+  // that fires when a component is produced by a call expression during render.
+  const resolvedIconKey: SemanticIconKey | null = icon ? null : (iconKey ?? TONE_DEFAULT_ICON[tone] ?? null);
+  const Icon = icon ?? (resolvedIconKey ? SEMANTIC_ICONS[resolvedIconKey] : null);
+  // Announce the tone's meaning before the label so screen-reader users get the
+  // same "stop vs caution" signal sighted users get from colour + icon.
+  const ariaPrefix = SEMANTIC_TONE_META[tone].ariaPrefix;
+
   return (
     <span
       title={label}
@@ -48,6 +78,7 @@ export function ClinicalBadge({
         clinicalBadgeToneClass(tone),
       )}
     >
+      {ariaPrefix ? <span className="sr-only">{ariaPrefix}: </span> : null}
       {Icon ? <Icon className="h-2.5 w-2.5 shrink-0" aria-hidden="true" /> : null}
       <span className="truncate">{label}</span>
     </span>

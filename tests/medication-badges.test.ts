@@ -8,6 +8,7 @@ import {
   medicationStatTone,
 } from "@/lib/medication-badges";
 import { deriveGovernanceFromSections } from "@/lib/medication-records";
+import type { MedicationRecord } from "@/lib/medications";
 
 describe("medication badge mappers", () => {
   const acamprosate = getMedicationRecord("acamprosate");
@@ -107,5 +108,38 @@ describe("medications catalogue regression", () => {
     expect(record).toBeTruthy();
     const badges = medicationIdentityBadges(record!);
     expect(badges.some((badge) => badge.label === "PBS streamlined")).toBe(true);
+  });
+});
+
+describe("controlled-drug (S8) schedule badge", () => {
+  const baseRecord: MedicationRecord = {
+    slug: "test-schedule",
+    name: "Test Schedule",
+    class: "",
+    subclass: "",
+    category: "",
+    accent: "#0f766e",
+    tag: "",
+    schedule: "S8",
+    stats: [],
+    sections: [],
+    quick: [],
+  };
+
+  it("shows S8 as a controlled warning with a lock icon, never danger", () => {
+    const badges = medicationIdentityBadges(baseRecord);
+    const scheduleBadge = badges.find((badge) => badge.label === "S8");
+    expect(scheduleBadge).toBeTruthy();
+    expect(scheduleBadge?.tone).toBe("warning");
+    expect(scheduleBadge?.iconKey).toBe("controlled");
+    // Regulatory scheduling must not consume the danger tone reserved for stops.
+    expect(badges.every((badge) => badge.tone !== "danger")).toBe(true);
+  });
+
+  it("keeps non-S8 schedules as plain info metadata", () => {
+    const badges = medicationIdentityBadges({ ...baseRecord, schedule: "S4" });
+    const scheduleBadge = badges.find((badge) => badge.label === "S4");
+    expect(scheduleBadge?.tone).toBe("info");
+    expect(scheduleBadge?.iconKey).toBeUndefined();
   });
 });

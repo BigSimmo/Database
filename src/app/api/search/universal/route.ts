@@ -8,7 +8,7 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { runUniversalSearch, universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search";
@@ -17,8 +17,13 @@ import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 export const runtime = "nodejs";
 
 // Typeahead-friendly GET: cross-entity federated search over documents + the registry
-// catalogues. Access ladder mirrors /api/registry/records — demo/local serves fixtures,
-// unauthenticated public serves the public catalogues, owners get their seeded records.
+// catalogues. Only an explicit demo/local deploy serves synthetic fixtures. Unlike the pure
+// registry routes (which can short-circuit unauthenticated callers to an in-bundle catalogue),
+// the documents domain must reach the live retrieval pipeline, so every non-demo caller runs the
+// real search: anonymous callers are scoped to the public corpus (ownerId undefined ->
+// allowGlobalSearch) and rate limited, and owners get their own records. Serving demo documents
+// to live public callers here previously leaked the synthetic corpus (see runUniversalSearch demo
+// path); it must never be reachable in production.
 const universalSearchQuerySchema = z.object({
   q: z.string().trim().min(2).max(200),
   limit: queryInteger({ fallback: 5, min: 1, max: 10 }),
@@ -49,11 +54,6 @@ export async function GET(request: Request) {
       return universalResponse({ ...payload, demoMode: true });
     }
 
-    if (!shouldResolvePublicCatalogAccess(request)) {
-      const payload = await runUniversalSearch({ query: q, limitPerDomain: limit, domains, demo: true });
-      return universalResponse({ ...payload, publicAccess: true });
-    }
-
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
 
@@ -67,11 +67,9 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("Universal search requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    if (!access.ownerId) {
-      const payload = await runUniversalSearch({ query: q, limitPerDomain: limit, domains, demo: true });
-      return universalResponse({ ...payload, publicAccess: true });
-    }
-
+    // demo:false + supabase always run the live pipeline. An anonymous caller (ownerId
+    // undefined) is scoped to the public corpus via allowGlobalSearch and the real default
+    // catalogues — never the synthetic demo fixtures.
     const payload = await runUniversalSearch({
       query: q,
       limitPerDomain: limit,
@@ -80,7 +78,7 @@ export async function GET(request: Request) {
       ownerId: access.ownerId,
       demo: false,
     });
-    return universalResponse(payload);
+    return universalResponse(access.ownerId ? payload : { ...payload, publicAccess: true });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

@@ -38,6 +38,41 @@ type UniversalSearchResult = {
 const debounceMs = 250;
 const minQueryLength = 2;
 
+// Small client-side LRU so backspace/retype and revisited prefixes resolve instantly instead of
+// re-hitting the server. Module-scoped so the phone and tablet+ command surfaces share it. The
+// key includes the auth signature, so one identity's cached results are never served to another
+// (a signed-out user has a different key than the signed-in session that produced them).
+const resultCacheMax = 50;
+const resultCache = new Map<string, UniversalSearchResult>();
+
+function cacheKeyFor(query: string, excludeDomain: string | undefined, limitPerDomain: number, authSignature: string) {
+  // JSON-array key so no field can collide with another via a shared delimiter (auth header
+  // values and the query itself can contain spaces, commas, etc.).
+  return JSON.stringify([authSignature, excludeDomain ?? "", limitPerDomain, query]);
+}
+
+// Non-mutating read used during render (must stay pure — no recency side effect here).
+function peekResultCache(key: string): UniversalSearchResult | undefined {
+  return resultCache.get(key);
+}
+
+// Recency bump for a cache hit, called from the effect (not render) to keep render pure.
+function touchResultCache(key: string) {
+  const cached = resultCache.get(key);
+  if (!cached) return;
+  resultCache.delete(key);
+  resultCache.set(key, cached);
+}
+
+function writeResultCache(key: string, value: UniversalSearchResult) {
+  resultCache.delete(key);
+  resultCache.set(key, value);
+  if (resultCache.size > resultCacheMax) {
+    const oldest = resultCache.keys().next().value;
+    if (oldest !== undefined) resultCache.delete(oldest);
+  }
+}
+
 /**
  * Cross-entity typeahead for the command surface: debounced GET
  * /api/search/universal excluding the active mode's own domain (its results
@@ -60,22 +95,38 @@ export function useUniversalSearch(args: {
   const active = args.enabled && trimmedQuery.length >= minQueryLength;
   const limitPerDomain = args.limitPerDomain ?? 3;
   const excludeDomain = args.excludeDomain;
+  const authSignature = JSON.stringify(authorizationHeader ?? {});
+  const cacheKey = active ? cacheKeyFor(trimmedQuery, excludeDomain, limitPerDomain, authSignature) : null;
 
   useEffect(() => {
     const authChanged = prevAuthRef.current !== authorizationHeader;
     prevAuthRef.current = authorizationHeader;
 
-    if (!active) {
+    if (!active || !cacheKey) {
       // Invalidate any in-flight request; visible state is derived, so no reset needed.
       requestSeqRef.current += 1;
       return undefined;
     }
+    const key = cacheKey;
 
     if (authChanged) {
       setResult({ groups: [], query: "" });
     }
 
+    // Instant path: a previously fetched query needs no fetch. The render below reads the cache
+    // directly (setState in an effect body would force a cascading render), so only bump recency
+    // and invalidate any older in-flight request here.
+    if (resultCache.has(key)) {
+      touchResultCache(key);
+      requestSeqRef.current += 1;
+      return undefined;
+    }
+
     const requestId = ++requestSeqRef.current;
+
+    // Cancel the superseded request on the next keystroke: dropping the stale response client-side
+    // is not enough — abort frees the server/DB work too.
+    const controller = new AbortController();
     const timer = window.setTimeout(() => {
       const domains = (["documents", "medications", "services", "forms", "differentials", "tools"] as const).filter(
         (domain) => domain !== excludeDomain,
@@ -85,7 +136,7 @@ export function useUniversalSearch(args: {
         limit: String(limitPerDomain),
         domains: domains.join(","),
       });
-      fetch(`/api/search/universal?${params.toString()}`, { headers: authorizationHeader })
+      fetch(`/api/search/universal?${params.toString()}`, { headers: authorizationHeader, signal: controller.signal })
         .then(async (response) => {
           if (requestId !== requestSeqRef.current) return;
           if (!response.ok) {
@@ -94,16 +145,20 @@ export function useUniversalSearch(args: {
           }
           const payload = (await response.json()) as Partial<UniversalSearchResult>;
           if (requestId !== requestSeqRef.current) return;
-          setResult({
+          const next: UniversalSearchResult = {
             groups: (payload.groups ?? []).filter((group) => !group.error && group.items.length > 0),
             query: trimmedQuery,
             interpretation: payload.interpretation,
             domainOrder: payload.domainOrder,
             topHit: payload.topHit,
             answerAction: payload.answerAction,
-          });
+          };
+          writeResultCache(key, next);
+          setResult(next);
         })
-        .catch(() => {
+        .catch((error: unknown) => {
+          // An aborted fetch is a superseded keystroke, not a failure — leave state to the newer request.
+          if (error instanceof DOMException && error.name === "AbortError") return;
           if (requestId !== requestSeqRef.current) return;
           setResult({ groups: [], query: trimmedQuery });
         });
@@ -111,10 +166,26 @@ export function useUniversalSearch(args: {
 
     return () => {
       window.clearTimeout(timer);
+      controller.abort();
     };
-  }, [active, trimmedQuery, excludeDomain, limitPerDomain, authorizationHeader]);
+  }, [active, cacheKey, trimmedQuery, excludeDomain, limitPerDomain, authorizationHeader]);
 
   if (!active) return { groups: [], loading: false, query: "" };
+
+  // Prefer a cached snapshot for this exact query so backspace/retype is instant; otherwise fall
+  // back to the fetched state, which only counts as fresh once its query matches the current one.
+  const cached = cacheKey ? peekResultCache(cacheKey) : undefined;
+  if (cached) {
+    return {
+      groups: cached.groups,
+      loading: false,
+      query: cached.query,
+      interpretation: cached.interpretation,
+      domainOrder: cached.domainOrder,
+      topHit: cached.topHit,
+      answerAction: cached.answerAction,
+    };
+  }
   const fresh = result.query === trimmedQuery;
   return {
     groups: fresh ? result.groups : [],

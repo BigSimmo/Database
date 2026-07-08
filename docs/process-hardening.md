@@ -243,9 +243,39 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
   `mrr@10=0.8148`, `content_mrr@10=0.9244`, strategies `{text_fast_path:25, document_lookup_fast_path:1,
 hybrid:10}`, all 10 forced-embedding vector cases passed (`force_embedding_failure_count=0`). A
   direct read-only DB probe confirmed the premise: all **2,065** documents have `owner_id = NULL`;
-  the old eval owner `2bac05f1-…` owns 0. **This closes the #347 part-2 eval debt** — the golden
-  retrieval eval is the behavior-preservation proof the rag.ts decomposition owed, and it now runs
-  green with no manual owner setup.
+  the old eval owner `2bac05f1-…` owns 0. **This closes the retrieval half of the #347 part-2 eval
+  debt** — the golden retrieval eval is the retrieval behavior-preservation proof, and it now runs
+  green with no manual owner setup. (#347 also owed `eval:quality -- --rag-only`; that answer-path
+  half was still owner-blocked until the follow-up below.)
+
+## Eval-owner default hoisted to all read/eval scripts + #347 answer-path gate closed (2026-07-08)
+
+- **Follow-up to the 2026-07-07 fix above.** PR #348 only patched `eval-retrieval.ts`, so
+  `eval:quality` (incl. `--rag-only`), `eval:rag`, `eval:answer-quality`, and `eval:search` still
+  resolved the owner as `args.ownerId ?? emailLookup ?? undefined` and returned 0/N against the
+  all-public corpus — the exact failure #348 fixed for retrieval, still live for the answer path.
+- **Fix (item 1 + 3):** hoisted `DEFAULT_EVAL_OWNER_ID` + `resolveEvalOwnerId(supabase, args)` into
+  the shared `scripts/eval-utils.ts` and applied it at the final owner-resolution point in all five
+  read/eval scripts (`eval-retrieval` refactored onto it; its local duplicate constant removed).
+  Precedence preserved (explicit id → email lookup → sentinel); the helper prints a **one-line
+  warning on the sentinel fallback** so the narrowing to public-only scope is visible, not silent.
+  Write/backfill scripts (`enrich-documents`, `classify-documents`, `backfill-*`) deliberately
+  excluded — defaulting an owner there could write under the wrong owner. First-ever
+  `resolveEvalOwnerId` unit coverage added to `tests/eval-utils.test.ts`.
+- **Gates:** `verify:cheap` green (1277 tests; 0 lint errors). `eval:retrieval:quality` re-ran
+  **36/36, failed_cases=0** on the refactored script (regression check). The fallback warning was
+  observed firing in a real `eval:quality` run.
+- **#347 answer-path gate CLOSED (item 2) — `eval:quality -- --rag-only`, live, no manual owner:**
+  `cases=44`, **unsupported_correct_rate=1.0**, **citation_failure_rate=0.0455**,
+  **numeric_grounding_failure_rate=0.0227** — all three invariants identical to #343's live
+  baseline; `grounded_supported_rate=0.90` (vs #343 `0.9333`). The 5 failing cases are entirely in
+  #343's documented live-variance set: 2 pure latency-threshold failures (this cloud env's
+  Supabase p95 ≈ 49 s — the local→remote latency #343 called out) and 3 route/retrieval flakes
+  (`illegal-substances`, `discharge-documentation`, `community-admission`) that #343 already
+  identified as pre-existing variance outside the touched paths. Because this change is eval-config
+  only (owner resolution) and touches no answer-generation code, the identical invariant rates
+  confirm the part-2 decomposition preserved answer behavior. **#347 part-2 eval debt now fully
+  settled** (retrieval half via #348, answer-path half here).
 
 ## Answer-thread Back button: URL and visible answer can disagree (2026-07-06)
 

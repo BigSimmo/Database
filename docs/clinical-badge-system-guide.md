@@ -4,6 +4,16 @@ This guide defines the badge, chip, and compact label system for Clinical KB. Us
 
 This document is governance only. It does not grant approval to apply badges across clinical content. Apply this system to a content area only when that area is explicitly approved for redesign or labelling work.
 
+## Machine-Readable Reference
+
+The tone system and the per-content flag catalogue are also encoded in code so they cannot drift from this guide:
+
+- `src/lib/semantic-tone.ts` — the six tones, their priority order, and their meaning / aria / icon rules (single source of truth for tones).
+- `src/lib/semantic-flags.ts` — the flag catalogue: every flagged signal per content area (medications, documents, evidence, answers, differentials, services, admin) with its tone.
+- `/reference/colour-coding` — a live, rendered legend generated from the two modules above. Use it to see badges exactly as they render in production.
+
+When you add a badge to a content area, add its flag to `src/lib/semantic-flags.ts` so the reference stays complete.
+
 ## Core Principles
 
 Badges should make clinical screens faster to scan. They are not decoration, not a substitute for readable clinical text, and not a way to make every fact look important.
@@ -63,6 +73,17 @@ Red means stop, avoid, contraindicated, failed, outdated, or unsafe.
 Blue is reserved for system and process state. It should be rare in clinical content.
 
 Neutral is the default for facts that do not require action, caution, trust signalling, or alarm.
+
+## Non-Colour Differentiation (Icon Convention)
+
+Colour is never the only signal. Every badge carries text, and the two safety tones also carry an icon so they stay distinguishable in forced-colors mode and for colour-blind users:
+
+- Danger renders a stop icon (lucide `Ban`).
+- Warning renders a caution icon (lucide `TriangleAlert`).
+- Controlled-drug scheduling renders a lock icon (lucide `Lock`).
+- Neutral, info, success, and clinical stay icon-free so badges remain quiet.
+
+Screen readers additionally hear a spoken prefix ("Do not use" for danger, "Caution" for warning) before the label, so the stop-versus-caution distinction survives without colour. This behaviour is built into the shared `ClinicalBadge` component — do not hand-roll icons on individual badges. Set the tone, and where a specific icon is meaningful, set an `iconKey`.
 
 ## Visual Variants
 
@@ -235,6 +256,10 @@ Medication pages may use badges only where they improve scanning.
 | Routine adverse effect                       | Neutral  |
 | High/common adverse effect needing attention | Warning  |
 | Serious adverse effect/stop state            | Danger   |
+
+### Controlled-Drug Scheduling
+
+Schedule 8 (S8) is a regulatory classification, not a clinical stop. Show it with the dedicated controlled treatment — **warning** tone plus a lock icon — never red. Red stays reserved for true contraindications and do-not-use states. Other schedules (S4, etc.) are plain **info** metadata.
 
 Acamprosate examples:
 
