@@ -124,7 +124,15 @@ function stableHash(value: string) {
 export function retrievalPlanCacheQuery(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "topK" | "minSimilarity" | "forceEmbedding"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "queryMode"
+    | "topK"
+    | "minSimilarity"
+    | "forceEmbedding"
+    | "lexicalOnly"
   >,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
@@ -140,6 +148,7 @@ export function retrievalPlanCacheQuery(
     `topK:${args.topK ?? 8}`,
     `min:${args.minSimilarity ?? 0.15}`,
     `forceEmbedding:${args.forceEmbedding ? "1" : "0"}`,
+    `lexicalOnly:${args.lexicalOnly ? "1" : "0"}`,
     `rag:${ragDeepMemoryVersion}`,
     `force:${args.forceEmbedding ? 1 : 0}`,
   ].join("|");

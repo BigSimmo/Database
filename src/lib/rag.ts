@@ -376,6 +376,11 @@ export type SearchChunksArgs = {
   // the embedding/vector stage. Lets the golden eval measure the vector index directly for a
   // re-index, instead of being masked by lexical shortcuts. Never set on production paths.
   forceEmbedding?: boolean;
+  // Lightweight-preview only: never call the OpenAI embedding API — return the lexical/trigram
+  // candidates gathered before the vector stage. Used by the cross-entity typeahead, where a
+  // small document preview does not justify an embedding round-trip per keystroke. The Answer
+  // and Documents full-search paths never set this, so their retrieval is unchanged.
+  lexicalOnly?: boolean;
 };
 
 export type AnswerProgressEvent = {
@@ -3202,7 +3207,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const minSimilarity = args.minSimilarity ?? 0.15;
   let embeddingStartedAt = 0;
   const preloadedEmbedding =
-    !sourceOnlyRetrieval && shouldPreloadEmbedding(queryAnalysis)
+    !sourceOnlyRetrieval && !args.lexicalOnly && shouldPreloadEmbedding(queryAnalysis)
       ? (() => {
           embeddingStartedAt = Date.now();
           return Promise.resolve(embedTextWithTelemetry(expandedQuery)).catch(() => null);
@@ -3439,11 +3444,12 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     textFastResults = mergeSearchResults(coverageGateResults, textFastResults);
   }
 
-  if (sourceOnlyRetrieval) {
-    // Source-only retrieval: skip embeddings entirely and return the lexical candidates.
-    // The answer layer fails closed when this evidence is too weak.
+  if (sourceOnlyRetrieval || args.lexicalOnly) {
+    // Skip embeddings entirely and return the lexical candidates. Source-only retrieval
+    // (offline / no usable key) fails closed at the answer layer when this evidence is too
+    // weak; lexical-only retrieval powers the typeahead preview, which never needs vectors.
     telemetry.embedding_skipped = true;
-    telemetry.embedding_skip_reason = SOURCE_ONLY_EMBEDDING_SKIP_REASON;
+    telemetry.embedding_skip_reason = sourceOnlyRetrieval ? SOURCE_ONLY_EMBEDDING_SKIP_REASON : "lexical_only";
     telemetry.retrieval_strategy = telemetry.retrieval_strategy ?? "text_fast_path";
     recordSearchScoreTelemetry(telemetry, textFastResults);
     return { results: textFastResults, telemetry };
