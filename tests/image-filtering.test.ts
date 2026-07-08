@@ -6,6 +6,7 @@ import {
   isClinicalImageEvidence,
   lightweightPerceptualHash,
   normalizeImageBbox,
+  partitionViewerImages,
 } from "../src/lib/image-filtering";
 
 describe("smart image filtering", () => {
@@ -201,5 +202,40 @@ describe("smart image filtering", () => {
     expect(lightweightPerceptualHash(bytes, 100, 200)).not.toBe(
       lightweightPerceptualHash(new Uint8Array([80, 70, 60, 50, 40, 30, 20, 10, 1]), 100, 200),
     );
+  });
+});
+
+describe("document viewer image partitioning", () => {
+  it("renders a searchable diagram whose stored clinical_use_class has drifted", () => {
+    // Regression: the viewer used to require clinicalUseClass === "clinical_evidence", so a
+    // searchable non-table image whose class drifted (e.g. to "ambiguous"/"administrative")
+    // rendered nowhere — not in the clinical list and not in the audit group.
+    const { clinicalImages, auditImages } = partitionViewerImages([
+      { searchable: true, source_kind: "diagram_crop", clinicalUseClass: "ambiguous" },
+      { searchable: true, source_kind: "embedded", clinicalUseClass: "administrative" },
+      { searchable: true, source_kind: "table_crop", clinicalUseClass: "clinical_evidence" },
+    ]);
+    expect(clinicalImages).toHaveLength(3);
+    expect(auditImages).toHaveLength(0);
+  });
+
+  it("routes administrative/reference table crops to the audit group", () => {
+    const { clinicalImages, auditImages } = partitionViewerImages([
+      { searchable: true, source_kind: "table_crop", clinicalUseClass: "administrative" },
+      { searchable: false, source_kind: "table_crop", clinicalUseClass: "reference" },
+      { searchable: true, source_kind: "table_crop", tableRole: "reference", clinicalUseClass: null },
+    ]);
+    expect(clinicalImages).toHaveLength(0);
+    expect(auditImages).toHaveLength(3);
+  });
+
+  it("keeps clinical table crops in the main list and non-searchable rows out of it", () => {
+    const { clinicalImages, auditImages } = partitionViewerImages([
+      { searchable: true, source_kind: "table_crop", clinicalUseClass: "clinical_evidence" },
+      { searchable: false, source_kind: "embedded", clinicalUseClass: "clinical_evidence" },
+    ]);
+    expect(clinicalImages).toHaveLength(1);
+    expect(clinicalImages[0].source_kind).toBe("table_crop");
+    expect(auditImages).toHaveLength(0);
   });
 });
