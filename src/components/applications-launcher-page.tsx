@@ -11,6 +11,7 @@ import {
   FileCheck2,
   FileText,
   Grid2X2,
+  Palette,
   Pill,
   Plus,
   Search,
@@ -822,6 +823,19 @@ export function ApplicationsLauncherWorkspace({
           {copy.countNoun}
         </p>
       </section>
+
+      <div className="mx-auto mt-6 flex w-full max-w-[86rem] justify-center">
+        <Link
+          href="/reference/colour-coding"
+          className={cn(
+            "inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+            focusRing,
+          )}
+        >
+          <Palette className="h-3.5 w-3.5" aria-hidden />
+          Colour coding reference
+        </Link>
+      </div>
 
       <ModeHomeVerificationFooter icon={ShieldCheck} label="Clinical tools" body="Source-backed workflows" />
 
