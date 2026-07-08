@@ -1344,6 +1344,8 @@ export function MasterSearchHeader({
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
                 value={query}
+                enterKeyHint="search"
+                inputMode="search"
                 role="combobox"
                 aria-expanded={commandDropdownOpen}
                 aria-controls={commandDropdownOpen ? commandListboxId : undefined}
