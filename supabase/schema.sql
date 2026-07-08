@@ -473,7 +473,10 @@ create table if not exists public.ingestion_jobs (
 
 create table if not exists public.ingestion_job_stages (
   id uuid primary key default gen_random_uuid(),
-  job_id uuid not null references public.ingestion_jobs(id) on delete cascade,
+  -- R24e: no FK to ingestion_jobs. Live has no such constraint and job_id holds
+  -- indexing_v3_agent_jobs ids, not ingestion_jobs ids (see migration
+  -- 20260708140000). document_id -> documents ON DELETE CASCADE is the real FK.
+  job_id uuid not null,
   document_id uuid not null references public.documents(id) on delete cascade,
   stage_name text not null,
   stage_status text not null default 'started'
