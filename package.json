@@ -60,6 +60,7 @@
     "check:supabase-project": "tsx scripts/check-supabase-project.ts",
     "check:indexing": "tsx scripts/check-indexing.ts",
     "check:m13-migration": "tsx scripts/check-m13-migration.ts",
+    "check:july8-live-batch": "tsx scripts/check-july8-live-batch.ts",
     "check:type-scale": "node scripts/check-type-scale.mjs",
     "recover:ingestion": "tsx scripts/recover-ingestion-queue.ts",
     "registry:seed": "tsx scripts/seed-registry-records.ts",

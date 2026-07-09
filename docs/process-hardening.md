@@ -93,16 +93,16 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 - **Known follow-up debts (documented, not actioned):**
   - Live migration history has duplicate-version churn (two each of `api_rate_limits`, `audit_logs`, `rag_queries_retention`, `audit_logs_service_role_policy`, `indexing_reliability_recovery`) from the same raw-apply habit. Do not rewrite history; treat as a caution for future applies.
   - Auth server is capped at 10 absolute DB connections (Supabase advisor); switch to percentage-based allocation in the dashboard before scaling instance size (not settable via SQL/MCP).
-  - `storage_cleanup_jobs` live indexes drifted from `supabase/schema.sql`: live carries legacy auto-names (`storage_cleanup_jobs_document_id_idx`, `storage_cleanup_jobs_owner_id_idx`, a non-partial `storage_cleanup_jobs_status_created_idx`) that the hardening defs superseded. Migration `20260703030000_reconcile_storage_cleanup_jobs_indexes` is **prepared but NOT applied** — it drops the legacy names and (re)creates the intended named/partial indexes to match schema.sql. Functional-not-broken (the document_id FK is covered), so apply to live only with explicit approval. `20260703000000`/`010000` are also absent from live `schema_migrations` and will self-heal on the next `supabase db push`.
+  - **`storage_cleanup_jobs` indexes: RESOLVED 2026-07-08** — `20260703030000` + `20260708000000_reapply_storage_cleanup_jobs_indexes` applied and verified on live (see `docs/archive/operator-decisions-2026-07-06.md`).
 
 ## Live database drift reconciliation (2026-07-05)
 
 - **RESOLVED:** `indexing_v3_agent_jobs` table + `claim_indexing_v3_agent_jobs` + `update_indexing_v3_agent_job_status` were recorded as applied but absent on live. Migration `20260705230000_reconcile_live_database_drift` idempotently re-applied them; live verified post-push.
 - **RESOLVED:** `match_document_embedding_fields_text` codified with service_role-only execute.
-- **Follow-up (2026-07-06):** the codified `match_document_embedding_fields_text` kept the legacy `(owner_filter is null or d.owner_id = owner_filter)` predicate instead of `retrieval_owner_matches`, so it ignores the public-owner sentinel (anonymous sentinel would match zero rows; a real owner id excludes public docs). Migration `20260706130000_fix_embedding_fields_text_owner_sentinel` recreates it with the shared predicate — **prepared but NOT applied to live**; latent until the `_text` RPC is wired into app code, so apply with the next approved push.
+- **RESOLVED (2026-07-08):** `match_document_embedding_fields_text` owner-sentinel fix (`20260706130000`) applied to live; latent until the `_text` RPC is wired into app code.
 - **RESOLVED:** `rag_visual_eval_*` tables codified with service_role-only RLS.
 - **RESOLVED:** Live-only `20260705133000_tighten_search_document_chunks_owner_scope` mirrored in `schema.sql`.
-- **Edge function follow-up:** deploy `indexing-v3-agent` after merge so JSONB status RPC parsing is live.
+- **RESOLVED (2026-07-08):** `indexing-v3-agent` edge function deployed (version 53, JSONB status-RPC parsing live — see `docs/archive/operator-decisions-2026-07-06.md`).
 - **Operator-only:** publishable key rotation (`docs/archive/operator-decisions-2026-07-04.md`).
 
 ## Full-inventory drift detection & DR rehearsal (2026-07-07)
@@ -118,6 +118,15 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 - **`20260705210000_retrieval_owner_filter_sentinel` was NOT applied and was NEUTRALIZED.** The pre-apply investigation found live has **diverged forward** from that migration's retrieval bodies via later raw-SQL work never captured in a migration: `match_document_chunks` carries an `hnsw.ef_search=100` plpgsql wrapper (higher vector recall), and `match_document_chunks_text` / `match_document_table_facts_text` carry richer multi-strategy implementations. Applying it would have **regressed live retrieval quality**. Its owner-sentinel purpose was already live and identical. The correct fix is forward-codification of the live bodies (drift backlog), not applying the old migration.
 - **Live is under active concurrent multi-session editing** — during this work a new `corpus_topic_term_stats` function appeared and `search_schema_health` re-drifted minutes after apply. The drift allowlist is therefore an explicit point-in-time snapshot needing periodic regeneration.
 - `apply_migration` records history rows under a current-UTC version with the passed name (documented churn), not the repo file's version number; re-applying the repo files later is a harmless idempotent no-op.
+
+### July 8 ingestion & tenancy batch — merged to main, pending live apply (2026-07-09)
+
+PRs **#380**, **#405**, **#408**, **#409** landed ingestion RPC hardening (R1/R2/R7/R9/R23), R17
+one-open-job index, R5 metadata deep-merge, and `retrieval_owner_matches` fail-closed. Migrations are
+in `supabase/migrations/` but **not yet verified on live** as of 2026-07-09. **Do not redeploy the
+ingestion worker from current `main` until `20260708130000` is live** — `worker/main.ts` already
+passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and post-apply probes:
+[`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md) · `npm run check:july8-live-batch`.
 
 ## PR merge gate: tiered CI + required checks (2026-07-02)
 
@@ -169,7 +178,7 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 
 ## Retrieval changes must pass the golden eval before merge (2026-07-03)
 
-- **Any PR that touches retrieval, ranking, selection, chunking, or scoring MUST run `npm run eval:retrieval:quality` (23/23) locally before merge** and paste the summary in the PR. CI cannot run it (it needs live Supabase + OpenAI keys), so it is a manual gate — now a checkbox in the PR template.
+- **Any PR that touches retrieval, ranking, selection, chunking, or scoring MUST run `npm run eval:retrieval:quality` (36/36) locally before merge** and paste the summary in the PR. CI cannot run it (it needs live Supabase + OpenAI keys), so it is a manual gate — now a checkbox in the PR template.
 - **Why (measured):** PR #118 caught a main-side change (uncapped candidate score + blanket source-governance metadata weighting in `retrieval-selection.ts`) that regressed the golden set 23/23 → 16/23 (doc-recall@5 1.0 → 0.76) on the partially-enriched corpus. `verify:cheap` was green throughout — only the golden retrieval eval surfaced it. Unit tests do not exercise live ranking, so they cannot substitute.
 - **Standing constraint (do not relearn):** source-governance metadata (`document_status`/`clinical_validation_status`/`extraction_quality`) must NOT weight retrieval **selection ordering**, and candidate relevance scores must stay clamped. Live scores saturate at 1.0 and the corpus is only partially enriched (unenriched → unknown/unverified), so metadata weighting buries correct documents. Governance belongs in ranking penalties and the answer/source-governance layer. See [[no-governance-weighting-in-retrieval-selection]] and `docs/rag-hybrid-findings-and-todo.md` (RC8).
 - **Answer-generation changes** (synthesis prompt, post-processing) additionally run `eval:rag --limit 15` + `eval:quality --rag-only` (grounded-supported must not drop; citation-failure 0). A new opt-in `npm run eval:answer-quality` reports a structural per-intent **targeting** metric (informational) for measuring how precisely answers hit the asked question.
