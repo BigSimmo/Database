@@ -31,6 +31,36 @@ async function main() {
     process.exit(1);
   }
 
+  const { data: nullFilterCheck, error: nullFilterError } = await supabase.rpc(
+    "retrieval_owner_matches" as never,
+    {
+      owner_filter: null,
+      row_owner_id: "00000000-0000-0000-0000-000000000001",
+    } as never,
+  );
+
+  if (nullFilterError) {
+    console.error(
+      "[Retrieval Owner Migration] FAIL: retrieval_owner_matches null-filter probe failed:",
+      nullFilterError.message,
+    );
+    process.exit(1);
+  }
+
+  if (nullFilterCheck === true) {
+    console.error("[Retrieval Owner Migration] FAIL: retrieval_owner_matches is still fail-OPEN on NULL owner_filter.");
+    console.error(
+      "Apply 20260708160000_retrieval_owner_matches_fail_closed.sql — see docs/operator-apply-july8-batch.md",
+    );
+    process.exit(1);
+  }
+
+  if (nullFilterCheck !== false) {
+    console.error("[Retrieval Owner Migration] FAIL: unexpected null-filter result:", String(nullFilterCheck));
+    process.exit(1);
+  }
+
+  console.log("[Retrieval Owner Migration] PASS: retrieval_owner_matches is fail-closed on NULL.");
   console.log("[Retrieval Owner Migration] PASS: retrieval_owner_matches sentinel is live.");
   console.log("[Retrieval Owner Migration] search_schema_health:", JSON.stringify(data));
 }

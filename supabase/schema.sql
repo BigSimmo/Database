@@ -779,10 +779,9 @@ create index if not exists ingestion_jobs_document_status_idx
   on public.ingestion_jobs(document_id, status, created_at);
 -- R17 (docs/ingestion-concurrency-fix-workorder.md): structural guard against
 -- more than one open job per document. Migration
--- 20260708160000_ingestion_jobs_one_open_per_document.sql creates the live
--- equivalent with CONCURRENTLY (manual apply — see that file's header); this
--- non-concurrent form is for fresh/scratch replay only, where there is no
--- concurrent traffic to block.
+-- 20260708170000_ingestion_jobs_one_open_per_document.sql applies the same
+-- index transactionally via `db push`; operators on a busy queue may use the
+-- CONCURRENTLY variant documented in docs/operator-apply-july8-batch.md instead.
 create unique index if not exists ingestion_jobs_one_open_per_document_uidx
   on public.ingestion_jobs(document_id)
   where status in ('pending', 'processing');
