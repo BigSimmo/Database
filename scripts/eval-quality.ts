@@ -780,6 +780,7 @@ async function runRetrievalQualityCases(args: {
     results.push(
       evaluateGoldenRetrievalCase({
         testCase,
+        globalForceEmbedding: args.forceEmbedding,
         results: search.results,
         telemetry: search.telemetry,
         latencyMs,

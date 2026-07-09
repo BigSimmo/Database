@@ -1,6 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import { confirm } from "./cli-utils";
-import { committedIndexGeneration, metadataRecord } from "@/lib/reindex-pipeline";
+import { committedIndexGeneration, imageRowNeedsGenerationRestamp, metadataRecord } from "@/lib/reindex-pipeline";
 
 loadEnvConfig(process.cwd());
 
@@ -108,9 +108,11 @@ function parseArgs(argv: string[]): Args {
 }
 
 function rowNeedsRefresh(row: ImageRow, committedGeneration: string) {
-  if (row.index_generation_id === null) return true;
-  if (row.index_generation_id !== committedGeneration) return true;
-  return committedIndexGeneration(row.metadata) !== committedGeneration;
+  return imageRowNeedsGenerationRestamp({
+    indexGenerationId: row.index_generation_id,
+    metadata: row.metadata,
+    committedGeneration,
+  });
 }
 
 async function loadDocuments(args: {

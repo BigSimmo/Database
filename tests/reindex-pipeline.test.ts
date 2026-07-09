@@ -3,6 +3,7 @@ import {
   abandonedReindexGenerationTotal,
   committedIndexGeneration,
   hasAbandonedReindexGenerations,
+  imageRowNeedsGenerationRestamp,
   isAbandonedStagedGeneration,
   hasIncompleteDocumentsWithoutOpenJobs,
   isAtomicReindexCandidate,
@@ -80,6 +81,30 @@ describe("reindex pipeline queue state", () => {
       isCommittedGenerationMetadata({
         rowMetadata: { index_generation_id: "legacy-generation" },
         committedGeneration: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("identifies image rows that still need typed generation columns populated", () => {
+    expect(
+      imageRowNeedsGenerationRestamp({
+        indexGenerationId: null,
+        metadata: { index_generation_id: "generation-a" },
+        committedGeneration: "generation-a",
+      }),
+    ).toBe(true);
+    expect(
+      imageRowNeedsGenerationRestamp({
+        indexGenerationId: "generation-a",
+        metadata: { index_generation_id: "generation-a" },
+        committedGeneration: "generation-a",
+      }),
+    ).toBe(false);
+    expect(
+      imageRowNeedsGenerationRestamp({
+        indexGenerationId: "generation-b",
+        metadata: { index_generation_id: "generation-b" },
+        committedGeneration: "generation-a",
       }),
     ).toBe(true);
   });
