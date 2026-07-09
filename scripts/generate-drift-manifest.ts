@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -63,7 +64,8 @@ async function main() {
     // not running — fine
   }
   const startedAt = Date.now();
-  docker(["run", "-d", "--name", CONTAINER, "-e", "POSTGRES_PASSWORD=postgres", "-p", `${port}:5432`, image]);
+  const scratchPassword = randomBytes(16).toString("hex");
+  docker(["run", "-d", "--name", CONTAINER, "-e", `POSTGRES_PASSWORD=${scratchPassword}`, "-p", `${port}:5432`, image]);
 
   try {
     // Wait for Postgres readiness (image init runs its own restarts; give it time).
