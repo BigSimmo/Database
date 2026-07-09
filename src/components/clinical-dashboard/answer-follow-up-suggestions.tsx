@@ -1,17 +1,28 @@
 "use client";
 
+<<<<<<< HEAD
 import { Sparkles } from "lucide-react";
 
 import { cn, subtleStatusPill } from "@/components/ui-primitives";
+=======
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
+>>>>>>> origin/main
 
 export function AnswerFollowUpSuggestions({
   suggestions,
   onPick,
   disabled = false,
+<<<<<<< HEAD
+=======
+  className,
+  testId = "answer-follow-up-suggestions",
+  layout = "wrap",
+>>>>>>> origin/main
 }: {
   suggestions: string[];
   onPick: (suggestion: string) => void;
   disabled?: boolean;
+<<<<<<< HEAD
 }) {
   if (!suggestions.length) return null;
 
@@ -45,5 +56,21 @@ export function AnswerFollowUpSuggestions({
         ))}
       </div>
     </div>
+=======
+  className?: string;
+  testId?: string;
+  layout?: "wrap" | "scroll";
+}) {
+  return (
+    <AnswerSuggestionChips
+      suggestions={suggestions}
+      onPick={onPick}
+      disabled={disabled}
+      label="Try next"
+      testId={testId}
+      layout={layout}
+      className={className}
+    />
+>>>>>>> origin/main
   );
 }

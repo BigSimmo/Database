@@ -43,6 +43,7 @@ import {
   documentFileKind,
   documentTileTone,
 } from "@/components/clinical-dashboard/document-ui";
+import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
@@ -66,6 +67,7 @@ import {
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { formatClinicalDate } from "@/lib/source-metadata";
+import { partitionViewerImages } from "@/lib/image-filtering";
 import { isLocalNoAuthMode } from "@/lib/env";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -272,6 +274,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
+  const [loaded, setLoaded] = useState(false);
   const figureRef = useRef<HTMLElement | null>(null);
   const { authorizationHeader, markSessionExpired } = useAuthSession();
 
@@ -340,12 +343,14 @@ function DocumentImage({ image }: { image: ImageRow }) {
     clearCachedSignedUrl(endpoint);
     setUrl(null);
     setFailed(false);
+    setLoaded(false);
     setShouldLoad(true);
     setAttempt((current) => current + 1);
   }
 
   function handleImageError() {
     clearCachedSignedUrl(endpoint);
+    setLoaded(false);
     setFailed(true);
   }
 
@@ -378,7 +383,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
       </p>
       <div className="mt-2 rounded-lg bg-[color:var(--surface-inset)] p-3">
         {failed ? (
-          <div className="grid h-32 place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-3 text-center text-xs font-semibold text-[color:var(--warning)]">
+          <div className="grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-3 text-center text-xs font-semibold text-[color:var(--warning)]">
             <div>
               <AlertCircle className="mx-auto mb-2 h-4 w-4" />
               Image preview failed.
@@ -391,23 +396,36 @@ function DocumentImage({ image }: { image: ImageRow }) {
               </button>
             </div>
           </div>
-        ) : url ? (
-          <img
-            src={url}
-            alt={cleanCaption || tableHeading || "Document image"}
-            loading="lazy"
-            decoding="async"
-            onError={handleImageError}
-            className="max-h-52 w-full rounded-lg object-contain"
-          />
-        ) : shouldLoad ? (
-          <div className="grid h-32 place-items-center rounded-lg text-xs font-semibold text-[color:var(--text-muted)]">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading image
-          </div>
         ) : (
-          <div className="grid h-32 place-items-center rounded-lg border border-dashed border-[color:var(--border)] text-center text-xs font-semibold text-[color:var(--text-muted)]">
-            Image preview will load when visible
+          // Fixed-aspect frame: placeholder and image share one reserved box so
+          // the loaded image never resizes the layout (no content shift on load).
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
+            {url ? (
+              <img
+                src={url}
+                alt={cleanCaption || tableHeading || "Document image"}
+                loading="lazy"
+                decoding="async"
+                onLoad={() => setLoaded(true)}
+                onError={handleImageError}
+                className={cn(
+                  "absolute inset-0 h-full w-full rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
+                  loaded ? "opacity-100" : "opacity-0",
+                )}
+              />
+            ) : null}
+            {!url || !loaded ? (
+              <div className="absolute inset-0 grid place-items-center gap-1 rounded-lg text-center text-xs font-semibold text-[color:var(--text-muted)]">
+                {shouldLoad ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading image
+                  </>
+                ) : (
+                  "Image preview will load when visible"
+                )}
+              </div>
+            ) : null}
           </div>
         )}
       </div>
@@ -1306,7 +1324,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             disabled={!pagesReady}
             aria-label="Fit page width and enter fullscreen"
             className={cn(
-              "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-[var(--radius-md)] border px-3 text-xs font-semibold transition",
+              "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold transition",
               "disabled:cursor-not-allowed disabled:opacity-45",
               fitWidth || fullscreenActive
                 ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -1914,9 +1932,14 @@ export function DocumentViewer({
   const [documentSearchError, setDocumentSearchError] = useState<string | null>(null);
   const [reviewingTableFactId, setReviewingTableFactId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
-  const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  // Phone-only hide-on-scroll for the bottom composer: never hide while the
+  // mobile actions sheet is open or while focus sits inside the composer
+  // (keyboard users must not tab into invisible controls).
+  const [composerChromeFocused, setComposerChromeFocused] = useState(false);
+  const scrollHidden = useHideOnScroll({});
+  const composerScrollHidden = scrollHidden && !mobileActionsOpen && !composerChromeFocused;
   const [useNativePdfViewer, setUseNativePdfViewer] = useState(() => getInitialPdfViewerMode().useNativePdfViewer);
   const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(
     () => getInitialPdfViewerMode().hasExplicitPdfViewerMode,
@@ -1924,10 +1947,21 @@ export function DocumentViewer({
   const [viewerModeInitialized] = useState(true);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
+  const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
   const localNoAuthMode = isLocalNoAuthMode();
   const clientDemoMode = localNoAuthMode || serverDemoMode;
+  const canViewSourceDocuments = localProjectReady;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
+
+  useEffect(() => {
+    if (authStatus !== "loading") {
+      const resetId = window.setTimeout(() => setAuthLoadingTimedOut(false), 0);
+      return () => window.clearTimeout(resetId);
+    }
+    const timeoutId = window.setTimeout(() => setAuthLoadingTimedOut(true), 4_000);
+    return () => window.clearTimeout(timeoutId);
+  }, [authStatus]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !viewerModeInitialized || hasExplicitPdfViewerMode) return;
@@ -2002,10 +2036,10 @@ export function DocumentViewer({
   }, [isConfigured]);
 
   useEffect(() => {
-    if (!canUsePrivateApis && authStatus === "loading") {
+    if (!canViewSourceDocuments && authStatus === "loading") {
       return () => undefined;
     }
-    if (!canUsePrivateApis) {
+    if (!canViewSourceDocuments) {
       return () => undefined;
     }
 
@@ -2090,9 +2124,17 @@ export function DocumentViewer({
           setTableFacts([]);
           setChunks([]);
           setIndexHealth(null);
-          setViewerError(
-            detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.",
-          );
+          const message =
+            detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.";
+          if (!canUsePrivateApis && !clientDemoMode && message === "Document not found.") {
+            setViewerError(
+              isConfigured
+                ? "Sign in to open private source documents."
+                : "Supabase browser authentication is not configured for private source documents.",
+            );
+          } else {
+            setViewerError(message);
+          }
         }
 
         if (signedUrlResult.status === "fulfilled") {
@@ -2142,6 +2184,7 @@ export function DocumentViewer({
     authStatus,
     authorizationHeader,
     canUsePrivateApis,
+    canViewSourceDocuments,
     clientDemoMode,
     documentId,
     chunkId,
@@ -2153,7 +2196,7 @@ export function DocumentViewer({
 
   useEffect(() => {
     const query = sourceSearch.trim();
-    if (!canUsePrivateApis || query.length < 2) {
+    if (!canViewSourceDocuments || query.length < 2) {
       const reset = window.setTimeout(() => {
         setDocumentSearchResults([]);
         setSearchingDocument(false);
@@ -2195,7 +2238,7 @@ export function DocumentViewer({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [authorizationHeader, canUsePrivateApis, clientDemoMode, documentId, markSessionExpired, sourceSearch]);
+  }, [authorizationHeader, canViewSourceDocuments, clientDemoMode, documentId, markSessionExpired, sourceSearch]);
 
   useEffect(() => {
     const updateOnline = () => setIsOnline(navigator.onLine);
@@ -2207,15 +2250,6 @@ export function DocumentViewer({
       window.removeEventListener("offline", updateOnline);
     };
   }, []);
-
-  useEffect(() => {
-    if (canUsePrivateApis || authStatus !== "loading") {
-      return () => undefined;
-    }
-
-    const timeout = window.setTimeout(() => setAuthLoadingTimedOut(true), 3000);
-    return () => window.clearTimeout(timeout);
-  }, [authStatus, canUsePrivateApis]);
 
   async function summarize() {
     if (!canSummarizeDocument) {
@@ -2248,14 +2282,17 @@ export function DocumentViewer({
   }
 
   const authViewerError =
-    !canUsePrivateApis && (authStatus !== "loading" || authLoadingTimedOut)
-      ? isConfigured
-        ? "Sign in to open private source documents."
-        : "Supabase browser authentication is not configured for private source documents."
+    !canUsePrivateApis &&
+    !clientDemoMode &&
+    !loadingDocument &&
+    !document &&
+    (authStatus !== "loading" || authLoadingTimedOut) &&
+    (viewerError === "Sign in to open private source documents." ||
+      viewerError === "Supabase browser authentication is not configured for private source documents.")
+      ? viewerError
       : null;
-  const effectiveLoadingDocument = !canUsePrivateApis
-    ? authStatus === "loading" && !authLoadingTimedOut && loadingDocument
-    : loadingDocument;
+  const effectiveLoadingDocument =
+    !canUsePrivateApis && authStatus === "loading" && !authLoadingTimedOut && loadingDocument ? true : loadingDocument;
   const effectiveViewerError = authViewerError ?? viewerError;
   const viewerState = effectiveLoadingDocument
     ? "loading"
@@ -2285,15 +2322,7 @@ export function DocumentViewer({
   const summarizeTitle = canSummarizeDocument ? "Answer from this document" : "Load a source document before answering";
   const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
   const selectedChunk = chunkId ? chunks.find((chunk) => chunk.id === chunkId) : undefined;
-  const clinicalImages = images.filter(
-    (image) => image.searchable !== false && (image.clinicalUseClass ?? "clinical_evidence") === "clinical_evidence",
-  );
-  const auditImages = images.filter(
-    (image) =>
-      image.source_kind === "table_crop" &&
-      (image.searchable === false ||
-        ["administrative", "reference"].includes(String(image.clinicalUseClass ?? image.tableRole ?? ""))),
-  );
+  const { clinicalImages, auditImages } = partitionViewerImages(images);
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
   const usefulPageCount = usefulDocumentPages(initialPage, pages).length || 1;
   useEffect(() => {
@@ -2952,7 +2981,12 @@ export function DocumentViewer({
             event.preventDefault();
             if (canSummarizeDocument) void summarize();
           }}
-          className="floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-xl"
+          data-scroll-hidden={composerScrollHidden ? "true" : undefined}
+          onFocusCapture={() => setComposerChromeFocused(true)}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
+          }}
+          className="document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-xl max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none"
         >
           <button
             type="button"

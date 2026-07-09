@@ -76,9 +76,9 @@ export function RegistryRecordLoader({
       <StatePanel
         kind={kind}
         icon={<ShieldAlert className="h-5 w-5" aria-hidden />}
-        title="Sign in required"
-        body={`Sign in to view this ${copy.noun}. Registry records are private to your workspace.`}
-        action={{ href: "/", label: "Go to sign in" }}
+        title="Session expired"
+        body={`Your session expired. Sign in again to view your private ${copy.noun}. Public ${copy.noun} records remain available from search.`}
+        action={{ href: "/", label: "Open account setup" }}
       />
     );
   }

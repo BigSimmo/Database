@@ -18,11 +18,11 @@ import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import { cn, floatingControl, iconTilePremium, panelSubtle, primaryControl } from "@/components/ui-primitives";
+import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import {
   favouriteItems,
   favouriteSets,
   favouriteTabs,
-  favouriteTypeCount,
   type FavouriteItem,
   type FavouriteSet,
   type FavouriteTabId,
@@ -52,6 +52,7 @@ export function FavouritesHub({
   headingLevel?: 1 | 2;
 }) {
   const savedRegistryFavourites = useSavedRegistryFavourites();
+<<<<<<< HEAD
   const allFavouriteItems = useMemo(
     () => [...favouriteItems, ...savedRegistryFavourites],
     [savedRegistryFavourites],
@@ -62,6 +63,18 @@ export function FavouritesHub({
       .filter((title) => title && !savedSetTitles.has(title))
       .map((title) => ({
         id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+=======
+  const allFavouriteItems = useMemo(() => [...favouriteItems, ...savedRegistryFavourites], [savedRegistryFavourites]);
+  const allFavouriteSets = useMemo(() => {
+    const savedSetTitles = new Set(favouriteSets.map((set) => set.title));
+    const dynamicSets: FavouriteSet[] = Array.from(new Set(savedRegistryFavourites.map((item) => item.set)))
+      .filter((title): title is string => Boolean(title) && !savedSetTitles.has(title))
+      .map((title) => ({
+        id: title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, ""),
+>>>>>>> origin/main
         title,
         count: savedRegistryFavourites.filter((item) => item.set === title).length,
         meta: "Saved from site activity",
@@ -160,17 +173,18 @@ export function FavouritesHub({
 
   return (
     <div data-testid="favourites-hub" className="mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden sm:space-y-5">
-      <div className="mx-auto grid w-full max-w-5xl justify-items-center gap-5 pt-4 text-center sm:gap-6 sm:pt-7">
+      <div className="mx-auto grid w-full max-w-5xl justify-items-center gap-3.5 pt-4 text-center sm:gap-6 sm:pt-7">
         <ModeHomeHero
           testId="favourites-home"
           title="Favourites"
           subtitle="Keep trusted notes, sources, medication pages, and clinical sets ready for reuse."
           icon={Heart}
           headingLevel={headingLevel}
+          compact
         />
 
         {desktopComposerSlotId ? (
-          <div id={desktopComposerSlotId} className="mode-home-composer-slot hidden w-full sm:[&:not(:empty)]:block" />
+          <div id={desktopComposerSlotId} className="mode-home-composer-slot hidden w-full [&:not(:empty)]:block" />
         ) : null}
 
         <div className="grid w-full max-w-md grid-cols-3 gap-2 text-left">

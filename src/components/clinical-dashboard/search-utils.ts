@@ -1,5 +1,7 @@
 import type { RagAnswer } from "@/lib/types";
 
+export { keywordQueryFromNaturalLanguage } from "@/lib/keyword-query";
+
 export type AnswerPayload = RagAnswer & { demoMode?: boolean };
 
 export type SearchError = Error & {
@@ -9,73 +11,6 @@ export type SearchError = Error & {
 
 export const searchRetryDelaysMs = [500, 1000, 2000] as const;
 export const searchRetryCount = 2;
-
-const keywordStopWords = new Set([
-  "a",
-  "about",
-  "all",
-  "an",
-  "and",
-  "are",
-  "as",
-  "at",
-  "be",
-  "before",
-  "both",
-  "by",
-  "can",
-  "could",
-  "did",
-  "do",
-  "does",
-  "for",
-  "from",
-  "get",
-  "had",
-  "has",
-  "have",
-  "her",
-  "his",
-  "how",
-  "if",
-  "in",
-  "is",
-  "it",
-  "its",
-  "into",
-  "me",
-  "may",
-  "more",
-  "my",
-  "no",
-  "not",
-  "of",
-  "on",
-  "or",
-  "our",
-  "out",
-  "should",
-  "so",
-  "such",
-  "that",
-  "the",
-  "their",
-  "them",
-  "there",
-  "these",
-  "they",
-  "this",
-  "those",
-  "to",
-  "when",
-  "where",
-  "which",
-  "who",
-  "why",
-  "with",
-  "would",
-  "you",
-]);
 
 export function makeSearchError(message: string, status?: number, retryable = false): SearchError {
   const error = new Error(message) as SearchError;
@@ -120,26 +55,6 @@ export function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-export function keywordQueryFromNaturalLanguage(query: string) {
-  const normalized = query
-    .normalize("NFKD")
-    .toLowerCase()
-    .replace(/[^\w\s]+/g, " ")
-    .replace(/_/g, " ")
-    .trim();
-  const tokens = normalized.split(/\s+/).filter((token) => token.length >= 3 && !keywordStopWords.has(token));
-  const terms: string[] = [];
-  const seen = new Set<string>();
-
-  for (const token of tokens) {
-    if (seen.has(token)) continue;
-    seen.add(token);
-    terms.push(token);
-  }
-
-  return terms.slice(0, 7).join(" ");
-}
-
 export function answerPayloadIsUsable(payload: AnswerPayload) {
   const answerText = payload.answer.trim();
   if (!answerText) return false;
@@ -156,4 +71,22 @@ export function answerPayloadIsUsable(payload: AnswerPayload) {
 export function progressForRetry(attempt: number) {
   if (attempt <= 1) return "Retrying...";
   return `Retrying... (${Math.min(attempt, searchRetryCount)}/${searchRetryCount})`;
+}
+
+export type AnswerErrorKind = "no-results" | "failure";
+
+/**
+ * Classify an answer/search failure so the UI can offer the right recovery.
+ *
+ * A `404` `SearchError` is the sentinel for "the query ran fine but nothing
+ * usable came back" (see `makeSearchError("No usable results were found.", 404,
+ * false)` in the search executor) — that deserves a calm, helpful panel rather
+ * than an alarming error. Everything else (network, 5xx, generic) is a genuine
+ * failure the user should be able to retry.
+ */
+export function classifyAnswerError(error: unknown): AnswerErrorKind {
+  if (error instanceof Error && (error as SearchError).status === 404) {
+    return "no-results";
+  }
+  return "failure";
 }

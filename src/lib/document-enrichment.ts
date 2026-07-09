@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { classifyDocumentOrganization } from "@/lib/document-organization";
 import { env } from "@/lib/env";
-import { requireOwnerScope } from "@/lib/owner-scope";
+import { retrievalOwnerFilter } from "@/lib/owner-scope";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import {
   buildCoveragePromptNote,
@@ -693,10 +693,16 @@ function tokenSet(text: string) {
 
 function compactSummary(summary?: string | null) {
   if (!summary) return null;
-  const clean = summary
+  // Defensive re-clean on the read path: summaries are cleaned with
+  // cleanClinicalSummaryText at generation, but rows stored before that fix (or
+  // by other paths) can still carry protective-marking banners, page codes,
+  // ligatures, and provenance noise. Routing through the same summary cleaner
+  // keeps the document-card surfaces consistent with every other RAG surface.
+  const clean = cleanClinicalSummaryText(summary)
     .replace(/\s+/g, " ")
     .replace(/^[-*]\s*/g, "")
     .trim();
+  if (!clean) return null;
   return clean.length <= 220 ? clean : `${clean.slice(0, 217).trim()}...`;
 }
 
@@ -713,7 +719,7 @@ export async function fetchRelatedDocumentMetadata(args: {
 }) {
   const { data: rpcData, error: rpcError } = await args.supabase.rpc("get_related_document_metadata", {
     document_ids: args.documentIds,
-    owner_filter: requireOwnerScope(args.ownerId) ?? null,
+    owner_filter: retrievalOwnerFilter({ ownerId: args.ownerId, documentIds: args.documentIds }),
   });
 
   if (!rpcError) {

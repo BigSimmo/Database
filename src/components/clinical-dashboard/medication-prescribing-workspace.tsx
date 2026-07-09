@@ -1,22 +1,10 @@
-"use client";
+﻿"use client";
 
 import {
   Activity,
-  AlertTriangle,
-  ArrowLeft,
-  ArrowLeftRight,
-  BadgeCheck,
-  Brain,
   CalendarDays,
-  Gauge,
   CheckCircle2,
-  ChevronDown,
   ChevronRight,
-  ClipboardCheck,
-  ClipboardList,
-  Droplet,
-  FileText,
-  FlaskConical,
   Lock,
   Pill,
   ShieldCheck,
@@ -29,8 +17,15 @@ import { useMemo, useState } from "react";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
+<<<<<<< HEAD
 import { medicationMatchesCommandScopes } from "@/lib/search-command-surface";
 import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
+=======
+import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
+import { medicationMatchesCommandScopes } from "@/lib/search-command-surface";
+import { isDeployedClinicalKb } from "@/lib/deployed-app";
+import { cn } from "@/components/ui-primitives";
+>>>>>>> origin/main
 
 type MedicationPrescribingWorkspaceProps = {
   query: string;
@@ -58,33 +53,6 @@ type MedicationResult = {
   action: string;
   tone: "teal" | "blue" | "slate";
   href?: string;
-};
-
-// Badge tone key: clinical = action/instruction, success = verified/access, danger = stop/avoid, warning = adjust/check, neutral = passive metadata, info = process.
-type ClinicalBadgeTone = "clinical" | "success" | "danger" | "warning" | "neutral" | "info";
-
-type ClinicalBadgeItem = {
-  label: string;
-  tone?: ClinicalBadgeTone;
-  icon?: LucideIcon;
-};
-
-type DetailRow = {
-  label: string;
-  icon: LucideIcon;
-  summary?: string;
-  body?: string | string[];
-  columns?: Array<{ label: string; value: string; meta?: string; metaTone?: ClinicalBadgeTone }>;
-  columnStyle?: "ledger" | "systems";
-  badges?: ClinicalBadgeItem[];
-  tone?: "default" | "danger";
-  compact?: boolean;
-};
-
-type SideSection = {
-  title: string;
-  icon: LucideIcon;
-  items: Array<{ label: string; body: string; icon?: LucideIcon }>;
 };
 
 type MedicationResultFilter = "best" | "indication" | "safety" | "monitoring";
@@ -125,6 +93,7 @@ const medicationPrompts = [
   { label: "sertraline max dose", icon: ShieldCheck },
 ];
 
+<<<<<<< HEAD
 const medicationIdentityBadges: ClinicalBadgeItem[] = [
   { label: "333 mg EC tablet", tone: "neutral" },
   { label: "PBS streamlined", tone: "success" },
@@ -345,6 +314,8 @@ function medicationSectionIdForLabel(label: string): MedicationSectionId {
   return "summary";
 }
 
+=======
+>>>>>>> origin/main
 function IconTile({
   icon: Icon,
   tone = "teal",
@@ -374,81 +345,6 @@ function IconTile({
   );
 }
 
-function ClinicalBadge({
-  label,
-  tone = "neutral",
-  icon: Icon,
-  compact = false,
-}: ClinicalBadgeItem & { compact?: boolean }) {
-  const toneClassName: Record<ClinicalBadgeTone, string> = {
-    clinical:
-      "border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-    success: toneSuccess,
-    danger: toneDanger,
-    warning: toneWarning,
-    neutral: toneNeutral,
-    info: toneInfo,
-  };
-
-  return (
-    <span
-      title={label}
-      className={cn(
-        "inline-flex h-[1.375rem] max-w-full shrink-0 items-center gap-1 rounded-md border px-1.5 text-3xs font-semibold leading-none shadow-[var(--shadow-inset)]",
-        compact && "h-5 px-1.5 text-3xs",
-        toneClassName[tone],
-      )}
-    >
-      {Icon ? <Icon className="h-2.5 w-2.5 shrink-0" aria-hidden="true" /> : null}
-      <span className="truncate">{label}</span>
-    </span>
-  );
-}
-
-const clinicalBadgeTonePriority: Record<ClinicalBadgeTone, number> = {
-  danger: 6,
-  warning: 5,
-  clinical: 4,
-  success: 3,
-  neutral: 2,
-  info: 1,
-};
-
-function BadgeCluster({
-  items,
-  compact = false,
-  limit,
-  showOverflowCount = false,
-  className,
-}: {
-  items?: ClinicalBadgeItem[];
-  compact?: boolean;
-  limit?: number;
-  showOverflowCount?: boolean;
-  className?: string;
-}) {
-  if (!items?.length) return null;
-  const orderedItems =
-    typeof limit === "number"
-      ? [...items].sort(
-          (a, b) => clinicalBadgeTonePriority[b.tone ?? "neutral"] - clinicalBadgeTonePriority[a.tone ?? "neutral"],
-        )
-      : items;
-  const visibleItems = typeof limit === "number" ? orderedItems.slice(0, limit) : orderedItems;
-  const hiddenCount = typeof limit === "number" ? Math.max(0, items.length - visibleItems.length) : 0;
-
-  return (
-    <div className={cn("flex min-w-0 flex-wrap gap-1", className)}>
-      {visibleItems.map((item, index) => (
-        <ClinicalBadge key={`${item.label}-${item.tone ?? "neutral"}-${index}`} compact={compact} {...item} />
-      ))}
-      {showOverflowCount && hiddenCount ? (
-        <ClinicalBadge label={`+${hiddenCount}`} tone="neutral" compact={compact} />
-      ) : null}
-    </div>
-  );
-}
-
 function StatusNotice({
   realDataReady,
   authUnavailable,
@@ -457,9 +353,13 @@ function StatusNotice({
 }: Pick<MedicationPrescribingWorkspaceProps, "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning">) {
   if (realDataReady && !authUnavailable && !apiUnavailable && !setupWarning) return null;
   const message = authUnavailable
-    ? "Private medication search is waiting for sign-in."
+    ? isDeployedClinicalKb()
+      ? "Sign in to search your private medication library."
+      : "Private medication search is waiting for sign-in."
     : apiUnavailable
-      ? "Medication search is using the local mockup while the API is unavailable."
+      ? isDeployedClinicalKb()
+        ? "Medication search is temporarily unavailable. Try again shortly."
+        : "Medication search is using the local mockup while the API is unavailable."
       : setupWarning || "Medication search setup is still warming up.";
 
   return (
@@ -526,9 +426,9 @@ function MedicationHome({
 
 function resultMatchesFilter(result: MedicationResult, filter: MedicationResultFilter) {
   if (filter === "best") return true;
-  if (filter === "indication") return result.indication.toLowerCase().includes("alcohol");
-  if (filter === "safety") return result.action.toLowerCase().includes("check") || result.action.includes("renal");
-  return result.id === "acamprosate" || result.id === "baclofen";
+  if (filter === "indication") return result.match !== "Related match";
+  if (filter === "safety") return /check|avoid|caution|ceiling|max/i.test(result.action);
+  return /monitor|level|review|renal|hepatic/i.test(`${result.action} ${result.dose} ${result.ceiling}`);
 }
 
 function FilterStrip({
@@ -608,6 +508,7 @@ function MedicationResults({
   "query" | "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning"
 >) {
   const command = useSearchCommand();
+<<<<<<< HEAD
   const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
   const visibleMedicationResults = useMemo(() => {
     const filtered = medicationResults.filter((result) => resultMatchesFilter(result, activeFilter));
@@ -615,6 +516,29 @@ function MedicationResults({
     if (!scopes.length) return filtered;
     return filtered.filter((result) => medicationMatchesCommandScopes(result, scopes));
   }, [activeFilter, command?.commandScopes]);
+=======
+  const catalog = useMedicationCatalog(query);
+  const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
+  const visibleMedicationResults = useMemo(() => {
+    const sourceResults =
+      catalog.data?.matches?.map((match) => match.result) ??
+      (catalog.data?.records ?? []).slice(0, 12).map((record) => ({
+        id: record.slug,
+        name: record.name,
+        indication: record.subclass || record.category,
+        match: "Catalogue match",
+        dose: "See reference",
+        ceiling: "See reference",
+        action: "Open full prescribing reference.",
+        tone: "slate" as const,
+        href: `/medications/${record.slug}`,
+      }));
+    const filtered = sourceResults.filter((result) => resultMatchesFilter(result, activeFilter));
+    const scopes = command?.commandScopes ?? [];
+    if (!scopes.length) return filtered;
+    return filtered.filter((result) => medicationMatchesCommandScopes(result, scopes));
+  }, [activeFilter, catalog.data, command?.commandScopes]);
+>>>>>>> origin/main
   const resultCount = visibleMedicationResults.length;
 
   return (
@@ -636,6 +560,7 @@ function MedicationResults({
 
       <FilterStrip activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
+<<<<<<< HEAD
       <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] md:block">
         <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] px-4 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
           <span>Medication</span>
@@ -681,36 +606,100 @@ function MedicationResults({
                 ) : (
                   <span className="justify-self-end text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                     Soon
-                  </span>
-                )}
-              </>
-            );
+=======
+      {catalog.loading ? (
+        <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogueâ€¦</p>
+      ) : catalog.error ? (
+        <p className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger)]">
+          {catalog.error}
+        </p>
+      ) : null}
 
-            if (result.href) {
+      {!catalog.loading && !catalog.error ? (
+        <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] md:block">
+          <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] px-4 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+            <span>Medication</span>
+            <span>Dose</span>
+            <span>Ceiling</span>
+            <span>Prescribing action</span>
+            <span className="sr-only">Open</span>
+          </div>
+          <div className="divide-y divide-[color:var(--border)]">
+            {visibleMedicationResults.map((result, index) => {
+              const selected = index === 0 && Boolean(query.trim());
+              const rowClassName = cn(
+                "grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
+                selected
+                  ? "bg-[color:var(--clinical-accent-soft)]/35 ring-1 ring-inset ring-[color:var(--clinical-accent)]/35"
+                  : result.href
+                    ? "hover:bg-[color:var(--surface-subtle)]"
+                    : "cursor-default opacity-80",
+              );
+              const rowContent = (
+                <>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <ResultToneIcon result={result} />
+                    <span className="min-w-0">
+                      <span className="block break-words text-base-minus font-semibold text-[color:var(--text-heading)]">
+                        {result.name}
+                      </span>
+                      <span className="block break-words text-xs font-medium text-[color:var(--text-muted)]">
+                        {result.indication}
+                      </span>
+                      <span className="mt-1 flex flex-wrap gap-1">
+                        <ResultMatchBadge result={result} />
+                      </span>
+                    </span>
+                  </span>
+                  <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{result.dose}</span>
+                  <DoseCeiling value={result.ceiling} />
+                  <span className="break-words text-sm-minus font-medium leading-[1.4] text-[color:var(--text-heading)]">
+                    {result.action}
+>>>>>>> origin/main
+                  </span>
+                  {result.href ? (
+                    <ChevronRight
+                      className="h-4 w-4 justify-self-end text-[color:var(--text-soft)]"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <span className="justify-self-end text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                      Soon
+                    </span>
+                  )}
+                </>
+              );
+
+              if (result.href) {
+                return (
+                  <Link
+                    key={result.id}
+                    href={result.href}
+                    data-testid={`medication-result-${result.id}-desktop`}
+                    className={rowClassName}
+                  >
+                    {rowContent}
+                  </Link>
+                );
+              }
+
               return (
-                <Link
+                <article
                   key={result.id}
-                  href={result.href}
                   data-testid={`medication-result-${result.id}-desktop`}
                   className={rowClassName}
                 >
                   {rowContent}
-                </Link>
+                </article>
               );
-            }
-
-            return (
-              <article key={result.id} data-testid={`medication-result-${result.id}-desktop`} className={rowClassName}>
-                {rowContent}
-              </article>
-            );
-          })}
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="grid gap-2 md:hidden">
-        {visibleMedicationResults.map((result) => {
-          const selected = result.id === "acamprosate";
+        {visibleMedicationResults.map((result, index) => {
+          const selected = index === 0 && Boolean(query.trim());
           const cardClassName = cn(
             "min-w-0 w-full rounded-lg border bg-[color:var(--surface-raised)] p-2 text-left shadow-[var(--shadow-inset)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             selected
@@ -780,579 +769,6 @@ function MedicationResults({
     </div>
   );
 }
-
-function DetailTile({
-  icon,
-  label,
-  value,
-  meta,
-  danger = false,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  meta?: string;
-  danger?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "min-h-[4.05rem] rounded-lg border bg-[color:var(--surface-raised)] px-2.5 py-2.5 shadow-[var(--shadow-inset)] sm:min-h-[4.2rem] sm:px-3 sm:py-3",
-        danger ? "border-[color:var(--danger-border)] bg-[color:var(--danger-bg)]/40" : "border-[color:var(--border)]",
-      )}
-    >
-      <div className="flex items-start gap-2">
-        <IconTile icon={icon} tone={danger ? "danger" : "teal"} className="h-7 w-7" />
-        <div className="min-w-0 space-y-1">
-          <p
-            className={cn(
-              "text-2xs font-semibold leading-4",
-              danger ? "text-[color:var(--danger)]" : "text-[color:var(--text-heading)]",
-            )}
-          >
-            {label}
-          </p>
-          <p className="text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)]">{value}</p>
-          {meta ? <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">{meta}</p> : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DetailRowBlock({ row }: { row: DetailRow }) {
-  const Icon = row.icon;
-  const body = row.body ? (Array.isArray(row.body) ? row.body : [row.body]) : [];
-  const columnStyle = row.columnStyle ?? "ledger";
-
-  return (
-    <div
-      data-medication-section={medicationSectionIdForLabel(row.label)}
-      className={cn(
-        "scroll-mt-16 grid gap-3 border-b border-[color:var(--border)] px-4 py-3 last:border-b-0 sm:grid-cols-[11.75rem_minmax(0,1fr)] sm:px-5",
-        row.compact && "items-center",
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <IconTile icon={Icon} tone={row.tone === "danger" ? "danger" : "teal"} className="h-8 w-8" />
-        <p
-          className={cn(
-            "text-sm-minus font-semibold sm:text-sm",
-            row.tone === "danger" ? "text-[color:var(--danger)]" : "text-[color:var(--text-heading)]",
-          )}
-        >
-          {row.label}
-        </p>
-      </div>
-      <div className="min-w-0 text-sm-minus leading-5 text-[color:var(--text-heading)] sm:text-sm">
-        <BadgeCluster items={row.badges} compact limit={row.tone === "danger" ? 4 : 3} className="mb-2" />
-        {row.columns ? (
-          <div
-            className={cn(
-              "grid divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]",
-              columnStyle === "ledger" && (row.columns.length >= 4 ? "md:grid-cols-4" : "md:grid-cols-3"),
-              columnStyle === "ledger" && "md:divide-x md:divide-y-0",
-              columnStyle === "systems" && "text-[color:var(--text-muted)]",
-            )}
-          >
-            {row.columns.map((column) => (
-              <div key={column.label} className="min-w-0 py-2.5 md:px-3 first:md:pl-0 last:md:pr-0">
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                  <p className="text-2xs font-semibold text-[color:var(--text-muted)]">{column.label}</p>
-                  {column.meta ? (
-                    <ClinicalBadge label={column.meta} tone={column.metaTone ?? "neutral"} compact />
-                  ) : null}
-                </div>
-                <p className="mt-1 text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm">
-                  {column.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : row.tone === "danger" ? (
-          <ul className="grid gap-1.5">
-            {body.map((item) => (
-              <li key={item} className="flex gap-3">
-                <span
-                  className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--danger)]"
-                  aria-hidden="true"
-                />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className={cn("space-y-1", row.compact && "flex items-center justify-between gap-3")}>
-            <div className="space-y-1">
-              {body.map((item) => (
-                <p key={item}>{item}</p>
-              ))}
-            </div>
-            {row.compact ? (
-              <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
-            ) : null}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ClinicalViewToggle({
-  value,
-  onChange,
-}: {
-  value: ClinicalDetailView;
-  onChange: (value: ClinicalDetailView) => void;
-}) {
-  const options: Array<{ value: ClinicalDetailView; label: string }> = [
-    { value: "core", label: "Core" },
-    { value: "full", label: "Full" },
-  ];
-
-  return (
-    <div
-      className="inline-grid grid-cols-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1 shadow-[var(--shadow-inset)]"
-      aria-label="Clinical detail density"
-    >
-      {options.map((option) => {
-        const active = option.value === value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              "min-h-8 rounded-md px-3 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              active
-                ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)]"
-                : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function DetailLedger({
-  view,
-  onViewChange,
-}: {
-  view: ClinicalDetailView;
-  onViewChange: (value: ClinicalDetailView) => void;
-}) {
-  const coreRows = detailRows.filter((row) => coreDetailLabels.has(row.label));
-  const secondaryRows = detailRows.filter((row) => !coreDetailLabels.has(row.label));
-  const visibleRows = view === "core" ? coreRows : detailRows;
-
-  return (
-    <section className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[0_16px_40px_rgba(15,23,42,0.05)] sm:block">
-      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-[color:var(--border)] px-5 py-2.5">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-[color:var(--text-heading)]">Clinical summary</p>
-          <p className="mt-0.5 text-xs font-medium text-[color:var(--text-muted)]">
-            {view === "core" ? "High-yield prescribing information" : "Full medication reference"}
-          </p>
-        </div>
-        <ClinicalViewToggle value={view} onChange={onViewChange} />
-      </div>
-
-      {visibleRows.map((row) => (
-        <DetailRowBlock key={row.label} row={row} />
-      ))}
-
-      {view === "core" ? (
-        <details className="group border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)]/55">
-          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 text-sm font-semibold text-[color:var(--text-heading)] [&::-webkit-details-marker]:hidden">
-            <span className="flex min-w-0 items-center gap-2">
-              <ChevronDown
-                className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)] transition group-open:rotate-180"
-                aria-hidden="true"
-              />
-              <span className="truncate">Additional populations, risks and PK</span>
-            </span>
-            <span className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 py-1 text-2xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
-              {secondaryRows.length} sections
-            </span>
-          </summary>
-          <div className="border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]">
-            {secondaryRows.map((row) => (
-              <DetailRowBlock key={row.label} row={row} />
-            ))}
-          </div>
-        </details>
-      ) : null}
-    </section>
-  );
-}
-
-function SidePanel({ section }: { section: SideSection }) {
-  const Icon = section.icon;
-  return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3.5 shadow-[var(--shadow-inset)]">
-      <div className="mb-2.5 flex items-center gap-2">
-        <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-        <h4 className="text-sm font-semibold text-[color:var(--text-heading)]">{section.title}</h4>
-      </div>
-      <div className="divide-y divide-[color:var(--border)]">
-        {section.items.map((item) => {
-          const ItemIcon = item.icon;
-          return (
-            <div key={item.label} className="py-3 first:pt-0 last:pb-0">
-              <div className={cn("flex gap-3", ItemIcon ? "items-start" : "items-baseline")}>
-                {ItemIcon ? (
-                  <IconTile icon={ItemIcon} tone="teal" className="mt-0.5 h-8 w-8" />
-                ) : (
-                  <span
-                    className="mt-2 h-2 w-2 shrink-0 rounded-full border border-[color:var(--clinical-accent)]/30 bg-[color:var(--clinical-accent-soft)]"
-                    aria-hidden="true"
-                  />
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)]">{item.label}</p>
-                  <p className="mt-0.5 text-xs leading-5 text-[color:var(--text-muted)]">{item.body}</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function MedicationSummaryTabs({
-  activeSection,
-  onSectionChange,
-}: {
-  activeSection: MedicationSectionId;
-  onSectionChange: (section: MedicationSectionId) => void;
-}) {
-  return (
-    <div className="sticky top-[3.55rem] z-10 mb-3 bg-[color:var(--surface)]/90 py-1.5 backdrop-blur-xl sm:hidden">
-      <div
-        className="grid grid-cols-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-1 text-center shadow-[var(--shadow-inset)]"
-        role="tablist"
-        aria-label="Medication detail sections"
-      >
-        {medicationSummaryTabs.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            role="tab"
-            aria-selected={activeSection === item.target}
-            onClick={() => onSectionChange(item.target)}
-            className={cn(
-              "min-h-8 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              activeSection === item.target &&
-                "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)]",
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MedicationBadges() {
-  return <BadgeCluster items={medicationIdentityBadges} className="mt-2" />;
-}
-
-function AccessPanel() {
-  return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3.5 shadow-[var(--shadow-inset)]">
-      <div className="mb-2.5 flex items-center gap-2">
-        <Lock className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-        <h4 className="text-sm font-semibold text-[color:var(--text-heading)]">Access</h4>
-      </div>
-      <BadgeCluster items={accessBadges} compact limit={3} className="mb-2.5" />
-      <dl className="grid gap-2 text-sm-minus">
-        {[
-          ["Brand", "Campral"],
-          ["PBS status", "PBS streamlined"],
-          ["PBS item", "8357W"],
-        ].map(([label, value], index) => (
-          <div
-            key={label}
-            className={cn("flex justify-between gap-3", index < 2 && "border-b border-[color:var(--border)] pb-2")}
-          >
-            <dt className="font-semibold text-[color:var(--text-muted)]">{label}</dt>
-            <dd className="font-medium text-[color:var(--text-heading)]">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-}
-
-function SourcesDisclosure({ mobile = false }: { mobile?: boolean }) {
-  return (
-    <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]">
-      <summary
-        className={cn(
-          "flex cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-semibold text-[color:var(--text-muted)] [&::-webkit-details-marker]:hidden",
-          mobile ? "min-h-11" : "min-h-12",
-        )}
-      >
-        <span className="flex items-center gap-2">
-          <FileText className="h-4.5 w-4.5" aria-hidden="true" />
-          Sources and provenance
-        </span>
-        <ChevronDown className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden="true" />
-      </summary>
-      <div className="border-t border-[color:var(--border)] px-4 py-3 text-xs leading-5 text-[color:var(--text-muted)]">
-        Australian Product Information, PBS, DACAS, Australian Prescriber.
-      </div>
-    </details>
-  );
-}
-
-function MobileDetailCard({ row, compact = false }: { row: DetailRow; compact?: boolean }) {
-  const Icon = row.icon;
-  const body = row.body ? (Array.isArray(row.body) ? row.body : [row.body]) : [];
-  const columnStyle = row.columnStyle ?? "ledger";
-
-  return (
-    <article
-      data-medication-section={medicationSectionIdForLabel(row.label)}
-      className="flex scroll-mt-16 w-full items-start gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2.5 text-left last:border-b-0"
-    >
-      <IconTile icon={Icon} tone={row.tone === "danger" ? "danger" : "teal"} className="h-7 w-7" />
-      <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "text-sm-minus font-semibold leading-4",
-            row.tone === "danger" ? "text-[color:var(--danger)]" : "text-[color:var(--text-heading)]",
-          )}
-        >
-          {row.label}
-        </p>
-        <BadgeCluster items={row.badges} compact limit={row.tone === "danger" ? 4 : 2} className="mt-1.5" />
-        {compact && row.summary ? (
-          <p className="mt-1.5 text-xs leading-5 text-[color:var(--text-muted)]">{row.summary}</p>
-        ) : null}
-        {row.columns && !compact ? (
-          <div
-            className={cn(
-              "mt-2 divide-y divide-[color:var(--border)] border-y border-[color:var(--border)]",
-              columnStyle === "ledger" &&
-                "min-[460px]:grid min-[460px]:grid-cols-2 min-[460px]:divide-x min-[460px]:divide-y-0",
-            )}
-          >
-            {row.columns.map((column) => (
-              <div
-                key={column.label}
-                className="min-w-0 py-2 min-[460px]:px-2 first:min-[460px]:pl-0 last:min-[460px]:pr-0"
-              >
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                  <p className="text-3xs font-semibold text-[color:var(--text-muted)]">{column.label}</p>
-                  {column.meta ? (
-                    <ClinicalBadge label={column.meta} tone={column.metaTone ?? "neutral"} compact />
-                  ) : null}
-                </div>
-                <p className="mt-0.5 text-xs font-semibold leading-[1.35] text-[color:var(--text-heading)]">
-                  {column.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : !compact && body.length ? (
-          <div className="mt-2 grid gap-1.5 text-xs leading-5 text-[color:var(--text-muted)]">
-            {body.map((item) => (
-              <p key={item} className={cn(row.tone === "danger" && "flex gap-2")}>
-                {row.tone === "danger" ? (
-                  <span
-                    className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--danger)]"
-                    aria-hidden="true"
-                  />
-                ) : null}
-                <span>{item}</span>
-              </p>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
-type MobileDisclosurePanelData = {
-  label: string;
-  icon: LucideIcon;
-  badges?: ClinicalBadgeItem[];
-  body: string[];
-};
-
-function MobileDisclosurePanel({ panel }: { panel: MobileDisclosurePanelData }) {
-  const Icon = panel.icon;
-
-  return (
-    <details className="group scroll-mt-16 border-b border-[color:var(--border)] last:border-b-0">
-      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-left text-sm-minus font-semibold text-[color:var(--text-heading)] [&::-webkit-details-marker]:hidden">
-        <span className="flex min-w-0 items-center gap-2">
-          <Icon className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-          <span className="truncate">{panel.label}</span>
-        </span>
-        <ChevronDown
-          className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-open:rotate-180"
-          aria-hidden="true"
-        />
-      </summary>
-      <div className="px-3 pb-3">
-        <BadgeCluster items={panel.badges} compact limit={panel.label === "Access" ? 3 : 2} className="mb-2" />
-        <ul className="divide-y divide-[color:var(--border)] text-xs leading-5 text-[color:var(--text-muted)]">
-          {panel.body.map((item) => {
-            const separatorIndex = item.indexOf(": ");
-            const label = separatorIndex >= 0 ? item.slice(0, separatorIndex) : null;
-            const value = separatorIndex >= 0 ? item.slice(separatorIndex + 2) : item;
-
-            return (
-              <li key={item} className="grid gap-0.5 py-1.5 first:pt-0 last:pb-0">
-                {label ? <span className="font-semibold text-[color:var(--text-heading)]">{label}</span> : null}
-                <span>{value}</span>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    </details>
-  );
-}
-
-function MobileDetailList({ activeSection }: { activeSection: MedicationSectionId }) {
-  const rowsBySection: Record<MedicationSectionId, DetailRow[]> = {
-    summary: detailRows.filter((row) => ["Prescribing answer", "Dosing", "Do not use"].includes(row.label)),
-    dosing: detailRows.filter((row) => ["Dosing", "Administration"].includes(row.label)),
-    safety: detailRows.filter((row) => ["Do not use", "Populations", "Key risks"].includes(row.label)),
-    more: detailRows.filter((row) => row.label === "Pearls / PK"),
-  };
-  const morePanels: MobileDisclosurePanelData[] = [
-    {
-      label: "Checks and monitoring",
-      icon: Activity,
-      badges: [
-        { label: "Renal function", tone: "clinical", icon: Droplet },
-        { label: "Mood monitor", tone: "clinical", icon: Brain },
-        { label: "Adherence", tone: "neutral", icon: ClipboardCheck },
-      ],
-      body: sideSections[0].items.map((item) => `${item.label}: ${item.body}`),
-    },
-    {
-      label: "Interactions",
-      icon: ArrowLeftRight,
-      badges: [{ label: "PK interactions limited", tone: "neutral" }],
-      body: sideSections[1].items.map((item) => `${item.label}: ${item.body}`),
-    },
-    {
-      label: "Access",
-      icon: Lock,
-      badges: accessBadges,
-      body: ["Brand: Campral", "PBS status: PBS streamlined", "PBS item: 8357W"],
-    },
-  ];
-
-  return (
-    <div data-medication-section={activeSection} className="space-y-3 sm:hidden">
-      <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)]">
-        {rowsBySection[activeSection].map((row) => (
-          <MobileDetailCard key={row.label} row={row} compact={activeSection === "summary" || row.compact} />
-        ))}
-      </section>
-
-      {activeSection === "more" ? (
-        <>
-          <section className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]">
-            {morePanels.map((panel) => (
-              <MobileDisclosurePanel key={panel.label} panel={panel} />
-            ))}
-          </section>
-
-          <SourcesDisclosure mobile />
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function MedicationDetail() {
-  const [clinicalDetailView, setClinicalDetailView] = useState<ClinicalDetailView>("core");
-  const [activeMobileSection, setActiveMobileSection] = useState<MedicationSectionId>("summary");
-
-  return (
-    <div className="mx-auto w-full max-w-7xl space-y-3 py-1 sm:py-2">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
-        <div className="space-y-3.5">
-          <section data-medication-section="summary" className="scroll-mt-16 px-1 sm:px-0">
-            <div className="flex items-start gap-3 sm:items-center sm:gap-4">
-              <IconTile icon={Pill} tone="teal" className="h-11 w-11 sm:h-14 sm:w-14" />
-              <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-[2rem]">
-                  Acamprosate
-                </h1>
-                <p className="mt-1 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
-                  Alcohol abstinence maintenance <span className="mx-1.5 text-[color:var(--text-soft)]">·</span>{" "}
-                  GABA/glutamate modulator
-                </p>
-                <MedicationBadges />
-              </div>
-            </div>
-          </section>
-
-          <section className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-            <DetailTile icon={CheckCircle2} label="Prescribing answer" value="Maintenance" meta="after withdrawal" />
-            <DetailTile icon={CalendarDays} label="Dosing" value="666 mg TID" meta="2 x 333 mg" />
-            <DetailTile icon={Gauge} label="Dose ceiling" value="1,998 mg/day" meta="MAX" />
-            <DetailTile icon={AlertTriangle} label="Avoid" value="Cr >120" meta="micromol/L" danger />
-          </section>
-
-          <MedicationSummaryTabs activeSection={activeMobileSection} onSectionChange={setActiveMobileSection} />
-
-          <DetailLedger view={clinicalDetailView} onViewChange={setClinicalDetailView} />
-
-          <MobileDetailList activeSection={activeMobileSection} />
-        </div>
-
-        <aside className="hidden space-y-3 lg:block lg:self-start lg:pt-[6.6rem]">
-          {sideSections.map((section) => (
-            <SidePanel key={section.title} section={section} />
-          ))}
-          <AccessPanel />
-          <SourcesDisclosure />
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-export function AcamprosateMedicationPage() {
-  return (
-    <main className="min-h-[calc(100dvh-4rem)] text-[color:var(--text)]" data-testid="acamprosate-medication-page">
-      <div className="mx-auto max-w-7xl px-3 pt-3 sm:px-6 lg:px-8">
-        <Link
-          href="/?mode=prescribing&q=acamprosate%20renal%20dose"
-          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Medication search</span>
-          <span className="sm:hidden">Search</span>
-        </Link>
-      </div>
-      <div className="px-3 py-3 sm:px-6 lg:px-8">
-        <MedicationDetail />
-      </div>
-      <footer className="mx-auto max-w-7xl px-4 pb-4 text-center text-3xs font-medium text-[color:var(--text-soft)] opacity-70">
-        Clinical KB provides evidence summaries, not medical advice. Verify clinical decisions.
-      </footer>
-    </main>
-  );
-}
-
 export function MedicationPrescribingWorkspace({
   query,
   loading,

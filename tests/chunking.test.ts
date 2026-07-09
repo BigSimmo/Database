@@ -6,6 +6,7 @@ import {
   buildImageTag,
   chunkContentKey,
   chunkTextWithOverlap,
+  countWrappedDoseUnitLines,
 } from "../src/lib/chunking";
 
 describe("chunkTextWithOverlap", () => {
@@ -42,6 +43,51 @@ describe("chunkTextWithOverlap", () => {
     expect(joined).toContain("refer to p 3 for dosing");
     expect(joined).toContain("Withhold clozapine");
     expect(joined).not.toMatch(/Page 3 of 12/);
+  });
+
+  // PDF extraction (PyMuPDF get_text with sort=True) wraps a dose across lines
+  // in narrow table cells ("12.5\nmg"). The bare unit line is <= 2 chars, so the
+  // short-line debris rule used to delete it, indexing a unitless "12.5".
+  it("rejoins a dose unit wrapped onto its own line instead of deleting it as debris", () => {
+    const text = "Commence clozapine at a starting dose of\n12.5\nmg\nonce daily.";
+    const joined = chunkTextWithOverlap(text, 2000, 200).join(" ");
+    expect(joined).toContain("12.5 mg");
+  });
+
+  it("rejoins wrapped units after bare-integer doses and longer unit tokens", () => {
+    const text = "Thiamine\n300\nmg\ndaily. Fludrocortisone\n100\nmcg\nmane.";
+    const joined = chunkTextWithOverlap(text, 2000, 200).join(" ");
+    expect(joined).toContain("300 mg");
+    expect(joined).toContain("100 mcg");
+  });
+
+  it("still drops a lone unit token with no preceding dose number", () => {
+    const text = "Withhold clozapine.\nmg\nRepeat the full blood count.";
+    const joined = chunkTextWithOverlap(text, 2000, 200).join(" ");
+    expect(joined).not.toMatch(/\bmg\b/);
+    expect(joined).toContain("Withhold clozapine.");
+    expect(joined).toContain("Repeat the full blood count.");
+  });
+
+  it("does not merge a unit token into a standalone page footer", () => {
+    const text = "Monitor lithium levels.\nPage 3 of 12\nmg\nReview renally.";
+    const joined = chunkTextWithOverlap(text, 2000, 200).join(" ");
+    expect(joined).not.toMatch(/Page 3 of 12/);
+    expect(joined).not.toMatch(/\bmg\b/);
+  });
+
+  // countWrappedDoseUnitLines shares its predicate with the rejoin, so these
+  // cases mirror the rejoin tests above — it must count exactly the units the
+  // pre-fix chunker deleted. Used by scripts/measure-wrapped-dose-prevalence.ts
+  // to quantify the bug in the live corpus without a re-index.
+  it("counts wrapped dose units on raw page text and ignores non-bug shapes", () => {
+    expect(countWrappedDoseUnitLines("dose of\n12.5\nmg\nonce daily")).toBe(1);
+    expect(countWrappedDoseUnitLines("Thiamine\n300\nmg\ndaily. Fludrocortisone\n100\nmcg\nmane.")).toBe(2);
+    // No preceding number, and a page footer before the unit: neither counts.
+    expect(countWrappedDoseUnitLines("Withhold clozapine.\nmg\nrepeat")).toBe(0);
+    expect(countWrappedDoseUnitLines("Monitor levels.\nPage 3 of 12\nmg\nreview")).toBe(0);
+    // Already-inline "12.5 mg" is correct extraction, not a wrapped unit.
+    expect(countWrappedDoseUnitLines("Commence at 12.5 mg once daily.")).toBe(0);
   });
 
   it("prefers paragraph boundaries before falling back to sentence windows", () => {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const documentId = "11111111-1111-4111-8111-111111111111";
+const otherDocumentId = "33333333-3333-4333-8333-333333333333";
 const chunkId = "22222222-2222-4222-8222-222222222222";
 
 const allowedRateLimit = {
@@ -18,12 +19,47 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function createSupabaseMock() {
   const inserts: Array<{ table: string; payload: unknown }> = [];
-  const from = vi.fn((table: string) => ({
-    insert: vi.fn(async (payload: unknown) => {
-      inserts.push({ table, payload });
-      return { data: null, error: null };
-    }),
-  }));
+  const from = vi.fn((table: string) => {
+    const filters: Array<{ column: string; value: unknown }> = [];
+    const inFilters: Array<{ column: string; values: unknown[] }> = [];
+    const builder = {
+      select: vi.fn(() => builder),
+      eq: vi.fn((column: string, value: unknown) => {
+        filters.push({ column, value });
+        return builder;
+      }),
+      is: vi.fn((column: string, value: unknown) => {
+        filters.push({ column, value });
+        return builder;
+      }),
+      in: vi.fn((column: string, values: unknown[]) => {
+        inFilters.push({ column, values });
+        return builder;
+      }),
+      order: vi.fn(() => builder),
+      range: vi.fn(() => builder),
+      insert: vi.fn(async (payload: unknown) => {
+        inserts.push({ table, payload });
+        return { data: null, error: null };
+      }),
+      then: (onfulfilled?: (value: { data: unknown; error: null }) => unknown) => {
+        const explicitIds = inFilters.find((filter) => filter.column === "id")?.values as string[] | undefined;
+        const ownerFilter = filters.find((filter) => filter.column === "owner_id");
+        const data =
+          table === "documents" && ownerFilter
+            ? (explicitIds?.length ? explicitIds : [documentId])
+                .filter((id) => ownerFilter.value !== null || id === documentId)
+                .map((id) => ({
+                  id,
+                  metadata: {},
+                  import_batch_id: null,
+                }))
+            : [];
+        return Promise.resolve({ data, error: null }).then(onfulfilled);
+      },
+    };
+    return builder;
+  });
 
   return { from, inserts };
 }
@@ -306,6 +342,24 @@ describe("private RAG API access", () => {
     expect(mocks.answerQuestionWithScope).toHaveBeenCalledWith(
       expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true, query: "clozapine monitoring" }),
     );
+<<<<<<< HEAD
+=======
+  });
+
+  it("does not answer anonymous requests scoped to non-public document ids", async () => {
+    const mocks = mockRuntime();
+    const { POST } = await import("../src/app/api/answer/route");
+
+    const response = await POST(
+      jsonRequest("/api/answer", { query: "clozapine monitoring", documentId: otherDocumentId }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.grounded).toBe(false);
+    expect(body.confidence).toBe("unsupported");
+    expect(mocks.answerQuestionWithScope).not.toHaveBeenCalled();
+>>>>>>> origin/main
   });
 
   it("scopes authenticated real answer requests to the authenticated owner", async () => {

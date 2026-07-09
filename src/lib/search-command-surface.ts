@@ -115,7 +115,13 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
       { text: "QT prolongation risk medicines", meta: "Prescribing" },
     ],
     scopes: [],
+<<<<<<< HEAD
     crossModes: ["documents", "prescribing", "differentials"],
+=======
+    // Keep in sync with the post-answer cross-mode links strip, which covers
+    // prescribing, services, forms, and differentials.
+    crossModes: ["documents", "prescribing", "services", "forms", "differentials"],
+>>>>>>> origin/main
   },
 };
 
@@ -206,9 +212,13 @@ export function favouriteMatchesCommandScopes(item: FavouriteScopeItem, scopes: 
       case "source":
         return Boolean(item.evidence && item.evidence !== "Run" && item.evidence !== "Saved query");
       case "recent":
+<<<<<<< HEAD
         return (
           item.lastUsed.toLowerCase().startsWith("today") || item.lastUsed.toLowerCase().startsWith("yesterday")
         );
+=======
+        return item.lastUsed.toLowerCase().startsWith("today") || item.lastUsed.toLowerCase().startsWith("yesterday");
+>>>>>>> origin/main
       default:
         return true;
     }

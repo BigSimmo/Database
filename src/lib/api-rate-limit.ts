@@ -1,10 +1,31 @@
 import { NextResponse } from "next/server";
+import { isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
 import type { RateLimitSubject } from "@/lib/public-api-access";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
+/** Prefer durable RPC rate limits; fall back to per-instance memory when the DB function is unavailable. */
+export function allowRateLimitInMemoryFallbackOnUnavailable() {
+  return isLocalNoAuthMode() || process.env.NODE_ENV === "production";
+}
+
+function allowAnonymousRateLimitFallback(bucket: ApiRateLimitBucket, allowInMemoryFallbackOnUnavailable?: boolean) {
+  if (allowInMemoryFallbackOnUnavailable) return true;
+
+  // Anonymous public read/search paths must stay reachable if the durable limiter
+  // migration is temporarily unavailable; the per-instance limiter still applies.
+  return bucket === "answer" || bucket === "search" || bucket === "document_read" || bucket === "registry";
+}
+
 export type ApiRateLimitBucket =
-  "answer" | "search" | "document_summarize" | "document_reindex" | "bulk_reindex" | "registry";
+  | "answer"
+  | "search"
+  | "document_read"
+  | "document_upload"
+  | "document_summarize"
+  | "document_reindex"
+  | "bulk_reindex"
+  | "registry";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -17,6 +38,8 @@ export type ApiRateLimitResult = {
 const apiRateLimitDefaults = {
   answer: { limit: 30, windowSeconds: 60 },
   search: { limit: 240, windowSeconds: 60 },
+  document_read: { limit: 180, windowSeconds: 60 },
+  document_upload: { limit: 12, windowSeconds: 60 },
   document_summarize: { limit: 12, windowSeconds: 60 },
   document_reindex: { limit: 6, windowSeconds: 60 },
   bulk_reindex: { limit: 2, windowSeconds: 60 },
@@ -26,6 +49,11 @@ const apiRateLimitDefaults = {
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
   answer: { limit: 6, windowSeconds: 60 },
   search: { limit: 60, windowSeconds: 60 },
+<<<<<<< HEAD
+=======
+  document_read: { limit: 45, windowSeconds: 60 },
+  document_upload: { limit: 3, windowSeconds: 60 },
+>>>>>>> origin/main
 };
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
@@ -132,12 +160,61 @@ export async function consumeSubjectApiRateLimit(args: {
   }
 
   const defaults = anonymousApiRateLimitDefaults[args.bucket] ?? apiRateLimitDefaults[args.bucket];
+<<<<<<< HEAD
   return consumeInMemoryApiRateLimit({
     ownerId: args.subject.subjectKey,
     bucket: args.bucket,
     limit: args.limit ?? defaults.limit,
     windowSeconds: args.windowSeconds ?? defaults.windowSeconds,
   });
+=======
+  const limit = args.limit ?? defaults.limit;
+  const windowSeconds = args.windowSeconds ?? defaults.windowSeconds;
+  const { data, error } = await args.supabase.rpc("consume_api_subject_rate_limit", {
+    p_subject_key: args.subject.subjectKey,
+    p_bucket: args.bucket,
+    p_limit: limit,
+    p_window_seconds: windowSeconds,
+  });
+
+  if (error) {
+    if (allowAnonymousRateLimitFallback(args.bucket, args.allowInMemoryFallbackOnUnavailable)) {
+      console.warn("Durable anonymous API rate limit check unavailable; using local in-memory fallback.", {
+        bucket: args.bucket,
+        code: error.code,
+        message: error.message,
+      });
+      return consumeInMemoryApiRateLimit({
+        ownerId: args.subject.subjectKey,
+        bucket: args.bucket,
+        limit,
+        windowSeconds,
+      });
+    }
+    throw new ApiRateLimitUnavailableError();
+  }
+
+  const row = parseRateLimitRow(data);
+  if (!row || typeof row.limited !== "boolean") {
+    if (allowAnonymousRateLimitFallback(args.bucket, args.allowInMemoryFallbackOnUnavailable)) {
+      return consumeInMemoryApiRateLimit({
+        ownerId: args.subject.subjectKey,
+        bucket: args.bucket,
+        limit,
+        windowSeconds,
+      });
+    }
+    throw new ApiRateLimitUnavailableError();
+  }
+
+  return {
+    limited: row.limited,
+    limit: Number(row.limit_value ?? limit),
+    remaining: Number(row.remaining ?? 0),
+    retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? windowSeconds)),
+    resetAt: String(row.reset_at ?? new Date(Date.now() + windowSeconds * 1000).toISOString()),
+  };
+>>>>>>> origin/main
 }
 
 function consumeInMemoryApiRateLimit({

@@ -1,4 +1,4 @@
-import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
+import { redirect } from "next/navigation";
 
 type DifferentialPresentationsRouteProps = {
   searchParams?: Promise<{ query?: string | string[]; q?: string | string[] }>;
@@ -10,7 +10,7 @@ function firstSearchParam(value?: string | string[]) {
 
 export default async function DifferentialPresentationsRoute({ searchParams }: DifferentialPresentationsRouteProps) {
   const params = searchParams ? await searchParams : {};
-  const query = firstSearchParam(params.query ?? params.q)?.trim() ?? "";
-
-  return <DifferentialPresentationWorkflowPage query={query} />;
+  const query = firstSearchParam(params.query ?? params.q)?.trim();
+  const suffix = query ? `?q=${encodeURIComponent(query)}` : "";
+  redirect(`/differentials/presentations/acute-confusion-encephalopathy${suffix}`);
 }

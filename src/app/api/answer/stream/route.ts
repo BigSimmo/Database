@@ -2,7 +2,15 @@ import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
+<<<<<<< HEAD
 import { consumeSubjectApiRateLimit, type ApiRateLimitResult } from "@/lib/api-rate-limit";
+=======
+import {
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSubjectApiRateLimit,
+  type ApiRateLimitResult,
+} from "@/lib/api-rate-limit";
+>>>>>>> origin/main
 import { publicAccessContext } from "@/lib/public-api-access";
 import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
@@ -16,6 +24,11 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
+<<<<<<< HEAD
+=======
+import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
+import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
+>>>>>>> origin/main
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -74,6 +87,16 @@ function streamErrorPayload(error: unknown) {
     };
   }
 
+  // Production has no demo fallback for a misconfigured Supabase key, so tag the
+  // SSE error with a stable code operators can spot in the client/network tab.
+  if (isSupabaseApiKeyConfigurationError(error)) {
+    return {
+      message: "Answer generation failed. Retry with a narrower question.",
+      status: 500,
+      details: { code: "supabase_api_key_configuration" },
+    };
+  }
+
   if (error instanceof Error) {
     return {
       message: "Answer generation failed. Retry with a narrower question.",
@@ -98,7 +121,30 @@ function logStreamError(error: unknown) {
   });
 }
 
-function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) {
+function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
+  const demo = demoAnswer(body.query, body.documentId, body.documentIds);
+  const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
+  const sources = annotateSearchResults(answerFocusQuery, demo.sources);
+  const relevance = buildEvidenceRelevance(answerFocusQuery, sources);
+  return {
+    ...demo,
+    sources,
+    relevance,
+    smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
+    smartApiPlan: buildSmartRagApiPlan({
+      query: answerFocusQuery,
+      queryClass: queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
+      results: sources,
+      routeMode: demo.routingMode,
+      retrievalStrategy: "hybrid",
+    }),
+    demoMode: true,
+    degradedMode: fallbackReason ? { active: true, reason: fallbackReason } : answerDegradedModeSignal(demo),
+    ...(fallbackReason ? { fallbackMode: "non_production_demo", fallbackReason } : {}),
+  };
+}
+
+function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, publicOnly = false) {
   const encoder = new TextEncoder();
 
   return new Response(
@@ -108,6 +154,10 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
           controller.enqueue(encoder.encode(encodeSse(event, data)));
         };
         const onProgress = (event: AnswerProgressEvent) => send("progress", event);
+        // Stream the answer prose as it generates (content-preserving) and signal a reset when a
+        // provisional answer is being revised by the quality gates.
+        const onToken = (delta: string) => send("token", { delta });
+        const onRevising = (reason: string) => send("revising", { reason });
 
         try {
           send("progress", { stage: "retrieving", message: "Searching indexed documents." });
@@ -116,6 +166,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
             : await resolveSearchScope({
                 supabase: createAdminClient(),
                 ownerId,
+                publicOnly,
                 documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
                 filters: body.filters,
               });
@@ -137,27 +188,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
             body.documentId && !body.documentIds?.length && scope?.activeFilterCount === 0,
           );
           const answer = isDemoMode()
-            ? (() => {
-                const demo = demoAnswer(body.query, body.documentId, body.documentIds);
-                const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
-                const sources = annotateSearchResults(answerFocusQuery, demo.sources);
-                const relevance = buildEvidenceRelevance(answerFocusQuery, sources);
-                return {
-                  ...demo,
-                  sources,
-                  relevance,
-                  smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
-                  smartApiPlan: buildSmartRagApiPlan({
-                    query: answerFocusQuery,
-                    queryClass:
-                      queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
-                    results: sources,
-                    routeMode: demo.routingMode,
-                    retrievalStrategy: "hybrid",
-                  }),
-                  demoMode: true,
-                };
-              })()
+            ? buildDemoStreamAnswer(body)
             : await answerQuestionWithScope({
                 query: body.query,
                 documentId: singleDocumentScope ? body.documentId : undefined,
@@ -169,6 +200,8 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
                 queryMode: body.queryMode,
                 skipCache: body.skipCache,
                 onProgress,
+                onToken,
+                onRevising,
                 signal,
               });
           const warnings = sourceGovernanceWarnings({
@@ -193,6 +226,10 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
             return;
           }
 
+          if (!isDemoMode()) {
+            logAnswerDiagnostics({ supabase: createAdminClient(), query: body.query, ownerId, answer });
+          }
+
           send("final", {
             ...answer,
             degradedMode: answerDegradedModeSignal(answer),
@@ -201,6 +238,14 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal) 
           });
         } catch (error) {
           logStreamError(error);
+          // Parity with /api/answer (PR #315): outside production, a misconfigured
+          // Supabase API key degrades to a visible demo answer instead of a stream
+          // error — the UI's answer search uses this route, not /api/answer.
+          const fallbackReason = nonProductionSupabaseDemoFallbackReason(error);
+          if (fallbackReason) {
+            send("final", buildDemoStreamAnswer(body, fallbackReason));
+            return;
+          }
           const streamError = streamErrorPayload(error);
           send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
         } finally {
@@ -225,16 +270,24 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
+<<<<<<< HEAD
+=======
+    const publicOnly = !access.authenticated && !isLocalNoAuthMode();
+>>>>>>> origin/main
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
       subject: access.rateLimitSubject,
       bucket: "answer",
-      allowInMemoryFallbackOnUnavailable: isLocalNoAuthMode(),
+      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
 
+<<<<<<< HEAD
     return streamAnswer(body, access.ownerId, request.signal);
+=======
+    return streamAnswer(body, access.ownerId, request.signal, publicOnly);
+>>>>>>> origin/main
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse(error);

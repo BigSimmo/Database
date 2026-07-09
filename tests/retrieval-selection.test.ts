@@ -627,3 +627,58 @@ describe("retrieval source selection", () => {
     expect(selection.results[0].source_metadata?.clinical_validation_status).toBe("unverified");
   });
 });
+
+describe("saturated-score tie-breaking", () => {
+  function saturatedExplanation(preClampFinalScore: number): NonNullable<SearchResult["score_explanation"]> {
+    return {
+      vectorScore: 0.9,
+      textRank: 0.3,
+      lexicalCoverageScore: 0.5,
+      metadataMatchScore: 0.2,
+      sectionTitleMatchBoost: 0.1,
+      freshnessRecencyBoost: 0,
+      weightedHybridScore: 0.9,
+      rrfScore: null,
+      rrfBoost: 0,
+      memoryBoost: 0,
+      titleBoost: 0.3,
+      metadataBoost: 0.2,
+      clinicalSignalBoost: 0.3,
+      penalty: 0,
+      finalScore: 1,
+      preClampFinalScore,
+      strategy: "weighted_hybrid",
+    };
+  }
+
+  it("orders fully-tied saturated candidates by stable chunk id, ignoring pre-clamp boost magnitude", () => {
+    // Regression guard for the PR #325 golden-eval regression: tie-breaking selection by the
+    // pre-clamp boost sum re-ordered saturated top-5 sets by boost-stacking magnitude and buried
+    // golden documents (alcohol-ciwa-threshold and clozapine-cbc-abbreviation-threshold
+    // docRecall@5 1.0 -> 0.0, measured live 2026-07-07). The pre-clamp deep tiebreak belongs in
+    // rankClinicalResults (below the engineered rankingTieBreakScore); at the selection layer,
+    // fully-tied candidates must keep the stable chunk-id order that rankClinicalResults produced.
+    const higherPreClamp = source({
+      id: "chunk-b",
+      hybrid_score: 1,
+      similarity: 0.9,
+      score_explanation: saturatedExplanation(1.8),
+    });
+    const lowerPreClamp = source({
+      id: "chunk-a",
+      hybrid_score: 1,
+      similarity: 0.9,
+      score_explanation: saturatedExplanation(1.2),
+    });
+
+    const selection = selectRetrievalEvidence({
+      query: "clinical guidance",
+      queryClass: "broad_summary",
+      results: [lowerPreClamp, higherPreClamp],
+      topK: 2,
+      maxResultsPerDocument: 2,
+    });
+
+    expect(selection.results.map((item) => item.id)).toEqual(["chunk-a", "chunk-b"]);
+  });
+});

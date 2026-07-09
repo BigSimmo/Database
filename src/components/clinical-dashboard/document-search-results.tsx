@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   BookOpen,
   ChevronDown,
@@ -14,6 +14,7 @@ import {
   Loader2,
   Shield,
   ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Tag,
@@ -24,7 +25,12 @@ import {
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
+<<<<<<< HEAD
 import { ModeHomeTemplate } from "@/components/mode-home-template";
+=======
+import { isDeployedClinicalKb } from "@/lib/deployed-app";
+import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+>>>>>>> origin/main
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import {
@@ -342,11 +348,22 @@ function DocumentSearchHome({
         onClick: item.action,
       }))}
       footer={
+<<<<<<< HEAD
         documentCount > 0 ? (
           <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
             {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
           </p>
         ) : null
+=======
+        <div className="grid w-full gap-3">
+          <ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical document library" />
+          {documentCount > 0 ? (
+            <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
+              {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
+            </p>
+          ) : null}
+        </div>
+>>>>>>> origin/main
       }
     />
   );
@@ -726,7 +743,12 @@ function RecordRegistryNotice({ status, mode }: { status: RegistryRequestStatus;
     status === "loading"
       ? { Icon: Loader2, spin: true, tone: "info" as const, text: `Loading your ${noun} registry...` }
       : status === "unauthorized"
-        ? { Icon: Shield, spin: false, tone: "warning" as const, text: `Sign in to search your ${noun} registry.` }
+        ? {
+            Icon: Shield,
+            spin: false,
+            tone: "warning" as const,
+            text: `Your session expired. Sign in again to search your private ${noun} registry.`,
+          }
         : {
             Icon: ShieldAlert,
             spin: false,
@@ -750,7 +772,7 @@ function RecordRegistryNotice({ status, mode }: { status: RegistryRequestStatus;
   );
 }
 
-export function DocumentSearchResultsPanel({
+function DocumentSearchResultsPanelImpl({
   matches,
   recordMatches = [],
   recordMode = "services",
@@ -834,12 +856,21 @@ export function DocumentSearchResultsPanel({
   }
 
   const unavailableMessage = apiUnavailable
-    ? "The local API is unavailable. Check the app server before searching documents."
+    ? isDeployedClinicalKb()
+      ? "Clinical KB could not be reached. Check your connection and try again shortly."
+      : "The local API is unavailable. Check the app server before searching documents."
     : authUnavailable
+<<<<<<< HEAD
       ? "Sign in or enable local no-auth mode before listing private indexed documents."
       : null;
   void realDataReady;
   void setupWarning;
+=======
+      ? "Your session expired. Sign in again to view private indexed documents."
+      : !realDataReady
+        ? setupWarning || "Complete the search setup before using Documents mode."
+        : null;
+>>>>>>> origin/main
   const resultLabel = (() => {
     if (loading) {
       return showRecordMatches
@@ -873,7 +904,11 @@ export function DocumentSearchResultsPanel({
       matches.length > 0 ||
       (trimmedQuery && !shouldShowHome) ||
       loading ||
+<<<<<<< HEAD
       unavailableMessage && !shouldShowHome ? (
+=======
+      (unavailableMessage && !shouldShowHome) ? (
+>>>>>>> origin/main
         <SearchResultsHeader resultLabel={resultLabel} trimmedQuery={trimmedQuery} />
       ) : null}
 
@@ -902,9 +937,13 @@ export function DocumentSearchResultsPanel({
               <FileText className="h-5 w-5" />
             </span>
             <div>
+<<<<<<< HEAD
               <h3 className="text-base font-semibold text-[color:var(--text-heading)]">
                 No matching documents
               </h3>
+=======
+              <h3 className="text-base font-semibold text-[color:var(--text-heading)]">No matching documents</h3>
+>>>>>>> origin/main
               <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>
                 {`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
               </p>
@@ -1110,3 +1149,10 @@ export function DocumentSearchResultsPanel({
     </div>
   );
 }
+
+// Memoized so this panel (and its result list) stops re-rendering on unrelated
+// dashboard state changes. It still receives the live `query` prop for its
+// header, so keystrokes in documents mode re-render it, but the expensive
+// `matches` list only changes on submit; every other parent render is now
+// suppressed once the parent's callbacks are stabilized.
+export const DocumentSearchResultsPanel = memo(DocumentSearchResultsPanelImpl);

@@ -16,7 +16,7 @@ import { cn, textMuted } from "@/components/ui-primitives";
 import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
 import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
 
-const tableExpandMediaQuery = "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
+const tableExpandMediaQuery = "(max-width: 784px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
 const metadataHeaderPattern = /^(?:source|sources|support|pages?|chunk|file|document|citation|citations|provenance)$/i;
 const metadataCellPattern =
   /\b(?:page|pages|p\.|chunk|source|citation|citations)\s*[:#-]?\s*(?:n\/a|\d+(?:\s*[-,]\s*\d+)*)\b/gi;
@@ -313,6 +313,7 @@ export function AccessibleTable({
   clinicalOnly = false,
   rowActions,
   actionsHeader,
+  lowConfidenceFallback,
 }: {
   caption?: string | null;
   markdown?: string | null;
@@ -328,6 +329,11 @@ export function AccessibleTable({
   clinicalOnly?: boolean;
   rowActions?: Array<ReactNode | null>;
   actionsHeader?: string;
+  // GEN-H3: when the normalizer can't confidently reconstruct a clinical table,
+  // the padded raw grid is misleading (mostly empty "-" cells, clipped headers).
+  // Callers that have the cropped source image (e.g. the visual-evidence cards)
+  // can pass it here to show the real table screenshot instead of that grid.
+  lowConfidenceFallback?: ReactNode;
 }) {
   const dialogId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -352,7 +358,7 @@ export function AccessibleTable({
     return clinicalOnly ? clinicalOnlyTable(table) : table;
   }, [clinicalOnly, columns, hasExplicitRows, parsed]);
 
-  const dialogOpen = open && canExpand;
+  const dialogOpen = open;
 
   useEffect(() => {
     if (!dialogOpen) return;
@@ -377,30 +383,38 @@ export function AccessibleTable({
   const displayCaption = clinicalOnly && caption ? cleanClinicalTableText(caption) : caption;
   const title = dialogTitle || displayCaption || "Clinical table";
   const lowConfidence = Boolean(normalized.lowConfidence);
+  const showFallback = lowConfidence && Boolean(lowConfidenceFallback);
   const table = (
     <>
       {lowConfidence ? (
         <p data-testid="table-low-confidence-note" className={cn("mb-1 text-xs", textMuted)}>
-          Table structure could not be confidently reconstructed — verify values against the source document.
+          {showFallback
+            ? "Table structure could not be confidently reconstructed — showing the source document image instead."
+            : "Table structure could not be confidently reconstructed — verify values against the source document."}
         </p>
       ) : null}
-      <AccessibleTableMarkup
-        caption={displayCaption}
-        header={header}
-        body={body}
-        compact={compact}
-        previewRows={previewRows}
-        hidePreviewCaption={hidePreviewCaption}
-        hidePreviewRowCount={hidePreviewRowCount}
-        densePreview={densePreview}
-        rowActions={rowActions}
-        actionsHeader={actionsHeader}
-      />
+      {showFallback ? (
+        <div data-testid="table-source-image-fallback">{lowConfidenceFallback}</div>
+      ) : (
+        <AccessibleTableMarkup
+          caption={displayCaption}
+          header={header}
+          body={body}
+          compact={compact}
+          previewRows={previewRows}
+          hidePreviewCaption={hidePreviewCaption}
+          hidePreviewRowCount={hidePreviewRowCount}
+          densePreview={densePreview}
+          rowActions={rowActions}
+          actionsHeader={actionsHeader}
+        />
+      )}
     </>
   );
 
   function openDialog(trigger: HTMLElement) {
     if (!canExpand) return;
+    trigger.scrollIntoView({ block: "center", inline: "nearest" });
     restoreFocusRef.current = trigger;
     setOpen(true);
   }
@@ -428,7 +442,7 @@ export function AccessibleTable({
           className={cn(
             "min-w-0",
             canExpand &&
-              "cursor-zoom-in rounded-lg outline-none ring-offset-2 ring-offset-[color:var(--surface)] transition focus-within:ring-4 focus-within:ring-[color:var(--focus)]/25",
+              "relative z-50 cursor-zoom-in rounded-lg outline-none ring-offset-2 ring-offset-[color:var(--surface)] transition focus-within:ring-4 focus-within:ring-[color:var(--focus)]/25",
           )}
         >
           {table}
@@ -444,7 +458,7 @@ export function AccessibleTable({
               event.stopPropagation();
               openDialog(event.currentTarget);
             }}
-            className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
+            className="relative z-50 mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
           >
             <span>Expand table</span>
             <Maximize2 className="h-4 w-4" />
@@ -482,15 +496,19 @@ export function AccessibleTable({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              <AccessibleTableMarkup
-                caption={displayCaption}
-                header={header}
-                body={body}
-                compact={false}
-                expanded
-                rowActions={rowActions}
-                actionsHeader={actionsHeader}
-              />
+              {showFallback ? (
+                <div data-testid="table-source-image-fallback">{lowConfidenceFallback}</div>
+              ) : (
+                <AccessibleTableMarkup
+                  caption={displayCaption}
+                  header={header}
+                  body={body}
+                  compact={false}
+                  expanded
+                  rowActions={rowActions}
+                  actionsHeader={actionsHeader}
+                />
+              )}
             </div>
           </div>
         </div>

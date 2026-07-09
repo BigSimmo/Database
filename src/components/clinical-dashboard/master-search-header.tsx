@@ -15,18 +15,22 @@ import {
 import { createPortal } from "react-dom";
 
 import {
+<<<<<<< HEAD
   Activity,
   BadgeCheck,
   CalendarDays,
+=======
+>>>>>>> origin/main
   Check,
   CheckCircle2,
   ChevronDown,
   FileText,
   Filter,
-  FolderOpen,
-  GitBranch,
   Globe2,
+<<<<<<< HEAD
   ListChecks,
+=======
+>>>>>>> origin/main
   Loader2,
   Menu,
   MessageSquarePlus,
@@ -36,17 +40,23 @@ import {
   ShieldCheck,
   ArrowLeft,
   X,
+<<<<<<< HEAD
   Lock,
+=======
+>>>>>>> origin/main
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+<<<<<<< HEAD
+=======
+import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
+>>>>>>> origin/main
 import {
   ModeActionPopup,
   modeActionItemsFor,
   type ModeActionId,
-  type ModeActionItem,
   type ModeActionModeOption,
   type ModeActionPlacement,
   type ModeActionSetId,
@@ -54,7 +64,7 @@ import {
 import {
   cn,
   chatComposerInput,
-  chatComposerShell,
+  chatComposerShellBase,
   chatSendButton,
   floatingControl,
   shellChip,
@@ -82,8 +92,9 @@ const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
 // Standalone mode-home shells move the composer into the hero from the tablet
 // breakpoint up (see heroComposerFromTablet), so it sits in the middle of the
 // hero exactly like desktop instead of floating over the heading.
-const tabletHomeComposerMediaQuery = "(min-width: 640px)";
+const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
+<<<<<<< HEAD
 
 const medicationModeActionItems: readonly ModeActionItem[] = [
   {
@@ -103,6 +114,8 @@ const medicationModeActionItems: readonly ModeActionItem[] = [
   },
   { id: "medication-access", label: "Access", description: "Documentation and eligibility", icon: Lock },
 ];
+=======
+>>>>>>> origin/main
 
 function splitFilterText(value: string) {
   return value
@@ -195,6 +208,12 @@ export function MasterSearchHeader({
   onCommandScopesChange,
   onPickRecent,
   onCrossModeSearch,
+<<<<<<< HEAD
+=======
+  composerFollowUpSuggestions,
+  onPickComposerFollowUpSuggestion,
+  composerFollowUpSuggestionsDisabled = false,
+>>>>>>> origin/main
   headerVariant = "default",
   mobileSearchPlacement = "default",
   mobileBottomSearchVariant = "default",
@@ -206,6 +225,10 @@ export function MasterSearchHeader({
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
+<<<<<<< HEAD
+=======
+  onBottomComposerScrollHiddenChange,
+>>>>>>> origin/main
 }: {
   documents: ClinicalDocument[];
   documentTotal?: number;
@@ -242,6 +265,12 @@ export function MasterSearchHeader({
   onCommandScopesChange?: (scopes: string[]) => void;
   onPickRecent?: (query: string) => void;
   onCrossModeSearch?: (modeId: AppModeId, query: string) => void;
+<<<<<<< HEAD
+=======
+  composerFollowUpSuggestions?: string[];
+  onPickComposerFollowUpSuggestion?: (suggestion: string) => void;
+  composerFollowUpSuggestionsDisabled?: boolean;
+>>>>>>> origin/main
   headerVariant?: "default" | "workflow";
   mobileSearchPlacement?: "default" | "bottom";
   /** "compact" drops the phone footer chip row and hugs the bottom edge —
@@ -258,12 +287,29 @@ export function MasterSearchHeader({
   heroComposerFromTablet?: boolean;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
+<<<<<<< HEAD
   /** Phone-only hide-on-scroll for the universal header. "overlay" translates
    *  the sticky header away (host scrolls the document, content already flows
    *  beneath); "collapse" also releases the header's layout space (host keeps
    *  the header above an internally scrolling element). `containerRef` points
    *  at the scrolling element; omit it to observe window scroll. */
   hideOnScroll?: { strategy: "overlay" | "collapse"; containerRef?: RefObject<HTMLElement | null> };
+=======
+  /** Phone-only hide-on-scroll for the universal header and bottom search dock.
+   *  "overlay" translates the sticky header away (host scrolls the document,
+   *  content already flows beneath); "collapse" also releases the header's
+   *  layout space (host keeps the header above an internally scrolling element).
+   *  The phone bottom search composer hides in sync on search-mode pages.
+   *  Parent hosts with an internally scrolling element pass `scrollHidden` from
+   *  `useScrollHideReporter` wired to that element's scroll events. */
+  hideOnScroll?: {
+    strategy: "overlay" | "collapse";
+    /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
+    scrollHidden?: boolean;
+  };
+  /** Fired when the phone bottom search dock enters or leaves the scroll-hidden state. */
+  onBottomComposerScrollHiddenChange?: (hidden: boolean) => void;
+>>>>>>> origin/main
 }) {
   const visibleAppModeOptions = defaultVisibleAppModeOptions;
   const trimmedQuery = query.trim();
@@ -277,7 +323,11 @@ export function MasterSearchHeader({
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
   const canRunLocalSearch =
     selectedSearch.kind === "documents" ||
+<<<<<<< HEAD
     searchMode === "forms" ||
+=======
+    selectedSearch.kind === "forms" ||
+>>>>>>> origin/main
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
     selectedSearch.kind === "favourites";
@@ -303,12 +353,44 @@ export function MasterSearchHeader({
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
+<<<<<<< HEAD
   const scrollHidden = useHideOnScroll({
     containerRef: hideOnScroll?.containerRef,
     disabled: !hideOnScroll,
   });
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
+=======
+  const [composerChromeFocused, setComposerChromeFocused] = useState(false);
+  const internalScrollHidden = useHideOnScroll({
+    disabled: !hideOnScroll || hideOnScroll.scrollHidden !== undefined,
+  });
+  const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
+  const headerChromeHidden =
+    scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
+  const phoneBottomSearchDockActive =
+    usesPhoneSearchLayout && searchComposerVisible && (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
+  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
+  const bottomComposerHidden =
+    bottomComposerScrollHiddenActive &&
+    scrollHidden &&
+    !actionMenuOpen &&
+    !commandDropdownOpen &&
+    !scopeOpen &&
+    !scopeSheetOpen &&
+    !composerChromeFocused;
+
+  useEffect(() => {
+    onBottomComposerScrollHiddenChange?.(bottomComposerHidden);
+  }, [bottomComposerHidden, onBottomComposerScrollHiddenChange]);
+
+  useEffect(() => {
+    if (!loading || !commandDropdownOpen) return undefined;
+    const frame = window.requestAnimationFrame(() => setCommandDropdownOpen(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [commandDropdownOpen, loading]);
+
+>>>>>>> origin/main
   // Stable, header-owned element the composer is portaled into; we move it in and
   // out of the page-owned slot rather than portaling into the slot directly.
   const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);
@@ -316,7 +398,7 @@ export function MasterSearchHeader({
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
-  const scopeSummaryRef = useRef<HTMLButtonElement | null>(null);
+  const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
   const selectedDocumentIdSet = useMemo(() => new Set(selectedDocumentIds), [selectedDocumentIds]);
   const documentById = useMemo(() => new Map(documents.map((document) => [document.id, document])), [documents]);
@@ -328,7 +410,6 @@ export function MasterSearchHeader({
     [documentById, selectedDocumentIds],
   );
   const scopeSummary = selectedDocumentIds.length === 0 ? "All documents" : `${selectedDocumentIds.length} scoped`;
-  const footerScopeLabel = selectedDocumentIds.length === 0 ? "All sources" : `${selectedDocumentIds.length} scoped`;
   const scopePreview = useMemo(
     () =>
       selectedDocuments
@@ -401,19 +482,22 @@ export function MasterSearchHeader({
     [visibleAppModeOptions],
   );
   const actionMenuSetId: ModeActionSetId =
-    searchMode === "services"
-      ? "services"
-      : searchMode === "documents" || searchMode === "forms"
-        ? "documents"
-        : searchMode === "favourites"
-          ? "favourites"
-          : searchMode === "differentials"
-            ? "differentials"
-            : searchMode === "tools"
-              ? "tools"
-              : "answer";
-  const actionMenuItems =
-    searchMode === "prescribing" ? medicationModeActionItems : modeActionItemsFor(actionMenuSetId);
+    searchMode === "prescribing"
+      ? "prescribing"
+      : searchMode === "forms"
+        ? "forms"
+        : searchMode === "services"
+          ? "services"
+          : searchMode === "documents"
+            ? "documents"
+            : searchMode === "favourites"
+              ? "favourites"
+              : searchMode === "differentials"
+                ? "differentials"
+                : searchMode === "tools"
+                  ? "tools"
+                  : "answer";
+  const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
@@ -462,6 +546,11 @@ export function MasterSearchHeader({
     if (actionId === "medication-access") {
       onQueryModeChange("required_documentation");
       onQueryChange(trimmedQuery || "acamprosate PBS access");
+      return;
+    }
+    if (actionId === "medication-escalation") {
+      onQueryModeChange("escalation_criteria");
+      onQueryChange(trimmedQuery || "acamprosate escalation criteria");
       return;
     }
 
@@ -515,9 +604,19 @@ export function MasterSearchHeader({
       onQueryChange("");
       return;
     }
+    if (actionId === "services-documents") {
+      onSearchModeChange("documents");
+      onQueryChange(trimmedQuery || "service referral guidance");
+      return;
+    }
     if (actionId === "forms-records") {
       onSearchModeChange("forms");
       onQueryChange("");
+      return;
+    }
+    if (actionId === "forms-documents") {
+      onSearchModeChange("documents");
+      onQueryChange(trimmedQuery || "clinical form guidance");
       return;
     }
     if (actionId === "favourites-browse") {
@@ -621,14 +720,23 @@ export function MasterSearchHeader({
     }
   }
 
+  const restoreActionMenuFocusRef = useRef(false);
   const closeScope = useCallback((restoreFocus = false) => {
+    restoreActionMenuFocusRef.current = restoreFocus;
     setScopeOpen(false);
-    if (restoreFocus) scopeSummaryRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (scopeOpen || !restoreActionMenuFocusRef.current) return;
+    restoreActionMenuFocusRef.current = false;
+    window.requestAnimationFrame(() => {
+      actionMenuTriggerRef.current?.focus({ preventScroll: true });
+    });
+  }, [scopeOpen]);
 
   const closeScopeSheet = useCallback(() => {
     setScopeSheetOpen(false);
-    window.requestAnimationFrame(() => scopeSummaryRef.current?.focus());
+    window.requestAnimationFrame(() => actionMenuTriggerRef.current?.focus());
   }, []);
 
   useEffect(() => {
@@ -671,10 +779,11 @@ export function MasterSearchHeader({
     host.style.display = "contents";
 
     const mediaQuery = window.matchMedia(
-      heroComposerFromTablet ? tabletHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
+      heroComposerFromTablet ? modeHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
     );
     let frame: number | null = null;
     let retryTimeout: number | null = null;
+    let portalRetryCount = 0;
     const syncTarget = () => {
       if (retryTimeout !== null) {
         window.clearTimeout(retryTimeout);
@@ -682,14 +791,16 @@ export function MasterSearchHeader({
       }
       const slot = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
       if (slot) {
+        portalRetryCount = 0;
         if (host.parentNode !== slot) slot.appendChild(host);
         setDesktopHomeComposerHost(host);
         setDesktopHomeComposerActive(true);
       } else {
         host.parentNode?.removeChild(host);
         setDesktopHomeComposerActive(false);
-        if (mediaQuery.matches) {
-          retryTimeout = window.setTimeout(syncTarget, 50);
+        if (mediaQuery.matches && portalRetryCount < 24) {
+          portalRetryCount += 1;
+          retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
         }
       }
     };
@@ -727,14 +838,15 @@ export function MasterSearchHeader({
 
   useDismissableLayer({
     enabled: scopeOpen,
-    refs: [scopePopoverRef, scopeSummaryRef],
-    restoreFocusRef: scopeSummaryRef,
+    refs: [scopePopoverRef, actionMenuTriggerRef],
+    restoreFocusRef: actionMenuTriggerRef,
     onDismiss: dismissScope,
   });
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setActionMenuOpen(false);
+    setCommandDropdownOpen(false);
     onAsk();
   }
 
@@ -1016,150 +1128,13 @@ export function MasterSearchHeader({
     );
   }
 
-  // "open-evidence" is the one footer-chip action that isn't already a mode-action
-  // id — every other chip dispatches through the existing runModeAction handler
-  // (the same dispatcher the "+" action menu already uses for these ids).
-  type FooterChipActionId = ModeActionId | "open-evidence";
-
-  type FooterActionChip = {
-    icon: typeof Search;
-    shortLabel: string;
-    longLabel: string;
-    actionId: FooterChipActionId;
-    ariaLabel: string;
-  };
-
-  // The first ("trust") chip on the universal small-screen footer. Every mode gets
-  // one, mirroring Answer's "Evidence-based" chip in tone, each wired to a real
-  // action from that mode's own action menu rather than being decorative.
-  function footerTrustChipFor(mode: AppModeId): FooterActionChip | null {
-    switch (mode) {
-      case "answer":
-        return {
-          icon: ListChecks,
-          shortLabel: "Evidence",
-          longLabel: "Evidence-based",
-          actionId: "open-evidence",
-          ariaLabel: "Open evidence-backed answer sources",
-        };
-      case "documents":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Indexed",
-          longLabel: "Fully indexed",
-          actionId: "documents-collections",
-          ariaLabel: "Open the indexed document library",
-        };
-      case "forms":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Library",
-          longLabel: "Form library",
-          actionId: "forms-records",
-          ariaLabel: "Open the form library",
-        };
-      case "services":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Verified",
-          longLabel: "Verified directory",
-          actionId: "services-records",
-          ariaLabel: "Browse verified service records",
-        };
-      case "favourites":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Trusted",
-          longLabel: "Trusted picks",
-          actionId: "favourites-browse",
-          ariaLabel: "Browse trusted favourites",
-        };
-      case "differentials":
-        return {
-          icon: ListChecks,
-          shortLabel: "Evidence",
-          longLabel: "Evidence-linked",
-          actionId: "differentials-evidence",
-          ariaLabel: "Review cited differential evidence",
-        };
-      case "prescribing":
-        return {
-          icon: ShieldCheck,
-          shortLabel: "Safety",
-          longLabel: "Safety-checked",
-          actionId: "medication-safety",
-          ariaLabel: "Review contraindications and cautions",
-        };
-      case "tools":
-        return {
-          icon: BadgeCheck,
-          shortLabel: "Curated",
-          longLabel: "Curated registry",
-          actionId: "tools-browse",
-          ariaLabel: "Browse the curated tools registry",
-        };
-      default:
-        return null;
-    }
-  }
-
-  // The second footer chip. Answer/Documents/Forms use the shared document-scope
-  // trigger instead (see hasScopeFooterChip below) since scope is a real, existing
-  // concept for those three modes. Tools has no genuine second action yet, so it
-  // intentionally ships with a single chip rather than an invented one.
-  function footerSecondaryChipFor(mode: AppModeId): FooterActionChip | null {
-    switch (mode) {
-      case "services":
-        return {
-          icon: ListChecks,
-          shortLabel: "Pathways",
-          longLabel: "Pathways",
-          actionId: "services-pathways",
-          ariaLabel: "Browse referral pathways",
-        };
-      case "favourites":
-        return {
-          icon: FolderOpen,
-          shortLabel: "Sets",
-          longLabel: "Sets",
-          actionId: "favourites-sets",
-          ariaLabel: "Open saved sets",
-        };
-      case "differentials":
-        return {
-          icon: GitBranch,
-          shortLabel: "Criteria",
-          longLabel: "Criteria",
-          actionId: "differentials-criteria",
-          ariaLabel: "Compare distinguishing criteria",
-        };
-      case "prescribing":
-        return {
-          icon: Activity,
-          shortLabel: "Monitor",
-          longLabel: "Monitoring",
-          actionId: "medication-monitoring",
-          ariaLabel: "Review the monitoring schedule",
-        };
-      default:
-        return null;
-    }
-  }
-
-  function runFooterChipAction(actionId: FooterChipActionId) {
-    if (actionId === "open-evidence") {
-      onOpenEvidence?.();
-      return;
-    }
-    runModeAction(actionId);
-  }
-
   function renderSearchComposer(placement: "default" | "desktop-home") {
     const isDesktopHomeComposer = placement === "desktop-home";
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesCompactMobileBottomStyle = usesMobileBottomStyle && mobileBottomSearchVariant === "compact";
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
+<<<<<<< HEAD
     const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer;
     // Compact search views drop the chip row on phones so the pill can sit
     // flush with the bottom edge; the same actions stay reachable via the
@@ -1167,19 +1142,21 @@ export function MasterSearchHeader({
     const showFooterSearchChips = usesFooterChipLayout && !usesCompactMobileBottomStyle;
     // The visible footer/hero composer chrome is universal; submit semantics still
     // come from the active mode.
+=======
+    // Sticky-top result composers (tablet+) share the footer chip layout so the
+    // pill + chip row looks identical across homes, results, and the answer dock.
+    const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer || usesMobileBottomStyle;
+    // Keep footer suggestion chips on tablet/desktop; phones reach the same actions via "+".
+    const showFooterSearchChips = usesFooterChipLayout && !usesPhoneSearchLayout;
+>>>>>>> origin/main
     const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;
     const usesModeIdentityAffordance = usesBottomComposerPlacement && !usesSendAffordance;
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
-    const trustFooterChip = footerTrustChipFor(searchMode);
-    const secondaryFooterChip = footerSecondaryChipFor(searchMode);
-    // Fallback icons here are never rendered — both are only used inside a JSX guard
-    // on the corresponding chip being non-null — but keep the icon variables typed as
-    // components (not `| null`) so the JSX below type-checks without a cast.
-    const TrustFooterChipIcon = trustFooterChip?.icon ?? BadgeCheck;
-    const SecondaryFooterChipIcon = secondaryFooterChip?.icon ?? ListChecks;
-    const composerPlaceholder =
-      usesMobileBottomStyle && searchMode === "differentials" ? "Search a presentation" : queryPlaceholder;
+    const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
+    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
+
+    const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
 
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
 
@@ -1191,13 +1168,19 @@ export function MasterSearchHeader({
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
         data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
         data-command-open={usesBottomComposerPlacement && commandDropdownOpen ? "true" : undefined}
+<<<<<<< HEAD
+=======
+        data-scroll-hidden={shouldHideBottomOnScroll && bottomComposerHidden ? "true" : undefined}
+        {...(shouldHideBottomOnScroll ? composerFocusProps : undefined)}
+>>>>>>> origin/main
         className={cn(
           isDesktopHomeComposer
             ? "universal-home-search-edge mx-auto w-full"
             : usesAnswerFooterStyle
-              ? "floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto max-w-3xl lg:max-w-4xl"
+              ? "floating-composer-edge dashboard-composer-edge z-40 mx-auto max-w-3xl max-sm:fixed max-sm:bottom-0 sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))] sm:z-20 lg:fixed lg:bottom-0 lg:top-auto lg:max-w-4xl"
               : usesMobileBottomStyle
                 ? cn(
+<<<<<<< HEAD
                     usesPhoneFooterDock
                       ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
                       : cn(
@@ -1209,12 +1192,22 @@ export function MasterSearchHeader({
                           // below sm. Other homes keep a sticky bar until the portal lifts it.
                           isHeroDesktopComposer ? "sm:hidden" : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
                         ),
+=======
+                    "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                    isHeroDesktopComposer ? "sm:hidden" : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+>>>>>>> origin/main
                   )
                 : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
+<<<<<<< HEAD
           usesFooterChipLayout && "flex flex-col items-center gap-2.5",
+=======
+          showFooterSearchChips && "flex flex-col items-center gap-2.5",
+          shouldHideBottomOnScroll &&
+            "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
+>>>>>>> origin/main
         )}
       >
         {usesBottomComposerPlacement ? <div className="answer-footer-search-backdrop" aria-hidden="true" /> : null}
@@ -1222,6 +1215,7 @@ export function MasterSearchHeader({
           <div
             id={mobileBottomSearchAddonSlotId}
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
+<<<<<<< HEAD
           />
         ) : null}
         <UniversalSearchCommandSurface
@@ -1289,11 +1283,98 @@ export function MasterSearchHeader({
             onPlacementChange={setActionMenuPlacement}
             triggerClassName="answer-footer-search-action"
             integrated={usesFooterChipLayout}
+=======
+>>>>>>> origin/main
           />
+        ) : null}
+        {usesPhoneFooterDock &&
+        searchMode === "answer" &&
+        composerFollowUpSuggestions?.length &&
+        onPickComposerFollowUpSuggestion ? (
+          <AnswerFollowUpSuggestions
+            suggestions={composerFollowUpSuggestions}
+            onPick={onPickComposerFollowUpSuggestion}
+            disabled={composerFollowUpSuggestionsDisabled}
+            testId="answer-composer-follow-up-suggestions"
+            layout="scroll"
+            className="answer-suggestion-row-composer-followups relative z-10 w-full sm:hidden"
+          />
+        ) : null}
+        <UniversalSearchCommandSurface
+          modeId={searchMode}
+          query={query}
+          recentQueries={recentQueries}
+          commandScopes={commandScopes}
+          placement={commandSurfacePlacement}
+          dropdownOpen={commandDropdownOpen}
+          onDropdownOpenChange={setCommandDropdownOpen}
+          onQueryChange={onQueryChange}
+          onSearch={onAsk}
+          onPickRecent={(recent) => {
+            onQueryChange(recent);
+            if (onPickRecent) {
+              onPickRecent(recent);
+              return;
+            }
+            onAsk();
+          }}
+          onCrossMode={(targetMode, crossQuery) => {
+            if (onCrossModeSearch) {
+              onCrossModeSearch(targetMode, crossQuery);
+              return;
+            }
+            onQueryChange(crossQuery);
+            onSearchModeChange(targetMode);
+            onAsk();
+          }}
+          onRunModeAction={runModeAction}
+          onCommandScopesChange={(scopes) => onCommandScopesChange?.(scopes)}
+          onListboxIdReady={setCommandListboxId}
+          onFocusSearchInput={() => {
+            if (queryInputRef && "current" in queryInputRef) {
+              queryInputRef.current?.focus();
+            }
+          }}
+        >
+          <div
+            data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
+            className={cn(
+              chatComposerShellBase,
+              "answer-footer-search-pill relative z-10 w-full",
+              actionMenuOpen && "answer-footer-search-pill-open",
+              commandDropdownOpen && "answer-footer-search-pill-open",
+            )}
+          >
+            <ModeActionPopup
+              open={actionMenuOpen}
+              title={actionMenuTitle}
+              titleIcon={SelectedAppModeIcon}
+              subtitle={actionMenuSubtitle}
+              buttonLabel={actionMenuButtonLabel}
+              items={actionMenuItems}
+              modeOptions={actionMenuModeOptions}
+              selectedModeId={selectedAppMode.id}
+              onOpenChange={setActionMenuOpen}
+              onBeforeOpen={() => {
+                setUsesScopeSheet(currentUsesScopeSheet());
+                setModeMenuOpen(false);
+                setScopeOpen(false);
+              }}
+              onAction={runModeAction}
+              onModeSelect={selectAppModeById}
+              onPlacementChange={setActionMenuPlacement}
+              triggerClassName="answer-footer-search-action"
+              triggerRef={actionMenuTriggerRef}
+              integrated={usesFooterChipLayout}
+              integratedChipRow={showFooterSearchChips}
+              useSheet={usesScopeSheet}
+              dismissIgnoreRefs={[modeMenuRef]}
+            />
 
-          {/* The clear button is a flex sibling (not absolutely positioned): the
+            {/* The clear button is a flex sibling (not absolutely positioned): the
               unlayered .answer-footer-search-input padding beats a conditional
               pr-* utility, which let text run under an overlaid button. */}
+<<<<<<< HEAD
           <label className="flex min-w-0 flex-1 items-center overflow-hidden">
             <input
               ref={queryInputRef}
@@ -1392,12 +1473,71 @@ export function MasterSearchHeader({
                 <span className="hidden sm:inline">{secondaryFooterChip.longLabel}</span>
               </button>
             ) : null}
+=======
+            <label className="flex min-w-0 flex-1 items-center overflow-hidden">
+              <input
+                ref={queryInputRef}
+                data-testid="global-search-input"
+                autoFocus={queryInputAutoFocus}
+                value={query}
+                enterKeyHint="search"
+                inputMode="search"
+                role="combobox"
+                aria-expanded={commandDropdownOpen}
+                aria-controls={commandDropdownOpen ? commandListboxId : undefined}
+                aria-autocomplete="list"
+                // React's onChange already fires on every input event; a duplicate
+                // onInput called onQueryChange twice per keystroke, doubling the
+                // controlled-state work on a large parent tree.
+                onChange={(event) => onQueryChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
+                }}
+                aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
+                placeholder={queryPlaceholder}
+                className={cn(chatComposerInput, "w-full min-w-0", "answer-footer-search-input")}
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={onClearQuery}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                  aria-label="Clear search question"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </label>
+            <span className="answer-footer-search-divider" aria-hidden="true" />
+            <button
+              type="submit"
+              disabled={!canAsk}
+              title={
+                !realDataReady && !canRunLocalSearch
+                  ? "Search setup not ready"
+                  : trimmedQuery.length < 1
+                    ? selectedSearch.emptyTitle
+                    : selectedSearch.readyTitle
+              }
+              className={cn(chatSendButton, "answer-footer-search-send")}
+              aria-label={selectedSearch.submitAriaLabel}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : usesSendAffordance ? (
+                <Send className="h-4 w-4" />
+              ) : usesModeIdentityAffordance ? (
+                <ModeIdentityIcon className="h-4.5 w-4.5" />
+              ) : (
+                <Search className="h-4.5 w-4.5" />
+              )}
+              <span className="sr-only">{submitLabel}</span>
+            </button>
+>>>>>>> origin/main
           </div>
-        ) : null}
-        {/* Rendered as a sibling of the chip row (not nested inside it) so the "+"
-            menu's "Set scope" action still opens this popover on screens where the
-            chip row itself is hidden (documents/forms desktop widths) — the popover
-            still anchors correctly since the form stays position:fixed/sticky there. */}
+        </UniversalSearchCommandSurface>
+        {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
+            open it even when the footer chip row is not shown. */}
         {hasScopeFooterChip && !usesScopeSheet && scopeOpen ? (
           <div
             ref={scopePopoverRef}
@@ -1417,6 +1557,7 @@ export function MasterSearchHeader({
           description="Choose documents and filters for the next search."
           closeLabel="Close document scope"
           initialFocusRef={scopeFilterInputRef}
+          returnFocusRef={actionMenuTriggerRef}
           headerLeading={
             <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <Filter className="h-5 w-5" aria-hidden="true" />
@@ -1462,18 +1603,41 @@ export function MasterSearchHeader({
         },
       }
     : undefined;
+<<<<<<< HEAD
+=======
+  const composerFocusProps = hideOnScroll
+    ? {
+        onFocusCapture: () => setComposerChromeFocused(true),
+        onBlurCapture: (event: ReactFocusEvent<HTMLElement>) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
+        },
+      }
+    : undefined;
+>>>>>>> origin/main
 
   const headerAndComposer = (
     <>
       <header
         id="search"
         className={cn(
+<<<<<<< HEAD
           "edge-glass-header universal-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl",
           // Overlay hide-on-scroll (phones): the header is sticky over document
           // scroll, so a plain translate reveals the content already flowing
           // beneath it with zero layout shift. No transform is applied while
           // visible so the fixed-position mobile mode menu keeps the viewport
           // as its containing block.
+=======
+          "edge-glass-header universal-header z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl",
+          // Collapse hosts keep the header above an internally scrolling <main>, so
+          // sticky is unnecessary on phones and fights the 0fr grid collapse by
+          // pinning the bar inside the viewport. Overlay hosts need sticky so the
+          // header rides document scroll and can translate away with zero layout shift.
+          hideStrategy === "collapse" ? "max-sm:relative sm:sticky sm:top-0" : "sticky top-0",
+          // Overlay hide-on-scroll (phones): a plain translate reveals the content
+          // already flowing beneath it. No transform is applied while visible so
+          // the fixed-position mobile mode menu keeps the viewport as its containing block.
+>>>>>>> origin/main
           hideStrategy === "overlay" &&
             "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
           hideStrategy === "overlay" && headerChromeHidden && "max-sm:-translate-y-full",
@@ -1521,7 +1685,7 @@ export function MasterSearchHeader({
 
           <div
             ref={modeMenuRef}
-            className={cn("relative z-40 min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
+            className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
           >
             <button
               ref={modeButtonRef}
@@ -1657,7 +1821,11 @@ export function MasterSearchHeader({
 
       {searchComposerVisible ? (
         <>
-          {desktopHomeComposerActive && desktopHomeComposerHost ? null : renderSearchComposer("default")}
+          {desktopHomeComposerActive && desktopHomeComposerHost
+            ? null
+            : desktopHomeComposerSlotId
+              ? null
+              : renderSearchComposer("default")}
           {desktopHomeComposerActive && desktopHomeComposerHost
             ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
             : null}
@@ -1676,6 +1844,11 @@ export function MasterSearchHeader({
     // never carries a transform, and everything is inert from sm up.
     return (
       <div
+<<<<<<< HEAD
+=======
+        data-scroll-hidden={headerChromeHidden ? "true" : undefined}
+        data-testid="universal-header-collapse"
+>>>>>>> origin/main
         className={cn(
           "max-sm:grid max-sm:transition-[grid-template-rows] max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
           headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",

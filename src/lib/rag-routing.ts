@@ -14,6 +14,11 @@ export type AnswerRoute = {
 const unsupportedSimilarityThreshold = 0.32;
 const strongRetrievalThreshold = 0.64;
 const extractiveRetrievalThreshold = 0.76;
+// Gates weak-search telemetry (rag_query_misses logging + retrieval diagnostics), not answer
+// routing. It deliberately sits between unsupportedSimilarityThreshold (0.32) and
+// strongRetrievalThreshold (0.64): a top score below it means retrieval "worked" but was too
+// weak to trust, which is the miss signal alias curation feeds on.
+export const weakRetrievalTopScoreThreshold = 0.48;
 const complexClinicalQueryPattern =
   /\b(compare|compared|versus|vs|conflict|gap|contraindicat\w*|interaction\w*|side effect\w*|adverse|suicid\w*|toxicity|myocarditis|neutropenia|anc|fbc|urgent|escalat\w*|withhold|cease|stop|dose|dosing|prescrib\w*)\b/i;
 const strongClinicalEscalationPattern =
@@ -593,4 +598,8 @@ export function shouldRetryWithStrongAfterFast(args: {
   if (args.answer.routingReason === "structured_parse_fallback") return solidSourceSupport;
   if (args.route.reason === "clinical_fast_grounded_synthesis") return solidSourceSupport;
   return solidSourceSupport && args.results.length >= 2;
+}
+
+export function appendRoutingReason(reason: string | undefined, addition: string) {
+  return reason ? `${reason}; ${addition}` : addition;
 }

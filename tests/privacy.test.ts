@@ -146,3 +146,31 @@ describe("query privacy storage helpers", () => {
     expect(queryDerivedTokensForStorage(["clozapine"])).toEqual(["clozapine"]);
   });
 });
+
+describe("queryVocabularyAliasesForStorage (RET-H4-safe candidate aliases)", () => {
+  it("returns only curated vocabulary canonicals matched by the query, never query text", async () => {
+    vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: false } }));
+    const { queryVocabularyAliasesForStorage } = await import("../src/lib/query-privacy");
+    const { clinicalVocabularyEntries } = await import("../src/lib/clinical-vocabulary");
+    const canonicals = new Set(clinicalVocabularyEntries().map((entry) => entry.canonical));
+
+    // A query mixing a patient-identifying name with clinical vocabulary must only ever emit
+    // the curated canonical — the name cannot appear because output strings come from the
+    // fixed vocabulary table, not from the query.
+    const aliases = queryVocabularyAliasesForStorage("John Citizen ANC threshold for depot");
+    expect(aliases.length).toBeGreaterThan(0);
+    for (const alias of aliases) {
+      expect(canonicals.has(alias)).toBe(true);
+      expect(alias.toLowerCase()).not.toContain("john");
+      expect(alias.toLowerCase()).not.toContain("citizen");
+    }
+    expect(aliases).toContain("absolute neutrophil count");
+    expect(aliases).toContain("long acting injectable");
+  });
+
+  it("returns nothing for queries with no vocabulary match", async () => {
+    vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: false } }));
+    const { queryVocabularyAliasesForStorage } = await import("../src/lib/query-privacy");
+    expect(queryVocabularyAliasesForStorage("John Citizen follow up appointment")).toEqual([]);
+  });
+});

@@ -7,12 +7,16 @@ import { DocumentOrganizationBadges, documentDisplayTitle } from "@/components/D
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+<<<<<<< HEAD
 import {
   cn,
   floatingControl,
   sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
+=======
+import { cn, floatingControl, sourceCard, textMuted } from "@/components/ui-primitives";
+>>>>>>> origin/main
 import { type SmartDocumentTag } from "@/lib/document-tags";
 import type { RelatedDocument } from "@/lib/types";
 
@@ -62,7 +66,7 @@ export function RelatedDocumentsPanel({
               </button>
             </div>
             {document.summary && (
-              <p className={cn("mt-2 text-[15px] leading-6", textMuted)}>
+              <p className={cn("mt-2 text-base-minus leading-6", textMuted)}>
                 <SafeBoldText text={document.summary} />
               </p>
             )}

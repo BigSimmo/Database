@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { env, isDemoMode } from "@/lib/env";
 import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
@@ -50,6 +49,10 @@ let supabaseOutageDetail: string | null = null;
 
 function check(id: SetupCheckId, label: string, status: SetupCheckStatus, detail: string): SetupCheck {
   return { id, label, status, detail };
+}
+
+function projectSetupCheckStatus(status: ReturnType<typeof checkSupabaseProjectConfig>["status"]) {
+  return status === "ready" || status === "warning" ? "ready" : "needs_setup";
 }
 
 async function readSupabaseAvailability(supabase: AdminClient | null) {
@@ -297,7 +300,7 @@ async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
       check(
         "project",
         "Clinical KB Database target",
-        supabaseProjectCheck.status === "ready" ? "ready" : "needs_setup",
+        projectSetupCheckStatus(supabaseProjectCheck.status),
         formatSupabaseProjectCheck(supabaseProjectCheck),
       ),
       check(
@@ -354,7 +357,7 @@ async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
     check(
       "project",
       "Clinical KB Database target",
-      supabaseProjectCheck.status === "ready" ? "ready" : "needs_setup",
+      projectSetupCheckStatus(supabaseProjectCheck.status),
       formatSupabaseProjectCheck(supabaseProjectCheck),
     ),
     schema,
@@ -409,27 +412,11 @@ async function readSetupStatusPayload() {
   }
 }
 
-async function requireProductionSetupStatusAuth(request: Request) {
-  const identity = localProjectRequestIdentityPayload(request);
-  if (process.env.NODE_ENV !== "production" || identity.localServer.currentUrl) {
-    return identity;
-  }
-  await requireAuthenticatedUser(request, createAdminClient());
-  return identity;
-}
-
 export async function GET(request: Request) {
-  try {
-    const identity = await requireProductionSetupStatusAuth(request);
-    if (!identity.localServer.safeLocalOrigin) {
-      return unsafeLocalProjectResponse(identity);
-    }
-
-    return setupStatusResponse(await readSetupStatusPayload());
-  } catch (error) {
-    if (error instanceof AuthenticationError) {
-      return unauthorizedResponse(error);
-    }
-    throw error;
+  const identity = localProjectRequestIdentityPayload(request);
+  if (!identity.localServer.safeLocalOrigin) {
+    return unsafeLocalProjectResponse(identity);
   }
+
+  return setupStatusResponse(await readSetupStatusPayload());
 }

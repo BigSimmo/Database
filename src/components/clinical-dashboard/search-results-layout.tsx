@@ -41,18 +41,26 @@ export function SearchResultsLayout({
   const hasSidebar = Boolean(sidebar);
 
   return (
+<<<<<<< HEAD
     <main
       data-testid={testId}
       className={cn(searchPageShell, canvasClassName ?? searchPageCanvas, className)}
     >
+=======
+    <main data-testid={testId} className={cn(searchPageShell, canvasClassName ?? searchPageCanvas, className)}>
+>>>>>>> origin/main
       <div className={cn(searchPageContainer, "grid gap-4")}>
         {header}
         {summary}
         <div className={cn(searchResultsBodyGrid, !hasSidebar && "xl:grid-cols-1")}>
+<<<<<<< HEAD
           <section
             className={cn(searchResultsMainColumn, "space-y-4", mainClassName)}
             aria-label={resultsLabel}
           >
+=======
+          <section className={cn(searchResultsMainColumn, "space-y-4", mainClassName)} aria-label={resultsLabel}>
+>>>>>>> origin/main
             {children}
             {footer}
           </section>

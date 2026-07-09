@@ -31,12 +31,14 @@ function readCookies(cookieHeader: string | null): Map<string, string> {
   return cookies;
 }
 
-function extractSessionAccessToken(request: Request): string | null {
+function extractBearerAccessToken(request: Request): string | null {
   const authorization = request.headers.get("authorization") ?? "";
   const match = authorization.match(/^Bearer\s+(.+)$/i);
   const headerToken = match?.[1]?.trim();
-  if (headerToken) return headerToken;
+  return headerToken || null;
+}
 
+function extractCookieSessionAccessToken(request: Request): string | null {
   const cookies = readCookies(request.headers.get("cookie"));
   const legacyAccessToken = cookies.get("sb-access-token")?.trim();
   if (legacyAccessToken) return legacyAccessToken;
@@ -57,6 +59,16 @@ function extractSessionAccessToken(request: Request): string | null {
   return null;
 }
 
+function extractSessionAccessToken(request: Request): string | null {
+  return extractBearerAccessToken(request) ?? extractCookieSessionAccessToken(request);
+}
+
+async function getUserFromAccessToken(supabase: AdminClient, token: string): Promise<AuthenticatedUser | null> {
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user?.id) return null;
+  return { id: data.user.id };
+}
+
 export class AuthenticationError extends Error {
   constructor(message = "Authentication required.") {
     super(message);
@@ -72,7 +84,7 @@ export function unauthorizedResponse(error?: AuthenticationError) {
 /**
  * Resolve the user from the `@supabase/ssr` cookie session. The
  * `sb-<ref>-auth-token` cookie it writes is base64-encoded (and chunked when
- * large), which `extractSessionAccessToken`'s plain-JSON parser cannot read, so
+ * large), which `extractCookieSessionAccessToken`'s plain-JSON parser cannot read, so
  * this uses the ssr server client to decode + validate it. Returns null when
  * the public env is absent or no `sb-` cookie is present.
  */
@@ -102,22 +114,28 @@ async function getUserFromRequestCookies(request: Request): Promise<Authenticate
   return { id: data.user.id };
 }
 
+async function resolveOptionalAuthenticatedUser(
+  request: Request,
+  supabase: AdminClient,
+): Promise<AuthenticatedUser | null> {
+  const bearerToken = extractBearerAccessToken(request);
+  if (bearerToken) {
+    const bearerUser = await getUserFromAccessToken(supabase, bearerToken);
+    if (bearerUser) return bearerUser;
+  }
+
+  const cookieToken = extractCookieSessionAccessToken(request);
+  if (cookieToken && cookieToken !== bearerToken) {
+    const cookieTokenUser = await getUserFromAccessToken(supabase, cookieToken);
+    if (cookieTokenUser) return cookieTokenUser;
+  }
+
+  return getUserFromRequestCookies(request);
+}
+
 export async function requireAuthenticatedUser(request: Request, supabase: AdminClient): Promise<AuthenticatedUser> {
-  // 1. Bearer token / legacy cookie (programmatic callers + current clients).
-  const token = extractSessionAccessToken(request);
-  if (token) {
-    const { data, error } = await supabase.auth.getUser(token);
-    if (!error && data.user?.id) {
-      return { id: data.user.id };
-    }
-  }
-
-  // 2. @supabase/ssr cookie session (persistent cookie logins).
-  const cookieUser = await getUserFromRequestCookies(request);
-  if (cookieUser) {
-    return cookieUser;
-  }
-
+  const user = await resolveOptionalAuthenticatedUser(request, supabase);
+  if (user) return user;
   throw new AuthenticationError();
 }
 
@@ -125,6 +143,7 @@ export async function getOptionalAuthenticatedUser(
   request: Request,
   supabase: AdminClient,
 ): Promise<AuthenticatedUser | null> {
+<<<<<<< HEAD
   const token = extractSessionAccessToken(request);
   if (token) {
     const { data, error } = await supabase.auth.getUser(token);
@@ -136,3 +155,10 @@ export async function getOptionalAuthenticatedUser(
 
   return getUserFromRequestCookies(request);
 }
+=======
+  return resolveOptionalAuthenticatedUser(request, supabase);
+}
+
+// Retained for callers that only need a single token string.
+export { extractSessionAccessToken };
+>>>>>>> origin/main

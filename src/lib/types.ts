@@ -302,6 +302,11 @@ export type SearchResult = {
   retrieval_synopsis?: string | null;
   image_ids: string[];
   similarity: number;
+  // RC9 observability: "synthetic_text" marks a `similarity` fabricated from lexical/structural
+  // signals (document-lookup, memory-card, table-facts fast paths) rather than a real cosine.
+  // Coverage/threshold gates are calibrated for cosine values; this tag lets telemetry measure
+  // how often synthetic scores cross those gates before any recalibration.
+  similarity_origin?: "cosine" | "synthetic_text";
   text_rank?: number;
   hybrid_score?: number;
   // Lexical/keyword relevance (0-1) for text-only fallback rows. This is NOT a
@@ -407,6 +412,10 @@ export type SearchScoreExplanation = {
   rawPenalty?: number;
   finalScore: number;
   finalRank?: number;
+  // Pre-clamp boost sum: finalScore saturates at 1.0 for heavily-boosted results, so this
+  // carries the discrimination the clamp discards. Used only as a deep tiebreak — it must
+  // never reorder results above finalScore.
+  preClampFinalScore?: number;
   strategy: "weighted_hybrid" | "weighted_hybrid_rrf_blend";
 };
 
@@ -626,6 +635,12 @@ export type ClinicalQueryIntent =
   | "broad_summary"
   | "general";
 
+// Finding #11 corpus grounding: how the corpus classified an unsupported-soft-tail query.
+// "in_corpus_topic" deterministically reclassifies to broad_summary; "out_of_corpus" skips the
+// LLM classifier so the soft-tail refusal is deterministic; "inconclusive" keeps legacy
+// behaviour (LLM classifier fallback). Absent = the query never entered the soft tail.
+export type CorpusGroundingVerdict = "in_corpus_topic" | "out_of_corpus" | "inconclusive";
+
 export type ClinicalQueryAnalysis = {
   originalQuery: string;
   normalizedQuery: string;
@@ -633,6 +648,7 @@ export type ClinicalQueryAnalysis = {
   intent: ClinicalQueryIntent;
   confidence: number;
   reasons: string[];
+  corpusGrounding?: CorpusGroundingVerdict;
   canonicalTerms: string[];
   expandedTerms: string[];
   typoCorrections: Array<{ from: string; to: string }>;

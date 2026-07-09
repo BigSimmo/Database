@@ -149,7 +149,7 @@ describe("OpenAI query embedding cache", () => {
       model: "gpt-5.5",
       max_output_tokens: 200,
       store: false,
-      prompt_cache_key: "clinical-rag-answer-v17",
+      prompt_cache_key: "clinical-rag-answer-v18",
       prompt_cache_retention: "24h",
       metadata: { operation: "answer" },
       reasoning: { effort: "high" },

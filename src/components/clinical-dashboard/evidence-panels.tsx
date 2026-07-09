@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type RefObject, useState } from "react";
+import { type RefObject, useId, useState } from "react";
 import {
   Activity,
   AlertCircle,
@@ -50,12 +50,10 @@ import {
   cn,
   codeText,
   EmptyState,
-  evidenceSurface,
   iconTilePremium,
   metadataPill,
   panelSubtle,
   proseMeasure,
-  raisedCard,
   sourceCard,
   subtleStatusPill,
   tableMicroActionRow,
@@ -68,13 +66,20 @@ import {
 } from "@/components/ui-primitives";
 import { type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
+<<<<<<< HEAD
 import { extractSafetyFindings, formatSafetyFindingLabel, sortSafetyFindingsBySeverity, type SafetyFinding, type SafetyFindingKind } from "@/lib/clinical-safety";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
+=======
+>>>>>>> origin/main
 import {
-  normalizeExtractedGlyphs,
-  sourceTextForCompactDisplay,
-  sourceTextForVerbatimQuote,
-} from "@/lib/source-text-sanitizer";
+  extractSafetyFindings,
+  formatSafetyFindingLabel,
+  sortSafetyFindingsBySeverity,
+  type SafetyFinding,
+  type SafetyFindingKind,
+} from "@/lib/clinical-safety";
+import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
+import { normalizeExtractedGlyphs, sourceTextForVerbatimQuote } from "@/lib/source-text-sanitizer";
 import type {
   AnswerSection,
   BestSourceRecommendation,
@@ -184,10 +189,14 @@ export function AnswerSupportSummaryCard({
             data-testid="answer-safety-findings-trigger"
             type="button"
             onClick={onOpenSafetyFindings}
+<<<<<<< HEAD
             className={cn(
               supportButtonClass,
               "w-full border-t-2 border-t-[color:var(--warning)]",
             )}
+=======
+            className={cn(supportButtonClass, "w-full border-t-2 border-t-[color:var(--warning)]")}
+>>>>>>> origin/main
             aria-label="Open safety-critical source findings"
           >
             <span
@@ -228,7 +237,11 @@ export function AnswerSupportSummaryCard({
               <p className={cn("mt-0.5 line-clamp-1 text-xs leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
             </div>
             {priority.sourceLabel ? (
+<<<<<<< HEAD
               <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-[11px]")}>{priority.sourceLabel}</span>
+=======
+              <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-2xs")}>{priority.sourceLabel}</span>
+>>>>>>> origin/main
             ) : null}
           </div>
         )
@@ -730,6 +743,9 @@ export function ClinicalNotesChecklistPanel({
   const tabs = clinicalNotesAvailableTabs(detailSections);
   const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
   const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(defaultTab);
+  const tabBaseId = useId();
+  const tabButtonId = (id: ClinicalNotesTabId) => `${tabBaseId}-tab-${id}`;
+  const notesPanelId = `${tabBaseId}-panel`;
   const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : defaultTab;
   const rows = clinicalNotesRowsForTab(detailSections, activeTab, sourceLinks, bestSource);
   const tableEvidenceCount = clinicalNotesTableEvidenceCount(answer);
@@ -764,7 +780,14 @@ export function ClinicalNotesChecklistPanel({
                   key={tab.id}
                   type="button"
                   role="tab"
+<<<<<<< HEAD
                   aria-selected={selected}
+=======
+                  id={tabButtonId(tab.id)}
+                  aria-selected={selected}
+                  aria-controls={notesPanelId}
+                  tabIndex={selected ? 0 : -1}
+>>>>>>> origin/main
                   aria-label={`${tab.label} (${tab.count})`}
                   onClick={() => setRequestedTab(tab.id)}
                   className={cn(
@@ -777,7 +800,11 @@ export function ClinicalNotesChecklistPanel({
                   <span className="truncate">{tab.label}</span>
                   <span
                     className={cn(
+<<<<<<< HEAD
                       "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px]",
+=======
+                      "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-3xs",
+>>>>>>> origin/main
                       selected
                         ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)]"
                         : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
@@ -806,6 +833,12 @@ export function ClinicalNotesChecklistPanel({
       ) : null}
 
       <div
+<<<<<<< HEAD
+=======
+        id={showTabStrip ? notesPanelId : undefined}
+        role={showTabStrip ? "tabpanel" : undefined}
+        aria-labelledby={showTabStrip ? tabButtonId(activeTab) : undefined}
+>>>>>>> origin/main
         className={cn(
           "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
           showTabStrip || (tableEvidenceCount > 0 && onOpenTables) ? "mt-3" : "mt-0",
@@ -832,7 +865,11 @@ export function ClinicalNotesChecklistPanel({
                     {row.title}
                   </p>
                   {!isWarnRow ? (
+<<<<<<< HEAD
                     <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", toneSuccess)}>
+=======
+                    <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", toneSuccess)}>
+>>>>>>> origin/main
                       {activeTab === "actions" ? "Action" : "Source"}
                     </span>
                   ) : null}
@@ -843,9 +880,15 @@ export function ClinicalNotesChecklistPanel({
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {isWarnRow ? (
+<<<<<<< HEAD
                   <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", toneWarning)}>Review</span>
                 ) : (
                   <span className="nums grid h-6 min-w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+=======
+                  <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", toneWarning)}>Review</span>
+                ) : (
+                  <span className="nums grid h-6 min-w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-2xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
+>>>>>>> origin/main
                     S{row.sourceIndex}
                   </span>
                 )}
@@ -894,13 +937,13 @@ export function ClinicalNotesChecklistPanel({
           {bestSource ? (
             <Link
               href={bestSource.viewer_href}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]">
               <ExternalLink className="h-3.5 w-3.5" />
               Source
             </span>
@@ -908,7 +951,7 @@ export function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={onCopy}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--text)]"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text)]"
           >
             <Copy className="h-3.5 w-3.5" />
             {copied ? "Copied" : "Copy"}
@@ -916,7 +959,7 @@ export function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={() => setAdded(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-[11px] font-semibold text-[color:var(--primary)]"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
           >
             <Plus className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
@@ -967,7 +1010,11 @@ export function SafetyFindingsListContent({ findings }: { findings: SafetyFindin
           </span>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
+<<<<<<< HEAD
               <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", safetyFindingKindTone(finding.kind))}>
+=======
+              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", safetyFindingKindTone(finding.kind))}>
+>>>>>>> origin/main
                 {finding.label}
               </span>
               <Link
@@ -1132,7 +1179,7 @@ export function AnswerFeedbackPanel({
           </p>
         </div>
         {pending ? (
-          <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
+          <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Saving
           </span>
@@ -1321,22 +1368,9 @@ function compactEvidenceCell(value: string | null | undefined, max = 140) {
   return text.length > max ? `${text.slice(0, max - 1).trim()}…` : text;
 }
 
-export function evidenceMapRowsFromRenderModel(renderModel: AnswerRenderModel): AnswerEvidenceMapRow[] {
-  return renderModel.evidenceRows.map((row, index) => ({
-    id: row.id || `${row.source.chunk_id}:${index}`,
-    section: row.section || "Source evidence",
-    detail:
-      sourceTextForCompactDisplay(row.quote || row.source.snippet || row.source.reason || "") ||
-      cleanDisplayTitle(row.source.title),
-    supportLevel: row.supportLevel || row.source.sourceStrength,
-    citationCount: 1,
-    sourceStatus:
-      row.source.sourceStrength === "none" ? "Source requires review" : `${row.source.sourceStrength} source support`,
-    bestSourceLabel: row.source.label,
-    bestLinkedPassage: row.quote || row.source.snippet || row.source.reason,
-    href: row.source.href,
-  }));
-}
+// Moved to a light module so the dashboard can import it without pulling this heavy component
+// tree into the initial bundle; re-exported here to keep evidence-panels' public API stable.
+export { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 
 export function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
   if (rows.length === 0) {
@@ -1415,12 +1449,20 @@ export function AnswerSafetyNotice({
           : "Draft only; verify source first before pasting into the medical record."}
       </p>
       {retrievalGateBlocked ? (
+<<<<<<< HEAD
         <p className="mt-1 text-[11px] text-[color:var(--warning)]">
+=======
+        <p className="mt-1 text-2xs text-[color:var(--warning)]">
+>>>>>>> origin/main
           Retrieval confidence gate was triggered. Expand evidence details before using this result.
         </p>
       ) : null}
       {demoMode ? (
+<<<<<<< HEAD
         <p className="mt-1 text-[11px] font-semibold text-[color:var(--warning)]">
+=======
+        <p className="mt-1 text-2xs font-semibold text-[color:var(--warning)]">
+>>>>>>> origin/main
           Synthetic demo only: this is not clinical guidance.
         </p>
       ) : null}
@@ -1470,7 +1512,9 @@ export function QuoteCards({
                   </span>
                   <StrengthBadge strength={quote.source_strength} />
                 </div>
-                <blockquote className={cn(proseMeasure, "text-[15px] font-medium leading-6 text-[color:var(--text)]")}>
+                <blockquote
+                  className={cn(proseMeasure, "text-base-minus font-medium leading-6 text-[color:var(--text)]")}
+                >
                   &ldquo;{quoteText}&rdquo;
                 </blockquote>
                 <div
@@ -1479,7 +1523,7 @@ export function QuoteCards({
                     clinicalDivider,
                   )}
                 >
-                  <span className="max-w-full text-[15px] font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
+                  <span className="max-w-full text-base-minus font-semibold leading-6 text-[color:var(--primary)] sm:hidden">
                     {formatCompactCitationLabel(quote)}
                   </span>
                   <span className="hidden max-w-full text-xs font-semibold leading-5 text-[color:var(--primary)] sm:inline">

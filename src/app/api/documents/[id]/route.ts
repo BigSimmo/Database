@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { z } from "zod";
+import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { getDemoDocumentPayload } from "@/lib/demo-data";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
+import { buildStorageCleanupJobUpdate } from "@/lib/ingestion";
 import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
 import { writeAuditLog } from "@/lib/audit";
 import { parseJsonBody } from "@/lib/validation/body";
 import { parseRouteParams } from "@/lib/validation/params";
@@ -204,20 +207,21 @@ async function updateStorageCleanupJob(args: {
   status: "completed" | "failed";
   storageRemoved: number;
   warnings: string[];
+  // Audit R11: set on every DELETE abort path so the ledger row's storage paths
+  // are cleared — the document survives the abort, so the janitor must never see
+  // its live paths queued for removal.
+  aborted?: boolean;
 }) {
   const { error } = await args.supabase
     .from("storage_cleanup_jobs")
-    .update({
-      status: args.status,
-      attempts: 1,
-      storage_removed: args.storageRemoved,
-      last_error: args.warnings.length ? args.warnings.join("; ") : null,
-      completed_at: args.status === "completed" ? new Date().toISOString() : null,
-      metadata: {
-        operation: "permanent_document_delete",
-        storage_warnings: args.warnings,
-      },
-    })
+    .update(
+      buildStorageCleanupJobUpdate({
+        status: args.status,
+        storageRemoved: args.storageRemoved,
+        warnings: args.warnings,
+        aborted: args.aborted,
+      }),
+    )
     .eq("id", args.cleanupJobId);
 
   return error ? storageWarningsFrom(error, "Cleanup ledger") : null;
@@ -280,13 +284,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const { id } = parseRouteParams({ id: rawId }, documentRouteParamsSchema, "Invalid document id.");
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
-    const { data: document, error } = await supabase
-      .from("documents")
-      .select("*")
-      .eq("id", id)
-      .eq("owner_id", user.id)
-      .maybeSingle();
+    const { access, rateLimit } = await enforceDocumentReadRateLimit(request, supabase);
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
+    }
+    const { data: document, error } = await withOwnerReadScope(
+      supabase.from("documents").select("*").eq("id", id),
+      access.ownerId,
+    ).maybeSingle();
 
     if (error) throw new Error(error.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
@@ -503,12 +508,16 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     // job (status "pending") racing this DELETE let the worker upload a new
     // generation of image objects after the storage paths were enumerated,
     // orphaning them permanently.
-    const { data: activeJobs, error: activeJobsError } = await supabase
-      .from("ingestion_jobs")
-      .select("id,status")
-      .eq("document_id", id)
-      .in("status", ["pending", "processing"])
-      .limit(1);
+    async function loadActiveJobs() {
+      return supabase
+        .from("ingestion_jobs")
+        .select("id,status")
+        .eq("document_id", id)
+        .in("status", ["pending", "processing"])
+        .limit(1);
+    }
+
+    const { data: activeJobs, error: activeJobsError } = await loadActiveJobs();
 
     if (activeJobsError) throw new Error(activeJobsError.message);
     if ((activeJobs ?? []).length > 0) {
@@ -544,6 +553,22 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       imagePaths,
     });
 
+    const { data: lateActiveJobs, error: lateActiveJobsError } = await loadActiveJobs();
+    if (lateActiveJobsError) throw new Error(lateActiveJobsError.message);
+    if ((lateActiveJobs ?? []).length > 0) {
+      const message =
+        "Document gained pending or processing indexing work during delete. Stop or wait for the worker before deleting.";
+      const ledgerWarning = await updateStorageCleanupJob({
+        supabase,
+        cleanupJobId,
+        status: "failed",
+        storageRemoved: 0,
+        warnings: [message],
+        aborted: true,
+      });
+      throw new PublicApiError(ledgerWarning ? `${message}; ${ledgerWarning}` : message, 409);
+    }
+
     try {
       await deleteDocumentIndexTraceRows({ supabase, ownerId: user.id, documentId: id, chunkIds });
     } catch (traceCleanupError) {
@@ -554,6 +579,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         status: "failed",
         storageRemoved: 0,
         warnings: [message],
+        aborted: true,
       });
       throw new Error(ledgerWarning ? `${message}; ${ledgerWarning}` : message);
     }
@@ -566,6 +592,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         status: "failed",
         storageRemoved: 0,
         warnings: [`Database delete: ${deleteError.message}`],
+        aborted: true,
       });
       throw new Error(ledgerWarning ? `${deleteError.message}; ${ledgerWarning}` : deleteError.message);
     }

@@ -1,5 +1,13 @@
 import { createHash } from "node:crypto";
 import type { createAdminClient } from "@/lib/supabase/admin";
+<<<<<<< HEAD
+=======
+import {
+  consumeSubjectApiRateLimit,
+  allowRateLimitInMemoryFallbackOnUnavailable,
+  type ApiRateLimitResult,
+} from "@/lib/api-rate-limit";
+>>>>>>> origin/main
 import { getOptionalAuthenticatedUser } from "@/lib/supabase/auth";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -25,6 +33,41 @@ export function anonymousApiSubjectKey(request: Request) {
   return `anon:${createHash("sha256").update(source).digest("hex").slice(0, 32)}`;
 }
 
+<<<<<<< HEAD
+=======
+export function hasSessionCookieSignal(request: Request) {
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  return cookieHeader.includes("sb-");
+}
+
+export function hasBearerAuthAttempt(request: Request) {
+  const authorization = request.headers.get("authorization") ?? "";
+  return /^Bearer\s+\S+/i.test(authorization);
+}
+
+/** True when the request may carry a durable Supabase session (cookie), not a bare bearer attempt. */
+export function hasPublicApiAuthSignal(request: Request) {
+  return hasSessionCookieSignal(request);
+}
+
+/** Anonymous callers with no cookie or bearer skip auth resolution and rate limits on curated public catalogs. */
+export function shouldResolvePublicCatalogAccess(request: Request) {
+  return hasSessionCookieSignal(request) || hasBearerAuthAttempt(request);
+}
+
+type OwnerScopedQuery<T> = {
+  eq(column: string, value: unknown): T;
+  is(column: string, value: null): T;
+  or(filters: string): T;
+};
+
+/** Scope reads to public rows (owner_id IS NULL) and, when signed in, the caller's owned rows. */
+export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, ownerId: string | undefined): T {
+  if (ownerId) return query.or(`owner_id.eq.${ownerId},owner_id.is.null`);
+  return query.is("owner_id", null);
+}
+
+>>>>>>> origin/main
 export async function publicAccessContext(request: Request, supabase: AdminClient) {
   const user = await getOptionalAuthenticatedUser(request, supabase);
   if (user) {
@@ -41,3 +84,20 @@ export async function publicAccessContext(request: Request, supabase: AdminClien
     rateLimitSubject: { kind: "anonymous", subjectKey: anonymousApiSubjectKey(request) } satisfies RateLimitSubject,
   };
 }
+<<<<<<< HEAD
+=======
+
+export async function enforceDocumentReadRateLimit(
+  request: Request,
+  supabase: AdminClient,
+): Promise<{ access: Awaited<ReturnType<typeof publicAccessContext>>; rateLimit: ApiRateLimitResult }> {
+  const access = await publicAccessContext(request, supabase);
+  const rateLimit = await consumeSubjectApiRateLimit({
+    supabase,
+    subject: access.rateLimitSubject,
+    bucket: "document_read",
+    allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+  });
+  return { access, rateLimit };
+}
+>>>>>>> origin/main

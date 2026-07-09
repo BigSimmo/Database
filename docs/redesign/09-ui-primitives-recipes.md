@@ -1,5 +1,7 @@
 # UI Primitives — Recipe Reference & State Contract — Clinical KB (July 2026)
 
+> **Entry point:** day-to-day UI rules live in [`docs/design-system.md`](../design-system.md); this document remains the recipe catalogue it links to.
+
 Resolves **L8** from `07-token-adoption-audit.md`: the `ui/` component layer is
 ~55 className **recipes** (exported `const` strings) + `cn()` + five small React
 components in `src/components/ui-primitives.tsx`, plus one real component
@@ -41,20 +43,21 @@ Values are tokens; the target sizes follow the `-11`/`-12` spacing scale (L6).
 
 ### Interactive controls (tap targets)
 
-| Recipe                   | Purpose                               | Tap                 | Hover             | Active | Focus-visible             | Disabled |
-| ------------------------ | ------------------------------------- | ------------------- | ----------------- | ------ | ------------------------- | -------- |
-| `controlBase`            | Base for buttons (composed by others) | `min-h-11`          | — (subclass adds) | ✅     | ✅                        | ✅       |
-| `primaryControl`         | Primary command button                | ✅                  | ✅                | ✅     | ✅                        | ✅       |
-| `floatingControl`        | Secondary / floating button           | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
-| `toolbarButton`          | Square icon button                    | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
-| `navPill`                | Nav / segmented pill                  | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
-| `chatMicroAction`        | Small chat action (copy, retry…)      | `min-h-11 min-w-11` | ✅                | ❌     | ✅                        | ✅       |
-| `sourceCapsule`          | Inline citation capsule               | `min-h-11`          | ✅                | ❌     | ✅ (`focus-ring-premium`) | ❌       |
-| `chatComposerIconButton` | Composer icon button                  | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
-| `chatSendButton`         | Composer send (accent)                | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
-| `sidebarItem`            | Sidebar nav row                       | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
-| `sidebarToolTile`        | Sidebar tool tile                     | `min-h-[64px]`      | ✅                | ❌     | ✅                        | ❌       |
-| `shellChip`              | Filter / mode chip                    | `min-h-11`          | ✅                | ❌     | ❌                        | ❌       |
+| Recipe                    | Purpose                                 | Tap                 | Hover             | Active | Focus-visible             | Disabled |
+| ------------------------- | --------------------------------------- | ------------------- | ----------------- | ------ | ------------------------- | -------- |
+| `controlBase`             | Base for buttons (composed by others)   | `min-h-11`          | — (subclass adds) | ✅     | ✅                        | ✅       |
+| `primaryControl`          | Primary command button                  | ✅                  | ✅                | ✅     | ✅                        | ✅       |
+| `floatingControl`         | Secondary / floating button             | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
+| `toolbarButton`           | Square icon button                      | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
+| `navPill`                 | Nav / segmented pill                    | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
+| `chatMicroAction`         | Small chat action (copy, retry…)        | `min-h-11 min-w-11` | ✅                | ❌     | ✅                        | ✅       |
+| `sourceCapsule`           | Inline citation capsule (button shell)  | `min-h-11`          | ✅                | ❌     | ✅ (`focus-ring-premium`) | ❌       |
+| `sourceCapsuleCountBadge` | Inset count chip inside `sourceCapsule` | — (non-tap)         | ❌                | ❌     | ❌                        | ❌       |
+| `chatComposerIconButton`  | Composer icon button                    | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
+| `chatSendButton`          | Composer send (accent)                  | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
+| `sidebarItem`             | Sidebar nav row                         | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
+| `sidebarToolTile`         | Sidebar tool tile                       | `min-h-[64px]`      | ✅                | ❌     | ✅                        | ❌       |
+| `shellChip`               | Filter / mode chip                      | `min-h-11`          | ✅                | ❌     | ❌                        | ❌       |
 
 ### Form fields
 
@@ -90,6 +93,8 @@ Overlay: **`sheetSurface`** / `sheetHandle` for the mobile bottom sheet
 ### Pills, badges, dots, tones
 
 - **Pills:** `metadataPill`, `subtleStatusPill` (`min-h-7`, non-tap labels).
+  Compose `sourceCapsule` + `sourceCapsuleCountBadge` for the answer sources
+  disclosure (icon, label, tabular count, chevron).
 - **Status dots:** `statusDotBase` + `statusDotReady` (success) / `statusDotReview`
   (warning) / `statusDotMuted`.
 - **Semantic tone triads** (border+bg+text, dark-mode-safe): `toneSuccess`,

@@ -82,8 +82,12 @@ export function useRegistryRecords(
           // effect retries with a real header; never expire the session from an
           // auth-loading 401. Demo/local API responses can still resolve fast.
           if (authStatus === "loading") return;
-          if (authStatus === "authenticated") markSessionExpired();
-          setState(recordsState("unauthorized", kind));
+          if (authStatus === "authenticated") {
+            markSessionExpired();
+            setState(recordsState("unauthorized", kind));
+            return;
+          }
+          setState(recordsState("error", kind));
           return;
         }
         if (!response.ok) {
@@ -140,8 +144,12 @@ export function useRegistryRecord(kind: RegistryRecordKind, slug: string): Regis
         if (!active) return;
         if (response.status === 401) {
           if (authStatus === "loading") return;
-          if (authStatus === "authenticated") markSessionExpired();
-          setState({ status: "unauthorized", record: null, linkedDocuments: [], demoMode: false, governance: null });
+          if (authStatus === "authenticated") {
+            markSessionExpired();
+            setState({ status: "unauthorized", record: null, linkedDocuments: [], demoMode: false, governance: null });
+            return;
+          }
+          setState({ status: "error", record: null, linkedDocuments: [], demoMode: false, governance: null });
           return;
         }
         if (response.status === 404) {

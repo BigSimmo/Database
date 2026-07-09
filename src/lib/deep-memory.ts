@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildClinicalTextSearchQuery, classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { logger } from "@/lib/logger";
-import { requireOwnerScope } from "@/lib/owner-scope";
+import { retrievalOwnerFilter } from "@/lib/owner-scope";
 import {
   buildDocumentIndexUnitInputs,
   countDocumentIndexUnitsByType,
@@ -697,13 +697,13 @@ export async function upsertDocumentDeepMemory(args: {
 
   // All embeddings are in hand — replace the previous memory atomically-ish:
   // delete then insert without any intervening network dependency (M11).
-  await args.supabase.from("document_memory_cards").delete().eq("document_id", args.document.id);
-  await args.supabase.from("document_sections").delete().eq("document_id", args.document.id);
-  await args.supabase
+  const { error: indexUnitDeleteError } = await args.supabase
     .from("document_index_units")
     .delete()
-    .eq("document_id", args.document.id)
-    .then(undefined, () => undefined);
+    .eq("document_id", args.document.id);
+  if (indexUnitDeleteError) throw new Error(indexUnitDeleteError.message);
+  await args.supabase.from("document_memory_cards").delete().eq("document_id", args.document.id);
+  await args.supabase.from("document_sections").delete().eq("document_id", args.document.id);
 
   const { data: insertedSections, error: sectionError } = await args.supabase
     .from("document_sections")
@@ -823,7 +823,11 @@ export async function fetchMemoryCardsForQuery(args: {
         match_count: args.matchCount ?? 32,
         min_similarity: 0.1,
         document_filters: args.documentIds?.length ? args.documentIds : null,
-        owner_filter: requireOwnerScope(args.ownerId) ?? null,
+        owner_filter: retrievalOwnerFilter({
+          ownerId: args.ownerId,
+          documentIds: args.documentIds,
+          allowGlobalSearch: !args.ownerId && !args.documentIds?.length,
+        }),
       });
 
       if (error) {

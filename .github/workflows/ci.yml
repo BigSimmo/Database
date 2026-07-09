@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -51,6 +51,12 @@ jobs:
 
       - name: Runtime alignment
         run: npm run check:runtime
+
+      - name: Dependency vulnerability audit
+        # Non-mutating gate. The document parsers (pdf-parse, pdfjs-dist, mammoth,
+        # exceljs, jszip) process untrusted uploads, so high/critical advisories in
+        # the production tree must block the merge rather than wait for Dependabot.
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Edge function typecheck
         run: npm run check:edge:functions
@@ -93,7 +99,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -108,7 +114,7 @@ jobs:
         run: npm ci
 
       - name: Restore Chromium browser cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -122,7 +128,7 @@ jobs:
 
       - name: Upload UI diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: verify-ui-diagnostics-${{ github.run_id }}
           path: |
@@ -138,7 +144,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -156,7 +162,7 @@ jobs:
         run: npm run build
 
       - name: Restore browser cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -170,7 +176,7 @@ jobs:
 
       - name: Upload UI diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-ui-diagnostics-${{ github.run_id }}
           path: |

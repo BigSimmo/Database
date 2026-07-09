@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
-import { AcamprosateMedicationPage } from "@/components/clinical-dashboard/medication-prescribing-workspace";
+import { MedicationRecordPage } from "@/components/clinical-dashboard/medication-record-page";
+import { getMedicationRecord, loadMedicationSnapshot } from "@/lib/medication-snapshot";
 
 type MedicationPageProps = {
   params: Promise<{
@@ -10,26 +10,26 @@ type MedicationPageProps = {
 };
 
 export function generateStaticParams() {
-  return [{ slug: "acamprosate" }];
+  return loadMedicationSnapshot().map((record) => ({ slug: record.slug }));
 }
 
 export async function generateMetadata({ params }: MedicationPageProps): Promise<Metadata> {
   const { slug } = await params;
-  if (slug !== "acamprosate") {
+  const record = getMedicationRecord(slug);
+  if (!record) {
     return {
       title: "Medication | Clinical KB",
     };
   }
 
   return {
-    title: "Acamprosate | Clinical KB",
-    description: "Acamprosate prescribing summary, dosing, safety checks, monitoring, access, and provenance.",
+    title: `${record.name} | Clinical KB`,
+    description: `${record.name} prescribing summary, dosing, safety checks, monitoring, access, and provenance.`,
   };
 }
 
 export default async function MedicationPage({ params }: MedicationPageProps) {
   const { slug } = await params;
-  if (slug !== "acamprosate") notFound();
 
-  return <AcamprosateMedicationPage />;
+  return <MedicationRecordPage slug={slug} />;
 }

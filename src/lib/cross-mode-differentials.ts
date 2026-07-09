@@ -1,4 +1,5 @@
 import type { CrossModeDifferentialCatalog } from "@/lib/cross-mode-links";
+<<<<<<< HEAD
 import { differentialRecords } from "@/lib/differentials";
 
 const supplementalDiagnoses = [
@@ -19,10 +20,20 @@ const supplementalDiagnoses = [
 export function crossModeDifferentialCatalog(): CrossModeDifferentialCatalog {
   const diagnoses = [
     ...differentialRecords.map((record) => ({
+=======
+import { differentialPresentations, differentialRecords, differentialSearchAliases } from "@/lib/differentials";
+
+// Load this module with a dynamic import only: it statically pulls the 1.2 MB
+// differentials snapshot, which stays code-split out of the dashboard bundle.
+export function crossModeDifferentialCatalog(): CrossModeDifferentialCatalog {
+  return {
+    diagnoses: differentialRecords.map((record) => ({
+>>>>>>> origin/main
       slug: record.slug,
       title: record.title,
       clinicalHinge: record.clinicalHinge,
     })),
+<<<<<<< HEAD
     ...supplementalDiagnoses.map((record) => ({ ...record })),
   ];
 
@@ -36,5 +47,13 @@ export function crossModeDifferentialCatalog(): CrossModeDifferentialCatalog {
       violence: ["aggression", "homicidal"],
       homicidal: ["aggression", "violence"],
     },
+=======
+    presentations: differentialPresentations().map((presentation) => ({
+      id: presentation.id,
+      title: presentation.title,
+      subtitle: presentation.subtitle,
+    })),
+    aliases: differentialSearchAliases(),
+>>>>>>> origin/main
   };
 }

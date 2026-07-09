@@ -1,116 +1,74 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   AlertCircle,
-  Bell,
   BookOpen,
-  CheckCircle2,
   ChevronDown,
-  ChevronRight,
-  CircleUserRound,
   Clock3,
+<<<<<<< HEAD
   Copy,
+=======
+>>>>>>> origin/main
   ExternalLink,
   FileImage,
   FileText,
   FolderOpen,
-  Globe2,
-  HelpCircle,
   Heart,
-  Keyboard,
-  Layers,
   ListChecks,
   Loader2,
-  LogOut,
-  Mail,
-  LockKeyhole,
-  Palette,
-  PanelTop,
-  Plus,
   Quote,
   RefreshCw,
   Search,
-  Settings as SettingsIcon,
   ShieldAlert,
+<<<<<<< HEAD
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Stethoscope,
+=======
+  Square,
+>>>>>>> origin/main
   UploadCloud,
-  UserRound,
   WifiOff,
   Wrench,
-  X,
 } from "lucide-react";
-import {
-  type CSSProperties,
-  type FormEvent,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { AccessibleTable } from "@/components/AccessibleTable";
-import {
-  DocumentOrganizationBadges,
-  documentDisplayTitle,
-  documentOrganizationProfile,
-} from "@/components/DocumentOrganizationBadges";
-import { DocumentTagCloud } from "@/components/DocumentTagCloud";
-import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
-import { useDismissableLayer } from "@/components/use-dismissable-layer";
-import { formatCompactCitationLabel } from "@/lib/citations";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
-import { isLocalNoAuthMode } from "@/lib/env";
+import { isDeployedClinicalKb } from "@/lib/deployed-app";
+import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/env";
 import {
   appBackdrop,
   answerSurface,
-  chatMicroAction,
-  clinicalDivider,
   cn,
-  EmptyState,
-  fieldControlPlain,
-  fieldControlWithIcon,
-  fieldIcon,
   floatingControl,
-  iconTilePremium,
-  metadataPill,
-  panelSubtle,
+  InlineNotice,
   primaryControl,
-  SourceProvenance,
-  SourceStatusBadge,
-  sourceCard,
-  subtleStatusPill,
-  tableCard,
-  tableCardHeader,
-  tableMicroActionRow,
   textMuted,
-  toneDanger,
   toneInfo,
-  toneNeutral,
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
-import { SafeBoldText } from "@/components/SafeBoldText";
-import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
+<<<<<<< HEAD
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
+=======
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
+import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+>>>>>>> origin/main
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
+import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
+import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
-import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import {
-  type SidebarIdentity,
   deriveSidebarIdentity,
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
@@ -127,24 +85,15 @@ import {
   type SetupCheck,
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/DocumentManagerPanel";
-import {
-  GuideDialog,
-  GuideTrigger,
-  SectionHeading,
-  UtilityDrawer,
-} from "@/components/clinical-dashboard/dashboard-shell";
-import {
-  cleanDisplayTitle,
-  sanitizeAnswerDisplayText,
-  sanitizeDisplayText,
-} from "@/components/clinical-dashboard/display-text";
+import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import {
   NaturalLanguageAnswer,
   ScopeAndGovernanceNotice,
-  SourceImage,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
 import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+<<<<<<< HEAD
 import {
   AnswerFeedbackPanel,
   AnswerSafetyNotice,
@@ -168,6 +117,13 @@ import {
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
+=======
+import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
+import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
+import { answerRecovery, errorCopy } from "@/lib/ui-copy";
+>>>>>>> origin/main
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 import {
   DrawerGroupLabel,
@@ -175,7 +131,10 @@ import {
   type DocumentDrawerStatusFilter,
   type LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/document-admin";
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 
 const DifferentialsHome = dynamic(
   () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
@@ -201,10 +160,32 @@ const DocumentDrawer = dynamic(
   { ssr: false },
 );
 
+<<<<<<< HEAD
 import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance, QueryCoverageChips } from "@/components/clinical-dashboard/relevance";
+=======
+// Results surfaces load lazily: they only render after a submitted search/answer, so their chunk
+// downloads behind the (multi-second) retrieval/answer request rather than bloating the initial
+// answer-home bundle. The answer surface keeps the same skeleton as generation to avoid a flash.
+const StagedAnswerResultSurface = dynamic(
+  () => import("@/components/clinical-dashboard/answer-result-surface").then((m) => m.StagedAnswerResultSurface),
+  { ssr: false, loading: () => <AnswerSkeleton /> },
+);
+const RelatedDocumentsPanel = dynamic(
+  () => import("@/components/clinical-dashboard/document-results").then((m) => m.RelatedDocumentsPanel),
+  { ssr: false },
+);
+const DocumentSearchResultsPanel = dynamic(
+  () => import("@/components/clinical-dashboard/document-search-results").then((m) => m.DocumentSearchResultsPanel),
+  { ssr: false },
+);
+
+import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
+import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
+>>>>>>> origin/main
 import {
   answerPayloadIsUsable,
+  classifyAnswerError,
   isRetryableError,
   isRetryableMessage,
   isRetryableStatus,
@@ -214,6 +195,7 @@ import {
   searchRetryCount,
   searchRetryDelaysMs,
   sleep,
+  type AnswerErrorKind,
   type AnswerPayload,
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
@@ -240,13 +222,18 @@ import {
   maxStoredAnswerTurns,
   savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
+<<<<<<< HEAD
 import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
+=======
+import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
+>>>>>>> origin/main
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
   type SourceGovernanceWarning,
 } from "@/lib/source-governance";
+<<<<<<< HEAD
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import {
   tagSearchText,
@@ -255,9 +242,11 @@ import {
   type SmartDocumentTagTier,
   type SmartDocumentTagQualityIssueKind,
 } from "@/lib/document-tags";
+=======
+import { type SmartDocumentTag, type SmartDocumentTagFacet } from "@/lib/document-tags";
+>>>>>>> origin/main
 import type {
   ClinicalDocument,
-  BestSourceRecommendation,
   DocumentMatch,
   EvidenceRelevance,
   ImportBatch,
@@ -266,17 +255,18 @@ import type {
   RagAnswer,
   AnswerSection,
   RelatedDocument,
-  EvidenceSummary,
   SearchResult,
   SearchScopeSummary,
-  VisualEvidenceCard,
   ClinicalQueryMode,
   DocumentLabel,
-  DocumentLabelType,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+<<<<<<< HEAD
 import { createQuoteFollowUp, type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
+=======
+import { createQuoteFollowUp, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
+>>>>>>> origin/main
 
 export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 export const mobileSectionFabMediaQuery =
@@ -396,6 +386,18 @@ type SearchResultModePayload =
 
 type SourceLibrarySearchMode = Extract<AppModeSearchKind, "documents" | "differentials">;
 
+function hasNonProductionSupabaseApiKeyFallback(checks: SetupCheck[]) {
+  return (
+    process.env.NODE_ENV !== "production" &&
+    checks.some(
+      (check) =>
+        check.id === "search" &&
+        check.status !== "ready" &&
+        /\b(?:unregistered|invalid)\s+api\s+key\b/i.test(check.detail),
+    )
+  );
+}
+
 function parseSseData(lines: string[]) {
   const data = lines.join("\n").trim();
   if (!data) return null;
@@ -406,13 +408,28 @@ function parseSseData(lines: string[]) {
   }
 }
 
+/** True when an error originates from an AbortController (user pressed Stop / component unmounted). */
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 function answerStreamProgressMessage(data: unknown) {
   if (!data || typeof data !== "object") return null;
   const message = (data as { message?: unknown }).message;
   return typeof message === "string" && message.trim() ? message.trim() : null;
 }
 
-async function readAnswerStream(response: Response, onProgress: (message: string) => void): Promise<AnswerPayload> {
+function findSseSeparator(buffer: string) {
+  const match = /\r?\n\r?\n/.exec(buffer);
+  return match ? { index: match.index, length: match[0].length } : null;
+}
+
+async function readAnswerStream(
+  response: Response,
+  onProgress: (message: string) => void,
+  onToken?: (delta: string) => void,
+  onRevising?: () => void,
+): Promise<AnswerPayload> {
   if (!response.body) throw makeSearchError("Answer stream could not be opened.", undefined, true);
 
   const reader = response.body.getReader();
@@ -436,6 +453,15 @@ async function readAnswerStream(response: Response, onProgress: (message: string
     if (event === "progress") {
       const message = answerStreamProgressMessage(data);
       if (message) onProgress(message);
+      return;
+    }
+    if (event === "token") {
+      const delta = data && typeof data === "object" ? (data as { delta?: unknown }).delta : null;
+      if (typeof delta === "string" && delta) onToken?.(delta);
+      return;
+    }
+    if (event === "revising") {
+      onRevising?.();
       return;
     }
     if (event === "error") {
@@ -462,402 +488,110 @@ async function readAnswerStream(response: Response, onProgress: (message: string
     }
     if (event === "final") {
       finalPayload = data as AnswerPayload;
+      return true;
     }
+
+    return false;
   }
 
   while (true) {
     const { value, done } = await reader.read();
     buffer += decoder.decode(value, { stream: !done });
 
-    let separatorIndex = buffer.indexOf("\n\n");
-    while (separatorIndex >= 0) {
-      const block = buffer.slice(0, separatorIndex).trim();
-      buffer = buffer.slice(separatorIndex + 2);
-      if (block) processEvent(block);
-      separatorIndex = buffer.indexOf("\n\n");
+    let separator = findSseSeparator(buffer);
+    while (separator) {
+      const block = buffer.slice(0, separator.index).trim();
+      buffer = buffer.slice(separator.index + separator.length);
+      if (block && processEvent(block) && finalPayload) {
+        await reader.cancel().catch(() => undefined);
+        return finalPayload as AnswerPayload;
+      }
+      separator = findSseSeparator(buffer);
     }
 
     if (done) break;
   }
 
-  if (buffer.trim()) processEvent(buffer.trim());
+  if (buffer.trim() && processEvent(buffer.trim()) && finalPayload) return finalPayload as AnswerPayload;
   if (!finalPayload) throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
   return finalPayload as AnswerPayload;
+}
+
+// Provisional view shown while an answer streams in. The prose is content-preserving (the same
+// text the final payload will carry); the caret conveys that generation is still in flight. On a
+// quality-gate escalation the pipeline sends a `revising` signal and this switches to a neutral
+// "revising for accuracy" state so a clinician never acts on soon-to-be-replaced text.
+function StreamingAnswerPreview({ text, revising }: { text: string; revising: boolean }) {
+  if (revising) {
+    return (
+      <div className={cn(answerSurface, "p-4")} data-testid="answer-streaming-revising" aria-live="polite">
+        <div className="flex items-center gap-2 text-sm font-medium text-[color:var(--text-muted)]">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Revising for accuracy…
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={cn(answerSurface, "p-4")} data-testid="answer-streaming" aria-live="polite">
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-[color:var(--text)]">
+        {text}
+        <span
+          className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-[color:var(--text-muted)] align-text-bottom"
+          aria-hidden
+        />
+      </p>
+    </div>
+  );
 }
 
 function normalizeNavigationHash(hash: string) {
   return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
 }
-
-function compactClinicalTableCaption(item: VisualEvidenceCard) {
-  const raw = item.tableTitle || item.tableLabel || item.caption || "Clinical table";
-  const cleaned = sourceTextForCompactDisplay(raw)
-    .replace(/\btable\s+\d+\s*[:.-]?\s*/i, "")
-    .replace(/\b(?:page|p\.)\s*\d+\b/gi, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-  const caption = cleaned || "Clinical table";
-  return caption.length <= 72 ? caption : `${caption.slice(0, 69).trim()}...`;
-}
-
-function visualEvidenceHeader(item: VisualEvidenceCard) {
-  const titleSource = [item.tableLabel, item.tableTitle].filter(Boolean).join(" · ");
-  const titleText = sourceTextForCompactDisplay(titleSource).trim();
-  const captionText = sourceTextForCompactDisplay(item.caption ?? "").trim();
-  const normalizedTitle = titleText.toLowerCase();
-  const normalizedCaption = captionText.toLowerCase();
-  const isDuplicateCaption =
-    Boolean(normalizedCaption) &&
-    (normalizedCaption.startsWith(normalizedTitle) || normalizedCaption === normalizedTitle);
-  return {
-    title: titleText || captionText || "Visual evidence",
-    caption: isDuplicateCaption ? null : captionText,
-  };
-}
-
-function VisualEvidenceStrip({
-  evidence,
-  collapsed = false,
-  embedded = false,
-}: {
-  evidence: VisualEvidenceCard[];
-  collapsed?: boolean;
-  embedded?: boolean;
-}) {
-  function looksLikeTableText(value?: string | null) {
-    return Boolean(value?.includes("|") && value.split("|").filter((cell) => cell.trim()).length >= 3);
-  }
-
-  if (collapsed) {
-    return (
-      <section id="images" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
-        <UtilityDrawer
-          icon={FileImage}
-          title="Nearby visual evidence"
-          summary="Nearby source support only."
-          mobileSummary={`${evidence.length} visuals`}
-        >
-          <VisualEvidenceStrip evidence={evidence} embedded />
-        </UtilityDrawer>
-      </section>
-    );
-  }
-
-  const content = (
-    <>
-      <SectionHeading
-        icon={FileImage}
-        title="Tables and diagrams"
-        description="Clinical tables, diagrams, and images from indexed documents."
-        hideDescriptionOnMobile
-        compactMobile
-      />
-      {evidence.length === 0 ? (
-        <EmptyState icon={FileImage} title={emptyStates.indexedVisuals.title} body={emptyStates.indexedVisuals.body} />
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {evidence.map((item) => {
-            const tableMarkdown = item.accessibleTableMarkdown?.trim()
-              ? item.accessibleTableMarkdown
-              : looksLikeTableText(item.tableTextSnippet)
-                ? item.tableTextSnippet
-                : null;
-            const hasStructuredTable = Boolean(tableMarkdown || item.tableRows?.length || item.tableColumns?.length);
-            const tableCaption = compactClinicalTableCaption(item);
-            const sourceHeader = visualEvidenceHeader(item);
-            const displayLabels = smartEvidenceTags(
-              item.labels,
-              [[item.tableLabel, item.tableTitle].filter(Boolean).join(": "), item.caption, item.tableTextSnippet]
-                .filter(Boolean)
-                .join(" "),
-            );
-            return (
-              <figure key={item.id} className={cn(sourceCard, "overflow-hidden p-2.5 sm:p-3")}>
-                <div className="rounded-lg bg-[color:var(--surface-inset)] p-2.5 sm:p-3">
-                  <SourceImage
-                    endpoint={item.signed_url_endpoint}
-                    caption={sourceHeader.caption || sourceHeader.title}
-                  />
-                </div>
-                <figcaption className="mt-2 space-y-1.5 text-[15px] leading-6 text-[color:var(--text)] sm:mt-3">
-                  {!hasStructuredTable ? <p className="font-semibold">{sourceHeader.title}</p> : null}
-                  {!hasStructuredTable && sourceHeader.caption ? <p>{sourceHeader.caption}</p> : null}
-                  <AccessibleTable
-                    caption={tableCaption}
-                    markdown={tableMarkdown}
-                    rows={item.tableRows}
-                    columns={item.tableColumns}
-                    {...simpleClinicalTableProps}
-                    clinicalOnly
-                    dialogTitle={tableCaption || "Clinical table"}
-                  />
-                  {!hasStructuredTable && item.tableTextSnippet ? (
-                    <p className={cn("line-clamp-3 text-sm leading-6", textMuted)}>
-                      {sourceTextForCompactDisplay(item.tableTextSnippet)}
-                    </p>
-                  ) : null}
-                  {displayLabels.length ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {displayLabels.map((label) => (
-                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-[10px]")}>
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </figcaption>
-                <div
-                  className={cn(
-                    "mt-2 flex flex-wrap items-center justify-between gap-2 pt-3 text-xs sm:mt-3 sm:gap-3",
-                    clinicalDivider,
-                  )}
-                >
-                  <span className={cn("text-[15px] font-semibold leading-6 sm:hidden", textMuted)}>
-                    {formatCompactCitationLabel(item)}
-                  </span>
-                  <span className={cn("hidden text-xs font-semibold leading-5 sm:inline", textMuted)}>
-                    {cleanDisplayTitle(item.title)}, page {item.page_number ?? "n/a"}
-                  </span>
-                  {item.image_type && (
-                    <span className={cn(metadataPill, "min-h-7 px-2 text-[11px]")}>
-                      {item.image_type.replaceAll("_", " ")}
-                    </span>
-                  )}
-                  {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
-                  <Link href={item.viewer_href} className={cn(floatingControl, "min-h-[44px] px-4 text-xs")}>
-                    <ExternalLink className="h-4 w-4" />
-                    Open source
-                  </Link>
-                </div>
-              </figure>
-            );
-          })}
-        </div>
-      )}
-    </>
-  );
-
-  if (embedded) return <div className="space-y-3">{content}</div>;
-
-  return (
-    <section id="images" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
-      {content}
-    </section>
-  );
-}
-
-function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
-  const tableMarkdown = item.accessibleTableMarkdown?.trim() ? item.accessibleTableMarkdown : null;
-  const title = compactClinicalTableCaption(item);
-
-  return (
-    <section className={cn(tableCard, "max-w-lg")} aria-label="Inline table preview">
-      <div
-        className={cn(
-          tableCardHeader,
-          "flex min-h-10 items-center justify-between gap-2 bg-[color:var(--surface)] py-2",
-        )}
-      >
-        <span className="hidden min-w-0 truncate sm:inline">{title}</span>
-        <span className="min-w-0 truncate sm:hidden">{title}</span>
-        <div className="flex shrink-0 items-center gap-1 sm:hidden" aria-label="Table actions">
-          <Link
-            href={item.viewer_href}
-            className={cn(chatMicroAction, "min-h-11 min-w-11 justify-center px-0")}
-            aria-label="Open table source"
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Link>
-        </div>
-      </div>
-      <div className="p-1.5 sm:p-2">
-        <AccessibleTable
-          caption={title}
-          markdown={tableMarkdown}
-          rows={item.tableRows}
-          columns={item.tableColumns}
-          compact
-          expandOnMobile
-          previewRows={3}
-          hidePreviewCaption
-          hidePreviewRowCount
-          densePreview
-          clinicalOnly
-          dialogTitle={item.tableTitle || item.caption || title}
-        />
-      </div>
-      <div className={cn(tableMicroActionRow, "hidden sm:flex")}>
-        <Link href={item.viewer_href} className={chatMicroAction}>
-          Expand
-        </Link>
-        <Link href={item.viewer_href} className={chatMicroAction}>
-          Source
-        </Link>
-      </div>
-    </section>
-  );
-}
-
-const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
-  Claims: CheckCircle2,
-  Quotes: Quote,
-  Tables: ListChecks,
-  Images: FileImage,
-  Gaps: AlertCircle,
-};
-
-function supportDotClass(supportLevel: string) {
-  const normalized = supportLevel.toLowerCase();
-  if (normalized.includes("unsupported") || normalized.includes("none")) return "bg-[color:var(--danger)]";
-  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby")) {
-    return "bg-[color:var(--warning)]";
-  }
-  return "bg-[color:var(--clinical-accent)]";
-}
-
-function supportLabel(supportLevel: string) {
-  const normalized = supportLevel.toLowerCase();
-  if (normalized.includes("unsupported") || normalized.includes("none")) return "Unsupported";
-  if (normalized.includes("partial") || normalized.includes("limited") || normalized.includes("nearby"))
-    return "Partial";
-  return "Direct";
-}
-
-function claimRowsForEvidencePanel(rows: AnswerEvidenceMapRow[], renderModel: AnswerRenderModel) {
-  if (rows.length) return rows.slice(0, 6);
-  return renderModel.primarySources.slice(0, 6).map((source, index) => ({
-    id: source.id,
-    section: source.label || cleanDisplayTitle(source.title || source.file_name) || `Source ${index + 1}`,
-    detail: source.snippet || source.reason || "Open source passage to review the cited evidence.",
-    supportLevel: source.sourceStrength === "none" ? "partial" : source.sourceStrength,
-    citationCount: 1,
-    sourceStatus:
-      source.sourceStrength === "none" ? "Source requires review" : `${source.sourceStrength} source support`,
-    bestSourceLabel: source.label,
-    bestLinkedPassage: source.snippet || source.reason,
-    href: source.href,
-  }));
-}
-
-function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[]; renderModel: AnswerRenderModel }) {
-  const claimRows = claimRowsForEvidencePanel(rows, renderModel);
-  const directCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Direct").length;
-  const partialCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Partial").length;
-
-  if (!claimRows.length) {
-    return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
-  }
-
-  return (
-    <div data-testid="evidence-claims-panel" className="space-y-3">
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text-heading)]">Claims checked</p>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-semibold text-[color:var(--text-muted)]">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--clinical-accent)]" />
-              Direct
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--warning)]" />
-              Partial
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--danger)]" />
-              Unsupported
-            </span>
-          </div>
-        </div>
-        <p className="shrink-0 text-xs font-semibold text-[color:var(--text-muted)]">
-          {directCount} direct <span className="mx-1">·</span> {partialCount} partial
-        </p>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-        {claimRows.map((row, index) => (
-          <Link
-            key={`${row.id}:${index}`}
-            href={row.href ?? "#"}
-            data-testid={row.href ? "evidence-map-open-source" : undefined}
-            aria-disabled={!row.href}
-            className={cn(
-              "grid min-h-[76px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 text-left last:border-b-0 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
-              !row.href && "pointer-events-none",
-            )}
-            aria-label={`Open source for ${row.section}`}
-          >
-            <span className="grid h-7 w-7 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)]" />
-            <span className={cn("h-2.5 w-2.5 rounded-full", supportDotClass(row.supportLevel))} />
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{row.section}</span>
-              <span className={cn("mt-1 line-clamp-2 block text-xs leading-5", textMuted)}>
-                {row.detail || row.bestLinkedPassage || row.bestSourceLabel}
-              </span>
-            </span>
-            <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
-  if (!warnings.length) {
-    return (
-      <EmptyState icon={CheckCircle2} title="No evidence gaps" body="No source gaps were attached to this answer." />
-    );
-  }
-
-  return (
-    <div className="grid gap-2">
-      {warnings.map((warning, index) => (
-        <article
-          key={`${warning}:${index}`}
-          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 p-3"
-        >
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-[color:var(--warning)]">Gap {index + 1}</p>
-            <p className="mt-1 text-sm leading-6 text-[color:var(--text)]">{warning}</p>
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function MobileEvidenceSheetContent({
-  answer,
-  sources,
-  renderModel,
-  visualEvidence,
-  answerEvidenceMapRows,
-  sourceGovernanceWarnings,
-  demoMode,
-  initialTab,
-  pendingFeedback,
-  copiedQuotes,
-  onCopyQuotes,
-  onSubmitFeedback,
-  onFollowUpQuote,
-  onScopeDocument,
-}: {
+/**
+ * A completed Q&A exchange kept on screen after a newer answer arrives, so
+ * Answer mode reads as a conversation thread instead of replacing each result.
+ */
+type AnswerTurn = {
+  id: string;
+  query: string;
   answer: RagAnswer;
   sources: SearchResult[];
-  renderModel: AnswerRenderModel;
-  visualEvidence: VisualEvidenceCard[];
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  sourceGovernanceWarnings: SourceGovernanceWarning[];
-  demoMode: boolean;
-  initialTab?: EvidenceTabName | null;
-  pendingFeedback: AnswerFeedbackType | null;
-  copiedQuotes: boolean;
-  onCopyQuotes: () => void;
-  onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
-  onScopeDocument: (documentId: string) => void;
+};
+
+const maxVisiblePriorTurns = 10;
+
+// Upper bound on a single answer request. The stream sends only progress events
+// then one `final` blob after the full server-side generation, so a hung stream
+// otherwise spins the UI forever with no close event. Generous enough not to
+// abort a legitimately slow generation; a wait past this is treated as a stall.
+const answerRequestTimeoutMs = 60_000;
+
+// Non-retryable so an aborted request does not immediately re-fetch against the
+// already-aborted signal; the user re-submits to try again.
+function answerTimedOutError() {
+  return makeSearchError("Answer generation timed out. Please try again.", 408, false);
+}
+
+/**
+ * Read-only surface for a previous turn in the answer thread. Renders the
+ * question bubble and the natural-language answer with its source capsule;
+ * evidence drawers, clinical notes, and feedback stay on the latest turn only.
+ */
+function PriorAnswerTurnSurface({
+  turn,
+  copied,
+  collapsed,
+  onToggleCollapsed,
+  onCopy,
+}: {
+  turn: AnswerTurn;
+  copied: boolean;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  onCopy: (text: string) => void;
 }) {
+<<<<<<< HEAD
   const order = evidenceTabOrder(answer, renderModel);
   const [selectedTab, setSelectedTab] = useState<EvidenceTabName | null>(() => initialTab ?? null);
   const activeTab = selectedTab && order.includes(selectedTab) ? selectedTab : order[0];
@@ -1100,6 +834,8 @@ function PriorAnswerTurnSurface({
   onToggleCollapsed: () => void;
   onCopy: (text: string) => void;
 }) {
+=======
+>>>>>>> origin/main
   const renderModel = useMemo(
     () => buildAnswerRenderModel(turn.answer, { sources: turn.sources }),
     [turn.answer, turn.sources],
@@ -1109,12 +845,27 @@ function PriorAnswerTurnSurface({
   const grounded =
     turn.answer.grounded === true && turn.answer.confidence !== "unsupported" && renderModel.trust !== "unsupported";
   const sourceCount =
+<<<<<<< HEAD
     renderModel.primarySources.length || turn.sources.length || turn.answer.sources?.length || turn.answer.citations.length;
+=======
+    renderModel.primarySources.length ||
+    turn.sources.length ||
+    turn.answer.sources?.length ||
+    turn.answer.citations.length;
+>>>>>>> origin/main
   const previewText = safeText || turn.answer.answer;
 
   return (
     <div
+<<<<<<< HEAD
       className="min-w-0 space-y-4 sm:space-y-5"
+=======
+      // Historical conversation turns grow unbounded and most are collapsed and
+      // scrolled off-screen; content-auto skips their layout/paint until near the
+      // viewport. Safe here — the surface has no overflowing popovers, and the
+      // expand toggle is only reachable once the turn is scrolled into view.
+      className="content-auto min-w-0 space-y-4 sm:space-y-5"
+>>>>>>> origin/main
       data-dashboard-stage="answer-thread-turn"
       data-collapsed={collapsed ? "true" : "false"}
     >
@@ -1154,6 +905,7 @@ type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 type IndexingMonitorFilter = "all" | "active" | "failed";
 type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
 
+<<<<<<< HEAD
 export function SettingsDialog({
   open,
   onClose,
@@ -2089,6 +1841,8 @@ function MobileSectionFab({
   );
 }
 
+=======
+>>>>>>> origin/main
 function answerReferencesDocument(answer: RagAnswer | null, documentId: string) {
   if (!answer) return false;
   return (
@@ -2180,6 +1934,15 @@ export function ClinicalDashboard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const mainRef = useRef<HTMLElement>(null);
+  const [mainScrollRoot, setMainScrollRoot] = useState<HTMLElement | null>(null);
+  const assignMainRef = useCallback((node: HTMLElement | null) => {
+    mainRef.current = node;
+    setMainScrollRoot(node);
+  }, []);
+  const phoneScrollHide = useScrollHideReporter();
+  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
+  const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
@@ -2204,7 +1967,9 @@ export function ClinicalDashboard({
   const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
-  const [modeSearchSubmitted, setModeSearchSubmitted] = useState(false);
+  const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
+    Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
+  );
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
   // Answer-mode conversation thread. `priorAnswerTurns` holds completed
@@ -2228,7 +1993,15 @@ export function ClinicalDashboard({
   const activeModeSearch = appModeSearchConfig(searchMode);
   const activeModeResultKind = appModeResultKind(searchMode);
   const requestQueryMode = appModeQueryMode(searchMode, queryMode);
-  const requestedRun = searchParams.get("run") === "1";
+  const submittedUrlMode = searchParams.get("mode");
+  const submittedUrlModeMatchesActive =
+    !submittedUrlMode ||
+    (isAppModeId(submittedUrlMode) && isAppModeVisible(submittedUrlMode) && submittedUrlMode === searchMode);
+  const submittedUrlQuery =
+    autoRunSearch && searchParams.get("run") === "1" && submittedUrlModeMatchesActive
+      ? (searchParams.get("q") ?? searchParams.get("query") ?? "").trim()
+      : "";
+
   // Record matches come from the owner-scoped registry API (mock fixtures in
   // demo mode); ranking stays client-side so live-typing behaviour is
   // unchanged and the registry is fetched once per active mode.
@@ -2302,13 +2075,21 @@ export function ClinicalDashboard({
       mainRef.current?.scrollTo({ top: mainRef.current?.scrollHeight ?? 0, behavior: "auto" });
     });
   }, [answer]);
+<<<<<<< HEAD
   function resetAnswerThread() {
+=======
+  const resetAnswerThread = useCallback(() => {
+>>>>>>> origin/main
     setPriorAnswerTurns([]);
     setLatestAnswerQuery(null);
     setCollapsedTurnIds(new Set());
     setShowEarlierTurns(false);
     clearPersistedAnswerThread();
+<<<<<<< HEAD
   }
+=======
+  }, []);
+>>>>>>> origin/main
   function toggleAnswerTurnCollapsed(turnId: string) {
     setCollapsedTurnIds((current) => {
       const next = new Set(current);
@@ -2317,7 +2098,15 @@ export function ClinicalDashboard({
       return next;
     });
   }
+<<<<<<< HEAD
   function clearDifferentialModeResultState() {
+=======
+  // The query the current documentMatches were fetched for, so the
+  // differentials results view can tell live-edited catalogue results apart
+  // from evidence that belongs to a previously submitted search.
+  const [differentialEvidenceQuery, setDifferentialEvidenceQuery] = useState<string | null>(null);
+  const clearDifferentialModeResultState = useCallback(() => {
+>>>>>>> origin/main
     resetAnswerThread();
     setAnswer(null);
     setSources([]);
@@ -2328,7 +2117,8 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setError(null);
     setAnswerProgress(null);
-  }
+    setDifferentialEvidenceQuery(null);
+  }, [resetAnswerThread]);
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
   const [sourceGovernanceWarnings, setSourceGovernanceWarnings] = useState<SourceGovernanceWarning[]>([]);
@@ -2337,7 +2127,18 @@ export function ClinicalDashboard({
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
+  // In-progress streamed answer prose (content-preserving — the final committed answer still comes
+  // from the parsed `final` payload). null between searches; `{ text, revising }` while generating.
+  // `revising` = the quality gates dropped a provisional answer and are re-generating, so a
+  // "revising for accuracy" state shows instead of stale text.
+  const [streamingAnswer, setStreamingAnswer] = useState<{ text: string; revising: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Companion state for `error`, used to pick the right recovery UI (retry vs.
+  // a calm no-results panel) and to re-run the exact query that failed. Only read
+  // while `error` is truthy, and set alongside every `setError(<message>)` so a
+  // stale value can never leak into a later, unrelated error.
+  const [errorKind, setErrorKind] = useState<AnswerErrorKind | null>(null);
+  const [lastFailedQuery, setLastFailedQuery] = useState<string | null>(null);
   const [setupWarning, setSetupWarning] = useState<string | null>(null);
   const [setupChecks, setSetupChecks] = useState<SetupCheck[]>(fallbackSetupChecks);
   const [demoMode, setDemoMode] = useState(false);
@@ -2372,16 +2173,24 @@ export function ClinicalDashboard({
   useEffect(() => {
     const previous = prevAuthStatusRef.current;
     prevAuthStatusRef.current = authStatus;
+<<<<<<< HEAD
     if (
       (authStatus === "signed_out" || authStatus === "expired") &&
       (previous === "authenticated" || previous === "loading")
     ) {
+=======
+    if ((authStatus === "signed_out" || authStatus === "expired") && previous === "authenticated") {
+>>>>>>> origin/main
       resetAnswerThread();
       setAnswer(null);
       setSources([]);
       latestAnswerTurnRef.current = null;
     }
+<<<<<<< HEAD
   }, [authStatus]);
+=======
+  }, [authStatus, resetAnswerThread]);
+>>>>>>> origin/main
   const supabaseEnvStatus = setupChecks.find((check) => check.id === "env")?.status;
   const browserAuthUnavailableDemoFallback = !auth.isConfigured && supabaseEnvStatus !== "ready";
   const localNoAuthMode = isLocalNoAuthMode();
@@ -2393,9 +2202,23 @@ export function ClinicalDashboard({
   const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
   const canUseDegradedLocalSearchApis =
     process.env.NODE_ENV !== "production" && localProjectReady && hasReadyRequiredPublicSearchConfig(setupChecks);
+<<<<<<< HEAD
   const canUsePrivateApis =
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
   const canRunSearch = explicitDemoMode || canUsePublicSearchApis || canUseDegradedLocalSearchApis;
+=======
+  const canUseNonProductionDemoFallback = localProjectReady && hasNonProductionSupabaseApiKeyFallback(setupChecks);
+  const canUsePrivateApis =
+    localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
+  const canUploadDocuments = canUsePrivateApis || (publicUploadsEnabled() && canUsePublicSearchApis);
+  const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
+  const canRunSearch =
+    explicitDemoMode ||
+    canUsePublicSearchApis ||
+    canUseDegradedLocalSearchApis ||
+    canUseNonProductionDemoFallback ||
+    canAttemptDeployedPublicSearch;
+>>>>>>> origin/main
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
@@ -2576,20 +2399,25 @@ export function ClinicalDashboard({
           const setupResponse = await fetch("/api/setup-status", { cache: "no-store" }).catch(() => null);
 
           if (!setupResponse) {
-            setApiUnavailable(true);
-            setSetupWarning("The local API is unavailable.");
-            return;
-          }
-
-          if (setupResponse.ok) {
+            if (isDeployedClinicalKb()) {
+              setSetupWarning("Setup status could not be loaded. You can still try search.");
+            } else {
+              setApiUnavailable(true);
+              setSetupWarning("The local API is unavailable.");
+              return;
+            }
+          } else if (setupResponse.ok) {
             const payload = (await setupResponse.json()) as SetupStatusPayload;
             setSetupChecks(payload.checks ?? fallbackSetupChecks);
             nextDemoMode = Boolean(payload.demoMode);
             routeIndexingActive = Boolean(payload.indexingActive);
             routePollDelayMs = shorterPollDelay(routePollDelayMs, payload.pollAfterMs);
             if (nextDemoMode) setDemoMode(true);
+          } else if (isDeployedClinicalKb()) {
+            setSetupWarning("Setup status could not be loaded. You can still try search.");
           } else {
             setApiUnavailable(true);
+            return;
           }
         }
 
@@ -3040,6 +2868,13 @@ export function ClinicalDashboard({
     return () => window.clearTimeout(timeout);
   }, [focusSearch]);
 
+  // Abort any in-flight answer/library search if the dashboard unmounts.
+  useEffect(() => {
+    return () => {
+      searchAbortRef.current?.abort();
+    };
+  }, []);
+
   useEffect(() => {
     const searchParamString = searchParams.toString();
     if (lastSyncedSearchParamsRef.current === searchParamString) return;
@@ -3068,7 +2903,7 @@ export function ClinicalDashboard({
       if (shouldFocusComposer) focusComposerInput();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [searchParams]);
+  }, [searchParams, clearDifferentialModeResultState]);
 
   useEffect(() => {
     if (urlSearchBootstrappedRef.current) return;
@@ -3088,7 +2923,12 @@ export function ClinicalDashboard({
       if (shouldFocusComposer) focusComposerInput();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [clearDifferentialModeResultState]);
+
+  const executeSearchRef = useRef(executeSearch);
+  executeSearchRef.current = executeSearch;
+  const scopeFiltersRef = useRef(scopeFilters);
+  scopeFiltersRef.current = scopeFilters;
 
   useEffect(() => {
     if (urlDocumentSearchBootstrappedRef.current) return;
@@ -3109,15 +2949,19 @@ export function ClinicalDashboard({
     const shouldRun =
       params.get("run") === "1" ||
       modeSearch.kind === "documents" ||
+      modeSearch.kind === "forms" ||
       modeSearch.kind === "favourites" ||
       modeSearch.kind === "differentials";
     if (!shouldRun) return;
     const isRegistryOnlyMode = mode === "services" || mode === "forms";
     if (modeSearch.kind !== "tools" && modeSearch.kind !== "favourites" && !isRegistryOnlyMode && !canRunSearch) return;
     urlDocumentSearchBootstrappedRef.current = true;
-    void executeSearch(searchText, mode, scopeFilters);
+    void executeSearchRef.current(searchText, mode, scopeFiltersRef.current);
     // URL search intentionally runs once when the selected mode can execute.
+<<<<<<< HEAD
     // eslint-disable-next-line react-hooks/exhaustive-deps
+=======
+>>>>>>> origin/main
   }, [canRunSearch, answerThreadBootstrapped]);
 
   useEffect(() => {
@@ -3143,11 +2987,13 @@ export function ClinicalDashboard({
 
   function searchNetworkFailure(label: string) {
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
-    const localOrigin = typeof window !== "undefined" ? window.location.origin : "the local Clinical KB server";
+    const origin = typeof window !== "undefined" ? window.location.origin : "Clinical KB";
     return makeSearchError(
       offline
         ? `${label} could not run because the browser is offline.`
-        : `${label} could not reach Clinical KB at ${localOrigin}. The local server may still be starting or restarting; retry shortly or run npm run ensure.`,
+        : isDeployedClinicalKb()
+          ? `${label} could not reach Clinical KB at ${origin}. Check your connection and try again shortly.`
+          : `${label} could not reach Clinical KB at ${origin}. The local server may still be starting or restarting; retry shortly or run npm run ensure.`,
       undefined,
       true,
     );
@@ -3158,6 +3004,7 @@ export function ClinicalDashboard({
     mode: SourceLibrarySearchMode = "documents",
     filtersOverride?: SearchScopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
+    signal?: AbortSignal,
   ) {
     const searchLabel = mode === "differentials" ? "Differentials search" : "Document search";
     let response: Response;
@@ -3177,8 +3024,10 @@ export function ClinicalDashboard({
           documentLimit: 30,
           topK: 20,
         }),
+        signal,
       });
-    } catch {
+    } catch (error) {
+      if (isAbortError(error)) throw error;
       throw searchNetworkFailure(searchLabel);
     }
 
@@ -3212,7 +3061,9 @@ export function ClinicalDashboard({
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
     onProgress: (message: string) => void = setAnswerProgress,
+    signal?: AbortSignal,
   ) {
+    setStreamingAnswer(null);
     let response: Response;
     try {
       response = await fetch("/api/answer/stream", {
@@ -3227,8 +3078,11 @@ export function ClinicalDashboard({
           filters: compactScopeFilters(filtersOverride),
           queryMode: queryModeOverride,
         }),
+        signal,
       });
-    } catch {
+    } catch (error) {
+      if (answerTimedOutRef.current) throw answerTimedOutError();
+      if (isAbortError(error)) throw error;
       throw searchNetworkFailure("Answer search");
     }
 
@@ -3242,7 +3096,19 @@ export function ClinicalDashboard({
       throw makeSearchError(message, response.status, isRetryableStatus(response.status));
     }
 
-    const payload = await readAnswerStream(response, onProgress);
+    let payload: AnswerPayload;
+    try {
+      payload = await readAnswerStream(
+        response,
+        onProgress,
+        (delta) => setStreamingAnswer((prev) => ({ text: (prev?.text ?? "") + delta, revising: false })),
+        () => setStreamingAnswer({ text: "", revising: true }),
+      );
+    } catch (error) {
+      if (answerTimedOutRef.current) throw answerTimedOutError();
+      if (isAbortError(error)) throw error;
+      throw error;
+    }
     return {
       kind: "answer" as const,
       query: queryText,
@@ -3283,7 +3149,19 @@ export function ClinicalDashboard({
   // error/loading state, or a stale response would display one query's answer
   // under another query's composer text.
   const searchRequestSeqRef = useRef(0);
+  // Aborts the in-flight answer/library search when the user presses Stop, a
+  // newer search supersedes the prior one, or the component unmounts.
+  const searchAbortRef = useRef<AbortController | null>(null);
+  // Distinguishes a timeout-driven abort from an explicit user/supersede abort.
+  const answerTimedOutRef = useRef(false);
 
+<<<<<<< HEAD
+=======
+  function stopSearch() {
+    searchAbortRef.current?.abort();
+  }
+
+>>>>>>> origin/main
   function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
     if (payload.kind === "documents") {
       setDocumentMatches(payload.documentMatches);
@@ -3375,7 +3253,11 @@ export function ClinicalDashboard({
       setActionNotice({ tone: "success", message: "Favourites filtered from the composer." });
       return;
     }
+<<<<<<< HEAD
     if (modeSearch.kind === "services" || targetMode === "forms") {
+=======
+    if (modeSearch.kind === "services" || modeSearch.kind === "forms") {
+>>>>>>> origin/main
       resetAnswerThread();
       setAnswer(null);
       setSources([]);
@@ -3392,7 +3274,14 @@ export function ClinicalDashboard({
       return;
     }
     if (!canRunSearch) {
+      // requestId was already bumped above, so a superseded in-flight request's
+      // finally block can no longer reset loading — reset it here or the answer
+      // skeleton can stay on screen indefinitely.
+      setLoading(false);
+      setAnswerProgress(null);
       setError(errorCopy.searchSetupNotReady);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
     // M10 (diff-review hardening): progress updates emitted by this request's
@@ -3402,6 +3291,11 @@ export function ClinicalDashboard({
     const onProgress = (message: string | null) => {
       if (requestId === searchRequestSeqRef.current) setAnswerProgress(message);
     };
+    // A newer search already invalidated any prior request via requestId; abort
+    // its network work too so the server stops generating, then own the signal.
+    searchAbortRef.current?.abort();
+    const abortController = new AbortController();
+    searchAbortRef.current = abortController;
     setLoading(true);
     setError(null);
     setSearchRelevance(null);
@@ -3429,10 +3323,26 @@ export function ClinicalDashboard({
             { query: fallbackQuery, isKeyword: true },
           ]
         : [{ query: requestQuery, isKeyword: false }];
+<<<<<<< HEAD
+=======
+
+    // Bound this search with a timeout on the shared abort controller so a
+    // stalled answer stream recovers instead of spinning forever.
+    answerTimedOutRef.current = false;
+    const answerTimeout = window.setTimeout(() => {
+      answerTimedOutRef.current = true;
+      abortController.abort();
+    }, answerRequestTimeoutMs);
+>>>>>>> origin/main
 
     try {
       let successfulPayload: SearchResultModePayload | null = null;
       let lastError: SearchError | null = null;
+      // Differentials mode: the ranked catalogue results are the primary
+      // content and load independently of this document-evidence search, so an
+      // empty corpus result is applied (empty evidence) rather than surfaced
+      // as an error that would hide the catalogue view.
+      let emptyDifferentialsPayload: SearchResultModePayload | null = null;
 
       for (const entry of queryPlan) {
         if (entry.isKeyword) onProgress("Trying keyword-based search...");
@@ -3441,15 +3351,24 @@ export function ClinicalDashboard({
           const payload =
             modeSearch.kind === "documents" || modeSearch.kind === "differentials"
               ? await runWithRetries(
-                  () => requestSourceLibrarySearch(entry.query, modeSearch.kind, filtersOverride, targetQueryMode),
+                  () =>
+                    requestSourceLibrarySearch(
+                      entry.query,
+                      modeSearch.kind,
+                      filtersOverride,
+                      targetQueryMode,
+                      abortController.signal,
+                    ),
                   onProgress,
                 )
               : await runWithRetries(
-                  () => requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress),
+                  () =>
+                    requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress, abortController.signal),
                   onProgress,
                 );
 
           if (!resultUsable(payload)) {
+            if (modeSearch.kind === "differentials") emptyDifferentialsPayload = payload;
             lastError = makeSearchError("No usable results were found.", 404, false);
             if (!entry.isKeyword) {
               continue;
@@ -3468,12 +3387,17 @@ export function ClinicalDashboard({
         }
       }
 
+      if (!successfulPayload && emptyDifferentialsPayload) {
+        successfulPayload = emptyDifferentialsPayload;
+      }
+
       if (!successfulPayload) {
         if (lastError) throw lastError;
         throw new Error("Search did not return usable results.");
       }
 
       // M10: discard a stale response — a newer search owns the UI state.
+<<<<<<< HEAD
       if (requestId === searchRequestSeqRef.current) {
         applySearchResult(successfulPayload, trimmedQuery);
         if (successfulPayload.kind === "answer") {
@@ -3497,10 +3421,37 @@ export function ClinicalDashboard({
         }
       }
     } catch (requestError) {
+=======
+>>>>>>> origin/main
       if (requestId === searchRequestSeqRef.current) {
+        applySearchResult(successfulPayload, trimmedQuery);
+        if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
+        if (successfulPayload.kind === "answer") {
+          // The composer is a draft box in a conversation: clear it so the
+          // user can type the next follow-up immediately.
+          setQuery("");
+          // Keep only the latest question in the URL; the full thread lives in
+          // React state until refresh or New chat.
+          modeChangeFromUiRef.current = true;
+          window.history.replaceState(null, "", appModeHomeHref(targetMode, { query: trimmedQuery, run: true }));
+          if (isAnswerFollowUp) {
+            window.requestAnimationFrame(() => {
+              const main = mainRef.current;
+              main?.scrollTo({ top: main.scrollHeight, behavior: "smooth" });
+            });
+          }
+        }
+      }
+    } catch (requestError) {
+      if (requestId === searchRequestSeqRef.current && !isAbortError(requestError)) {
         setError(requestError instanceof Error ? requestError.message : "Search failed");
+        setErrorKind(classifyAnswerError(requestError));
+        setLastFailedQuery(trimmedQuery);
       }
     } finally {
+      window.clearTimeout(answerTimeout);
+      answerTimedOutRef.current = false;
+      if (searchAbortRef.current === abortController) searchAbortRef.current = null;
       if (requestId === searchRequestSeqRef.current) {
         setLoading(false);
         setAnswerProgress(null);
@@ -3523,6 +3474,7 @@ export function ClinicalDashboard({
     if (updateUrl) router.replace(appModeHomeHref("prescribing", { query: trimmedSearchText }));
   }
 
+<<<<<<< HEAD
   async function ask() {
     const trimmedQuery = query.trim();
     if (searchMode === "documents" && trimmedQuery) {
@@ -3532,15 +3484,34 @@ export function ClinicalDashboard({
     }
     if (searchMode === "prescribing") {
       setMedicationSearchQuery(query);
+=======
+  async function ask(searchText = query) {
+    const trimmedQuery = searchText.trim();
+    if (searchMode === "documents" && trimmedQuery) {
+      rememberRecentQuery(trimmedQuery);
+      router.push(documentsSearchHref({ query: trimmedQuery, focus: true, run: true }));
+>>>>>>> origin/main
       return;
     }
-    await executeSearch(query, searchMode, scopeFilters);
+    if (searchMode === "prescribing") {
+      setMedicationSearchQuery(searchText);
+      return;
+    }
+    await executeSearch(searchText, searchMode, scopeFilters);
   }
+  const askRef = useRef(ask);
+  askRef.current = ask;
 
   useEffect(() => {
     const trimmedQuery = query.trim();
+<<<<<<< HEAD
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !trimmedQuery || !canAutoRunMode || loading) return;
+=======
+    const submittedSearchText = searchMode === "answer" && submittedUrlQuery ? submittedUrlQuery : trimmedQuery;
+    const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
+    if (!autoRunSearch || !submittedSearchText || !canAutoRunMode || loading) return;
+>>>>>>> origin/main
     if (searchMode === "answer" && !answerThreadBootstrapped) return;
     // Once an answer is on screen, composer edits are follow-up drafts and must
     // only run on explicit submit — not on every query keystroke while run=1
@@ -3548,6 +3519,7 @@ export function ClinicalDashboard({
     if (searchMode === "answer" && answer) return;
     // After reload, the URL query matches the restored latest turn — do not
     // archive it again into a duplicate prior turn.
+<<<<<<< HEAD
     if (searchMode === "answer" && latestAnswerQuery?.trim() === trimmedQuery) {
       autoRunSearchSignatureRef.current = `${searchMode}:${trimmedQuery}`;
       return;
@@ -3557,6 +3529,27 @@ export function ClinicalDashboard({
     autoRunSearchSignatureRef.current = signature;
     void ask();
   }, [autoRunSearch, canRunSearch, loading, query, searchMode, answer, answerThreadBootstrapped, latestAnswerQuery]);
+=======
+    if (searchMode === "answer" && latestAnswerQuery?.trim() === submittedSearchText) {
+      autoRunSearchSignatureRef.current = `${searchMode}:${submittedSearchText}`;
+      return;
+    }
+    const signature = `${searchMode}:${submittedSearchText}`;
+    if (autoRunSearchSignatureRef.current === signature) return;
+    autoRunSearchSignatureRef.current = signature;
+    void askRef.current(submittedSearchText);
+  }, [
+    autoRunSearch,
+    canRunSearch,
+    loading,
+    query,
+    submittedUrlQuery,
+    searchMode,
+    answer,
+    answerThreadBootstrapped,
+    latestAnswerQuery,
+  ]);
+>>>>>>> origin/main
 
   function pickRecentQuery(recentQuery: string) {
     if (searchMode === "prescribing") {
@@ -3699,6 +3692,8 @@ export function ClinicalDashboard({
     }
     if (!canRunSearch) {
       setError(errorCopy.searchSetupNotReady);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
 
@@ -3719,17 +3714,27 @@ export function ClinicalDashboard({
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
     if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode);
 
+    const requestId = ++searchRequestSeqRef.current;
+
     try {
       const shortcutQueryMode = appModeQueryMode(targetMode, queryMode);
       const payload = await runWithRetries(() =>
         requestSourceLibrarySearch(trimmedSearchText, sourceLibraryMode, filtersOverride, shortcutQueryMode),
       );
-      applySearchResult(payload);
+      if (requestId === searchRequestSeqRef.current) {
+        applySearchResult(payload);
+      }
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Document search failed");
+      if (requestId === searchRequestSeqRef.current) {
+        setError(requestError instanceof Error ? requestError.message : "Document search failed");
+        setErrorKind(null);
+        setLastFailedQuery(null);
+      }
     } finally {
-      setLoading(false);
-      setAnswerProgress(null);
+      if (requestId === searchRequestSeqRef.current) {
+        setLoading(false);
+        setAnswerProgress(null);
+      }
     }
   }
 
@@ -3943,18 +3948,10 @@ export function ClinicalDashboard({
       return;
     }
 
-    const drawer = document.getElementById("answer-evidence-drawer") as HTMLDetailsElement | null;
-    if (!drawer) {
-      setActionNotice({
-        tone: "warning",
-        message: "Evidence appears after a source-backed answer is generated.",
-      });
-      return;
-    }
-    drawer.scrollIntoView({ block: "start", behavior: "smooth" });
-    if (!drawer.open) {
-      drawer.querySelector<HTMLElement>("summary")?.click();
-    }
+    setActionNotice({
+      tone: "warning",
+      message: "Evidence appears after a source-backed answer is generated.",
+    });
   }
 
   function navigateMobileSection(href: string, options: { updateHistory?: boolean } = {}) {
@@ -4027,6 +4024,31 @@ export function ClinicalDashboard({
     });
   }
 
+  function handleMainScroll() {
+    scheduleActiveSectionSync();
+  }
+
+  useEffect(() => {
+    const main = mainScrollRoot;
+    if (!main) return undefined;
+
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        reportPhoneScrollHideRef.current(main.scrollTop);
+      });
+    };
+
+    onScroll();
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      main.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [mainScrollRoot]);
+
   async function copyText(action: string, text: string) {
     let copied = false;
     try {
@@ -4049,6 +4071,8 @@ export function ClinicalDashboard({
     }
     if (!copied) {
       setError(errorCopy.clipboardCopyFailed);
+      setErrorKind(null);
+      setLastFailedQuery(null);
       return;
     }
     setCopiedAction(action);
@@ -4081,10 +4105,13 @@ export function ClinicalDashboard({
     const priorQueries = [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery];
     return buildAnswerFollowUpSuggestions(latestAnswerQuery, answer, priorQueries);
   }, [answer, latestAnswerQuery, priorAnswerTurns]);
+<<<<<<< HEAD
   const crossModeQueries = useMemo(
     () => [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery],
     [priorAnswerTurns, latestAnswerQuery],
   );
+=======
+>>>>>>> origin/main
   const hiddenPriorTurnCount = Math.max(0, priorAnswerTurns.length - maxVisiblePriorTurns);
   const visiblePriorTurns = useMemo(() => {
     if (showEarlierTurns || hiddenPriorTurnCount === 0) return priorAnswerTurns;
@@ -4225,28 +4252,33 @@ export function ClinicalDashboard({
       mobileSummary={demoMode ? "Synthetic data" : "Setup needed"}
       className={className}
     >
-      <p className="text-[15px] leading-6 text-[color:var(--warning)]">
+      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
         {demoMode
           ? "Demo mode is active with three synthetic indexed documents, citations, source cards, image captions, and document links. Synthetic data only; not clinical guidance."
           : `Configure .env.local and run supabase/schema.sql before uploading or searching. ${setupWarning}`}
       </p>
     </UtilityDrawer>
   );
-  const showAuthPanel = !clientDemoMode && !canUsePrivateApis;
-  const showDegradedNotice = !isOnline || apiUnavailable;
+  const showAuthPanel = false;
+  const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const hasMobileBottomSearch = searchMode !== "answer";
+  const submittedAnswerSearchActive =
+    activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
+  const showAnswerHome = activeModeResultKind === "answer" && !answer && !loading && !submittedAnswerSearchActive;
+  const showAnswerPending =
+    activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const showDesktopHomeComposer =
-    !loading &&
     !error &&
-    ((activeModeResultKind === "answer" && !answer && !modeSearchSubmitted) ||
-      (searchMode === "documents" &&
-        activeModeResultKind === "documents" &&
-        documentMatches.length === 0 &&
-        !modeSearchSubmitted) ||
-      (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
-      (activeModeResultKind === "differentials" && !modeSearchSubmitted) ||
+    (activeModeResultKind === "tools" ||
       activeModeResultKind === "favourites" ||
-      activeModeResultKind === "tools");
+      (!loading &&
+        (showAnswerHome ||
+          (searchMode === "documents" &&
+            activeModeResultKind === "documents" &&
+            documentMatches.length === 0 &&
+            !modeSearchSubmitted) ||
+          (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
+          (activeModeResultKind === "differentials" && !modeSearchSubmitted))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   // Favourites and Tools are content-rich hubs: they share the centred hero but
   // stay top-aligned so their lists start in a stable position.
@@ -4264,6 +4296,7 @@ export function ClinicalDashboard({
   const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
+<<<<<<< HEAD
   const mobileComposerReserve = !hasMobileBottomSearch
     ? "0px"
     : compactMobileBottomSearch
@@ -4271,6 +4304,8 @@ export function ClinicalDashboard({
         ? "calc(8.75rem + env(safe-area-inset-bottom))"
         : "calc(5rem + env(safe-area-inset-bottom))"
       : "calc(5.25rem + env(safe-area-inset-bottom))";
+=======
+>>>>>>> origin/main
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -4278,14 +4313,18 @@ export function ClinicalDashboard({
       summary={
         !isOnline
           ? "Your browser is offline. Existing content may remain visible, but private search and uploads need network access."
-          : "The local API did not respond. Check the app server and setup status before retrying."
+          : isDeployedClinicalKb()
+            ? "The app could not reach its API. Try again in a moment."
+            : "The local API did not respond. Check the app server and setup status before retrying."
       }
       mobileSummary={!isOnline ? "Offline" : "API unavailable"}
     >
-      <p className="text-[15px] leading-6 text-[color:var(--warning)]">
+      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
         {!isOnline
           ? "Reconnect before uploading documents, refreshing source URLs, or generating answers."
-          : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
+          : isDeployedClinicalKb()
+            ? "The app will preserve the current view. If this keeps happening, check your connection and try again shortly."
+            : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
       </p>
     </UtilityDrawer>
   );
@@ -4313,7 +4352,7 @@ export function ClinicalDashboard({
     {
       id: "upload",
       label: "Upload",
-      summary: uploadReadOnlyMode || !canUsePrivateApis ? "Locked" : "Ready",
+      summary: uploadReadOnlyMode || !canUploadDocuments ? "Locked" : "Ready",
       panelId: "dashboard-upload-section",
       icon: UploadCloud,
     },
@@ -4377,6 +4416,31 @@ export function ClinicalDashboard({
           : FolderOpen;
   const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Library and admin" : "Sources";
 
+  // Stable-identity handlers for the React.memo children (StagedAnswerResultSurface,
+  // DocumentSearchResultsPanel). These close over the draft `query` or call the
+  // intentionally-unstable executeSearch, so plain useCallback can't isolate them
+  // from per-keystroke re-renders — useEventCallback keeps identity fixed while
+  // always invoking the latest closure. See use-event-callback.ts.
+  const handleScopeDocument = useEventCallback(scopeOnlyDocument);
+  const handleAnswerFromDocument = useEventCallback(answerFromDocument);
+  const handleSubmitAnswerFeedback = useEventCallback(submitAnswerFeedback);
+  const handleAnswerFollowUpQuote = useEventCallback(handleFollowUpQuote);
+  const handleFollowUpSuggestionPick = useEventCallback(handlePickFollowUpSuggestion);
+  const handleCrossModeSearch = useEventCallback(crossModeSearch);
+  const handleDocumentTagSearch = useEventCallback(handleTagSearch);
+  const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
+  const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
+  const handleOpenSourcePdfBrowser = useEventCallback(openSourcePdfBrowser);
+  const handleCopyAnswer = useEventCallback(() => {
+    copyText("answer", answerRenderModel?.copyText || safeAnswerText || answer?.answer || "");
+  });
+  // The answer thread's prior-query list, memoized so it isn't a fresh array on
+  // every keystroke (it feeds two memoized surfaces below).
+  const crossModeQueries = useMemo(
+    () => [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery],
+    [priorAnswerTurns, latestAnswerQuery],
+  );
+
   return (
     <div
       className={cn(
@@ -4389,7 +4453,10 @@ export function ClinicalDashboard({
         {
           "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
           "--clinical-sidebar-width-md": "5.25rem",
+<<<<<<< HEAD
           "--mobile-composer-reserve": mobileComposerReserve,
+=======
+>>>>>>> origin/main
         } as CSSProperties
       }
     >
@@ -4452,6 +4519,12 @@ export function ClinicalDashboard({
             void ask();
           }}
           onCrossModeSearch={crossModeSearch}
+<<<<<<< HEAD
+=======
+          composerFollowUpSuggestions={searchMode === "answer" ? answerFollowUpSuggestions : undefined}
+          onPickComposerFollowUpSuggestion={handlePickFollowUpSuggestion}
+          composerFollowUpSuggestionsDisabled={loading}
+>>>>>>> origin/main
           composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
           mobileBottomSearchVariant={compactMobileBottomSearch ? "compact" : "default"}
@@ -4462,24 +4535,50 @@ export function ClinicalDashboard({
           heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
           // Phone-only: the header sits above the internally scrolling <main>,
           // so hiding must collapse its layout space to hand it to content.
+<<<<<<< HEAD
           hideOnScroll={{ strategy: "collapse", containerRef: mainRef }}
+=======
+          hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
+          onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
+>>>>>>> origin/main
         />
 
         <main
           id="main-content"
-          ref={mainRef}
+          ref={assignMainRef}
           tabIndex={-1}
-          onScroll={scheduleActiveSectionSync}
+          onScroll={handleMainScroll}
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none",
             searchMode === "answer"
-              ? "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+              ? compactMobileModeHome
+                ? "mb-0"
+                : // Phone answer view: the "Ask a follow-up" dock is fixed to the
+                  // bottom, so <main> reserves room for it. When that dock hides on
+                  // scroll, reclaim the reserved strip too — otherwise the near-black
+                  // shell background shows through as an empty band. (sm+ is inert:
+                  // bottomSearchScrollHidden only ever goes true on phones.)
+                  bottomSearchScrollHidden
+                  ? "mb-0 sm:mb-24"
+                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
+<<<<<<< HEAD
                 ? compactMobileBottomSearch
                   ? differentialsCompareAddonActive
                     ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
                     : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
                   : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+=======
+                ? bottomSearchScrollHidden
+                  ? "mb-0 sm:mb-0"
+                  : compactMobileBottomSearch
+                    ? differentialsCompareAddonActive
+                      ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
+                      : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
+                    : compactMobileModeHome
+                      ? "mb-0"
+                      : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+>>>>>>> origin/main
                 : "mb-0",
           )}
         >
@@ -4492,6 +4591,7 @@ export function ClinicalDashboard({
               onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
               onClearScopes: () => setCommandScopes([]),
             }}
+<<<<<<< HEAD
           >
           <div
             className={cn(
@@ -4556,21 +4656,38 @@ export function ClinicalDashboard({
                     : activeModeResultKind === "documents" || activeModeResultKind === "services"
                       ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
                       : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
+=======
+          >
+            <div
+              className={cn(
+                "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+                // Centred mode homes carry little content, so drop the large
+                // mobile bottom padding (the fixed composer already has its own
+                // reserved margin on <main>) to avoid a needless scrollbar.
+                // sm+/lg values stay identical to the result-view treatment.
+                searchMode === "answer"
+                  ? compactMobileModeHome
+                    ? "pb-4"
+                    : "pb-32 sm:pb-36 lg:pb-40"
+                  : hasMobileBottomSearch
+                    ? compactMobileModeHome
+                      ? "pb-4 sm:pb-10 lg:pb-12"
+                      : compactMobileBottomSearch
+                        ? "pb-8 sm:pb-10 lg:pb-12"
+                        : "pb-32 sm:pb-10 lg:pb-12"
+                    : "pb-8 sm:pb-10 lg:pb-12",
+>>>>>>> origin/main
               )}
             >
-              <h2 data-testid="answer-section-heading" className="sr-only">
-                {activeModeSearch.resultHeading}
-              </h2>
-              {error && (
-                <div
-                  role="alert"
-                  className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
-                >
-                  <AlertCircle className="mr-2 inline h-4 w-4" />
-                  {error}
-                </div>
+              {actionNotice && (
+                <InlineNotice tone={actionNotice.tone} onDismiss={() => setActionNotice(null)} animated>
+                  {actionNotice.message}
+                </InlineNotice>
               )}
+              {showDegradedNotice && renderDegradedNotice()}
+              {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
 
+<<<<<<< HEAD
               {loading && answerProgress && searchMode !== "prescribing" && (
                 <div
                   role="status"
@@ -4635,16 +4752,203 @@ export function ClinicalDashboard({
               ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
                 searchMode === "prescribing" ? (
                   <MedicationPrescribingWorkspace
+=======
+              <section
+                className={cn(
+                  "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
+                  centeredModeHome || showAnswerHome
+                    ? // Phones centre the home block mid-screen, matching the
+                      // standalone-route homes; the pop-up action surface picks
+                      // its own up/down placement so it stays unclipped either way.
+                      "grid w-full place-items-center max-sm:pt-2"
+                    : activeModeResultKind === "tools" ||
+                        activeModeResultKind === "favourites" ||
+                        activeModeResultKind === "differentials"
+                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                      : activeModeResultKind === "documents" || activeModeResultKind === "services"
+                        ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
+                        : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
+                )}
+              >
+                <h2 data-testid="answer-section-heading" className="sr-only">
+                  {activeModeSearch.resultHeading}
+                </h2>
+                {error && errorKind === "no-results" && activeModeResultKind === "answer" ? (
+                  <div
+                    role="status"
+                    data-testid="answer-no-results"
+                    className={cn("rounded-lg border p-4 text-sm", toneInfo)}
+                  >
+                    <div className="flex items-start gap-2">
+                      <Search className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div className="min-w-0 space-y-1">
+                        <p className="font-semibold text-[color:var(--text-heading)]">
+                          {answerRecovery.noResults.heading}
+                        </p>
+                        <p className={textMuted}>{answerRecovery.noResults.body}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        data-testid="answer-no-results-rephrase"
+                        onClick={() => focusComposerInput()}
+                        className={cn(primaryControl, "text-xs")}
+                      >
+                        {answerRecovery.rephrase}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="answer-no-results-search-documents"
+                        onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
+                        className={cn(floatingControl, "text-xs")}
+                      >
+                        <FileText className="h-4 w-4" />
+                        {answerRecovery.searchDocuments}
+                      </button>
+                    </div>
+                  </div>
+                ) : error ? (
+                  <div
+                    role="alert"
+                    data-testid="answer-error"
+                    className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
+                  >
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span className="min-w-0">{error}</span>
+                    </div>
+                    {activeModeResultKind === "answer" && lastFailedQuery && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          data-testid="answer-error-retry"
+                          onClick={() => {
+                            const retryQuery = lastFailedQuery ?? query;
+                            setError(null);
+                            void ask(retryQuery);
+                          }}
+                          className={cn(floatingControl, "text-xs")}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          {answerRecovery.retry}
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="answer-error-search-documents"
+                          onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
+                          className={cn(floatingControl, "text-xs")}
+                        >
+                          <FileText className="h-4 w-4" />
+                          {answerRecovery.searchDocuments}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {searchMode !== "prescribing" &&
+                  (activeModeResultKind === "answer" && (loading || answer) ? (
+                    // Answer result view keeps this status slot mounted through the
+                    // whole loading→answer swap so its height never collapses and the
+                    // answer below it doesn't jump up (CLS). The accent chrome only
+                    // appears while a progress message is live; otherwise it's a
+                    // height-reserved, visually empty spacer.
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className={cn(
+                        "flex min-h-[44px] items-center gap-2 rounded-lg px-3 text-sm font-medium",
+                        loading && answerProgress
+                          ? "border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--text-heading)]"
+                          : "border border-transparent",
+                      )}
+                    >
+                      {loading && answerProgress ? (
+                        <>
+                          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                          <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
+                          <button
+                            type="button"
+                            onClick={stopSearch}
+                            data-testid="stop-answer"
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                          >
+                            <Square className="h-3 w-3 shrink-0 fill-current" />
+                            Stop
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : loading && answerProgress ? (
+                    <div
+                      role="status"
+                      className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
+                    >
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                      <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
+                      <button
+                        type="button"
+                        onClick={stopSearch}
+                        data-testid="stop-answer"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      >
+                        <Square className="h-3 w-3 shrink-0 fill-current" />
+                        Stop
+                      </button>
+                    </div>
+                  ) : null)}
+
+                {activeModeResultKind === "differentials" ? (
+                  <DifferentialsHome
+>>>>>>> origin/main
                     query={query}
-                    loading={false}
-                    realDataReady
+                    loading={loading}
+                    searchSubmitted={modeSearchSubmitted}
+                    evidenceQuery={differentialEvidenceQuery}
+                    documentMatches={documentMatches}
+                    realDataReady={canRunSearch}
                     authUnavailable={false}
-                    apiUnavailable={false}
-                    setupWarning={null}
-                    onSuggestedSearch={setMedicationSearchQuery}
-                    showHome={!query.trim() && !modeSearchSubmitted}
+                    apiUnavailable={apiUnavailable}
+                    setupWarning={setupWarning}
+                    onQueryChange={setQuery}
+                    desktopComposerSlotId={desktopHomeComposerSlotId}
+                    onSuggestedSearch={(nextQuery) => {
+                      setQuery(nextQuery);
+                      focusComposerInput();
+                    }}
+                    onRunSearch={(nextQuery) => {
+                      void executeSearch(nextQuery, "differentials", scopeFilters);
+                    }}
+                    onOpenPresentations={(nextQuery) => {
+                      const queryParams = new URLSearchParams();
+                      const normalizedQuery = nextQuery.trim();
+                      if (normalizedQuery) queryParams.set("q", normalizedQuery);
+                      router.push(`/differentials/presentations${queryParams.toString() ? `?${queryParams}` : ""}`);
+                    }}
+                    onOpenDiagnoses={(nextQuery) => {
+                      const queryParams = new URLSearchParams();
+                      const normalizedQuery = nextQuery.trim();
+                      if (normalizedQuery) queryParams.set("q", normalizedQuery);
+                      router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
+                    }}
+                  />
+                ) : activeModeResultKind === "tools" ? (
+                  <ToolsHub query={query} desktopComposerSlotId={desktopHomeComposerSlotId} />
+                ) : activeModeResultKind === "favourites" ? (
+                  <FavouritesHub
+                    query={query}
+                    onClearQuery={() => {
+                      setQuery("");
+                      setModeSearchSubmitted(false);
+                      router.replace(appModeHomeHref("favourites", { focus: true }));
+                    }}
+                    onAddFavourite={() =>
+                      setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })
+                    }
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
+<<<<<<< HEAD
                 ) : (
                   <>
                     <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
@@ -4740,52 +5044,210 @@ export function ClinicalDashboard({
                   onSearchDocuments={() => setSearchMode("documents")}
                   onUploadDocument={openUploadDrawer}
                   desktopComposerSlotId={desktopHomeComposerSlotId}
+=======
+                ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
+                  searchMode === "prescribing" ? (
+                    <MedicationPrescribingWorkspace
+                      query={query}
+                      loading={false}
+                      realDataReady
+                      authUnavailable={false}
+                      apiUnavailable={false}
+                      setupWarning={null}
+                      onSuggestedSearch={setMedicationSearchQuery}
+                      showHome={!query.trim() && !modeSearchSubmitted}
+                      desktopComposerSlotId={desktopHomeComposerSlotId}
+                    />
+                  ) : (
+                    <>
+                      <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                      {searchMode === "documents" && modeSearchSubmitted && (
+                        <CrossModeLinksSection queries={[query]} onModeSearch={crossModeSearch} />
+                      )}
+                      <DocumentSearchResultsPanel
+                        matches={documentMatches}
+                        recordMatches={recordSearchMatches}
+                        recordMode={recordSearchMode}
+                        recordStatus={registryRecords.status}
+                        showRecordMatches={searchMode === "services" || searchMode === "forms"}
+                        query={query}
+                        loading={loading}
+                        documentCount={indexedDocumentTotal}
+                        recentDocuments={documents}
+                        realDataReady={searchMode === "services" || searchMode === "forms" ? true : canRunSearch}
+                        authUnavailable={false}
+                        apiUnavailable={apiUnavailable}
+                        setupWarning={setupWarning}
+                        facets={searchFacets}
+                        onScopeDocument={handleScopeDocument}
+                        onAnswerFromDocument={handleAnswerFromDocument}
+                        onOpenRecentDocuments={handleOpenRecentDocuments}
+                        onOpenLibrary={handleOpenSourceLibrary}
+                        onOpenSourcePdf={handleOpenSourcePdfBrowser}
+                        onTagSearch={handleDocumentTagSearch}
+                        showHome={searchMode === "documents" && !modeSearchSubmitted}
+                        desktopComposerSlotId={desktopHomeComposerSlotId}
+                      />
+                    </>
+                  )
+                ) : showAnswerPending ? (
+                  streamingAnswer && (streamingAnswer.text || streamingAnswer.revising) ? (
+                    <StreamingAnswerPreview text={streamingAnswer.text} revising={streamingAnswer.revising} />
+                  ) : (
+                    <AnswerSkeleton />
+                  )
+                ) : answer && answerRenderModel ? (
+                  stagedDashboardExtraction.answerSurface ? (
+                    <>
+                      {hiddenPriorTurnCount > 0 && !showEarlierTurns ? (
+                        <button
+                          type="button"
+                          data-testid="answer-thread-show-earlier"
+                          onClick={() => setShowEarlierTurns(true)}
+                          className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                        >
+                          Show earlier messages ({hiddenPriorTurnCount})
+                        </button>
+                      ) : null}
+                      {visiblePriorTurns.map((turn) => (
+                        <PriorAnswerTurnSurface
+                          key={turn.id}
+                          turn={turn}
+                          copied={copiedAction === turn.id}
+                          collapsed={collapsedTurnIds.has(turn.id)}
+                          onToggleCollapsed={() => toggleAnswerTurnCollapsed(turn.id)}
+                          onCopy={(text) => copyText(turn.id, text)}
+                        />
+                      ))}
+                      <StagedAnswerResultSurface
+                        answer={answer}
+                        query={latestAnswerQuery ?? query}
+                        safeAnswerText={safeAnswerText}
+                        bestSource={bestSource}
+                        sourceGovernanceWarnings={sourceGovernanceWarnings}
+                        sourceSummary={sourceSummary}
+                        renderModel={answerRenderModel}
+                        weakEvidence={weakEvidence}
+                        answerViewMode={answerViewMode}
+                        answerEvidenceMapRows={answerEvidenceMapRows}
+                        onScopeDocument={handleScopeDocument}
+                        answerGrounded={answerGrounded}
+                        sources={answerRenderModel.reviewSources}
+                        demoMode={demoMode}
+                        safeAnswerSections={safeAnswerSections}
+                        safetyFindings={safetyFindings}
+                        copiedAnswer={copiedAction === "answer"}
+                        pendingFeedback={pendingFeedback}
+                        onCopyAnswer={handleCopyAnswer}
+                        onSubmitFeedback={handleSubmitAnswerFeedback}
+                        onFollowUpQuote={handleAnswerFollowUpQuote}
+                        followUpSuggestions={answerFollowUpSuggestions}
+                        onPickFollowUpSuggestion={handleFollowUpSuggestionPick}
+                        followUpSuggestionsDisabled={loading}
+                        crossModeQueries={crossModeQueries}
+                        onCrossModeSearch={handleCrossModeSearch}
+                      />
+                    </>
+                  ) : null
+                ) : showAnswerHome ? (
+                  <AnswerEmptyState
+                    onSearchDocuments={() => setSearchMode("documents")}
+                    onUploadDocument={openUploadDrawer}
+                    desktopComposerSlotId={desktopHomeComposerSlotId}
+                    recentQueries={recentQueries}
+                    onSelectRecent={(recentQuery) => {
+                      setQuery(recentQuery);
+                      void ask(recentQuery);
+                    }}
+                  />
+                ) : null}
+              </section>
+
+              {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
+
+              {activeModeResultKind === "answer" && answer && (
+                <RelatedDocumentsPanel
+                  documents={relatedDocuments}
+                  onScopeDocument={scopeOnlyDocument}
+                  onTagSearch={handleTagSearch}
+>>>>>>> origin/main
                 />
               )}
-            </section>
-
-            {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
-
-            {activeModeResultKind === "answer" && answer && (
-              <RelatedDocumentsPanel
-                documents={relatedDocuments}
-                onScopeDocument={scopeOnlyDocument}
-                onTagSearch={handleTagSearch}
-              />
-            )}
-            {(documentsDrawerOpen || uploadDrawerOpen) && (
-              <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
-                <DrawerGroupLabel title={drawerGroupTitle} />
-                {documentsDrawerOpen ? (
-                  <UtilityDrawer
-                    id="dashboard-documents-drawer"
-                    icon={BookOpen}
-                    title={documentsDrawerTitle}
-                    summary={documentsDrawerSummary}
-                    mobileSummary={documentsDrawerMobileSummary}
-                    open={documentsDrawerOpen}
-                    onOpenChange={setDocumentsDrawerOpen}
-                    sheetBreakpoint="lg"
-                    sheetHeaderLeading={
-                      <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                        <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />
-                      </span>
-                    }
-                    sheetTitleAccessory={
-                      documentsDrawerIsAdmin ? (
-                        <span className="nums hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-bold text-[color:var(--text-muted)] sm:inline-flex">
-                          {indexedDocumentTotal.toLocaleString()} indexed
+              {(documentsDrawerOpen || uploadDrawerOpen) && (
+                <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
+                  <DrawerGroupLabel title={drawerGroupTitle} />
+                  {documentsDrawerOpen ? (
+                    <UtilityDrawer
+                      id="dashboard-documents-drawer"
+                      icon={BookOpen}
+                      title={documentsDrawerTitle}
+                      summary={documentsDrawerSummary}
+                      mobileSummary={documentsDrawerMobileSummary}
+                      open={documentsDrawerOpen}
+                      onOpenChange={setDocumentsDrawerOpen}
+                      sheetBreakpoint="lg"
+                      sheetHeaderLeading={
+                        <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                          <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />
                         </span>
-                      ) : null
-                    }
-                    sheetDescription={documentsDrawerSummary}
-                    sheetHeaderClassName="bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4"
-                    sheetCloseButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                    sheetContentClassName="max-h-[min(82dvh,40rem)] sm:max-h-[min(88dvh,46rem)] sm:max-w-2xl lg:max-w-3xl"
-                    sheetBodyClassName="bg-[color:var(--surface-subtle)] p-3 sm:p-4"
-                    sheetChildrenClassName="space-y-3"
-                  >
-                    {documentsDrawerIsAdmin ? (
+                      }
+                      sheetTitleAccessory={
+                        documentsDrawerIsAdmin ? (
+                          <span className="nums hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-bold text-[color:var(--text-muted)] sm:inline-flex">
+                            {indexedDocumentTotal.toLocaleString()} indexed
+                          </span>
+                        ) : null
+                      }
+                      sheetDescription={documentsDrawerSummary}
+                      sheetHeaderClassName="bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4"
+                      sheetCloseButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                      sheetContentClassName="max-h-[min(82dvh,40rem)] sm:max-h-[min(88dvh,46rem)] sm:max-w-2xl lg:max-w-3xl"
+                      sheetBodyClassName="bg-[color:var(--surface-subtle)] p-3 sm:p-4"
+                      sheetChildrenClassName="space-y-3"
+                    >
+                      {documentsDrawerIsAdmin ? (
+                        <LibraryHealthStrip
+                          documents={documents}
+                          jobs={jobs}
+                          batches={batches}
+                          checks={setupChecks}
+                          loading={dashboardDataLoading}
+                          onSelectTarget={openLibraryHealthTarget}
+                        />
+                      ) : null}
+                      <DocumentDrawer
+                        documents={documents}
+                        pagination={documentsPagination}
+                        loadingMoreDocuments={loadingMoreDocuments}
+                        mode={documentsDrawerIsAdmin ? "admin" : documentsDrawerMode}
+                        selectedDocumentIds={selectedDocumentIds}
+                        statusFilter={documentDrawerStatusFilter}
+                        onToggleScope={toggleDocumentScope}
+                        onLoadMoreDocuments={loadMoreDocuments}
+                        onDocumentRenamed={handleDocumentRenamed}
+                        onDocumentDeleted={handleDocumentDeleted}
+                        onBulkReindex={bulkReindexSelected}
+                        onBulkAssignCollection={bulkAssignCollection}
+                        onBulkMetadataUpdate={bulkUpdateMetadata}
+                        bulkActionStatus={bulkActionStatus}
+                        bulkActionBusy={bulkActionBusy}
+                        canManageDocuments={canUsePrivateApis}
+                        onTagSearch={handleTagSearch}
+                        onMutateLabel={mutateDocumentLabel}
+                      />
+                    </UtilityDrawer>
+                  ) : null}
+
+                  {uploadDrawerOpen ? (
+                    <UtilityDrawer
+                      id="dashboard-upload-drawer"
+                      icon={UploadCloud}
+                      title="Upload and indexing"
+                      summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
+                      mobileSummary="Setup & uploads"
+                      open={uploadDrawerOpen}
+                      onOpenChange={setUploadDrawerOpen}
+                    >
                       <LibraryHealthStrip
                         documents={documents}
                         jobs={jobs}
@@ -4794,30 +5256,124 @@ export function ClinicalDashboard({
                         loading={dashboardDataLoading}
                         onSelectTarget={openLibraryHealthTarget}
                       />
-                    ) : null}
-                    <DocumentDrawer
-                      documents={documents}
-                      pagination={documentsPagination}
-                      loadingMoreDocuments={loadingMoreDocuments}
-                      mode={documentsDrawerIsAdmin ? "admin" : documentsDrawerMode}
-                      selectedDocumentIds={selectedDocumentIds}
-                      statusFilter={documentDrawerStatusFilter}
-                      onToggleScope={toggleDocumentScope}
-                      onLoadMoreDocuments={loadMoreDocuments}
-                      onDocumentRenamed={handleDocumentRenamed}
-                      onDocumentDeleted={handleDocumentDeleted}
-                      onBulkReindex={bulkReindexSelected}
-                      onBulkAssignCollection={bulkAssignCollection}
-                      onBulkMetadataUpdate={bulkUpdateMetadata}
-                      bulkActionStatus={bulkActionStatus}
-                      bulkActionBusy={bulkActionBusy}
-                      canManageDocuments={canUsePrivateApis}
-                      onTagSearch={handleTagSearch}
-                      onMutateLabel={mutateDocumentLabel}
-                    />
-                  </UtilityDrawer>
-                ) : null}
+                      <div
+                        role="tablist"
+                        aria-label="Upload and indexing sections"
+                        className="grid grid-cols-4 gap-2 lg:hidden"
+                      >
+                        {uploadTabs.map((tab) => {
+                          const active = uploadMobileTab === tab.id;
+                          const Icon = tab.icon;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              role="tab"
+                              aria-selected={active}
+                              aria-controls={tab.panelId}
+                              onClick={() => setUploadMobileTab(tab.id)}
+                              className={cn(
+                                "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
+                                active
+                                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--glow-soft)]"
+                                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+                              )}
+                            >
+                              <span className="flex items-center gap-1.5 text-xs font-bold">
+                                <Icon className="h-3.5 w-3.5" />
+                                {tab.label}
+                              </span>
+                              <span className="mt-1 block truncate text-2xs font-semibold opacity-80">
+                                {tab.summary}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div
+                          id="dashboard-setup-section"
+                          role="tabpanel"
+                          aria-label="Setup"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
+                            uploadMobileTab !== "setup" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Developer setup status
+                          </p>
+                          <SetupChecklist checks={setupChecks} />
+                          {showAuthPanel && <AuthPanel />}
+                        </div>
+                        <div
+                          id="dashboard-upload-section"
+                          role="tabpanel"
+                          aria-label="Upload"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
+                            uploadMobileTab !== "upload" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Clinical upload
+                          </p>
+                          <UploadPanel
+                            onUploaded={handleUploadQueued}
+                            demoMode={uploadReadOnlyMode}
+                            canUpload={canUploadDocuments}
+                            authorizationHeader={authorizationHeader}
+                          />
+                        </div>
+                        <div
+                          id="dashboard-indexing-section"
+                          role="tabpanel"
+                          aria-label="Jobs"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
+                            uploadMobileTab !== "jobs" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Indexing progress
+                          </p>
+                          <IndexingMonitor
+                            jobs={jobs}
+                            batches={batches}
+                            filter={indexingMonitorFilter}
+                            actionId={indexingActionId}
+                            onRetry={retryJob}
+                            onReindex={reindexDocument}
+                            onEnrich={enrichDocument}
+                          />
+                        </div>
+                        <div
+                          id="dashboard-quality-section"
+                          role="tabpanel"
+                          aria-label="Quality"
+                          className={cn(
+                            "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
+                            uploadMobileTab !== "quality" && "hidden lg:block",
+                          )}
+                        >
+                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                            Ingestion quality console
+                          </p>
+                          <IngestionQualityConsole
+                            items={qualityItems}
+                            actionId={indexingActionId}
+                            onRetry={retryJob}
+                            onReindex={reindexDocument}
+                            onEnrich={enrichDocument}
+                          />
+                        </div>
+                      </div>
+                    </UtilityDrawer>
+                  ) : null}
+                </section>
+              )}
 
+<<<<<<< HEAD
                 {uploadDrawerOpen ? (
                   <UtilityDrawer
                     id="dashboard-upload-drawer"
@@ -4955,6 +5511,10 @@ export function ClinicalDashboard({
 
             {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
           </div>
+=======
+              {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
+            </div>
+>>>>>>> origin/main
           </SearchCommandProvider>
         </main>
 

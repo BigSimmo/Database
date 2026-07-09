@@ -17,6 +17,7 @@ const ENV_KEYS = [
   "SUPABASE_PROJECT_REF",
   "SUPABASE_PROJECT_NAME",
   "OPENAI_API_KEY",
+  "RAG_QUERY_HASH_SECRET",
   "NEXT_PUBLIC_LOCAL_NO_AUTH",
   "LOCAL_NO_AUTH",
 ] as const;
@@ -62,12 +63,23 @@ describe("instrumentation boot guard", () => {
     await expect(register()).rejects.toThrow(/OPENAI_API_KEY/);
   });
 
+  it("refuses to start a production server without a query-hash secret", async () => {
+    const register = await loadRegister({
+      ...PRODUCTION_NODE,
+      NEXT_PUBLIC_SUPABASE_URL: MATCHING_URL,
+      SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+      OPENAI_API_KEY: "openai-key",
+    });
+    await expect(register()).rejects.toThrow(/RAG_QUERY_HASH_SECRET/);
+  });
+
   it("starts a fully configured production server", async () => {
     const register = await loadRegister({
       ...PRODUCTION_NODE,
       NEXT_PUBLIC_SUPABASE_URL: MATCHING_URL,
       SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
       OPENAI_API_KEY: "openai-key",
+      RAG_QUERY_HASH_SECRET: "test-secret-at-least-16-chars",
     });
     await expect(register()).resolves.toBeUndefined();
   });

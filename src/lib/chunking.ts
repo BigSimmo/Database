@@ -26,6 +26,12 @@ const lineNoisePatterns: RegExp[] = [
   /^\s*[-*_]{3,}\s*$/,
   /^\s*[\u25cf\u25e6\u2022]\s*$/,
 ];
+// PDF extraction wraps a dose across lines in narrow table cells — PyMuPDF's
+// get_text("text", sort=True) emits each rendered line separately, so
+// "12.5 mg" arrives as "12.5\nmg". The bare unit line is then <= 2 characters
+// and looksLikeMetadataNoise would delete it, leaving a unitless dose in the
+// indexed chunk. removePageNoise rejoins these lines before filtering.
+const clinicalUnitLinePattern = /^(?:mg|mcg|µg|ug|g|kg|ml|l|iu|u|mmol|%)$/i;
 const maxImageContextItemsPerPage = 3;
 const highYieldSectionPattern =
   /\b(?:medicat|dose|dosage|dosing|administer|titrate|threshold|cut[\s-]?off|withhold|cease|stop|monitor|baseline|fbc|anc|neutrophil|level|risk|red flag|urgent|escalat|contraindicat|caution|toxicity|required|must|criteria|observation)\b/i;
@@ -114,10 +120,54 @@ function buildRepeatedBoilerplateLines(inputs: ChunkInput[]) {
   return new Set([...counts.entries()].filter(([, count]) => count >= 2).map(([line]) => line));
 }
 
+// Rejoin a wrapped dose unit ("12.5" / "mg" on consecutive lines) into a single
+// line so the unit is not deleted as short-line extraction debris. A lone unit
+// token with no preceding number stays subject to the noise filter.
+//
+// A `line` is a wrapped dose unit continuing `previousLine` when the previous
+// line ends in a digit and this line is a lone clinical unit token — the shape
+// PDF extraction produces for "12.5\nmg". A standalone page footer preceding it
+// (e.g. "Page 3 of 12") never counts, so a footer followed by a stray "mg" is
+// left to the noise filter rather than being welded to the footer.
+function isWrappedDoseUnitContinuation(previousLine: string | undefined, line: string) {
+  return Boolean(
+    previousLine &&
+    /\d$/.test(previousLine) &&
+    clinicalUnitLinePattern.test(line) &&
+    !lineNoisePatterns.some((pattern) => pattern.test(previousLine)),
+  );
+}
+
+function rejoinWrappedDoseUnits(lines: string[]) {
+  return lines.reduce<string[]>((kept, line) => {
+    const previous = kept[kept.length - 1];
+    if (isWrappedDoseUnitContinuation(previous, line)) {
+      kept[kept.length - 1] = `${previous} ${line}`;
+    } else {
+      kept.push(line);
+    }
+    return kept;
+  }, []);
+}
+
+// How many wrapped dose units the rejoin would repair in `text`. Lets a corpus
+// sample measure prevalence of the extraction bug without re-indexing: a
+// positive count means the pre-fix chunker would have deleted that unit,
+// indexing a unitless dose. Must run on raw extracted page text (the same input
+// removePageNoise sees), since the deleted unit is not recoverable from stored
+// chunks. Shares isWrappedDoseUnitContinuation with the fix so the two can't drift.
+export function countWrappedDoseUnitLines(text: string) {
+  const lines = text.split(/\r?\n/).map((line) => line.trim());
+  let count = 0;
+  for (let index = 1; index < lines.length; index += 1) {
+    if (isWrappedDoseUnitContinuation(lines[index - 1], lines[index])) count += 1;
+  }
+  return count;
+}
+
 function removePageNoise(text: string, repeatedBoilerplateLines = new Set<string>()) {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
+  const lines = rejoinWrappedDoseUnits(text.split(/\r?\n/).map((line) => line.trim()));
+  return lines
     .filter((line) => {
       if (line === "") return true;
       if (looksLikeMetadataNoise(line)) return false;

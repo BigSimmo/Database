@@ -1,7 +1,8 @@
 "use client";
 
-import { Clipboard, ClipboardCheck, MessageSquareText, Search, ShieldCheck, Sparkles, UploadCloud } from "lucide-react";
+import { Clipboard, ClipboardCheck, History, MessageSquareText, Search, ShieldCheck, Upload } from "lucide-react";
 
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { answerEmptyState, answerLoading, copyButton } from "@/lib/ui-copy";
@@ -34,16 +35,22 @@ export function CopyButton({
 }
 
 export function AnswerEmptyState({
-  onPickSample,
   onSearchDocuments,
   onUploadDocument,
   desktopComposerSlotId,
+  recentQueries = [],
+  onSelectRecent,
 }: {
-  onPickSample: (sample: string) => void;
   onSearchDocuments: () => void;
   onUploadDocument: () => void;
   desktopComposerSlotId?: string;
+  recentQueries?: string[];
+  onSelectRecent?: (query: string) => void;
 }) {
+  // Returning users get their prior questions back as one-tap chips so they can
+  // re-run without retyping. Capped for a calm surface; storage already dedupes.
+  const recents = onSelectRecent ? recentQueries.filter((entry) => entry.trim().length > 0).slice(0, 5) : [];
+
   return (
     <ModeHomeTemplate
       testId="answer-empty-state"
@@ -53,27 +60,37 @@ export function AnswerEmptyState({
       headingLevel={2}
       desktopComposerSlotId={desktopComposerSlotId}
       actionsLabel={answerEmptyState.starterActionsLabel}
-      actions={[
-        {
-          title: answerEmptyState.starters.ask.title,
-          description: answerEmptyState.starters.ask.description,
-          icon: Sparkles,
-          onClick: () => onPickSample(answerEmptyState.starters.ask.samplePrompt),
-        },
-        {
-          title: answerEmptyState.starters.searchDocuments.title,
-          description: answerEmptyState.starters.searchDocuments.description,
-          icon: Search,
-          onClick: onSearchDocuments,
-        },
-        {
-          title: answerEmptyState.starters.uploadDocument.title,
-          description: answerEmptyState.starters.uploadDocument.description,
-          icon: UploadCloud,
-          onClick: onUploadDocument,
-        },
-      ]}
-      footer={<ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical Guide library" />}
+      actions={[]}
+      footer={
+        <div className="grid w-full gap-3">
+          {recents.length > 0 && (
+            <AnswerSuggestionChips
+              testId="answer-recent-queries"
+              suggestions={recents}
+              onPick={(entry) => onSelectRecent?.(entry)}
+              label={answerEmptyState.recentLabel}
+              layout="wrap"
+              className="justify-center"
+              icon={History}
+            />
+          )}
+          {/* Quick actions are secondary to the composer above, so they read as
+              light text links (not pills) with a hairline divider — this also
+              breaks the visual repetition of stacked equal-weight chip rows. */}
+          <div className="answer-quick-actions" role="group" aria-label={answerEmptyState.quickActionsLabel}>
+            <button type="button" className="answer-quick-action" onClick={onSearchDocuments}>
+              <Search className="answer-quick-action-icon" aria-hidden="true" />
+              {answerEmptyState.starters.searchDocuments.title}
+            </button>
+            <span className="answer-quick-action-divider" aria-hidden="true" />
+            <button type="button" className="answer-quick-action" onClick={onUploadDocument}>
+              <Upload className="answer-quick-action-icon" aria-hidden="true" />
+              {answerEmptyState.starters.uploadDocument.title}
+            </button>
+          </div>
+          <ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical Guide library" />
+        </div>
+      }
     />
   );
 }

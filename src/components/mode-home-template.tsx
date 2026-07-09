@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { type ReactNode } from "react";
-import { ArrowRight, type LucideIcon } from "lucide-react";
+import { type LucideIcon, ArrowRight } from "lucide-react";
 
-import { cn } from "@/components/ui-primitives";
+import { cn, eyebrowText } from "@/components/ui-primitives";
 
 export type ModeHomeAction = {
   title: string;
@@ -16,6 +16,7 @@ export type ModeHomeAction = {
 
 export type ModeHomePill = {
   label: string;
+  shortLabel?: string;
   href?: string;
   onClick?: () => void;
   icon?: LucideIcon;
@@ -39,18 +40,15 @@ type ModeHomeTemplateProps = {
 };
 
 const pillToneClass: Record<NonNullable<ModeHomePill["tone"]>, string> = {
-  // Semantic roles — genuine status pills only.
   danger: "bg-[color:var(--danger)]",
   info: "bg-[color:var(--info)]",
-  success: "bg-[color:var(--success)]",
   neutral: "bg-[color:var(--text-soft)]",
-  // Brand accent — featured emphasis, not a taxonomy colour.
   primary: "bg-[color:var(--clinical-accent)]",
-  // Categorical scale — taxonomy/pathway dots, role-pure.
   purple: "bg-[color:var(--tone-purple)]",
   indigo: "bg-[color:var(--tone-indigo)]",
   rose: "bg-[color:var(--tone-rose)]",
   slate: "bg-[color:var(--tone-slate)]",
+  success: "bg-[color:var(--success)]",
 };
 
 export function ModeHomeHero({
@@ -77,7 +75,11 @@ export function ModeHomeHero({
 
   return (
     <section
+<<<<<<< HEAD
       className={cn("grid justify-items-center px-4 sm:gap-4 sm:px-0", compact ? "gap-2" : "gap-3")}
+=======
+      className={cn("grid justify-items-center sm:gap-4", compact ? "gap-2" : "gap-3")}
+>>>>>>> origin/main
       aria-labelledby={`${testId ?? "mode-home"}-title`}
     >
       <span
@@ -100,7 +102,11 @@ export function ModeHomeHero({
         </Heading>
         <p
           className={cn(
+<<<<<<< HEAD
             "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-base sm:leading-6 lg:text-[1.0625rem]",
+=======
+            "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-base sm:leading-6 lg:text-lg-minus",
+>>>>>>> origin/main
             compact ? "leading-5" : "leading-6",
           )}
         >
@@ -113,8 +119,13 @@ export function ModeHomeHero({
 
 /**
  * Standalone-route wrapper that mirrors the dashboard's vertically centred
- * Answer home: full-height, centred content, bottom padding reserved for the
- * fixed mobile composer.
+ * mode homes: full-height, centred content, no fixed bottom composer reserve.
+ * The phone min-height nets out the real phone chrome — the ~4.25rem sticky
+ * header plus the shell's 9rem bottom-composer reserve on `#main-content`
+ * (see `global-mockup-search-shell.tsx`) — so short homes centre in the space
+ * that is actually visible instead of against the 4rem desktop-header calc,
+ * which over-measures on phones and forced a phantom scrollbar. sm+ keeps the
+ * original calc where the header really is 4rem.
  */
 export function ModeHomeMain({
   testId,
@@ -129,10 +140,14 @@ export function ModeHomeMain({
     <main
       data-testid={testId}
       className={cn(
+<<<<<<< HEAD
         // Phone: stretch to fill the shell's flex column; the shell reserves
         // composer clearance via --mobile-composer-reserve. Background is
         // full-bleed; inner template content carries safe-area-aware inset.
         "flex min-h-0 w-full flex-1 flex-col items-center justify-center bg-[color:var(--background)] px-0 pt-[clamp(1.25rem,4vh,2.25rem)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
+=======
+        "grid min-h-[calc(100dvh-13.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] items-center justify-items-center bg-[color:var(--background)] px-4 pb-4 pt-[clamp(1.25rem,4vh,2.25rem)] text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
+>>>>>>> origin/main
         className,
       )}
     >
@@ -224,36 +239,52 @@ export function ModeHomeTemplate({
     <div
       data-testid={testId}
       className={cn(
+<<<<<<< HEAD
         "mode-home-template mx-auto box-border flex w-full max-w-none flex-col items-center justify-center gap-3.5 px-0 text-center sm:max-w-[64rem] sm:gap-6 lg:gap-7",
+=======
+        "mode-home-template mx-auto box-border flex w-full max-w-[64rem] flex-col items-center justify-center gap-3.5 px-0 text-center sm:gap-6 lg:gap-7",
+>>>>>>> origin/main
         className,
       )}
     >
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} compact />
 
       {desktopComposerSlotId ? (
+<<<<<<< HEAD
         <div
           id={desktopComposerSlotId}
           className="mode-home-composer-slot hidden w-full px-4 sm:px-0 sm:[&:not(:empty)]:block"
         />
+=======
+        <div id={desktopComposerSlotId} className="mode-home-composer-slot hidden w-full [&:not(:empty)]:block" />
+>>>>>>> origin/main
       ) : null}
 
-      {actions.length ? (
+      {actions?.length ? (
         <section
           aria-label={actionsLabel}
+<<<<<<< HEAD
           className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-3xl sm:rounded-xl sm:border sm:shadow-[var(--shadow-card)] lg:max-w-none lg:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] lg:gap-5 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
+=======
+          className="grid w-full max-w-3xl overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] sm:gap-5 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none"
+>>>>>>> origin/main
         >
           {actions.map((action, index) => {
             const ActionIcon = action.icon;
             const content = (
               <>
-                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] lg:h-14 lg:w-14 lg:rounded-xl">
-                  <ActionIcon className="h-5 w-5 lg:h-7 lg:w-7" aria-hidden="true" />
+                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-14 sm:w-14 sm:rounded-xl">
+                  <ActionIcon className="h-5 w-5 sm:h-7 sm:w-7" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-balance text-[0.98rem] font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] lg:text-[1.05rem]">
+                  <span className="block text-balance text-[0.98rem] font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] sm:text-[1.05rem]">
                     {action.title}
                   </span>
+<<<<<<< HEAD
                   <span className="mt-0.5 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:mt-1 lg:text-[0.9rem] lg:leading-6">
+=======
+                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-[0.9rem] sm:leading-6">
+>>>>>>> origin/main
                     {action.description}
                   </span>
                 </span>
@@ -264,8 +295,13 @@ export function ModeHomeTemplate({
               </>
             );
             const actionClassName = cn(
+<<<<<<< HEAD
               "mode-home-action group grid min-h-[4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-2.5 text-left transition sm:min-h-[4.8rem] sm:py-3 hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 lg:min-h-[8.4rem] lg:grid-cols-[3.5rem_minmax(0,1fr)_1.5rem] lg:gap-4 lg:rounded-lg lg:border lg:border-[color:var(--border)] lg:px-6 lg:py-5 lg:shadow-[var(--shadow-card)]",
               index > 0 && "border-t border-[color:var(--border)] lg:border-t-[color:var(--border)]",
+=======
+              "mode-home-action group grid min-h-[4.8rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[8rem] sm:grid-cols-[3.5rem_minmax(0,1fr)_1.5rem] sm:gap-4 sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:px-5 sm:py-5 sm:shadow-[var(--shadow-card)] lg:min-h-[8.4rem] lg:px-6",
+              index > 0 && "border-t border-[color:var(--border)] sm:border-t-[color:var(--border)]",
+>>>>>>> origin/main
             );
 
             if (action.href) {
@@ -293,45 +329,45 @@ export function ModeHomeTemplate({
       ) : null}
 
       {pills?.length ? (
+<<<<<<< HEAD
         <section className="grid w-full max-w-none self-stretch gap-3 border-t border-[color:var(--border)] px-4 pt-3 sm:gap-4 sm:px-0 sm:pt-6">
+=======
+        <section
+          aria-label={pillsTitle ?? "Quick links"}
+          className="grid w-full max-w-none self-stretch gap-2.5 border-t border-[color:var(--border)]/70 pt-5 sm:pt-6"
+        >
+>>>>>>> origin/main
           {pillsTitle || pillsAction ? (
-            <div
-              className={cn(
-                "flex min-h-10 w-full items-center gap-3",
-                pillsAction ? "justify-between text-left" : "justify-center text-center",
-              )}
-            >
-              {pillsTitle ? (
-                <h2 className="text-base font-bold text-[color:var(--text-heading)] sm:text-lg">{pillsTitle}</h2>
-              ) : (
-                <span />
-              )}
+            <div className="flex min-h-8 w-full items-center justify-between gap-3">
+              {pillsTitle ? <p className={cn(eyebrowText, "text-center sm:text-left")}>{pillsTitle}</p> : <span />}
               {pillsAction}
             </div>
           ) : null}
-          <div className="-mx-1 flex w-full max-w-full gap-3 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0">
+          <div className="flex w-full flex-wrap justify-center gap-2 sm:gap-2.5">
             {pills.map((pill) => {
               const PillIcon = pill.icon;
+              const displayLabel = pill.shortLabel ?? pill.label;
               const content = (
                 <>
                   {PillIcon ? (
-                    <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                       <PillIcon className="h-3.5 w-3.5" aria-hidden="true" />
                     </span>
                   ) : (
-                    <span className={cn("h-2.5 w-2.5 rounded-full", pillToneClass[pill.tone ?? "neutral"])} />
+                    <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", pillToneClass[pill.tone ?? "neutral"])} />
                   )}
-                  {pill.label}
+                  <span className="text-balance text-center">{displayLabel}</span>
                 </>
               );
               const pillClassName =
-                "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+                "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm";
+              const pillA11y = pill.shortLabel ? { "aria-label": pill.label, title: pill.label } : {};
               return pill.href ? (
-                <Link key={pill.label} href={pill.href} className={pillClassName}>
+                <Link key={pill.label} href={pill.href} className={pillClassName} {...pillA11y}>
                   {content}
                 </Link>
               ) : (
-                <button key={pill.label} type="button" onClick={pill.onClick} className={pillClassName}>
+                <button key={pill.label} type="button" onClick={pill.onClick} className={pillClassName} {...pillA11y}>
                   {content}
                 </button>
               );

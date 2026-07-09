@@ -26,6 +26,10 @@ const indexingV3AgentWorkerHardeningMigration = readFileSync(
   new URL("../supabase/migrations/20260625000000_indexing_v3_agent_worker_hardening.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const dropStageJobIdFkMigration = readFileSync(
+  new URL("../supabase/migrations/20260708140000_drop_ingestion_job_stages_job_id_fk.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const atomicStrictCompletionMigration = readFileSync(
   new URL("../supabase/migrations/20260625033944_atomic_strict_enrichment_completion.sql", import.meta.url),
   "utf8",
@@ -36,6 +40,10 @@ const dropDuplicateStageIndexMigration = readFileSync(
 ).replace(/\s+/g, " ");
 const phase7RetrievalPerformanceMigration = readFileSync(
   new URL("../supabase/migrations/20260626020000_phase7_retrieval_rpc_performance.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const retrievalOwnerFilterSentinelMigration = readFileSync(
+  new URL("../supabase/migrations/20260705210000_retrieval_owner_filter_sentinel.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const atomicReindexMigration = readFileSync(
@@ -70,6 +78,42 @@ const indexingV3AgentJobsMigration = readFileSync(
 ).replace(/\s+/g, " ");
 const clinicalRegistryRecordsMigration = readFileSync(
   new URL("../supabase/migrations/20260703020000_clinical_registry_records.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const medicationRecordsMigration = readFileSync(
+  new URL("../supabase/migrations/20260705010000_medication_records.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const registryCatalogPayloadMigration = readFileSync(
+  new URL("../supabase/migrations/20260705030000_registry_catalog_payload.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const searchHealthIndexesMigration = readFileSync(
+  new URL("../supabase/migrations/20260705180000_reconcile_search_health_indexes.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const searchSchemaHealthM13GuardMigration = readFileSync(
+  new URL("../supabase/migrations/20260706010000_search_schema_health_m13_guard.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ragQueriesRetentionMigration = readFileSync(
+  new URL("../supabase/migrations/20260629060603_rag_queries_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ragQueriesRetentionDuplicateMigration = readFileSync(
+  new URL("../supabase/migrations/20260629100000_rag_queries_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ragRetrievalLogsRetentionMigration = readFileSync(
+  new URL("../supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const liveDatabaseDriftMigration = readFileSync(
+  new URL("../supabase/migrations/20260705230000_reconcile_live_database_drift.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const searchDocumentChunksOwnerScopeMigration = readFileSync(
+  new URL("../supabase/migrations/20260705133000_tighten_search_document_chunks_owner_scope.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 
@@ -166,6 +210,11 @@ describe("Supabase schema Data API grants", () => {
       expect(sql).toContain("insert into public.document_pages");
       expect(sql).toContain("insert into public.document_index_quality");
     }
+    // R5 helpers live only in schema.sql (+ the dedicated migration), not in the
+    // original atomic-reindex migration snapshot.
+    expect(schema).toContain("create or replace function public.jsonb_merge_deep");
+    expect(schema).toContain("create or replace function public.apply_document_metadata_patch");
+    expect(schema).toContain("perform public.apply_document_metadata_patch");
     expect(schema).toContain("public.is_committed_document_generation(c.index_generation_id, d.metadata)");
     expect(schema).toContain("public.is_committed_artifact_generation(m.metadata, d.metadata)");
     expect(schema).toContain("public.is_committed_artifact_generation(f.metadata, d.metadata)");
@@ -245,13 +294,17 @@ describe("Supabase schema Data API grants", () => {
 
   it("keeps indexing-v3 enrichment claiming separate from raw ingestion jobs", () => {
     expect(schema).toContain("create table if not exists public.ingestion_job_stages");
-    expect(schema).toContain("job_id uuid not null references public.ingestion_jobs(id) on delete cascade");
-    expect(indexingV3AgentWorkerHardeningMigration).toContain(
-      "drop constraint if exists ingestion_job_stages_job_id_fkey",
-    );
+    // R24e: schema.sql no longer declares a job_id -> ingestion_jobs FK. Live has
+    // none, and job_id holds indexing_v3_agent_jobs ids, not ingestion_jobs ids,
+    // so the FK would break the edge agent. The historical migration
+    // 20260625000000 added it; 20260708140000 drops it so fresh/preview
+    // environments match live.
+    expect(schema).toContain("job_id uuid not null,");
+    expect(schema).not.toContain("job_id uuid not null references public.ingestion_jobs(id) on delete cascade");
     expect(indexingV3AgentWorkerHardeningMigration).toContain(
       "add constraint ingestion_job_stages_job_id_fkey foreign key (job_id) references public.ingestion_jobs(id) on delete cascade",
     );
+    expect(dropStageJobIdFkMigration).toContain("drop constraint if exists ingestion_job_stages_job_id_fkey");
     expect(schema).toContain("drop index if exists public.ingestion_job_stages_doc_idx");
     expect(schema).toContain("create index if not exists ingestion_job_stages_document_started_idx");
     for (const sql of [schema, indexingV3AgentJobsMigration]) {
@@ -374,13 +427,19 @@ describe("Supabase schema Data API grants", () => {
 
   it("supports service-role-only durable API rate limiting", () => {
     expect(schema).toContain("create table if not exists public.api_rate_limits");
+    expect(schema).toContain("create table if not exists public.api_rate_limit_subjects");
     expect(schema).toContain("primary key (owner_id, bucket)");
+    expect(schema).toContain("primary key (subject_key, bucket)");
     expect(schema).toContain("create or replace function public.consume_api_rate_limit");
+    expect(schema).toContain("create or replace function public.consume_api_subject_rate_limit");
     expect(schema).toContain("returns table ( limited boolean, limit_value integer, remaining integer");
     expect(schema).toContain("grant select, insert, update, delete on table");
     expect(schema).toContain("public.api_rate_limits,");
+    expect(schema).toContain("public.api_rate_limit_subjects,");
     expect(schema).toContain("alter table public.api_rate_limits enable row level security");
+    expect(schema).toContain("alter table public.api_rate_limit_subjects enable row level security");
     expect(schema).toContain('create policy "api rate limits service role all"');
+    expect(schema).toContain('create policy "api rate limit subjects service role all"');
     expect(schema).not.toMatch(/grant [^;]*public\.api_rate_limits[^;]* to authenticated;/);
   });
 
@@ -488,9 +547,34 @@ describe("Supabase schema Data API grants", () => {
     expect(functionBody).toContain("f.metadata");
   });
 
+  it("declares the corpus topic term stats function with retrieval-equivalent scoping", () => {
+    // Finding #11 corpus grounding (migration 20260707100000): the stats the unsupported
+    // soft tail grounds on must be scoped exactly like retrieval — owner filter, indexed
+    // status, and committed generation — and stay service_role-only.
+    expect(schema).toContain("create or replace function public.corpus_topic_term_stats(");
+    const corpusStatsBody = schema.slice(
+      schema.indexOf("create or replace function public.corpus_topic_term_stats("),
+      schema.indexOf("create or replace function public.match_document_chunks("),
+    );
+    expect(corpusStatsBody).toContain("public.retrieval_owner_matches(owner_filter, d.owner_id)");
+    expect(corpusStatsBody).toContain("d.status = 'indexed'");
+    expect(corpusStatsBody).toContain("public.is_committed_document_generation(c.index_generation_id, d.metadata)");
+    expect(corpusStatsBody).toContain(
+      "grant execute on function public.corpus_topic_term_stats(text[], uuid) to service_role;",
+    );
+  });
+
   it("filters hybrid retrieval by owner inside Postgres", () => {
     expect(schema).toContain("owner_filter uuid default null");
-    expect(schema).toContain("and (owner_filter is null or d.owner_id = owner_filter)");
+    expect(schema).toContain(
+      "create or replace function public.retrieval_owner_matches(owner_filter uuid, row_owner_id uuid)",
+    );
+    expect(schema).toContain("when owner_filter is null then false");
+    expect(schema).not.toContain("when owner_filter is null then true");
+    expect(schema).toContain(
+      "when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null",
+    );
+    expect(schema).toContain("and public.retrieval_owner_matches(owner_filter, d.owner_id)");
     expect(schema).toContain("create or replace function public.match_document_chunks_text");
     expect(schema).toContain("create or replace function public.match_document_chunks_hybrid");
     expect(schema).toContain("rrf_score double precision");
@@ -553,6 +637,9 @@ describe("Supabase schema Data API grants", () => {
     expect(phase7RetrievalPerformanceMigration).toContain("limit least(greatest(match_count * 2, 32), 96)");
     expect(phase7RetrievalPerformanceMigration).toContain("and (owner_filter is null or f.owner_id = owner_filter)");
     expect(phase7RetrievalPerformanceMigration).toContain("and (owner_filter is null or u.owner_id = owner_filter)");
+    expect(phase7RetrievalPerformanceMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
     expect(schema).toContain("limit greatest(match_count * 6, 48)"); // chunks hybrid
     expect(schema).toContain("limit greatest(match_count * 3, 48)"); // index units hybrid
     expect(schema).toContain("limit greatest(match_count * 3, 32)"); // embedding fields hybrid
@@ -686,6 +773,72 @@ describe("Supabase schema Data API grants", () => {
       expect(sql).toContain('create policy "registry record sources service role all"');
     }
   });
+
+  it("defines the medication records table identically in migration and schema", () => {
+    for (const sql of [schema, medicationRecordsMigration]) {
+      expect(sql).toContain("create table if not exists public.medication_records");
+      expect(sql).toContain("owner_id uuid not null references auth.users(id) on delete cascade");
+      expect(sql).toContain("stats jsonb not null default '[]'::jsonb");
+      expect(sql).toContain("sections jsonb not null default '[]'::jsonb");
+      expect(sql).toContain("quick jsonb not null default '[]'::jsonb");
+      expect(sql).toContain("unique (owner_id, slug)");
+      expect(sql).toContain("create index if not exists medication_records_owner_name_idx");
+      expect(sql).toContain("create trigger medication_records_updated_at");
+      expect(sql).toContain("alter table public.medication_records enable row level security");
+      expect(sql).toContain("revoke all on public.medication_records from anon, authenticated");
+      expect(sql).toContain("grant select, insert, update, delete on table public.medication_records to service_role");
+      expect(sql).toContain('create policy "medication records service role all"');
+    }
+  });
+
+  it("adds catalog_payload to clinical registry records", () => {
+    expect(schema).toContain("catalog_payload jsonb not null default '{}'::jsonb");
+    expect(registryCatalogPayloadMigration).toContain(
+      "add column if not exists catalog_payload jsonb not null default '{}'::jsonb",
+    );
+  });
+
+  it("reconciles live database drift for embedding-field text RPC and rag visual eval tables", () => {
+    for (const sql of [schema, liveDatabaseDriftMigration]) {
+      expect(sql).toContain("create or replace function public.match_document_embedding_fields_text");
+      expect(sql).toContain("create table if not exists public.rag_visual_eval_cases");
+      expect(sql).toContain("create table if not exists public.rag_visual_eval_runs");
+      expect(sql).toContain('create policy "rag visual eval cases service role all"');
+      expect(sql).toContain('create policy "rag visual eval runs service role all"');
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) from public, anon, authenticated",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) to service_role",
+      );
+    }
+  });
+
+  it("reconciles search_schema_health index drift with canonical creates and live aliases", () => {
+    expect(searchHealthIndexesMigration).toContain("create index if not exists documents_title_trgm_idx");
+    expect(searchHealthIndexesMigration).toContain("create index if not exists document_labels_label_trgm_idx");
+    expect(searchHealthIndexesMigration).toContain("create index if not exists rag_retrieval_logs_miss_idx");
+    expect(searchHealthIndexesMigration).toContain("index_aliases constant jsonb := jsonb_build_object(");
+    expect(searchHealthIndexesMigration).toContain("'documents_title_search_tsv_idx'");
+    expect(searchHealthIndexesMigration).toContain("'document_pages_document_id_page_number_key'");
+    expect(schema).toContain("index_aliases constant jsonb := jsonb_build_object(");
+    expect(schema).toContain("jsonb_array_elements_text(index_aliases -> index_name)");
+  });
+  it("mirrors tightened search_document_chunks owner scope in schema and migration", () => {
+    expect(searchDocumentChunksOwnerScopeMigration).toContain("(p_owner_id is null and d.owner_id is null)");
+    expect(schema).toContain("create or replace function public.search_document_chunks(");
+    expect(schema).toContain(
+      "revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated",
+    );
+  });
+
+  it("surfaces stale commit generation RPCs through search_schema_health", () => {
+    for (const sql of [schema, searchSchemaHealthM13GuardMigration]) {
+      expect(sql).toContain("commit_fn_def := pg_get_functiondef(");
+      expect(sql).toContain("commit_document_index_generation.preserve_legacy_artifacts_migration");
+      expect(sql).toContain("from public.document_chunks replacement");
+    }
+  });
 });
 
 describe("RC9 — lexical text path must not fabricate a cosine similarity", () => {
@@ -705,5 +858,35 @@ describe("RC9 — lexical text path must not fabricate a cosine similarity", () 
     expect(schema).toMatch(
       /least\(0\.5, [0-9.]+ \+ \(least\(ranked\.text_rank, 1\) \* [0-9.]+\)\)::double precision as hybrid_score/,
     );
+  });
+});
+
+describe("Supabase Preview replay guards", () => {
+  it("keeps retrieval_synopsis when adding lexical_score to match_document_chunks_text", () => {
+    expect(lexicalScoreMigration).toContain("retrieval_synopsis text");
+    expect(lexicalScoreMigration).toContain("c.retrieval_synopsis");
+    expect(lexicalScoreMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
+  });
+
+  it("drops match_document_chunks_text before phase 7 changes its OUT signature", () => {
+    expect(phase7RetrievalPerformanceMigration).toContain(
+      "drop function if exists public.match_document_chunks_text(text, integer, uuid[], uuid)",
+    );
+  });
+
+  it("keeps retrieval owner sentinel migration neutralized to avoid replay regressions", () => {
+    expect(retrievalOwnerFilterSentinelMigration).toContain("NEUTRALIZED 2026-07-08");
+    expect(retrievalOwnerFilterSentinelMigration).toContain("select 1 where false;");
+  });
+
+  it("guards pg_cron retention schedules for preview branches without cron.job", () => {
+    for (const sql of [ragQueriesRetentionMigration, ragRetrievalLogsRetentionMigration]) {
+      expect(sql).toContain("to_regnamespace('cron')");
+      expect(sql).not.toMatch(/select cron\.unschedule\(jobid\) from cron\.job/);
+      expect(sql).not.toMatch(/select cron\.schedule\(/);
+    }
+    expect(ragQueriesRetentionDuplicateMigration).toMatch(/select 1;/);
   });
 });
