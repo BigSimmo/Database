@@ -335,11 +335,12 @@ When explicitly asked to fix or resolve review findings:
 
 ### Automatic resolve trigger
 
-Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex posts a top-level review comment.
+Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests one scoped resolve task after Codex posts an inline PR review comment.
 
 - The workflow must only trigger from Codex review bot comments on open pull requests.
+- Do not add `issue_comment`, `pull_request_review`, scheduled, push, or broad PR triggers to this workflow without explicit human approval.
 - The workflow must skip review-thread replies and auto-resolve request comments so Codex fix summaries do not re-trigger the workflow.
-- The workflow must ask Codex to resolve all review comments using these repository instructions.
+- The workflow must ask Codex to resolve only actionable Codex review findings for the triggering pull request and current head.
 - The workflow must avoid duplicate requests for the same pull request, even after follow-up commits change the head SHA.
 - The workflow must not run Codex directly with API credentials.
 - P0 and P1 findings should always be fixed.
@@ -347,7 +348,7 @@ Automatic Codex review is review-only by default. This repository includes `.git
 
 ### Primary PR command
 
-`@codex resolve all review comments using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`
+`@codex resolve actionable Codex review findings for this pull request and current head using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit unless explicitly asked. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`
 
 ## Cursor Cloud specific instructions
 

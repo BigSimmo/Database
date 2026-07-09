@@ -29,6 +29,7 @@
     "sitemap:update": "tsx scripts/generate-site-map.ts",
     "sitemap:check": "tsx scripts/generate-site-map.ts --check",
     "check:runtime": "tsx scripts/check-runtime.ts",
+    "check:codex-autofix-workflow": "node scripts/check-codex-autofix-workflow.mjs",
     "check:deployment-readiness": "node scripts/deployment-boot-smoke.mjs",
     "check:edge:functions": "node scripts/check-edge-functions.mjs",
     "check:production-readiness": "tsx scripts/production-readiness.ts",
