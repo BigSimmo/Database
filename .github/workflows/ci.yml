@@ -172,6 +172,9 @@ jobs:
       - name: Start Supabase Local Emulator
         run: supabase start
 
+      - name: Verify Migration Replay
+        run: supabase db reset
+
       - name: Save Supabase Docker images
         if: always()
         continue-on-error: true
@@ -181,9 +184,6 @@ jobs:
             | grep -E '^(supabase/|ghcr.io/supabase/)' \
             | sort -u \
             | xargs -r docker save -o /tmp/supabase-docker-cache/images.tar
-
-      - name: Verify Migration Replay
-        run: supabase db reset
 
   release-browser-matrix:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
