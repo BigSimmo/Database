@@ -282,7 +282,12 @@ export function embedDifferentialRows(supabase: AdminClient, rows: DifferentialR
 
 /** Best-effort corpus embedding for a seed path: failures are logged, not thrown,
  *  so a broken embedding call never blocks the seed write it runs after. */
-export async function bestEffortEmbedRows(args: { scope: string; ownerId: string; detail?: string; embed: () => Promise<unknown> }) {
+export async function bestEffortEmbedRows(args: {
+  scope: string;
+  ownerId: string;
+  detail?: string;
+  embed: () => Promise<unknown>;
+}) {
   if (!registryCorpusEmbeddingEnabled()) return;
   try {
     await args.embed();

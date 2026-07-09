@@ -1,7 +1,11 @@
 import { loadEnvConfig } from "@next/env";
 
 import { confirm } from "./cli-utils";
-import { embedClinicalRegistryRows, embedReloadedOwnerRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
+import {
+  embedClinicalRegistryRows,
+  embedReloadedOwnerRows,
+  registryCorpusEmbeddingEnabled,
+} from "@/lib/registry-corpus";
 import type { RegistryRecordRow } from "@/lib/registry-records";
 import { type RegistryRecordKind } from "@/lib/registry-records";
 import { buildDefaultRegistryRows, defaultRegistryRecords } from "@/lib/registry-seed";
