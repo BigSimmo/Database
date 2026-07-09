@@ -300,9 +300,7 @@ export function MasterSearchHeader({
     disabled: !hideOnScroll,
   });
   const scrollHidden =
-    hideOnScroll?.scrollHidden !== undefined
-      ? hideOnScroll.scrollHidden || internalScrollHidden
-      : internalScrollHidden;
+    hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden || internalScrollHidden : internalScrollHidden;
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
   const phoneBottomSearchDockActive =
