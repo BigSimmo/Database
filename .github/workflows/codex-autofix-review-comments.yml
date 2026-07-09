@@ -20,7 +20,7 @@ concurrency:
 jobs:
   request-codex-autoresolve:
     name: Request Codex auto-resolve
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Ask Codex to resolve review comments
         uses: actions/github-script@v7
