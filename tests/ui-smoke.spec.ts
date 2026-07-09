@@ -2217,6 +2217,41 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("phone universal header fully hides while scrolling dashboard main on phones", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, "/?mode=answer");
+
+    const header = page.locator("header.universal-header");
+    const collapseHost = page.getByTestId("universal-header-collapse");
+    await expect(header).toBeVisible();
+    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("relative");
+
+    const main = page.locator("main#main-content");
+    await main.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.setAttribute("data-testid", "header-hide-scroll-spacer");
+      spacer.style.height = "2000px";
+      node.appendChild(spacer);
+    });
+    // Step scroll down so the dashboard main listener sees deliberate movement.
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+
+    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () =>
+        header.evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          return Math.max(0, rect.bottom) - Math.max(0, rect.top);
+        }),
+      )
+      .toBe(0);
+  });
+
   test("document viewer bottom composer hides while scrolling down on phones", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page);

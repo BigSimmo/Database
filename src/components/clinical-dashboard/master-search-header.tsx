@@ -10,7 +10,6 @@ import {
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type Ref,
-  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -244,11 +243,10 @@ export function MasterSearchHeader({
    *  content already flows beneath); "collapse" also releases the header's
    *  layout space (host keeps the header above an internally scrolling element).
    *  The phone bottom search composer hides in sync on search-mode pages.
-   *  `containerRef` points at the scrolling element; omit it to observe window scroll. */
+   *  Parent hosts with an internally scrolling element pass `scrollHidden` from
+   *  `useScrollHideReporter` wired to that element's scroll events. */
   hideOnScroll?: {
     strategy: "overlay" | "collapse";
-    containerRef?: RefObject<HTMLElement | null>;
-    scrollContainer?: HTMLElement | null;
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
     scrollHidden?: boolean;
   };
@@ -295,12 +293,9 @@ export function MasterSearchHeader({
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const internalScrollHidden = useHideOnScroll({
-    containerRef: hideOnScroll?.containerRef,
-    scrollContainer: hideOnScroll?.scrollContainer,
-    disabled: !hideOnScroll,
+    disabled: !hideOnScroll || hideOnScroll.scrollHidden !== undefined,
   });
-  const scrollHidden =
-    hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden || internalScrollHidden : internalScrollHidden;
+  const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
   const phoneBottomSearchDockActive =
@@ -1560,6 +1555,8 @@ export function MasterSearchHeader({
     // never carries a transform, and everything is inert from sm up.
     return (
       <div
+        data-scroll-hidden={headerChromeHidden ? "true" : undefined}
+        data-testid="universal-header-collapse"
         className={cn(
           "max-sm:grid max-sm:transition-[grid-template-rows] max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
           headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",

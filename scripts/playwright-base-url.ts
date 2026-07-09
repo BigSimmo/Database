@@ -74,7 +74,11 @@ function tryVerifiedLocalProjectUrl(baseUrl: string) {
 
 function findExistingLocalProjectUrl() {
   const stablePort = stableProjectPort(projectRoot);
-  return tryVerifiedLocalProjectUrl(`http://127.0.0.1:${stablePort}`);
+  // Prefer localhost so dev HMR matches ensure-local-server's printed URL.
+  return (
+    tryVerifiedLocalProjectUrl(`http://localhost:${stablePort}`) ??
+    tryVerifiedLocalProjectUrl(`http://127.0.0.1:${stablePort}`)
+  );
 }
 
 export function getPlaywrightBaseUrl() {
