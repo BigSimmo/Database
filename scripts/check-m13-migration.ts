@@ -1,7 +1,5 @@
 import { loadEnvConfig } from "@next/env";
 
-import { createAdminClient } from "@/lib/supabase/admin";
-
 loadEnvConfig(process.cwd());
 
 const M13_HEALTH_MARKER = "commit_document_index_generation.preserve_legacy_artifacts_migration";
@@ -19,6 +17,7 @@ function missingMarkers(data: unknown) {
 }
 
 async function main() {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("search_schema_health");
   if (error) {

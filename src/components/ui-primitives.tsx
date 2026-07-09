@@ -75,7 +75,7 @@ export const chatActionRow =
 export const chatMicroAction =
   "inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
 export const sourceCapsule =
-  "source-capsule-hover focus-ring-premium inline-flex min-h-tap items-center gap-1 rounded-md border border-[color:var(--border)] bg-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))] px-2 text-[11px] font-medium text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent-border)] sm:px-2.5";
+  "source-capsule-hover focus-ring-premium inline-flex min-h-tap items-center gap-1 rounded-md border border-[color:var(--border)] bg-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))] px-2 text-2xs font-medium text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent-border)] sm:px-2.5";
 export const sourceCapsuleCountBadge =
   "nums inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-raised)] px-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
 export const evidenceRow =
