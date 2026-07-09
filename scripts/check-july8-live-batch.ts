@@ -10,9 +10,7 @@ type DriftSnapshot = {
   indexes?: Array<{ name?: unknown }>;
 };
 
-type AdminClient = ReturnType<
-  Awaited<typeof import("@/lib/supabase/admin")>["createAdminClient"]
->;
+type AdminClient = ReturnType<Awaited<typeof import("@/lib/supabase/admin")>["createAdminClient"]>;
 
 function isSignatureError(message: string) {
   const lower = message.toLowerCase();
@@ -25,10 +23,13 @@ function isSignatureError(message: string) {
 }
 
 async function checkFailClosedRetrieval(supabase: AdminClient) {
-  const { data, error } = await supabase.rpc("retrieval_owner_matches" as never, {
-    owner_filter: null,
-    row_owner_id: PROBE_DOC_ID,
-  } as never);
+  const { data, error } = await supabase.rpc(
+    "retrieval_owner_matches" as never,
+    {
+      owner_filter: null,
+      row_owner_id: PROBE_DOC_ID,
+    } as never,
+  );
 
   if (error) {
     throw new Error(`retrieval_owner_matches probe failed: ${error.message}`);
@@ -48,16 +49,17 @@ async function checkFailClosedRetrieval(supabase: AdminClient) {
 }
 
 async function checkJsonbMergeDeep(supabase: AdminClient) {
-  const { data, error } = await supabase.rpc("jsonb_merge_deep" as never, {
-    target_obj: { a: 1, nested: { keep: true } },
-    patch_obj: { b: 2, nested: { add: "x" } },
-  } as never);
+  const { data, error } = await supabase.rpc(
+    "jsonb_merge_deep" as never,
+    {
+      target_obj: { a: 1, nested: { keep: true } },
+      patch_obj: { b: 2, nested: { add: "x" } },
+    } as never,
+  );
 
   if (error) {
     if (isSignatureError(error.message)) {
-      throw new Error(
-        "jsonb_merge_deep RPC missing — apply 20260708310000_r5_document_metadata_merge.sql",
-      );
+      throw new Error("jsonb_merge_deep RPC missing — apply 20260708310000_r5_document_metadata_merge.sql");
     }
     throw new Error(`jsonb_merge_deep probe failed: ${error.message}`);
   }
@@ -100,13 +102,8 @@ async function checkWorkerLeaseFence(supabase: AdminClient) {
 async function checkR17Index(supabase: AdminClient) {
   const { data, error } = await supabase.rpc("schema_drift_snapshot" as never);
   if (error) {
-    console.warn(
-      "[July8 Live Batch] SKIP: R17 index probe — schema_drift_snapshot unavailable:",
-      error.message,
-    );
-    console.warn(
-      "[July8 Live Batch] Manually confirm ingestion_jobs_one_open_per_document_uidx after applying R17.",
-    );
+    console.warn("[July8 Live Batch] SKIP: R17 index probe — schema_drift_snapshot unavailable:", error.message);
+    console.warn("[July8 Live Batch] Manually confirm ingestion_jobs_one_open_per_document_uidx after applying R17.");
     return;
   }
 

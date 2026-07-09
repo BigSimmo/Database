@@ -48,18 +48,15 @@ async function main() {
   }
 
   if (nullFilterCheck === true) {
+    console.error("[Retrieval Owner Migration] FAIL: retrieval_owner_matches is still fail-OPEN on NULL owner_filter.");
     console.error(
-      "[Retrieval Owner Migration] FAIL: retrieval_owner_matches is still fail-OPEN on NULL owner_filter.",
+      "Apply 20260708160000_retrieval_owner_matches_fail_closed.sql — see docs/operator-apply-july8-batch.md",
     );
-    console.error("Apply 20260708160000_retrieval_owner_matches_fail_closed.sql — see docs/operator-apply-july8-batch.md");
     process.exit(1);
   }
 
   if (nullFilterCheck !== false) {
-    console.error(
-      "[Retrieval Owner Migration] FAIL: unexpected null-filter result:",
-      String(nullFilterCheck),
-    );
+    console.error("[Retrieval Owner Migration] FAIL: unexpected null-filter result:", String(nullFilterCheck));
     process.exit(1);
   }
 
