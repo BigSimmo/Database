@@ -27,6 +27,29 @@ jobs:
           script: |
             const codexLoginFragment = "chatgpt-codex-connector";
 
+            function failGitHubApi(operation, error) {
+              const status = error?.status;
+              const message = error?.message || String(error);
+              const details = status ? `status=${status}` : "status=unknown";
+
+              if (status === 401 || status === 403) {
+                core.setFailed(`GitHub API auth failure during ${operation}: ${details} ${message}`);
+                return;
+              }
+
+              if (status === 429) {
+                core.setFailed(`GitHub API rate limit during ${operation}: ${details} ${message}`);
+                return;
+              }
+
+              if (status && status >= 400 && status < 500) {
+                core.setFailed(`GitHub API client error during ${operation}: ${details} ${message}`);
+                return;
+              }
+
+              core.setFailed(`GitHub API failure during ${operation}: ${details} ${message}`);
+            }
+
             async function loadPullRequest() {
               return context.payload.pull_request || null;
             }
@@ -86,12 +109,19 @@ jobs:
             const issue_number = pr.number;
             const marker = `<!-- codex-autoresolve-pr:${pr.number} -->`;
 
-            const existingComments = await github.paginate(github.rest.issues.listComments, {
-              owner,
-              repo,
-              issue_number,
-              per_page: 100,
-            });
+            let existingComments;
+            try {
+              existingComments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              });
+            } catch (error) {
+              core.notice(`Failed to list PR comments for #${issue_number} before posting Codex auto-resolve request.`);
+              failGitHubApi("issues.listComments", error);
+              return;
+            }
 
             if (existingComments.some((comment) => (comment.body || "").includes(marker))) {
               core.notice("Skipping duplicate Codex auto-resolve request for this pull request.");
@@ -116,5 +146,6 @@ jobs:
                 core.warning("Skipping Codex auto-resolve request because this workflow token cannot comment on the pull request.");
                 return;
               }
-              throw error;
+              core.notice(`Failed to create Codex auto-resolve request comment on PR #${issue_number}.`);
+              failGitHubApi("issues.createComment", error);
             }
