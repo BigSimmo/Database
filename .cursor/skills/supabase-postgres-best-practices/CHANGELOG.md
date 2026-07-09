@@ -2,7 +2,9 @@
 
 ## [1.3.0](https://github.com/supabase/agent-skills/compare/v1.2.0...v1.3.0) (2026-06-05)
 
-_This vendored archive does not include release-specific entries beyond the 1.2.0 changes below._
+### Documentation
+
+- refresh RLS performance guidance for SECURITY DEFINER helper usage ([#85](https://github.com/supabase/agent-skills/issues/85)) ([133f43e](https://github.com/supabase/agent-skills/commit/133f43e8c2ffc48823ff0630c692cabecea3e3a3))
 
 ## [1.2.0](https://github.com/supabase/agent-skills/compare/v1.1.1...v1.2.0) (2026-06-02)
 

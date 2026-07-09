@@ -9,6 +9,7 @@ import { rowToMedicationRecord } from "@/lib/medication-records";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
 import { searchChunksWithTelemetry } from "@/lib/rag";
+import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { rowToServiceRecord } from "@/lib/registry-records";
 import { fetchOwnerRegistryRowsWithSeed } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
@@ -226,6 +227,21 @@ async function searchToolsDomain(args: ResolvedSearchArgs): Promise<UniversalSea
   }));
 }
 
+function searchResultDocumentHref(result: SearchResult) {
+  const metadata =
+    result.source_metadata && typeof result.source_metadata === "object"
+      ? (result.source_metadata as Record<string, unknown>)
+      : {};
+  const registryHref = registryCorpusDetailHref({
+    kind: metadata.registry_record_kind,
+    slug: metadata.registry_record_slug,
+    subkind: metadata.registry_record_subkind,
+    recordId: metadata.registry_record_id,
+  });
+  if (registryHref) return registryHref;
+  return `/documents/${result.document_id}`;
+}
+
 function documentItemsFromChunks(results: SearchResult[], limit: number): UniversalSearchItem[] {
   const byDocument = new Map<string, UniversalSearchItem>();
   for (const result of results) {
@@ -240,7 +256,7 @@ function documentItemsFromChunks(results: SearchResult[], limit: number): Univer
       kind: "documents",
       title: result.title,
       subtitle: result.section_heading ?? undefined,
-      href: `/documents/${result.document_id}`,
+      href: searchResultDocumentHref(result),
       score,
       meta: result.file_name,
     });

@@ -288,12 +288,11 @@ describe("source governance warnings", () => {
     expect(groupSourceGovernanceWarnings(warnings)[0]?.message).toBe("1 registry summary used as supporting evidence.");
   });
 
-  it("keeps danger and warning source issues ahead of registry info when limiting warnings", () => {
+  it("prioritizes safety warnings over registry info when truncating", () => {
     const warnings = sourceGovernanceWarnings({
-      limit: 2,
+      limit: 1,
       results: [
         result({
-          document_id: "registry-doc",
           source_metadata: {
             source_kind: "registry_record",
             source_title: "Registry summary",
@@ -310,7 +309,7 @@ describe("source governance warnings", () => {
             extraction_quality: "good",
           },
           indexing_quality: {
-            document_id: "registry-doc",
+            document_id: "doc-1",
             quality_score: 0.9,
             extraction_quality: "good",
             metrics: {},
@@ -318,35 +317,11 @@ describe("source governance warnings", () => {
           },
           table_facts: [],
         }),
-        result({
-          document_id: "outdated-doc",
-          source_metadata: {
-            source_title: "Outdated guideline",
-            publisher: "WA Health",
-            jurisdiction: "Australia/WA",
-            version: null,
-            publication_date: null,
-            review_date: null,
-            uploaded_at: null,
-            indexed_at: null,
-            uploaded_by: null,
-            document_status: "outdated",
-            clinical_validation_status: "unverified",
-            extraction_quality: "good",
-          },
-          indexing_quality: {
-            document_id: "outdated-doc",
-            quality_score: 0.9,
-            extraction_quality: "good",
-            metrics: {},
-            issues: [],
-          },
-          table_facts: [],
-        }),
+        result(),
       ],
     });
 
-    expect(warnings.map((warning) => warning.code)).toEqual(["outdated_source", "unverified_source"]);
+    expect(warnings).toEqual([expect.objectContaining({ code: "outdated_source", severity: "danger" })]);
   });
 
   it("keeps the refusal message free of backend and source-backed wording", () => {

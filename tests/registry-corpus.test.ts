@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { buildDefaultMedicationRows } from "../src/lib/medication-fixtures";
 import { clinicalRegistryRowsToCorpusEntries, medicationRowsToCorpusEntries } from "../src/lib/registry-corpus";
+import { registryCorpusDetailHref } from "../src/lib/registry-corpus-links";
 import type { MedicationRecordRow } from "../src/lib/medication-records";
 import type { RegistryRecordRow } from "../src/lib/registry-records";
 
@@ -41,31 +43,6 @@ function registryRow(overrides: Partial<RegistryRecordRow> = {}): RegistryRecord
   };
 }
 
-function medicationRow(overrides: Partial<MedicationRecordRow> = {}): MedicationRecordRow {
-  return {
-    id: "33333333-3333-4333-8333-333333333333",
-    owner_id: "22222222-2222-4222-8222-222222222222",
-    slug: "lithium",
-    name: "Lithium",
-    accent: null,
-    class: "Mood stabiliser",
-    subclass: "Mineral",
-    category: "mood-stabiliser",
-    schedule: "S4",
-    tag: "monitoring",
-    quick: [],
-    sections: [],
-    stats: {},
-    source_status: "current",
-    validation_status: "locally_reviewed",
-    last_reviewed_at: null,
-    review_due_at: null,
-    created_at: "2026-07-01T00:00:00.000Z",
-    updated_at: "2026-07-01T00:00:00.000Z",
-    ...overrides,
-  };
-}
-
 describe("registry corpus", () => {
   it("converts registry rows into source-governed corpus entries", () => {
     const [entry] = clinicalRegistryRowsToCorpusEntries([registryRow()]);
@@ -94,9 +71,27 @@ describe("registry corpus", () => {
     expect(entry?.content).toContain("Form: Transport order");
   });
 
-  it("maps scalar medication tags into registry corpus metadata", () => {
-    const [entry] = medicationRowsToCorpusEntries([medicationRow()]);
+  it("maps scalar medication tags into metadata.tags", () => {
+    const rows = buildDefaultMedicationRows("22222222-2222-4222-8222-222222222222") as MedicationRecordRow[];
+    const [entry] = medicationRowsToCorpusEntries(rows.map((row) => ({ ...row, tag: "alcohol" })));
 
-    expect(entry?.metadata.tags).toEqual(["monitoring"]);
+    expect(entry?.metadata.tags).toEqual(["alcohol"]);
+  });
+
+  it("builds registry detail hrefs for embedded corpus rows", () => {
+    expect(
+      registryCorpusDetailHref({
+        kind: "service",
+        slug: "crisis-service",
+      }),
+    ).toBe("/services/crisis-service");
+    expect(
+      registryCorpusDetailHref({
+        kind: "differential",
+        slug: "psychosis",
+        subkind: "presentation",
+        recordId: "44444444-4444-4444-8444-444444444444",
+      }),
+    ).toBe("/differentials/presentations/44444444-4444-4444-8444-444444444444");
   });
 });

@@ -74,14 +74,6 @@ function pushUnique(warnings: SourceGovernanceWarning[], warning: SourceGovernan
   warnings.push(warning);
 }
 
-function prioritizeSourceWarnings(warnings: SourceGovernanceWarning[]) {
-  const severityRank = { danger: 0, warning: 1, info: 2 } satisfies Record<SourceGovernanceWarning["severity"], number>;
-  return warnings
-    .map((warning, index) => ({ warning, index }))
-    .sort((a, b) => severityRank[a.warning.severity] - severityRank[b.warning.severity] || a.index - b.index)
-    .map((item) => item.warning);
-}
-
 export function sourceGovernanceWarnings(args: {
   results: SearchResult[];
   relevance?: EvidenceRelevance | null;
@@ -195,7 +187,10 @@ export function sourceGovernanceWarnings(args: {
     }
   }
 
-  return prioritizeSourceWarnings(warnings).slice(0, args.limit ?? 8);
+  const severityRank = { danger: 0, warning: 1, info: 2 } satisfies Record<SourceGovernanceWarning["severity"], number>;
+  return warnings
+    .sort((left, right) => severityRank[left.severity] - severityRank[right.severity])
+    .slice(0, args.limit ?? 8);
 }
 
 function plural(count: number, singular: string, pluralValue = `${singular}s`) {

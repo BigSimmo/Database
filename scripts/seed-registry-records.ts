@@ -68,6 +68,8 @@ function seedSets(kind: SeedArgs["kind"]): Array<{ kind: RegistryRecordKind; rec
 }
 
 async function main() {
+  const { embedClinicalRegistryRows, embedReloadedOwnerRows, registryCorpusEmbeddingEnabled } =
+    await loadRegistryCorpus();
   const args = parseArgs(process.argv.slice(2));
   if (!args.ownerId) {
     throw new Error("No owner id. Pass --owner-id <uuid> or set LOCAL_NO_AUTH_OWNER_ID.");
@@ -150,17 +152,14 @@ async function main() {
     console.log(`[registry:seed] Done. Owner now has ${count ?? "?"} registry records.`);
   }
 
-  const { embedClinicalRegistryRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
   if (registryCorpusEmbeddingEnabled()) {
     const kinds: RegistryRecordKind[] = args.kind === "all" ? ["service", "form"] : [args.kind];
-    const { data: embeddedRows, error: embedRowsError } = await supabase
-      .from("clinical_registry_records")
-      .select("*")
-      .eq("owner_id", args.ownerId)
-      .in("kind", kinds);
-    if (embedRowsError) throw new Error(`Could not reload registry rows for embedding: ${embedRowsError.message}`);
-    const embedded = await embedClinicalRegistryRows(supabase, (embeddedRows ?? []) as RegistryRecordRow[]);
-    console.log(`[registry:seed] Embedded ${embedded.chunkCount} registry corpus chunk(s).`);
+    const chunkCount = await embedReloadedOwnerRows(
+      supabase.from("clinical_registry_records").select("*").eq("owner_id", args.ownerId).in("kind", kinds),
+      (rows) => embedClinicalRegistryRows(supabase, rows as RegistryRecordRow[]),
+      "registry",
+    );
+    console.log(`[registry:seed] Embedded ${chunkCount} registry corpus chunk(s).`);
   }
 }
 

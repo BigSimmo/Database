@@ -10,6 +10,7 @@ import {
 import { env } from "@/lib/env";
 import { formRecordSearchText } from "@/lib/forms";
 import { rowToMedicationRecord, type MedicationRecordRow } from "@/lib/medication-records";
+import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { rowToServiceRecord, type RegistryRecordKind, type RegistryRecordRow } from "@/lib/registry-records";
 import { serviceRecordSearchText } from "@/lib/services";
 import type { Json, TablesInsert, Vector } from "@/lib/supabase/database.types";
@@ -74,9 +75,29 @@ function registryBaseMetadata(entry: RegistryCorpusEntry): Record<string, Json> 
   };
 }
 
+function registryDocumentId(entry: RegistryCorpusEntry) {
+  return deterministicUuid(`registry-document:${entry.kind}:${entry.recordId}`);
+}
+
+function registryEntryMetadata(entry: RegistryCorpusEntry): Record<string, Json> {
+  return { ...registryBaseMetadata(entry), ...entry.metadata };
+}
+
+function registryCorpusIdentity(entry: RegistryCorpusEntry) {
+  return {
+    documentId: registryDocumentId(entry),
+    metadata: registryEntryMetadata(entry),
+  };
+}
+
 function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"documents"> {
-  const documentId = deterministicUuid(`registry-document:${entry.kind}:${entry.recordId}`);
-  const metadata = { ...registryBaseMetadata(entry), ...entry.metadata };
+  const { documentId, metadata } = registryCorpusIdentity(entry);
+  const detailHref = registryCorpusDetailHref({
+    kind: entry.kind,
+    slug: entry.slug,
+    subkind: entry.subkind,
+    recordId: entry.recordId,
+  });
   return {
     id: documentId,
     owner_id: entry.ownerId,
@@ -92,13 +113,15 @@ function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"document
     chunk_count: 1,
     image_count: 0,
     content_hash: sha256(entry.content),
-    metadata,
+    metadata: {
+      ...metadata,
+      registry_detail_href: detailHref,
+    },
   };
 }
 
 function registryChunkRow(entry: RegistryCorpusEntry, embedding: Vector): TablesInsert<"document_chunks"> {
-  const documentId = deterministicUuid(`registry-document:${entry.kind}:${entry.recordId}`);
-  const metadata = { ...registryBaseMetadata(entry), ...entry.metadata };
+  const { documentId, metadata } = registryCorpusIdentity(entry);
   return {
     id: deterministicUuid(`registry-chunk:${entry.kind}:${entry.recordId}`),
     document_id: documentId,
@@ -288,4 +311,19 @@ export function embedMedicationRows(supabase: AdminClient, rows: MedicationRecor
 
 export function embedDifferentialRows(supabase: AdminClient, rows: DifferentialRecordRow[]) {
   return embedRegistryCorpusEntries(supabase, differentialRowsToCorpusEntries(rows));
+}
+
+/** Reload an owner's rows for a table and embed them, returning the chunk count
+ *  written. Shared by the registry/medication/differential seed CLIs, which each
+ *  re-read their own rows (rather than reusing the upsert response) so the
+ *  embedded corpus always reflects what is actually stored. */
+export async function embedReloadedOwnerRows<Row>(
+  reload: PromiseLike<{ data: Row[] | null; error: { message: string } | null }>,
+  embed: (rows: Row[]) => Promise<{ chunkCount: number }>,
+  tableLabel: string,
+) {
+  const { data, error } = await reload;
+  if (error) throw new Error(`Could not reload ${tableLabel} rows for embedding: ${error.message}`);
+  const { chunkCount } = await embed(data ?? []);
+  return chunkCount;
 }

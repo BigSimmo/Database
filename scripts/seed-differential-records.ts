@@ -50,6 +50,7 @@ function parseArgs(argv: string[]): SeedArgs {
 }
 
 async function main() {
+  const { embedDifferentialRows, embedReloadedOwnerRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
   const args = parseArgs(process.argv.slice(2));
   if (!args.ownerId) {
     throw new Error("No owner id. Pass --owner-id <uuid> or set LOCAL_NO_AUTH_OWNER_ID.");
@@ -128,15 +129,13 @@ async function main() {
     console.log(`[differentials:seed] Done. Owner now has ${count ?? "?"} differential records.`);
   }
 
-  const { embedDifferentialRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
   if (registryCorpusEmbeddingEnabled()) {
-    const { data: embeddedRows, error: embedRowsError } = await supabase
-      .from("differential_records")
-      .select("*")
-      .eq("owner_id", args.ownerId);
-    if (embedRowsError) throw new Error(`Could not reload differential rows for embedding: ${embedRowsError.message}`);
-    const embedded = await embedDifferentialRows(supabase, (embeddedRows ?? []) as DifferentialRecordRow[]);
-    console.log(`[differentials:seed] Embedded ${embedded.chunkCount} registry corpus chunk(s).`);
+    const chunkCount = await embedReloadedOwnerRows(
+      supabase.from("differential_records").select("*").eq("owner_id", args.ownerId),
+      (rows) => embedDifferentialRows(supabase, rows as DifferentialRecordRow[]),
+      "differential",
+    );
+    console.log(`[differentials:seed] Embedded ${chunkCount} registry corpus chunk(s).`);
   }
 }
 

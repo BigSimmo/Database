@@ -50,6 +50,7 @@ function parseArgs(argv: string[]): SeedArgs {
 }
 
 async function main() {
+  const { embedMedicationRows, embedReloadedOwnerRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
   const args = parseArgs(process.argv.slice(2));
   if (!args.ownerId) {
     throw new Error("No owner id. Pass --owner-id <uuid> or set LOCAL_NO_AUTH_OWNER_ID.");
@@ -125,15 +126,13 @@ async function main() {
     console.log(`[medications:seed] Done. Owner now has ${count ?? "?"} medication records.`);
   }
 
-  const { embedMedicationRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
   if (registryCorpusEmbeddingEnabled()) {
-    const { data: embeddedRows, error: embedRowsError } = await supabase
-      .from("medication_records")
-      .select("*")
-      .eq("owner_id", args.ownerId);
-    if (embedRowsError) throw new Error(`Could not reload medication rows for embedding: ${embedRowsError.message}`);
-    const embedded = await embedMedicationRows(supabase, (embeddedRows ?? []) as MedicationRecordRow[]);
-    console.log(`[medications:seed] Embedded ${embedded.chunkCount} registry corpus chunk(s).`);
+    const chunkCount = await embedReloadedOwnerRows(
+      supabase.from("medication_records").select("*").eq("owner_id", args.ownerId),
+      (rows) => embedMedicationRows(supabase, rows as MedicationRecordRow[]),
+      "medication",
+    );
+    console.log(`[medications:seed] Embedded ${chunkCount} registry corpus chunk(s).`);
   }
 }
 

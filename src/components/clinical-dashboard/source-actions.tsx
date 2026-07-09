@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ExternalLink, FileText, Filter, Search } from "lucide-react";
 import { cn, floatingControl, metadataPill, primaryControl } from "@/components/ui-primitives";
+import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import type { CrossModeLink } from "@/lib/cross-mode-links";
 import type { SearchResult } from "@/lib/types";
 
@@ -61,6 +62,17 @@ export function SourceActionRow({
 }
 
 export function sourceResultHref(source: SearchResult) {
+  const metadata =
+    source.source_metadata && typeof source.source_metadata === "object"
+      ? (source.source_metadata as Record<string, unknown>)
+      : {};
+  const registryHref = registryCorpusDetailHref({
+    kind: metadata.registry_record_kind,
+    slug: metadata.registry_record_slug,
+    subkind: metadata.registry_record_subkind,
+    recordId: metadata.registry_record_id,
+  });
+  if (registryHref) return registryHref;
   return `/documents/${source.document_id}?page=${source.page_number ?? 1}&chunk=${source.id}`;
 }
 

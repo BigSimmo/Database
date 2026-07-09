@@ -46,9 +46,9 @@ describe("source metadata helpers", () => {
       clinical_validation_status: "locally_reviewed",
     });
 
-    expect(sourceStatusLabel(metadata)).toBe("Registry summary - outdated");
-    expect(sourceProvenanceSummary(metadata)).toContain("Registry summary - outdated");
-    expect(clipboardProvenanceLine(metadata)).toContain("Review status: Registry summary - outdated");
+    expect(sourceStatusLabel(metadata)).toBe("Registry summary · Outdated source");
+    expect(sourceProvenanceSummary(metadata)).toContain("Registry summary · Outdated source");
+    expect(clipboardProvenanceLine(metadata)).toContain("Review status: Registry summary · Outdated source");
   });
 
   it("drops unknown filler segments but keeps governance warnings", () => {
