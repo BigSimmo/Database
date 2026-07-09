@@ -105,7 +105,7 @@ function GlobalMockupSearchShellClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
-  const mainRef = useRef<HTMLDivElement>(null);
+  const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
   const phoneScrollHide = useScrollHideReporter();
   const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
   useEffect(() => {
@@ -321,6 +321,10 @@ function GlobalMockupSearchShellClient({
     phoneScrollHide.reportScroll(event.currentTarget.scrollTop);
   }
 
+  const mainRefCallback = (node: HTMLDivElement | null) => {
+    setMainElement(node);
+  };
+
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
 
@@ -328,7 +332,7 @@ function GlobalMockupSearchShellClient({
   // a flex height cap (overflow-y becomes auto per CSS). Capture descendant scroll
   // so the phone dock/header still hide while users scroll results.
   useEffect(() => {
-    const main = mainRef.current;
+    const main = mainElement;
     if (!main) return undefined;
 
     const onScrollCapture = (event: Event) => {
@@ -340,7 +344,7 @@ function GlobalMockupSearchShellClient({
 
     main.addEventListener("scroll", onScrollCapture, { capture: true, passive: true });
     return () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
-  }, [shouldRenderClinicalDashboard, chromeVisible]);
+  }, [mainElement, shouldRenderClinicalDashboard, chromeVisible]);
 
   if (shouldRenderClinicalDashboard) {
     return (
@@ -465,7 +469,7 @@ function GlobalMockupSearchShellClient({
 
         <div
           id="main-content"
-          ref={mainRef}
+          ref={mainRefCallback}
           tabIndex={-1}
           onScroll={handleMainScroll}
           className={cn(
