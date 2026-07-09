@@ -111,7 +111,6 @@ function GlobalMockupSearchShellClient({
   useEffect(() => {
     reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   }, [phoneScrollHide.reportScroll]);
-  const scrollCaptureCleanupRef = useRef<(() => void) | null>(null);
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;
@@ -322,19 +321,15 @@ function GlobalMockupSearchShellClient({
     phoneScrollHide.reportScroll(event.currentTarget.scrollTop);
   }
 
+  const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
+  const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
+
   // Page canvases can become nested scrollers when `overflow-x-hidden` pairs with
   // a flex height cap (overflow-y becomes auto per CSS). Capture descendant scroll
   // so the phone dock/header still hide while users scroll results.
-  const setMainRef = (main: HTMLDivElement | null) => {
-    mainRef.current = main;
-
-    // Clean up any previous listener before attaching a new one.
-    if (scrollCaptureCleanupRef.current) {
-      scrollCaptureCleanupRef.current();
-      scrollCaptureCleanupRef.current = null;
-    }
-
-    if (!main) return;
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return undefined;
 
     const onScrollCapture = (event: Event) => {
       const target = event.target;
@@ -344,11 +339,8 @@ function GlobalMockupSearchShellClient({
     };
 
     main.addEventListener("scroll", onScrollCapture, { capture: true, passive: true });
-    scrollCaptureCleanupRef.current = () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
-  };
-
-  const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
-  const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
+    return () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
+  }, [shouldRenderClinicalDashboard, chromeVisible]);
 
   if (shouldRenderClinicalDashboard) {
     return (
@@ -364,7 +356,7 @@ function GlobalMockupSearchShellClient({
   if (!chromeVisible) {
     return (
       <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
-        <div id="main-content" ref={setMainRef} tabIndex={-1} className="min-h-dvh min-w-0 overflow-x-hidden focus:outline-none">
+        <div id="main-content" tabIndex={-1} className="min-h-dvh min-w-0 overflow-x-hidden focus:outline-none">
           {children}
         </div>
       </div>
@@ -473,7 +465,7 @@ function GlobalMockupSearchShellClient({
 
         <div
           id="main-content"
-          ref={setMainRef}
+          ref={mainRef}
           tabIndex={-1}
           onScroll={handleMainScroll}
           className={cn(
