@@ -3503,9 +3503,6 @@ export function ClinicalDashboard({
               {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
 
               {activeModeResultKind === "answer" && answer && (
-                <CrossModeLinksSection queries={crossModeQueries} onModeSearch={handleCrossModeSearch} />
-              )}
-              {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel
                   documents={relatedDocuments}
                   onScopeDocument={scopeOnlyDocument}
