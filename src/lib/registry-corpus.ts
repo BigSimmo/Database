@@ -283,51 +283,41 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
   if (entries.length === 0) return { documentCount: 0, chunkCount: 0 };
 
   const { embedTexts } = await import("@/lib/openai");
-<<<<<<< HEAD
   let documentCount = 0;
   let chunkCount = 0;
-=======
-  const embeddings = await embedTexts(entries.map((entry) => entry.content));
-  const documents = entries.map(registryDocumentRow);
-  const chunks = entries.map((entry, index) => registryChunkRow(entry, embeddings[index] as Vector));
-  const documentIds = documents.map((document) => document.id).filter((id): id is string => typeof id === "string");
-  const { data: existingDocuments, error: existingDocumentError } = await supabase
-    .from("documents")
-    .select("id")
-    .in("id", documentIds);
-  if (existingDocumentError) {
-    throw new Error(`Registry corpus preflight failed: ${existingDocumentError.message}`);
-  }
-  const existingDocumentIds = new Set((existingDocuments ?? []).map((document) => document.id));
->>>>>>> origin/claude/llm-pipeline-review
 
   for (let start = 0; start < entries.length; start += REGISTRY_EMBEDDING_WRITE_BATCH_SIZE) {
     const batch = entries.slice(start, start + REGISTRY_EMBEDDING_WRITE_BATCH_SIZE);
     const embeddings = await embedTexts(batch.map((entry) => entry.content));
     const documents = batch.map(registryDocumentRow);
     const chunks = batch.map((entry, index) => registryChunkRow(entry, embeddings[index] as Vector));
+    const documentIds = documents.map((document) => document.id).filter((id): id is string => typeof id === "string");
 
-<<<<<<< HEAD
+    const { data: existingDocuments, error: existingDocumentError } = await supabase
+      .from("documents")
+      .select("id")
+      .in("id", documentIds);
+    if (existingDocumentError) {
+      throw new Error(`Registry corpus preflight failed: ${existingDocumentError.message}`);
+    }
+    const existingDocumentIds = new Set((existingDocuments ?? []).map((document) => document.id));
+
     const { error: documentError } = await supabase.from("documents").upsert(documents, { onConflict: "id" });
     if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
-=======
-  const { error: chunkError } = await supabase.from("document_chunks").upsert(chunks, { onConflict: "id" });
-  if (chunkError) {
-    const insertedDocumentIds = documentIds.filter((id) => !existingDocumentIds.has(id));
-    if (insertedDocumentIds.length > 0) {
-      const { error: rollbackError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
-      if (rollbackError) {
-        throw new Error(
-          `Registry corpus chunk upsert failed: ${chunkError.message}; rollback failed: ${rollbackError.message}`,
-        );
-      }
-    }
-    throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
-  }
->>>>>>> origin/claude/llm-pipeline-review
 
     const { error: chunkError } = await supabase.from("document_chunks").upsert(chunks, { onConflict: "id" });
-    if (chunkError) throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
+    if (chunkError) {
+      const insertedDocumentIds = documentIds.filter((id) => !existingDocumentIds.has(id));
+      if (insertedDocumentIds.length > 0) {
+        const { error: rollbackError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
+        if (rollbackError) {
+          throw new Error(
+            `Registry corpus chunk upsert failed: ${chunkError.message}; rollback failed: ${rollbackError.message}`,
+          );
+        }
+      }
+      throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
+    }
 
     documentCount += documents.length;
     chunkCount += chunks.length;
