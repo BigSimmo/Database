@@ -90,5 +90,6 @@ jobs:
                 core.warning("Skipping Codex auto-resolve request because this workflow token cannot comment on the pull request.");
                 return;
               }
+
               throw error;
             }
