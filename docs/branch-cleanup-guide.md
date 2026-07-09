@@ -41,14 +41,16 @@ Before deleting anything:
    git worktree list --porcelain
    ```
 
-5. Filter candidates through the review ledger before inspecting branch diffs:
+5. Filter candidates through the review ledger before inspecting branch diffs. Follow the lookup procedure in `docs/branch-review-ledger.md` and require all three fields to match before skipping:
 
    ```powershell
-   git rev-parse BRANCH_NAME
-   Select-String -Path docs\branch-review-ledger.md -Pattern "BRANCH_NAME"
+   $branch = "BRANCH_NAME"
+   $head = git rev-parse $branch
+   Get-Content docs\branch-review-ledger.md |
+     Select-String -Pattern "\|\s*$branch\s*\|\s*$head\s*\|\s*branch-cleanup\s*\|"
    ```
 
-   If `docs/branch-review-ledger.md` already records the same branch, HEAD SHA, and `branch-cleanup` scope as completed, skip that unchanged branch and summarize the prior outcome. Re-review only when the HEAD changed or the user explicitly asks for a fresh pass.
+   Skip the branch only when a ledger row matches the same branch/ref, reviewed HEAD, and `branch-cleanup` scope together. A branch-name-only match is not enough. Re-review when the HEAD changed or the user explicitly asks for a fresh pass.
 
 6. For each remaining candidate branch, check whether it has patch content not on `main`:
 
