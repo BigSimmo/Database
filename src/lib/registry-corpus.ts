@@ -49,10 +49,12 @@ export type RegistryCorpusEditTarget =
 
 const REGISTRY_EMBEDDING_WRITE_BATCH_SIZE = 64;
 
+/** Sha256. */
 function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
+/** Deterministic uuid. */
 function deterministicUuid(seed: string) {
   const hex = sha256(seed).slice(0, 32).split("");
   hex[12] = "5";
@@ -61,6 +63,7 @@ function deterministicUuid(seed: string) {
   return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
 }
 
+/** Compact text. */
 function compactText(parts: unknown[], limit = 8000) {
   const text = parts
     .flatMap((part) => (Array.isArray(part) ? part : [part]))
@@ -74,6 +77,7 @@ function compactText(parts: unknown[], limit = 8000) {
   return text.length <= limit ? text : `${text.slice(0, limit - 3).trim()}...`;
 }
 
+/** Registry base metadata. */
 function registryBaseMetadata(entry: RegistryCorpusEntry): Record<string, Json> {
   return {
     source_kind: "registry_record",
@@ -90,14 +94,17 @@ function registryBaseMetadata(entry: RegistryCorpusEntry): Record<string, Json> 
   };
 }
 
+/** Registry document id. */
 function registryDocumentId(entry: RegistryCorpusEntry) {
   return deterministicUuid(`registry-document:${entry.kind}:${entry.recordId}`);
 }
 
+/** Registry entry metadata. */
 function registryEntryMetadata(entry: RegistryCorpusEntry): Record<string, Json> {
   return { ...registryBaseMetadata(entry), ...entry.metadata };
 }
 
+/** Registry corpus identity. */
 function registryCorpusIdentity(entry: RegistryCorpusEntry) {
   return {
     documentId: registryDocumentId(entry),
@@ -105,6 +112,7 @@ function registryCorpusIdentity(entry: RegistryCorpusEntry) {
   };
 }
 
+/** Registry document row. */
 function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"documents"> {
   const { documentId, metadata } = registryCorpusIdentity(entry);
   const detailHref = registryCorpusDetailHref({
@@ -135,6 +143,7 @@ function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"document
   };
 }
 
+/** Registry chunk row. */
 function registryChunkRow(entry: RegistryCorpusEntry, embedding: Vector): TablesInsert<"document_chunks"> {
   const { documentId, metadata } = registryCorpusIdentity(entry);
   return {
@@ -154,10 +163,12 @@ function registryChunkRow(entry: RegistryCorpusEntry, embedding: Vector): Tables
   };
 }
 
+/** Registry corpus embedding enabled. */
 export function registryCorpusEmbeddingEnabled() {
   return env.RAG_REGISTRY_CORPUS_EMBEDDING === true;
 }
 
+/** Clinical registry rows to corpus entries. */
 export function clinicalRegistryRowsToCorpusEntries(rows: RegistryRecordRow[]): RegistryCorpusEntry[] {
   return rows.map((row) => {
     const kind: RegistryRecordKind = row.kind === "form" ? "form" : "service";
@@ -197,6 +208,7 @@ export function clinicalRegistryRowsToCorpusEntries(rows: RegistryRecordRow[]): 
   });
 }
 
+/** Medication rows to corpus entries. */
 export function medicationRowsToCorpusEntries(rows: MedicationRecordRow[]): RegistryCorpusEntry[] {
   return rows.map((row) => {
     const record = rowToMedicationRecord(row);
@@ -245,6 +257,7 @@ export function medicationRowsToCorpusEntries(rows: MedicationRecordRow[]): Regi
   });
 }
 
+/** Differential rows to corpus entries. */
 export function differentialRowsToCorpusEntries(rows: DifferentialRecordRow[]): RegistryCorpusEntry[] {
   return rows.map((row) => {
     const isPresentation = row.kind === "presentation";
@@ -279,6 +292,7 @@ export function differentialRowsToCorpusEntries(rows: DifferentialRecordRow[]): 
   });
 }
 
+/** Embed registry corpus entries. */
 export async function embedRegistryCorpusEntries(supabase: AdminClient, entries: RegistryCorpusEntry[]) {
   if (entries.length === 0) return { documentCount: 0, chunkCount: 0 };
 
@@ -326,14 +340,17 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
   return { documentCount, chunkCount };
 }
 
+/** Embed clinical registry rows. */
 export function embedClinicalRegistryRows(supabase: AdminClient, rows: RegistryRecordRow[]) {
   return embedRegistryCorpusEntries(supabase, clinicalRegistryRowsToCorpusEntries(rows));
 }
 
+/** Embed medication rows. */
 export function embedMedicationRows(supabase: AdminClient, rows: MedicationRecordRow[]) {
   return embedRegistryCorpusEntries(supabase, medicationRowsToCorpusEntries(rows));
 }
 
+/** Embed differential rows. */
 export function embedDifferentialRows(supabase: AdminClient, rows: DifferentialRecordRow[]) {
   return embedRegistryCorpusEntries(supabase, differentialRowsToCorpusEntries(rows));
 }
@@ -353,10 +370,12 @@ export async function embedReloadedOwnerRows<Row>(
   return chunkCount;
 }
 
+/** Skipped registry embed result. */
 function skippedRegistryEmbedResult(reason: RegistryCorpusEmbedResult["reason"]): RegistryCorpusEmbedResult {
   return { documentCount: 0, chunkCount: 0, skipped: true, reason };
 }
 
+/** Reembed clinical registry record by slug. */
 export async function reembedClinicalRegistryRecordBySlug(
   supabase: AdminClient,
   args: { ownerId: string; slug: string; kind?: RegistryRecordKind },
@@ -372,6 +391,7 @@ export async function reembedClinicalRegistryRecordBySlug(
   return embedClinicalRegistryRows(supabase, [data as RegistryRecordRow]);
 }
 
+/** Reembed medication record by slug. */
 export async function reembedMedicationRecordBySlug(
   supabase: AdminClient,
   args: { ownerId: string; slug: string },
@@ -390,6 +410,7 @@ export async function reembedMedicationRecordBySlug(
   return embedMedicationRows(supabase, [data as MedicationRecordRow]);
 }
 
+/** Reembed differential record by slug. */
 export async function reembedDifferentialRecordBySlug(
   supabase: AdminClient,
   args: { ownerId: string; slug: string; kind?: DifferentialRecordRow["kind"] },
@@ -405,6 +426,7 @@ export async function reembedDifferentialRecordBySlug(
   return embedDifferentialRows(supabase, [data as DifferentialRecordRow]);
 }
 
+/** Reembed registry record after edit. */
 export function reembedRegistryRecordAfterEdit(
   supabase: AdminClient,
   target: RegistryCorpusEditTarget,
@@ -428,6 +450,7 @@ export function reembedRegistryRecordAfterEdit(
   });
 }
 
+/** Best effort reembed registry record after edit. */
 export async function bestEffortReembedRegistryRecordAfterEdit(args: {
   supabase: AdminClient;
   target: RegistryCorpusEditTarget;

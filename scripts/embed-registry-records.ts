@@ -18,6 +18,7 @@ type Args = {
   listOwners: boolean;
 };
 
+/** Parse args. */
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     ownerId: process.env.LOCAL_NO_AUTH_OWNER_ID,
@@ -60,17 +61,20 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
+/** Load admin client. */
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   return createAdminClient();
 }
 
+/** Registry kinds. */
 function registryKinds(kind: EmbedKind): RegistryRecordKind[] {
   if (kind === "all") return ["service", "form"];
   if (kind === "service" || kind === "form") return [kind];
   return [];
 }
 
+/** Load registry rows. */
 async function loadRegistryRows(supabase: Awaited<ReturnType<typeof loadAdminClient>>, args: Args, ownerId: string) {
   const kinds = registryKinds(args.kind);
   if (kinds.length === 0) return [] as RegistryRecordRow[];
@@ -81,6 +85,7 @@ async function loadRegistryRows(supabase: Awaited<ReturnType<typeof loadAdminCli
   return (data ?? []) as RegistryRecordRow[];
 }
 
+/** Load medication rows. */
 async function loadMedicationRows(supabase: Awaited<ReturnType<typeof loadAdminClient>>, args: Args, ownerId: string) {
   if (args.kind !== "all" && args.kind !== "medication") return [] as MedicationRecordRow[];
   let query = supabase.from("medication_records").select("*").eq("owner_id", ownerId);
@@ -90,6 +95,7 @@ async function loadMedicationRows(supabase: Awaited<ReturnType<typeof loadAdminC
   return (data ?? []) as MedicationRecordRow[];
 }
 
+/** Load differential rows. */
 async function loadDifferentialRows(
   supabase: Awaited<ReturnType<typeof loadAdminClient>>,
   args: Args,
@@ -111,6 +117,7 @@ type OwnerCounts = {
   differential: number;
 };
 
+/** Ensure owner count. */
 function ensureOwnerCount(counts: Map<string, OwnerCounts>, ownerId: string) {
   let count = counts.get(ownerId);
   if (!count) {
@@ -120,6 +127,7 @@ function ensureOwnerCount(counts: Map<string, OwnerCounts>, ownerId: string) {
   return count;
 }
 
+/** List eligible owner counts. */
 async function listEligibleOwnerCounts(supabase: Awaited<ReturnType<typeof loadAdminClient>>) {
   const counts = new Map<string, OwnerCounts>();
 
@@ -160,6 +168,7 @@ async function listEligibleOwnerCounts(supabase: Awaited<ReturnType<typeof loadA
   });
 }
 
+/** Main. */
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const supabase = await loadAdminClient();

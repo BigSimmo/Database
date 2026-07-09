@@ -166,22 +166,27 @@ const adversarialManipulationPatterns: RegExp[] = [
   /\b(?:what(?:'s|\s+is|\s+are)?|your|any|the)\b[^.?!]{0,20}\b(?:hidden\s+)?(?:system\s+prompt|developer\s+(?:prompt|message|instructions?)|api\s+keys?|access\s+tokens?)\b/i,
 ];
 
+/** Has adversarial manipulation intent. */
 export function hasAdversarialManipulationIntent(query: string): boolean {
   return adversarialManipulationPatterns.some((pattern) => pattern.test(query));
 }
 
+/** Strongest retrieval score. */
 export function strongestRetrievalScore(results: SearchResult[]) {
   return results.reduce((max, result) => Math.max(max, result.hybrid_score ?? result.similarity), 0);
 }
 
+/** Document count. */
 function documentCount(results: SearchResult[]) {
   return new Set(results.map((result) => result.document_id)).size;
 }
 
+/** Has text support. */
 function hasTextSupport(results: SearchResult[]) {
   return results.some((result) => (result.text_rank ?? 0) > 0.05 || (result.hybrid_score ?? 0) >= 0.32);
 }
 
+/** Has actionable conflict or gap. */
 function hasActionableConflictOrGap(conflictsOrGaps: ConflictOrGap[] = []) {
   return conflictsOrGaps.some(
     (item) =>
@@ -189,10 +194,12 @@ function hasActionableConflictOrGap(conflictsOrGaps: ConflictOrGap[] = []) {
   );
 }
 
+/** Has conflict intent. */
 function hasConflictIntent(query: string) {
   return /\b(?:conflict|gap|contradict|disagree|inconsisten|versus|vs)\b/i.test(query);
 }
 
+/** Has explicit document lookup intent. */
 function hasExplicitDocumentLookupIntent(query: string) {
   return (
     /\b(?:find|search|lookup|open|show)\b.{0,80}\b(?:document|file|pdf|protocol|guideline|procedure)\b/i.test(query) ||
@@ -200,6 +207,7 @@ function hasExplicitDocumentLookupIntent(query: string) {
   );
 }
 
+/** Has source support lookup intent. */
 function hasSourceSupportLookupIntent(query: string) {
   return (
     /\b(?:what|which)\s+(?:documents?|sources?|files?|guidelines?)\b.{0,120}\b(?:support|supports|supporting|cover|covers|contain|contains|mention|mentions)\b/i.test(
@@ -208,12 +216,14 @@ function hasSourceSupportLookupIntent(query: string) {
   );
 }
 
+/** Has quote or source location intent. */
 function hasQuoteOrSourceLocationIntent(query: string) {
   return /\b(?:quote|quotes|quoted|exact wording|source location|where in|which page|page number|open source|show source|source link|citation|citations)\b/i.test(
     query,
   );
 }
 
+/** Has explicit table or visual lookup intent. */
 function hasExplicitTableOrVisualLookupIntent(query: string) {
   return (
     /\b(?:which|what|show|find|open|where)\b.{0,120}\b(?:table|chart|flow\s*chart|flowchart|figure|appendix|form)\b/i.test(
@@ -225,6 +235,7 @@ function hasExplicitTableOrVisualLookupIntent(query: string) {
   );
 }
 
+/** Normalize lookup text. */
 function normalizeLookupText(text: string) {
   return text
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -233,6 +244,7 @@ function normalizeLookupText(text: string) {
     .trim();
 }
 
+/** Query topic tokens. */
 function queryTopicTokens(query: string) {
   return normalizeLookupText(query)
     .split(/\s+/)
@@ -240,6 +252,7 @@ function queryTopicTokens(query: string) {
     .filter((token) => token.length > 2 && !queryStopWords.has(token));
 }
 
+/** Query specific title tokens. */
 function querySpecificTitleTokens(query: string) {
   return normalizeLookupText(query)
     .split(/\s+/)
@@ -247,6 +260,7 @@ function querySpecificTitleTokens(query: string) {
     .filter((token) => token.length > 2 && !specificTitleStopWords.has(token));
 }
 
+/** Has direct title support. */
 export function hasDirectTitleSupport(query: string, results: SearchResult[]) {
   const tokens = queryTopicTokens(query);
   if (tokens.length === 0) return false;
@@ -257,6 +271,7 @@ export function hasDirectTitleSupport(query: string, results: SearchResult[]) {
   });
 }
 
+/** Best title token match. */
 function bestTitleTokenMatch(query: string, results: SearchResult[]) {
   const tokens = querySpecificTitleTokens(query);
   let matchedCount = 0;
@@ -270,6 +285,7 @@ function bestTitleTokenMatch(query: string, results: SearchResult[]) {
   return { tokenCount: tokens.length, matchedCount };
 }
 
+/** Has specific title support. */
 export function hasSpecificTitleSupport(query: string, results: SearchResult[]) {
   const { tokenCount, matchedCount } = bestTitleTokenMatch(query, results);
   if (tokenCount === 0) return false;
@@ -277,15 +293,18 @@ export function hasSpecificTitleSupport(query: string, results: SearchResult[]) 
   return matchedCount >= 2 || matchedCount / tokenCount >= 0.5;
 }
 
+/** Has admission community lookup intent. */
 function hasAdmissionCommunityLookupIntent(query: string) {
   const normalized = normalizeLookupText(query);
   return /\badmission\b/.test(normalized) && /\bcommunity\b/.test(normalized);
 }
 
+/** Is complex clinical query. */
 export function isComplexClinicalQuery(query: string) {
   return complexClinicalQueryPattern.test(query);
 }
 
+/** Has table or visual source support. */
 function hasTableOrVisualSourceSupport(results: SearchResult[]) {
   return results.slice(0, 8).some((result) => {
     const reasonText = (result.match_explanation?.reasons ?? []).join(" ");
@@ -306,6 +325,7 @@ function hasTableOrVisualSourceSupport(results: SearchResult[]) {
   });
 }
 
+/** Is clozapine blood withhold threshold query. */
 function isClozapineBloodWithholdThresholdQuery(query: string) {
   return (
     clozapineBloodWithholdThresholdPattern.test(query) &&
@@ -314,35 +334,51 @@ function isClozapineBloodWithholdThresholdQuery(query: string) {
   );
 }
 
-function hasExplicitBloodWithholdActionEvidence(results: SearchResult[]) {
-  return results.slice(0, 8).some((result) => {
-    const tableFactText = (result.table_facts ?? [])
-      .map((fact) =>
-        [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
-          .filter(Boolean)
-          .join(" "),
-      )
-      .join(" ");
-    const sourceText = [
-      result.title,
-      result.file_name,
-      result.section_heading,
-      result.retrieval_synopsis,
-      result.content,
-      result.adjacent_context,
-      tableFactText,
-      result.index_unit?.title,
-      result.index_unit?.content,
-    ]
-      .filter(Boolean)
-      .join(" ");
-    return (
-      bloodCountTermPattern.test(sourceText) &&
-      /\b(?:withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued)\b/i.test(sourceText)
-    );
-  });
+const explicitWithholdActionPattern =
+  /\b(?:withhold|withheld|withholding|hold|held|cease|stop|stopped|discontinue|discontinued)\b/i;
+
+/** Snippet has co occurring blood withhold evidence. */
+function snippetHasCoOccurringBloodWithholdEvidence(snippet: string) {
+  const sentences = snippet
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  const candidates = sentences.length > 0 ? sentences : [snippet];
+  return candidates.some(
+    (sentence) => bloodCountTermPattern.test(sentence) && explicitWithholdActionPattern.test(sentence),
+  );
 }
 
+/** Blood withhold evidence snippets. */
+function bloodWithholdEvidenceSnippets(result: SearchResult) {
+  const tableFactSnippets = (result.table_facts ?? []).map((fact) =>
+    [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+      .filter(Boolean)
+      .join(" "),
+  );
+  return [
+    result.title,
+    result.file_name,
+    result.section_heading,
+    result.retrieval_synopsis,
+    result.content,
+    result.adjacent_context,
+    result.index_unit?.title,
+    result.index_unit?.content,
+    ...tableFactSnippets,
+  ].filter((value): value is string => Boolean(value));
+}
+
+/** Has explicit blood withhold action evidence. */
+function hasExplicitBloodWithholdActionEvidence(results: SearchResult[]) {
+  return results
+    .slice(0, 8)
+    .some((result) =>
+      bloodWithholdEvidenceSnippets(result).some((snippet) => snippetHasCoOccurringBloodWithholdEvidence(snippet)),
+    );
+}
+
+/** Should prefer model synthesis. */
 function shouldPreferModelSynthesis(query: string, queryClass: RagQueryClass) {
   return (
     queryClass === "medication_dose_risk" ||
@@ -355,6 +391,7 @@ function shouldPreferModelSynthesis(query: string, queryClass: RagQueryClass) {
   );
 }
 
+/** Should use extractive medication lookup. */
 function shouldUseExtractiveMedicationLookup(args: {
   query: string;
   results: SearchResult[];
@@ -368,6 +405,7 @@ function shouldUseExtractiveMedicationLookup(args: {
   return args.directTitleSupport || args.topTextRank >= 0.08 || hasTableOrVisualSourceSupport(args.results);
 }
 
+/** Should use strong clinical route. */
 function shouldUseStrongClinicalRoute(args: {
   query: string;
   queryClass: RagQueryClass;
@@ -383,6 +421,7 @@ function shouldUseStrongClinicalRoute(args: {
   return false;
 }
 
+/** Should use extractive answer. */
 export function shouldUseExtractiveAnswer(args: {
   query: string;
   results: SearchResult[];
@@ -430,6 +469,7 @@ export function shouldUseExtractiveAnswer(args: {
   return false;
 }
 
+/** Choose answer route. */
 export function chooseAnswerRoute(args: {
   query: string;
   results: SearchResult[];
@@ -621,7 +661,12 @@ export function chooseAnswerRoute(args: {
       };
     }
 
-    if (queryClass === "table_threshold" && directTitleSupport && strongestScore >= strongRetrievalThreshold) {
+    if (
+      queryClass === "table_threshold" &&
+      directTitleSupport &&
+      strongestScore >= strongRetrievalThreshold &&
+      !actionableConflictOrGap
+    ) {
       return {
         mode: "extractive",
         model: null,
@@ -784,6 +829,7 @@ export function chooseAnswerRoute(args: {
   };
 }
 
+/** Should retry with strong after fast. */
 export function shouldRetryWithStrongAfterFast(args: {
   route: AnswerRoute;
   answer: Pick<RagAnswer, "grounded" | "confidence" | "citations" | "routingReason">;
@@ -801,6 +847,7 @@ export function shouldRetryWithStrongAfterFast(args: {
   return solidSourceSupport && args.results.length >= 2;
 }
 
+/** Append routing reason. */
 export function appendRoutingReason(reason: string | undefined, addition: string) {
   return reason ? `${reason}; ${addition}` : addition;
 }

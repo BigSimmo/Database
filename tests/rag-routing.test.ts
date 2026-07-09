@@ -194,6 +194,22 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("clinical_risk_or_complex_query");
   });
 
+  it("does not treat unrelated stop wording as clozapine blood withhold evidence", () => {
+    const selected = route("What FBC threshold should withhold clozapine?", [
+      source({
+        title: "Clozapine Prescribing and Monitoring",
+        file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+        content:
+          "FBC monitoring is weekly for the first 18 weeks. Patients should stop smoking before starting treatment.",
+        text_rank: 0.14,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("strong");
+    expect(selected.model).toBe("strong-model");
+    expect(selected.reason).toBe("clinical_risk_or_complex_query");
+  });
+
   it("keeps explicit table lookup questions extractive even when medication terms are present", () => {
     const selected = route("Which table covers agitation and arousal pharmacological management?", [
       source({
