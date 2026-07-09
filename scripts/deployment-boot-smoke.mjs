@@ -125,8 +125,7 @@ async function bootSmoke() {
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "placeholder-ci-service-role",
       OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "placeholder-ci-openai",
       // instrumentation.ts requireQueryHashSecret() needs a min-16-char value in production.
-      RAG_QUERY_HASH_SECRET:
-        process.env.RAG_QUERY_HASH_SECRET ?? "placeholder-ci-rag-query-hash-secret",
+      RAG_QUERY_HASH_SECRET: process.env.RAG_QUERY_HASH_SECRET ?? "placeholder-ci-rag-query-hash-secret",
     },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
