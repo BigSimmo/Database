@@ -9,23 +9,29 @@ on:
 permissions:
   contents: read
   issues: write
-  pull-requests: read
+  pull-requests: write
 
 concurrency:
-  group: codex-autoresolve-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
+  group: codex-autoresolve-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+  cancel-in-progress: true
 
 jobs:
   request-codex-autoresolve:
     name: Request Codex auto-resolve
     runs-on: ubuntu-latest
+    if: >
+      github.event.pull_request.state == 'open' &&
+      (
+        contains(github.event.review.user.login, 'chatgpt-codex-connector') ||
+        contains(github.event.comment.user.login, 'chatgpt-codex-connector')
+      )
     steps:
       - name: Ask Codex to resolve review comments
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
           script: |
-            const codexLoginFragment = "chatgpt-codex-connector";
+            const codexActors = ["chatgpt-codex-connector[bot]", "chatgpt-codex-connector"];
 
             function failGitHubApi(operation, error) {
               const status = error?.status;
@@ -50,8 +56,9 @@ jobs:
               core.setFailed(`GitHub API failure during ${operation}: ${details} ${message}`);
             }
 
-            async function loadPullRequest() {
-              return context.payload.pull_request || null;
+            function isCodexActor(login) {
+              const normalized = String(login || "");
+              return codexActors.some((actor) => normalized === actor || normalized.includes("chatgpt-codex-connector"));
             }
 
             function sourceActor() {
@@ -75,7 +82,55 @@ jobs:
               return `comment:${context.payload.comment?.id}`;
             }
 
-            if (!sourceActor().includes(codexLoginFragment)) {
+            function hasSeverityFindingMarkers(body) {
+              return /\bP[0-3]\b/.test(body || "");
+            }
+
+            async function reviewHasActionableInlineComments(github, owner, repo, pullNumber, reviewId) {
+              const comments = await github.paginate(github.rest.pulls.listReviewComments, {
+                owner,
+                repo,
+                pull_number: pullNumber,
+                per_page: 100,
+              });
+
+              return comments.some((comment) => {
+                if (comment.pull_request_review_id !== reviewId) {
+                  return false;
+                }
+                if (comment.in_reply_to_id) {
+                  return false;
+                }
+                return isCodexActor(comment.user?.login);
+              });
+            }
+
+            async function shouldSkipSubmittedReview(github, owner, repo, pullNumber, review) {
+              const state = review?.state || "";
+              const body = review?.body || "";
+
+              if (state === "APPROVED" || state === "DISMISSED") {
+                core.notice(`Skipping Codex auto-resolve request because review state is ${state}.`);
+                return true;
+              }
+
+              if (state === "CHANGES_REQUESTED") {
+                return false;
+              }
+
+              if (hasSeverityFindingMarkers(body)) {
+                return false;
+              }
+
+              if (await reviewHasActionableInlineComments(github, owner, repo, pullNumber, review.id)) {
+                return false;
+              }
+
+              core.notice("Skipping Codex auto-resolve request because the submitted review has no actionable findings.");
+              return true;
+            }
+
+            if (!isCodexActor(sourceActor())) {
               core.notice(`Skipping because actor ${sourceActor()} is not the Codex review bot.`);
               return;
             }
@@ -94,8 +149,9 @@ jobs:
               return;
             }
 
-            const pr = await loadPullRequest();
+            const pr = context.payload.pull_request;
             if (!pr) {
+              core.notice("Skipping Codex auto-resolve request because the pull request payload is missing.");
               return;
             }
 
@@ -107,7 +163,49 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue_number = pr.number;
-            const marker = `<!-- codex-autoresolve-pr:${pr.number} -->`;
+            const headSha = pr.head.sha;
+            const requestLabel = `codex-ar-${headSha}`;
+            const marker = `<!-- codex-autoresolve-pr:${pr.number}:${headSha} -->`;
+
+            if (context.eventName === "pull_request_review") {
+              if (await shouldSkipSubmittedReview(github, owner, repo, issue_number, context.payload.review)) {
+                return;
+              }
+            }
+
+            let existingLabels;
+            try {
+              const labeledPullRequest = await github.rest.issues.get({
+                owner,
+                repo,
+                issue_number,
+              });
+              existingLabels = (labeledPullRequest.data.labels || []).map((label) => label.name);
+            } catch (error) {
+              core.notice(`Failed to list labels on PR #${issue_number} before posting Codex auto-resolve request.`);
+              failGitHubApi("issues.get", error);
+              return;
+            }
+
+            if (existingLabels.includes(requestLabel)) {
+              core.notice(`Skipping duplicate Codex auto-resolve request for PR #${issue_number} at head ${headSha}.`);
+              return;
+            }
+
+            for (const labelName of existingLabels) {
+              if (labelName.startsWith("codex-ar-") && labelName !== requestLabel) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner,
+                    repo,
+                    issue_number,
+                    name: labelName,
+                  });
+                } catch (error) {
+                  core.warning(`Failed to remove stale Codex auto-resolve label ${labelName}: ${error.message || error}`);
+                }
+              }
+            }
 
             let existingComments;
             try {
@@ -124,14 +222,32 @@ jobs:
             }
 
             if (existingComments.some((comment) => (comment.body || "").includes(marker))) {
-              core.notice("Skipping duplicate Codex auto-resolve request for this pull request.");
+              core.notice(`Skipping duplicate Codex auto-resolve request comment for PR #${issue_number} at head ${headSha}.`);
+              return;
+            }
+
+            try {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number,
+                labels: [requestLabel],
+              });
+            } catch (error) {
+              if (error.status === 403) {
+                core.warning("Skipping Codex auto-resolve request because this workflow token cannot label the pull request.");
+                return;
+              }
+              core.notice(`Failed to add Codex auto-resolve request label on PR #${issue_number}.`);
+              failGitHubApi("issues.addLabels", error);
               return;
             }
 
             const prompt = [
               marker,
               `<!-- codex-autoresolve-source:${context.eventName}:${sourceId()} -->`,
-              "@codex resolve all review comments using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.",
+              `Codex auto-resolve requested for PR #${issue_number} at \`${headSha.slice(0, 7)}\`.`,
+              "@codex resolve all review comments using AGENTS.md § Codex GitHub review behavior (Primary PR command).",
             ].join("\n\n");
 
             try {
@@ -142,6 +258,19 @@ jobs:
                 body: prompt,
               });
             } catch (error) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number,
+                  name: requestLabel,
+                });
+              } catch (cleanupError) {
+                core.warning(
+                  `Failed to remove Codex auto-resolve label after comment creation failed: ${cleanupError.message || cleanupError}`,
+                );
+              }
+
               if (error.status === 403) {
                 core.warning("Skipping Codex auto-resolve request because this workflow token cannot comment on the pull request.");
                 return;

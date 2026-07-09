@@ -8,7 +8,8 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 - Review only when the user request, `AGENTS.md` routing rules, or an explicit handoff/release workflow calls for it.
 - Review the current diff, named PR, named branch, or explicitly requested area.
 - Do not expand into stale branches or unrelated modules unless a confirmed defect crosses that boundary.
-- Before branch or PR review, check `docs/branch-review-ledger.md`: resolve the target with `git rev-parse`, compare the HEAD and scope, and skip unchanged completed reviews unless the user asks for a fresh pass.
+- Before branch or PR review, check `docs/branch-review-ledger.md` when the review path is local or branch-cleanup scoped: resolve the target with `git rev-parse`, compare the HEAD and scope, and skip unchanged completed reviews unless the user asks for a fresh pass.
+- GitHub-hosted Codex PR reviews and auto-resolve dedupe use PR labels and marker comments from `.github/workflows/codex-autofix-review-comments.yml`; ledger updates there are optional when a safe local commit is possible.
 
 ## Review Output
 
@@ -24,7 +25,7 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
   - Exception: append the completed review record to `docs/branch-review-ledger.md` so throttling state persists.
 - If the user clearly asks to fix confirmed findings, make the smallest safe change and verify with local, static, or mocked checks first.
 - Ask before any OpenAI, Supabase, GitHub/GitLab, hosted CI, or provider-backed workflow.
-- After any completed branch/PR review, update `docs/branch-review-ledger.md` with date, branch/ref, HEAD, scope, outcome, and checks. This ledger append is allowed even during a pure review.
+- After any completed local or branch-cleanup review, update `docs/branch-review-ledger.md` with date, branch/ref, HEAD, scope, outcome, and checks. This ledger append is allowed even during a pure review when the ledger is in scope for that path.
 
 ## Severity Guide
 

@@ -62,6 +62,7 @@
     "check:m13-migration": "tsx scripts/check-m13-migration.ts",
     "check:july8-live-batch": "tsx scripts/check-july8-live-batch.ts",
     "check:type-scale": "node scripts/check-type-scale.mjs",
+    "check:codex-autofix-workflow": "node scripts/check-codex-autofix-workflow.mjs",
     "recover:ingestion": "tsx scripts/recover-ingestion-queue.ts",
     "registry:seed": "tsx scripts/seed-registry-records.ts",
     "registry:embed": "tsx scripts/embed-registry-records.ts",

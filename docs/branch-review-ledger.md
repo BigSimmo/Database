@@ -2,6 +2,12 @@
 
 Use this ledger to prevent repeated branch and PR reviews when the reviewed HEAD has not changed.
 
+## Scope
+
+- **In scope:** local agents, Cursor/Codex repo-local review skills, explicit branch cleanup, and other reviews where the agent can safely append this file.
+- **Out of scope for required updates:** GitHub-hosted Codex PR reviews and auto-resolve. Those use PR labels and marker comments in `.github/workflows/codex-autofix-review-comments.yml`.
+- **Optional on GitHub:** append a ledger row when the reviewed PR branch is checked out locally and a ledger-only commit is clearly safe.
+
 ## Lookup Procedure
 
 1. Identify the target branch or ref from the user request. If no target is named, use the current branch.
@@ -18,6 +24,5 @@ Use this ledger to prevent repeated branch and PR reviews when the reviewed HEAD
 
 ## Review Records
 
-| Date       | Branch or ref  | Reviewed HEAD | Scope          | Outcome                                                       | Checks                                                                                                     |
-| ---------- | -------------- | ------------- | -------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| 2026-07-09 | example/branch | abc1234       | branch-cleanup | Example: already merged into `main`; no unique patch content. | `git log --right-only --cherry-pick main...example/branch`; `git diff --name-status main...example/branch` |
+| Date | Branch or ref | Reviewed HEAD | Scope | Outcome | Checks |
+| ---- | ------------- | ------------- | ----- | ------- | ------ |

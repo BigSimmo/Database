@@ -126,6 +126,12 @@ Before reviewing a branch or PR:
 - If the same branch/ref and HEAD SHA were already reviewed for the same scope, summarize the prior ledger outcome and skip the repeat review unless the user explicitly requests a fresh pass.
 - If the target HEAD changed, review only the changed scope and update the ledger after the review.
 
+Ledger scope:
+
+- `docs/branch-review-ledger.md` is the durable throttle for local agents, branch cleanup, and explicit repo-local review skills.
+- GitHub-hosted Codex PR reviews use workflow labels/comments for auto-resolve dedupe; append the ledger when the reviewed branch is checked out locally and a ledger commit is clearly safe.
+- Do not treat the ledger as a substitute for GitHub auto-resolve dedupe on PRs, and do not assume GitHub-hosted reviews always update the ledger.
+
 Before reviewing multiple branches:
 
 - Build a short branch inventory first: branch, upstream, ahead/behind, last commit, and merged status.
@@ -142,8 +148,9 @@ Review routing:
 - `release-readiness`: Use for explicit release, merge, PR readiness, or handoff confidence requests. Do not run provider-backed gates without confirmation.
 - `branch-cleanup`: Use only when the prompt explicitly asks for branch cleanup/hygiene or branch deletion candidates. Apply `docs/branch-cleanup-guide.md` and the review ledger before inspecting branch diffs.
 - `pr-ci-fix`: Confirmation-required for this repo. GitHub/GitLab API calls, PR comments, CI reruns, commits, and pushes require explicit user approval and must respect the upload/handoff rules.
+- Exception: when `.github/workflows/codex-autofix-review-comments.yml` posts the auto-resolve request, Codex may commit to the PR branch, push, reply on review threads, and resolve conversations without another confirmation step. Do not rerun hosted CI or call paid/provider APIs unless explicitly authorized.
 
-When a branch or PR review completes, record the reviewed branch/ref, HEAD SHA, date, scope, outcome, and checks in `docs/branch-review-ledger.md`.
+When a branch or PR review completes, record the reviewed branch/ref, HEAD SHA, date, scope, outcome, and checks in `docs/branch-review-ledger.md` when the ledger is in scope for that review path.
 
 <!-- END:codex-review-throttling -->
 
@@ -389,10 +396,12 @@ When explicitly asked to fix or resolve review findings:
 Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex posts a PR review or inline review comment.
 
 - The workflow must only trigger from Codex review bot reviews or comments on open pull requests.
+- The workflow must skip `APPROVED`/`DISMISSED` reviews and other no-finding review submissions.
 - The workflow must skip review-thread replies and auto-resolve request comments so Codex fix summaries do not re-trigger the workflow.
 - The workflow must ask Codex to resolve all review comments using these repository instructions.
-- The workflow must avoid duplicate requests for the same pull request, even after follow-up commits change the head SHA.
+- The workflow must avoid duplicate requests for the same pull request head SHA using a PR label plus marker comment, and may request again when the head SHA changes.
 - The workflow must not run Codex directly with API credentials.
+- When auto-resolve is workflow-triggered, Codex may commit, push to the PR branch, reply on review threads, and resolve conversations without another confirmation step. Do not rerun hosted CI or call paid/provider APIs unless explicitly authorized.
 - P0 and P1 findings should always be fixed.
 - P2 and lower findings should be fixed only when clear, scoped, low-risk, and testable; otherwise explain the decision and resolve or mark ready for human resolution.
 

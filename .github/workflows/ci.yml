@@ -68,6 +68,9 @@ jobs:
       - name: Format check
         run: npm run format:check
 
+      - name: Codex auto-resolve workflow guards
+        run: npm run check:codex-autofix-workflow
+
       - name: Lint
         run: npm run lint
 
