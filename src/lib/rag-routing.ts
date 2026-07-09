@@ -340,7 +340,7 @@ const explicitWithholdActionPattern =
 /** Snippet has co occurring blood withhold evidence. */
 function snippetHasCoOccurringBloodWithholdEvidence(snippet: string) {
   const sentences = snippet
-    .split(/(?<=[.!?])\s+/)
+    .split(/(?<=[.!?])\s+|\r?\n+/)
     .map((sentence) => sentence.trim())
     .filter(Boolean);
   const candidates = sentences.length > 0 ? sentences : [snippet];
