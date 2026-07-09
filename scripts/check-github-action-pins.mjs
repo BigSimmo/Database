@@ -9,7 +9,7 @@ const supportedMajorRanges = new Map([
     {
       min: 4,
       max: 6,
-      reason: "checkout v7 is not a published major; use the current documented v6 pin.",
+      reason: "v6 is the currently supported and documented major that this repo has vetted; upgrading to v7 should be a deliberate, reviewed decision.",
     },
   ],
   [
