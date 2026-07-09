@@ -295,12 +295,13 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
 
     const { data: existingDocuments, error: existingDocumentError } = await supabase
       .from("documents")
-      .select("id")
+      .select("*")
       .in("id", documentIds);
     if (existingDocumentError) {
       throw new Error(`Registry corpus preflight failed: ${existingDocumentError.message}`);
     }
     const existingDocumentIds = new Set((existingDocuments ?? []).map((document) => document.id));
+    const existingDocumentSnapshots = existingDocuments ?? [];
 
     const { error: documentError } = await supabase.from("documents").upsert(documents, { onConflict: "id" });
     if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
@@ -309,12 +310,10 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
     if (chunkError) {
       const insertedDocumentIds = documentIds.filter((id) => !existingDocumentIds.has(id));
       if (insertedDocumentIds.length > 0) {
-        const { error: rollbackError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
-        if (rollbackError) {
-          throw new Error(
-            `Registry corpus chunk upsert failed: ${chunkError.message}; rollback failed: ${rollbackError.message}`,
-          );
-        }
+        await supabase.from("documents").delete().in("id", insertedDocumentIds);
+      }
+      if (existingDocumentSnapshots.length > 0) {
+        await supabase.from("documents").upsert(existingDocumentSnapshots, { onConflict: "id" });
       }
       throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
     }
