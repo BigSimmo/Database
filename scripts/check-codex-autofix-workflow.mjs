@@ -27,10 +27,13 @@ requirePattern("head SHA marker", /codex-autoresolve-pr:\$\{pr\.number\}:\$\{hea
 requirePattern("head SHA label lock", /codex-ar-\$\{headSha\}/);
 requirePattern("pull-requests write permission", /pull-requests:\s*write/);
 requirePattern(
-  "SHA-scoped concurrency with cancel",
+  "SHA-scoped concurrency queue",
   /codex-autoresolve-\$\{\{ github\.event\.pull_request\.number \|\| github\.event\.issue\.number \}\}-\$\{\{ github\.event\.pull_request\.head\.sha \|\| 'issue-comment' \}\}/,
 );
-requirePattern("cancel in-progress concurrency", /cancel-in-progress:\s*true/);
+requirePattern("queued concurrency", /cancel-in-progress:\s*false/);
+requirePattern("resolve completion summary skip", /isResolveCompletionSummary/);
+requirePattern("ensure request label before apply", /ensureRequestLabel/);
+requirePattern("comment before label lock", /createComment[\s\S]*ensureRequestLabel/);
 requirePattern("AGENTS.md primary command reference", /AGENTS\.md § Codex GitHub review behavior/);
 
 if (workflow.includes("codex-autoresolve-pr:${pr.number} -->") && !workflow.includes("${headSha}")) {

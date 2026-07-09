@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: codex-autoresolve-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event.pull_request.head.sha || 'issue-comment' }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   request-codex-autoresolve:
@@ -124,6 +124,39 @@ jobs:
               return /\bP[0-3]\b/.test(body || "");
             }
 
+            function isResolveCompletionSummary(body) {
+              const text = body || "";
+              return (
+                /\bfixed threads?\b/i.test(text) ||
+                /\bdeferred or not-actionable\b/i.test(text) ||
+                /\bcould not resolve\b/i.test(text) ||
+                /\bcompletion summary\b/i.test(text) ||
+                /\bremaining human decisions\b/i.test(text)
+              );
+            }
+
+            async function ensureRequestLabel(github, owner, repo, labelName) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner,
+                  repo,
+                  name: labelName,
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+
+                await github.rest.issues.createLabel({
+                  owner,
+                  repo,
+                  name: labelName,
+                  color: "1d76db",
+                  description: "Codex auto-resolve requested for this PR head SHA.",
+                });
+              }
+            }
+
             async function reviewHasActionableInlineComments(github, owner, repo, pullNumber, reviewId) {
               const comments = await github.paginate(github.rest.pulls.listReviewComments, {
                 owner,
@@ -169,11 +202,18 @@ jobs:
             }
 
             function shouldSkipIssueComment(body) {
+              if (isResolveCompletionSummary(body)) {
+                core.notice(
+                  "Skipping Codex auto-resolve request because the PR comment looks like a resolve completion summary.",
+                );
+                return true;
+              }
+
               if (hasSeverityFindingMarkers(body)) {
                 return false;
               }
 
-              if (/\b(findings?|blocking|must fix|changes requested)\b/i.test(body || "")) {
+              if (/\b(blocking|must fix|changes requested)\b/i.test(body || "")) {
                 return false;
               }
 
@@ -281,23 +321,6 @@ jobs:
               return;
             }
 
-            try {
-              await github.rest.issues.addLabels({
-                owner,
-                repo,
-                issue_number,
-                labels: [requestLabel],
-              });
-            } catch (error) {
-              if (error.status === 403) {
-                core.warning("Skipping Codex auto-resolve request because this workflow token cannot label the pull request.");
-                return;
-              }
-              core.notice(`Failed to add Codex auto-resolve request label on PR #${issue_number}.`);
-              failGitHubApi("issues.addLabels", error);
-              return;
-            }
-
             const prompt = [
               marker,
               `<!-- codex-autoresolve-source:${context.eventName}:${sourceId()} -->`,
@@ -313,23 +336,25 @@ jobs:
                 body: prompt,
               });
             } catch (error) {
-              try {
-                await github.rest.issues.removeLabel({
-                  owner,
-                  repo,
-                  issue_number,
-                  name: requestLabel,
-                });
-              } catch (cleanupError) {
-                core.warning(
-                  `Failed to remove Codex auto-resolve label after comment creation failed: ${cleanupError.message || cleanupError}`,
-                );
-              }
-
               if (error.status === 403) {
                 core.warning("Skipping Codex auto-resolve request because this workflow token cannot comment on the pull request.");
                 return;
               }
               core.notice(`Failed to create Codex auto-resolve request comment on PR #${issue_number}.`);
               failGitHubApi("issues.createComment", error);
+              return;
+            }
+
+            try {
+              await ensureRequestLabel(github, owner, repo, requestLabel);
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number,
+                labels: [requestLabel],
+              });
+            } catch (error) {
+              core.warning(
+                `Codex auto-resolve comment posted, but label lock failed for PR #${issue_number}: ${error.message || error}`,
+              );
             }
