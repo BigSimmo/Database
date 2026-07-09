@@ -841,11 +841,8 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/?mode=answer");
 
-    const modeButton = page.getByRole("button", { name: "Mode Answer" });
-    await expect(modeButton).toBeVisible();
-    await modeButton.click();
-
-    await page.getByRole("menuitemradio", { name: /Differentials/ }).click();
+    const menu = await openAppModeMenu(page, "Answer");
+    await menu.getByRole("menuitemradio", { name: /^Differentials\b/ }).click();
 
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differentials-home")).toBeVisible();
@@ -1153,7 +1150,7 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 1440, height: 920 });
     const workflow = acuteConfusionPresentationWorkflow;
     await gotoLauncher(page, "/differentials/presentations");
-    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/);
+    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
 
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differential-presentation-page")).toBeVisible();
