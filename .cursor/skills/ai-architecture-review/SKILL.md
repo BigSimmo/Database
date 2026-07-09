@@ -7,6 +7,10 @@ description: Reviews RAG flows, context assembly, model routing, structured outp
 
 Use this skill when reviewing or modifying the RAG (Retrieval-Augmented Generation) pipeline, document retrieval, and LLM integrations.
 
+## Repository Review Protocol
+
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+
 ## Review Checklist
 
 ### 1. Retrieval Quality & Provenance
