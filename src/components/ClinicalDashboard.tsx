@@ -3170,7 +3170,9 @@ export function ClinicalDashboard({
                   // bottomSearchScrollHidden only ever goes true on phones.)
                   bottomSearchScrollHidden
                   ? "mb-0 sm:mb-24"
-                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                  : answerFollowUpSuggestions.length > 0
+                    ? "mb-[calc(18rem+env(safe-area-inset-bottom))] sm:mb-24"
+                    : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? bottomSearchScrollHidden
                   ? "mb-0 sm:mb-0"
