@@ -1592,7 +1592,9 @@ summary::-webkit-details-marker {
 
   /* Compact search/result views: no chip row below the pill, so the pill
      itself hugs the bottom edge and the scrim shrinks to match. */
-  .document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact:not(.answer-footer-search-dock) {
+  .document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact:not(
+      .answer-footer-search-dock
+    ) {
     bottom: max(0.4rem, calc(var(--safe-area-bottom) + 0.3rem));
   }
 

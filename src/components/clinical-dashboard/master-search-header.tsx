@@ -1096,7 +1096,9 @@ export function MasterSearchHeader({
                       ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
                       : cn(
                           "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                          isHeroDesktopComposer ? "sm:hidden" : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+                          isHeroDesktopComposer
+                            ? "sm:hidden"
+                            : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
                         ),
                   )
                 : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
