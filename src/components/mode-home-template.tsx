@@ -75,7 +75,7 @@ export function ModeHomeHero({
 
   return (
     <section
-      className={cn("grid justify-items-center sm:gap-4", compact ? "gap-2" : "gap-3")}
+      className={cn("grid justify-items-center px-4 sm:gap-4 sm:px-0", compact ? "gap-2" : "gap-3")}
       aria-labelledby={`${testId ?? "mode-home"}-title`}
     >
       <span
@@ -111,13 +111,8 @@ export function ModeHomeHero({
 
 /**
  * Standalone-route wrapper that mirrors the dashboard's vertically centred
- * mode homes: full-height, centred content, no fixed bottom composer reserve.
- * The phone min-height nets out the real phone chrome — the ~4.25rem sticky
- * header plus the shell's 9rem bottom-composer reserve on `#main-content`
- * (see `global-mockup-search-shell.tsx`) — so short homes centre in the space
- * that is actually visible instead of against the 4rem desktop-header calc,
- * which over-measures on phones and forced a phantom scrollbar. sm+ keeps the
- * original calc where the header really is 4rem.
+ * mode homes: full-height, centred content. The shell reserves composer
+ * clearance via --mobile-composer-reserve on #main-content.
  */
 export function ModeHomeMain({
   testId,
@@ -132,7 +127,7 @@ export function ModeHomeMain({
     <main
       data-testid={testId}
       className={cn(
-        "grid min-h-[calc(100dvh-13.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] items-center justify-items-center bg-[color:var(--background)] px-4 pb-4 pt-[clamp(1.25rem,4vh,2.25rem)] text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
+        "flex min-h-0 w-full flex-1 flex-col items-center justify-center bg-[color:var(--background)] px-0 pt-[clamp(1.25rem,4vh,2.25rem)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
         className,
       )}
     >
@@ -224,20 +219,23 @@ export function ModeHomeTemplate({
     <div
       data-testid={testId}
       className={cn(
-        "mode-home-template mx-auto box-border flex w-full max-w-[64rem] flex-col items-center justify-center gap-3.5 px-0 text-center sm:gap-6 lg:gap-7",
+        "mode-home-template mx-auto box-border flex w-full max-w-none flex-col items-center justify-center gap-3.5 px-0 text-center sm:max-w-[64rem] sm:gap-6 lg:gap-7",
         className,
       )}
     >
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} compact />
 
       {desktopComposerSlotId ? (
-        <div id={desktopComposerSlotId} className="mode-home-composer-slot hidden w-full [&:not(:empty)]:block" />
+        <div
+          id={desktopComposerSlotId}
+          className="mode-home-composer-slot hidden w-full px-4 sm:px-0 [&:not(:empty)]:block"
+        />
       ) : null}
 
       {actions?.length ? (
         <section
           aria-label={actionsLabel}
-          className="grid w-full max-w-3xl overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] sm:gap-5 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none"
+          className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] sm:gap-5 sm:overflow-visible sm:rounded-xl sm:border sm:shadow-[var(--shadow-card)] lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
         >
           {actions.map((action, index) => {
             const ActionIcon = action.icon;
@@ -292,7 +290,7 @@ export function ModeHomeTemplate({
       {pills?.length ? (
         <section
           aria-label={pillsTitle ?? "Quick links"}
-          className="grid w-full max-w-none self-stretch gap-2.5 border-t border-[color:var(--border)]/70 pt-5 sm:pt-6"
+          className="grid w-full max-w-none self-stretch gap-2.5 border-t border-[color:var(--border)]/70 px-4 pt-5 sm:px-0 sm:pt-6"
         >
           {pillsTitle || pillsAction ? (
             <div className="flex min-h-8 w-full items-center justify-between gap-3">
