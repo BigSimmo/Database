@@ -7,10 +7,6 @@ import {
   BookOpen,
   ChevronDown,
   Clock3,
-<<<<<<< HEAD
-  Copy,
-=======
->>>>>>> origin/main
   ExternalLink,
   FileImage,
   FileText,
@@ -22,14 +18,7 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
-<<<<<<< HEAD
-  ShieldCheck,
-  SlidersHorizontal,
-  Sparkles,
-  Stethoscope,
-=======
   Square,
->>>>>>> origin/main
   UploadCloud,
   WifiOff,
   Wrench,
@@ -54,15 +43,8 @@ import {
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-<<<<<<< HEAD
-import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
-import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
-import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
-import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
-=======
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
->>>>>>> origin/main
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
@@ -93,37 +75,11 @@ import {
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
 import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
-<<<<<<< HEAD
-import {
-  AnswerFeedbackPanel,
-  AnswerSafetyNotice,
-  AnswerSupportSummaryCard,
-  answerHasCentralTable,
-  answerSupportPriority,
-  ClinicalNotesChecklistPanel,
-  clinicalNotesCount,
-  clinicalNotesDisplayCountForAnswer,
-  compactEvidenceSummary,
-  type EvidenceTabName,
-  simpleClinicalTableProps,
-  evidenceMapRowsFromRenderModel,
-  evidenceTabCount,
-  evidenceTabOrder,
-  formatQuoteCardsForClipboard,
-  primaryVisualTable,
-  QuoteCards,
-  SafetyFindingsListContent,
-} from "@/components/clinical-dashboard/evidence-panels";
-import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
-import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { emptyStates, errorCopy } from "@/lib/ui-copy";
-=======
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { answerRecovery, errorCopy } from "@/lib/ui-copy";
->>>>>>> origin/main
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 import {
   DrawerGroupLabel,
@@ -131,10 +87,6 @@ import {
   type DocumentDrawerStatusFilter,
   type LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/document-admin";
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/main
 
 const DifferentialsHome = dynamic(
   () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
@@ -160,10 +112,6 @@ const DocumentDrawer = dynamic(
   { ssr: false },
 );
 
-<<<<<<< HEAD
-import { DocumentSearchResultsPanel, type SearchFacets } from "@/components/clinical-dashboard/document-search-results";
-import { isWeakRelevance, QueryCoverageChips } from "@/components/clinical-dashboard/relevance";
-=======
 // Results surfaces load lazily: they only render after a submitted search/answer, so their chunk
 // downloads behind the (multi-second) retrieval/answer request rather than bloating the initial
 // answer-home bundle. The answer surface keeps the same skeleton as generation to avoid a flash.
@@ -182,7 +130,6 @@ const DocumentSearchResultsPanel = dynamic(
 
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
->>>>>>> origin/main
 import {
   answerPayloadIsUsable,
   classifyAnswerError,
@@ -222,29 +169,13 @@ import {
   maxStoredAnswerTurns,
   savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
-<<<<<<< HEAD
-import { buildAnswerRenderModel, type AnswerRenderModel } from "@/lib/answer-render-policy";
-import { sourceTextForCompactDisplay } from "@/lib/source-text-sanitizer";
-=======
 import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
->>>>>>> origin/main
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
   type SourceGovernanceWarning,
 } from "@/lib/source-governance";
-<<<<<<< HEAD
-import { smartEvidenceTags } from "@/lib/evidence-tags";
-import {
-  tagSearchText,
-  type SmartDocumentTag,
-  type SmartDocumentTagFacet,
-  type SmartDocumentTagTier,
-  type SmartDocumentTagQualityIssueKind,
-} from "@/lib/document-tags";
-=======
 import { type SmartDocumentTag, type SmartDocumentTagFacet } from "@/lib/document-tags";
->>>>>>> origin/main
 import type {
   ClinicalDocument,
   DocumentMatch,
@@ -262,11 +193,7 @@ import type {
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-<<<<<<< HEAD
-import { createQuoteFollowUp, type AnswerEvidenceMapRow, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
-=======
 import { createQuoteFollowUp, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
->>>>>>> origin/main
 
 export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
 export const mobileSectionFabMediaQuery =
@@ -591,251 +518,6 @@ function PriorAnswerTurnSurface({
   onToggleCollapsed: () => void;
   onCopy: (text: string) => void;
 }) {
-<<<<<<< HEAD
-  const order = evidenceTabOrder(answer, renderModel);
-  const [selectedTab, setSelectedTab] = useState<EvidenceTabName | null>(() => initialTab ?? null);
-  const activeTab = selectedTab && order.includes(selectedTab) ? selectedTab : order[0];
-  const panelIdFor = (tab: EvidenceTabName) => `mobile-evidence-panel-${tab.toLowerCase()}`;
-  const [added, setAdded] = useState(false);
-  const primarySourceHref = renderModel.primarySources[0]?.href;
-  async function copyEvidence() {
-    if (renderModel.quoteCards.length) {
-      onCopyQuotes();
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(renderModel.copyText);
-    } catch {
-      // Clipboard writes can fail in locked-down browsers; keep the panel usable.
-    }
-  }
-
-  return (
-    <div data-testid="mobile-evidence-sheet" className="min-w-0 space-y-4 overflow-hidden">
-      <div className="-mx-1 overflow-x-auto pb-1 polished-scroll" role="presentation">
-        <div
-          data-testid="mobile-evidence-tabs"
-          role="tablist"
-          aria-label="Evidence sections"
-          className="flex min-w-max gap-1 px-1"
-        >
-          {order.map((tab) => {
-            const selected = tab === activeTab;
-            const Icon = evidenceTabIconMap[tab];
-            const count = evidenceTabCount({
-              tab,
-              sources,
-              visualEvidence,
-              answerEvidenceMapRows,
-              renderModel,
-            });
-            return (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                aria-controls={panelIdFor(tab)}
-                id={`mobile-evidence-tab-${tab.toLowerCase()}`}
-                data-testid={`mobile-evidence-tab-${tab.toLowerCase()}`}
-                onClick={() => setSelectedTab(tab)}
-                className={cn(
-                  "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition",
-                  selected
-                    ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {tab}
-                {count ? <span className="nums text-[11px] opacity-80">{count}</span> : null}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="min-h-[220px]">
-        {order.map((tab) => {
-          const selected = tab === activeTab;
-          return (
-            <div
-              key={tab}
-              id={panelIdFor(tab)}
-              role="tabpanel"
-              aria-labelledby={`mobile-evidence-tab-${tab.toLowerCase()}`}
-              data-testid={`mobile-evidence-panel-${tab.toLowerCase()}`}
-              hidden={!selected}
-              className="min-h-[220px]"
-            >
-              {selected ? (
-                <MobileEvidenceTabPanel
-                  tab={tab}
-                  renderModel={renderModel}
-                  visualEvidence={visualEvidence}
-                  answerEvidenceMapRows={answerEvidenceMapRows}
-                  copiedQuotes={copiedQuotes}
-                  onCopyQuotes={onCopyQuotes}
-                  onFollowUpQuote={onFollowUpQuote}
-                  onScopeDocument={onScopeDocument}
-                />
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-      <ScopeAndGovernanceNotice scope={null} warnings={sourceGovernanceWarnings} />
-      <AnswerSafetyNotice
-        demoMode={demoMode}
-        weakEvidence={renderModel.trust !== "high"}
-        retrievalDiagnostics={answer.retrievalDiagnostics}
-      />
-      <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
-      <div className="sticky bottom-0 -mx-3 mt-auto border-t border-[color:var(--border)] bg-[color:var(--surface-raised)]/98 px-2.5 py-1.5 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
-        <div className="grid grid-cols-3 divide-x divide-[color:var(--border)] bg-[color:var(--surface)]">
-          {primarySourceHref ? (
-            <Link
-              href={primarySourceHref}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Source
-            </Link>
-          ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
-              <ExternalLink className="h-3.5 w-3.5" />
-              Source
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => void copyEvidence()}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
-          >
-            <Copy className="h-3.5 w-3.5" />
-            {copiedQuotes ? "Copied" : "Copy"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setAdded(true)}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {added ? "Added" : "Add"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MobileEvidenceTabPanel({
-  tab,
-  renderModel,
-  visualEvidence,
-  answerEvidenceMapRows,
-  copiedQuotes,
-  onCopyQuotes,
-  onFollowUpQuote,
-  onScopeDocument,
-}: {
-  tab: EvidenceTabName;
-  renderModel: AnswerRenderModel;
-  visualEvidence: VisualEvidenceCard[];
-  answerEvidenceMapRows: AnswerEvidenceMapRow[];
-  copiedQuotes: boolean;
-  onCopyQuotes: () => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
-  onScopeDocument: (documentId: string) => void;
-}) {
-  if (tab === "Claims") {
-    return <EvidenceClaimsList rows={answerEvidenceMapRows} renderModel={renderModel} />;
-  }
-
-  if (tab === "Tables") {
-    const tableEvidence = visualEvidence.filter((item) => item.accessibleTableMarkdown || item.tableRows?.length);
-    return tableEvidence.length ? (
-      <div className="grid gap-2">
-        {tableEvidence.slice(0, 4).map((item, index) => (
-          <article key={item.id} className={cn(sourceCard, "grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 p-3")}>
-            <span className={iconTilePremium}>
-              <ListChecks className="h-4 w-4" />
-            </span>
-            <div className="min-w-0">
-              <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">
-                {compactClinicalTableCaption(item)}
-              </p>
-              <p className={cn("mt-1 text-xs", textMuted)}>
-                Table {index + 1} · p.{item.page_number ?? "n/a"}
-              </p>
-            </div>
-            <Link href={item.viewer_href} className={chatMicroAction} aria-label={`Open table source ${index + 1}`}>
-              <ExternalLink className="h-3.5 w-3.5" />
-            </Link>
-          </article>
-        ))}
-      </div>
-    ) : (
-      <EmptyState icon={ListChecks} title={emptyStates.tablesUsed.title} body={emptyStates.tablesUsed.body} />
-    );
-  }
-
-  if (tab === "Images") {
-    return visualEvidence.length ? (
-      <VisualEvidenceStrip evidence={visualEvidence} embedded />
-    ) : (
-      <EmptyState icon={FileImage} title={emptyStates.imagesUsed.title} body={emptyStates.imagesUsed.body} />
-    );
-  }
-
-  if (tab === "Quotes") {
-    return (
-      <QuoteCards
-        quotes={renderModel.quoteCards}
-        copiedQuotes={copiedQuotes}
-        onCopyQuotes={onCopyQuotes}
-        onFollowUp={onFollowUpQuote}
-        onScopeDocument={onScopeDocument}
-      />
-    );
-  }
-
-  return <EvidenceGapsPanel warnings={renderModel.warnings} />;
-}
-
-/**
- * A completed Q&A exchange kept on screen after a newer answer arrives, so
- * Answer mode reads as a conversation thread instead of replacing each result.
- */
-type AnswerTurn = {
-  id: string;
-  query: string;
-  answer: RagAnswer;
-  sources: SearchResult[];
-};
-
-const maxVisiblePriorTurns = 10;
-
-/**
- * Read-only surface for a previous turn in the answer thread. Renders the
- * question bubble and the natural-language answer with its source capsule;
- * evidence drawers, clinical notes, and feedback stay on the latest turn only.
- */
-function PriorAnswerTurnSurface({
-  turn,
-  copied,
-  collapsed,
-  onToggleCollapsed,
-  onCopy,
-}: {
-  turn: AnswerTurn;
-  copied: boolean;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
-  onCopy: (text: string) => void;
-}) {
-=======
->>>>>>> origin/main
   const renderModel = useMemo(
     () => buildAnswerRenderModel(turn.answer, { sources: turn.sources }),
     [turn.answer, turn.sources],
@@ -845,27 +527,19 @@ function PriorAnswerTurnSurface({
   const grounded =
     turn.answer.grounded === true && turn.answer.confidence !== "unsupported" && renderModel.trust !== "unsupported";
   const sourceCount =
-<<<<<<< HEAD
-    renderModel.primarySources.length || turn.sources.length || turn.answer.sources?.length || turn.answer.citations.length;
-=======
     renderModel.primarySources.length ||
     turn.sources.length ||
     turn.answer.sources?.length ||
     turn.answer.citations.length;
->>>>>>> origin/main
   const previewText = safeText || turn.answer.answer;
 
   return (
     <div
-<<<<<<< HEAD
-      className="min-w-0 space-y-4 sm:space-y-5"
-=======
       // Historical conversation turns grow unbounded and most are collapsed and
       // scrolled off-screen; content-auto skips their layout/paint until near the
       // viewport. Safe here — the surface has no overflowing popovers, and the
       // expand toggle is only reachable once the turn is scrolled into view.
       className="content-auto min-w-0 space-y-4 sm:space-y-5"
->>>>>>> origin/main
       data-dashboard-stage="answer-thread-turn"
       data-collapsed={collapsed ? "true" : "false"}
     >
@@ -905,944 +579,6 @@ type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 type IndexingMonitorFilter = "all" | "active" | "failed";
 type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
 
-<<<<<<< HEAD
-export function SettingsDialog({
-  open,
-  onClose,
-  identity,
-  theme,
-  onToggleTheme,
-  onSignOut,
-  onOpenGuide,
-}: {
-  open: boolean;
-  onClose: () => void;
-  identity: SidebarIdentity;
-  theme: "light" | "dark";
-  onToggleTheme: () => void;
-  onSignOut: () => void;
-  onOpenGuide: () => void;
-}) {
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
-  const currentThemeLabel = theme === "dark" ? "Dark" : "Light";
-  const auth = useAuthSession();
-  const [settingsEmail, setSettingsEmail] = useState("");
-  const [emailEntryOpen, setEmailEntryOpen] = useState(false);
-  const [settingsEmailAttempted, setSettingsEmailAttempted] = useState(false);
-  const [accountNotice, setAccountNotice] = useState<string | null>(null);
-  const settingsAuthBusy = auth.status === "loading";
-  const signedOutAccount = !identity.signedIn;
-
-  async function submitSettingsEmail(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!settingsEmail.trim()) return;
-    setAccountNotice(null);
-    setSettingsEmailAttempted(true);
-    await auth.signInWithEmail(settingsEmail.trim());
-  }
-
-  function openSettingsEmailEntry() {
-    setEmailEntryOpen(true);
-    setAccountNotice(null);
-  }
-
-  function chooseSettingsProvider(provider: string) {
-    setAccountNotice(`${provider} sign-in is a placeholder for now. Continue with email to use this workspace.`);
-  }
-
-  useEffect(() => {
-    if (!emailEntryOpen) return;
-    const focusFrame = window.requestAnimationFrame(() => {
-      settingsEmailInputRef.current?.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(focusFrame);
-  }, [emailEntryOpen]);
-
-  const settingSections = [
-    {
-      title: "Account",
-      rows: [
-        { icon: UserRound, label: "Profile", value: identity.displayName },
-        { icon: Stethoscope, label: "Clinical role", value: "Consultant psychiatrist" },
-      ],
-    },
-    {
-      title: "Clinical defaults",
-      rows: [
-        { icon: Globe2, label: "Jurisdiction", value: "Western Australia", active: true },
-        { icon: CircleUserRound, label: "Default population", value: "Adults" },
-        { icon: SlidersHorizontal, label: "Answer style", value: "Conservative" },
-      ],
-    },
-    {
-      title: "App preferences",
-      rows: [
-        {
-          icon: Palette,
-          label: "Appearance",
-          value: currentThemeLabel,
-          onClick: onToggleTheme,
-          actionLabel: `Switch to ${theme === "dark" ? "light" : "dark"} mode`,
-        },
-        { icon: SettingsIcon, label: "Interface density", value: "Comfortable" },
-      ],
-    },
-  ];
-  const navItems = [
-    { icon: SettingsIcon, label: "General" },
-    { icon: Stethoscope, label: "Clinical defaults" },
-    { icon: Sparkles, label: "Personalisation" },
-    { icon: Bell, label: "Notifications" },
-    { icon: LockKeyhole, label: "Security" },
-    { icon: CircleUserRound, label: "Account", active: true },
-    { icon: Keyboard, label: "Keyboard" },
-    {
-      icon: HelpCircle,
-      label: "Help & About",
-      onClick: () => {
-        onClose();
-        onOpenGuide();
-      },
-    },
-  ];
-
-  const closeButton = (
-    <button
-      ref={closeButtonRef}
-      type="button"
-      onClick={onClose}
-      aria-label="Close settings"
-      className="absolute right-2.5 top-[max(0.45rem,env(safe-area-inset-top))] z-10 grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:left-4 lg:right-auto lg:top-4 lg:h-10 lg:w-10"
-    >
-      <X className="h-4.5 w-4.5" />
-    </button>
-  );
-
-  return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      closeLabel="Close settings"
-      labelledBy="account-settings-title"
-      initialFocusRef={closeButtonRef}
-      mobilePlacement="fullscreen"
-      contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--background)] font-sans shadow-none lg:max-w-[900px] lg:bg-[color:var(--surface-lux)] lg:shadow-[var(--shadow-lux)]"
-      bodyClassName="p-0"
-    >
-      <div className="relative grid h-dvh max-h-dvh min-h-0 overflow-hidden lg:h-auto lg:max-h-[min(86dvh,820px)] lg:grid-cols-[250px_minmax(0,1fr)]">
-        {closeButton}
-        <aside className="hidden border-r border-[color:var(--border-lux)] bg-[color:var(--surface)]/72 px-4 pb-5 pt-16 lg:flex lg:flex-col">
-          <nav aria-label="Settings sections" className="grid gap-1.5">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = item.active;
-              return (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={item.onClick}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium leading-5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                    active
-                      ? "bg-[color:var(--surface-lux)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] ring-1 ring-[color:var(--clinical-accent)]/10"
-                      : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-lux)]/80 hover:text-[color:var(--text-heading)]",
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        <div className="mx-auto min-h-0 w-full max-w-[460px] overflow-y-auto bg-[color:var(--background)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-[max(2.45rem,calc(0.7rem+env(safe-area-inset-top)))] polished-scroll sm:px-5 lg:mx-0 lg:max-w-none lg:bg-transparent lg:px-7 lg:pb-7 lg:pt-6">
-          <div className="mb-2 flex items-center justify-between gap-4 lg:mb-5">
-            <div className="min-w-0">
-              <h2
-                id="account-settings-title"
-                className="truncate text-[18px] font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-[1.45rem] lg:leading-8"
-              >
-                Account &amp; app
-              </h2>
-            </div>
-            <span className="hidden min-h-7 shrink-0 items-center rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-xs font-semibold leading-none text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] lg:inline-flex">
-              Clinician account
-            </span>
-          </div>
-
-          <section className="rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3.5 shadow-[0_12px_30px_rgba(0,0,0,0.06),var(--shadow-inset)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.32),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:p-4 lg:shadow-[var(--shadow-inset)]">
-            <h3 className="mb-3 px-0.5 text-[15px] font-semibold leading-5 text-[color:var(--text-heading)]">
-              Clinical Guide account
-            </h3>
-            <div className="flex items-center gap-3 lg:gap-3">
-              <span
-                className={cn(
-                  "relative grid h-12 w-12 shrink-0 place-items-center rounded-full text-sm font-bold leading-none ring-1 lg:h-12 lg:w-12",
-                  signedOutAccount
-                    ? "bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] ring-[color:var(--border)]"
-                    : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] ring-[color:var(--clinical-accent)]/10",
-                )}
-              >
-                {signedOutAccount ? <UserRound className="h-5 w-5" /> : identity.initials}
-                {identity.signedIn ? (
-                  <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
-                ) : null}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-base font-semibold leading-6 text-[color:var(--text-heading)]">
-                  {identity.displayName}
-                </p>
-                <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                  {signedOutAccount ? "Sign in or create an account" : "Consultant psychiatrist, Western Australia"}
-                </p>
-              </div>
-              {signedOutAccount ? (
-                <div className="hidden w-[220px] shrink-0 grid-cols-1 gap-2 lg:grid">
-                  <button
-                    type="button"
-                    onClick={openSettingsEmailEntry}
-                    className={cn(primaryControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
-                  >
-                    Create account
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openSettingsEmailEntry}
-                    className={cn(floatingControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
-                  >
-                    Sign in
-                  </button>
-                </div>
-              ) : (
-                <div className="hidden shrink-0 items-center gap-2 lg:flex">
-                  <SettingsChip label="Private" />
-                  <SettingsChip label="No PHI" />
-                </div>
-              )}
-            </div>
-
-            {signedOutAccount ? (
-              <div className="mt-4 grid gap-3">
-                <div className="grid grid-cols-2 gap-2 lg:hidden">
-                  <button
-                    type="button"
-                    onClick={openSettingsEmailEntry}
-                    className={cn(primaryControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
-                  >
-                    Create account
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openSettingsEmailEntry}
-                    className={cn(floatingControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
-                  >
-                    Sign in
-                  </button>
-                </div>
-
-                {emailEntryOpen ? (
-                  <form
-                    onSubmit={submitSettingsEmail}
-                    className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]"
-                  >
-                    <label className="block">
-                      <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
-                        Email address
-                      </span>
-                      <div className="relative">
-                        <Mail className={fieldIcon} />
-                        <input
-                          ref={settingsEmailInputRef}
-                          type="email"
-                          value={settingsEmail}
-                          onChange={(event) => setSettingsEmail(event.target.value)}
-                          placeholder="you@clinic.example"
-                          className={fieldControlWithIcon}
-                        />
-                      </div>
-                    </label>
-                    <button
-                      type="submit"
-                      disabled={settingsAuthBusy || !settingsEmail.trim() || !auth.isConfigured}
-                      className={cn(primaryControl, "w-full")}
-                    >
-                      {settingsAuthBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                      Continue with email
-                    </button>
-                  </form>
-                ) : null}
-
-                <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
-                  <span className="h-px flex-1 bg-[color:var(--border)]" />
-                  <span>or continue with</span>
-                  <span className="h-px flex-1 bg-[color:var(--border)]" />
-                </div>
-
-                <div className="grid gap-2">
-                  <SettingsProviderRow provider="Apple" onClick={() => chooseSettingsProvider("Apple")} />
-                  <SettingsProviderRow provider="Google" onClick={() => chooseSettingsProvider("Google")} />
-                  <SettingsProviderRow provider="Microsoft" onClick={() => chooseSettingsProvider("Microsoft")} />
-                  <SettingsProviderRow provider="email" onClick={openSettingsEmailEntry} />
-                </div>
-
-                <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                  <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
-                  Accounts save preferences and search history. Do not enter PHI.
-                </p>
-
-                {(accountNotice || !auth.isConfigured || (settingsEmailAttempted && auth.error)) && (
-                  <p
-                    role="alert"
-                    className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
-                  >
-                    {accountNotice ??
-                      (settingsEmailAttempted ? auth.error : null) ??
-                      "Supabase browser authentication is not configured for account sign-in."}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <SettingsClinicalContextStrip />
-            )}
-          </section>
-
-          <div className={cn("hidden lg:mt-4 lg:grid-cols-3 lg:gap-3", signedOutAccount ? "lg:hidden" : "lg:grid")}>
-            <SettingsSummaryTile icon={UserRound} label="Profile" value={identity.displayName} />
-            <SettingsSummaryTile icon={Stethoscope} label="Clinical setup" value="WA, adults" emphasized />
-            <SettingsSummaryTile icon={PanelTop} label="Default view" value="Ask" />
-          </div>
-
-          <section className="mt-3.5 grid gap-3 lg:mt-4 lg:rounded-xl lg:border lg:border-[color:var(--border-lux)] lg:bg-[color:var(--surface)] lg:px-5 lg:py-4 lg:shadow-[var(--shadow-inset)]">
-            <div className="grid gap-3 lg:gap-4">
-              {settingSections.map((section) => (
-                <div key={section.title} className="min-w-0">
-                  <h3 className="mb-1 px-1 text-[12px] font-semibold tracking-normal text-[color:var(--text-muted)] lg:mb-1.5 lg:text-[13px] lg:text-[color:var(--text-heading)]">
-                    {section.title}
-                  </h3>
-                  <div className="overflow-hidden rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[0_8px_22px_rgba(0,0,0,0.04),var(--shadow-inset)] dark:shadow-[0_12px_26px_rgba(0,0,0,0.24),var(--shadow-inset)] lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none">
-                    {section.rows.map((row) => (
-                      <SettingsRow key={`${section.title}-${row.label}`} {...row} />
-                    ))}
-                    {section.title === "Account" && identity.signedIn ? (
-                      <SettingsRow
-                        icon={LogOut}
-                        label="Sign out"
-                        value=""
-                        onClick={() => {
-                          onSignOut();
-                          onClose();
-                        }}
-                        actionLabel="Sign out"
-                      />
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <SettingsHelpFooter
-              onClick={() => {
-                onClose();
-                onOpenGuide();
-              }}
-            />
-          </section>
-        </div>
-      </div>
-    </Sheet>
-  );
-}
-
-function SettingsChip({ label }: { label: string }) {
-  return (
-    <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--clinical-accent)]/18 bg-[color:var(--clinical-accent-soft)] px-2.5 text-[11px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:min-h-7 lg:px-3 lg:text-xs">
-      {label}
-    </span>
-  );
-}
-
-function SettingsProviderRow({
-  provider,
-  onClick,
-}: {
-  provider: "Apple" | "Google" | "Microsoft" | "email";
-  onClick: () => void;
-}) {
-  const label = provider === "email" ? "Use email instead" : provider;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-    >
-      {provider === "email" ? (
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
-          <Mail className="h-4 w-4" />
-        </span>
-      ) : (
-        <SettingsProviderMark provider={provider} />
-      )}
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
-    </button>
-  );
-}
-
-function SettingsProviderMark({ provider }: { provider: "Apple" | "Google" | "Microsoft" }) {
-  if (provider === "Microsoft") {
-    return (
-      <span
-        className="grid h-7 w-7 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
-        aria-hidden="true"
-      >
-        <span className="bg-[#f25022]" />
-        <span className="bg-[#7fba00]" />
-        <span className="bg-[#00a4ef]" />
-        <span className="bg-[#ffb900]" />
-      </span>
-    );
-  }
-
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-base font-bold leading-none shadow-[var(--shadow-inset)]",
-        provider === "Apple" ? "text-[color:var(--text-heading)]" : "text-[#4285f4]",
-      )}
-    >
-      {provider === "Apple" ? "A" : "G"}
-    </span>
-  );
-}
-
-function SettingsClinicalContextStrip() {
-  return (
-    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-[12px] font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
-      <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-      <span className="min-w-0 truncate">
-        Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
-        <span className="px-1 text-[color:var(--text-soft)]">·</span> WA{" "}
-        <span className="px-1 text-[color:var(--text-soft)]">·</span> No PHI
-      </span>
-    </div>
-  );
-}
-
-function SettingsSummaryTile({
-  icon: Icon,
-  label,
-  value,
-  emphasized = false,
-}: {
-  icon: typeof UserRound;
-  label: string;
-  value: string;
-  emphasized?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "min-w-0 rounded-2xl border p-2 shadow-[var(--shadow-inset)] lg:rounded-xl lg:p-3",
-        emphasized
-          ? "border-[color:var(--clinical-accent)]/26 bg-[color:var(--clinical-accent-soft)]/72"
-          : "border-[color:var(--border-lux)] bg-[color:var(--surface)]",
-      )}
-    >
-      <div className="flex min-w-0 flex-col items-center justify-center gap-1 text-center lg:min-h-[44px] lg:flex-row lg:justify-start lg:gap-2.5 lg:text-left">
-        <span
-          className={cn(
-            "grid h-8 w-8 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] lg:rounded-lg",
-            emphasized
-              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-              : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
-          )}
-        >
-          <Icon className="h-4 w-4" />
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-[10px] font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
-            {label}
-          </span>
-          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-heading)] lg:text-[13px]">
-            {value}
-          </span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function SettingsRow({
-  icon: Icon,
-  label,
-  value,
-  active = false,
-  onClick,
-  actionLabel,
-}: {
-  icon: typeof UserRound;
-  label: string;
-  value: string;
-  active?: boolean;
-  onClick?: () => void;
-  actionLabel?: string;
-}) {
-  const content = (
-    <>
-      <span
-        className={cn(
-          "grid h-7 w-7 shrink-0 place-items-center rounded-full transition sm:h-8 sm:w-8 lg:rounded-lg lg:border lg:shadow-[var(--shadow-inset)]",
-          active
-            ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[0_7px_16px_color-mix(in_srgb,var(--clinical-accent)_24%,transparent)] lg:border-[color:var(--clinical-accent)]"
-            : "bg-transparent text-[color:var(--text-muted)] lg:border-[color:var(--border)] lg:bg-[color:var(--surface-lux)]",
-        )}
-      >
-        <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-      </span>
-      <span className="min-w-0 flex-1 min-[360px]:flex min-[360px]:items-center min-[360px]:justify-between min-[360px]:gap-3">
-        <span className="block truncate text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{label}</span>
-        {value ? (
-          <span className="mt-0.5 block max-w-full truncate text-[13px] font-medium leading-5 text-[color:var(--text-muted)] min-[360px]:mt-0 min-[360px]:max-w-[50%] min-[360px]:text-right sm:max-w-[58%] sm:text-sm sm:text-[color:var(--text)] lg:max-w-[52%] lg:text-[13px]">
-            {value}
-          </span>
-        ) : null}
-      </span>
-      <ChevronDown className="-rotate-90 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)] lg:h-4 lg:w-4" />
-    </>
-  );
-
-  const className =
-    "flex min-h-[50px] w-full items-center gap-2.5 border-b border-[color:var(--border)]/70 px-3 py-1.5 text-left last:border-b-0 transition hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:min-h-[54px] sm:gap-3 sm:px-3.5 sm:py-2 lg:min-h-10 lg:gap-3 lg:px-0 lg:py-0 lg:hover:bg-[color:var(--surface-lux)]/55";
-  const testId = `settings-row-${label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")}`;
-
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={actionLabel ?? label}
-        className={className}
-        data-testid={testId}
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <div className={className} data-testid={testId}>
-      {content}
-    </div>
-  );
-}
-
-function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
-  return (
-    <div className="px-1 pt-0.5 lg:hidden">
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-[13px] font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-        data-testid="settings-row-guide-help"
-      >
-        <BookOpen className="h-4 w-4" />
-        <span>Guide &amp; help</span>
-        <ChevronDown className="-rotate-90 h-3.5 w-3.5 text-[color:var(--text-soft)]" />
-      </button>
-    </div>
-  );
-}
-
-function ToolsHub({
-  query,
-  onQueryChange,
-  desktopComposerSlotId,
-  showDetailPanel,
-}: {
-  query: string;
-  onQueryChange: (nextQuery: string) => void;
-  desktopComposerSlotId?: string;
-  showDetailPanel?: boolean;
-}) {
-  return (
-    <ApplicationsLauncherWorkspace
-      variant="dashboard-tools"
-      query={query}
-      onQueryChange={onQueryChange}
-      desktopComposerSlotId={desktopComposerSlotId}
-      showDetailPanel={showDetailPanel}
-    />
-  );
-}
-
-type MobileSectionFabItem = {
-  label: string;
-  description: string;
-  icon: typeof FileText;
-  href: (typeof navigationHashes)[number];
-  count: number | null;
-  empty?: boolean;
-};
-
-type MobileSectionFabTone = "neutral" | "ready" | "warning" | "empty";
-
-type MobileSectionFabState = {
-  statusLabel: string;
-  statusTone: MobileSectionFabTone;
-  nextStep: string;
-  badgeLabel: string | null;
-  badgeTone: MobileSectionFabTone;
-};
-
-function mobileSectionItemLabel(item: MobileSectionFabItem) {
-  if (item.count === null) return item.label;
-  return `${item.label}, ${item.count} item${item.count === 1 ? "" : "s"}`;
-}
-
-function fabToneClassName(tone: MobileSectionFabTone) {
-  if (tone === "ready") {
-    return "border-[color:var(--success)]/25 bg-[color:var(--success-soft)] text-[color:var(--success)]";
-  }
-  if (tone === "warning") {
-    return "border-[color:var(--warning)]/25 bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-  }
-  if (tone === "empty") {
-    return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
-  }
-  return "border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
-}
-
-function buildMobileSectionFabState({
-  hasAnswer,
-  searchMode,
-  sourceCount,
-  quoteCount,
-  weakEvidence,
-  governanceWarningCount,
-}: {
-  hasAnswer: boolean;
-  searchMode: AppModeId;
-  sourceCount: number;
-  quoteCount: number;
-  weakEvidence: boolean;
-  governanceWarningCount: number;
-}): MobileSectionFabState {
-  const modeSearch = appModeSearchConfig(searchMode);
-  if (!hasAnswer) {
-    if (modeSearch.resultKind === "tools") {
-      return {
-        statusLabel: "Tools",
-        statusTone: "neutral",
-        nextStep: "Launch a clinical tool",
-        badgeLabel: null,
-        badgeTone: "neutral",
-      };
-    }
-    if (modeSearch.resultKind === "differentials") {
-      return {
-        statusLabel: "Diffs",
-        statusTone: "neutral",
-        nextStep: modeSearch.nextStep,
-        badgeLabel: null,
-        badgeTone: "neutral",
-      };
-    }
-    return {
-      statusLabel: modeSearch.resultKind === "documents" ? modeSearch.statusLabel : "No answer yet",
-      statusTone: "empty",
-      nextStep: modeSearch.nextStep,
-      badgeLabel: modeSearch.badgeLabel,
-      badgeTone: "empty",
-    };
-  }
-
-  if (weakEvidence) {
-    return {
-      statusLabel: "Weak support",
-      statusTone: "warning",
-      nextStep: "Verify source before using",
-      badgeLabel: "!",
-      badgeTone: "warning",
-    };
-  }
-
-  if (governanceWarningCount > 0) {
-    return {
-      statusLabel: "Needs source check",
-      statusTone: "warning",
-      nextStep: `${governanceWarningCount} source warning${governanceWarningCount === 1 ? "" : "s"}`,
-      badgeLabel: "!",
-      badgeTone: "warning",
-    };
-  }
-
-  if (quoteCount > 0) {
-    return {
-      statusLabel: "Ready to verify",
-      statusTone: "ready",
-      nextStep: "Next: review exact quotes",
-      badgeLabel: String(quoteCount),
-      badgeTone: "ready",
-    };
-  }
-
-  if (sourceCount > 0) {
-    return {
-      statusLabel: "Ready to verify",
-      statusTone: "ready",
-      nextStep: "Next: verify sources",
-      badgeLabel: String(sourceCount),
-      badgeTone: "ready",
-    };
-  }
-
-  return {
-    statusLabel: "Answer ready",
-    statusTone: "neutral",
-    nextStep: "Review answer structure",
-    badgeLabel: null,
-    badgeTone: "neutral",
-  };
-}
-
-function MobileSectionFab({
-  items,
-  activeHash,
-  state,
-  hidden = false,
-  onNavigate,
-}: {
-  items: readonly MobileSectionFabItem[];
-  activeHash: string;
-  state: MobileSectionFabState;
-  hidden?: boolean;
-  onNavigate: (href: MobileSectionFabItem["href"]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLElement | null>(null);
-  const panelId = "mobile-section-fab-menu";
-  const labelId = "mobile-section-fab-label";
-  const activeItem = items.find((item) => item.href === activeHash) ?? items[0];
-  const ActiveIcon = activeItem.icon;
-  const activeItemLabel = mobileSectionItemLabel(activeItem);
-
-  const closeMenu = useCallback((options: { restoreFocus?: boolean } = {}) => {
-    setOpen(false);
-    if (options.restoreFocus ?? true) {
-      window.requestAnimationFrame(() => buttonRef.current?.focus());
-    }
-  }, []);
-  const dismissMobileSectionMenu = useCallback(() => closeMenu(), [closeMenu]);
-
-  useDismissableLayer({
-    enabled: open,
-    refs: [buttonRef, panelRef],
-    restoreFocusRef: buttonRef,
-    onDismiss: dismissMobileSectionMenu,
-  });
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia(mobileSectionFabMediaQuery);
-    const syncActivation = () => {
-      const matches = mediaQuery.matches;
-      setActive(matches);
-      if (!matches) closeMenu({ restoreFocus: false });
-    };
-
-    const frame = window.requestAnimationFrame(syncActivation);
-    mediaQuery.addEventListener("change", syncActivation);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      mediaQuery.removeEventListener("change", syncActivation);
-    };
-  }, [closeMenu]);
-
-  useEffect(() => {
-    if (!open) return;
-    const closeForRouteChange = () => closeMenu({ restoreFocus: false });
-    window.addEventListener("hashchange", closeForRouteChange);
-    return () => window.removeEventListener("hashchange", closeForRouteChange);
-  }, [closeMenu, open]);
-
-  useEffect(() => {
-    if (!hidden) return;
-    const frame = window.requestAnimationFrame(() => closeMenu({ restoreFocus: false }));
-    return () => window.cancelAnimationFrame(frame);
-  }, [closeMenu, hidden]);
-
-  if (hidden || !active) return null;
-
-  return (
-    <div data-testid="mobile-section-fab">
-      {open ? (
-        <div
-          aria-hidden="true"
-          className="fixed inset-0 z-30 bg-transparent"
-          onPointerDown={(event) => {
-            if (event.target === event.currentTarget) closeMenu();
-          }}
-        />
-      ) : null}
-
-      <button
-        ref={buttonRef}
-        type="button"
-        data-testid="mobile-section-fab-button"
-        aria-label={open ? "Close answer section menu" : `Open answer section menu, current section ${activeItemLabel}`}
-        aria-expanded={open}
-        aria-controls={panelId}
-        className={cn(
-          "fixed z-40 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--command)] bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-elevated)] transition motion-safe:duration-150 hover:-translate-y-0.5 hover:bg-[color:var(--command-hover)] active:translate-y-px",
-          open && "bg-[color:var(--command-hover)]",
-        )}
-        style={{
-          right: "max(0.75rem, env(safe-area-inset-right))",
-          bottom: "max(0.75rem, env(safe-area-inset-bottom))",
-        }}
-        onClick={() => setOpen((current) => !current)}
-      >
-        {open ? <X className="h-6 w-6" /> : <ActiveIcon className="h-6 w-6" />}
-        {(state.badgeLabel ?? (activeItem.count !== null ? String(activeItem.count) : null)) ? (
-          <span
-            aria-hidden="true"
-            className={cn(
-              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-[10px] font-bold leading-4 shadow-[var(--shadow-tight)]",
-              fabToneClassName(state.badgeTone),
-            )}
-          >
-            {state.badgeLabel ?? activeItem.count}
-          </span>
-        ) : null}
-      </button>
-
-      <section
-        ref={panelRef}
-        id={panelId}
-        data-testid="mobile-section-fab-menu"
-        role="region"
-        aria-labelledby={labelId}
-        aria-hidden={!open}
-        inert={!open}
-        hidden={!open}
-        className="fixed z-40 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-[color:var(--border-strong)]/20 backdrop-blur-md dark:ring-[color:var(--border-strong)]/10"
-        style={{
-          right: "max(0.75rem, env(safe-area-inset-right))",
-          bottom: "calc(max(0.75rem, env(safe-area-inset-bottom)) + 4.5rem)",
-          maxHeight: "min(25rem, calc(100dvh - 7rem))",
-          width: "min(20rem, calc(100vw - 1.5rem))",
-        }}
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2.5 shadow-[var(--shadow-inset)]">
-          <span
-            aria-hidden="true"
-            className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/70"
-          />
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-            <div className="min-w-0">
-              <p
-                id={labelId}
-                className="text-[11px] font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
-              >
-                Answer navigator
-              </p>
-              <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                Current: {activeItem.label}
-              </p>
-            </div>
-            <span
-              data-testid="mobile-section-fab-status"
-              className={cn("rounded-full border px-2 py-1 text-[11px] font-bold", fabToneClassName(state.statusTone))}
-            >
-              {state.statusLabel}
-            </span>
-          </div>
-          <p
-            data-testid="mobile-section-fab-next-step"
-            className="mt-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]"
-          >
-            {state.nextStep}
-          </p>
-        </div>
-
-        <div className="polished-scroll grid max-h-[min(17rem,calc(100dvh-14rem))] gap-1 overflow-y-auto overscroll-contain p-2">
-          {items.map((item) => {
-            const Icon = item.icon;
-            const active = activeHash === item.href;
-            return (
-              <a
-                key={item.href}
-                href={item.href}
-                aria-label={mobileSectionItemLabel(item)}
-                aria-current={active ? "page" : undefined}
-                onClick={(event) => {
-                  event.preventDefault();
-                  onNavigate(item.href);
-                  closeMenu();
-                }}
-                className={cn(
-                  "relative grid min-h-[58px] grid-cols-[38px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-transparent py-1.5 pl-3 pr-2 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                  item.empty && !active && "opacity-75",
-                  active &&
-                    "border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "absolute bottom-2 left-1 top-2 w-1 rounded-full bg-transparent",
-                    active && "bg-[color:var(--clinical-accent)]",
-                  )}
-                />
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]",
-                    item.empty && !active && "bg-[color:var(--surface-subtle)]",
-                    active &&
-                      "border-[color:var(--clinical-accent)]/25 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
-                  )}
-                >
-                  <Icon className="h-4.5 w-4.5" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate">{item.label}</span>
-                  <span className="mt-0.5 block truncate text-[11px] font-semibold text-[color:var(--text-soft)]">
-                    {item.description}
-                  </span>
-                </span>
-                {item.count !== null ? (
-                  <span
-                    className={cn(
-                      "min-w-6 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-center text-[11px] font-bold leading-5 text-[color:var(--text)] shadow-[var(--shadow-inset)]",
-                      item.empty && "text-[color:var(--text-muted)]",
-                      active &&
-                        "border-[color:var(--clinical-accent)]/20 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
-                    )}
-                  >
-                    {item.count}
-                  </span>
-                ) : null}
-              </a>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-=======
->>>>>>> origin/main
 function answerReferencesDocument(answer: RagAnswer | null, documentId: string) {
   if (!answer) return false;
   return (
@@ -2075,21 +811,13 @@ export function ClinicalDashboard({
       mainRef.current?.scrollTo({ top: mainRef.current?.scrollHeight ?? 0, behavior: "auto" });
     });
   }, [answer]);
-<<<<<<< HEAD
-  function resetAnswerThread() {
-=======
   const resetAnswerThread = useCallback(() => {
->>>>>>> origin/main
     setPriorAnswerTurns([]);
     setLatestAnswerQuery(null);
     setCollapsedTurnIds(new Set());
     setShowEarlierTurns(false);
     clearPersistedAnswerThread();
-<<<<<<< HEAD
-  }
-=======
   }, []);
->>>>>>> origin/main
   function toggleAnswerTurnCollapsed(turnId: string) {
     setCollapsedTurnIds((current) => {
       const next = new Set(current);
@@ -2098,15 +826,11 @@ export function ClinicalDashboard({
       return next;
     });
   }
-<<<<<<< HEAD
-  function clearDifferentialModeResultState() {
-=======
   // The query the current documentMatches were fetched for, so the
   // differentials results view can tell live-edited catalogue results apart
   // from evidence that belongs to a previously submitted search.
   const [differentialEvidenceQuery, setDifferentialEvidenceQuery] = useState<string | null>(null);
   const clearDifferentialModeResultState = useCallback(() => {
->>>>>>> origin/main
     resetAnswerThread();
     setAnswer(null);
     setSources([]);
@@ -2173,24 +897,13 @@ export function ClinicalDashboard({
   useEffect(() => {
     const previous = prevAuthStatusRef.current;
     prevAuthStatusRef.current = authStatus;
-<<<<<<< HEAD
-    if (
-      (authStatus === "signed_out" || authStatus === "expired") &&
-      (previous === "authenticated" || previous === "loading")
-    ) {
-=======
     if ((authStatus === "signed_out" || authStatus === "expired") && previous === "authenticated") {
->>>>>>> origin/main
       resetAnswerThread();
       setAnswer(null);
       setSources([]);
       latestAnswerTurnRef.current = null;
     }
-<<<<<<< HEAD
-  }, [authStatus]);
-=======
   }, [authStatus, resetAnswerThread]);
->>>>>>> origin/main
   const supabaseEnvStatus = setupChecks.find((check) => check.id === "env")?.status;
   const browserAuthUnavailableDemoFallback = !auth.isConfigured && supabaseEnvStatus !== "ready";
   const localNoAuthMode = isLocalNoAuthMode();
@@ -2202,11 +915,6 @@ export function ClinicalDashboard({
   const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
   const canUseDegradedLocalSearchApis =
     process.env.NODE_ENV !== "production" && localProjectReady && hasReadyRequiredPublicSearchConfig(setupChecks);
-<<<<<<< HEAD
-  const canUsePrivateApis =
-    localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
-  const canRunSearch = explicitDemoMode || canUsePublicSearchApis || canUseDegradedLocalSearchApis;
-=======
   const canUseNonProductionDemoFallback = localProjectReady && hasNonProductionSupabaseApiKeyFallback(setupChecks);
   const canUsePrivateApis =
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
@@ -2218,7 +926,6 @@ export function ClinicalDashboard({
     canUseDegradedLocalSearchApis ||
     canUseNonProductionDemoFallback ||
     canAttemptDeployedPublicSearch;
->>>>>>> origin/main
   const closeDashboardTransientSurfaces = useCallback(
     (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
@@ -2958,10 +1665,6 @@ export function ClinicalDashboard({
     urlDocumentSearchBootstrappedRef.current = true;
     void executeSearchRef.current(searchText, mode, scopeFiltersRef.current);
     // URL search intentionally runs once when the selected mode can execute.
-<<<<<<< HEAD
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-=======
->>>>>>> origin/main
   }, [canRunSearch, answerThreadBootstrapped]);
 
   useEffect(() => {
@@ -3155,13 +1858,10 @@ export function ClinicalDashboard({
   // Distinguishes a timeout-driven abort from an explicit user/supersede abort.
   const answerTimedOutRef = useRef(false);
 
-<<<<<<< HEAD
-=======
   function stopSearch() {
     searchAbortRef.current?.abort();
   }
 
->>>>>>> origin/main
   function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
     if (payload.kind === "documents") {
       setDocumentMatches(payload.documentMatches);
@@ -3253,11 +1953,7 @@ export function ClinicalDashboard({
       setActionNotice({ tone: "success", message: "Favourites filtered from the composer." });
       return;
     }
-<<<<<<< HEAD
-    if (modeSearch.kind === "services" || targetMode === "forms") {
-=======
     if (modeSearch.kind === "services" || modeSearch.kind === "forms") {
->>>>>>> origin/main
       resetAnswerThread();
       setAnswer(null);
       setSources([]);
@@ -3323,8 +2019,6 @@ export function ClinicalDashboard({
             { query: fallbackQuery, isKeyword: true },
           ]
         : [{ query: requestQuery, isKeyword: false }];
-<<<<<<< HEAD
-=======
 
     // Bound this search with a timeout on the shared abort controller so a
     // stalled answer stream recovers instead of spinning forever.
@@ -3333,7 +2027,6 @@ export function ClinicalDashboard({
       answerTimedOutRef.current = true;
       abortController.abort();
     }, answerRequestTimeoutMs);
->>>>>>> origin/main
 
     try {
       let successfulPayload: SearchResultModePayload | null = null;
@@ -3397,32 +2090,6 @@ export function ClinicalDashboard({
       }
 
       // M10: discard a stale response — a newer search owns the UI state.
-<<<<<<< HEAD
-      if (requestId === searchRequestSeqRef.current) {
-        applySearchResult(successfulPayload, trimmedQuery);
-        if (successfulPayload.kind === "answer") {
-          // The composer is a draft box in a conversation: clear it so the
-          // user can type the next follow-up immediately.
-          setQuery("");
-          // Keep only the latest question in the URL; the full thread lives in
-          // React state until refresh or New chat.
-          modeChangeFromUiRef.current = true;
-          window.history.replaceState(
-            null,
-            "",
-            appModeHomeHref(targetMode, { query: trimmedQuery, run: true }),
-          );
-          if (isAnswerFollowUp) {
-            window.requestAnimationFrame(() => {
-              const main = mainRef.current;
-              main?.scrollTo({ top: main.scrollHeight, behavior: "smooth" });
-            });
-          }
-        }
-      }
-    } catch (requestError) {
-=======
->>>>>>> origin/main
       if (requestId === searchRequestSeqRef.current) {
         applySearchResult(successfulPayload, trimmedQuery);
         if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
@@ -3474,23 +2141,11 @@ export function ClinicalDashboard({
     if (updateUrl) router.replace(appModeHomeHref("prescribing", { query: trimmedSearchText }));
   }
 
-<<<<<<< HEAD
-  async function ask() {
-    const trimmedQuery = query.trim();
-    if (searchMode === "documents" && trimmedQuery) {
-      rememberRecentQuery(trimmedQuery);
-      router.push(documentsSearchHref({ query: trimmedQuery, focus: true, run: true }));
-      return;
-    }
-    if (searchMode === "prescribing") {
-      setMedicationSearchQuery(query);
-=======
   async function ask(searchText = query) {
     const trimmedQuery = searchText.trim();
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
       router.push(documentsSearchHref({ query: trimmedQuery, focus: true, run: true }));
->>>>>>> origin/main
       return;
     }
     if (searchMode === "prescribing") {
@@ -3504,14 +2159,9 @@ export function ClinicalDashboard({
 
   useEffect(() => {
     const trimmedQuery = query.trim();
-<<<<<<< HEAD
-    const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
-    if (!autoRunSearch || !trimmedQuery || !canAutoRunMode || loading) return;
-=======
     const submittedSearchText = searchMode === "answer" && submittedUrlQuery ? submittedUrlQuery : trimmedQuery;
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !submittedSearchText || !canAutoRunMode || loading) return;
->>>>>>> origin/main
     if (searchMode === "answer" && !answerThreadBootstrapped) return;
     // Once an answer is on screen, composer edits are follow-up drafts and must
     // only run on explicit submit — not on every query keystroke while run=1
@@ -3519,17 +2169,6 @@ export function ClinicalDashboard({
     if (searchMode === "answer" && answer) return;
     // After reload, the URL query matches the restored latest turn — do not
     // archive it again into a duplicate prior turn.
-<<<<<<< HEAD
-    if (searchMode === "answer" && latestAnswerQuery?.trim() === trimmedQuery) {
-      autoRunSearchSignatureRef.current = `${searchMode}:${trimmedQuery}`;
-      return;
-    }
-    const signature = `${searchMode}:${trimmedQuery}`;
-    if (autoRunSearchSignatureRef.current === signature) return;
-    autoRunSearchSignatureRef.current = signature;
-    void ask();
-  }, [autoRunSearch, canRunSearch, loading, query, searchMode, answer, answerThreadBootstrapped, latestAnswerQuery]);
-=======
     if (searchMode === "answer" && latestAnswerQuery?.trim() === submittedSearchText) {
       autoRunSearchSignatureRef.current = `${searchMode}:${submittedSearchText}`;
       return;
@@ -3549,7 +2188,6 @@ export function ClinicalDashboard({
     answerThreadBootstrapped,
     latestAnswerQuery,
   ]);
->>>>>>> origin/main
 
   function pickRecentQuery(recentQuery: string) {
     if (searchMode === "prescribing") {
@@ -4105,13 +2743,6 @@ export function ClinicalDashboard({
     const priorQueries = [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery];
     return buildAnswerFollowUpSuggestions(latestAnswerQuery, answer, priorQueries);
   }, [answer, latestAnswerQuery, priorAnswerTurns]);
-<<<<<<< HEAD
-  const crossModeQueries = useMemo(
-    () => [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery],
-    [priorAnswerTurns, latestAnswerQuery],
-  );
-=======
->>>>>>> origin/main
   const hiddenPriorTurnCount = Math.max(0, priorAnswerTurns.length - maxVisiblePriorTurns);
   const visiblePriorTurns = useMemo(() => {
     if (showEarlierTurns || hiddenPriorTurnCount === 0) return priorAnswerTurns;
@@ -4296,16 +2927,6 @@ export function ClinicalDashboard({
   const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
-<<<<<<< HEAD
-  const mobileComposerReserve = !hasMobileBottomSearch
-    ? "0px"
-    : compactMobileBottomSearch
-      ? differentialsCompareAddonActive
-        ? "calc(8.75rem + env(safe-area-inset-bottom))"
-        : "calc(5rem + env(safe-area-inset-bottom))"
-      : "calc(5.25rem + env(safe-area-inset-bottom))";
-=======
->>>>>>> origin/main
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : AlertCircle}
@@ -4453,10 +3074,6 @@ export function ClinicalDashboard({
         {
           "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
           "--clinical-sidebar-width-md": "5.25rem",
-<<<<<<< HEAD
-          "--mobile-composer-reserve": mobileComposerReserve,
-=======
->>>>>>> origin/main
         } as CSSProperties
       }
     >
@@ -4519,12 +3136,9 @@ export function ClinicalDashboard({
             void ask();
           }}
           onCrossModeSearch={crossModeSearch}
-<<<<<<< HEAD
-=======
           composerFollowUpSuggestions={searchMode === "answer" ? answerFollowUpSuggestions : undefined}
           onPickComposerFollowUpSuggestion={handlePickFollowUpSuggestion}
           composerFollowUpSuggestionsDisabled={loading}
->>>>>>> origin/main
           composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
           mobileBottomSearchVariant={compactMobileBottomSearch ? "compact" : "default"}
@@ -4535,12 +3149,8 @@ export function ClinicalDashboard({
           heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
           // Phone-only: the header sits above the internally scrolling <main>,
           // so hiding must collapse its layout space to hand it to content.
-<<<<<<< HEAD
-          hideOnScroll={{ strategy: "collapse", containerRef: mainRef }}
-=======
           hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
           onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
->>>>>>> origin/main
         />
 
         <main
@@ -4562,13 +3172,6 @@ export function ClinicalDashboard({
                   ? "mb-0 sm:mb-24"
                   : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
-<<<<<<< HEAD
-                ? compactMobileBottomSearch
-                  ? differentialsCompareAddonActive
-                    ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
-                    : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
-                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
-=======
                 ? bottomSearchScrollHidden
                   ? "mb-0 sm:mb-0"
                   : compactMobileBottomSearch
@@ -4578,7 +3181,6 @@ export function ClinicalDashboard({
                     : compactMobileModeHome
                       ? "mb-0"
                       : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
->>>>>>> origin/main
                 : "mb-0",
           )}
         >
@@ -4591,72 +3193,6 @@ export function ClinicalDashboard({
               onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
               onClearScopes: () => setCommandScopes([]),
             }}
-<<<<<<< HEAD
-          >
-          <div
-            className={cn(
-              "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
-              compactMobileModeHome && "max-sm:px-0",
-              // Centred mode homes carry little content, so drop the large
-              // mobile bottom padding (the fixed composer already has its own
-              // reserved margin on <main>) to avoid a needless scrollbar.
-              // sm+/lg values stay identical to the result-view treatment.
-              searchMode === "answer"
-                ? compactMobileModeHome
-                  ? "pb-4 sm:pb-36 lg:pb-40"
-                  : "pb-32 sm:pb-36 lg:pb-40"
-                : hasMobileBottomSearch
-                  ? compactMobileModeHome
-                    ? "pb-4 sm:pb-10 lg:pb-12"
-                    : compactMobileBottomSearch
-                      ? "pb-8 sm:pb-10 lg:pb-12"
-                      : "pb-32 sm:pb-10 lg:pb-12"
-                  : "pb-8 sm:pb-10 lg:pb-12",
-            )}
-          >
-            {actionNotice && (
-              <div
-                role="status"
-                className={cn(
-                  "flex items-start justify-between gap-3 rounded-xl border p-3 text-sm font-medium motion-safe:animate-fade-up",
-                  actionNotice.tone === "success" ? toneSuccess : toneWarning,
-                )}
-              >
-                <span className="min-w-0">{actionNotice.message}</span>
-                <button
-                  type="button"
-                  onClick={() => setActionNotice(null)}
-                  aria-label="Dismiss notification"
-                  className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-            {showDegradedNotice && renderDegradedNotice()}
-            {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
-
-            <section
-              className={cn(
-                compactMobileModeHome
-                  ? cn(
-                      "max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col",
-                      centeredModeHome && "max-sm:justify-center",
-                    )
-                  : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
-                centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
-                  ? // On tall phones the centred home leans slightly toward the
-                    // bottom composer (matches the committed vertical-weighting
-                    // guard); short phones skip the bias so content still fits.
-                    "grid w-full place-items-center max-sm:[@media(min-height:800px)]:pt-[5vh]"
-                  : activeModeResultKind === "tools" ||
-                      activeModeResultKind === "favourites" ||
-                      activeModeResultKind === "differentials"
-                    ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                    : activeModeResultKind === "documents" || activeModeResultKind === "services"
-                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                      : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
-=======
           >
             <div
               className={cn(
@@ -4676,7 +3212,6 @@ export function ClinicalDashboard({
                         ? "pb-8 sm:pb-10 lg:pb-12"
                         : "pb-32 sm:pb-10 lg:pb-12"
                     : "pb-8 sm:pb-10 lg:pb-12",
->>>>>>> origin/main
               )}
             >
               {actionNotice && (
@@ -4687,72 +3222,6 @@ export function ClinicalDashboard({
               {showDegradedNotice && renderDegradedNotice()}
               {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
 
-<<<<<<< HEAD
-              {loading && answerProgress && searchMode !== "prescribing" && (
-                <div
-                  role="status"
-                  className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
-                >
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
-                  <span className="min-w-0 truncate">{answerProgress}</span>
-                </div>
-              )}
-
-              {activeModeResultKind === "differentials" ? (
-                <DifferentialsHome
-                  query={query}
-                  loading={loading}
-                  documentMatches={documentMatches}
-                  realDataReady={canRunSearch}
-                  authUnavailable={false}
-                  apiUnavailable={apiUnavailable}
-                  setupWarning={setupWarning}
-                  onQueryChange={setQuery}
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
-                  onSuggestedSearch={(nextQuery) => {
-                    setQuery(nextQuery);
-                    focusComposerInput();
-                  }}
-                  onRunSearch={(nextQuery) => {
-                    void executeSearch(nextQuery, "differentials", scopeFilters);
-                  }}
-                  onOpenPresentations={(nextQuery) => {
-                    const queryParams = new URLSearchParams();
-                    const normalizedQuery = nextQuery.trim();
-                    if (normalizedQuery) queryParams.set("q", normalizedQuery);
-                    router.push(`/differentials/presentations${queryParams.toString() ? `?${queryParams}` : ""}`);
-                  }}
-                  onOpenDiagnoses={(nextQuery) => {
-                    const queryParams = new URLSearchParams();
-                    const normalizedQuery = nextQuery.trim();
-                    if (normalizedQuery) queryParams.set("q", normalizedQuery);
-                    router.push(`/differentials/diagnoses${queryParams.toString() ? `?${queryParams}` : ""}`);
-                  }}
-                />
-              ) : activeModeResultKind === "tools" ? (
-                <ToolsHub
-                  query={query}
-                  onQueryChange={setQuery}
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
-                  showDetailPanel={!requestedRun}
-                />
-              ) : activeModeResultKind === "favourites" ? (
-                <FavouritesHub
-                  query={query}
-                  onClearQuery={() => {
-                    setQuery("");
-                    setModeSearchSubmitted(false);
-                    router.replace(appModeHomeHref("favourites", { focus: true }));
-                  }}
-                  onAddFavourite={() =>
-                    setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })
-                  }
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
-                />
-              ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
-                searchMode === "prescribing" ? (
-                  <MedicationPrescribingWorkspace
-=======
               <section
                 className={cn(
                   "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
@@ -4901,7 +3370,6 @@ export function ClinicalDashboard({
 
                 {activeModeResultKind === "differentials" ? (
                   <DifferentialsHome
->>>>>>> origin/main
                     query={query}
                     loading={loading}
                     searchSubmitted={modeSearchSubmitted}
@@ -4948,103 +3416,6 @@ export function ClinicalDashboard({
                     }
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
-<<<<<<< HEAD
-                ) : (
-                  <>
-                    <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                    {searchMode === "documents" && modeSearchSubmitted && (
-                      <CrossModeLinksSection queries={[query]} onModeSearch={crossModeSearch} />
-                    )}
-                    <DocumentSearchResultsPanel
-                      matches={documentMatches}
-                      recordMatches={recordSearchMatches}
-                      recordMode={recordSearchMode}
-                      recordStatus={registryRecords.status}
-                      showRecordMatches={searchMode === "services" || searchMode === "forms"}
-                      query={query}
-                      loading={loading}
-                      documentCount={indexedDocumentTotal}
-                      recentDocuments={documents}
-                      realDataReady={canRunSearch}
-                      authUnavailable={false}
-                      apiUnavailable={apiUnavailable}
-                      setupWarning={setupWarning}
-                      facets={searchFacets}
-                      onScopeDocument={scopeOnlyDocument}
-                      onAnswerFromDocument={answerFromDocument}
-                      onOpenRecentDocuments={openRecentDocuments}
-                      onOpenLibrary={openSourceLibrary}
-                      onOpenSourcePdf={openSourcePdfBrowser}
-                      onTagSearch={handleTagSearch}
-                      showHome={searchMode === "documents" && !modeSearchSubmitted}
-                      desktopComposerSlotId={desktopHomeComposerSlotId}
-                    />
-                  </>
-                )
-              ) : loading && !answer ? (
-                <AnswerSkeleton />
-              ) : answer && answerRenderModel ? (
-                stagedDashboardExtraction.answerSurface ? (
-                  <>
-                    {hiddenPriorTurnCount > 0 && !showEarlierTurns ? (
-                      <button
-                        type="button"
-                        data-testid="answer-thread-show-earlier"
-                        onClick={() => setShowEarlierTurns(true)}
-                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                      >
-                        Show earlier messages ({hiddenPriorTurnCount})
-                      </button>
-                    ) : null}
-                    {visiblePriorTurns.map((turn) => (
-                      <PriorAnswerTurnSurface
-                        key={turn.id}
-                        turn={turn}
-                        copied={copiedAction === turn.id}
-                        collapsed={collapsedTurnIds.has(turn.id)}
-                        onToggleCollapsed={() => toggleAnswerTurnCollapsed(turn.id)}
-                        onCopy={(text) => copyText(turn.id, text)}
-                      />
-                    ))}
-                    <StagedAnswerResultSurface
-                      answer={answer}
-                      query={latestAnswerQuery ?? query}
-                      safeAnswerText={safeAnswerText}
-                      bestSource={bestSource}
-                      sourceGovernanceWarnings={sourceGovernanceWarnings}
-                      sourceSummary={sourceSummary}
-                      renderModel={answerRenderModel}
-                      weakEvidence={weakEvidence}
-                      answerViewMode={answerViewMode}
-                      answerEvidenceMapRows={answerEvidenceMapRows}
-                      onScopeDocument={scopeOnlyDocument}
-                      answerGrounded={answerGrounded}
-                      sources={answerRenderModel.reviewSources}
-                      demoMode={demoMode}
-                      safeAnswerSections={safeAnswerSections}
-                      safetyFindings={safetyFindings}
-                      copiedAnswer={copiedAction === "answer"}
-                      pendingFeedback={pendingFeedback}
-                      onCopyAnswer={() =>
-                        copyText("answer", answerRenderModel.copyText || safeAnswerText || answer.answer)
-                      }
-                      onSubmitFeedback={submitAnswerFeedback}
-                      onFollowUpQuote={handleFollowUpQuote}
-                      followUpSuggestions={answerFollowUpSuggestions}
-                      onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
-                      followUpSuggestionsDisabled={loading}
-                      crossModeQueries={crossModeQueries}
-                      onCrossModeSearch={crossModeSearch}
-                    />
-                  </>
-                ) : null
-              ) : (
-                <AnswerEmptyState
-                  onPickSample={setQuery}
-                  onSearchDocuments={() => setSearchMode("documents")}
-                  onUploadDocument={openUploadDrawer}
-                  desktopComposerSlotId={desktopHomeComposerSlotId}
-=======
                 ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
                   searchMode === "prescribing" ? (
                     <MedicationPrescribingWorkspace
@@ -5170,7 +3541,6 @@ export function ClinicalDashboard({
                   documents={relatedDocuments}
                   onScopeDocument={scopeOnlyDocument}
                   onTagSearch={handleTagSearch}
->>>>>>> origin/main
                 />
               )}
               {(documentsDrawerOpen || uploadDrawerOpen) && (
@@ -5373,148 +3743,8 @@ export function ClinicalDashboard({
                 </section>
               )}
 
-<<<<<<< HEAD
-                {uploadDrawerOpen ? (
-                  <UtilityDrawer
-                    id="dashboard-upload-drawer"
-                    icon={UploadCloud}
-                    title="Upload and indexing"
-                    summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
-                    mobileSummary="Setup & uploads"
-                    open={uploadDrawerOpen}
-                    onOpenChange={setUploadDrawerOpen}
-                  >
-                    <LibraryHealthStrip
-                      documents={documents}
-                      jobs={jobs}
-                      batches={batches}
-                      checks={setupChecks}
-                      loading={dashboardDataLoading}
-                      onSelectTarget={openLibraryHealthTarget}
-                    />
-                    <div
-                      role="tablist"
-                      aria-label="Upload and indexing sections"
-                      className="grid grid-cols-4 gap-2 lg:hidden"
-                    >
-                      {uploadTabs.map((tab) => {
-                        const active = uploadMobileTab === tab.id;
-                        const Icon = tab.icon;
-                        return (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            role="tab"
-                            aria-selected={active}
-                            aria-controls={tab.panelId}
-                            onClick={() => setUploadMobileTab(tab.id)}
-                            className={cn(
-                              "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
-                              active
-                                ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--glow-soft)]"
-                                : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                            )}
-                          >
-                            <span className="flex items-center gap-1.5 text-xs font-bold">
-                              <Icon className="h-3.5 w-3.5" />
-                              {tab.label}
-                            </span>
-                            <span className="mt-1 block truncate text-[11px] font-semibold opacity-80">
-                              {tab.summary}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div
-                        id="dashboard-setup-section"
-                        role="tabpanel"
-                        aria-label="Setup"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
-                          uploadMobileTab !== "setup" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Developer setup status
-                        </p>
-                        <SetupChecklist checks={setupChecks} />
-                        {showAuthPanel && <AuthPanel />}
-                      </div>
-                      <div
-                        id="dashboard-upload-section"
-                        role="tabpanel"
-                        aria-label="Upload"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
-                          uploadMobileTab !== "upload" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Clinical upload
-                        </p>
-                        <UploadPanel
-                          onUploaded={handleUploadQueued}
-                          demoMode={uploadReadOnlyMode}
-                          canUpload={canUsePrivateApis}
-                          authorizationHeader={authorizationHeader}
-                        />
-                      </div>
-                      <div
-                        id="dashboard-indexing-section"
-                        role="tabpanel"
-                        aria-label="Jobs"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
-                          uploadMobileTab !== "jobs" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Indexing progress
-                        </p>
-                        <IndexingMonitor
-                          jobs={jobs}
-                          batches={batches}
-                          filter={indexingMonitorFilter}
-                          actionId={indexingActionId}
-                          onRetry={retryJob}
-                          onReindex={reindexDocument}
-                          onEnrich={enrichDocument}
-                        />
-                      </div>
-                      <div
-                        id="dashboard-quality-section"
-                        role="tabpanel"
-                        aria-label="Quality"
-                        className={cn(
-                          "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
-                          uploadMobileTab !== "quality" && "hidden lg:block",
-                        )}
-                      >
-                        <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
-                          Ingestion quality console
-                        </p>
-                        <IngestionQualityConsole
-                          items={qualityItems}
-                          actionId={indexingActionId}
-                          onRetry={retryJob}
-                          onReindex={reindexDocument}
-                          onEnrich={enrichDocument}
-                        />
-                      </div>
-                    </div>
-                  </UtilityDrawer>
-                ) : null}
-              </section>
-            )}
-
-            {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
-          </div>
-=======
               {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
             </div>
->>>>>>> origin/main
           </SearchCommandProvider>
         </main>
 

@@ -342,8 +342,6 @@ describe("private RAG API access", () => {
     expect(mocks.answerQuestionWithScope).toHaveBeenCalledWith(
       expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true, query: "clozapine monitoring" }),
     );
-<<<<<<< HEAD
-=======
   });
 
   it("does not answer anonymous requests scoped to non-public document ids", async () => {
@@ -359,7 +357,6 @@ describe("private RAG API access", () => {
     expect(body.grounded).toBe(false);
     expect(body.confidence).toBe("unsupported");
     expect(mocks.answerQuestionWithScope).not.toHaveBeenCalled();
->>>>>>> origin/main
   });
 
   it("scopes authenticated real answer requests to the authenticated owner", async () => {

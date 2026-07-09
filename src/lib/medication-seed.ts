@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-import { defaultMedicationRecords } from "@/lib/medication-fixtures";
-
-export { defaultMedicationRecords };
-=======
 import { buildDefaultMedicationRows, defaultMedicationRecords } from "@/lib/medication-fixtures";
 import { type MedicationRecordInsert, type MedicationRecordRow } from "@/lib/medication-records";
 
@@ -56,4 +51,3 @@ export async function fetchOwnerMedicationRowsWithSeed(
   }
   return rows;
 }
->>>>>>> origin/main

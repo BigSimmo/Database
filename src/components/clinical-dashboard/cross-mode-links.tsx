@@ -3,11 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-<<<<<<< HEAD
-import { Search } from "lucide-react";
-=======
 import { Search, type LucideIcon } from "lucide-react";
->>>>>>> origin/main
 
 import {
   cn,
@@ -37,8 +33,6 @@ function badgeChipTone(tone: CrossModeLinkBadge["tone"]): SemanticChipTone | nul
   return tone === "clinical" ? "info" : tone;
 }
 
-<<<<<<< HEAD
-=======
 type CrossModeLinkCardProps = {
   link: CrossModeLink;
   Icon: LucideIcon;
@@ -139,7 +133,6 @@ function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCar
   );
 }
 
->>>>>>> origin/main
 // Self-contained cross-mode links surface: owns the catalog fetching (same
 // owner-scoped APIs the modes use; fixtures in demo mode), entity matching,
 // and the strip. Mount it under any search-results surface and pass the
@@ -212,17 +205,10 @@ export function CrossModeLinksStrip({
   return (
     <section
       aria-label="Related pages in other modes"
-<<<<<<< HEAD
-      className="max-w-[68ch] border-t border-[color:var(--border)] pt-2.5"
-      data-testid="cross-mode-links"
-    >
-      <p className={cn(eyebrowText, "mb-2")}>
-=======
       className="max-w-[68ch] border-t border-[color:var(--border)] pt-3"
       data-testid="cross-mode-links"
     >
       <p className={cn(eyebrowText, "mb-2.5")}>
->>>>>>> origin/main
         Also in your library
         {links.length > 1 ? (
           <span className="font-medium normal-case tracking-normal text-[color:var(--text-muted)]">
@@ -231,65 +217,6 @@ export function CrossModeLinksStrip({
           </span>
         ) : null}
       </p>
-<<<<<<< HEAD
-      <div className={cn("grid gap-1.5", links.length > 1 && "sm:grid-cols-2")}>
-        {links.map((link) => {
-          const Icon = appModeIcons[link.modeId];
-          return (
-            <article
-              key={`${link.modeId}:${link.slug}`}
-              data-testid="cross-mode-link-card"
-              className={cn(sourceCard, "p-2.5")}
-            >
-              <div className="flex items-start gap-2.5">
-                <span className={cn(iconTile, "h-8 w-8 shrink-0")}>
-                  <Icon className="h-3.5 w-3.5" aria-hidden />
-                </span>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <Link
-                      href={link.detailHref}
-                      onClick={() => logCrossModeLinkOpen(query, link)}
-                      className="inline-flex min-h-9 min-w-0 flex-1 items-center text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                    >
-                      <span className="line-clamp-1">{link.title}</span>
-                    </Link>
-                    <span className={cn(subtleStatusPill, "shrink-0 text-2xs")}>{link.modeLabel}</span>
-                  </div>
-                  {link.subtitle ? (
-                    <p className={cn("text-2xs leading-4 line-clamp-1", textMuted)}>{link.subtitle}</p>
-                  ) : null}
-                  {link.badges.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-1">
-                      {link.badges.map((badge) => (
-                        <span
-                          key={badge.label}
-                          className={cn(
-                            "inline-flex items-center rounded border px-1 py-px text-2xs font-semibold",
-                            semanticChipTone(badgeChipTone(badge.tone)),
-                          )}
-                        >
-                          {badge.label}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      logCrossModeLinkOpen(query, link);
-                      onModeSearch(link.modeId, link.modeSearchQuery);
-                    }}
-                    aria-label={`Search ${link.title} in ${link.modeLabel}`}
-                    className={cn(floatingControl, "inline-flex min-h-9 items-center gap-1.5 px-2 text-2xs")}
-                  >
-                    <Search className="h-3 w-3 shrink-0" aria-hidden />
-                    Search in {link.modeLabel}
-                  </button>
-                </div>
-              </div>
-            </article>
-=======
 
       <div
         role="list"
@@ -308,7 +235,6 @@ export function CrossModeLinksStrip({
               query={query}
               onModeSearch={onModeSearch}
             />
->>>>>>> origin/main
           );
         })}
       </div>

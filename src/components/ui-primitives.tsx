@@ -156,8 +156,6 @@ export const searchResultsSection =
 export const searchFocusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-<<<<<<< HEAD
-=======
 export type NoticeTone = "success" | "warning" | "danger" | "info" | "neutral";
 
 function noticeToneClass(tone: NoticeTone) {
@@ -215,7 +213,6 @@ export function InlineNotice({
   );
 }
 
->>>>>>> origin/main
 export type SemanticChipTone = "danger" | "info" | "warning" | "success" | "neutral";
 
 export function semanticChipTone(tone: SemanticChipTone | undefined | null) {
@@ -229,36 +226,12 @@ export function semanticChipTone(tone: SemanticChipTone | undefined | null) {
 export function ToggleSwitch({
   enabled,
   className,
-<<<<<<< HEAD
-=======
   onToggle,
   disabled = false,
->>>>>>> origin/main
   "aria-label": ariaLabel,
 }: {
   enabled: boolean;
   className?: string;
-<<<<<<< HEAD
-  "aria-label"?: string;
-}) {
-  return (
-    <span
-      role="switch"
-      aria-checked={enabled}
-      aria-label={ariaLabel}
-      className={cn(
-        "relative inline-flex h-6 w-10 shrink-0 rounded-full transition",
-        enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
-        className,
-      )}
-    >
-      <span
-        className={cn(
-          "absolute top-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm transition",
-          enabled ? "right-1" : "left-1",
-        )}
-      />
-=======
   // When provided the switch is an operable control; when omitted it renders as a
   // read-only presentational indicator (no interactive role is advertised).
   onToggle?: () => void;
@@ -304,7 +277,6 @@ export function ToggleSwitch({
   return (
     <span role="img" aria-label={ariaLabel ? `${ariaLabel}: ${enabled ? "on" : "off"}` : undefined} className={track}>
       {knob}
->>>>>>> origin/main
     </span>
   );
 }

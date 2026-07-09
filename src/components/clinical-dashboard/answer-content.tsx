@@ -194,22 +194,14 @@ export function ScopeAndGovernanceNotice({
         </p>
       ) : null}
       {scope?.warnings?.length ? (
-<<<<<<< HEAD
-        <ul className="grid gap-0.5 text-[11px] font-medium text-[color:var(--warning)]">
-=======
         <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
->>>>>>> origin/main
           {scope.warnings.slice(0, 3).map((warning) => (
             <li key={warning}>{warning}</li>
           ))}
         </ul>
       ) : null}
       {groupedWarnings.length ? (
-<<<<<<< HEAD
-        <ul className="grid gap-0.5 text-[11px] font-medium text-[color:var(--warning)]">
-=======
         <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
->>>>>>> origin/main
           {groupedWarnings.map((warning) => (
             <li key={warning.code}>
               {warning.message}
@@ -639,53 +631,6 @@ export function NaturalLanguageAnswer({
             <SafeBoldText text={cleaned} />
           </span>
         </p>
-<<<<<<< HEAD
-        {sourceOnly ? (
-          <section
-            data-testid="source-only-disclosure"
-            role="note"
-            className={cn(
-              "w-fit max-w-full overflow-hidden rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 text-xs",
-              textMuted,
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-              className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
-              aria-expanded={sourceOnlyNoticeOpen}
-              aria-controls="source-only-disclosure-detail"
-            >
-              <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
-              <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
-              <span className="shrink-0 text-[11px] text-[color:var(--text-muted)]">· verify passages</span>
-              <ChevronDown
-                className={cn(
-                  "ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition-transform",
-                  sourceOnlyNoticeOpen && "rotate-180",
-                )}
-                aria-hidden
-              />
-            </button>
-            {sourceOnlyNoticeOpen ? (
-              <div
-                id="source-only-disclosure-detail"
-                className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-[11px] leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
-              >
-                <p>
-                  This answer was assembled from your documents without the AI model, so it may be less complete.
-                  Verify dose, threshold, route, timing, monitoring, and risk details against the cited passages below.
-                </p>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
-        {sourceCapsuleButton}
-        {sourcePreviewOpen && canOpenSourcePreview && !usePreviewSheet ? (
-          <div
-            data-testid="source-capsule-preview"
-            className="max-h-[22rem] max-w-xl overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
-=======
         <div className="space-y-1">
           {sourceOnly ? (
             <section
@@ -735,7 +680,6 @@ export function NaturalLanguageAnswer({
             open={sourcePreviewOpen}
             onClose={() => setSourcePreviewOpen(false)}
             anchorRef={sourceCapsuleRef}
->>>>>>> origin/main
           >
             <SourcePreviewContent
               previewSources={previewSources}

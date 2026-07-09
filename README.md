@@ -127,8 +127,6 @@ set in `.env.local`.
   and TGA Software as a Medical Device screening where applicable.
 - See `docs/clinical-governance.md` for the deployment governance checklist.
 
-<<<<<<< HEAD
-=======
 ## Cursor Supabase MCP
 
 This repo ships workspace Supabase MCP config in `.cursor/mcp.json` and agent
@@ -162,7 +160,6 @@ a fresh agent session.
 Never put `SUPABASE_SERVICE_ROLE_KEY` or other secrets into MCP config. The
 hosted Supabase MCP server uses OAuth, not repo secrets.
 
->>>>>>> origin/main
 ## Documentation
 
 - `docs/process-hardening.md` — verification gates, CI expectations, known limits

@@ -69,11 +69,8 @@ next-env.d.ts
 
 # agent/QA artifacts
 .codex-screenshots/
-<<<<<<< HEAD
-=======
 /worktrees/
 .worktrees/
->>>>>>> origin/main
 /docs/mockups/
 # design/UX review scratch dumps (favourites-review, tools-page-review, etc.) — never commit
 artifacts/

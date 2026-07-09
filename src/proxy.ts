@@ -32,15 +32,7 @@ const documentFlowRedirects: Record<string, string> = {
 // http). Evaluated once at module load.
 const { isDevelopment, isLocalHttpRuntime } = resolveRuntimeFlags();
 
-const documentFlowRedirects: Record<string, string> = {
-  "/mockups/document-search-command": "/documents/search",
-  "/mockups/document-search/source": "/documents/source",
-  "/mockups/document-search/source/evidence": "/documents/source/evidence",
-};
-
 export async function proxy(request: NextRequest) {
-<<<<<<< HEAD
-=======
   // A fresh, unguessable nonce per request (see Next.js CSP guide). Buffer+base64
   // matches the documented pattern and keeps the value header-safe.
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
@@ -62,26 +54,17 @@ export async function proxy(request: NextRequest) {
     return response;
   };
 
->>>>>>> origin/main
   const { pathname } = request.nextUrl;
   const redirectTarget = documentFlowRedirects[pathname];
 
   if (redirectTarget) {
     const url = request.nextUrl.clone();
     url.pathname = redirectTarget;
-<<<<<<< HEAD
-    return NextResponse.redirect(url);
-  }
-
-  if (pathname.startsWith("/mockups") && process.env.NODE_ENV === "production") {
-    return new NextResponse(null, { status: 404 });
-=======
     return withCsp(NextResponse.redirect(url));
   }
 
   if (pathname.startsWith("/mockups") && process.env.NODE_ENV === "production") {
     return withCsp(new NextResponse(null, { status: 404 }));
->>>>>>> origin/main
   }
 
   const url = env.NEXT_PUBLIC_SUPABASE_URL;

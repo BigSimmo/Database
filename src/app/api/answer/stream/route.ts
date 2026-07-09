@@ -2,15 +2,11 @@ import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
-<<<<<<< HEAD
-import { consumeSubjectApiRateLimit, type ApiRateLimitResult } from "@/lib/api-rate-limit";
-=======
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
   consumeSubjectApiRateLimit,
   type ApiRateLimitResult,
 } from "@/lib/api-rate-limit";
->>>>>>> origin/main
 import { publicAccessContext } from "@/lib/public-api-access";
 import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
@@ -24,11 +20,8 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
-<<<<<<< HEAD
-=======
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
->>>>>>> origin/main
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -270,10 +263,7 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
-<<<<<<< HEAD
-=======
     const publicOnly = !access.authenticated && !isLocalNoAuthMode();
->>>>>>> origin/main
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -283,11 +273,7 @@ export async function POST(request: Request) {
     });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
 
-<<<<<<< HEAD
-    return streamAnswer(body, access.ownerId, request.signal);
-=======
     return streamAnswer(body, access.ownerId, request.signal, publicOnly);
->>>>>>> origin/main
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse(error);

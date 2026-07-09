@@ -3018,8 +3018,6 @@ describe("private document API access", () => {
     );
   });
 
-<<<<<<< HEAD
-=======
   it("degrades invalid bearer tokens to anonymous search scope", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
@@ -3055,7 +3053,6 @@ describe("private document API access", () => {
     );
   });
 
->>>>>>> origin/main
   it("rate limits anonymous answer bursts before generation", async () => {
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Public evidence.",
@@ -3244,8 +3241,6 @@ describe("private document API access", () => {
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
-<<<<<<< HEAD
-=======
   it("uses an anonymous in-memory limiter for public search when the durable anonymous limiter is unavailable", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
@@ -3443,7 +3438,6 @@ describe("private document API access", () => {
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
->>>>>>> origin/main
   it("uses an anonymous in-memory limiter for managed local no-auth search", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],

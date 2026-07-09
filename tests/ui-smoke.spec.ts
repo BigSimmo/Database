@@ -906,8 +906,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     }
   });
 
-<<<<<<< HEAD
-=======
   test("served response headers do not block cross-origin Supabase images", async ({ page }) => {
     // Regression guard for the "all images fail to render" incident: document
     // page images load cross-origin from Supabase Storage signed URLs. A
@@ -927,7 +925,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(csp).toContain("https://*.supabase.co");
   });
 
->>>>>>> origin/main
   test("static agent guidance is available and documents mode avoids the app error boundary", async ({ page }) => {
     const llms = await page.request.get("/llms.txt");
     expect(llms.status()).toBe(200);
@@ -1201,36 +1198,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
     await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeVisible();
     await page.keyboard.press("Escape");
-<<<<<<< HEAD
-    await clinicalTable.scrollIntoViewIfNeeded();
-    if (await tableExpandButton.isVisible().catch(() => false)) {
-      await tableExpandButton.click({ force: true });
-    } else {
-      await clinicalTable.getByTestId("accessible-table-surface").click({ force: true });
-    }
-    const tableDialog = page.getByTestId("table-fullscreen-dialog");
-    await expect(tableDialog).toBeVisible({ timeout: 10_000 });
-=======
     const tableDialog = await openMobileTableFullscreen(page, clinicalTable);
->>>>>>> origin/main
     await expect(tableDialog.getByRole("table")).toBeVisible();
     await expect(tableDialog).toContainText("FBC/ANC");
     await expect(tableDialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");
     await expect(tableDialog).toBeHidden();
-<<<<<<< HEAD
-    if (await tableExpandButton.isVisible().catch(() => false)) {
-      await expect(tableExpandButton).toBeFocused();
-    }
-    if (await tableExpandButton.isVisible().catch(() => false)) {
-      await tableExpandButton.click();
-=======
     await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeFocused();
     if (await tableExpandButton.isVisible().catch(() => false)) {
       await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
       await tableExpandButton.click({ force: true });
->>>>>>> origin/main
       await expect(tableDialog).toBeVisible();
       await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
       await expect(tableDialog).toBeHidden();
@@ -1370,8 +1348,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-<<<<<<< HEAD
-=======
   test("answer failure offers a retry action that re-runs the question", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     const answerRequests: string[] = [];
@@ -1494,7 +1470,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
->>>>>>> origin/main
   test("answer results surface cross-mode quick links", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
@@ -1504,13 +1479,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
 
-<<<<<<< HEAD
-    await expect(page.getByTestId("cross-mode-links")).toHaveCount(1, { timeout: 15_000 });
-
-    const answerSurface = page.locator('[data-dashboard-stage="answer-surface"]');
-    const strip = answerSurface.getByTestId("cross-mode-links");
-    await expect(strip).toBeVisible();
-=======
     const answerSurface = page.locator('[data-dashboard-stage="answer-surface"]');
     const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
@@ -1518,7 +1486,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const rail = strip.getByTestId("cross-mode-links-rail");
     await expect(rail).toBeVisible();
     await expect(rail).toHaveClass(/overflow-x-auto/);
->>>>>>> origin/main
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
     await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
@@ -1552,11 +1519,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
     await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
     await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
-<<<<<<< HEAD
-    await expect(page.getByTestId("answer-follow-up-suggestions")).toBeVisible();
-=======
     await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible();
->>>>>>> origin/main
 
     const composer = visibleQuestionInput(page);
     await expect(composer).toHaveValue("");
@@ -1575,18 +1538,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\?mode=answer&q=what\+about\+renal\+impairment\%3F&run=1/);
     await expectNoPageHorizontalOverflow(page);
 
-<<<<<<< HEAD
-    await page.reload();
-    await waitForDemoDashboardReady(page);
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
-=======
     await waitForPersistedAnswerThread(page, 1);
     await page.reload();
     await waitForDemoDashboardReady(page);
     await expect(async () => {
       await expect(page.getByTestId("user-question-bubble")).toHaveCount(2);
     }).toPass({ timeout: 15_000 });
->>>>>>> origin/main
     await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
     await expect(page.getByTestId("user-question-bubble").nth(1)).toContainText(followUp);
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
@@ -1600,15 +1557,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await fillVisibleQuestionInput(page, "lithium dosing");
     await visibleAnswerSubmitButton(page).click();
-<<<<<<< HEAD
-    await expect(page.getByTestId("answer-follow-up-suggestions")).toBeVisible({ timeout: uiAssertionTimeoutMs });
-
-    const suggestion = page.getByTestId("answer-follow-up-suggestions").getByRole("button").first();
-=======
     await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible({ timeout: uiAssertionTimeoutMs });
 
     const suggestion = visibleAnswerFollowUpSuggestions(page).getByRole("button").first();
->>>>>>> origin/main
     const suggestionText = (await suggestion.textContent())?.trim();
     expect(suggestionText).toBeTruthy();
     await suggestion.click();
@@ -1841,24 +1792,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
       }
 
       await page.keyboard.press("Escape");
-<<<<<<< HEAD
-      await clinicalTable.scrollIntoViewIfNeeded();
-
-      await clinicalTable.getByTestId("accessible-table-surface").click({ force: true });
-      const surfaceDialog = page.getByTestId("table-fullscreen-dialog");
-      await expect(surfaceDialog).toBeVisible();
-=======
       const surfaceDialog = await openMobileTableFullscreen(page, clinicalTable);
->>>>>>> origin/main
       await expect(surfaceDialog).toContainText("FBC/ANC");
       await page.keyboard.press("Escape");
       await expect(surfaceDialog).toBeHidden();
 
       await expect(expandButton).toBeVisible();
-<<<<<<< HEAD
-=======
       await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
->>>>>>> origin/main
       await expandButton.click({ force: true });
       const dialog = page.getByTestId("table-fullscreen-dialog");
       await expect(dialog).toBeVisible();

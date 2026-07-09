@@ -4,15 +4,11 @@ import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { answerQuestionWithScope } from "@/lib/rag";
 import { jsonError, PublicApiError } from "@/lib/http";
-<<<<<<< HEAD
-import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
-=======
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
   consumeSubjectApiRateLimit,
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
->>>>>>> origin/main
 import { publicAccessContext } from "@/lib/public-api-access";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
@@ -83,10 +79,7 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
-<<<<<<< HEAD
-=======
     const publicOnly = !access.authenticated && !isLocalNoAuthMode();
->>>>>>> origin/main
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -101,14 +94,9 @@ export async function POST(request: Request) {
     const scope = await resolveSearchScope({
       supabase,
       ownerId: access.ownerId,
-<<<<<<< HEAD
-      documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
-      filters: body.filters,
-=======
       publicOnly,
       documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
       filters: answerBody.filters,
->>>>>>> origin/main
     });
     if (scope.documentIds?.length === 0) {
       return NextResponse.json({
@@ -132,13 +120,6 @@ export async function POST(request: Request) {
       documentId: singleDocumentScope ? answerBody.documentId : undefined,
       documentIds: singleDocumentScope
         ? undefined
-<<<<<<< HEAD
-        : (scope.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
-      ownerId: access.ownerId,
-      allowGlobalSearch: !access.ownerId,
-      queryMode: body.queryMode,
-      skipCache: body.skipCache,
-=======
         : (scope.documentIds ??
           answerBody.documentIds ??
           (answerBody.documentId ? [answerBody.documentId] : undefined)),
@@ -146,7 +127,6 @@ export async function POST(request: Request) {
       allowGlobalSearch: !access.ownerId,
       queryMode: answerBody.queryMode,
       skipCache: answerBody.skipCache,
->>>>>>> origin/main
       signal: request.signal,
     });
     const warnings = sourceGovernanceWarnings({

@@ -27,10 +27,7 @@ import {
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
-<<<<<<< HEAD
-=======
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
->>>>>>> origin/main
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
@@ -129,13 +126,7 @@ function DifferentialsMobileCompareAddon({ selectedCount, query }: { selectedCou
   useEffect(() => {
     const phoneMediaQuery = window.matchMedia("(max-width: 1023px)");
     const sync = () => {
-<<<<<<< HEAD
-      setHost(
-        phoneMediaQuery.matches ? document.getElementById(differentialsMobileCompareAddonSlotId) : null,
-      );
-=======
       setHost(phoneMediaQuery.matches ? document.getElementById(differentialsMobileCompareAddonSlotId) : null);
->>>>>>> origin/main
     };
     sync();
     phoneMediaQuery.addEventListener("change", sync);
@@ -170,35 +161,18 @@ function statusLabel(status: DifferentialRecord["status"]) {
 }
 
 function statusTone(status: DifferentialRecord["status"]) {
-<<<<<<< HEAD
-  if (status === "emergent") return "border-transparent bg-[color:var(--danger)] text-white";
-=======
   if (status === "emergent") {
     return "border-transparent bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)]";
   }
->>>>>>> origin/main
   if (status === "urgent") {
     return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
   }
   return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
 }
 
-<<<<<<< HEAD
-function resultTypeTabCounts(results: DifferentialResult[]) {
-  return {
-    all: results.length,
-    presentations: results.filter((result) => result.href.includes("/presentations")).length,
-    diagnoses: results.filter((result) => result.href.includes("/diagnoses")).length,
-  };
-}
-
-function recordIcon(record: DifferentialRecord) {
-  return candidateIconBySlug.find(([fragment]) => record.slug.includes(fragment))?.[1] ?? BrainCircuit;
-=======
 function resultIcon(kind: DifferentialResult["kind"], slug: string) {
   if (kind === "presentation") return BrainCircuit;
   return candidateIconBySlug.find(([fragment]) => slug.includes(fragment))?.[1] ?? Stethoscope;
->>>>>>> origin/main
 }
 
 function tagText(value: string) {
@@ -234,26 +208,13 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
       )}
     >
       {status === "emergent" ? (
-<<<<<<< HEAD
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/90" aria-hidden />
-=======
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--danger-solid-contrast)]/90" aria-hidden />
->>>>>>> origin/main
       ) : null}
       {statusLabel(status)}
     </span>
   );
 }
 
-<<<<<<< HEAD
-function ResultTypeTabs({ results }: { results: DifferentialResult[] }) {
-  const counts = resultTypeTabCounts(results);
-  const tabs = [
-    { key: "all", label: "All", count: counts.all },
-    { key: "presentations", label: "Presentations", count: counts.presentations },
-    { key: "diagnoses", label: "Diagnoses", count: counts.diagnoses },
-  ] as const;
-=======
 type KindFilter = "all" | "presentation" | "diagnosis";
 
 const resultTypeTabFocusRing =
@@ -277,25 +238,10 @@ function ResultTypeTabs({
     { id: "presentation" as const, label: "Presentations", count: presentationCount },
     { id: "diagnosis" as const, label: "Diagnoses", count: diagnosisCount },
   ];
->>>>>>> origin/main
 
   return (
     <div
       data-testid="differential-result-type-tabs"
-<<<<<<< HEAD
-      className="polished-scroll flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
-    >
-      {tabs.map((tab, index) => {
-        const active = index === 0;
-        return (
-          <button
-            key={tab.key}
-            type="button"
-            aria-pressed={active}
-            aria-label={`${tab.label} (${tab.count})`}
-            className={cn(
-              "inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-bold min-[390px]:text-sm",
-=======
       role="tablist"
       aria-label="Result type"
       className="polished-scroll flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
@@ -313,7 +259,6 @@ function ResultTypeTabs({
             className={cn(
               "inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-bold min-[390px]:text-sm",
               resultTypeTabFocusRing,
->>>>>>> origin/main
               active
                 ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                 : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
@@ -336,14 +281,10 @@ function ResultTypeTabs({
       <button
         type="button"
         aria-label="Filters"
-<<<<<<< HEAD
-        className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm"
-=======
         className={cn(
           "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm",
           resultTypeTabFocusRing,
         )}
->>>>>>> origin/main
       >
         <ListFilter className="h-4 w-4 shrink-0" aria-hidden />
         <span className="hidden min-[430px]:inline">Filters</span>
@@ -835,11 +776,7 @@ function SearchResultsView({
           modeId="differentials"
           query={query}
           matchCount={results.length}
-<<<<<<< HEAD
-          loading={loading}
-=======
           loading={loading || catalogLoading}
->>>>>>> origin/main
         />
       </div>
       <p
@@ -911,36 +848,6 @@ function SearchResultsView({
               {loading ? "Searching sources" : "Run source search"}
             </button>
           </div>
-<<<<<<< HEAD
-
-          <div className="grid gap-2 lg:hidden">
-            <BestAnswerCard best={best} selected={selectedIds.has(best.id)} onToggle={() => toggleSelected(best.id)} />
-            <ResultTypeTabs results={results} />
-            <div className="flex items-center justify-between gap-2 text-sm font-medium text-[color:var(--text-muted)]">
-              <span>
-                <strong className="text-[color:var(--text-heading)]">
-                  {results.length} result{results.length === 1 ? "" : "s"}
-                </strong> ·{" "}
-                {hasSourceEvidence ? "Ranked by relevance" : "Guided differential view"}
-              </span>
-              <button
-                type="button"
-                className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]"
-              >
-                Sort
-                <ChevronRight className="h-3.5 w-3.5 rotate-90" aria-hidden />
-              </button>
-            </div>
-            {!hasSourceEvidence ? (
-              <section
-                aria-label="Source status"
-                className="grid gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 p-3 text-sm"
-              >
-                <p className="font-semibold leading-5 text-[color:var(--text-heading)]">
-                  Showing guided local differential records. Source-library evidence has not been checked for this query
-                  yet.
-                </p>
-=======
         </section>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
@@ -963,7 +870,6 @@ function SearchResultsView({
                 </h2>
               </div>
               <div className="hidden items-center gap-2 sm:flex">
->>>>>>> origin/main
                 <button
                   type="button"
                   onClick={rerunSearch}
@@ -1076,9 +982,6 @@ function SearchResultsView({
               <ChevronRight className="h-4 w-4 rotate-90" aria-hidden />
             </Link>
 
-<<<<<<< HEAD
-      <DifferentialsMobileCompareAddon selectedCount={selectedCount} query={query} />
-=======
             <Link
               href={routeWithQuery("/differentials/presentations", query)}
               className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-base font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] lg:inline-flex"
@@ -1102,7 +1005,6 @@ function SearchResultsView({
       )}
 
       {best ? <DifferentialsMobileCompareAddon selectedCount={selectedCount} query={query} /> : null}
->>>>>>> origin/main
 
       <p className="pb-3 text-center text-xs font-medium text-[color:var(--text-muted)] lg:hidden">
         Clinical decision support only. Review before use.

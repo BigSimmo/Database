@@ -1,18 +1,12 @@
-<<<<<<< HEAD
-=======
 import type { Database } from "@/lib/supabase/database.types";
->>>>>>> origin/main
 import type { MedicationRecord } from "@/lib/medications";
 
 export type MedicationSourceStatus = "current" | "review_due" | "outdated" | "unknown";
 export type MedicationValidationStatus = "unverified" | "locally_reviewed" | "approved";
 
-<<<<<<< HEAD
-=======
 export type MedicationRecordRow = Database["public"]["Tables"]["medication_records"]["Row"];
 export type MedicationRecordInsert = Database["public"]["Tables"]["medication_records"]["Insert"];
 
->>>>>>> origin/main
 const sourceStatuses: readonly MedicationSourceStatus[] = ["current", "review_due", "outdated", "unknown"];
 const validationStatuses: readonly MedicationValidationStatus[] = ["unverified", "locally_reviewed", "approved"];
 
@@ -49,15 +43,6 @@ export function deriveGovernanceFromSections(record: MedicationRecord): {
   };
 }
 
-<<<<<<< HEAD
-export function rowGovernance(row: {
-  source_status: string | null;
-  validation_status: string | null;
-}) {
-  return {
-    sourceStatus: medicationSourceStatus(row.source_status),
-    validationStatus: medicationValidationStatus(row.validation_status),
-=======
 export function recordToRow(record: MedicationRecord, ownerId: string): MedicationRecordInsert {
   const governance = deriveGovernanceFromSections(record);
   return {
@@ -105,6 +90,5 @@ export function rowGovernance(row: MedicationRecordRow): {
     validationStatus: medicationValidationStatus(row.validation_status),
     lastReviewedAt: row.last_reviewed_at,
     reviewDueAt: row.review_due_at,
->>>>>>> origin/main
   };
 }

@@ -143,22 +143,8 @@ export async function getOptionalAuthenticatedUser(
   request: Request,
   supabase: AdminClient,
 ): Promise<AuthenticatedUser | null> {
-<<<<<<< HEAD
-  const token = extractSessionAccessToken(request);
-  if (token) {
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data.user?.id) {
-      throw new AuthenticationError();
-    }
-    return { id: data.user.id };
-  }
-
-  return getUserFromRequestCookies(request);
-}
-=======
   return resolveOptionalAuthenticatedUser(request, supabase);
 }
 
 // Retained for callers that only need a single token string.
 export { extractSessionAccessToken };
->>>>>>> origin/main

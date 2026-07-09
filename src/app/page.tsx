@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
 import { redirect } from "next/navigation";
 
->>>>>>> origin/main
 import { HomePageClient } from "@/app/home-page-client";
 import { isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
 
@@ -25,8 +22,6 @@ export default async function Home({ searchParams }: HomeProps) {
   const initialSearchMode: AppModeId =
     isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
 
-<<<<<<< HEAD
-=======
   // /favourites is the canonical favourites surface; deep links via the
   // dashboard mode param would otherwise open a divergent hub view.
   if (initialSearchMode === "favourites") {
@@ -49,6 +44,5 @@ export default async function Home({ searchParams }: HomeProps) {
     redirect(suffix ? `/differentials?${suffix}` : "/differentials");
   }
 
->>>>>>> origin/main
   return <HomePageClient initialMode={initialSearchMode} />;
 }

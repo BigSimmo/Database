@@ -10,27 +10,16 @@ import {
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type Ref,
-  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
 import {
-<<<<<<< HEAD
-  Activity,
-  BadgeCheck,
-  CalendarDays,
-=======
->>>>>>> origin/main
   Check,
   CheckCircle2,
   ChevronDown,
   FileText,
   Filter,
   Globe2,
-<<<<<<< HEAD
-  ListChecks,
-=======
->>>>>>> origin/main
   Loader2,
   Menu,
   MessageSquarePlus,
@@ -40,19 +29,12 @@ import {
   ShieldCheck,
   ArrowLeft,
   X,
-<<<<<<< HEAD
-  Lock,
-=======
->>>>>>> origin/main
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
-<<<<<<< HEAD
-=======
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
->>>>>>> origin/main
 import {
   ModeActionPopup,
   modeActionItemsFor,
@@ -94,28 +76,6 @@ const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
 // hero exactly like desktop instead of floating over the heading.
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
-<<<<<<< HEAD
-
-const medicationModeActionItems: readonly ModeActionItem[] = [
-  {
-    id: "medication-dose",
-    label: "Dose",
-    description: "Check dosing and thresholds",
-    icon: CalendarDays,
-    primary: true,
-  },
-  { id: "medication-safety", label: "Safety", description: "Contraindications and cautions", icon: ShieldCheck },
-  {
-    id: "medication-monitoring",
-    label: "Monitoring",
-    shortLabel: "Monitor",
-    description: "Baseline and ongoing checks",
-    icon: Activity,
-  },
-  { id: "medication-access", label: "Access", description: "Documentation and eligibility", icon: Lock },
-];
-=======
->>>>>>> origin/main
 
 function splitFilterText(value: string) {
   return value
@@ -208,12 +168,9 @@ export function MasterSearchHeader({
   onCommandScopesChange,
   onPickRecent,
   onCrossModeSearch,
-<<<<<<< HEAD
-=======
   composerFollowUpSuggestions,
   onPickComposerFollowUpSuggestion,
   composerFollowUpSuggestionsDisabled = false,
->>>>>>> origin/main
   headerVariant = "default",
   mobileSearchPlacement = "default",
   mobileBottomSearchVariant = "default",
@@ -225,10 +182,7 @@ export function MasterSearchHeader({
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
-<<<<<<< HEAD
-=======
   onBottomComposerScrollHiddenChange,
->>>>>>> origin/main
 }: {
   documents: ClinicalDocument[];
   documentTotal?: number;
@@ -265,12 +219,9 @@ export function MasterSearchHeader({
   onCommandScopesChange?: (scopes: string[]) => void;
   onPickRecent?: (query: string) => void;
   onCrossModeSearch?: (modeId: AppModeId, query: string) => void;
-<<<<<<< HEAD
-=======
   composerFollowUpSuggestions?: string[];
   onPickComposerFollowUpSuggestion?: (suggestion: string) => void;
   composerFollowUpSuggestionsDisabled?: boolean;
->>>>>>> origin/main
   headerVariant?: "default" | "workflow";
   mobileSearchPlacement?: "default" | "bottom";
   /** "compact" drops the phone footer chip row and hugs the bottom edge —
@@ -287,14 +238,6 @@ export function MasterSearchHeader({
   heroComposerFromTablet?: boolean;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
-<<<<<<< HEAD
-  /** Phone-only hide-on-scroll for the universal header. "overlay" translates
-   *  the sticky header away (host scrolls the document, content already flows
-   *  beneath); "collapse" also releases the header's layout space (host keeps
-   *  the header above an internally scrolling element). `containerRef` points
-   *  at the scrolling element; omit it to observe window scroll. */
-  hideOnScroll?: { strategy: "overlay" | "collapse"; containerRef?: RefObject<HTMLElement | null> };
-=======
   /** Phone-only hide-on-scroll for the universal header and bottom search dock.
    *  "overlay" translates the sticky header away (host scrolls the document,
    *  content already flows beneath); "collapse" also releases the header's
@@ -309,7 +252,6 @@ export function MasterSearchHeader({
   };
   /** Fired when the phone bottom search dock enters or leaves the scroll-hidden state. */
   onBottomComposerScrollHiddenChange?: (hidden: boolean) => void;
->>>>>>> origin/main
 }) {
   const visibleAppModeOptions = defaultVisibleAppModeOptions;
   const trimmedQuery = query.trim();
@@ -323,11 +265,7 @@ export function MasterSearchHeader({
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
   const canRunLocalSearch =
     selectedSearch.kind === "documents" ||
-<<<<<<< HEAD
-    searchMode === "forms" ||
-=======
     selectedSearch.kind === "forms" ||
->>>>>>> origin/main
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
     selectedSearch.kind === "favourites";
@@ -353,14 +291,6 @@ export function MasterSearchHeader({
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
-<<<<<<< HEAD
-  const scrollHidden = useHideOnScroll({
-    containerRef: hideOnScroll?.containerRef,
-    disabled: !hideOnScroll,
-  });
-  const headerChromeHidden =
-    scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
-=======
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const internalScrollHidden = useHideOnScroll({
     disabled: !hideOnScroll || hideOnScroll.scrollHidden !== undefined,
@@ -390,7 +320,6 @@ export function MasterSearchHeader({
     return () => window.cancelAnimationFrame(frame);
   }, [commandDropdownOpen, loading]);
 
->>>>>>> origin/main
   // Stable, header-owned element the composer is portaled into; we move it in and
   // out of the page-owned slot rather than portaling into the slot directly.
   const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);
@@ -1134,21 +1063,11 @@ export function MasterSearchHeader({
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesCompactMobileBottomStyle = usesMobileBottomStyle && mobileBottomSearchVariant === "compact";
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
-<<<<<<< HEAD
-    const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer;
-    // Compact search views drop the chip row on phones so the pill can sit
-    // flush with the bottom edge; the same actions stay reachable via the
-    // integrated "+" menu.
-    const showFooterSearchChips = usesFooterChipLayout && !usesCompactMobileBottomStyle;
-    // The visible footer/hero composer chrome is universal; submit semantics still
-    // come from the active mode.
-=======
     // Sticky-top result composers (tablet+) share the footer chip layout so the
     // pill + chip row looks identical across homes, results, and the answer dock.
     const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer || usesMobileBottomStyle;
     // Keep footer suggestion chips on tablet/desktop; phones reach the same actions via "+".
     const showFooterSearchChips = usesFooterChipLayout && !usesPhoneSearchLayout;
->>>>>>> origin/main
     const usesSendAffordance = searchMode === "answer" || usesFooterChipLayout;
     const usesModeIdentityAffordance = usesBottomComposerPlacement && !usesSendAffordance;
     const ModeIdentityIcon = appModeIcons[searchMode];
@@ -1158,21 +1077,14 @@ export function MasterSearchHeader({
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
 
-    const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
-
-    const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
-
     return (
       <form
         onSubmit={submit}
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
         data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
         data-command-open={usesBottomComposerPlacement && commandDropdownOpen ? "true" : undefined}
-<<<<<<< HEAD
-=======
         data-scroll-hidden={shouldHideBottomOnScroll && bottomComposerHidden ? "true" : undefined}
         {...(shouldHideBottomOnScroll ? composerFocusProps : undefined)}
->>>>>>> origin/main
         className={cn(
           isDesktopHomeComposer
             ? "universal-home-search-edge mx-auto w-full"
@@ -1180,34 +1092,16 @@ export function MasterSearchHeader({
               ? "floating-composer-edge dashboard-composer-edge z-40 mx-auto max-w-3xl max-sm:fixed max-sm:bottom-0 sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))] sm:z-20 lg:fixed lg:bottom-0 lg:top-auto lg:max-w-4xl"
               : usesMobileBottomStyle
                 ? cn(
-<<<<<<< HEAD
-                    usesPhoneFooterDock
-                      ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
-                      : cn(
-                          "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                          // Hero-placement mode-homes (services/forms) portal the composer into
-                          // the hero from sm up. Hide the default (non-portaled) composer at sm+
-                          // so it never briefly flashes as an overlapping float over the hero
-                          // before the portal activates; the mobile fixed-bottom slot still shows
-                          // below sm. Other homes keep a sticky bar until the portal lifts it.
-                          isHeroDesktopComposer ? "sm:hidden" : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
-                        ),
-=======
                     "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
                     isHeroDesktopComposer ? "sm:hidden" : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
->>>>>>> origin/main
                   )
                 : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
-<<<<<<< HEAD
-          usesFooterChipLayout && "flex flex-col items-center gap-2.5",
-=======
           showFooterSearchChips && "flex flex-col items-center gap-2.5",
           shouldHideBottomOnScroll &&
             "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
->>>>>>> origin/main
         )}
       >
         {usesBottomComposerPlacement ? <div className="answer-footer-search-backdrop" aria-hidden="true" /> : null}
@@ -1215,76 +1109,6 @@ export function MasterSearchHeader({
           <div
             id={mobileBottomSearchAddonSlotId}
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
-<<<<<<< HEAD
-          />
-        ) : null}
-        <UniversalSearchCommandSurface
-          modeId={searchMode}
-          query={query}
-          recentQueries={recentQueries}
-          commandScopes={commandScopes}
-          placement={commandSurfacePlacement}
-          dropdownOpen={commandDropdownOpen}
-          onDropdownOpenChange={setCommandDropdownOpen}
-          onQueryChange={onQueryChange}
-          onSearch={onAsk}
-          onPickRecent={(recent) => {
-            onQueryChange(recent);
-            if (onPickRecent) {
-              onPickRecent(recent);
-              return;
-            }
-            onAsk();
-          }}
-          onCrossMode={(targetMode, crossQuery) => {
-            if (onCrossModeSearch) {
-              onCrossModeSearch(targetMode, crossQuery);
-              return;
-            }
-            onQueryChange(crossQuery);
-            onSearchModeChange(targetMode);
-            onAsk();
-          }}
-          onRunModeAction={runModeAction}
-          onCommandScopesChange={(scopes) => onCommandScopesChange?.(scopes)}
-          onListboxIdReady={setCommandListboxId}
-          onFocusSearchInput={() => {
-            if (queryInputRef && "current" in queryInputRef) {
-              queryInputRef.current?.focus();
-            }
-          }}
-        >
-        <div
-          data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
-          className={cn(
-            chatComposerShell,
-            "answer-footer-search-pill relative z-10 w-full",
-            actionMenuOpen && "answer-footer-search-pill-open",
-            commandDropdownOpen && "answer-footer-search-pill-open",
-          )}
-        >
-          <ModeActionPopup
-            open={actionMenuOpen}
-            title={actionMenuTitle}
-            titleIcon={SelectedAppModeIcon}
-            subtitle={actionMenuSubtitle}
-            buttonLabel={actionMenuButtonLabel}
-            items={actionMenuItems}
-            modeOptions={actionMenuModeOptions}
-            selectedModeId={selectedAppMode.id}
-            onOpenChange={setActionMenuOpen}
-            onBeforeOpen={() => {
-              setUsesScopeSheet(currentUsesScopeSheet());
-              setModeMenuOpen(false);
-              setScopeOpen(false);
-            }}
-            onAction={runModeAction}
-            onModeSelect={selectAppModeById}
-            onPlacementChange={setActionMenuPlacement}
-            triggerClassName="answer-footer-search-action"
-            integrated={usesFooterChipLayout}
-=======
->>>>>>> origin/main
           />
         ) : null}
         {usesPhoneFooterDock &&
@@ -1374,106 +1198,6 @@ export function MasterSearchHeader({
             {/* The clear button is a flex sibling (not absolutely positioned): the
               unlayered .answer-footer-search-input padding beats a conditional
               pr-* utility, which let text run under an overlaid button. */}
-<<<<<<< HEAD
-          <label className="flex min-w-0 flex-1 items-center overflow-hidden">
-            <input
-              ref={queryInputRef}
-              data-testid="global-search-input"
-              autoFocus={queryInputAutoFocus}
-              value={query}
-              role="combobox"
-              aria-expanded={commandDropdownOpen}
-              aria-controls={commandDropdownOpen ? commandListboxId : undefined}
-              aria-autocomplete="list"
-              onInput={(event) => onQueryChange(event.currentTarget.value)}
-              onChange={(event) => onQueryChange(event.target.value)}
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") onAsk();
-              }}
-              aria-label={`Search indexed guidelines by question or keyword - ${selectedSearch.inputAriaLabel}`}
-              placeholder={composerPlaceholder}
-              className={cn(chatComposerInput, "w-full min-w-0", "answer-footer-search-input")}
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={onClearQuery}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-                aria-label="Clear search question"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </label>
-          <span className="answer-footer-search-divider" aria-hidden="true" />
-          <button
-            type="submit"
-            disabled={!canAsk}
-            title={
-              !realDataReady && !canRunLocalSearch
-                ? "Search setup not ready"
-                : trimmedQuery.length < 1
-                  ? selectedSearch.emptyTitle
-                  : selectedSearch.readyTitle
-            }
-            className={cn(chatSendButton, "answer-footer-search-send")}
-            aria-label={selectedSearch.submitAriaLabel}
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : usesSendAffordance ? (
-              <Send className="h-4 w-4" />
-            ) : usesModeIdentityAffordance ? (
-              <ModeIdentityIcon className="h-4.5 w-4.5" />
-            ) : (
-              <Search className="h-4.5 w-4.5" />
-            )}
-            <span className="sr-only">{submitLabel}</span>
-          </button>
-        </div>
-        </UniversalSearchCommandSurface>
-        {showFooterSearchChips && (trustFooterChip || hasScopeFooterChip || secondaryFooterChip) ? (
-          <div className="flex max-w-full flex-wrap items-center justify-center gap-2 px-2">
-            {trustFooterChip ? (
-              <button
-                type="button"
-                onClick={() => runFooterChipAction(trustFooterChip.actionId)}
-                className="answer-footer-search-chip"
-                aria-label={trustFooterChip.ariaLabel}
-              >
-                <TrustFooterChipIcon className="h-4 w-4" aria-hidden="true" />
-                <span className="sm:hidden">{trustFooterChip.shortLabel}</span>
-                <span className="hidden sm:inline">{trustFooterChip.longLabel}</span>
-              </button>
-            ) : null}
-            {hasScopeFooterChip ? (
-              <button
-                type="button"
-                ref={scopeSummaryRef}
-                data-testid="scope-trigger"
-                onClick={openScopePicker}
-                className="answer-footer-search-chip"
-                aria-expanded={usesScopeSheet ? scopeSheetOpen : scopeOpen}
-                aria-label="Open source scope"
-              >
-                <Filter className="h-4 w-4" aria-hidden="true" />
-                <span className="sm:hidden">{selectedDocumentIds.length === 0 ? "Sources" : footerScopeLabel}</span>
-                <span className="hidden sm:inline">{footerScopeLabel}</span>
-              </button>
-            ) : null}
-            {!hasScopeFooterChip && secondaryFooterChip ? (
-              <button
-                type="button"
-                onClick={() => runFooterChipAction(secondaryFooterChip.actionId)}
-                className="answer-footer-search-chip"
-                aria-label={secondaryFooterChip.ariaLabel}
-              >
-                <SecondaryFooterChipIcon className="h-4 w-4" aria-hidden="true" />
-                <span className="sm:hidden">{secondaryFooterChip.shortLabel}</span>
-                <span className="hidden sm:inline">{secondaryFooterChip.longLabel}</span>
-              </button>
-            ) : null}
-=======
             <label className="flex min-w-0 flex-1 items-center overflow-hidden">
               <input
                 ref={queryInputRef}
@@ -1533,7 +1257,6 @@ export function MasterSearchHeader({
               )}
               <span className="sr-only">{submitLabel}</span>
             </button>
->>>>>>> origin/main
           </div>
         </UniversalSearchCommandSurface>
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
@@ -1603,8 +1326,6 @@ export function MasterSearchHeader({
         },
       }
     : undefined;
-<<<<<<< HEAD
-=======
   const composerFocusProps = hideOnScroll
     ? {
         onFocusCapture: () => setComposerChromeFocused(true),
@@ -1613,21 +1334,12 @@ export function MasterSearchHeader({
         },
       }
     : undefined;
->>>>>>> origin/main
 
   const headerAndComposer = (
     <>
       <header
         id="search"
         className={cn(
-<<<<<<< HEAD
-          "edge-glass-header universal-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl",
-          // Overlay hide-on-scroll (phones): the header is sticky over document
-          // scroll, so a plain translate reveals the content already flowing
-          // beneath it with zero layout shift. No transform is applied while
-          // visible so the fixed-position mobile mode menu keeps the viewport
-          // as its containing block.
-=======
           "edge-glass-header universal-header z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl",
           // Collapse hosts keep the header above an internally scrolling <main>, so
           // sticky is unnecessary on phones and fights the 0fr grid collapse by
@@ -1637,7 +1349,6 @@ export function MasterSearchHeader({
           // Overlay hide-on-scroll (phones): a plain translate reveals the content
           // already flowing beneath it. No transform is applied while visible so
           // the fixed-position mobile mode menu keeps the viewport as its containing block.
->>>>>>> origin/main
           hideStrategy === "overlay" &&
             "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
           hideStrategy === "overlay" && headerChromeHidden && "max-sm:-translate-y-full",
@@ -1844,11 +1555,8 @@ export function MasterSearchHeader({
     // never carries a transform, and everything is inert from sm up.
     return (
       <div
-<<<<<<< HEAD
-=======
         data-scroll-hidden={headerChromeHidden ? "true" : undefined}
         data-testid="universal-header-collapse"
->>>>>>> origin/main
         className={cn(
           "max-sm:grid max-sm:transition-[grid-template-rows] max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
           headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",

@@ -5,14 +5,9 @@ import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRe
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-<<<<<<< HEAD
-import { recentQueryStorageKey, SettingsDialog } from "@/components/ClinicalDashboard";
-import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-=======
 import { recentQueryStorageKey } from "@/components/ClinicalDashboard";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
->>>>>>> origin/main
 import {
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
@@ -23,10 +18,7 @@ import { MasterSearchHeader } from "@/components/clinical-dashboard/master-searc
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
-<<<<<<< HEAD
 import { FormsSearchResultsPage } from "@/components/forms/forms-search-results-page";
-=======
->>>>>>> origin/main
 import { ClientHydrationBoundary } from "@/components/client-hydration-boundary";
 import { cn } from "@/components/ui-primitives";
 import {
@@ -143,27 +135,12 @@ function GlobalMockupSearchShellClient({
   const [accountSetupOpen, setAccountSetupOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
-<<<<<<< HEAD
-=======
   const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
->>>>>>> origin/main
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
   const isHomeRoute = pathname === "/";
-<<<<<<< HEAD
-  const isDocumentFlowRoute =
-    pathname === "/documents/search" || pathname.startsWith("/documents/source");
-  const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search") || isDocumentFlowRoute;
-  const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
-  const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
-  const shouldRenderDashboardSearch =
-    hasSubmittedModeSearch && resolvedSearchMode !== "services" && !isDocumentSearchMockupRoute;
-  const isFormsOnlyShell = availableModeIds?.length === 1 && availableModeIds[0] === "forms";
-  const shouldRenderFormsSearchResults =
-    shouldRenderDashboardSearch && resolvedSearchMode === "forms" && isFormsOnlyShell;
-=======
   const isDocumentFlowRoute = pathname === "/documents/search" || pathname.startsWith("/documents/source");
   const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search") || isDocumentFlowRoute;
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
@@ -179,7 +156,6 @@ function GlobalMockupSearchShellClient({
     resolvedSearchMode !== "favourites" &&
     resolvedSearchMode !== "differentials" &&
     !isDocumentSearchMockupRoute;
->>>>>>> origin/main
   const isStandaloneModeHome =
     !hasSubmittedModeSearch &&
     !shouldRenderDashboardSearch &&
@@ -309,14 +285,8 @@ function GlobalMockupSearchShellClient({
   function startNewAnswerChat() {
     setQuery("");
     setMobileMenuOpen(false);
-<<<<<<< HEAD
-    // On standalone mode routes (favourites, services, etc.) keep the user in
-    // that workspace and only clear the query — same as sidebar "New chat".
-    navigateToMode(searchMode === "answer" ? "answer" : searchMode, { focus: true });
-=======
     setSearchMode("answer");
     navigateToMode("answer", { focus: true });
->>>>>>> origin/main
   }
 
   function pickRecentQuery(recentQuery: string) {
@@ -332,13 +302,8 @@ function GlobalMockupSearchShellClient({
     navigateToMode(mode, { query: crossQuery, focus: true, run: true });
   }
 
-<<<<<<< HEAD
-  const shouldRenderClinicalDashboard =
-    isHomeRoute || (shouldRenderDashboardSearch && !shouldRenderFormsSearchResults);
-=======
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
->>>>>>> origin/main
 
   if (shouldRenderClinicalDashboard) {
     return (
@@ -364,16 +329,10 @@ function GlobalMockupSearchShellClient({
   return (
     <div
       className={cn(
-<<<<<<< HEAD
-        "min-h-dvh max-sm:h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
-        shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
-        shouldShowDesktopSidebar && "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
-=======
         "min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&
           "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
->>>>>>> origin/main
         shouldShowDesktopSidebar &&
           (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
       )}
@@ -381,10 +340,7 @@ function GlobalMockupSearchShellClient({
         {
           "--clinical-sidebar-width": effectiveSidebarWidth,
           "--clinical-sidebar-width-md": shouldShowDesktopSidebar ? "5.25rem" : "0px",
-<<<<<<< HEAD
           "--mobile-composer-reserve": mobileComposerReserve,
-=======
->>>>>>> origin/main
         } as CSSProperties
       }
     >
@@ -411,11 +367,7 @@ function GlobalMockupSearchShellClient({
         </div>
       ) : null}
 
-<<<<<<< HEAD
-      <div className="flex min-h-dvh min-w-0 flex-col max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden">
-=======
       <div className="flex min-h-dvh min-w-0 flex-col">
->>>>>>> origin/main
         {/* max-sm:contents lets the header's own `sticky top-0` engage against
             the document scroll on phones (a plain wrapper div otherwise caps
             its sticking range at its own height), which the phone
@@ -466,24 +418,15 @@ function GlobalMockupSearchShellClient({
             // result views: compact the phone bottom composer so results keep
             // maximum screen space. Mode homes keep the chip-row layout.
             mobileBottomSearchVariant={useCompactBottomSearch ? "compact" : "default"}
-<<<<<<< HEAD
-            desktopSearchPlacement={
-              (desktopSearchPlacement === "hero" || isFormsOnlyShell) && isStandaloneModeHome ? "hero" : "default"
-            }
-=======
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
->>>>>>> origin/main
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
             heroComposerFromTablet={isStandaloneModeHome}
             // Phone-only: the document scrolls here and the header is sticky,
             // so a translate overlay hides it with zero layout shift.
             hideOnScroll={{ strategy: "overlay" }}
-<<<<<<< HEAD
-=======
             onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
             queryInputAutoFocus={searchParams.get("focus") === "1"}
->>>>>>> origin/main
           />
         </div>
 
@@ -491,35 +434,6 @@ function GlobalMockupSearchShellClient({
           id="main-content"
           tabIndex={-1}
           className={cn(
-<<<<<<< HEAD
-            // Phone: flex column fills the viewport under the header; composer
-            // clearance comes from --mobile-composer-reserve on the shell.
-            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:pb-[var(--mobile-composer-reserve)] sm:min-h-[calc(100dvh-4rem)]",
-            !shouldShowSearchComposer
-              ? "sm:pb-8"
-              : searchMode === "answer"
-                ? "sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
-                : useCompactBottomSearch
-                  ? "sm:pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-8"
-                  : "sm:pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
-          )}
-        >
-        <ClientHydrationBoundary
-          fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
-        >
-        <SearchCommandProvider
-          value={{
-            query,
-            modeId: searchMode,
-            commandScopes,
-            onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
-            onClearScopes: () => setCommandScopes([]),
-          }}
-        >
-          {shouldRenderFormsSearchResults ? <FormsSearchResultsPage query={requestedQuery} /> : children}
-        </SearchCommandProvider>
-        </ClientHydrationBoundary>
-=======
             // Phone: fill the space under the header exactly (the header is
             // taller than the 4rem the calc assumed, which forced a phantom
             // scrollbar on every standalone page). sm+ keeps the original calc.
@@ -550,7 +464,6 @@ function GlobalMockupSearchShellClient({
               {children}
             </SearchCommandProvider>
           </ClientHydrationBoundary>
->>>>>>> origin/main
         </div>
       </div>
 

@@ -600,22 +600,11 @@ function MobileEvidencePanel({ selected }: { selected: string }) {
 function DesktopEvidenceModal() {
   return (
     <div className="relative overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-6">
-<<<<<<< HEAD
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
-      />
-      <div
-        role="dialog"
-        aria-label="Evidence"
-        className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)]"
-=======
       <div aria-hidden="true" className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
       <div
         role="dialog"
         aria-label="Evidence"
         className="relative mx-auto w-full max-w-3xl overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)] motion-safe:animate-dialog-rise motion-reduce:animate-none"
->>>>>>> origin/main
       >
         <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-3 sm:p-4">
           <div className="min-w-0">
@@ -737,11 +726,7 @@ export default function AnswerEvidencePopupsMockupPage() {
 
         <Section
           title="4. Desktop evidence modal"
-<<<<<<< HEAD
-          body="Desktop uses the same centered sheet modal as mobile: dimmed backdrop, no answer reflow, and a wider evidence panel."
-=======
           body="Centered sheet modal with a stronger backdrop, wider evidence panel, and a refined rise-in entrance on desktop."
->>>>>>> origin/main
         >
           <DesktopEvidenceModal />
         </Section>

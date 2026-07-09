@@ -28,11 +28,7 @@ describe("document-derived text must route through a formatter", () => {
   const visualEvidence = componentSource("clinical-dashboard/visual-evidence.tsx");
   const documentResults = componentSource("clinical-dashboard/document-results.tsx");
   const answerResultSurface = componentSource("clinical-dashboard/answer-result-surface.tsx");
-<<<<<<< HEAD
-  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}\n${outputPanel}\n${visualEvidence}\n${documentResults}\n${answerResultSurface}`;
-=======
   const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}\n${evidenceMapModel}\n${outputPanel}\n${visualEvidence}\n${documentResults}\n${answerResultSurface}`;
->>>>>>> origin/main
 
   it("renders exact quotes through the verbatim cleaner, never raw", () => {
     // Allow `${quote.quote}` inside template literals (React keys, clipboard text);

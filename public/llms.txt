@@ -5,11 +5,7 @@ Purpose: Clinical Guide is a local clinical knowledge-base interface for searchi
 Agent / codebase orientation: docs/codebase-index.md (module map, APIs, Supabase, worker). Route index: docs/site-map.md.
 
 Key routes:
-<<<<<<< HEAD
-- / opens the main dashboard. Use ?mode=answer, ?mode=documents, ?mode=tools, ?mode=favourites, ?mode=differentials, or ?mode=prescribing to choose the workspace.
-=======
 - / opens the main dashboard. Use ?mode=answer, ?mode=documents, ?mode=tools, ?mode=differentials, or ?mode=prescribing to choose the workspace. ?mode=favourites redirects to /favourites.
->>>>>>> origin/main
 - /documents/search opens the documents search command centre after submitting a documents-mode query.
 - /documents/:id opens an indexed source document.
 - /services opens source-backed service records.

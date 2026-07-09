@@ -1,13 +1,10 @@
 import { createHash } from "node:crypto";
 import type { createAdminClient } from "@/lib/supabase/admin";
-<<<<<<< HEAD
-=======
 import {
   consumeSubjectApiRateLimit,
   allowRateLimitInMemoryFallbackOnUnavailable,
   type ApiRateLimitResult,
 } from "@/lib/api-rate-limit";
->>>>>>> origin/main
 import { getOptionalAuthenticatedUser } from "@/lib/supabase/auth";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -33,8 +30,6 @@ export function anonymousApiSubjectKey(request: Request) {
   return `anon:${createHash("sha256").update(source).digest("hex").slice(0, 32)}`;
 }
 
-<<<<<<< HEAD
-=======
 export function hasSessionCookieSignal(request: Request) {
   const cookieHeader = request.headers.get("cookie") ?? "";
   return cookieHeader.includes("sb-");
@@ -67,7 +62,6 @@ export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, owne
   return query.is("owner_id", null);
 }
 
->>>>>>> origin/main
 export async function publicAccessContext(request: Request, supabase: AdminClient) {
   const user = await getOptionalAuthenticatedUser(request, supabase);
   if (user) {
@@ -84,8 +78,6 @@ export async function publicAccessContext(request: Request, supabase: AdminClien
     rateLimitSubject: { kind: "anonymous", subjectKey: anonymousApiSubjectKey(request) } satisfies RateLimitSubject,
   };
 }
-<<<<<<< HEAD
-=======
 
 export async function enforceDocumentReadRateLimit(
   request: Request,
@@ -100,4 +92,3 @@ export async function enforceDocumentReadRateLimit(
   });
   return { access, rateLimit };
 }
->>>>>>> origin/main

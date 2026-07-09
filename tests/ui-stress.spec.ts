@@ -279,13 +279,9 @@ test.describe("Clinical KB long-content stress coverage", () => {
 
       if (viewport.name === "mobile") {
         const dailyActions = await openDailyActions(page);
-<<<<<<< HEAD
-        await dailyActions.getByRole("menuitem", { name: /Upload(?: PDF)?/ }).click({ force: true });
-=======
         // Wait for the sliding bottom sheet to settle before clicking (no force) so
         // the tap lands on Upload rather than an adjacent row mid-animation.
         await dailyActions.getByRole("menuitem", { name: /Upload(?: PDF)?/ }).click();
->>>>>>> origin/main
         await expect(dailyActions).toBeHidden();
         const uploadSurface = page.getByRole("dialog", { name: "Upload and indexing" });
         await expect(uploadSurface).toBeVisible();
@@ -324,17 +320,8 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(page.getByLabel("Source-backed answer")).toBeVisible();
       await expect(page.getByTestId("plain-answer-response")).toBeVisible();
 
-<<<<<<< HEAD
-      const scopeTrigger = page.locator('[data-testid="scope-trigger"]:visible');
-      await page.keyboard.press("Escape");
-      await scopeTrigger.click();
-      const scopeContainer = page.getByTestId("scope-command-popover");
-      await expect(scopeContainer).toBeVisible();
-      await expect(scopeContainer).toBeVisible();
-=======
       await openScopeControl(page);
       const scopeContainer = page.getByTestId("scope-command-popover");
->>>>>>> origin/main
       await expect(
         scopeContainer.getByText(/Type to filter 24 (loaded )?documents\. Selected documents stay pinned here\./),
       ).toBeVisible();

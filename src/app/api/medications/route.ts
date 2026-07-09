@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-<<<<<<< HEAD
-import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
-import { defaultMedicationRecords } from "@/lib/medication-seed";
-import { medicationSourceStatus, medicationValidationStatus } from "@/lib/medication-records";
-=======
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
   consumeSubjectApiRateLimit,
@@ -21,28 +15,21 @@ import {
   rowGovernance,
   rowToMedicationRecord,
 } from "@/lib/medication-records";
->>>>>>> origin/main
 import {
   medicationToSearchResult,
   rankMedicationRecords,
   type MedicationRecord,
   type MedicationSearchMatch,
 } from "@/lib/medications";
-<<<<<<< HEAD
-=======
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
->>>>>>> origin/main
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
 
-<<<<<<< HEAD
-=======
 const MEDICATION_MAX_RECORDS = 500;
 
->>>>>>> origin/main
 const medicationListQuerySchema = z.object({
   q: z
     .string()
@@ -54,13 +41,10 @@ const medicationListQuerySchema = z.object({
   fields: z.enum(["index"]).optional(),
 });
 
-<<<<<<< HEAD
-=======
 // `fields=index` strips the heavy per-record content (stats/sections/quick are
 // ~99% of the ~3.4 MB catalog) for callers that only need identity-level
 // ranking, e.g. the answer surface's cross-mode links. The records keep the
 // full MedicationRecord shape so rankers and badge helpers work unchanged.
->>>>>>> origin/main
 function toIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
   return records.map((record) => ({
     slug: record.slug,
@@ -114,14 +98,6 @@ export async function GET(request: Request) {
   try {
     const { q, limit, fields } = parseRequestQuery(request, medicationListQuerySchema, "Invalid medication query.");
 
-<<<<<<< HEAD
-    return medicationResponse({
-      ...publicMedicationPayload(q, limit, fields),
-      demoMode: isDemoMode() || isLocalNoAuthMode(),
-      publicAccess: true,
-    });
-  } catch (error) {
-=======
     if (isDemoMode() || isLocalNoAuthMode()) {
       return medicationResponse({
         ...publicMedicationPayload(q, limit, fields),
@@ -171,7 +147,6 @@ export async function GET(request: Request) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
     }
->>>>>>> origin/main
     return jsonError(error);
   }
 }

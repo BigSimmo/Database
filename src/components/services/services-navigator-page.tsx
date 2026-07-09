@@ -23,10 +23,6 @@ import {
 import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
-<<<<<<< HEAD
-import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
-import { SearchResultsEmptyState, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
-=======
 import { ModeHomeStatusNotice } from "@/components/mode-home-template";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
@@ -34,7 +30,6 @@ import {
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
->>>>>>> origin/main
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
@@ -321,11 +316,7 @@ function RightRail({
 
   return (
     <div className="space-y-4">
-<<<<<<< HEAD
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-=======
       <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
->>>>>>> origin/main
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
           <button
@@ -485,11 +476,7 @@ export function ServicesNavigatorPage() {
   return (
     <SearchResultsLayout
       testId="services-navigator"
-<<<<<<< HEAD
-      canvasClassName="bg-[#f8fbfd] text-[#061740]"
-=======
       canvasClassName="bg-[color:var(--background)] text-[color:var(--text)]"
->>>>>>> origin/main
       resultsLabel="Referral services"
       header={
         <>
@@ -499,99 +486,6 @@ export function ServicesNavigatorPage() {
           />
           <Stepper />
           <div className="xl:hidden">
-<<<<<<< HEAD
-            <SearchResultsHeaderBand modeId="services" query={query} matchCount={scopedMatches.length} />
-          </div>
-          <div className="hidden xl:block">
-            <SearchResultsHeaderBand modeId="services" query={query} matchCount={scopedMatches.length} />
-          </div>
-        </>
-      }
-      sidebar={
-        <RightRail
-          matches={scopedMatches}
-          selected={selected}
-          onClearSelected={() => setSelectedSlugs([])}
-          onToggleSelected={toggleSelected}
-        />
-      }
-    >
-      {query.trim() && scopedMatches.length === 0 ? (
-        <SearchResultsEmptyState
-          modeId="services"
-          query={query}
-          onClearScopes={command?.onClearScopes}
-          onTryExample={(example) => applyServiceQuery(example)}
-        />
-      ) : (
-        <>
-          <div className="overflow-hidden rounded-lg border border-[#d7e7f0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
-            <div className="flex min-w-0 items-start justify-between gap-2 bg-[linear-gradient(90deg,#f3fbfb_0%,#ffffff_62%)] p-3 sm:gap-3 sm:p-4">
-              <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 sm:grid-cols-[3.25rem_minmax(0,1fr)]">
-                <span className="hidden h-12 w-12 place-items-center rounded-lg border border-[#b8dedb] bg-[#e6f6f4] text-[#007a78] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] sm:grid">
-                  <span className="text-lg font-extrabold leading-none sm:text-xl">{scopedMatches.length}</span>
-                </span>
-                <div className="min-w-0">
-                  <p className="hidden text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#007a78] sm:block">
-                    Referral matches
-                  </p>
-                  <h1 className="text-[1.45rem] font-extrabold leading-tight tracking-tight text-[#071844] sm:mt-0.5 sm:text-3xl">
-                    {scopedMatches.length} referral {scopedMatches.length === 1 ? "match" : "matches"}
-                  </h1>
-                  <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-slate-600 max-sm:max-w-[14rem]">
-                    <span className="sm:hidden">Best fit for crisis, ATSI-specific phone referral.</span>
-                    <span className="hidden sm:inline">
-                      Ranked for crisis support, ATSI-specific access, and phone referral.
-                    </span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  className="inline-flex min-h-10 w-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-2 text-sm font-bold text-[#061740] shadow-sm transition hover:border-[#b8dedb] hover:bg-[#f8fcfc] sm:min-h-11 sm:w-auto sm:px-4"
-                  type="button"
-                  aria-label="Open service filters"
-                >
-                  <SlidersHorizontal className="h-4 w-4" aria-hidden />
-                  <span className="hidden sm:inline">Filters</span>
-                </button>
-                <button
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-[#061740] shadow-sm transition hover:border-[#b8dedb] hover:bg-[#f8fcfc] sm:min-h-11 sm:px-4"
-                  type="button"
-                >
-                  Sort <ChevronDown className="h-4 w-4" aria-hidden />
-                </button>
-              </div>
-            </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-slate-100 px-3 py-2 sm:px-4 sm:py-2.5">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 overflow-hidden">
-                {["Best fit", "Crisis", "ATSI-specific", "Phone referral", "Free", "WA"].map((chip, index) => (
-                  <button
-                    key={chip}
-                    type="button"
-                    onClick={() => applyServiceQuery(index === 0 ? defaultQuery : chip)}
-                    className={cn(
-                      "min-h-8 rounded-full border px-3 text-xs font-bold transition hover:-translate-y-px hover:shadow-sm",
-                      index > 2 ? "max-sm:hidden" : "",
-                      index === 0
-                        ? "border-[#007a78] bg-[#007a78] text-white shadow-[0_5px_12px_rgba(0,122,120,0.16)]"
-                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-                    )}
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setLocalQuery({ urlQuery, value: "" })}
-                className="min-h-8 shrink-0 rounded-full px-2 text-xs font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-700 max-sm:hidden"
-              >
-                Clear all
-              </button>
-            </div>
-          </div>
-=======
             <SearchResultsHeaderBand
               modeId="services"
               query={query}
@@ -719,7 +613,6 @@ export function ServicesNavigatorPage() {
               </button>
             </div>
           </div>
->>>>>>> origin/main
           <div data-testid="service-search-results" className="grid gap-3">
             {scopedMatches.map((service, index) => (
               <ServiceCard

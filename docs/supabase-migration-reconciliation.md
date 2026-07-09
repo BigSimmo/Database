@@ -1,10 +1,6 @@
 # Supabase Migration Reconciliation
 
-<<<<<<< HEAD
-Last reviewed: 2026-07-04
-=======
 Last reviewed: 2026-07-07
->>>>>>> origin/main
 
 Target project: Clinical KB Database (`sjrfecxgysukkwxsowpy`)
 
@@ -15,11 +11,6 @@ Target project: Clinical KB Database (`sjrfecxgysukkwxsowpy`)
 - Use `supabase migration repair --linked --status applied <version>` only when live database evidence proves the migration effect already exists.
 - Leave other local-only migrations unrepaired until their effects are verified or deliberately applied.
 - Run `npx supabase migration list --linked` at apply/reconcile time; do not rely on a frozen “aligned through” snapshot in this doc alone.
-<<<<<<< HEAD
-
-## Verified Applied (through June 2026)
-
-=======
 - **History presence is not effect presence.** `20260703030000` is recorded as applied on live while its index changes are absent. After every apply, verify object state with `npm run check:drift` (and `search_schema_health()`), not the history table.
 - Any PR that changes `supabase/schema.sql` regenerates `supabase/drift-manifest.json` in the same PR (`npm run drift:manifest`, Docker required); `tests/drift-detection.test.ts` fails otherwise. This doubles as a from-scratch replay proof of schema.sql.
 
@@ -79,7 +70,6 @@ eval:retrieval:quality` per the standing merge gate.
 
 ## Verified Applied (through June 2026)
 
->>>>>>> origin/main
 These previously local-only versions were verified in the live project history before the July 2026 reconciliation wave:
 
 - `20260625033425` - `document_strict_gate_status` exists, `repair_strict_enrichment_gate_batch(integer)` exists, service role can read/execute, and anon cannot read/execute.
@@ -93,9 +83,6 @@ These previously local-only versions were verified in the live project history b
 
 ## Current Status (July 2026)
 
-<<<<<<< HEAD
-The repo now includes additional July 2026 migrations beyond the June checkpoint above, including:
-=======
 Migration `20260705230000_reconcile_live_database_drift.sql` codifies live-only drift discovered 2026-07-05:
 
 - `indexing_v3_agent_jobs` table and claim/update RPCs (recorded as applied in history but absent on live at inspection time)
@@ -105,7 +92,6 @@ Migration `20260705230000_reconcile_live_database_drift.sql` codifies live-only 
 `supabase/schema.sql` has been reconciled to match. Apply the migration through the normal linked workflow when ready; do not use raw dashboard SQL for retrieval RPCs.
 
 The repo also includes additional July 2026 migrations beyond the June checkpoint above, including:
->>>>>>> origin/main
 
 - Retrieval RPC codification and hybrid execution smoke (`20260701140631`, related July 1 fixes)
 - Legacy vector index drops and `search_schema_health()` reconciliation (`20260702014803`, `20260702021604`)
@@ -115,8 +101,6 @@ The repo also includes additional July 2026 migrations beyond the June checkpoin
 
 Live-only drift, duplicate migration-version churn, and outstanding follow-up debts are tracked in the **Retrieval RPC drift & indexing hygiene** section of [`docs/process-hardening.md`](process-hardening.md). Treat that section as the operational supplement to this reconciliation doc.
 
-<<<<<<< HEAD
-=======
 **2026-07-07 full-inventory audit:** the standing drift check
 ([database-drift-detection.md](database-drift-detection.md)) measured live
 against both repo lineages. Pending on live as of the audit: `20260705210000`
@@ -128,14 +112,11 @@ its statements under a new version, with approval. The complete reconciliation
 backlog (index estate, grant posture, remaining live-only functions) lives in
 the drift doc.
 
->>>>>>> origin/main
 Before applying pending migrations to live:
 
 1. Run `npx supabase migration list --linked` and confirm local vs remote alignment.
 2. Run `npm run supabase:recovery-status` and confirm Supabase is healthy.
 3. Apply only through the normal migration workflow; update `supabase/schema.sql` when the migration changes canonical schema shape.
-<<<<<<< HEAD
-=======
 
 ## Supabase Preview / fresh replay rules
 
@@ -146,7 +127,6 @@ GitHub Supabase Preview replays the full migration chain on branch databases. Ke
 - Duplicate migration stems that already ran on live should be neutralized as documented no-ops rather than re-appplied.
 
 Regression tests for these guards live in `tests/supabase-schema.test.ts` under "Supabase Preview replay guards".
->>>>>>> origin/main
 
 ## Verification Commands
 

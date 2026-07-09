@@ -1,11 +1,5 @@
 import { NextResponse } from "next/server";
 
-<<<<<<< HEAD
-import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
-import { getMedicationRecord } from "@/lib/medication-snapshot";
-import { deriveGovernanceFromSections, normalizeMedicationSlug } from "@/lib/medication-records";
-=======
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
   consumeSubjectApiRateLimit,
@@ -25,7 +19,6 @@ import {
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
->>>>>>> origin/main
 
 export const runtime = "nodejs";
 
@@ -53,21 +46,6 @@ function publicMedicationDetailPayload(slug: string) {
   };
 }
 
-<<<<<<< HEAD
-export async function GET(_request: Request, context: { params: Promise<{ slug: string }> }) {
-  try {
-    const { slug } = await context.params;
-    const normalizedSlug = normalizeMedicationSlug(slug);
-    const payload = publicMedicationDetailPayload(normalizedSlug);
-    if (!payload) return notFoundResponse(normalizedSlug);
-
-    return medicationResponse({
-      ...payload,
-      demoMode: isDemoMode() || isLocalNoAuthMode(),
-      publicAccess: true,
-    });
-  } catch (error) {
-=======
 export async function GET(request: Request, context: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await context.params;
@@ -150,7 +128,6 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
     }
->>>>>>> origin/main
     return jsonError(error);
   }
 }

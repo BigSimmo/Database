@@ -22,9 +22,6 @@ import {
 } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
-<<<<<<< HEAD
-import { cn, sidebarItem, statusDotReady, textMuted } from "@/components/ui-primitives";
-=======
 import {
   cn,
   fieldControlWithIcon,
@@ -33,7 +30,6 @@ import {
   statusDotReady,
   textMuted,
 } from "@/components/ui-primitives";
->>>>>>> origin/main
 
 function useClientMounted() {
   return useSyncExternalStore(
@@ -172,22 +168,14 @@ export function ClinicalSidebarContent({
           pinned. */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto">
         <label className="relative block shrink-0">
-<<<<<<< HEAD
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
-=======
           <Search className={fieldIcon} />
->>>>>>> origin/main
           <input
             type="search"
             placeholder="Search chats"
             value={chatFilter}
             onChange={(event) => setChatFilter(event.target.value)}
             aria-label="Search recent chats"
-<<<<<<< HEAD
-            className="clinical-sidebar-search-input h-11 w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-9 pr-3 text-sm font-medium text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
-=======
             className={cn(fieldControlWithIcon, "font-medium")}
->>>>>>> origin/main
           />
         </label>
 
@@ -287,15 +275,11 @@ export function ClinicalSidebarContent({
           className={sidebarItem}
           aria-label={themeUiReady ? themeToggleLabel : "Toggle theme"}
         >
-<<<<<<< HEAD
-          {themeUiReady ? <ThemeIcon className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" aria-hidden />}
-=======
           {themeUiReady ? (
             <ThemeIcon className="h-4 w-4 shrink-0" />
           ) : (
             <Moon className="h-4 w-4 shrink-0" aria-hidden />
           )}
->>>>>>> origin/main
           <span>{themeUiReady ? nextThemeLabel : "Theme"}</span>
         </button>
         <button

@@ -382,11 +382,7 @@ function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
           key={`${warning}:${index}`}
           className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2"
         >
-<<<<<<< HEAD
-          <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-[10px] font-bold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
-=======
           <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-3xs font-bold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
->>>>>>> origin/main
             {index + 1}
           </span>
           <p className="line-clamp-2 text-xs leading-5 text-[color:var(--text)]">{warning}</p>

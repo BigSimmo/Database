@@ -4,13 +4,7 @@ import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/
 
 describe("buildAnswerFollowUpQuery", () => {
   it("returns the follow-up unchanged when there is no prior question", () => {
-<<<<<<< HEAD
-    expect(buildAnswerFollowUpQuery(undefined, "what about renal impairment?")).toBe(
-      "what about renal impairment?",
-    );
-=======
     expect(buildAnswerFollowUpQuery(undefined, "what about renal impairment?")).toBe("what about renal impairment?");
->>>>>>> origin/main
     expect(buildAnswerFollowUpQuery("", "what about renal impairment?")).toBe("what about renal impairment?");
   });
 
@@ -39,13 +33,7 @@ describe("buildAnswerFollowUpQuery", () => {
   });
 
   it("does not wrap a short question on a clearly new topic without continuation cues", () => {
-<<<<<<< HEAD
-    expect(buildAnswerFollowUpQuery("lithium dosing", "clozapine baseline bloods")).toBe(
-      "clozapine baseline bloods",
-    );
-=======
     expect(buildAnswerFollowUpQuery("lithium dosing", "clozapine baseline bloods")).toBe("clozapine baseline bloods");
->>>>>>> origin/main
   });
 
   it("keeps the wrapped query within the 2000-char API limit", () => {
@@ -122,18 +110,10 @@ describe("buildAnswerFollowUpSuggestions", () => {
       },
     } satisfies import("@/lib/types").RagAnswer;
 
-<<<<<<< HEAD
-    const suggestions = buildAnswerFollowUpSuggestions(
-      "what about renal impairment?",
-      answerWithoutMedicationHint,
-      ["lithium dosing", "what about renal impairment?"],
-    );
-=======
     const suggestions = buildAnswerFollowUpSuggestions("what about renal impairment?", answerWithoutMedicationHint, [
       "lithium dosing",
       "what about renal impairment?",
     ]);
->>>>>>> origin/main
 
     expect(suggestions.length).toBeGreaterThan(0);
     expect(suggestions.every((item) => !/for what about renal impairment/i.test(item))).toBe(true);

@@ -17,15 +17,10 @@ import { useMemo, useState } from "react";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
-<<<<<<< HEAD
-import { medicationMatchesCommandScopes } from "@/lib/search-command-surface";
-import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
-=======
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
 import { medicationMatchesCommandScopes } from "@/lib/search-command-surface";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { cn } from "@/components/ui-primitives";
->>>>>>> origin/main
 
 type MedicationPrescribingWorkspaceProps = {
   query: string;
@@ -93,229 +88,6 @@ const medicationPrompts = [
   { label: "sertraline max dose", icon: ShieldCheck },
 ];
 
-<<<<<<< HEAD
-const medicationIdentityBadges: ClinicalBadgeItem[] = [
-  { label: "333 mg EC tablet", tone: "neutral" },
-  { label: "PBS streamlined", tone: "success" },
-  { label: "Reviewed", tone: "success", icon: BadgeCheck },
-];
-
-const accessBadges: ClinicalBadgeItem[] = [
-  { label: "Campral", tone: "neutral", icon: Pill },
-  { label: "PBS streamlined", tone: "success" },
-  { label: "Item 8357W", tone: "neutral" },
-];
-
-const medicationResults: MedicationResult[] = [
-  {
-    id: "acamprosate",
-    name: "Acamprosate",
-    indication: "Alcohol abstinence maintenance",
-    match: "Exact renal dose match",
-    dose: "666 mg TID",
-    ceiling: "1,998 mg/day",
-    action: "Contraindicated in renal insufficiency (serum creatinine >120 micromol/L).",
-    tone: "teal",
-    href: "/medications/acamprosate",
-  },
-  {
-    id: "naltrexone",
-    name: "Naltrexone",
-    indication: "Alcohol use disorder treatment",
-    match: "Good clinical fit",
-    dose: "50 mg daily",
-    ceiling: "50 mg/day",
-    action: "Check opioid use; risk of precipitated withdrawal.",
-    tone: "blue",
-  },
-  {
-    id: "disulfiram",
-    name: "Disulfiram",
-    indication: "Alcohol use disorder treatment",
-    match: "Caution fit",
-    dose: "250 mg daily",
-    ceiling: "500 mg/day",
-    action: "Counsel on alcohol reaction; check liver function.",
-    tone: "slate",
-  },
-  {
-    id: "baclofen",
-    name: "Baclofen",
-    indication: "Alcohol use disorder treatment (off-label)",
-    match: "Lower clinical fit",
-    dose: "5 mg TID",
-    ceiling: "80 mg/day",
-    action: "Specialist use; reduce dose in renal impairment; monitor sedation.",
-    tone: "slate",
-  },
-];
-
-const detailRows: DetailRow[] = [
-  {
-    label: "Prescribing answer",
-    icon: ClipboardList,
-    summary: "Maintenance of alcohol abstinence after withdrawal, with renal function checked and support in place.",
-    body: [
-      "Use for maintenance of alcohol abstinence once withdrawal is complete and the patient is abstinent.",
-      "Use alongside psychosocial support and relapse prevention. Not for acute alcohol withdrawal.",
-    ],
-    badges: [
-      { label: "Abstinence maintenance", tone: "clinical", icon: CheckCircle2 },
-      { label: "After withdrawal", tone: "neutral" },
-      { label: "Psychosocial support", tone: "neutral" },
-    ],
-  },
-  {
-    label: "Dosing",
-    icon: CalendarDays,
-    summary: "666 mg TID with meals. Dose ceiling 1,998 mg/day.",
-    columnStyle: "ledger",
-    columns: [
-      { label: "Usual dose", value: "666 mg (2 x 333 mg) TID with meals" },
-      { label: "Dose ceiling", value: "1,998 mg/day", meta: "MAX", metaTone: "neutral" },
-      { label: "Under 60 kg", value: "2 tablets morning, 1 midday, 1 night" },
-      { label: "Treatment duration", value: "Around 1 year" },
-    ],
-    badges: [
-      { label: "666 mg TID", tone: "clinical", icon: CalendarDays },
-      { label: "Max 1,998 mg/day", tone: "neutral", icon: Gauge },
-      { label: "Reduce <60 kg", tone: "warning", icon: UserRound },
-      { label: "Around 1 year", tone: "neutral" },
-    ],
-  },
-  {
-    label: "Administration",
-    icon: Pill,
-    summary: "Take with food. Swallow enteric-coated tablets whole.",
-    body: ["Take with food. Swallow EC tablets whole with water.", "Do not crush or chew."],
-    badges: [
-      { label: "Take with food", tone: "clinical" },
-      { label: "Swallow whole", tone: "clinical" },
-      { label: "Do not crush", tone: "warning" },
-    ],
-  },
-  {
-    label: "Do not use",
-    icon: AlertTriangle,
-    tone: "danger",
-    summary: "Avoid if serum creatinine >120 micromol/L, Child-Pugh C, pregnancy, or breastfeeding.",
-    body: [
-      "Known hypersensitivity to acamprosate or excipients.",
-      "Renal insufficiency: serum creatinine >120 micromol/L (contraindicated)",
-      "Severe hepatic failure (Child-Pugh C) (contraindicated)",
-      "Pregnancy (DO NOT USE)",
-      "Breastfeeding (DO NOT USE)",
-    ],
-    badges: [
-      { label: "Cr >120 avoid", tone: "danger", icon: Droplet },
-      { label: "Child-Pugh C", tone: "danger", icon: ShieldCheck },
-      { label: "Pregnancy", tone: "danger" },
-      { label: "Breastfeeding", tone: "danger" },
-    ],
-  },
-  {
-    label: "Populations",
-    icon: UserRound,
-    summary: "Avoid under 18 years and over 65 years because safety and efficacy are not established.",
-    body: "Avoid use in children/adolescents under 18 years and adults over 65 years: safety and efficacy are not established.",
-    badges: [
-      { label: "Avoid <18 years", tone: "warning", icon: UserRound },
-      { label: "Avoid >65 years", tone: "warning" },
-    ],
-  },
-  {
-    label: "Key risks",
-    icon: ShieldCheck,
-    summary: "Adverse effects grouped by system; separate from contraindications and do-not-use criteria.",
-    columnStyle: "systems",
-    columns: [
-      {
-        label: "Gastrointestinal",
-        value: "Diarrhoea; nausea, vomiting, abdominal pain, flatulence",
-        meta: "Very common / common",
-        metaTone: "warning",
-      },
-      { label: "Skin", value: "Rash and pruritus", meta: "Common", metaTone: "neutral" },
-      {
-        label: "Sexual function",
-        value: "Reduced libido, impotence or frigidity",
-        meta: "Common",
-        metaTone: "neutral",
-      },
-      {
-        label: "Neuropsychiatric",
-        value: "Mood change, depression, suicidal ideation: monitor clinically",
-        meta: "Monitor",
-        metaTone: "clinical",
-      },
-    ],
-    badges: [
-      { label: "Very common GI", tone: "warning" },
-      { label: "Mood monitor", tone: "clinical" },
-      { label: "Not contraindications", tone: "neutral" },
-    ],
-  },
-  {
-    label: "Pearls / PK",
-    icon: FlaskConical,
-    compact: true,
-    summary: "Renally excreted unchanged; half-life 13-28.4 hours.",
-    body: [
-      "Mechanism is not fully established.",
-      "Not metabolised; excreted unchanged in urine.",
-      "Apparent half-life 13-28.4 h; minimal plasma protein binding.",
-    ],
-    badges: [
-      { label: "Renal excretion", tone: "neutral" },
-      { label: "Half-life 13-28.4 h", tone: "neutral" },
-      { label: "Low protein binding", tone: "neutral" },
-    ],
-  },
-];
-
-const sideSections: SideSection[] = [
-  {
-    title: "Checks and monitoring",
-    icon: Activity,
-    items: [
-      { label: "Renal function", body: "Check baseline and periodically.", icon: Droplet },
-      { label: "Hepatic status", body: "Avoid in severe hepatic failure; assess if suspected.", icon: ShieldCheck },
-      { label: "Mood / suicidality", body: "Monitor, especially early in treatment.", icon: Brain },
-      { label: "Adherence", body: "Reinforce regular dosing and psychosocial support.", icon: ClipboardCheck },
-    ],
-  },
-  {
-    title: "Interactions",
-    icon: ArrowLeftRight,
-    items: [
-      { label: "Diazepam, disulfiram, imipramine", body: "No major PK interactions." },
-      { label: "Naltrexone", body: "Increases acamprosate exposure; no dose adjustment required." },
-      { label: "Other psychotropics", body: "Evidence is limited; monitor clinically." },
-    ],
-  },
-];
-
-type MedicationSectionId = "summary" | "dosing" | "safety" | "more";
-type ClinicalDetailView = "core" | "full";
-
-const medicationSummaryTabs: Array<{ label: string; target: MedicationSectionId }> = [
-  { label: "Summary", target: "summary" },
-  { label: "Dosing", target: "dosing" },
-  { label: "Safety", target: "safety" },
-  { label: "More", target: "more" },
-];
-
-const coreDetailLabels = new Set(["Prescribing answer", "Dosing", "Administration", "Do not use"]);
-
-function medicationSectionIdForLabel(label: string): MedicationSectionId {
-  if (label === "Dosing") return "dosing";
-  if (label === "Do not use" || label === "Key risks") return "safety";
-  if (label === "Populations" || label === "Pearls / PK") return "more";
-  return "summary";
-}
-
-=======
->>>>>>> origin/main
 function IconTile({
   icon: Icon,
   tone = "teal",
@@ -508,15 +280,6 @@ function MedicationResults({
   "query" | "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning"
 >) {
   const command = useSearchCommand();
-<<<<<<< HEAD
-  const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
-  const visibleMedicationResults = useMemo(() => {
-    const filtered = medicationResults.filter((result) => resultMatchesFilter(result, activeFilter));
-    const scopes = command?.commandScopes ?? [];
-    if (!scopes.length) return filtered;
-    return filtered.filter((result) => medicationMatchesCommandScopes(result, scopes));
-  }, [activeFilter, command?.commandScopes]);
-=======
   const catalog = useMedicationCatalog(query);
   const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
   const visibleMedicationResults = useMemo(() => {
@@ -538,7 +301,6 @@ function MedicationResults({
     if (!scopes.length) return filtered;
     return filtered.filter((result) => medicationMatchesCommandScopes(result, scopes));
   }, [activeFilter, catalog.data, command?.commandScopes]);
->>>>>>> origin/main
   const resultCount = visibleMedicationResults.length;
 
   return (
@@ -560,53 +322,6 @@ function MedicationResults({
 
       <FilterStrip activeFilter={activeFilter} onFilterChange={setActiveFilter} />
 
-<<<<<<< HEAD
-      <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] md:block">
-        <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] px-4 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
-          <span>Medication</span>
-          <span>Dose</span>
-          <span>Ceiling</span>
-          <span>Prescribing action</span>
-          <span className="sr-only">Open</span>
-        </div>
-        <div className="divide-y divide-[color:var(--border)]">
-          {visibleMedicationResults.map((result) => {
-            const selected = result.id === "acamprosate";
-            const rowClassName = cn(
-              "grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
-              selected
-                ? "bg-[color:var(--clinical-accent-soft)]/35 ring-1 ring-inset ring-[color:var(--clinical-accent)]/35"
-                : result.href
-                  ? "hover:bg-[color:var(--surface-subtle)]"
-                  : "cursor-default opacity-80",
-            );
-            const rowContent = (
-              <>
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <ResultToneIcon result={result} />
-                  <span className="min-w-0">
-                    <span className="block break-words text-base-minus font-semibold text-[color:var(--text-heading)]">
-                      {result.name}
-                    </span>
-                    <span className="block break-words text-xs font-medium text-[color:var(--text-muted)]">
-                      {result.indication}
-                    </span>
-                    <span className="mt-1 flex flex-wrap gap-1">
-                      <ResultMatchBadge result={result} />
-                    </span>
-                  </span>
-                </span>
-                <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{result.dose}</span>
-                <DoseCeiling value={result.ceiling} />
-                <span className="break-words text-sm-minus font-medium leading-[1.4] text-[color:var(--text-heading)]">
-                  {result.action}
-                </span>
-                {result.href ? (
-                  <ChevronRight className="h-4 w-4 justify-self-end text-[color:var(--text-soft)]" aria-hidden="true" />
-                ) : (
-                  <span className="justify-self-end text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                    Soon
-=======
       {catalog.loading ? (
         <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogueâ€¦</p>
       ) : catalog.error ? (
@@ -655,7 +370,6 @@ function MedicationResults({
                   <DoseCeiling value={result.ceiling} />
                   <span className="break-words text-sm-minus font-medium leading-[1.4] text-[color:var(--text-heading)]">
                     {result.action}
->>>>>>> origin/main
                   </span>
                   {result.href ? (
                     <ChevronRight

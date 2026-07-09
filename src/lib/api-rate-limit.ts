@@ -49,11 +49,8 @@ const apiRateLimitDefaults = {
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
   answer: { limit: 6, windowSeconds: 60 },
   search: { limit: 60, windowSeconds: 60 },
-<<<<<<< HEAD
-=======
   document_read: { limit: 45, windowSeconds: 60 },
   document_upload: { limit: 3, windowSeconds: 60 },
->>>>>>> origin/main
 };
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
@@ -160,14 +157,6 @@ export async function consumeSubjectApiRateLimit(args: {
   }
 
   const defaults = anonymousApiRateLimitDefaults[args.bucket] ?? apiRateLimitDefaults[args.bucket];
-<<<<<<< HEAD
-  return consumeInMemoryApiRateLimit({
-    ownerId: args.subject.subjectKey,
-    bucket: args.bucket,
-    limit: args.limit ?? defaults.limit,
-    windowSeconds: args.windowSeconds ?? defaults.windowSeconds,
-  });
-=======
   const limit = args.limit ?? defaults.limit;
   const windowSeconds = args.windowSeconds ?? defaults.windowSeconds;
   const { data, error } = await args.supabase.rpc("consume_api_subject_rate_limit", {
@@ -214,7 +203,6 @@ export async function consumeSubjectApiRateLimit(args: {
     retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? windowSeconds)),
     resetAt: String(row.reset_at ?? new Date(Date.now() + windowSeconds * 1000).toISOString()),
   };
->>>>>>> origin/main
 }
 
 function consumeInMemoryApiRateLimit({

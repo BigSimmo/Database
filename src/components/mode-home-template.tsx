@@ -75,11 +75,7 @@ export function ModeHomeHero({
 
   return (
     <section
-<<<<<<< HEAD
-      className={cn("grid justify-items-center px-4 sm:gap-4 sm:px-0", compact ? "gap-2" : "gap-3")}
-=======
       className={cn("grid justify-items-center sm:gap-4", compact ? "gap-2" : "gap-3")}
->>>>>>> origin/main
       aria-labelledby={`${testId ?? "mode-home"}-title`}
     >
       <span
@@ -102,11 +98,7 @@ export function ModeHomeHero({
         </Heading>
         <p
           className={cn(
-<<<<<<< HEAD
-            "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-base sm:leading-6 lg:text-[1.0625rem]",
-=======
             "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-base sm:leading-6 lg:text-lg-minus",
->>>>>>> origin/main
             compact ? "leading-5" : "leading-6",
           )}
         >
@@ -140,14 +132,7 @@ export function ModeHomeMain({
     <main
       data-testid={testId}
       className={cn(
-<<<<<<< HEAD
-        // Phone: stretch to fill the shell's flex column; the shell reserves
-        // composer clearance via --mobile-composer-reserve. Background is
-        // full-bleed; inner template content carries safe-area-aware inset.
-        "flex min-h-0 w-full flex-1 flex-col items-center justify-center bg-[color:var(--background)] px-0 pt-[clamp(1.25rem,4vh,2.25rem)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
-=======
         "grid min-h-[calc(100dvh-13.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] items-center justify-items-center bg-[color:var(--background)] px-4 pb-4 pt-[clamp(1.25rem,4vh,2.25rem)] text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
->>>>>>> origin/main
         className,
       )}
     >
@@ -239,35 +224,20 @@ export function ModeHomeTemplate({
     <div
       data-testid={testId}
       className={cn(
-<<<<<<< HEAD
-        "mode-home-template mx-auto box-border flex w-full max-w-none flex-col items-center justify-center gap-3.5 px-0 text-center sm:max-w-[64rem] sm:gap-6 lg:gap-7",
-=======
         "mode-home-template mx-auto box-border flex w-full max-w-[64rem] flex-col items-center justify-center gap-3.5 px-0 text-center sm:gap-6 lg:gap-7",
->>>>>>> origin/main
         className,
       )}
     >
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} compact />
 
       {desktopComposerSlotId ? (
-<<<<<<< HEAD
-        <div
-          id={desktopComposerSlotId}
-          className="mode-home-composer-slot hidden w-full px-4 sm:px-0 sm:[&:not(:empty)]:block"
-        />
-=======
         <div id={desktopComposerSlotId} className="mode-home-composer-slot hidden w-full [&:not(:empty)]:block" />
->>>>>>> origin/main
       ) : null}
 
       {actions?.length ? (
         <section
           aria-label={actionsLabel}
-<<<<<<< HEAD
-          className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-3xl sm:rounded-xl sm:border sm:shadow-[var(--shadow-card)] lg:max-w-none lg:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] lg:gap-5 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
-=======
           className="grid w-full max-w-3xl overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] sm:gap-5 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none"
->>>>>>> origin/main
         >
           {actions.map((action, index) => {
             const ActionIcon = action.icon;
@@ -280,11 +250,7 @@ export function ModeHomeTemplate({
                   <span className="block text-balance text-[0.98rem] font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] sm:text-[1.05rem]">
                     {action.title}
                   </span>
-<<<<<<< HEAD
-                  <span className="mt-0.5 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:mt-1 lg:text-[0.9rem] lg:leading-6">
-=======
                   <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-[0.9rem] sm:leading-6">
->>>>>>> origin/main
                     {action.description}
                   </span>
                 </span>
@@ -295,13 +261,8 @@ export function ModeHomeTemplate({
               </>
             );
             const actionClassName = cn(
-<<<<<<< HEAD
-              "mode-home-action group grid min-h-[4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-2.5 text-left transition sm:min-h-[4.8rem] sm:py-3 hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 lg:min-h-[8.4rem] lg:grid-cols-[3.5rem_minmax(0,1fr)_1.5rem] lg:gap-4 lg:rounded-lg lg:border lg:border-[color:var(--border)] lg:px-6 lg:py-5 lg:shadow-[var(--shadow-card)]",
-              index > 0 && "border-t border-[color:var(--border)] lg:border-t-[color:var(--border)]",
-=======
               "mode-home-action group grid min-h-[4.8rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[8rem] sm:grid-cols-[3.5rem_minmax(0,1fr)_1.5rem] sm:gap-4 sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:px-5 sm:py-5 sm:shadow-[var(--shadow-card)] lg:min-h-[8.4rem] lg:px-6",
               index > 0 && "border-t border-[color:var(--border)] sm:border-t-[color:var(--border)]",
->>>>>>> origin/main
             );
 
             if (action.href) {
@@ -329,14 +290,10 @@ export function ModeHomeTemplate({
       ) : null}
 
       {pills?.length ? (
-<<<<<<< HEAD
-        <section className="grid w-full max-w-none self-stretch gap-3 border-t border-[color:var(--border)] px-4 pt-3 sm:gap-4 sm:px-0 sm:pt-6">
-=======
         <section
           aria-label={pillsTitle ?? "Quick links"}
           className="grid w-full max-w-none self-stretch gap-2.5 border-t border-[color:var(--border)]/70 pt-5 sm:pt-6"
         >
->>>>>>> origin/main
           {pillsTitle || pillsAction ? (
             <div className="flex min-h-8 w-full items-center justify-between gap-3">
               {pillsTitle ? <p className={cn(eyebrowText, "text-center sm:text-left")}>{pillsTitle}</p> : <span />}

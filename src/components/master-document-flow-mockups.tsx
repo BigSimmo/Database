@@ -251,21 +251,12 @@ const monitoringTableRows = [
   ["> 1 year", "4 weekly", "Full Blood Count (ANC)", "ANC < 1.0 x10^9/L"],
 ] as const;
 
-<<<<<<< HEAD
-function documentHref(document: DocumentFixture, query = defaultQuery) {
-  return documentReaderHref({
-    document: document.slug,
-    query,
-    page: String(document.page),
-    chunk: document.chunk,
-=======
 function documentHref(document: DocumentFixture, query = defaultQuery, evidence?: EvidenceFixture) {
   return documentReaderHref({
     document: document.slug,
     query,
     page: String(evidence?.page ?? document.page),
     chunk: evidence?.id ?? document.chunk,
->>>>>>> origin/main
   });
 }
 
@@ -549,17 +540,6 @@ function SearchResultMobileCard({
           Open document
           <ExternalLink className="h-4 w-4" aria-hidden="true" />
         </Link>
-<<<<<<< HEAD
-        <Link
-          href={evidenceHref(document, evidence, query)}
-          className={cn(
-            "inline-flex min-h-11 min-w-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]",
-            focusRing,
-          )}
-        >
-          Open evidence
-        </Link>
-=======
         {evidence ? (
           <Link
             href={evidenceHref(document, evidence, query)}
@@ -571,7 +551,6 @@ function SearchResultMobileCard({
             Open evidence
           </Link>
         ) : null}
->>>>>>> origin/main
       </div>
     </article>
   );

@@ -96,11 +96,7 @@ const routeOwnershipRows = [
   ["Differentials", "src/app/differentials, src/lib/differentials.ts"],
   ["Medications", "src/app/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx"],
   ["Documents", "src/app/documents, src/lib/document-flow-routes.ts"],
-<<<<<<< HEAD
-  ["Applications and tools", "src/app/applications, src/components/applications-launcher-page.tsx"],
-=======
   ["Tools", "src/components/applications-launcher-page.tsx"],
->>>>>>> origin/main
   ["Mockups", "src/app/mockups"],
 ] as const;
 

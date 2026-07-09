@@ -25,12 +25,8 @@ import {
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
-<<<<<<< HEAD
-import { ModeHomeTemplate } from "@/components/mode-home-template";
-=======
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
->>>>>>> origin/main
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import {
@@ -348,13 +344,6 @@ function DocumentSearchHome({
         onClick: item.action,
       }))}
       footer={
-<<<<<<< HEAD
-        documentCount > 0 ? (
-          <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
-            {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
-          </p>
-        ) : null
-=======
         <div className="grid w-full gap-3">
           <ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical document library" />
           {documentCount > 0 ? (
@@ -363,7 +352,6 @@ function DocumentSearchHome({
             </p>
           ) : null}
         </div>
->>>>>>> origin/main
       }
     />
   );
@@ -860,17 +848,10 @@ function DocumentSearchResultsPanelImpl({
       ? "Clinical KB could not be reached. Check your connection and try again shortly."
       : "The local API is unavailable. Check the app server before searching documents."
     : authUnavailable
-<<<<<<< HEAD
-      ? "Sign in or enable local no-auth mode before listing private indexed documents."
-      : null;
-  void realDataReady;
-  void setupWarning;
-=======
       ? "Your session expired. Sign in again to view private indexed documents."
       : !realDataReady
         ? setupWarning || "Complete the search setup before using Documents mode."
         : null;
->>>>>>> origin/main
   const resultLabel = (() => {
     if (loading) {
       return showRecordMatches
@@ -904,11 +885,7 @@ function DocumentSearchResultsPanelImpl({
       matches.length > 0 ||
       (trimmedQuery && !shouldShowHome) ||
       loading ||
-<<<<<<< HEAD
-      unavailableMessage && !shouldShowHome ? (
-=======
       (unavailableMessage && !shouldShowHome) ? (
->>>>>>> origin/main
         <SearchResultsHeader resultLabel={resultLabel} trimmedQuery={trimmedQuery} />
       ) : null}
 
@@ -937,13 +914,7 @@ function DocumentSearchResultsPanelImpl({
               <FileText className="h-5 w-5" />
             </span>
             <div>
-<<<<<<< HEAD
-              <h3 className="text-base font-semibold text-[color:var(--text-heading)]">
-                No matching documents
-              </h3>
-=======
               <h3 className="text-base font-semibold text-[color:var(--text-heading)]">No matching documents</h3>
->>>>>>> origin/main
               <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>
                 {`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
               </p>

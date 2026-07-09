@@ -8,23 +8,12 @@ function subscribeNoop() {
 
 /** Renders children only after the client has mounted to avoid SSR hydration
  *  mismatches when dev tooling injects attributes into the pre-hydration DOM. */
-<<<<<<< HEAD
-export function ClientHydrationBoundary({
-  children,
-  fallback = null,
-}: {
-  children: ReactNode;
-  fallback?: ReactNode;
-}) {
-  const ready = useSyncExternalStore(subscribeNoop, () => true, () => false);
-=======
 export function ClientHydrationBoundary({ children, fallback = null }: { children: ReactNode; fallback?: ReactNode }) {
   const ready = useSyncExternalStore(
     subscribeNoop,
     () => true,
     () => false,
   );
->>>>>>> origin/main
   if (!ready) return fallback;
   return children;
 }

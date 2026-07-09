@@ -66,11 +66,6 @@ import {
 } from "@/components/ui-primitives";
 import { type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
-<<<<<<< HEAD
-import { extractSafetyFindings, formatSafetyFindingLabel, sortSafetyFindingsBySeverity, type SafetyFinding, type SafetyFindingKind } from "@/lib/clinical-safety";
-import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
-=======
->>>>>>> origin/main
 import {
   extractSafetyFindings,
   formatSafetyFindingLabel,
@@ -189,14 +184,7 @@ export function AnswerSupportSummaryCard({
             data-testid="answer-safety-findings-trigger"
             type="button"
             onClick={onOpenSafetyFindings}
-<<<<<<< HEAD
-            className={cn(
-              supportButtonClass,
-              "w-full border-t-2 border-t-[color:var(--warning)]",
-            )}
-=======
             className={cn(supportButtonClass, "w-full border-t-2 border-t-[color:var(--warning)]")}
->>>>>>> origin/main
             aria-label="Open safety-critical source findings"
           >
             <span
@@ -237,11 +225,7 @@ export function AnswerSupportSummaryCard({
               <p className={cn("mt-0.5 line-clamp-1 text-xs leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
             </div>
             {priority.sourceLabel ? (
-<<<<<<< HEAD
-              <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-[11px]")}>{priority.sourceLabel}</span>
-=======
               <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-2xs")}>{priority.sourceLabel}</span>
->>>>>>> origin/main
             ) : null}
           </div>
         )
@@ -780,14 +764,10 @@ export function ClinicalNotesChecklistPanel({
                   key={tab.id}
                   type="button"
                   role="tab"
-<<<<<<< HEAD
-                  aria-selected={selected}
-=======
                   id={tabButtonId(tab.id)}
                   aria-selected={selected}
                   aria-controls={notesPanelId}
                   tabIndex={selected ? 0 : -1}
->>>>>>> origin/main
                   aria-label={`${tab.label} (${tab.count})`}
                   onClick={() => setRequestedTab(tab.id)}
                   className={cn(
@@ -800,11 +780,7 @@ export function ClinicalNotesChecklistPanel({
                   <span className="truncate">{tab.label}</span>
                   <span
                     className={cn(
-<<<<<<< HEAD
-                      "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px]",
-=======
                       "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-3xs",
->>>>>>> origin/main
                       selected
                         ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)]"
                         : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
@@ -833,12 +809,9 @@ export function ClinicalNotesChecklistPanel({
       ) : null}
 
       <div
-<<<<<<< HEAD
-=======
         id={showTabStrip ? notesPanelId : undefined}
         role={showTabStrip ? "tabpanel" : undefined}
         aria-labelledby={showTabStrip ? tabButtonId(activeTab) : undefined}
->>>>>>> origin/main
         className={cn(
           "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
           showTabStrip || (tableEvidenceCount > 0 && onOpenTables) ? "mt-3" : "mt-0",
@@ -865,11 +838,7 @@ export function ClinicalNotesChecklistPanel({
                     {row.title}
                   </p>
                   {!isWarnRow ? (
-<<<<<<< HEAD
-                    <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", toneSuccess)}>
-=======
                     <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", toneSuccess)}>
->>>>>>> origin/main
                       {activeTab === "actions" ? "Action" : "Source"}
                     </span>
                   ) : null}
@@ -880,15 +849,9 @@ export function ClinicalNotesChecklistPanel({
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {isWarnRow ? (
-<<<<<<< HEAD
-                  <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", toneWarning)}>Review</span>
-                ) : (
-                  <span className="nums grid h-6 min-w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-[11px] font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
-=======
                   <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", toneWarning)}>Review</span>
                 ) : (
                   <span className="nums grid h-6 min-w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-2xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
->>>>>>> origin/main
                     S{row.sourceIndex}
                   </span>
                 )}
@@ -1010,11 +973,7 @@ export function SafetyFindingsListContent({ findings }: { findings: SafetyFindin
           </span>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-<<<<<<< HEAD
-              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-[10px]", safetyFindingKindTone(finding.kind))}>
-=======
               <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", safetyFindingKindTone(finding.kind))}>
->>>>>>> origin/main
                 {finding.label}
               </span>
               <Link
@@ -1449,20 +1408,12 @@ export function AnswerSafetyNotice({
           : "Draft only; verify source first before pasting into the medical record."}
       </p>
       {retrievalGateBlocked ? (
-<<<<<<< HEAD
-        <p className="mt-1 text-[11px] text-[color:var(--warning)]">
-=======
         <p className="mt-1 text-2xs text-[color:var(--warning)]">
->>>>>>> origin/main
           Retrieval confidence gate was triggered. Expand evidence details before using this result.
         </p>
       ) : null}
       {demoMode ? (
-<<<<<<< HEAD
-        <p className="mt-1 text-[11px] font-semibold text-[color:var(--warning)]">
-=======
         <p className="mt-1 text-2xs font-semibold text-[color:var(--warning)]">
->>>>>>> origin/main
           Synthetic demo only: this is not clinical guidance.
         </p>
       ) : null}

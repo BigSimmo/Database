@@ -16,7 +16,6 @@ import {
 import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import { cn, floatingControl, iconTilePremium, panelSubtle, primaryControl } from "@/components/ui-primitives";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import {
@@ -52,18 +51,6 @@ export function FavouritesHub({
   headingLevel?: 1 | 2;
 }) {
   const savedRegistryFavourites = useSavedRegistryFavourites();
-<<<<<<< HEAD
-  const allFavouriteItems = useMemo(
-    () => [...favouriteItems, ...savedRegistryFavourites],
-    [savedRegistryFavourites],
-  );
-  const allFavouriteSets = useMemo(() => {
-    const savedSetTitles = new Set(favouriteSets.map((set) => set.title));
-    const dynamicSets = Array.from(new Set(savedRegistryFavourites.map((item) => item.set)))
-      .filter((title) => title && !savedSetTitles.has(title))
-      .map((title) => ({
-        id: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-=======
   const allFavouriteItems = useMemo(() => [...favouriteItems, ...savedRegistryFavourites], [savedRegistryFavourites]);
   const allFavouriteSets = useMemo(() => {
     const savedSetTitles = new Set(favouriteSets.map((set) => set.title));
@@ -74,7 +61,6 @@ export function FavouritesHub({
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/(^-|-$)/g, ""),
->>>>>>> origin/main
         title,
         count: savedRegistryFavourites.filter((item) => item.set === title).length,
         meta: "Saved from site activity",

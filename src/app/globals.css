@@ -662,7 +662,6 @@ summary::-webkit-details-marker {
 /* Phone dock: full-bleed footer with progressive blur scrim behind pill + chips. */
 .answer-footer-search-dock {
   --footer-scrim-height: max(10rem, calc(var(--safe-area-bottom) + 8.5rem));
-<<<<<<< HEAD
 }
 
 .answer-footer-search-dock[data-footer-variant="compact"] {
@@ -784,8 +783,6 @@ summary::-webkit-details-marker {
     0 1px 2px rgb(16 24 40 / 5%),
     0 8px 20px rgb(16 24 40 / 9%),
     0 24px 56px rgb(16 24 40 / 14%);
-=======
->>>>>>> origin/main
 }
 
 .answer-footer-search-dock[data-footer-variant="compact"] {
@@ -1259,24 +1256,14 @@ summary::-webkit-details-marker {
 
   .answer-footer-search-action,
   .answer-footer-search-send {
-<<<<<<< HEAD
-    height: 2.05rem;
-    width: 2.05rem;
-=======
     height: 2.75rem;
     width: 2.75rem;
->>>>>>> origin/main
   }
 
   .answer-footer-search-action svg,
   .answer-footer-search-send svg {
-<<<<<<< HEAD
-    height: 1rem;
-    width: 1rem;
-=======
     height: 1.1rem;
     width: 1.1rem;
->>>>>>> origin/main
   }
 }
 
@@ -1341,27 +1328,10 @@ summary::-webkit-details-marker {
 @media (max-width: 430px) {
   .answer-footer-search-action,
   .answer-footer-search-send {
-<<<<<<< HEAD
-    height: 2.05rem !important;
-    width: 2.05rem !important;
-  }
-
-  .answer-footer-search-action svg,
-  .answer-footer-search-send svg {
-    height: 1rem;
-    width: 1rem;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .answer-footer-search-send:active {
-    transform: scale(0.96);
-=======
     height: 2.75rem !important;
     width: 2.75rem !important;
     min-height: 2.75rem;
     min-width: 2.75rem;
->>>>>>> origin/main
   }
 
   .answer-footer-search-action svg,
@@ -1742,11 +1712,7 @@ summary::-webkit-details-marker {
 
   /* Compact search/result views: no chip row below the pill, so the pill
      itself hugs the bottom edge and the scrim shrinks to match. */
-<<<<<<< HEAD
-  .document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact:not(.answer-footer-search-dock) {
-=======
   .document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact {
->>>>>>> origin/main
     bottom: max(0.4rem, calc(var(--safe-area-bottom) + 0.3rem));
   }
 
@@ -1792,8 +1758,6 @@ summary::-webkit-details-marker {
     padding-bottom: max(0.45rem, var(--safe-area-bottom));
   }
 
-<<<<<<< HEAD
-=======
   /* Must beat the edge-to-edge dock rule above (transform: none) so scroll-hide
      actually slides the bar off-screen once data-scroll-hidden is set. */
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-scroll-hidden="true"],
@@ -1811,7 +1775,6 @@ summary::-webkit-details-marker {
     pointer-events: none;
   }
 
->>>>>>> origin/main
   .answer-footer-search-dock .answer-footer-search-pill {
     border-color: var(--border-strong);
     background: var(--surface);
@@ -1858,20 +1821,12 @@ summary::-webkit-details-marker {
   }
 
   .dashboard-composer-edge.answer-footer-search-edge {
-<<<<<<< HEAD
-    left: calc(
-      var(--clinical-sidebar-width-md, 0px) + (100vw - var(--clinical-sidebar-width-md, 0px)) / 2
-    );
-    right: auto;
-    width: min(calc(100vw - var(--clinical-sidebar-width-md, 0px) - 48px - var(--safe-area-left) - var(--safe-area-right)), 680px);
-=======
     left: calc(var(--clinical-sidebar-width-md, 0px) + (100vw - var(--clinical-sidebar-width-md, 0px)) / 2);
     right: auto;
     width: min(
       calc(100vw - var(--clinical-sidebar-width-md, 0px) - 48px - var(--safe-area-left) - var(--safe-area-right)),
       680px
     );
->>>>>>> origin/main
   }
 }
 

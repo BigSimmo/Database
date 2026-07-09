@@ -14,20 +14,12 @@ version: 1.0.0
 license: MIT
 author: Jeremy Longshore <jeremy@intentsolutions.io>
 tags:
-<<<<<<< HEAD
-- saas
-- cursor
-- cursor-codebase
-compatibility: Designed for Claude Code, also compatible with Codex and OpenClaw
----
-=======
   - saas
   - cursor
   - cursor-codebase
 compatibility: Designed for Claude Code, also compatible with Codex and OpenClaw
 ---
 
->>>>>>> origin/main
 # Cursor Codebase Indexing
 
 Set up and optimize Cursor's codebase indexing system. Indexing creates embeddings of your code, enabling `@Codebase` semantic search and improving AI context awareness across Chat, Composer, and Agent mode.
@@ -156,21 +148,12 @@ Ask semantic questions about your entire codebase:
 
 ### @Codebase vs @Files vs Text Search
 
-<<<<<<< HEAD
-| Method | When to Use | Context Cost |
-|--------|------------|--------------|
-| `@Codebase` | Discovery -- you don't know which files | High (many chunks) |
-| `@Files` | You know exactly which file | Low (one file) |
-| `@Folders` | You know the directory | Medium-High |
-| `Ctrl+Shift+F` | Exact text/regex match | N/A (editor search) |
-=======
 | Method         | When to Use                             | Context Cost        |
 | -------------- | --------------------------------------- | ------------------- |
 | `@Codebase`    | Discovery -- you don't know which files | High (many chunks)  |
 | `@Files`       | You know exactly which file             | Low (one file)      |
 | `@Folders`     | You know the directory                  | Medium-High         |
 | `Ctrl+Shift+F` | Exact text/regex match                  | N/A (editor search) |
->>>>>>> origin/main
 
 Use `@Codebase` for discovery, then switch to `@Files` once you know where the code lives.
 
@@ -236,15 +219,6 @@ sudo sysctl -p
 
 ## Troubleshooting
 
-<<<<<<< HEAD
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| @Codebase returns no results | Index not built | Wait for "Indexed" in status bar |
-| Search misses known files | File in .gitignore or .cursorignore | Check ignore files |
-| Indexing stuck at N% | Large project or network issue | Resync index via Command Palette |
-| Stale results after refactor | Index not yet updated | Wait 10 min or manual resync |
-| High CPU during indexing | Initial embedding computation | Normal for first run; subsides |
-=======
 | Symptom                      | Cause                               | Fix                              |
 | ---------------------------- | ----------------------------------- | -------------------------------- |
 | @Codebase returns no results | Index not built                     | Wait for "Indexed" in status bar |
@@ -252,7 +226,6 @@ sudo sysctl -p
 | Indexing stuck at N%         | Large project or network issue      | Resync index via Command Palette |
 | Stale results after refactor | Index not yet updated               | Wait 10 min or manual resync     |
 | High CPU during indexing     | Initial embedding computation       | Normal for first run; subsides   |
->>>>>>> origin/main
 
 ## Resources
 

@@ -349,15 +349,6 @@ export function ModeActionPopup({
     const edgePadding = 12;
     const availableAbove = Math.max(0, rect.top - viewportTop - edgePadding);
     const availableBelow = Math.max(0, viewportBottom - rect.bottom - edgePadding);
-<<<<<<< HEAD
-    const nextPlacement: ModeActionPlacement = availableBelow > availableAbove + 40 ? "down" : "up";
-    const detachedUpOffset = 16;
-    const detachedDownOffset = integrated ? 72 : 14;
-    const available =
-      nextPlacement === "up"
-        ? Math.max(0, availableAbove - detachedUpOffset)
-        : Math.max(0, availableBelow - detachedDownOffset);
-=======
     const { minSurfaceHeight, headerHeight } = estimateActionListHeights(items.length, integrated);
     const detachedUpOffset = 16;
     const integratedDownOffset = integratedChipRow ? 58 : 14;
@@ -388,16 +379,12 @@ export function ModeActionPopup({
     const headerSafeInset = 84;
     const upwardHeightLimit = Math.max(0, rect.top - viewportTop - headerSafeInset);
     const available = nextPlacement === "up" ? Math.min(spaceAbove, upwardHeightLimit) : spaceBelow;
->>>>>>> origin/main
     const nextSurfaceMaxHeight = Math.max(220, Math.floor(Math.min(available, viewportHeight - edgePadding * 2)));
     const nextBodyMaxHeight = Math.max(156, nextSurfaceMaxHeight - headerHeight);
 
     setPlacement((current) => (current === nextPlacement ? current : nextPlacement));
     setSurfaceMaxHeight((current) => (current === nextSurfaceMaxHeight ? current : nextSurfaceMaxHeight));
     setBodyMaxHeight((current) => (current === nextBodyMaxHeight ? current : nextBodyMaxHeight));
-<<<<<<< HEAD
-  }, [integrated]);
-=======
 
     if (integrated) {
       const maxSurfaceWidth = Math.min(window.innerWidth - edgePadding * 2, 360);
@@ -414,7 +401,6 @@ export function ModeActionPopup({
       setIntegratedSurfaceLayout(null);
     }
   }, [integrated, integratedChipRow, items.length]);
->>>>>>> origin/main
 
   function openWithFocus(index: number) {
     onBeforeOpen?.();
@@ -778,23 +764,6 @@ export function ModeActionPopup({
 
   return (
     <>
-<<<<<<< HEAD
-      {open ? (
-        <div
-          ref={surfaceRef}
-          data-placement={placement}
-          style={surfaceStyle}
-          className={cn(
-            "mode-action-surface absolute z-50 text-[color:var(--text)]",
-            integrated ? "inset-x-0" : "inset-x-0 sm:inset-x-auto sm:left-0",
-            placement === "up"
-              ? "bottom-[calc(100%+0.875rem)]"
-              : integrated
-                ? "top-[calc(100%+3.65rem)]"
-                : "top-[calc(100%+0.875rem)]",
-            !integrated && (items.length <= 4 ? "sm:w-[min(22rem,100%)]" : "sm:w-[min(24rem,100%)]"),
-          )}
-=======
       {useSheet && open ? (
         <Sheet
           open={open}
@@ -811,7 +780,6 @@ export function ModeActionPopup({
           mobilePlacement="bottom"
           mobileSize="content"
           portal
->>>>>>> origin/main
         >
           {renderActionRows()}
         </Sheet>

@@ -63,16 +63,6 @@ const statusLabels: Record<LauncherStatus, string> = {
 // legible in dark mode and forced-colors; "safety" is genuinely semantic and
 // uses the danger triad.
 const iconToneClasses: Record<LauncherArea | "safety" | "medication" | "differentials", string> = {
-<<<<<<< HEAD
-  assessment: "border-cyan-200 bg-cyan-50 text-cyan-700",
-  reference: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  care: "border-sky-200 bg-sky-50 text-sky-700",
-  coordination: "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-  saved: "border-blue-200 bg-blue-50 text-blue-700",
-  safety: "border-red-200 bg-red-50 text-red-600",
-  medication: "border-amber-200 bg-amber-50 text-amber-600",
-  differentials: "border-violet-200 bg-violet-50 text-violet-700",
-=======
   assessment:
     "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
   reference: "border-[color:var(--type-table-border)] bg-[color:var(--type-table-soft)] text-[color:var(--type-table)]",
@@ -84,7 +74,6 @@ const iconToneClasses: Record<LauncherArea | "safety" | "medication" | "differen
   medication: "border-[color:var(--type-form-border)] bg-[color:var(--type-form-soft)] text-[color:var(--type-form)]",
   differentials:
     "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
->>>>>>> origin/main
 };
 
 // Presentation-only mapping: the shared tools catalog is icon-free so it can be used by
@@ -683,17 +672,9 @@ export function ApplicationsLauncherWorkspace({
   const searchCommand = useSearchCommand();
   const [localQuery, setLocalQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
-<<<<<<< HEAD
-  const [selectedId, setSelectedId] = useState(() => initialToolId(controlledQuery));
-  const isDashboardTools = variant === "dashboard-tools";
-  const [detailOpen, setDetailOpen] = useState(!isDashboardTools && showDetailPanel === true);
-  const copy = isDashboardTools ? dashboardToolsLauncherCopy : standaloneLauncherCopy;
-  const query = controlledQuery ?? uncontrolledQuery;
-=======
   const [detailOpen, setDetailOpen] = useState(false);
   const copy = toolsLauncherCopy;
   const query = controlledQuery ?? searchCommand?.query ?? localQuery;
->>>>>>> origin/main
   const normalizedQuery = query.trim().toLowerCase();
   const queryDerivedId = useMemo(() => initialToolId(query), [query]);
   const [selection, setSelection] = useState(() => ({
@@ -748,13 +729,8 @@ export function ApplicationsLauncherWorkspace({
 
   return (
     <main
-<<<<<<< HEAD
-      data-testid={isDashboardTools ? "tools-hub" : "applications-launcher"}
-      aria-labelledby={isDashboardTools ? "tools-home-heading" : "applications-launcher-heading"}
-=======
       data-testid="tools-hub"
       aria-labelledby="tools-home-title"
->>>>>>> origin/main
       className={cn(
         "mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-8 text-[color:var(--text)] sm:px-6 lg:px-8",
         "pb-[calc(12rem+env(safe-area-inset-bottom))] sm:pb-8",
@@ -763,26 +739,6 @@ export function ApplicationsLauncherWorkspace({
       )}
     >
       <section
-<<<<<<< HEAD
-        aria-label={isDashboardTools ? "Tools home" : "Applications home"}
-        data-testid={isDashboardTools ? "tools-home" : "applications-home"}
-        className="mx-auto grid max-w-5xl justify-items-center gap-5 text-center sm:gap-6"
-      >
-        <span className="grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
-          <Grid2X2 className="h-7 w-7 sm:h-8 sm:w-8" aria-hidden />
-        </span>
-        <div className="grid gap-2">
-          <h1
-            id={isDashboardTools ? "tools-home-heading" : "applications-launcher-heading"}
-            className="text-balance text-[2rem] font-extrabold leading-none tracking-normal text-[color:var(--text-heading)] sm:text-[2.7rem]"
-          >
-            {copy.heading}
-          </h1>
-          <p className="mx-auto max-w-xl text-pretty text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            {copy.description}
-          </p>
-        </div>
-=======
         aria-label="Tools home"
         data-testid="tools-home"
         className="mx-auto grid max-w-5xl justify-items-center gap-3.5 text-center sm:gap-6"
@@ -795,16 +751,11 @@ export function ApplicationsLauncherWorkspace({
           headingLevel={1}
           compact
         />
->>>>>>> origin/main
 
         {desktopComposerSlotId ? (
           <div
             id={desktopComposerSlotId}
-<<<<<<< HEAD
-            className="mode-home-composer-slot hidden w-full max-w-3xl sm:[&:not(:empty)]:block"
-=======
             className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
->>>>>>> origin/main
           />
         ) : (
           <ToolSearch
@@ -816,11 +767,7 @@ export function ApplicationsLauncherWorkspace({
           />
         )}
 
-<<<<<<< HEAD
-        <div className="w-full max-w-6xl" data-testid={isDashboardTools ? "tools-shortcuts" : "application-shortcuts"}>
-=======
         <div className="w-full max-w-6xl" data-testid="tools-shortcuts">
->>>>>>> origin/main
           <div className="hidden sm:block">
             <QuickActions onSelect={openTool} />
           </div>
@@ -832,11 +779,7 @@ export function ApplicationsLauncherWorkspace({
 
       <section
         aria-label={copy.allSectionLabel}
-<<<<<<< HEAD
-        data-testid={isDashboardTools ? "tools-all-tools" : "applications-all-applications"}
-=======
         data-testid="tools-all-tools"
->>>>>>> origin/main
         className="mx-auto mt-8 grid max-w-[86rem] gap-4 sm:mt-10"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

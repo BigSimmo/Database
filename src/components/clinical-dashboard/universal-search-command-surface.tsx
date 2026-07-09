@@ -1,25 +1,5 @@
 "use client";
 
-<<<<<<< HEAD
-import {
-  AlertTriangle,
-  Clock,
-  CornerDownLeft,
-  Search,
-  X,
-} from "lucide-react";
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
-} from "react";
-
-import { modeActionItemsFor, type ModeActionId, type ModeActionSetId } from "@/components/clinical-dashboard/mode-action-popup";
-=======
 import { AlertTriangle, Clock, CornerDownLeft, Loader2, Search, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
@@ -31,7 +11,6 @@ import {
 } from "@/components/clinical-dashboard/mode-action-popup";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
->>>>>>> origin/main
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -41,25 +20,6 @@ import {
   isFormCodeQuery,
   searchCommandSurfaceConfig,
 } from "@/lib/search-command-surface";
-<<<<<<< HEAD
-
-const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-
-function subscribeReducedMotion(onChange: () => void) {
-  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
-
-function usePrefersReducedMotion() {
-  return useSyncExternalStore(
-    subscribeReducedMotion,
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    () => false,
-  );
-}
-=======
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 
 // Reverse of modeIdByDomain for chip counts: the domain whose live result total a
@@ -92,7 +52,6 @@ const domainHeadings: Record<UniversalSearchDomain, string> = {
 };
 
 const SMART_HINT_ROTATION_MS = 3200;
->>>>>>> origin/main
 
 type DropdownItem = {
   id: string;
@@ -126,68 +85,6 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
 
 export type CommandSurfacePlacement = "bottom-dock" | "inline";
 
-<<<<<<< HEAD
-function ContextHintRow({
-  modeId,
-  examples,
-  onPickExample,
-  placement,
-}: {
-  modeId: AppModeId;
-  examples: string[];
-  onPickExample: (example: string) => void;
-  placement: CommandSurfacePlacement;
-}) {
-  const reducedMotion = usePrefersReducedMotion();
-  const [index, setIndex] = useState(0);
-  const mode = appModeDefinition(modeId);
-  const ModeIcon = appModeIcons[modeId];
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setIndex((current) => (current + 1) % examples.length);
-    }, 4500);
-    return () => window.clearInterval(timer);
-  }, [examples]);
-
-  const example = examples[index % examples.length];
-
-  return (
-    <div
-      className={cn(
-        "min-h-8 items-center gap-2 px-1 text-xs font-semibold text-[color:var(--text-muted)]",
-        placement === "bottom-dock" ? "flex" : "hidden lg:flex",
-      )}
-    >
-      <span className="inline-flex shrink-0 items-center gap-1.5">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-          <ModeIcon className="h-3 w-3" />
-        </span>
-        Searching {mode.label.toLowerCase()}
-      </span>
-      <span aria-hidden className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--border-strong)]" />
-      <span className="flex min-w-0 items-center gap-1.5 overflow-hidden" aria-live="polite">
-        <span className="shrink-0 text-[color:var(--text-soft)]">Try:</span>
-        <button
-          key={example}
-          type="button"
-          onClick={() => onPickExample(example)}
-          className={cn(
-            "truncate rounded-md px-1 py-0.5 text-left font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
-            focusRing,
-            !reducedMotion && "motion-safe:animate-[universal-command-fade_360ms_ease]",
-          )}
-        >
-          {example}
-        </button>
-      </span>
-      <span className="ml-auto hidden shrink-0 items-center gap-1 text-2xs font-bold text-[color:var(--text-soft)] xl:inline-flex">
-        Press
-        <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 py-0.5 font-mono text-2xs shadow-[var(--shadow-inset)]">
-          /
-        </kbd>
-        to search
-=======
 function SmartRotatingHint({ examples, modeLabel }: { examples: string[]; modeLabel: string }) {
   const [activeExampleIndex, setActiveExampleIndex] = useState(0);
   const activeExample = examples[activeExampleIndex % examples.length];
@@ -208,54 +105,11 @@ function SmartRotatingHint({ examples, modeLabel }: { examples: string[]; modeLa
       <span aria-hidden="true">·</span>
       <span>
         Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
->>>>>>> origin/main
       </span>
     </div>
   );
 }
 
-<<<<<<< HEAD
-function ScopeChipRow({
-  scopes,
-  activeScopes,
-  onToggle,
-  modeLabel,
-}: {
-  scopes: Array<{ id: string; label: string }>;
-  activeScopes: string[];
-  onToggle: (id: string) => void;
-  modeLabel: string;
-}) {
-  if (!scopes.length) return null;
-
-  return (
-    <div
-      className="hidden flex-wrap items-center justify-center gap-1.5 lg:flex"
-      role="group"
-      aria-label={`${modeLabel} search scope`}
-    >
-      {scopes.map((scope) => {
-        const active = activeScopes.includes(scope.id);
-        return (
-          <button
-            key={scope.id}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onToggle(scope.id)}
-            className={cn(
-              "answer-footer-search-chip",
-              focusRing,
-              active &&
-                "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-            )}
-          >
-            {active ? <X className="h-3.5 w-3.5" aria-hidden /> : null}
-            {scope.label}
-          </button>
-        );
-      })}
-    </div>
-=======
 function SmartPromptRow({ examples, onPickExample }: { examples: string[]; onPickExample: (example: string) => void }) {
   return (
     <AnswerSuggestionChips
@@ -266,7 +120,6 @@ function SmartPromptRow({ examples, onPickExample }: { examples: string[]; onPic
       layout="scroll"
       className="smart-search-prompt-row"
     />
->>>>>>> origin/main
   );
 }
 
@@ -277,11 +130,8 @@ function CommandDropdown({
   activeItemId,
   sections,
   showSafetyBanner,
-<<<<<<< HEAD
-=======
   interpretationLabel,
   universalPending,
->>>>>>> origin/main
   onHoverItem,
   placement,
 }: {
@@ -291,11 +141,8 @@ function CommandDropdown({
   activeItemId: string | null;
   sections: Array<{ key: string; heading?: string; layout?: "list" | "chips"; items: DropdownItem[] }>;
   showSafetyBanner: boolean;
-<<<<<<< HEAD
-=======
   interpretationLabel: string | null;
   universalPending: boolean;
->>>>>>> origin/main
   onHoverItem: (id: string) => void;
   placement: CommandSurfacePlacement;
 }) {
@@ -322,8 +169,6 @@ function CommandDropdown({
         </div>
       ) : null}
 
-<<<<<<< HEAD
-=======
       {interpretationLabel ? (
         <div className="flex items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
@@ -331,7 +176,6 @@ function CommandDropdown({
         </div>
       ) : null}
 
->>>>>>> origin/main
       <div
         id={listboxId}
         role="listbox"
@@ -351,15 +195,11 @@ function CommandDropdown({
               ) : null}
               {section.layout === "chips" ? (
                 <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5">
-<<<<<<< HEAD
-                  <span className="text-xs font-semibold text-[color:var(--text-muted)]">Search &ldquo;{query}&rdquo; in</span>
-=======
                   {query ? (
                     <span className="text-xs font-semibold text-[color:var(--text-muted)]">
                       Search &ldquo;{query}&rdquo; in
                     </span>
                   ) : null}
->>>>>>> origin/main
                   {section.items.map((item) => (
                     <div
                       key={item.id}
@@ -398,9 +238,6 @@ function CommandDropdown({
             </div>
           ) : null,
         )}
-<<<<<<< HEAD
-        {!hasItems ? (
-=======
         {universalPending ? (
           <div
             role="presentation"
@@ -411,7 +248,6 @@ function CommandDropdown({
           </div>
         ) : null}
         {!hasItems && !universalPending ? (
->>>>>>> origin/main
           <div className="px-3 py-4 text-sm font-semibold text-[color:var(--text-muted)]">
             Press Enter to run the full {mode.label.toLowerCase()} search.
           </div>
@@ -468,13 +304,6 @@ export function UniversalSearchCommandSurface({
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
-<<<<<<< HEAD
-  const config = searchCommandSurfaceConfig(modeId);
-  const listboxId = useId();
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const trimmedQuery = query.trim();
-  const mode = appModeDefinition(modeId);
-=======
   void commandScopes;
   void onCommandScopesChange;
   const config = searchCommandSurfaceConfig(modeId);
@@ -489,13 +318,10 @@ export function UniversalSearchCommandSurface({
     query: trimmedQuery,
     enabled: dropdownOpen && Boolean(config),
   });
->>>>>>> origin/main
 
   const showSafetyBanner =
     modeId === "differentials" && differentialRedFlagTerms.some((term) => trimmedQuery.toLowerCase().includes(term));
   const showFormCodeHint = modeId === "forms" && isFormCodeQuery(trimmedQuery);
-<<<<<<< HEAD
-=======
   const {
     groups: universalGroups,
     query: universalQuery,
@@ -529,7 +355,6 @@ export function UniversalSearchCommandSurface({
     }
     return null;
   }, [universalInterpretation, trimmedQuery]);
->>>>>>> origin/main
 
   const sections = useMemo(() => {
     if (!config) return [];
@@ -537,8 +362,6 @@ export function UniversalSearchCommandSurface({
     let counter = 0;
     const nextId = () => `${listboxId}-item-${counter++}`;
 
-<<<<<<< HEAD
-=======
     // Best-bet: a single near-exact match pinned to the top so the strongest hit is one keystroke
     // away regardless of which domain it lives in.
     if (trimmedQuery && universalQuery === trimmedQuery && universalTopHit) {
@@ -582,7 +405,6 @@ export function UniversalSearchCommandSurface({
       });
     }
 
->>>>>>> origin/main
     if (showFormCodeHint) {
       built.push({
         key: "form-code",
@@ -655,13 +477,9 @@ export function UniversalSearchCommandSurface({
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
                   <Search className="h-4 w-4" />
                 </span>
-<<<<<<< HEAD
-                <span className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{suggestion.text}</span>
-=======
                 <span className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">
                   {suggestion.text}
                 </span>
->>>>>>> origin/main
                 <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
                   {suggestion.meta}
                 </span>
@@ -672,8 +490,6 @@ export function UniversalSearchCommandSurface({
       }
     }
 
-<<<<<<< HEAD
-=======
     // Ask-this bridge: for question-like queries, offer a jump into Answer mode for a cited
     // answer. Suppressed in Answer mode (Enter there already runs the answer).
     if (trimmedQuery && modeId !== "answer" && universalQuery === trimmedQuery && universalAnswerAction) {
@@ -771,7 +587,6 @@ export function UniversalSearchCommandSurface({
       }
     }
 
->>>>>>> origin/main
     const actionSetId: ModeActionSetId | null =
       modeId === "documents" || modeId === "forms" || modeId === "prescribing"
         ? "documents"
@@ -823,8 +638,6 @@ export function UniversalSearchCommandSurface({
         items: config.crossModes.map((target) => {
           const targetMode = appModeDefinition(target);
           const TargetIcon = appModeIcons[target];
-<<<<<<< HEAD
-=======
           // Live count from the universal typeahead response ("Forms (2)") — only shown when
           // fresh results for this exact query exist, so the chip never shows a stale number.
           const targetDomain = domainByTargetMode[target];
@@ -832,7 +645,6 @@ export function UniversalSearchCommandSurface({
             targetDomain && universalQuery === trimmedQuery
               ? universalGroups.find((group) => group.kind === targetDomain)?.total
               : undefined;
->>>>>>> origin/main
           return {
             id: nextId(),
             label: targetMode.label,
@@ -851,10 +663,7 @@ export function UniversalSearchCommandSurface({
               >
                 <TargetIcon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
                 {targetMode.label}
-<<<<<<< HEAD
-=======
                 {typeof targetCount === "number" ? ` (${targetCount})` : ""}
->>>>>>> origin/main
               </span>
             ),
           };
@@ -875,10 +684,6 @@ export function UniversalSearchCommandSurface({
     onRunModeAction,
     onSearch,
     recentQueries,
-<<<<<<< HEAD
-    showFormCodeHint,
-    trimmedQuery,
-=======
     router,
     showFormCodeHint,
     trimmedQuery,
@@ -887,21 +692,17 @@ export function UniversalSearchCommandSurface({
     universalQuery,
     universalTopHit,
     universalAnswerAction,
->>>>>>> origin/main
   ]);
 
   const flatItems = useMemo(() => sections.flatMap((section) => section.items), [sections]);
   const activeItemId = activeIndex >= 0 && activeIndex < flatItems.length ? flatItems[activeIndex].id : null;
 
-<<<<<<< HEAD
   function toggleScope(id: string) {
     onCommandScopesChange(
       commandScopes.includes(id) ? commandScopes.filter((scope) => scope !== id) : [...commandScopes, id],
     );
   }
 
-=======
->>>>>>> origin/main
   function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -948,14 +749,10 @@ export function UniversalSearchCommandSurface({
       const target = event.target as HTMLElement | null;
       if (
         target &&
-<<<<<<< HEAD
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable)
-=======
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
           target.tagName === "SELECT" ||
           target.isContentEditable)
->>>>>>> origin/main
       ) {
         return;
       }
@@ -971,19 +768,6 @@ export function UniversalSearchCommandSurface({
   }
 
   return (
-<<<<<<< HEAD
-    <div className="universal-command-surface relative z-10 flex w-full flex-col gap-2">
-      <ContextHintRow
-        modeId={modeId}
-        examples={config.examples}
-        placement={placement}
-        onPickExample={(example) => {
-          onQueryChange(example);
-          onDropdownOpenChange(true);
-          onFocusSearchInput?.();
-        }}
-      />
-=======
     <div
       className={cn(
         "universal-command-surface relative z-10 flex w-full flex-col",
@@ -991,7 +775,6 @@ export function UniversalSearchCommandSurface({
       )}
     >
       <SmartRotatingHint examples={config.examples} modeLabel={mode.label} />
->>>>>>> origin/main
       <div
         className="relative w-full"
         onKeyDownCapture={(event) => {
@@ -1016,11 +799,8 @@ export function UniversalSearchCommandSurface({
             activeItemId={activeItemId}
             sections={sections}
             showSafetyBanner={showSafetyBanner}
-<<<<<<< HEAD
-=======
             interpretationLabel={interpretationLabel}
             universalPending={universal.loading && Boolean(trimmedQuery)}
->>>>>>> origin/main
             placement={placement}
             onHoverItem={(id) => {
               const index = flatItems.findIndex((item) => item.id === id);
@@ -1029,15 +809,6 @@ export function UniversalSearchCommandSurface({
           />
         ) : null}
       </div>
-<<<<<<< HEAD
-      <ScopeChipRow
-        scopes={config.scopes}
-        activeScopes={commandScopes}
-        onToggle={toggleScope}
-        modeLabel={mode.label}
-      />
-      <style>{`@keyframes universal-command-fade { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }`}</style>
-=======
       <SmartPromptRow
         examples={config.examples}
         onPickExample={(example) => {
@@ -1046,7 +817,6 @@ export function UniversalSearchCommandSurface({
           onFocusSearchInput?.();
         }}
       />
->>>>>>> origin/main
     </div>
   );
 }

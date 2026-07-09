@@ -15,15 +15,11 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag-provider";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
-<<<<<<< HEAD
-import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
-=======
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
   consumeSubjectApiRateLimit,
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
->>>>>>> origin/main
 import { publicAccessContext } from "@/lib/public-api-access";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -76,16 +72,10 @@ function isSourceLibrarySearchMode(mode: SearchRequestBody["mode"]) {
   return mode === "documents" || mode === "differentials";
 }
 
-<<<<<<< HEAD
-function scopedSearchKey(body: SearchRequestBody, ownerId?: string | null) {
-  return JSON.stringify({
-    ownerId: ownerId ?? undefined,
-=======
 function scopedSearchKey(body: SearchRequestBody, ownerId?: string | null, publicOnly = false) {
   return JSON.stringify({
     ownerId: ownerId ?? undefined,
     publicOnly,
->>>>>>> origin/main
     query: body.query.toLowerCase().replace(/\s+/g, " ").trim(),
     topK: body.topK ?? null,
     documentId: body.documentId ?? null,
@@ -691,10 +681,7 @@ async function buildScopedSearchPayload(
   body: SearchRequestBody,
   supabase: ReturnType<typeof createAdminClient>,
   ownerId?: string | null,
-<<<<<<< HEAD
-=======
   publicOnly = false,
->>>>>>> origin/main
 ) {
   const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const effectiveQueryClass =
@@ -702,10 +689,7 @@ async function buildScopedSearchPayload(
   const scope = await resolveSearchScope({
     supabase,
     ownerId: ownerId ?? undefined,
-<<<<<<< HEAD
-=======
     publicOnly,
->>>>>>> origin/main
     documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
     filters: body.filters,
   });
@@ -922,10 +906,7 @@ export async function POST(request: Request) {
     supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
     ownerId = access.ownerId ?? null;
-<<<<<<< HEAD
-=======
     const publicOnly = !access.authenticated && !isLocalNoAuthMode();
->>>>>>> origin/main
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -942,11 +923,7 @@ export async function POST(request: Request) {
 
     const key = scopedSearchKey(searchBody, ownerId, publicOnly);
     const { payload, coalesced } = await coalesceScopedSearch(key, () =>
-<<<<<<< HEAD
-      buildScopedSearchPayload(body, supabase!, ownerId),
-=======
       buildScopedSearchPayload(searchBody, supabase!, ownerId, publicOnly),
->>>>>>> origin/main
     );
     return NextResponse.json({
       ...payload,

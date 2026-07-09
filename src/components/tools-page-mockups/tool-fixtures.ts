@@ -1,9 +1,6 @@
 import { Brain, FileCheck2, FileText, Pill, Search, Star, type LucideIcon } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
-<<<<<<< HEAD
-=======
 import { toolCatalogRecordById } from "@/lib/tools-catalog";
->>>>>>> origin/main
 
 export type ToolStatus = "ready" | "review_due" | "recent";
 export type ToolArea = "reference" | "assessment" | "care" | "coordination" | "personal";
@@ -75,12 +72,6 @@ const fixtureExtras: ToolFixtureExtras[] = [
   },
   {
     id: "services",
-<<<<<<< HEAD
-    title: "Services",
-    description: "Open source-backed service records, referral routes, and eligibility.",
-    href: "/services",
-=======
->>>>>>> origin/main
     icon: appModeIcons.services,
     area: "coordination",
     status: "review_due",
