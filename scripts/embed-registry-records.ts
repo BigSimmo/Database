@@ -15,6 +15,7 @@ type Args = {
   slug?: string;
   write: boolean;
   confirmed: boolean;
+  listOwners: boolean;
 };
 
 function parseArgs(argv: string[]): Args {
@@ -23,10 +24,15 @@ function parseArgs(argv: string[]): Args {
     kind: "all",
     write: false,
     confirmed: false,
+    listOwners: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
+    if (token === "--list-owners") {
+      args.listOwners = true;
+      continue;
+    }
     if (token === "--write") {
       args.write = true;
       continue;
@@ -97,10 +103,112 @@ async function loadDifferentialRows(
   return (data ?? []) as DifferentialRecordRow[];
 }
 
+type OwnerCounts = {
+  ownerId: string;
+  service: number;
+  form: number;
+  medication: number;
+  differential: number;
+};
+
+function ensureOwnerCount(counts: Map<string, OwnerCounts>, ownerId: string) {
+  let count = counts.get(ownerId);
+  if (!count) {
+    count = { ownerId, service: 0, form: 0, medication: 0, differential: 0 };
+    counts.set(ownerId, count);
+  }
+  return count;
+}
+
+async function listEligibleOwnerCounts(supabase: Awaited<ReturnType<typeof loadAdminClient>>) {
+  const counts = new Map<string, OwnerCounts>();
+
+  // Page through registry records
+  let registryOffset = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data: registryRows, error: registryError } = await supabase
+      .from("clinical_registry_records")
+      .select("owner_id, kind")
+      .range(registryOffset, registryOffset + pageSize - 1);
+    if (registryError) throw new Error(`Could not load registry owner counts: ${registryError.message}`);
+    if (!registryRows || registryRows.length === 0) break;
+    for (const row of registryRows) {
+      const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
+      if (!ownerId) continue;
+      const count = ensureOwnerCount(counts, ownerId);
+      if (row.kind === "form") count.form += 1;
+      else count.service += 1;
+    }
+    if (registryRows.length < pageSize) break;
+    registryOffset += pageSize;
+  }
+
+  // Page through medication records
+  let medicationOffset = 0;
+  while (true) {
+    const { data: medicationRows, error: medicationError } = await supabase
+      .from("medication_records")
+      .select("owner_id")
+      .range(medicationOffset, medicationOffset + pageSize - 1);
+    if (medicationError) throw new Error(`Could not load medication owner counts: ${medicationError.message}`);
+    if (!medicationRows || medicationRows.length === 0) break;
+    for (const row of medicationRows) {
+      const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
+      if (!ownerId) continue;
+      ensureOwnerCount(counts, ownerId).medication += 1;
+    }
+    if (medicationRows.length < pageSize) break;
+    medicationOffset += pageSize;
+  }
+
+  // Page through differential records
+  let differentialOffset = 0;
+  while (true) {
+    const { data: differentialRows, error: differentialError } = await supabase
+      .from("differential_records")
+      .select("owner_id")
+      .range(differentialOffset, differentialOffset + pageSize - 1);
+    if (differentialError) throw new Error(`Could not load differential owner counts: ${differentialError.message}`);
+    if (!differentialRows || differentialRows.length === 0) break;
+    for (const row of differentialRows) {
+      const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
+      if (!ownerId) continue;
+      ensureOwnerCount(counts, ownerId).differential += 1;
+    }
+    if (differentialRows.length < pageSize) break;
+    differentialOffset += pageSize;
+  }
+
+  return [...counts.values()].sort((left, right) => {
+    const leftTotal = left.service + left.form + left.medication + left.differential;
+    const rightTotal = right.service + right.form + right.medication + right.differential;
+    return rightTotal - leftTotal || left.ownerId.localeCompare(right.ownerId);
+  });
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const supabase = await loadAdminClient();
+
+  if (args.listOwners) {
+    const ownerCounts = await listEligibleOwnerCounts(supabase);
+    console.log("[registry:embed] eligible owner counts");
+    if (ownerCounts.length === 0) {
+      console.log("  No registry, medication, or differential rows found.");
+      return;
+    }
+    for (const count of ownerCounts) {
+      const total = count.service + count.form + count.medication + count.differential;
+      console.log(
+        `  ${count.ownerId} total=${total} service=${count.service} form=${count.form} medication=${count.medication} differential=${count.differential}`,
+      );
+    }
+    return;
+  }
+
   const ownerId = args.ownerId;
-  if (!ownerId) throw new Error("No owner id. Pass --owner-id <uuid> or set LOCAL_NO_AUTH_OWNER_ID.");
+  if (!ownerId) throw new Error("No owner id. Pass --owner-id <uuid>, --list-owners, or set LOCAL_NO_AUTH_OWNER_ID.");
 
   const {
     clinicalRegistryRowsToCorpusEntries,
@@ -112,7 +220,6 @@ async function main() {
     registryCorpusEmbeddingEnabled,
   } = await import("@/lib/registry-corpus");
 
-  const supabase = await loadAdminClient();
   const [registryRows, medicationRows, differentialRows] = await Promise.all([
     loadRegistryRows(supabase, args, ownerId),
     loadMedicationRows(supabase, args, ownerId),
@@ -133,6 +240,11 @@ async function main() {
   if (total > 20) console.log(`  ... ${total - 20} more`);
 
   if (!args.write) {
+    if (total === 0) {
+      console.log(
+        "[registry:embed] No eligible rows found for this owner. Re-run with --list-owners to find owners with registry rows.",
+      );
+    }
     console.log(
       "[registry:embed] Dry run. Re-run with --write --confirm and RAG_REGISTRY_CORPUS_EMBEDDING=true to write embeddings.",
     );

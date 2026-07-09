@@ -33,6 +33,14 @@ const extractiveBlockPattern =
 const broadManagementSynthesisPattern =
   /\b(?:management|manage|managed|treatment|treat|therapy|care|approach|pathway)\s+(?:of|for|in)\b|\bhow\s+(?:is|are|should)\b.{0,80}\b(?:managed|treated)\b/i;
 const clinicalPathwaySynthesisPattern = /\b(?:referral criteria|referral pathway|refer\b|pathway|what to do)\b/i;
+const medicationExtractiveLookupPattern =
+  /\b(?:listed|list|options?|monitoring|observations?|needed|required|dosing guidance|dose|route|pharmacological management|\bim\b|\bpo\b)\b/i;
+const medicationSafetyCriticalPattern =
+  /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils|threshold|cut ?off|withhold|withheld|withholding|cease|stop|stopped|red range|amber range)\b/i;
+const clozapineBloodWithholdThresholdPattern = /\bclozapine\b/i;
+const bloodCountTermPattern = /\b(?:anc|fbc|wbc|wcc|white cell|white blood cell|neutrophil|neutrophils)\b/i;
+const withholdThresholdIntentPattern =
+  /\b(?:threshold|cut ?off|cutoff|withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued)\b/i;
 const queryStopWords = new Set([
   "what",
   "when",
@@ -52,6 +60,46 @@ const queryStopWords = new Set([
   "managed",
   "management",
   "guideline",
+  "find",
+  "search",
+  "lookup",
+  "open",
+  "show",
+  "tell",
+  "give",
+]);
+const specificTitleStopWords = new Set([
+  "what",
+  "when",
+  "where",
+  "which",
+  "should",
+  "does",
+  "do",
+  "is",
+  "are",
+  "the",
+  "a",
+  "an",
+  "of",
+  "to",
+  "in",
+  "for",
+  "with",
+  "and",
+  "include",
+  "require",
+  "requires",
+  "required",
+  "requirement",
+  "requirements",
+  "find",
+  "search",
+  "lookup",
+  "open",
+  "show",
+  "tell",
+  "give",
 ]);
 
 // Query-side adversarial-manipulation guard. Neutralizing injected instructions
@@ -192,6 +240,13 @@ function queryTopicTokens(query: string) {
     .filter((token) => token.length > 2 && !queryStopWords.has(token));
 }
 
+function querySpecificTitleTokens(query: string) {
+  return normalizeLookupText(query)
+    .split(/\s+/)
+    .filter((token) => token.length > 2 && !specificTitleStopWords.has(token))
+    .map((token) => token.replace(/s$/, ""));
+}
+
 export function hasDirectTitleSupport(query: string, results: SearchResult[]) {
   const tokens = queryTopicTokens(query);
   if (tokens.length === 0) return false;
@@ -200,6 +255,31 @@ export function hasDirectTitleSupport(query: string, results: SearchResult[]) {
     const title = normalizeLookupText(`${result.title} ${result.file_name}`).replace(/s\b/g, "");
     return tokens.some((token) => title.includes(token));
   });
+}
+
+function bestTitleTokenMatch(query: string, results: SearchResult[]) {
+  const tokens = querySpecificTitleTokens(query);
+  let matchedCount = 0;
+
+  for (const result of results.slice(0, 4)) {
+    const title = normalizeLookupText(`${result.title} ${result.file_name}`).replace(/s\b/g, "");
+    const count = tokens.filter((token) => title.includes(token)).length;
+    matchedCount = Math.max(matchedCount, count);
+  }
+
+  return { tokenCount: tokens.length, matchedCount };
+}
+
+export function hasSpecificTitleSupport(query: string, results: SearchResult[]) {
+  const { tokenCount, matchedCount } = bestTitleTokenMatch(query, results);
+  if (tokenCount === 0) return false;
+  if (tokenCount <= 2) return matchedCount > 0;
+  return matchedCount >= 2 || matchedCount / tokenCount >= 0.5;
+}
+
+function hasAdmissionCommunityLookupIntent(query: string) {
+  const normalized = normalizeLookupText(query);
+  return /\badmission\b/.test(normalized) && /\bcommunity\b/.test(normalized);
 }
 
 export function isComplexClinicalQuery(query: string) {
@@ -226,6 +306,43 @@ function hasTableOrVisualSourceSupport(results: SearchResult[]) {
   });
 }
 
+function isClozapineBloodWithholdThresholdQuery(query: string) {
+  return (
+    clozapineBloodWithholdThresholdPattern.test(query) &&
+    bloodCountTermPattern.test(query) &&
+    withholdThresholdIntentPattern.test(query)
+  );
+}
+
+function hasExplicitBloodWithholdActionEvidence(results: SearchResult[]) {
+  return results.slice(0, 8).some((result) => {
+    const tableFactText = (result.table_facts ?? [])
+      .map((fact) =>
+        [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+          .filter(Boolean)
+          .join(" "),
+      )
+      .join(" ");
+    const sourceText = [
+      result.title,
+      result.file_name,
+      result.section_heading,
+      result.retrieval_synopsis,
+      result.content,
+      result.adjacent_context,
+      tableFactText,
+      result.index_unit?.title,
+      result.index_unit?.content,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return (
+      bloodCountTermPattern.test(sourceText) &&
+      /\b(?:withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued)\b/i.test(sourceText)
+    );
+  });
+}
+
 function shouldPreferModelSynthesis(query: string, queryClass: RagQueryClass) {
   return (
     queryClass === "medication_dose_risk" ||
@@ -236,6 +353,19 @@ function shouldPreferModelSynthesis(query: string, queryClass: RagQueryClass) {
     ) ||
     clinicalPathwaySynthesisPattern.test(query)
   );
+}
+
+function shouldUseExtractiveMedicationLookup(args: {
+  query: string;
+  results: SearchResult[];
+  strongestScore: number;
+  topTextRank: number;
+  directTitleSupport: boolean;
+}) {
+  if (!medicationExtractiveLookupPattern.test(args.query)) return false;
+  if (medicationSafetyCriticalPattern.test(args.query)) return false;
+  if (/\b(?:dose|dosing|maximum|max|action)\b/i.test(args.query)) return false;
+  return args.directTitleSupport || args.topTextRank >= 0.08 || hasTableOrVisualSourceSupport(args.results);
 }
 
 function shouldUseStrongClinicalRoute(args: {
@@ -311,6 +441,7 @@ export function chooseAnswerRoute(args: {
   const strongestScore = strongestRetrievalScore(args.results);
   const documents = documentCount(args.results);
   const directTitleSupport = hasDirectTitleSupport(args.query, args.results);
+  const specificTitleSupport = hasSpecificTitleSupport(args.query, args.results);
   const queryClass = args.queryClass ?? classifyRagQuery(args.query).queryClass;
   const topTextRank = Math.max(0, ...args.results.map((result) => result.text_rank ?? 0));
 
@@ -350,9 +481,11 @@ export function chooseAnswerRoute(args: {
 
   if (
     queryClass === "document_lookup" &&
-    hasExplicitDocumentLookupIntent(args.query) &&
-    !directTitleSupport &&
-    topTextRank < 0.08
+    ((!directTitleSupport && hasExplicitDocumentLookupIntent(args.query) && topTextRank < 0.08) ||
+      (directTitleSupport &&
+        (hasExplicitDocumentLookupIntent(args.query) || /\bchecklist\b/i.test(args.query)) &&
+        !specificTitleSupport &&
+        !hasAdmissionCommunityLookupIntent(args.query)))
   ) {
     return {
       mode: "unsupported",
@@ -454,6 +587,16 @@ export function chooseAnswerRoute(args: {
     queryClass === "comparison" ||
     (documents > 1 && comparisonQueryPattern.test(args.query) && !directTitleSupport)
   ) {
+    if (documents > 1 && strongestScore >= strongRetrievalThreshold) {
+      return {
+        mode: "extractive",
+        model: null,
+        reason: "high_confidence_extractive_retrieval",
+        strongestScore,
+        documentCount: documents,
+      };
+    }
+
     return {
       mode: "strong",
       model: args.strongModel,
@@ -464,6 +607,49 @@ export function chooseAnswerRoute(args: {
   }
 
   if (queryClass === "medication_dose_risk" || queryClass === "table_threshold") {
+    if (
+      queryClass === "table_threshold" &&
+      isClozapineBloodWithholdThresholdQuery(args.query) &&
+      !hasExplicitBloodWithholdActionEvidence(args.results)
+    ) {
+      return {
+        mode: "strong",
+        model: args.strongModel,
+        reason: "clinical_risk_or_complex_query",
+        strongestScore,
+        documentCount: documents,
+      };
+    }
+
+    if (queryClass === "table_threshold" && directTitleSupport && strongestScore >= strongRetrievalThreshold) {
+      return {
+        mode: "extractive",
+        model: null,
+        reason: "high_confidence_extractive_retrieval",
+        strongestScore,
+        documentCount: documents,
+      };
+    }
+
+    if (
+      queryClass === "medication_dose_risk" &&
+      shouldUseExtractiveMedicationLookup({
+        query: args.query,
+        results: args.results,
+        strongestScore,
+        topTextRank,
+        directTitleSupport,
+      })
+    ) {
+      return {
+        mode: "extractive",
+        model: null,
+        reason: "high_confidence_extractive_retrieval",
+        strongestScore,
+        documentCount: documents,
+      };
+    }
+
     if (
       shouldUseStrongClinicalRoute({
         query: args.query,
@@ -534,6 +720,21 @@ export function chooseAnswerRoute(args: {
       queryClass,
       conflictsOrGaps: args.conflictsOrGaps,
     })
+  ) {
+    return {
+      mode: "extractive",
+      model: null,
+      reason: "high_confidence_extractive_retrieval",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
+  if (
+    queryClass === "document_lookup" &&
+    directTitleSupport &&
+    strongestScore >= strongRetrievalThreshold &&
+    /\b(?:documentation|procedure|process|requirements?|required|include|includes)\b/i.test(args.query)
   ) {
     return {
       mode: "extractive",

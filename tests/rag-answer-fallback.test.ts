@@ -175,7 +175,39 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).not.toContain("The relevant source is");
   });
 
-  it("uses model synthesis for strong source answers instead of packed source-card labels", async () => {
+  it("does not answer FBC withhold-threshold lookups from generic monitoring timing facts", async () => {
+    const answer = await answerFromTextSources("What FBC threshold should withhold clozapine?", [
+      source({
+        id: "clozapine-fbc-timing",
+        document_id: "clozapine-doc",
+        title: "Clozapine Monitoring",
+        file_name: "Clozapine Monitoring.pdf",
+        page_number: 15,
+        section_heading: "FBC monitoring",
+        content:
+          "FBC monitoring frequency is weekly for the first 18 weeks. Blood results should be entered before dispensing. Repeat checks may occur within 48 hours when monitoring is incomplete.",
+      }),
+      source({
+        id: "clozapine-fbc-action",
+        document_id: "clozapine-doc",
+        title: "Clozapine Monitoring",
+        file_name: "Clozapine Monitoring.pdf",
+        page_number: 16,
+        section_heading: "FBC result action",
+        content:
+          "FBC blood results in the Amber or Red range require clozapine to be withheld and urgent review arranged.",
+      }),
+    ]);
+
+    const plainAnswer = answer.answer.replace(/\*\*/g, "");
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toContain("clozapine-fbc-action");
+    expect(plainAnswer).toMatch(/amber|red|withheld|withhold/i);
+    expect(plainAnswer).not.toContain("48 hours");
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+  });
+
+  it("uses model synthesis for strong non-direct source answers instead of packed source-card labels", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_ANSWER_TIMEOUT_MS", "4321");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
@@ -184,15 +216,15 @@ describe("RAG structured-output fallback", () => {
     const clozapineSource = source({
       id: "clozapine-monitoring-1",
       document_id: "clozapine-doc",
-      title: "Clozapine Monitoring",
-      file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+      title: "Medication guideline",
+      file_name: "medication-guideline.pdf",
       page_number: 11,
       section_heading: "Monitoring",
       content:
         "Medication point: • Copy of the Consent to Clozapine Treatment Form EMR0270. Medication point: • Prescribe initiation of Clozapine on the WA Adult Clozapine Initiation and Titration form. Medication point: • Ensure consumers complete the Clozapine Monitoring Form on initiation.",
       similarity: 0.94,
       hybrid_score: 0.94,
-      text_rank: 1.2,
+      text_rank: 0,
       memory_cards: [
         {
           id: "memory-1",
@@ -380,7 +412,9 @@ describe("RAG structured-output fallback", () => {
     );
 
     expect(answer.routingMode).toBe("extractive");
-    expect(answer.routingReason).toMatch(/source_backed_(?:extractive|review)_fallback/);
+    expect(answer.routingReason).toMatch(
+      /high_confidence_extractive_retrieval|source_backed_(?:extractive|review)_fallback/,
+    );
     expect(answer.grounded).toBe(true);
     expect(answer.citations.length).toBeGreaterThan(0);
     expect(answer.answer).toMatch(/source support|indexed document|supports this query|ECT Procedure/i);
@@ -394,15 +428,15 @@ describe("RAG structured-output fallback", () => {
     const clozapineSource = source({
       id: "clozapine-monitoring-template-1",
       document_id: "clozapine-doc",
-      title: "Clozapine Monitoring",
-      file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+      title: "Medication guideline",
+      file_name: "medication-guideline.pdf",
       page_number: 11,
       section_heading: "Monitoring",
       content:
         "Copy the Consent to Clozapine Treatment Form EMR0270, prescribe initiation on the WA Adult Clozapine Initiation and Titration form, and ensure consumers complete the Clozapine Monitoring Form on initiation.",
       similarity: 0.94,
       hybrid_score: 0.94,
-      text_rank: 1.2,
+      text_rank: 0,
     });
     const rpc = vi.fn(async (name: string) => {
       if (name === "match_document_chunks_text") return { data: [clozapineSource], error: null };
@@ -894,8 +928,8 @@ describe("RAG structured-output fallback", () => {
     });
 
     const plainAnswer = answer.answer.replace(/\*\*/g, "");
-    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
-    expect(answer.routingMode).toBe("strong");
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+    expect(answer.routingMode).toBe("extractive");
     expect(plainAnswer).toContain("must be discontinued immediately");
     expect(plainAnswer).not.toContain("Table detailing roles and responsibilities");
     expect(plainAnswer).not.toContain("clinical_table");
@@ -1840,14 +1874,14 @@ describe("RAG structured-output fallback", () => {
     );
 
     const plainAnswer = answer.answer.replace(/\*\*/g, "");
-    expect(answer.routingMode).toBe("strong");
+    expect(answer.routingMode).toBe("extractive");
     expect(answer.grounded).toBe(true);
     expect(plainAnswer).not.toMatch(/^Monitoring\b/i);
     expect(plainAnswer).not.toMatch(/^and reported/i);
     expect(plainAnswer).toMatch(/discontinue.*immediately|discontinued immediately/i);
   });
 
-  it("uses the same model-first guard for pathway and referral searches", async () => {
+  it("uses the same extractive guard for pathway and referral searches", async () => {
     const answer = await answerFromTextSources(
       "what are ECT referral criteria",
       [
@@ -1883,7 +1917,7 @@ describe("RAG structured-output fallback", () => {
     );
 
     const plainAnswer = answer.answer.replace(/\*\*/g, "");
-    expect(answer.routingMode).toBe("fast");
+    expect(answer.routingMode).toBe("extractive");
     expect(answer.grounded).toBe(true);
     expect(plainAnswer).not.toMatch(/^Referral criteria\b/i);
     expect(plainAnswer).not.toMatch(/^and document/i);

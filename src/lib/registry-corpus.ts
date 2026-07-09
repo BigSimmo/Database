@@ -34,6 +34,21 @@ type RegistryCorpusEntry = {
   metadata: Record<string, Json>;
 };
 
+export type RegistryCorpusEmbedResult = {
+  documentCount: number;
+  chunkCount: number;
+  skipped?: boolean;
+  reason?: "disabled" | "not_found" | "failed";
+  errorMessage?: string;
+};
+
+export type RegistryCorpusEditTarget =
+  | { corpusKind: "service" | "form"; ownerId: string; slug: string }
+  | { corpusKind: "medication"; ownerId: string; slug: string }
+  | { corpusKind: "differential"; ownerId: string; slug: string; differentialKind?: DifferentialRecordRow["kind"] };
+
+const REGISTRY_EMBEDDING_WRITE_BATCH_SIZE = 64;
+
 function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -268,37 +283,46 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
   if (entries.length === 0) return { documentCount: 0, chunkCount: 0 };
 
   const { embedTexts } = await import("@/lib/openai");
-  const embeddings = await embedTexts(entries.map((entry) => entry.content));
-  const documents = entries.map(registryDocumentRow);
-  const chunks = entries.map((entry, index) => registryChunkRow(entry, embeddings[index] as Vector));
-  const documentIds = documents.map((document) => document.id).filter((id): id is string => typeof id === "string");
-  const { data: existingDocuments, error: existingDocumentError } = await supabase
-    .from("documents")
-    .select("id")
-    .in("id", documentIds);
-  if (existingDocumentError) {
-    throw new Error(`Registry corpus preflight failed: ${existingDocumentError.message}`);
-  }
-  const existingDocumentIds = new Set((existingDocuments ?? []).map((document) => document.id));
+  let documentCount = 0;
+  let chunkCount = 0;
 
-  const { error: documentError } = await supabase.from("documents").upsert(documents, { onConflict: "id" });
-  if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
+  for (let start = 0; start < entries.length; start += REGISTRY_EMBEDDING_WRITE_BATCH_SIZE) {
+    const batch = entries.slice(start, start + REGISTRY_EMBEDDING_WRITE_BATCH_SIZE);
+    const embeddings = await embedTexts(batch.map((entry) => entry.content));
+    const documents = batch.map(registryDocumentRow);
+    const chunks = batch.map((entry, index) => registryChunkRow(entry, embeddings[index] as Vector));
+    const documentIds = documents.map((document) => document.id).filter((id): id is string => typeof id === "string");
 
-  const { error: chunkError } = await supabase.from("document_chunks").upsert(chunks, { onConflict: "id" });
-  if (chunkError) {
-    const insertedDocumentIds = documentIds.filter((id) => !existingDocumentIds.has(id));
-    if (insertedDocumentIds.length > 0) {
-      const { error: rollbackError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
-      if (rollbackError) {
-        throw new Error(
-          `Registry corpus chunk upsert failed: ${chunkError.message}; rollback failed: ${rollbackError.message}`,
-        );
-      }
+    const { data: existingDocuments, error: existingDocumentError } = await supabase
+      .from("documents")
+      .select("*")
+      .in("id", documentIds);
+    if (existingDocumentError) {
+      throw new Error(`Registry corpus preflight failed: ${existingDocumentError.message}`);
     }
-    throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
+    const existingDocumentIds = new Set((existingDocuments ?? []).map((document) => document.id));
+    const existingDocumentSnapshots = existingDocuments ?? [];
+
+    const { error: documentError } = await supabase.from("documents").upsert(documents, { onConflict: "id" });
+    if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
+
+    const { error: chunkError } = await supabase.from("document_chunks").upsert(chunks, { onConflict: "id" });
+    if (chunkError) {
+      const insertedDocumentIds = documentIds.filter((id) => !existingDocumentIds.has(id));
+      if (insertedDocumentIds.length > 0) {
+        await supabase.from("documents").delete().in("id", insertedDocumentIds);
+      }
+      if (existingDocumentSnapshots.length > 0) {
+        await supabase.from("documents").upsert(existingDocumentSnapshots, { onConflict: "id" });
+      }
+      throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
+    }
+
+    documentCount += documents.length;
+    chunkCount += chunks.length;
   }
 
-  return { documentCount: documents.length, chunkCount: chunks.length };
+  return { documentCount, chunkCount };
 }
 
 export function embedClinicalRegistryRows(supabase: AdminClient, rows: RegistryRecordRow[]) {
@@ -326,4 +350,104 @@ export async function embedReloadedOwnerRows<Row>(
   if (error) throw new Error(`Could not reload ${tableLabel} rows for embedding: ${error.message}`);
   const { chunkCount } = await embed(data ?? []);
   return chunkCount;
+}
+
+function skippedRegistryEmbedResult(reason: RegistryCorpusEmbedResult["reason"]): RegistryCorpusEmbedResult {
+  return { documentCount: 0, chunkCount: 0, skipped: true, reason };
+}
+
+export async function reembedClinicalRegistryRecordBySlug(
+  supabase: AdminClient,
+  args: { ownerId: string; slug: string; kind?: RegistryRecordKind },
+): Promise<RegistryCorpusEmbedResult> {
+  if (!registryCorpusEmbeddingEnabled()) return skippedRegistryEmbedResult("disabled");
+
+  let query = supabase.from("clinical_registry_records").select("*").eq("owner_id", args.ownerId).eq("slug", args.slug);
+  if (args.kind) query = query.eq("kind", args.kind);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw new Error(`Could not load registry record for re-embedding: ${error.message}`);
+  if (!data) return skippedRegistryEmbedResult("not_found");
+
+  return embedClinicalRegistryRows(supabase, [data as RegistryRecordRow]);
+}
+
+export async function reembedMedicationRecordBySlug(
+  supabase: AdminClient,
+  args: { ownerId: string; slug: string },
+): Promise<RegistryCorpusEmbedResult> {
+  if (!registryCorpusEmbeddingEnabled()) return skippedRegistryEmbedResult("disabled");
+
+  const { data, error } = await supabase
+    .from("medication_records")
+    .select("*")
+    .eq("owner_id", args.ownerId)
+    .eq("slug", args.slug)
+    .maybeSingle();
+  if (error) throw new Error(`Could not load medication record for re-embedding: ${error.message}`);
+  if (!data) return skippedRegistryEmbedResult("not_found");
+
+  return embedMedicationRows(supabase, [data as MedicationRecordRow]);
+}
+
+export async function reembedDifferentialRecordBySlug(
+  supabase: AdminClient,
+  args: { ownerId: string; slug: string; kind?: DifferentialRecordRow["kind"] },
+): Promise<RegistryCorpusEmbedResult> {
+  if (!registryCorpusEmbeddingEnabled()) return skippedRegistryEmbedResult("disabled");
+
+  let query = supabase.from("differential_records").select("*").eq("owner_id", args.ownerId).eq("slug", args.slug);
+  if (args.kind) query = query.eq("kind", args.kind);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw new Error(`Could not load differential record for re-embedding: ${error.message}`);
+  if (!data) return skippedRegistryEmbedResult("not_found");
+
+  return embedDifferentialRows(supabase, [data as DifferentialRecordRow]);
+}
+
+export function reembedRegistryRecordAfterEdit(
+  supabase: AdminClient,
+  target: RegistryCorpusEditTarget,
+): Promise<RegistryCorpusEmbedResult> {
+  if (target.corpusKind === "medication") {
+    return reembedMedicationRecordBySlug(supabase, { ownerId: target.ownerId, slug: target.slug });
+  }
+
+  if (target.corpusKind === "differential") {
+    return reembedDifferentialRecordBySlug(supabase, {
+      ownerId: target.ownerId,
+      slug: target.slug,
+      kind: target.differentialKind,
+    });
+  }
+
+  return reembedClinicalRegistryRecordBySlug(supabase, {
+    ownerId: target.ownerId,
+    slug: target.slug,
+    kind: target.corpusKind,
+  });
+}
+
+export async function bestEffortReembedRegistryRecordAfterEdit(args: {
+  supabase: AdminClient;
+  target: RegistryCorpusEditTarget;
+  scope: string;
+}) {
+  if (!registryCorpusEmbeddingEnabled()) return skippedRegistryEmbedResult("disabled");
+
+  try {
+    return await reembedRegistryRecordAfterEdit(args.supabase, args.target);
+  } catch (embedError) {
+    const errorMessage = embedError instanceof Error ? embedError.message : String(embedError);
+    console.error(
+      `[${args.scope}] corpus re-embedding failed after registry edit for ${args.target.ownerId}/${args.target.corpusKind}/${args.target.slug}`,
+      embedError,
+    );
+    return {
+      documentCount: 0,
+      chunkCount: 0,
+      skipped: true,
+      reason: "failed",
+      errorMessage,
+    } satisfies RegistryCorpusEmbedResult;
+  }
 }

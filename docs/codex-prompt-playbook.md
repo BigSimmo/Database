@@ -657,3 +657,293 @@ with file/line references. Keep summary secondary.
 Inspect AGENTS.md, current git status, changed files, and relevant tests/docs.
 Do not modify files unless I explicitly ask for fixes after the review.
 ```
+
+## 23. OpenAI Cookbook Review For This Repo
+
+Use this when you want a fresh pass over current OpenAI Cookbook patterns before
+changing the Clinical KB RAG, answer, ingestion, eval, or prompt stack.
+
+```text
+Review the current OpenAI Cookbook and recommend what should be adopted in this
+repo.
+
+Use only official OpenAI sources. Treat archived Cookbook recipes as historical
+unless the pattern is still supported by current docs or already matches this
+repo's architecture.
+
+Map recommendations to this repo's existing surfaces:
+- src/lib/rag.ts
+- src/lib/rag-routing.ts
+- src/lib/rag-provider.ts
+- src/lib/answer-verification.ts
+- src/lib/retrieval-selection.ts
+- scripts/eval-*.ts
+- scripts/fixtures/rag-retrieval-golden.json
+- docs/retrieval-quality-runbook.md
+- docs/search-rag-master-context.md
+
+Do not run OpenAI API calls, live Supabase checks, evals, installs, dependency
+updates, commits, pushes, or deploys unless I explicitly approve.
+
+Return:
+- Cookbook patterns that are already covered here
+- Cookbook patterns worth adding
+- Cookbook patterns to avoid or defer
+- file-level implementation plan
+- local/offline verification plan
+- any steps that require explicit API/provider approval
+```
+
+## 24. Structured Output Contract Hardening
+
+Use this when answer generation, extraction, tool calls, or eval capture needs a
+stricter response shape.
+
+```text
+Audit and harden structured output contracts for this repo.
+
+Focus on places where model or model-like output is parsed, displayed, stored,
+or graded:
+- src/lib/rag.ts
+- src/lib/answer-stream-extractor.ts
+- src/lib/answer-verification.ts
+- src/lib/answer-render-policy.ts
+- src/app/api/answer/route.ts
+- src/app/api/answer/stream/route.ts
+- src/app/api/eval-cases/route.ts
+- tests/answer-*.test.ts
+- tests/rag-*.test.ts
+
+Look for JSON parsing, optional fields, schema drift, permissive unknown fields,
+missing refusal/source-gap states, missing citation IDs, and UI display paths
+that trust raw model text.
+
+Prefer strict schema validation at the boundary, then deterministic verification
+before display. Preserve source-only fallback behavior and conservative clinical
+gating. Do not change models, API providers, env values, or live workflows
+without approval.
+
+If implementation is safe and scoped, make the minimal changes and add focused
+tests. Otherwise return a concrete migration plan with affected files and
+verification commands.
+```
+
+## 25. Eval-Driven Prompt And Answer Improvement
+
+Use this before changing prompts, routing, answer formatting, source governance,
+or clinical synthesis behavior.
+
+```text
+Improve this RAG/answer behavior using an eval-driven loop:
+
+[include query, observed answer, expected answer, citations/sources, and whether
+provider-backed evals are approved]
+
+Start offline unless I approve OpenAI/Supabase provider use.
+
+Process:
+- inspect current answer/routing/retrieval code and relevant tests
+- add or update a small deterministic fixture or unit test that captures the
+  failure before changing behavior
+- only then adjust prompt text, schema, routing, verification, or render policy
+- keep the source-governance and privacy rules conservative
+- avoid broad prompt rewrites that change unrelated answer classes
+
+Verification:
+- run the focused test or local-safe eval that proves the behavior
+- do not run provider-backed evals unless approved
+- for non-trivial source changes, run npm run verify:cheap
+- for clinical output/source-governance changes, run npm run check:production-readiness
+
+Final response: include baseline failure, fix, files changed, focused result,
+and whether live eval confirmation is still needed.
+```
+
+## 26. RAG Document Preparation And Metadata Audit
+
+Use this when retrieval quality might be limited by chunking, metadata, visual
+content, or source formatting rather than model prompting.
+
+```text
+Audit the RAG document preparation pipeline for Cookbook-style retrieval
+improvements without running live ingestion or OpenAI calls.
+
+Inspect:
+- worker/main.ts
+- worker/embedding-fields.ts
+- worker/table-facts.ts
+- src/lib/chunking.ts
+- src/lib/document-index-units.ts
+- src/lib/document-enrichment.ts
+- src/lib/visual-intelligence.ts
+- src/lib/source-metadata.ts
+- scripts/eval-retrieval.ts
+- docs/retrieval-quality-runbook.md
+
+Evaluate whether indexed units include the right searchable text and metadata:
+document title, source status, jurisdiction, clinical topic, page/section
+labels, tables, figures, abbreviations, synonyms, and user-searchable clinical
+phrasing.
+
+Look for opportunities to improve retrieval by changing document preparation,
+metadata augmentation, query rewriting, or chunk linking before changing answer
+generation prompts.
+
+Do not run ingestion, worker jobs, OpenAI embeddings, visual model calls, live
+Supabase commands, or backfills unless I approve. Return a safe implementation
+plan and the local/offline tests that should be added first.
+```
+
+## 27. Multimodal Evidence And Visual RAG Review
+
+Use this for image-heavy PDFs, tables, forms, diagrams, medication charts, or
+source pages where text-only retrieval may miss important evidence.
+
+```text
+Review multimodal/visual evidence support for this Clinical KB workflow.
+
+Start read-only and offline. Inspect:
+- src/lib/visual-intelligence.ts
+- src/lib/image-filtering.ts
+- src/lib/document-index-units.ts
+- src/lib/rag-source-block.ts
+- src/components/clinical-dashboard/visual-evidence.tsx
+- src/app/api/images/[id]/signed-url/route.ts
+- tests related to document images, visual evidence, and answer citations
+
+Check whether table/image/diagram evidence is:
+- extracted into searchable text or metadata
+- linked back to document/page/image IDs
+- cited safely in answer output
+- gated by source quality and access control
+- rendered with useful source review affordances
+
+Recommend the smallest improvements. Do not run OCR, image model calls, live
+Supabase, OpenAI, reindexing, or browser QA unless I approve. If code changes
+are safe and local-only, add focused tests and explain what still needs live
+corpus validation.
+```
+
+## 28. Clinical RAG Guardrails Review
+
+Use this when prompt injection, off-topic questions, unsafe clinical confidence,
+or unsupported output could reach users.
+
+```text
+Review and harden Clinical KB RAG guardrails.
+
+Focus on both input and output guardrails:
+- prompt injection and jailbreak attempts inside user queries or retrieved text
+- off-topic or non-clinical requests
+- weak retrieval or conflicting evidence
+- unsupported numbers, doses, thresholds, and recommendations
+- stale, unverified, review-due, or poor-extraction sources
+- private document access and owner scoping
+- raw provider/internal error leakage
+
+Inspect:
+- src/lib/rag.ts
+- src/lib/rag-injection*
+- src/lib/answer-verification.ts
+- src/lib/source-governance.ts
+- src/lib/answer-render-policy.ts
+- src/app/api/answer
+- src/app/api/search
+- tests/rag-injection.test.ts
+- tests/answer-verification.test.ts
+- docs/rag-injection-threat-model.md
+- docs/clinical-hazard-analysis.md
+
+Make only scoped fixes with focused tests. Preserve useful source-gap behavior
+instead of making unsupported answers look confident. Do not run provider-backed
+generation or live Supabase checks unless approved.
+```
+
+## 29. Prompt Caching And Cost/Latency Review
+
+Use this before changing prompt assembly, tool/schema definitions, context
+ordering, or answer-generation latency behavior.
+
+```text
+Review prompt assembly for cost and latency efficiency.
+
+Inspect:
+- src/lib/rag.ts
+- src/lib/openai.ts
+- src/lib/rag-provider.ts
+- src/lib/rag-context-selection.ts
+- src/lib/env.ts
+- tests for answer latency, provider routing, and fallback behavior
+- docs/observability-slos.md
+
+Check whether static prompt content, schemas, examples, and stable instructions
+are kept before variable user/query/retrieval context so provider prompt caching
+can help when API calls are approved. Check whether tool/schema ordering is
+stable, prompt/cache versioning is explicit, and telemetry captures cached input
+tokens where available.
+
+Do not optimize by weakening source grounding, shortening clinical safety
+instructions, or hiding source-gap behavior. Do not run OpenAI calls or live
+evals unless approved. Return local code/test changes if safe, plus the live
+metrics that would need provider-backed confirmation.
+```
+
+## 30. Responses API Or Tool-Orchestration Migration Plan
+
+Use this only for planning a future migration. Do not perform the migration
+unless it is explicitly requested and API/provider work is approved.
+
+```text
+Create a conservative migration plan for whether this repo should adopt
+Responses API/tool orchestration patterns for RAG.
+
+Compare current implementation to a Responses-style flow:
+- current retrieval and answer orchestration in src/lib/rag.ts
+- current OpenAI wrapper in src/lib/openai.ts
+- current route contracts in src/app/api/answer
+- current eval scripts and fixtures
+- current source-governance and privacy rules
+
+Identify:
+- what would improve, such as stateful tool calls, structured outputs, or
+  cleaner orchestration
+- what would get riskier, such as provider coupling, cost, tracing, streaming,
+  schema drift, or clinical safety validation
+- exact files and tests that would change
+- rollout plan with feature flag and fallback
+- API/provider calls that require approval
+
+Do not edit files unless I explicitly ask for implementation after the plan.
+```
+
+## 31. Schema Change Impact And Eval Harness
+
+Use this before SQL/RPC/schema changes that affect ingestion, retrieval, source
+governance, or clinical output.
+
+```text
+Build a schema-change impact plan and eval harness for this database/RAG change:
+
+[describe the intended SQL/RPC/schema/policy change]
+
+Start read-only. Inspect:
+- supabase/schema.sql
+- relevant supabase/migrations/*.sql
+- src/lib/supabase/database.types.ts
+- affected src/app/api routes
+- affected src/lib retrieval/ingestion modules
+- tests/supabase-schema.test.ts
+- scripts/check-drift.ts
+- scripts/eval-retrieval.ts
+
+Produce:
+- impact analysis by table/RPC/function/policy
+- code paths and tests affected
+- deterministic preflight checks that do not need model calls
+- parse-only or local-only eval cases where possible
+- live Supabase/OpenAI checks that require explicit approval
+- rollback or compatibility notes
+
+If the change is safe and scoped and I asked for implementation, add the
+smallest migration plus focused tests. Otherwise stop at the plan.
+```

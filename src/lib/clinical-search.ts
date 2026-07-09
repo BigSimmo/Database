@@ -1113,7 +1113,7 @@ export function buildClinicalTextSearchQuery(query: string) {
       "po",
     );
   } else if (/\badmission\b/i.test(query) && /\bcommunity patients?\b/i.test(query)) {
-    normalizedTokens.unshift("admission", "community", "pts");
+    normalizedTokens.unshift("admission", "community", "patients", "pts");
   } else if (/\bdischarge\b/i.test(query) && /\b(?:summari[sz]e|summary|guidance|documentation?)\b/i.test(query)) {
     normalizedTokens.splice(0, normalizedTokens.length, "mental", "health", "discharge");
   } else if (
@@ -1143,7 +1143,7 @@ export function buildClinicalTextSearchQuery(query: string) {
   } else if (/\b(?:risk matrix|red zone)\b/i.test(query)) {
     normalizedTokens.push("high", "visual", "alert");
   } else if (/\badmission\b/i.test(query) && /\bdischarge\b/i.test(query)) {
-    normalizedTokens.push("community", "pts");
+    normalizedTokens.push("community", "patients", "pts");
   } else if (/\bcommunity patients?\b/i.test(query) && normalizedTokens.includes("community")) {
     normalizedTokens.push("pts");
   }

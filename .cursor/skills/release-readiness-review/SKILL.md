@@ -7,6 +7,10 @@ description: Reviews build validation, linting/type-checking, target database ch
 
 Use this skill when preparing a branch for merging, pull request submission, or production deployment.
 
+## Repository Review Protocol
+
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+
 ## Review Checklist
 
 ### 1. Build & Automation Checks

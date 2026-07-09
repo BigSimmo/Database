@@ -7,6 +7,10 @@ description: Reviews module dependencies, broken imports, unused files, and stru
 
 Use this skill when auditing the workspace layout, folder structures, imports, and dependencies.
 
+## Repository Review Protocol
+
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+
 ## Review Checklist
 
 ### 1. Structural Audits

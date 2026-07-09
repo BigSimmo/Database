@@ -166,11 +166,18 @@ export function buildRetrievalQueryVariants(
   };
 
   addVariant(buildClinicalTextSearchQuery(query));
+  if (/\badmission\b/i.test(query) && /\bcommunity patients?\b/i.test(query)) {
+    addVariant("admission of community patients");
+    addVariant("admission community patients");
+  }
   aliasExpansions.slice(0, 2).forEach(addVariant);
   if (/\bpatient property\b/i.test(query)) {
     addVariant("patient property");
   }
   if (/\bclozapine\b/i.test(query) && /\b(?:anc|fbc|wbc|neutrophil|white cell)\b/i.test(query)) {
+    if (/\b(?:threshold|cut[\s-]?off|withhold|withheld|withholding|cease|stop|stopped|discontinue)\b/i.test(query)) {
+      addVariant("clozapine blood results amber red range");
+    }
     addVariant("clozapine anc fbc");
     addVariant("clozapine monitoring");
   }
