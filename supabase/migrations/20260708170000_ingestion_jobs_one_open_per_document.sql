@@ -5,9 +5,9 @@
 -- which is a check-then-act race. This index makes the invariant structural.
 --
 -- Uses a transactional CREATE UNIQUE INDEX (not CONCURRENTLY) so `supabase db
--- push` can apply it with the rest of the July 8 batch. This version is
--- intentionally separate from 20260708160000_retrieval_owner_matches_fail_closed
--- so migration history/repair cannot collide on the same timestamp.
+-- push` and Supabase Preview replay can apply it inside a transaction. Stem
+-- 20260708160000 is a neutralized no-op retained for preview history parity;
+-- this migration carries the actual index DDL.
 --
 -- Before applying on live, confirm `npm run reindex:health` reports
 -- jobs_pending = 0 and jobs_processing = 0 (live had 0/0 as of 2026-07-08).
