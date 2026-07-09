@@ -26,12 +26,12 @@ jobs:
   # Intended as a required status check on main together with ui-smoke,
   # Gitleaks, and one migration replay gate.
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -41,6 +41,9 @@ jobs:
           node-version-file: ".nvmrc"
           cache: npm
           cache-dependency-path: package-lock.json
+
+      - name: Workflow action pin check
+        run: npm run check:github-actions
 
       - name: Setup Deno
         uses: denoland/setup-deno@v2
@@ -99,12 +102,12 @@ jobs:
   # rerun does not repeat them. The runner boots its own dev server, so no
   # build step is needed here.
   ui-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -146,12 +149,12 @@ jobs:
   # required and reliable, keep this advisory or path-filtered rather than
   # requiring both replay gates on every PR.
   db-reset-verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -193,12 +196,12 @@ jobs:
   release-browser-matrix:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
     needs: [verify, ui-smoke, db-reset-verify]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 70
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
