@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Copy,
   ExternalLink,
+  Layers,
   Loader2,
   ShieldCheck,
   Sparkles,
@@ -23,12 +24,12 @@ import {
   chatMicroAction,
   cn,
   sourceCapsule,
+  sourceCapsuleCountBadge,
   statusDotMuted,
   statusDotReady,
   statusDotReview,
   subtleStatusPill,
   textMuted,
-  toneWarningQuiet,
 } from "@/components/ui-primitives";
 import { sourceResultHref } from "@/components/clinical-dashboard/source-actions";
 import {
@@ -257,7 +258,7 @@ function primaryAnswerDisplayText(value: string) {
     .replace(/[;,:-]\s*$/, "")}...`;
 }
 
-function sourceCapsuleText({
+function sourceCapsuleDisplay({
   sourceCount,
   weakEvidence,
   grounded,
@@ -265,11 +266,11 @@ function sourceCapsuleText({
   sourceCount: number;
   weakEvidence: boolean;
   grounded: boolean;
-}) {
-  if (sourceCount <= 0) return "No direct source found";
-  if (!grounded) return "Review nearby sources";
-  if (weakEvidence) return "Review sources";
-  return `${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
+}): { label: string; showCountBadge: boolean } {
+  if (sourceCount <= 0) return { label: "No direct source found", showCountBadge: false };
+  if (!grounded) return { label: "Review nearby sources", showCountBadge: false };
+  if (weakEvidence) return { label: "Review sources", showCountBadge: false };
+  return { label: "Sources", showCountBadge: true };
 }
 
 export function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined) {
@@ -572,7 +573,7 @@ export function NaturalLanguageAnswer({
   }, []);
   const cleaned = primaryAnswerDisplayText(text);
   if (!cleaned) return null;
-  const capsuleText = sourceCapsuleText({ sourceCount, weakEvidence, grounded });
+  const capsuleDisplay = sourceCapsuleDisplay({ sourceCount, weakEvidence, grounded });
   const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);
   const quoteText = sourceLinks.find((source) => source.snippet)?.snippet || bestSource?.quote || bestSource?.snippet;
   const canOpenSourcePreview = previewSources.length > 0;
@@ -587,31 +588,23 @@ export function NaturalLanguageAnswer({
       setCopiedSourceQuote(false);
     }
   }
-  const cautionCapsule = weakEvidence || !grounded;
   const sourceCapsuleButton = (
     <button
       type="button"
       ref={sourceCapsuleRef}
-      className={cn(sourceCapsule, "w-fit", cautionCapsule && toneWarningQuiet)}
+      className={cn(sourceCapsule, "w-fit")}
       aria-label="Open answer sources"
       aria-expanded={sourcePreviewOpen}
       onClick={() => {
         if (canOpenSourcePreview) setSourcePreviewOpen((current) => !current);
       }}
     >
-      {sourceCount > 0 ? (
-        <>
-          <span className="leading-none sm:hidden">
-            {sourceCount} source{sourceCount === 1 ? "" : "s"}
-          </span>
-          <span className="hidden leading-none sm:inline">{capsuleText}</span>
-        </>
-      ) : (
-        <span className="leading-none">{capsuleText}</span>
-      )}
+      <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate">{capsuleDisplay.label}</span>
+      {capsuleDisplay.showCountBadge ? <span className={sourceCapsuleCountBadge}>{sourceCount}</span> : null}
       {canOpenSourcePreview ? (
         <ChevronDown
-          className={cn("h-4 w-4 shrink-0 transition-transform", sourcePreviewOpen && "rotate-180")}
+          className={cn("h-3.5 w-3.5 shrink-0 transition-transform", sourcePreviewOpen && "rotate-180")}
           strokeWidth={2.25}
           aria-hidden
         />
@@ -632,53 +625,56 @@ export function NaturalLanguageAnswer({
       >
         <ShieldCheck className="h-[18px] w-[18px]" />
       </span>
-      <div className="min-w-0 space-y-2.5">
+      <div className="min-w-0 space-y-1.5">
         <p className={chatAnswerText}>
           <span data-testid="plain-answer-prose">
             <SafeBoldText text={cleaned} />
           </span>
         </p>
-        {sourceOnly ? (
-          <section
-            data-testid="source-only-disclosure"
-            role="note"
-            className={cn(
-              "w-fit max-w-full overflow-hidden rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 text-xs",
-              textMuted,
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-              className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
-              aria-expanded={sourceOnlyNoticeOpen}
-              aria-controls="source-only-disclosure-detail"
+        <div className="space-y-1">
+          {sourceOnly ? (
+            <section
+              data-testid="source-only-disclosure"
+              role="note"
+              className={cn(
+                "w-fit max-w-full overflow-hidden rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 text-xs",
+                textMuted,
+              )}
             >
-              <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
-              <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
-              <span className="shrink-0 text-2xs text-[color:var(--text-muted)]">· verify passages</span>
-              <ChevronDown
-                className={cn(
-                  "ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition-transform",
-                  sourceOnlyNoticeOpen && "rotate-180",
-                )}
-                aria-hidden
-              />
-            </button>
-            {sourceOnlyNoticeOpen ? (
-              <div
-                id="source-only-disclosure-detail"
-                className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-2xs leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+              <button
+                type="button"
+                onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
+                className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+                aria-expanded={sourceOnlyNoticeOpen}
+                aria-controls="source-only-disclosure-detail"
               >
-                <p>
-                  This answer was assembled from your documents without the AI model, so it may be less complete. Verify
-                  dose, threshold, route, timing, monitoring, and risk details against the cited passages below.
-                </p>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
-        {sourceCapsuleButton}
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
+                <span className="shrink-0 text-2xs text-[color:var(--text-muted)]">· verify passages</span>
+                <ChevronDown
+                  className={cn(
+                    "ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition-transform",
+                    sourceOnlyNoticeOpen && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+              </button>
+              {sourceOnlyNoticeOpen ? (
+                <div
+                  id="source-only-disclosure-detail"
+                  className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-2xs leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+                >
+                  <p>
+                    This answer was assembled from your documents without the AI model, so it may be less complete.
+                    Verify dose, threshold, route, timing, monitoring, and risk details against the cited passages
+                    below.
+                  </p>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+          {sourceCapsuleButton}
+        </div>
         {canOpenSourcePreview && !usePreviewSheet ? (
           <SourcePreviewPopover
             open={sourcePreviewOpen}
