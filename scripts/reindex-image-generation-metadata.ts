@@ -80,19 +80,14 @@ function parseArgs(argv: string[]): Args {
       continue;
     }
 
+    if (token !== "--document-id" && token !== "--owner-id" && token !== "--limit") continue;
+
     const value = argv[index + 1];
-    if (!value || value.startsWith("--")) {
-      if (token === "--document-id" || token === "--owner-id" || token === "--limit") {
-        throw new Error(`Missing value for ${token}`);
-      }
-      continue;
-    }
+    if (!value || value.startsWith("--")) throw new Error(`Missing value for ${token}`);
     if (token === "--document-id") args.documentId = value;
-    if (token === "--owner-id") args.ownerId = value;
-    if (token === "--limit") args.limit = Number.parseInt(value, 10);
-    if (token === "--document-id" || token === "--owner-id" || token === "--limit") {
-      index += 1;
-    }
+    else if (token === "--owner-id") args.ownerId = value;
+    else args.limit = Number.parseInt(value, 10);
+    index += 1;
   }
 
   if (!Number.isFinite(args.limit) || args.limit <= 0) {
@@ -105,11 +100,8 @@ function parseArgs(argv: string[]): Args {
 }
 
 function rowNeedsRefresh(row: ImageRow, committedGeneration: string) {
-  const rowMetadataGeneration = committedIndexGeneration(row.metadata);
   if (row.index_generation_id !== null && row.index_generation_id !== committedGeneration) return true;
-  return row.index_generation_id === null
-    ? rowMetadataGeneration !== committedGeneration
-    : rowMetadataGeneration !== committedGeneration;
+  return committedIndexGeneration(row.metadata) !== committedGeneration;
 }
 
 async function loadDocuments(args: {

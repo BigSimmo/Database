@@ -1,6 +1,6 @@
 import { buildDefaultDifferentialRows } from "@/lib/differential-fixtures";
 import { type DifferentialRecordInsert, type DifferentialRecordRow } from "@/lib/differential-records";
-import { embedDifferentialRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
+import { bestEffortEmbedRows, embedDifferentialRows } from "@/lib/registry-corpus";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
 
@@ -17,13 +17,11 @@ export async function ensureDifferentialsSeeded(
     .select("*");
   if (error) throw new Error(`Differential seed failed: ${error.message}`);
   const seededRows = (data ?? []) as DifferentialRecordRow[];
-  if (registryCorpusEmbeddingEnabled()) {
-    try {
-      await embedDifferentialRows(supabase, seededRows);
-    } catch (embedError) {
-      console.error(`[differentials] corpus embedding failed for owner ${ownerId}`, embedError);
-    }
-  }
+  await bestEffortEmbedRows({
+    scope: "differentials",
+    ownerId,
+    embed: () => embedDifferentialRows(supabase, seededRows),
+  });
   return seededRows;
 }
 

@@ -1,7 +1,7 @@
 import { loadEnvConfig } from "@next/env";
 
 import { confirm } from "./cli-utils";
-import { embedClinicalRegistryRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
+import { embedClinicalRegistryRows, embedReloadedOwnerRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import type { RegistryRecordRow } from "@/lib/registry-records";
 import { type RegistryRecordKind } from "@/lib/registry-records";
 import { buildDefaultRegistryRows, defaultRegistryRecords } from "@/lib/registry-seed";
@@ -149,14 +149,12 @@ async function main() {
 
   if (registryCorpusEmbeddingEnabled()) {
     const kinds: RegistryRecordKind[] = args.kind === "all" ? ["service", "form"] : [args.kind];
-    const { data: embeddedRows, error: embedRowsError } = await supabase
-      .from("clinical_registry_records")
-      .select("*")
-      .eq("owner_id", args.ownerId)
-      .in("kind", kinds);
-    if (embedRowsError) throw new Error(`Could not reload registry rows for embedding: ${embedRowsError.message}`);
-    const embedded = await embedClinicalRegistryRows(supabase, (embeddedRows ?? []) as RegistryRecordRow[]);
-    console.log(`[registry:seed] Embedded ${embedded.chunkCount} registry corpus chunk(s).`);
+    const chunkCount = await embedReloadedOwnerRows(
+      supabase.from("clinical_registry_records").select("*").eq("owner_id", args.ownerId).in("kind", kinds),
+      (rows) => embedClinicalRegistryRows(supabase, rows as RegistryRecordRow[]),
+      "registry",
+    );
+    console.log(`[registry:seed] Embedded ${chunkCount} registry corpus chunk(s).`);
   }
 }
 
