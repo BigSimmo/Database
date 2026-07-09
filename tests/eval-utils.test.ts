@@ -100,13 +100,21 @@ describe("RAG eval source identity matching", () => {
   });
 
   it("pauses between eval cases when configured", async () => {
-    vi.stubEnv("RAG_EVAL_CASE_DELAY_MS", "15");
-    vi.stubEnv("RAG_EVAL_FORCE_EMBEDDING_DELAY_MS", "15");
-    const started = Date.now();
-    await pauseBetweenEvalCases({ caseIndex: 1, forceEmbedding: true });
-    expect(Date.now() - started).toBeGreaterThanOrEqual(25);
-    await pauseBetweenEvalCases({ caseIndex: 0, forceEmbedding: true });
-    expect(Date.now() - started).toBeLessThan(40);
+    vi.useFakeTimers();
+    try {
+      vi.stubEnv("RAG_EVAL_CASE_DELAY_MS", "15");
+      vi.stubEnv("RAG_EVAL_FORCE_EMBEDDING_DELAY_MS", "15");
+
+      const pausePromise = pauseBetweenEvalCases({ caseIndex: 1, forceEmbedding: true });
+      await vi.advanceTimersByTimeAsync(30);
+      await pausePromise;
+
+      await pauseBetweenEvalCases({ caseIndex: 0, forceEmbedding: true });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    }
   });
 });
 
