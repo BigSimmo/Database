@@ -1,6 +1,6 @@
 # Tenancy Defense-in-Depth Review — Clinical KB Database
 
-**Status:** Draft for review · **Date:** 2026-07-06 · **Branch:** `claude/privacy-tenancy-review`
+**Status:** Review complete · **Date:** 2026-07-06 (fail-closed RPC landed **2026-07-08**, PR #409) · **Branch:** `claude/privacy-tenancy-review`
 **Scope:** Every API route family under `src/app/api/**`, the Supabase RPCs they call, signed-URL
 issuance, the response cache, and the demo/no-auth code paths — audited adversarially for a missed or
 bypassable `owner_id` filter.
@@ -19,20 +19,18 @@ its own SQL body. The single deliberately-service-role architecture (RLS bypasse
 ownership enforced in application code) is, as implemented today, **correctly and consistently
 enforced**.
 
-That said, this is a **single-layer** design with one structural weakness worth understanding:
+That said, this is a **single-layer** design with one structural weakness that **was closed on
+2026-07-08** (PR #409):
 
-> **The database has no independent tenancy floor.** All 33 routes use the service-role client, which
-> bypasses RLS. The retrieval RPCs are owner-_aware_ but **fail _open_** — the shared owner-matching
-> helper returns _every_ row when the owner filter is `NULL`
-> ([retrieval_owner_matches, migration 20260705210000:11-15](supabase/migrations/20260705210000_retrieval_owner_filter_sentinel.sql)).
-> The only thing preventing a cross-tenant leak is that the application layer never passes `NULL` in
-> production — enforced by `requireOwnerScope` / `retrievalOwnerFilter` / `assertGlobalSearchAllowed`
-> throwing when an owner is absent ([owner-scope.ts:10-13, 27-29](src/lib/owner-scope.ts)).
+> **The database had no independent tenancy floor for NULL `owner_filter`.** Before #409, the shared
+> `retrieval_owner_matches` helper returned _every_ row when `owner_filter IS NULL` (fail-open). PR
+> #409 (`20260708160000_retrieval_owner_matches_fail_closed.sql`) makes `NULL` match **no rows**; the
+> app routes demo/test/local-no-auth through the public sentinel (`00000000-…`) instead of `NULL`
+> ([owner-scope.ts](src/lib/owner-scope.ts)). Production paths that lack an owner still throw before
+> any RPC is called.
 
-So the system is safe today, but a single future PR that adds a route without the owner helper, or that
-passes `NULL` into an RPC, would leak cross-tenant clinical data **with no database backstop and no
-alarm.** §6 gives a pragmatic, honest recommendation (fail-closed RPCs + CI guard + integration test
-before, or instead of, a full RLS refactor).
+**Historical note (pre-#409):** the review below describes the fail-open edge that existed at audit
+time. Item 1 in §6 is **DONE**; items 2–4 remain the recommended follow-ups.
 
 **The one non-clean finding** is a **low-severity information disclosure**, not a tenancy leak:
 `setup-status` interpolates a raw Postgres RPC error string into its response
@@ -76,25 +74,25 @@ promoting reviewed documents to public). An authenticated user seeing null-owner
 leak. The leak this review hunts is: **authed user A seeing user B's non-null `owner_id` rows**, an
 **anonymous** caller seeing any non-null rows, or any caller **mutating** another owner's rows.
 
-### 2.3 The SQL-level owner helper (and its fail-open edge)
+### 2.3 The SQL-level owner helper (fail-closed since #409)
 
-Every retrieval RPC gates rows through:
+Every retrieval RPC gates rows through `retrieval_owner_matches`. **As of PR #409** the helper is
+fail-closed on `NULL`:
 
 ```sql
--- migration 20260705210000_retrieval_owner_filter_sentinel.sql:4-16
+-- migration 20260708160000_retrieval_owner_matches_fail_closed.sql
 create function public.retrieval_owner_matches(owner_filter uuid, row_owner_id uuid) returns boolean as $$
   select case
-    when owner_filter is null then true                                   -- ⚠ FAIL-OPEN: all owners
+    when owner_filter is null then false                                  -- fail-closed (was fail-open pre-#409)
     when owner_filter = '00000000-0000-0000-0000-000000000000' then row_owner_id is null  -- public only
     else row_owner_id = owner_filter                                      -- exact owner (excludes null)
   end;
 $$;
 ```
 
-This is faithful to whatever the app passes: `NULL` → everything, sentinel → public, uuid → that owner.
-It is a correct _filter_, not an independent _guard_. The safety of the whole system rests on the app
-layer never handing it `NULL` in production — which the throw-in-`retrievalOwnerFilter`/
-`requireOwnerScope` design does enforce today.
+Legitimate public/demo paths pass the sentinel, not `NULL`. Verify live with
+`npm run check:july8-live-batch` after applying the July 8 batch
+([operator runbook](operator-apply-july8-batch.md)).
 
 ---
 
@@ -272,11 +270,9 @@ small, largely-cooperative user set with a public shared corpus.
 
 ### The pragmatic second layer (recommended, in priority order)
 
-1. **Make the retrieval RPCs fail-_closed_ on a null owner filter (cheap, high value).** Change
-   `retrieval_owner_matches` (or each RPC) so `owner_filter IS NULL` returns **no rows** instead of all
-   rows, and route the legitimate demo/test path through an explicit sentinel rather than `NULL`. This
-   converts the one fail-open edge (§2.3) into a fail-safe with a near-one-line SQL change — the
-   database stops being able to emit cross-tenant rows even if the app passes `NULL` by accident.
+1. **Make the retrieval RPCs fail-_closed_ on a null owner filter — DONE (2026-07-08, PR #409).**
+   `retrieval_owner_matches` now returns no rows when `owner_filter IS NULL`; the app uses the public
+   sentinel for legitimate unauthenticated paths. Verify: `npm run check:july8-live-batch`.
 2. **Add a CI guard against un-scoped owner tables (cheap, high value).** A lint/test that fails when a
    new `src/app/api/**` handler queries an owner-scoped table without a recognised scoping construct
    (`withOwnerReadScope`, `.eq('owner_id'`, `requireOwnerScope`, `documents!inner`+`documents.owner_id`).
@@ -293,10 +289,10 @@ small, largely-cooperative user set with a public shared corpus.
    worker's service-role needs. Sequence it **after** 1–3, which deliver most of the safety at a
    fraction of the cost and risk.
 
-**Bottom line:** the current single-layer enforcement is correct today (0/33 gaps), but it is
-one careless edit away from a silent, un-backstopped cross-tenant clinical-data leak. Items 1–3 above
-are low-cost and close that exposure directly; a full RLS second layer is justified before multi-tenant
-scale but should not block launch given the fixes above.
+**Bottom line:** the current single-layer enforcement is correct today (0/33 gaps). Item 1 (fail-closed
+RPC) is live in the repo (#409); **apply to production** per
+[`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md). Items 2–3 close the remaining
+app-layer regression exposure; full RLS (item 4) is justified before multi-tenant scale.
 
 ---
 

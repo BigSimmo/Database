@@ -140,4 +140,9 @@ npm run check:indexing
 
 ## Operator follow-ups
 
-Manual key rotation and live migration apply decisions are recorded in [`docs/archive/operator-decisions-2026-07-04.md`](archive/operator-decisions-2026-07-04.md). Do not execute those steps from CI or agent automation without explicit operator approval.
+Manual key rotation and live migration apply decisions are recorded in
+[`docs/archive/operator-decisions-2026-07-04.md`](archive/operator-decisions-2026-07-04.md)
+and [`docs/archive/operator-decisions-2026-07-06.md`](archive/operator-decisions-2026-07-06.md).
+The **July 8 ingestion & tenancy batch** (merged to `main`, pending live apply as of
+2026-07-09) is in [`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md).
+Do not execute live applies from CI or agent automation without explicit operator approval.

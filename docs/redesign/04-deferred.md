@@ -17,7 +17,12 @@ There was a lockfile/install mismatch around ESLint that predated and was indepe
 - **Mitigation used:** redesign code was additionally linted via the eslint 9.39.4 engine against the same flat config — all changed TS/TSX files are lint-clean.
 - **Recommended fix:** run the `dependency` shortcut, or bump `eslint-plugin-react` to a release compatible with ESLint 10, then reconcile the lockfile.
 
-## 2. ClinicalDashboard decomposition (Tier 2, see decision log D5)
+## 2. ClinicalDashboard decomposition (resolved July 6, 2026)
+
+**DONE** — all approved render-surface modules extracted to
+`src/components/clinical-dashboard/`; admin surfaces cut over 2026-07-06. See
+`docs/process-hardening.md` (Phase 3) for the full progress log (~8.8k → ~3.5k
+lines in the orchestrator). Original deferral note kept below for history.
 
 The 4,655-line `src/components/ClinicalDashboard.tsx` was not split into `clinical-dashboard/` modules this pass. It remains fully functional; this is maintainability-only.
 
