@@ -24,13 +24,13 @@ jobs:
   # the merge. Runs OSS-engine only — no Semgrep account or token required.
   semgrep:
     name: Semgrep
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     container:
       image: semgrep/semgrep:1.168.0
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
