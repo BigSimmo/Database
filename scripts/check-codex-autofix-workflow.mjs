@@ -1,12 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-const workflowPath = path.join(
-  process.cwd(),
-  ".github",
-  "workflows",
-  "codex-autofix-review-comments.yml",
-);
+const workflowPath = path.join(process.cwd(), ".github", "workflows", "codex-autofix-review-comments.yml");
 const workflow = readFileSync(workflowPath, "utf8");
 const problems = [];
 
