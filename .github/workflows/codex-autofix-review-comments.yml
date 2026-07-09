@@ -1,0 +1,65 @@
+name: Codex auto-resolve review comments
+
+on:
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: codex-autoresolve-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+  cancel-in-progress: false
+
+jobs:
+  request-codex-autoresolve:
+    name: Request Codex auto-resolve
+    runs-on: ubuntu-latest
+    if: >
+      github.event.pull_request.state == 'open' &&
+      contains(github.event.comment.user.login, 'chatgpt-codex-connector')
+    steps:
+      - name: Ask Codex to resolve review comments
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const pr = context.payload.pull_request;
+            const reviewComment = context.payload.comment;
+
+            if (reviewComment.in_reply_to_id) {
+              core.notice("Skipping Codex auto-resolve request because the comment is a review-thread reply.");
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = pr.number;
+            const marker = `<!-- codex-autoresolve:${pr.head.sha} -->`;
+
+            const existingComments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            if (existingComments.some((comment) => (comment.body || "").includes(marker))) {
+              core.notice("Skipping duplicate Codex auto-resolve request for this PR head commit.");
+              return;
+            }
+
+            const prompt = [
+              marker,
+              `<!-- codex-autoresolve-source-review-comment:${reviewComment.id} -->`,
+              "@codex resolve all review comments using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.",
+            ].join("\n\n");
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: prompt,
+            });
