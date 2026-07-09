@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isExpectedR17IndexDef, normalizeIndexDef } from "../scripts/check-july8-live-batch";
+import { isExpectedR17IndexDef, isR17IndexUniqueViolation, normalizeIndexDef } from "../scripts/check-july8-live-batch";
 
 describe("check-july8-live-batch R17 index definition probe", () => {
   it("accepts the canonical partial unique index definition", () => {
@@ -17,5 +17,37 @@ describe("check-july8-live-batch R17 index definition probe", () => {
     const definition =
       "CREATE UNIQUE INDEX ingestion_jobs_one_open_per_document_uidx ON public.ingestion_jobs (batch_id)";
     expect(isExpectedR17IndexDef(definition)).toBe(false);
+  });
+
+  it("rejects broader predicates that include failed jobs", () => {
+    const definition =
+      "CREATE UNIQUE INDEX ingestion_jobs_one_open_per_document_uidx ON public.ingestion_jobs (document_id) WHERE status IN ('pending', 'processing', 'failed')";
+    expect(isExpectedR17IndexDef(definition)).toBe(false);
+  });
+
+  it("rejects predicates that only include pending", () => {
+    const definition =
+      "CREATE UNIQUE INDEX ingestion_jobs_one_open_per_document_uidx ON public.ingestion_jobs (document_id) WHERE status IN ('pending')";
+    expect(isExpectedR17IndexDef(definition)).toBe(false);
+  });
+});
+
+describe("isR17IndexUniqueViolation", () => {
+  it("accepts unique violations that cite the R17 index", () => {
+    expect(
+      isR17IndexUniqueViolation({
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "ingestion_jobs_one_open_per_document_uidx"',
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects unique violations from other constraints (e.g. primary key)", () => {
+    expect(
+      isR17IndexUniqueViolation({
+        code: "23505",
+        message: 'duplicate key value violates unique constraint "ingestion_jobs_pkey"',
+      }),
+    ).toBe(false);
   });
 });

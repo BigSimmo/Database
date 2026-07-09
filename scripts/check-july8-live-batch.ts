@@ -1,13 +1,16 @@
 import { loadEnvConfig } from "@next/env";
+import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
 loadEnvConfig(process.cwd());
 
 const R17_INDEX = "ingestion_jobs_one_open_per_document_uidx";
+const LEGACY_R17_PROBE_JOB_IDS = [
+  "00000000-0000-0000-0000-000000000097",
+  "00000000-0000-0000-0000-000000000096",
+] as const;
 const PROBE_JOB_ID = "00000000-0000-0000-0000-000000000099";
 const PROBE_DOC_ID = "00000000-0000-0000-0000-000000000098";
-const R17_PROBE_JOB_PRIMARY = "00000000-0000-0000-0000-000000000097";
-const R17_PROBE_JOB_DUPLICATE = "00000000-0000-0000-0000-000000000096";
 
 type DriftIndex = {
   name?: unknown;
@@ -24,14 +27,33 @@ export function normalizeIndexDef(def: string) {
 
 export function isExpectedR17IndexDef(def: string) {
   const normalized = normalizeIndexDef(def);
-  return (
-    normalized.includes("create unique index") &&
-    normalized.includes("ingestion_jobs") &&
-    normalized.includes("(document_id)") &&
-    normalized.includes("where") &&
-    normalized.includes("pending") &&
-    normalized.includes("processing")
-  );
+  if (!normalized.includes("create unique index")) return false;
+  if (!normalized.includes("ingestion_jobs")) return false;
+  if (!normalized.includes("(document_id)")) return false;
+
+  const whereIdx = normalized.indexOf(" where ");
+  if (whereIdx === -1) return false;
+  const whereClause = normalized.slice(whereIdx + " where ".length);
+
+  // Reject broader predicates that block reindex behind a stale failed job.
+  for (const status of ["failed", "completed", "cancelled", "queued", "indexed"]) {
+    if (whereClause.includes(status)) return false;
+  }
+
+  const inMatch = whereClause.match(/status\s+in\s*\(([^)]+)\)/);
+  if (!inMatch) return false;
+
+  const statuses = inMatch[1]
+    .split(",")
+    .map((value) => value.trim().replace(/^['"]|['"]$/g, ""))
+    .sort();
+  return statuses.length === 2 && statuses[0] === "pending" && statuses[1] === "processing";
+}
+
+export function isR17IndexUniqueViolation(error: { code?: string | null; message: string }) {
+  if (error.code !== "23505") return false;
+  const message = error.message.toLowerCase();
+  return message.includes(R17_INDEX) || message.includes("one_open_per_document");
 }
 
 type AdminClient = ReturnType<Awaited<typeof import("@/lib/supabase/admin")>["createAdminClient"]>;
@@ -150,8 +172,22 @@ async function findR17ProbeDocument(supabase: AdminClient) {
   throw new Error("R17 probe: could not find a document without open ingestion jobs");
 }
 
+async function cleanupLegacyR17ProbeRows(supabase: AdminClient) {
+  const { error } = await supabase
+    .from("ingestion_jobs")
+    .delete()
+    .in("id", [...LEGACY_R17_PROBE_JOB_IDS]);
+  if (error) {
+    throw new Error(`R17 probe: could not clean legacy probe rows: ${error.message}`);
+  }
+}
+
 async function checkR17IndexEnforcement(supabase: AdminClient) {
+  await cleanupLegacyR17ProbeRows(supabase);
+
   const documentId = await findR17ProbeDocument(supabase);
+  const primaryJobId = randomUUID();
+  const duplicateJobId = randomUUID();
   const nextRunAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   const baseRow = {
     document_id: documentId,
@@ -162,7 +198,7 @@ async function checkR17IndexEnforcement(supabase: AdminClient) {
   };
 
   const { error: firstError } = await supabase.from("ingestion_jobs").insert({
-    id: R17_PROBE_JOB_PRIMARY,
+    id: primaryJobId,
     ...baseRow,
   });
   if (firstError) {
@@ -171,27 +207,24 @@ async function checkR17IndexEnforcement(supabase: AdminClient) {
 
   try {
     const { error: duplicateError } = await supabase.from("ingestion_jobs").insert({
-      id: R17_PROBE_JOB_DUPLICATE,
+      id: duplicateJobId,
       ...baseRow,
     });
 
     if (!duplicateError) {
-      await supabase.from("ingestion_jobs").delete().eq("id", R17_PROBE_JOB_DUPLICATE);
+      await supabase.from("ingestion_jobs").delete().eq("id", duplicateJobId);
       throw new Error(
         `${R17_INDEX} is not enforcing uniqueness — duplicate open job insert succeeded for document ${documentId}`,
       );
     }
 
-    const duplicateMessage = duplicateError.message.toLowerCase();
-    const isUniqueViolation =
-      duplicateError.code === "23505" ||
-      duplicateMessage.includes(R17_INDEX) ||
-      duplicateMessage.includes("duplicate key");
-    if (!isUniqueViolation) {
-      throw new Error(`R17 probe: unexpected duplicate-insert error: ${duplicateError.message}`);
+    if (!isR17IndexUniqueViolation(duplicateError)) {
+      throw new Error(
+        `R17 probe: duplicate insert must violate ${R17_INDEX}, not a generic key conflict: ${duplicateError.message}`,
+      );
     }
   } finally {
-    await supabase.from("ingestion_jobs").delete().eq("id", R17_PROBE_JOB_PRIMARY);
+    await supabase.from("ingestion_jobs").delete().in("id", [primaryJobId, duplicateJobId]);
   }
 }
 
@@ -221,8 +254,32 @@ async function checkR17Index(supabase: AdminClient) {
 }
 
 async function main() {
-  const { requireServerEnv } = await import("@/lib/env");
+  const { env, requireServerEnv } = await import("@/lib/env");
+  const { checkSupabaseProjectConfig, expectedSupabaseProject, formatSupabaseProjectCheck } =
+    await import("@/lib/supabase/project");
+
   requireServerEnv();
+
+  const projectCheck = checkSupabaseProjectConfig(
+    {
+      NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL,
+      SUPABASE_PROJECT_REF: env.SUPABASE_PROJECT_REF,
+      SUPABASE_PROJECT_NAME: env.SUPABASE_PROJECT_NAME,
+      SUPABASE_STAGING_PROJECT_REF: env.SUPABASE_STAGING_PROJECT_REF,
+      SUPABASE_STAGING_PROJECT_NAME: env.SUPABASE_STAGING_PROJECT_NAME,
+    },
+    { requireMetadata: true },
+  );
+
+  if (projectCheck.status === "missing" || projectCheck.status === "mismatch") {
+    throw new Error(formatSupabaseProjectCheck(projectCheck));
+  }
+
+  if (projectCheck.observed.environment !== "production") {
+    throw new Error(
+      `[July8 Live Batch] must target production ${expectedSupabaseProject.name} (${expectedSupabaseProject.ref}), not staging ${projectCheck.expected.ref}.`,
+    );
+  }
 
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();

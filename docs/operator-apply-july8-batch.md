@@ -8,6 +8,8 @@ and [`docs/ingestion-concurrency-fix-workorder.md`](ingestion-concurrency-fix-wo
 
 ## Pre-flight
 
+- Live env vars must target **production** (verify with `npm run check:supabase-project`). `npm run check:july8-live-batch` refuses staging or other non-production targets so a green probe cannot mask an unapplied production database. Set `SUPABASE_ENVIRONMENT=production` (or leave unset — production is the default).
+
 ```bash
 npx supabase migration list --linked
 npm run supabase:recovery-status   # or npm run check:supabase-project
@@ -58,7 +60,7 @@ transactional `CREATE UNIQUE INDEX` via `db push`.
 ## Post-apply verification
 
 ```bash
-npm run check:july8-live-batch    # requires live keys — fails if absent
+SUPABASE_ENVIRONMENT=production npm run check:july8-live-batch    # requires live keys — fails if absent or staging
 npm run check:drift
 npm run check:indexing
 npm run eval:retrieval:quality    # must stay 36/36 (retrieval-affecting: step 4 only)
@@ -69,12 +71,12 @@ active end-to-end.
 
 ## Probe semantics (`check:july8-live-batch`)
 
-| Check                                    | Pass means                                                                                                                                                                               |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `retrieval_owner_matches(null, …)`       | Returns **false** (fail-closed live)                                                                                                                                                     |
-| `jsonb_merge_deep`                       | RPC exists and merges objects                                                                                                                                                            |
-| `complete_ingestion_job` + `p_worker_id` | Accepts the lease-fence parameter (returns `ok:false`, not signature error)                                                                                                              |
-| R17 index                                | Named in `schema_drift_snapshot` with the partial-unique definition on `ingestion_jobs(document_id)`, and a duplicate open-job insert is rejected (catches invalid `CONCURRENTLY` stubs) |
+| Check                                    | Pass means                                                                                                                                                                                                                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `retrieval_owner_matches(null, …)`       | Returns **false** (fail-closed live)                                                                                                                                                                                                                                                  |
+| `jsonb_merge_deep`                       | RPC exists and merges objects                                                                                                                                                                                                                                                         |
+| `complete_ingestion_job` + `p_worker_id` | Accepts the lease-fence parameter (returns `ok:false`, not signature error)                                                                                                                                                                                                           |
+| R17 index                                | Named in `schema_drift_snapshot` with the partial-unique definition on `ingestion_jobs(document_id)` for **only** `pending`/`processing`, and a duplicate open-job insert is rejected with a violation citing `ingestion_jobs_one_open_per_document_uidx` (not a generic PK conflict) |
 
 ## Still open (not this batch)
 
