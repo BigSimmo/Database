@@ -1,7 +1,16 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  type CSSProperties,
+  type ReactNode,
+  type UIEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
@@ -15,6 +24,7 @@ import {
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
@@ -95,6 +105,8 @@ function GlobalMockupSearchShellClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
+  const phoneScrollHide = useScrollHideReporter();
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;
@@ -301,6 +313,10 @@ function GlobalMockupSearchShellClient({
     navigateToMode(mode, { query: crossQuery, focus: true, run: true });
   }
 
+  function handleMainScroll(event: UIEvent<HTMLDivElement>) {
+    phoneScrollHide.reportScroll(event.currentTarget.scrollTop);
+  }
+
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
 
@@ -367,11 +383,7 @@ function GlobalMockupSearchShellClient({
       ) : null}
 
       <div className="flex min-h-dvh min-w-0 flex-col max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden">
-        {/* max-sm:contents lets the header's own `sticky top-0` engage against
-            the document scroll on phones (a plain wrapper div otherwise caps
-            its sticking range at its own height), which the phone
-            hide-on-scroll overlay relies on. */}
-        <div className={mobileChromeVisible ? "max-sm:contents" : "hidden lg:block"}>
+        <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
           <MasterSearchHeader
             documents={[]}
             documentTotal={0}
@@ -421,9 +433,9 @@ function GlobalMockupSearchShellClient({
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
             heroComposerFromTablet={isStandaloneModeHome}
-            // Phone-only: the document scrolls here and the header is sticky,
-            // so a translate overlay hides it with zero layout shift.
-            hideOnScroll={{ strategy: "overlay" }}
+            // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
+            // collapses the header/composer to hand space back to content.
+            hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden, containerRef: mainRef }}
             onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
             queryInputAutoFocus={searchParams.get("focus") === "1"}
           />
@@ -431,9 +443,11 @@ function GlobalMockupSearchShellClient({
 
         <div
           id="main-content"
+          ref={mainRef}
           tabIndex={-1}
+          onScroll={handleMainScroll}
           className={cn(
-            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col sm:min-h-[calc(100dvh-4rem)]",
+            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)]",
             !shouldShowSearchComposer
               ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
               : bottomSearchScrollHidden
