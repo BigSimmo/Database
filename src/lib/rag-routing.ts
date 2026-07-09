@@ -37,8 +37,7 @@ const medicationExtractiveLookupPattern =
   /\b(?:listed|list|options?|monitoring|observations?|needed|required|dosing guidance|dose|route|pharmacological management|\bim\b|\bpo\b)\b/i;
 const medicationSafetyCriticalPattern =
   /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils|threshold|cut ?off|withhold|withheld|withholding|cease|stop|stopped|red range|amber range)\b/i;
-const clozapineBloodWithholdThresholdPattern =
-  /\bclozapine\b/i;
+const clozapineBloodWithholdThresholdPattern = /\bclozapine\b/i;
 const bloodCountTermPattern = /\b(?:anc|fbc|wbc|wcc|white cell|white blood cell|neutrophil|neutrophils)\b/i;
 const withholdThresholdIntentPattern =
   /\b(?:threshold|cut ?off|cutoff|withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued)\b/i;
