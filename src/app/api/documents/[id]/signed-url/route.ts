@@ -5,6 +5,8 @@ import { getDemoDocument } from "@/lib/demo-data";
 import { env } from "@/lib/env";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
+import { registryCorpusDetailHref } from "@/lib/registry-corpus";
+import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
@@ -38,12 +40,41 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
     }
     const { data: document, error } = await withOwnerReadScope(
-      supabase.from("documents").select("storage_path,file_type").eq("id", id),
+      supabase.from("documents").select("storage_path,file_type,metadata").eq("id", id),
       access.ownerId,
     ).maybeSingle();
 
     if (error) throw new Error(error.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+
+    const metadata =
+      document.metadata && typeof document.metadata === "object"
+        ? (document.metadata as Record<string, unknown>)
+        : {};
+    const source = normalizeSourceMetadata(metadata);
+    const registryHref =
+      (typeof metadata.registry_detail_href === "string" && metadata.registry_detail_href) ||
+      registryCorpusDetailHref({
+        kind: metadata.registry_record_kind,
+        slug: metadata.registry_record_slug,
+        subkind: metadata.registry_record_subkind,
+        recordId: metadata.registry_record_id,
+      });
+    if (source.source_kind === "registry_record" && registryHref) {
+      return NextResponse.json({
+        url: registryHref,
+        fileType: document.file_type,
+        registrySource: true,
+        expiresAt: null,
+      });
+    }
+
+    if (document.storage_path.startsWith("registry://")) {
+      return NextResponse.json(
+        { error: "Registry summaries open on their registry detail page, not as stored documents." },
+        { status: 409 },
+      );
+    }
 
     const storage = supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET);
     const signed = shouldDownload

@@ -2,7 +2,6 @@ import { loadEnvConfig } from "@next/env";
 
 import { confirm } from "./cli-utils";
 import { buildMedicationSeedRows } from "@/lib/medication-seed";
-import { embedMedicationRows, embedReloadedOwnerRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import type { MedicationRecordRow } from "@/lib/medication-records";
 
 loadEnvConfig(process.cwd());
@@ -47,6 +46,9 @@ function parseArgs(argv: string[]): SeedArgs {
 }
 
 async function main() {
+  const { embedMedicationRows, embedReloadedOwnerRows, registryCorpusEmbeddingEnabled } = await import(
+    "@/lib/registry-corpus"
+  );
   const args = parseArgs(process.argv.slice(2));
   if (!args.ownerId) {
     throw new Error("No owner id. Pass --owner-id <uuid> or set LOCAL_NO_AUTH_OWNER_ID.");

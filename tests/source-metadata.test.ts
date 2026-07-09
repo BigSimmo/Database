@@ -23,6 +23,17 @@ describe("source metadata helpers", () => {
     expect(formatClinicalDate("2026-05-18T10:00:00.000+08:00")).toBe("18/05/2026");
   });
 
+  it("preserves stale status labels for registry summaries", () => {
+    expect(
+      sourceStatusLabel(
+        normalizeSourceMetadata({
+          source_kind: "registry_record",
+          document_status: "outdated",
+        }),
+      ),
+    ).toBe("Registry summary · Outdated source");
+  });
+
   it("includes source status in copied provenance lines", () => {
     const line = clipboardProvenanceLine(
       normalizeSourceMetadata({

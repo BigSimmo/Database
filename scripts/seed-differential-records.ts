@@ -3,7 +3,6 @@ import { loadEnvConfig } from "@next/env";
 import { confirm } from "./cli-utils";
 import { buildDefaultDifferentialRows, loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import type { DifferentialRecordRow } from "@/lib/differential-records";
-import { embedDifferentialRows, embedReloadedOwnerRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 
 loadEnvConfig(process.cwd());
 
@@ -47,6 +46,9 @@ function parseArgs(argv: string[]): SeedArgs {
 }
 
 async function main() {
+  const { embedDifferentialRows, embedReloadedOwnerRows, registryCorpusEmbeddingEnabled } = await import(
+    "@/lib/registry-corpus"
+  );
   const args = parseArgs(process.argv.slice(2));
   if (!args.ownerId) {
     throw new Error("No owner id. Pass --owner-id <uuid> or set LOCAL_NO_AUTH_OWNER_ID.");

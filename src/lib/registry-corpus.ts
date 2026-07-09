@@ -58,12 +58,6 @@ function compactText(parts: unknown[], limit = 8000) {
   return text.length <= limit ? text : `${text.slice(0, limit - 3).trim()}...`;
 }
 
-function stringArray(value: unknown) {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-    : [];
-}
-
 function registryBaseMetadata(entry: RegistryCorpusEntry): Record<string, Json> {
   return {
     source_kind: "registry_record",
@@ -88,9 +82,45 @@ function registryEntryMetadata(entry: RegistryCorpusEntry): Record<string, Json>
   return { ...registryBaseMetadata(entry), ...entry.metadata };
 }
 
-function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"documents"> {
+function registryCorpusIdentity(entry: RegistryCorpusEntry) {
   return {
-    id: registryDocumentId(entry),
+    documentId: registryDocumentId(entry),
+    metadata: registryEntryMetadata(entry),
+  };
+}
+
+export function registryCorpusDetailHref(args: {
+  kind: unknown;
+  slug: unknown;
+  subkind?: unknown;
+  recordId?: unknown;
+}) {
+  const kind = typeof args.kind === "string" ? args.kind : null;
+  const slug = typeof args.slug === "string" ? args.slug : null;
+  const subkind = typeof args.subkind === "string" ? args.subkind : null;
+  const recordId = typeof args.recordId === "string" ? args.recordId : null;
+  if (!kind || !slug) return null;
+  if (kind === "service") return `/services/${slug}`;
+  if (kind === "form") return `/forms/${slug}`;
+  if (kind === "medication") return `/medications/${slug}`;
+  if (kind === "differential") {
+    return subkind === "presentation" && recordId
+      ? `/differentials/presentations/${recordId}`
+      : `/differentials/diagnoses/${slug}`;
+  }
+  return null;
+}
+
+function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"documents"> {
+  const { documentId, metadata } = registryCorpusIdentity(entry);
+  const detailHref = registryCorpusDetailHref({
+    kind: entry.kind,
+    slug: entry.slug,
+    subkind: entry.subkind,
+    recordId: entry.recordId,
+  });
+  return {
+    id: documentId,
     owner_id: entry.ownerId,
     title: entry.title,
     description: entry.subtitle,
@@ -104,14 +134,18 @@ function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"document
     chunk_count: 1,
     image_count: 0,
     content_hash: sha256(entry.content),
-    metadata: registryEntryMetadata(entry),
+    metadata: {
+      ...metadata,
+      registry_detail_href: detailHref,
+    },
   };
 }
 
 function registryChunkRow(entry: RegistryCorpusEntry, embedding: Vector): TablesInsert<"document_chunks"> {
+  const { documentId, metadata } = registryCorpusIdentity(entry);
   return {
     id: deterministicUuid(`registry-chunk:${entry.kind}:${entry.recordId}`),
-    document_id: registryDocumentId(entry),
+    document_id: documentId,
     chunk_index: 0,
     page_number: 1,
     section_heading: "Registry summary",
@@ -122,7 +156,7 @@ function registryChunkRow(entry: RegistryCorpusEntry, embedding: Vector): Tables
     image_ids: [],
     content_hash: sha256(entry.content),
     embedding,
-    metadata: registryEntryMetadata(entry),
+    metadata,
   };
 }
 
@@ -211,7 +245,7 @@ export function medicationRowsToCorpusEntries(rows: MedicationRecordRow[]): Regi
       metadata: {
         medication_class: row.class,
         medication_subclass: row.subclass,
-        tags: stringArray(row.tag),
+        tags: row.tag ? [row.tag] : [],
       },
     };
   });
@@ -258,12 +292,18 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
   const embeddings = await embedTexts(entries.map((entry) => entry.content));
   const documents = entries.map(registryDocumentRow);
   const chunks = entries.map((entry, index) => registryChunkRow(entry, embeddings[index] as Vector));
+  const documentIds = documents.map((document) => document.id).filter((id): id is string => Boolean(id));
 
   const { error: documentError } = await supabase.from("documents").upsert(documents, { onConflict: "id" });
   if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
 
   const { error: chunkError } = await supabase.from("document_chunks").upsert(chunks, { onConflict: "id" });
-  if (chunkError) throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
+  if (chunkError) {
+    if (documentIds.length > 0) {
+      await supabase.from("documents").delete().in("id", documentIds);
+    }
+    throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
+  }
 
   return { documentCount: documents.length, chunkCount: chunks.length };
 }

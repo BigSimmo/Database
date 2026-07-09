@@ -1,10 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import { confirm } from "./cli-utils";
 import { committedIndexGeneration, metadataRecord } from "@/lib/reindex-pipeline";
-import { assertSupabaseHealthy, probeSupabaseHealth } from "@/lib/supabase/health";
-import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireServerEnv } from "@/lib/env";
 
 loadEnvConfig(process.cwd());
 
@@ -42,7 +38,12 @@ type UntypedTable = {
       column: string,
       value: string,
     ): {
-      range(from: number, to: number): Promise<{ data: unknown; error: { message: string } | null }>;
+      order(
+        column: string,
+        options: { ascending: boolean },
+      ): {
+        range(from: number, to: number): Promise<{ data: unknown; error: { message: string } | null }>;
+      };
     };
   };
   update(values: Record<string, unknown>): {
@@ -50,7 +51,12 @@ type UntypedTable = {
   };
 };
 
-function untypedTable(supabase: ReturnType<typeof createAdminClient>, table: string): UntypedTable {
+async function loadAdminClient() {
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  return createAdminClient();
+}
+
+function untypedTable(supabase: Awaited<ReturnType<typeof loadAdminClient>>, table: string): UntypedTable {
   return supabase.from(table as never) as unknown as UntypedTable;
 }
 
@@ -80,7 +86,9 @@ function parseArgs(argv: string[]): Args {
       continue;
     }
 
-    if (token !== "--document-id" && token !== "--owner-id" && token !== "--limit") continue;
+    if (token !== "--document-id" && token !== "--owner-id" && token !== "--limit") {
+      throw new Error(`Unknown argument: ${token}`);
+    }
 
     const value = argv[index + 1];
     if (!value || value.startsWith("--")) throw new Error(`Missing value for ${token}`);
@@ -105,7 +113,7 @@ function rowNeedsRefresh(row: ImageRow, committedGeneration: string) {
 }
 
 async function loadDocuments(args: {
-  supabase: ReturnType<typeof createAdminClient>;
+  supabase: Awaited<ReturnType<typeof loadAdminClient>>;
   ownerId: string | null;
   documentId: string | null;
   allOwners: boolean;
@@ -128,12 +136,13 @@ async function loadDocuments(args: {
   return (data ?? []) as DocumentRow[];
 }
 
-async function loadImages(args: { supabase: ReturnType<typeof createAdminClient>; documentId: string }) {
+async function loadImages(args: { supabase: Awaited<ReturnType<typeof loadAdminClient>>; documentId: string }) {
   const rows: ImageRow[] = [];
   for (let offset = 0; ; offset += 1000) {
     const { data, error } = await untypedTable(args.supabase, "document_images")
       .select("id,index_generation_id,metadata")
       .eq("document_id", args.documentId)
+      .order("id", { ascending: true })
       .range(offset, offset + 999);
     if (error) throw new Error(error.message);
     const page = (data ?? []) as unknown as ImageRow[];
@@ -144,6 +153,9 @@ async function loadImages(args: { supabase: ReturnType<typeof createAdminClient>
 }
 
 async function main() {
+  const { requireServerEnv } = await import("@/lib/env");
+  const { assertSupabaseHealthy, probeSupabaseHealth } = await import("@/lib/supabase/health");
+  const { checkSupabaseProjectConfig, formatSupabaseProjectCheck } = await import("@/lib/supabase/project");
   const args = parseArgs(process.argv.slice(2));
   requireServerEnv();
 
@@ -162,7 +174,7 @@ async function main() {
     console.log(`Supabase project warning: ${projectCheck.warnings.join(" ; ")}`);
   }
 
-  const supabase = createAdminClient();
+  const supabase = await loadAdminClient();
   console.log(`Target project: ${projectCheck.expected.name} (${projectCheck.expected.ref})`);
   assertSupabaseHealthy(await probeSupabaseHealth(supabase), "Re-stamp document image generation");
 

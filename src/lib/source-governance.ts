@@ -94,17 +94,6 @@ export function sourceGovernanceWarnings(args: {
     const title = result.title;
     const document_id = result.document_id;
 
-    if (source.source_kind === "registry_record") {
-      pushUnique(warnings, {
-        code: "registry_record_source",
-        severity: "info",
-        message:
-          "One or more supporting sources are curated registry summaries, not source documents; verify against linked source documents for clinical decisions.",
-        document_id,
-        title,
-      });
-    }
-
     if (source.document_status === "outdated") {
       pushUnique(warnings, {
         code: "outdated_source",
@@ -185,9 +174,23 @@ export function sourceGovernanceWarnings(args: {
         title,
       });
     }
+
+    if (source.source_kind === "registry_record") {
+      pushUnique(warnings, {
+        code: "registry_record_source",
+        severity: "info",
+        message:
+          "One or more supporting sources are curated registry summaries, not source documents; verify against linked source documents for clinical decisions.",
+        document_id,
+        title,
+      });
+    }
   }
 
-  return warnings.slice(0, args.limit ?? 8);
+  const severityRank = { danger: 0, warning: 1, info: 2 } satisfies Record<SourceGovernanceWarning["severity"], number>;
+  return warnings
+    .sort((left, right) => severityRank[left.severity] - severityRank[right.severity])
+    .slice(0, args.limit ?? 8);
 }
 
 function plural(count: number, singular: string, pluralValue = `${singular}s`) {

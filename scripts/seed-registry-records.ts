@@ -1,11 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 
 import { confirm } from "./cli-utils";
-import {
-  embedClinicalRegistryRows,
-  embedReloadedOwnerRows,
-  registryCorpusEmbeddingEnabled,
-} from "@/lib/registry-corpus";
 import type { RegistryRecordRow } from "@/lib/registry-records";
 import { type RegistryRecordKind } from "@/lib/registry-records";
 import { buildDefaultRegistryRows, defaultRegistryRecords } from "@/lib/registry-seed";
@@ -69,6 +64,11 @@ function seedSets(kind: SeedArgs["kind"]): Array<{ kind: RegistryRecordKind; rec
 }
 
 async function main() {
+  const {
+    embedClinicalRegistryRows,
+    embedReloadedOwnerRows,
+    registryCorpusEmbeddingEnabled,
+  } = await import("@/lib/registry-corpus");
   const args = parseArgs(process.argv.slice(2));
   if (!args.ownerId) {
     throw new Error("No owner id. Pass --owner-id <uuid> or set LOCAL_NO_AUTH_OWNER_ID.");
