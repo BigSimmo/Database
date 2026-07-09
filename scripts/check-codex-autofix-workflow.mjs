@@ -34,6 +34,7 @@ requirePattern("queued concurrency", /cancel-in-progress:\s*false/);
 requirePattern("resolve completion summary skip", /isResolveCompletionSummary/);
 requirePattern("ensure request label before apply", /ensureRequestLabel/);
 requirePattern("comment before label lock", /createComment[\s\S]*ensureRequestLabel/);
+requirePattern("permission soft-skip on comment read", /cannot read PR comments/);
 requirePattern("AGENTS.md primary command reference", /AGENTS\.md § Codex GitHub review behavior/);
 
 if (workflow.includes("codex-autoresolve-pr:${pr.number} -->") && !workflow.includes("${headSha}")) {

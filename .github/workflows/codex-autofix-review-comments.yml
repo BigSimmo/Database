@@ -277,6 +277,10 @@ jobs:
               });
               existingLabels = (labeledPullRequest.data.labels || []).map((label) => label.name);
             } catch (error) {
+              if (error.status === 403) {
+                core.warning("Skipping Codex auto-resolve request because this workflow token cannot read PR labels.");
+                return;
+              }
               core.notice(`Failed to list labels on PR #${issue_number} before posting Codex auto-resolve request.`);
               failGitHubApi("issues.get", error);
               return;
@@ -311,6 +315,10 @@ jobs:
                 per_page: 100,
               });
             } catch (error) {
+              if (error.status === 403) {
+                core.warning("Skipping Codex auto-resolve request because this workflow token cannot read PR comments.");
+                return;
+              }
               core.notice(`Failed to list PR comments for #${issue_number} before posting Codex auto-resolve request.`);
               failGitHubApi("issues.listComments", error);
               return;
