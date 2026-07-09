@@ -290,6 +290,7 @@ function answerIntentEvidencePattern(intent: AnswerIntent) {
   }
 }
 
+<<<<<<< HEAD
 /** Requires blood count evidence. */
 function requiresBloodCountEvidence(query: string) {
   return /\b(?:anc|fbc|full blood count|blood count|wbc|wcc|white blood cells?|white cells?|neutrophils?)\b/i.test(
@@ -303,18 +304,37 @@ function asksForWithholdAction(query: string) {
 }
 
 /** Has blood count evidence. */
+=======
+function requiresBloodCountEvidence(query: string) {
+  return /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils)\b/i.test(query);
+}
+
+function asksForWithholdAction(query: string) {
+  return /\b(?:withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued)\b/i.test(query);
+}
+
+>>>>>>> origin/main
 function hasBloodCountEvidence(text: string) {
   return /\b(?:anc|fbc|full blood count|wbc|wcc|white blood cell|white cell|neutrophil|neutrophils|blood count)\b/i.test(
     text,
   );
 }
 
+<<<<<<< HEAD
 /** Has withhold action evidence. */
 function hasWithholdActionEvidence(text: string) {
   return /\b(?:withhold|withheld|withholding|hold|held|cease|stop|stopped|discontinue|discontinued)\b/i.test(text);
 }
 
 /** Result covers answer intent. */
+=======
+function hasWithholdActionEvidence(text: string) {
+  return /\b(?:withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued|red range|amber range|red|amber)\b/i.test(
+    text,
+  );
+}
+
+>>>>>>> origin/main
 function resultCoversAnswerIntent(result: SearchResult, query: string, intent: AnswerIntent) {
   if (intent === "unsupported") return false;
   const text = evidenceTextForGate(result);

@@ -7,6 +7,10 @@ description: Reviews layout density, theme adherence, typography, spacing, and v
 
 Use this skill when auditing UI styling, colors, layout structures, and spacing rules.
 
+## Repository Review Protocol
+
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+
 ## Review Checklist
 
 ### 1. Style & Spacing Consistency

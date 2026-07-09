@@ -7,6 +7,10 @@ description: Reviews unit/integration/E2E coverage, checks for fragile/flaky tes
 
 Use this skill when reviewing test coverage, testing harnesses, and test execution paths (Vitest + Playwright).
 
+## Repository Review Protocol
+
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+
 ## Review Checklist
 
 ### 1. Test Harness Coverage

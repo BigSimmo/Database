@@ -2731,13 +2731,19 @@ function hasDocumentAliasWithoutTopTitleSupport(query: string, results: SearchRe
   });
 }
 
+<<<<<<< HEAD
 /** Has admission community lookup intent. */
+=======
+>>>>>>> origin/main
 function hasAdmissionCommunityLookupIntent(query: string) {
   const normalized = normalizeDocumentAliasText(query);
   return /\badmission\b/.test(normalized) && /\bcommunity\b/.test(normalized);
 }
 
+<<<<<<< HEAD
 /** Has admission community title support. */
+=======
+>>>>>>> origin/main
 function hasAdmissionCommunityTitleSupport(results: SearchResult[]) {
   return results.slice(0, 5).some((result) => {
     if (result.match_explanation?.titleHit || result.match_explanation?.labelHit) {
@@ -2753,7 +2759,10 @@ function hasAdmissionCommunityTitleSupport(results: SearchResult[]) {
   });
 }
 
+<<<<<<< HEAD
 /** Should return before memory. */
+=======
+>>>>>>> origin/main
 function shouldReturnBeforeMemory(
   queryClass: RagQueryClass,
   decision: { returnFastPath: boolean; reason: string | null },
@@ -4645,6 +4654,7 @@ ${qualityRetryInstruction}`
         instructions: answerInstructions,
         promptCacheKey: "clinical-rag-answer-v18",
         timeoutMs: env.OPENAI_ANSWER_TIMEOUT_MS,
+        maxRetries: 0,
         reasoningEffort: useStrongReasoning
           ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)
           : env.OPENAI_FAST_REASONING_EFFORT,
@@ -4677,7 +4687,10 @@ ${qualityRetryInstruction}`
     return reason === "max_output_tokens" ? `${prefix}_max_output_tokens` : `${prefix}_incomplete_${reason}`;
   }
 
+<<<<<<< HEAD
   /** Should recover fast failure extractively. */
+=======
+>>>>>>> origin/main
   function shouldRecoverFastFailureExtractively(retryReason: string) {
     const sourceBackedRecoveryRetryReasons = new Set([
       "fast_unsupported_retry_strong",
@@ -4697,7 +4710,10 @@ ${qualityRetryInstruction}`
     );
   }
 
+<<<<<<< HEAD
   /** Summarize generation failure reason. */
+=======
+>>>>>>> origin/main
   function summarizeGenerationFailureReason(error: unknown) {
     const message = (error instanceof Error ? error.message : typeof error === "string" ? error : "").trim();
     const normalized = message.toLowerCase();

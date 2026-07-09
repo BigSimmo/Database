@@ -49,7 +49,10 @@ export type RegistryCorpusEditTarget =
 
 const REGISTRY_EMBEDDING_WRITE_BATCH_SIZE = 64;
 
+<<<<<<< HEAD
 /** Sha256. */
+=======
+>>>>>>> origin/main
 function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -309,12 +312,20 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
 
     const { data: existingDocuments, error: existingDocumentError } = await supabase
       .from("documents")
+<<<<<<< HEAD
       .select("id")
+=======
+      .select("*")
+>>>>>>> origin/main
       .in("id", documentIds);
     if (existingDocumentError) {
       throw new Error(`Registry corpus preflight failed: ${existingDocumentError.message}`);
     }
     const existingDocumentIds = new Set((existingDocuments ?? []).map((document) => document.id));
+<<<<<<< HEAD
+=======
+    const existingDocumentSnapshots = existingDocuments ?? [];
+>>>>>>> origin/main
 
     const { error: documentError } = await supabase.from("documents").upsert(documents, { onConflict: "id" });
     if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
@@ -323,12 +334,19 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
     if (chunkError) {
       const insertedDocumentIds = documentIds.filter((id) => !existingDocumentIds.has(id));
       if (insertedDocumentIds.length > 0) {
+<<<<<<< HEAD
         const { error: rollbackError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
         if (rollbackError) {
           throw new Error(
             `Registry corpus chunk upsert failed: ${chunkError.message}; rollback failed: ${rollbackError.message}`,
           );
         }
+=======
+        await supabase.from("documents").delete().in("id", insertedDocumentIds);
+      }
+      if (existingDocumentSnapshots.length > 0) {
+        await supabase.from("documents").upsert(existingDocumentSnapshots, { onConflict: "id" });
+>>>>>>> origin/main
       }
       throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
     }
@@ -370,12 +388,18 @@ export async function embedReloadedOwnerRows<Row>(
   return chunkCount;
 }
 
+<<<<<<< HEAD
 /** Skipped registry embed result. */
+=======
+>>>>>>> origin/main
 function skippedRegistryEmbedResult(reason: RegistryCorpusEmbedResult["reason"]): RegistryCorpusEmbedResult {
   return { documentCount: 0, chunkCount: 0, skipped: true, reason };
 }
 
+<<<<<<< HEAD
 /** Reembed clinical registry record by slug. */
+=======
+>>>>>>> origin/main
 export async function reembedClinicalRegistryRecordBySlug(
   supabase: AdminClient,
   args: { ownerId: string; slug: string; kind?: RegistryRecordKind },
@@ -391,7 +415,10 @@ export async function reembedClinicalRegistryRecordBySlug(
   return embedClinicalRegistryRows(supabase, [data as RegistryRecordRow]);
 }
 
+<<<<<<< HEAD
 /** Reembed medication record by slug. */
+=======
+>>>>>>> origin/main
 export async function reembedMedicationRecordBySlug(
   supabase: AdminClient,
   args: { ownerId: string; slug: string },
@@ -410,7 +437,10 @@ export async function reembedMedicationRecordBySlug(
   return embedMedicationRows(supabase, [data as MedicationRecordRow]);
 }
 
+<<<<<<< HEAD
 /** Reembed differential record by slug. */
+=======
+>>>>>>> origin/main
 export async function reembedDifferentialRecordBySlug(
   supabase: AdminClient,
   args: { ownerId: string; slug: string; kind?: DifferentialRecordRow["kind"] },
@@ -426,7 +456,10 @@ export async function reembedDifferentialRecordBySlug(
   return embedDifferentialRows(supabase, [data as DifferentialRecordRow]);
 }
 
+<<<<<<< HEAD
 /** Reembed registry record after edit. */
+=======
+>>>>>>> origin/main
 export function reembedRegistryRecordAfterEdit(
   supabase: AdminClient,
   target: RegistryCorpusEditTarget,
@@ -450,7 +483,10 @@ export function reembedRegistryRecordAfterEdit(
   });
 }
 
+<<<<<<< HEAD
 /** Best effort reembed registry record after edit. */
+=======
+>>>>>>> origin/main
 export async function bestEffortReembedRegistryRecordAfterEdit(args: {
   supabase: AdminClient;
   target: RegistryCorpusEditTarget;

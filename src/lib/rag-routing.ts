@@ -252,6 +252,7 @@ function queryTopicTokens(query: string) {
     .filter((token) => token.length > 2 && !queryStopWords.has(token));
 }
 
+<<<<<<< HEAD
 /** Query specific title tokens. */
 function querySpecificTitleTokens(query: string) {
   return normalizeLookupText(query)
@@ -261,6 +262,15 @@ function querySpecificTitleTokens(query: string) {
 }
 
 /** Has direct title support. */
+=======
+function querySpecificTitleTokens(query: string) {
+  return normalizeLookupText(query)
+    .split(/\s+/)
+    .filter((token) => token.length > 2 && !specificTitleStopWords.has(token))
+    .map((token) => token.replace(/s$/, ""));
+}
+
+>>>>>>> origin/main
 export function hasDirectTitleSupport(query: string, results: SearchResult[]) {
   const tokens = queryTopicTokens(query);
   if (tokens.length === 0) return false;
@@ -271,7 +281,10 @@ export function hasDirectTitleSupport(query: string, results: SearchResult[]) {
   });
 }
 
+<<<<<<< HEAD
 /** Best title token match. */
+=======
+>>>>>>> origin/main
 function bestTitleTokenMatch(query: string, results: SearchResult[]) {
   const tokens = querySpecificTitleTokens(query);
   let matchedCount = 0;
@@ -285,7 +298,10 @@ function bestTitleTokenMatch(query: string, results: SearchResult[]) {
   return { tokenCount: tokens.length, matchedCount };
 }
 
+<<<<<<< HEAD
 /** Has specific title support. */
+=======
+>>>>>>> origin/main
 export function hasSpecificTitleSupport(query: string, results: SearchResult[]) {
   const { tokenCount, matchedCount } = bestTitleTokenMatch(query, results);
   if (tokenCount === 0) return false;
@@ -293,13 +309,19 @@ export function hasSpecificTitleSupport(query: string, results: SearchResult[]) 
   return matchedCount >= 2 || matchedCount / tokenCount >= 0.5;
 }
 
+<<<<<<< HEAD
 /** Has admission community lookup intent. */
+=======
+>>>>>>> origin/main
 function hasAdmissionCommunityLookupIntent(query: string) {
   const normalized = normalizeLookupText(query);
   return /\badmission\b/.test(normalized) && /\bcommunity\b/.test(normalized);
 }
 
+<<<<<<< HEAD
 /** Is complex clinical query. */
+=======
+>>>>>>> origin/main
 export function isComplexClinicalQuery(query: string) {
   return complexClinicalQueryPattern.test(query);
 }
@@ -325,7 +347,10 @@ function hasTableOrVisualSourceSupport(results: SearchResult[]) {
   });
 }
 
+<<<<<<< HEAD
 /** Is clozapine blood withhold threshold query. */
+=======
+>>>>>>> origin/main
 function isClozapineBloodWithholdThresholdQuery(query: string) {
   return (
     clozapineBloodWithholdThresholdPattern.test(query) &&
@@ -334,6 +359,7 @@ function isClozapineBloodWithholdThresholdQuery(query: string) {
   );
 }
 
+<<<<<<< HEAD
 const explicitWithholdActionPattern =
   /\b(?:withhold|withheld|withholding|hold|held|cease|stop|stopped|discontinue|discontinued)\b/i;
 
@@ -379,6 +405,37 @@ function hasExplicitBloodWithholdActionEvidence(results: SearchResult[]) {
 }
 
 /** Should prefer model synthesis. */
+=======
+function hasExplicitBloodWithholdActionEvidence(results: SearchResult[]) {
+  return results.slice(0, 8).some((result) => {
+    const tableFactText = (result.table_facts ?? [])
+      .map((fact) =>
+        [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+          .filter(Boolean)
+          .join(" "),
+      )
+      .join(" ");
+    const sourceText = [
+      result.title,
+      result.file_name,
+      result.section_heading,
+      result.retrieval_synopsis,
+      result.content,
+      result.adjacent_context,
+      tableFactText,
+      result.index_unit?.title,
+      result.index_unit?.content,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return (
+      bloodCountTermPattern.test(sourceText) &&
+      /\b(?:withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued)\b/i.test(sourceText)
+    );
+  });
+}
+
+>>>>>>> origin/main
 function shouldPreferModelSynthesis(query: string, queryClass: RagQueryClass) {
   return (
     queryClass === "medication_dose_risk" ||
@@ -391,7 +448,10 @@ function shouldPreferModelSynthesis(query: string, queryClass: RagQueryClass) {
   );
 }
 
+<<<<<<< HEAD
 /** Should use extractive medication lookup. */
+=======
+>>>>>>> origin/main
 function shouldUseExtractiveMedicationLookup(args: {
   query: string;
   results: SearchResult[];
@@ -405,7 +465,10 @@ function shouldUseExtractiveMedicationLookup(args: {
   return args.directTitleSupport || args.topTextRank >= 0.08 || hasTableOrVisualSourceSupport(args.results);
 }
 
+<<<<<<< HEAD
 /** Should use strong clinical route. */
+=======
+>>>>>>> origin/main
 function shouldUseStrongClinicalRoute(args: {
   query: string;
   queryClass: RagQueryClass;
@@ -661,12 +724,16 @@ export function chooseAnswerRoute(args: {
       };
     }
 
+<<<<<<< HEAD
     if (
       queryClass === "table_threshold" &&
       directTitleSupport &&
       strongestScore >= strongRetrievalThreshold &&
       !actionableConflictOrGap
     ) {
+=======
+    if (queryClass === "table_threshold" && directTitleSupport && strongestScore >= strongRetrievalThreshold) {
+>>>>>>> origin/main
       return {
         mode: "extractive",
         model: null,

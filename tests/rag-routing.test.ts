@@ -189,6 +189,7 @@ describe("RAG answer routing", () => {
       }),
     ]);
 
+<<<<<<< HEAD
     expect(selected.mode).toBe("strong");
     expect(selected.model).toBe("strong-model");
     expect(selected.reason).toBe("clinical_risk_or_complex_query");
@@ -205,6 +206,8 @@ describe("RAG answer routing", () => {
       }),
     ]);
 
+=======
+>>>>>>> origin/main
     expect(selected.mode).toBe("strong");
     expect(selected.model).toBe("strong-model");
     expect(selected.reason).toBe("clinical_risk_or_complex_query");

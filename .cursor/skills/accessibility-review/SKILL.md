@@ -7,6 +7,10 @@ description: Reviews keyboard navigation support, semantic HTML tags, drawer/dia
 
 Use this skill when reviewing user interfaces to ensure compliance with a11y standards.
 
+## Repository Review Protocol
+
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+
 ## Review Checklist
 
 ### 1. Keyboard & Focus Control

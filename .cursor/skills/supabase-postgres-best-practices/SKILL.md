@@ -25,6 +25,8 @@ Reference these guidelines when:
 - Optimizing for Postgres-specific features
 - Working with Row-Level Security (RLS)
 
+For review-only use, follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` first. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+
 ## Rule Categories by Priority
 
 | Priority | Category                 | Impact      | Prefix      |
