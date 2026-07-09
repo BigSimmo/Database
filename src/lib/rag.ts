@@ -86,7 +86,6 @@ export {
 } from "@/lib/rag-cache";
 import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag-source-block";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
-import { extractNumericTokens, VERIFY_AGAINST_SOURCE_NOTE, verifyAnswerNumbers } from "@/lib/answer-verification";
 import {
   buildClinicalTextSearchQuery,
   classifyRagQuery,
@@ -111,19 +110,11 @@ import {
   hasAdversarialManipulationIntent,
   hasDirectTitleSupport,
   shouldRetryWithStrongAfterFast,
-  appendRoutingReason,
 } from "@/lib/rag-routing";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
 import { applyMemoryCardBoosts, fetchMemoryCardsForQuery, ragDeepMemoryVersion } from "@/lib/deep-memory";
-import {
-  cleanClinicalSummaryText,
-  fenceSourceEvidence,
-  isLowYieldClinicalText,
-  neutralizePromptInstructions,
-  sourceTextForDisplay,
-  sourceTextForModel,
-} from "@/lib/source-text-sanitizer";
+import { cleanClinicalSummaryText, isLowYieldClinicalText, sourceTextForDisplay } from "@/lib/source-text-sanitizer";
 import {
   hasClinicalAnswerQualityIssue,
   isUsableAnswerSectionText,
