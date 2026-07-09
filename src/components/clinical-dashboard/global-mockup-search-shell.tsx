@@ -1,7 +1,16 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  type CSSProperties,
+  type ReactNode,
+  type UIEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { ClinicalDashboard } from "@/components/clinical-dashboard";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
@@ -15,6 +24,7 @@ import {
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
@@ -95,6 +105,12 @@ function GlobalMockupSearchShellClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
+  const phoneScrollHide = useScrollHideReporter();
+  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  useEffect(() => {
+    reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
+  }, [phoneScrollHide.reportScroll]);
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;
@@ -168,6 +184,13 @@ function GlobalMockupSearchShellClient({
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
+  const mobileComposerReserve = !shouldShowSearchComposer
+    ? "2rem"
+    : searchMode === "answer"
+      ? "calc(9rem + env(safe-area-inset-bottom))"
+      : useCompactBottomSearch
+        ? "calc(5.5rem + env(safe-area-inset-bottom))"
+        : "calc(9rem + env(safe-area-inset-bottom))";
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -294,8 +317,34 @@ function GlobalMockupSearchShellClient({
     navigateToMode(mode, { query: crossQuery, focus: true, run: true });
   }
 
+  function handleMainScroll(event: UIEvent<HTMLDivElement>) {
+    phoneScrollHide.reportScroll(event.currentTarget.scrollTop);
+  }
+
+  const mainRefCallback = (node: HTMLDivElement | null) => {
+    setMainElement(node);
+  };
+
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
+
+  // Page canvases can become nested scrollers when `overflow-x-hidden` pairs with
+  // a flex height cap (overflow-y becomes auto per CSS). Capture descendant scroll
+  // so the phone dock/header still hide while users scroll results.
+  useEffect(() => {
+    const main = mainElement;
+    if (!main) return undefined;
+
+    const onScrollCapture = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !main.contains(target)) return;
+      if (target.scrollHeight <= target.clientHeight + 1) return;
+      reportPhoneScrollHideRef.current(target.scrollTop);
+    };
+
+    main.addEventListener("scroll", onScrollCapture, { capture: true, passive: true });
+    return () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
+  }, [mainElement, shouldRenderClinicalDashboard, chromeVisible]);
 
   if (shouldRenderClinicalDashboard) {
     return (
@@ -321,7 +370,7 @@ function GlobalMockupSearchShellClient({
   return (
     <div
       className={cn(
-        "min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]",
+        "min-h-dvh max-sm:h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&
           "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
@@ -332,6 +381,7 @@ function GlobalMockupSearchShellClient({
         {
           "--clinical-sidebar-width": effectiveSidebarWidth,
           "--clinical-sidebar-width-md": shouldShowDesktopSidebar ? "5.25rem" : "0px",
+          "--mobile-composer-reserve": mobileComposerReserve,
         } as CSSProperties
       }
     >
@@ -358,12 +408,8 @@ function GlobalMockupSearchShellClient({
         </div>
       ) : null}
 
-      <div className="flex min-h-dvh min-w-0 flex-col">
-        {/* max-sm:contents lets the header's own `sticky top-0` engage against
-            the document scroll on phones (a plain wrapper div otherwise caps
-            its sticking range at its own height), which the phone
-            hide-on-scroll overlay relies on. */}
-        <div className={mobileChromeVisible ? "max-sm:contents" : "hidden lg:block"}>
+      <div className="flex min-h-dvh min-w-0 flex-col max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden">
+        <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
           <MasterSearchHeader
             documents={[]}
             documentTotal={0}
@@ -413,9 +459,9 @@ function GlobalMockupSearchShellClient({
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
             heroComposerFromTablet={isStandaloneModeHome}
-            // Phone-only: the document scrolls here and the header is sticky,
-            // so a translate overlay hides it with zero layout shift.
-            hideOnScroll={{ strategy: "overlay" }}
+            // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
+            // collapses the header/composer to hand space back to content.
+            hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
             onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
             queryInputAutoFocus={searchParams.get("focus") === "1"}
           />
@@ -423,38 +469,40 @@ function GlobalMockupSearchShellClient({
 
         <div
           id="main-content"
+          ref={mainRefCallback}
           tabIndex={-1}
+          onScroll={handleMainScroll}
           className={cn(
-            // Phone: fill the space under the header exactly (the header is
-            // taller than the 4rem the calc assumed, which forced a phantom
-            // scrollbar on every standalone page). sm+ keeps the original calc.
-            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex-1 sm:min-h-[calc(100dvh-4rem)]",
+            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)]",
             !shouldShowSearchComposer
-              ? "pb-8"
+              ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
               : bottomSearchScrollHidden
-                ? "pb-8 sm:pb-8"
+                ? "max-sm:pb-8 sm:pb-8"
                 : searchMode === "answer"
-                  ? "pb-[calc(9rem+env(safe-area-inset-bottom))]"
+                  ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
                   : useCompactBottomSearch
-                    ? "pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:pb-8"
-                    : "pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
+                    ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
+                    : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
-          <ClientHydrationBoundary
-            fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
-          >
-            <SearchCommandProvider
-              value={{
-                query,
-                modeId: searchMode,
-                commandScopes,
-                onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
-                onClearScopes: () => setCommandScopes([]),
-              }}
+          <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">
+            <ClientHydrationBoundary
+              fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
             >
-              {children}
-            </SearchCommandProvider>
-          </ClientHydrationBoundary>
+              <SearchCommandProvider
+                value={{
+                  query,
+                  modeId: searchMode,
+                  commandScopes,
+                  onRemoveScope: (scopeId) =>
+                    setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
+                  onClearScopes: () => setCommandScopes([]),
+                }}
+              >
+                {children}
+              </SearchCommandProvider>
+            </ClientHydrationBoundary>
+          </div>
         </div>
       </div>
 
