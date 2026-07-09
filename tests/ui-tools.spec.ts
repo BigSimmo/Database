@@ -946,7 +946,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
   });
 
-  test("differentials search badges stay single-line on narrow viewport", async ({ page }) => {
+  test("differentials evidence-backed search badges stay single-line on narrow viewport", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
 
     await page.route(/\/api\/setup-status(?:\?.*)?$/, async (route) => {

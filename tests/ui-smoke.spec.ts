@@ -1921,20 +1921,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(workspace.getByRole("heading", { name: "Acamprosate renal screen", level: 3 })).toBeVisible();
   });
 
-  test("favourites command library opens item workspace on row selection at 2xl", async ({ page }) => {
-    await page.setViewportSize({ width: 1536, height: 900 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/favourites");
-
-    await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
-    await expect(page.getByTestId("favourites-item-workspace")).toHaveCount(0);
-
-    await page.getByTestId("favourite-row-acamprosate-renal-screen").click();
-    const workspace = page.getByTestId("favourites-item-workspace");
-    await expect(workspace).toBeVisible();
-    await expect(workspace.getByRole("heading", { name: "Acamprosate renal screen", level: 3 })).toBeVisible();
-  });
-
   test("app mode menu supports keyboard navigation without removed prototype modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);

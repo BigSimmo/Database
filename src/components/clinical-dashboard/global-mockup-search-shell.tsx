@@ -18,7 +18,6 @@ import { MasterSearchHeader } from "@/components/clinical-dashboard/master-searc
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
-import { FormsSearchResultsPage } from "@/components/forms/forms-search-results-page";
 import { ClientHydrationBoundary } from "@/components/client-hydration-boundary";
 import { cn } from "@/components/ui-primitives";
 import {
@@ -169,13 +168,6 @@ function GlobalMockupSearchShellClient({
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
-  const mobileComposerReserve = !shouldShowSearchComposer
-    ? "2rem"
-    : searchMode === "answer"
-      ? "calc(9rem + env(safe-area-inset-bottom))"
-      : useCompactBottomSearch
-        ? "calc(5.5rem + env(safe-area-inset-bottom))"
-        : "calc(9rem + env(safe-area-inset-bottom))";
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -340,7 +332,6 @@ function GlobalMockupSearchShellClient({
         {
           "--clinical-sidebar-width": effectiveSidebarWidth,
           "--clinical-sidebar-width-md": shouldShowDesktopSidebar ? "5.25rem" : "0px",
-          "--mobile-composer-reserve": mobileComposerReserve,
         } as CSSProperties
       }
     >
