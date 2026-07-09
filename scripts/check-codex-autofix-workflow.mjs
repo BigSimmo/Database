@@ -4,10 +4,8 @@ const workflowPath = ".github/workflows/codex-autofix-review-comments.yml";
 const workflow = fs.readFileSync(workflowPath, "utf8");
 
 const failures = [];
-const scopedResolveCommand =
-  "@codex resolve actionable Codex review findings for this pull request and current head";
-const scopedResolvePrompt =
-  `${scopedResolveCommand} using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit unless explicitly asked. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`;
+const scopedResolveCommand = "@codex resolve actionable Codex review findings for this pull request and current head";
+const scopedResolvePrompt = `${scopedResolveCommand} using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit unless explicitly asked. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`;
 
 const forbiddenPatterns = [
   {
