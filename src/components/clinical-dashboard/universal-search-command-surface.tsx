@@ -697,12 +697,6 @@ export function UniversalSearchCommandSurface({
   const flatItems = useMemo(() => sections.flatMap((section) => section.items), [sections]);
   const activeItemId = activeIndex >= 0 && activeIndex < flatItems.length ? flatItems[activeIndex].id : null;
 
-  function toggleScope(id: string) {
-    onCommandScopesChange(
-      commandScopes.includes(id) ? commandScopes.filter((scope) => scope !== id) : [...commandScopes, id],
-    );
-  }
-
   function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
