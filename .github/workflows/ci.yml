@@ -81,8 +81,9 @@ jobs:
 
       - name: Deployment boot smoke
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-        # Supabase/OpenAI must be real repo secrets. RAG_QUERY_HASH_SECRET falls
-        # back to a CI-safe placeholder in deployment-boot-smoke.mjs when unset.
+        # No placeholder fallbacks: when the repository secrets are missing the
+        # smoke must fail with its explicit missing-env error rather than
+        # "pass" against a server that never saw real production env.
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

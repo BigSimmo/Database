@@ -5,7 +5,13 @@ import { loadEnvConfig } from "@next/env";
 import { z } from "zod";
 import { loadCapturedRagEvalCases, type RagEvalCase, type SupabaseEvalCaseClient } from "@/lib/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
-import { loadAdminClient, pauseBetweenEvalCases, percentile, resolveEvalOwnerId, withProviderBackoff } from "./eval-utils";
+import {
+  loadAdminClient,
+  pauseBetweenEvalCases,
+  percentile,
+  resolveEvalOwnerId,
+  withProviderBackoff,
+} from "./eval-utils";
 
 loadEnvConfig(process.cwd());
 
@@ -832,7 +838,10 @@ async function main() {
 
   for (let caseIndex = 0; caseIndex < cases.length; caseIndex += 1) {
     const testCase = cases[caseIndex]!;
-    await pauseBetweenEvalCases({ caseIndex, forceEmbedding: testCase.forceEmbedding });
+    await pauseBetweenEvalCases({
+      caseIndex,
+      forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
+    });
     const startedAt = Date.now();
     const searchPromise = withProviderBackoff(`retrieval:${testCase.id}`, () =>
       searchChunksWithTelemetry({
