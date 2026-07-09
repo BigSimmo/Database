@@ -323,13 +323,19 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
     const { error: chunkError } = await supabase.from("document_chunks").upsert(chunks, { onConflict: "id" });
     if (chunkError) {
       const insertedDocumentIds = documentIds.filter((id) => !existingDocumentIds.has(id));
+      const rollbackErrors: string[] = [];
       if (insertedDocumentIds.length > 0) {
-        await supabase.from("documents").delete().in("id", insertedDocumentIds);
+        const { error: deleteError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
+        if (deleteError) rollbackErrors.push(`delete failed: ${deleteError.message}`);
       }
       if (existingDocumentSnapshots.length > 0) {
-        await supabase.from("documents").upsert(existingDocumentSnapshots, { onConflict: "id" });
+        const { error: restoreError } = await supabase
+          .from("documents")
+          .upsert(existingDocumentSnapshots, { onConflict: "id" });
+        if (restoreError) rollbackErrors.push(`restore failed: ${restoreError.message}`);
       }
-      throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
+      const suffix = rollbackErrors.length > 0 ? `; rollback errors: ${rollbackErrors.join(", ")}` : "";
+      throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}${suffix}`);
     }
 
     documentCount += documents.length;

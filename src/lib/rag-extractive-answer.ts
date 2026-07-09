@@ -311,7 +311,7 @@ function hasBloodCountEvidence(text: string) {
 
 /** Has withhold action evidence. */
 function hasWithholdActionEvidence(text: string) {
-  return /\b(?:withhold|withheld|withholding|hold|held|cease|stop|stopped|discontinue|discontinued|red range|amber range|red|amber)\b/i.test(
+  return /\b(?:withhold|withheld|withholding|hold|held|cease|stop|stopped|discontinue|discontinued|red range|amber range)\b/i.test(
     text,
   );
 }
