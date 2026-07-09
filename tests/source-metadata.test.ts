@@ -39,8 +39,6 @@ describe("source metadata helpers", () => {
     expect(line).toContain("Jurisdiction: Australia/WA");
   });
 
-<<<<<<< HEAD
-=======
   it("preserves registry route metadata during normalization", () => {
     const metadata = normalizeSourceMetadata({
       source_kind: "registry_record",
@@ -59,7 +57,6 @@ describe("source metadata helpers", () => {
     expect(metadata.registry_record_slug).toBe("perth-adult-mental-health");
   });
 
->>>>>>> origin/main
   it("preserves stale status labels for registry summaries", () => {
     const metadata = normalizeSourceMetadata({
       source_kind: "registry_record",

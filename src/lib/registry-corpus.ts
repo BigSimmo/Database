@@ -34,7 +34,6 @@ type RegistryCorpusEntry = {
   metadata: Record<string, Json>;
 };
 
-<<<<<<< HEAD
 export type RegistryCorpusEmbedResult = {
   documentCount: number;
   chunkCount: number;
@@ -50,8 +49,6 @@ export type RegistryCorpusEditTarget =
 
 const REGISTRY_EMBEDDING_WRITE_BATCH_SIZE = 64;
 
-=======
->>>>>>> origin/main
 function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -286,7 +283,6 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
   if (entries.length === 0) return { documentCount: 0, chunkCount: 0 };
 
   const { embedTexts } = await import("@/lib/openai");
-<<<<<<< HEAD
   let documentCount = 0;
   let chunkCount = 0;
 
@@ -328,39 +324,6 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
   }
 
   return { documentCount, chunkCount };
-=======
-  const embeddings = await embedTexts(entries.map((entry) => entry.content));
-  const documents = entries.map(registryDocumentRow);
-  const chunks = entries.map((entry, index) => registryChunkRow(entry, embeddings[index] as Vector));
-  const documentIds = documents.map((document) => document.id).filter((id): id is string => typeof id === "string");
-  const { data: existingDocuments, error: existingDocumentError } = await supabase
-    .from("documents")
-    .select("id")
-    .in("id", documentIds);
-  if (existingDocumentError) {
-    throw new Error(`Registry corpus preflight failed: ${existingDocumentError.message}`);
-  }
-  const existingDocumentIds = new Set((existingDocuments ?? []).map((document) => document.id));
-
-  const { error: documentError } = await supabase.from("documents").upsert(documents, { onConflict: "id" });
-  if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
-
-  const { error: chunkError } = await supabase.from("document_chunks").upsert(chunks, { onConflict: "id" });
-  if (chunkError) {
-    const insertedDocumentIds = documentIds.filter((id) => !existingDocumentIds.has(id));
-    if (insertedDocumentIds.length > 0) {
-      const { error: rollbackError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
-      if (rollbackError) {
-        throw new Error(
-          `Registry corpus chunk upsert failed: ${chunkError.message}; rollback failed: ${rollbackError.message}`,
-        );
-      }
-    }
-    throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
-  }
-
-  return { documentCount: documents.length, chunkCount: chunks.length };
->>>>>>> origin/main
 }
 
 export function embedClinicalRegistryRows(supabase: AdminClient, rows: RegistryRecordRow[]) {
@@ -389,7 +352,6 @@ export async function embedReloadedOwnerRows<Row>(
   const { chunkCount } = await embed(data ?? []);
   return chunkCount;
 }
-<<<<<<< HEAD
 
 function skippedRegistryEmbedResult(reason: RegistryCorpusEmbedResult["reason"]): RegistryCorpusEmbedResult {
   return { documentCount: 0, chunkCount: 0, skipped: true, reason };
@@ -484,5 +446,3 @@ export async function bestEffortReembedRegistryRecordAfterEdit(args: {
     return { documentCount: 0, chunkCount: 0, skipped: true, reason: "failed", errorMessage } satisfies RegistryCorpusEmbedResult;
   }
 }
-=======
->>>>>>> origin/main

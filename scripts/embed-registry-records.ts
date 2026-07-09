@@ -15,10 +15,7 @@ type Args = {
   slug?: string;
   write: boolean;
   confirmed: boolean;
-<<<<<<< HEAD
   listOwners: boolean;
-=======
->>>>>>> origin/main
 };
 
 function parseArgs(argv: string[]): Args {
@@ -27,21 +24,15 @@ function parseArgs(argv: string[]): Args {
     kind: "all",
     write: false,
     confirmed: false,
-<<<<<<< HEAD
     listOwners: false,
-=======
->>>>>>> origin/main
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-<<<<<<< HEAD
     if (token === "--list-owners") {
       args.listOwners = true;
       continue;
     }
-=======
->>>>>>> origin/main
     if (token === "--write") {
       args.write = true;
       continue;
@@ -112,7 +103,6 @@ async function loadDifferentialRows(
   return (data ?? []) as DifferentialRecordRow[];
 }
 
-<<<<<<< HEAD
 type OwnerCounts = {
   ownerId: string;
   service: number;
@@ -192,12 +182,6 @@ async function main() {
 
   const ownerId = args.ownerId;
   if (!ownerId) throw new Error("No owner id. Pass --owner-id <uuid>, --list-owners, or set LOCAL_NO_AUTH_OWNER_ID.");
-=======
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const ownerId = args.ownerId;
-  if (!ownerId) throw new Error("No owner id. Pass --owner-id <uuid> or set LOCAL_NO_AUTH_OWNER_ID.");
->>>>>>> origin/main
 
   const {
     clinicalRegistryRowsToCorpusEntries,
@@ -209,10 +193,6 @@ async function main() {
     registryCorpusEmbeddingEnabled,
   } = await import("@/lib/registry-corpus");
 
-<<<<<<< HEAD
-=======
-  const supabase = await loadAdminClient();
->>>>>>> origin/main
   const [registryRows, medicationRows, differentialRows] = await Promise.all([
     loadRegistryRows(supabase, args, ownerId),
     loadMedicationRows(supabase, args, ownerId),
@@ -233,14 +213,11 @@ async function main() {
   if (total > 20) console.log(`  ... ${total - 20} more`);
 
   if (!args.write) {
-<<<<<<< HEAD
     if (total === 0) {
       console.log(
         "[registry:embed] No eligible rows found for this owner. Re-run with --list-owners to find owners with registry rows.",
       );
     }
-=======
->>>>>>> origin/main
     console.log(
       "[registry:embed] Dry run. Re-run with --write --confirm and RAG_REGISTRY_CORPUS_EMBEDDING=true to write embeddings.",
     );

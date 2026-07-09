@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import { describe, expect, it, vi } from "vitest";
-=======
-import { describe, expect, it } from "vitest";
->>>>>>> origin/main
 
 import { buildDefaultMedicationRows } from "../src/lib/medication-fixtures";
 import { clinicalRegistryRowsToCorpusEntries, medicationRowsToCorpusEntries } from "../src/lib/registry-corpus";
@@ -75,7 +71,6 @@ describe("registry corpus", () => {
     expect(entry?.content).toContain("Form: Transport order");
   });
 
-<<<<<<< HEAD
   it("keeps re-embed-on-edit hooks inert unless registry corpus embedding is enabled", async () => {
     vi.stubEnv("RAG_REGISTRY_CORPUS_EMBEDDING", "false");
     vi.resetModules();
@@ -101,8 +96,6 @@ describe("registry corpus", () => {
     }
   });
 
-=======
->>>>>>> origin/main
   it("maps scalar medication tags into metadata.tags", () => {
     const rows = buildDefaultMedicationRows("22222222-2222-4222-8222-222222222222") as MedicationRecordRow[];
     const [entry] = medicationRowsToCorpusEntries(rows.map((row) => ({ ...row, tag: "alcohol" })));
