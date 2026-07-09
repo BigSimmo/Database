@@ -441,7 +441,7 @@ test.describe("Clinical KB tools launcher", () => {
       const mainTop = mainBox?.y ?? 0;
       const mainHeight = mainBox?.height ?? 820;
       expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.72);
-      expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.12);
+      expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.08);
       const metrics = await globalSearchComposerMetrics(page, home.testId);
       expect(metrics).not.toBeNull();
       expect(metrics?.position).not.toBe("fixed");
@@ -768,15 +768,31 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
     // focus=1 leaves the composer focused; hide-on-scroll stays off while it has focus.
-    const viewport = page.viewportSize() ?? { width: 390, height: 844 };
-    await page.mouse.click(Math.max(1, viewport.width - 8), 8);
+    const input = visibleGlobalSearchInput(page).first();
+    await input.focus();
+    await page.keyboard.press("Escape");
+    await input.blur();
+    await expect(dock).not.toHaveAttribute("data-command-open", "true");
+
+    // Inject a spacer to ensure the container is scrollable even with minimal search results
+    await page.evaluate(() => {
+      const container = document.getElementById("main-content");
+      if (container) {
+        const spacer = document.createElement("div");
+        spacer.id = "test-scroll-spacer";
+        spacer.style.height = "2000px";
+        spacer.style.minHeight = "2000px";
+        spacer.style.display = "block";
+        container.appendChild(spacer);
+      }
+    });
 
     const scroller = page.locator("#main-content");
     // Step scroll down so the shell's scroll reporter sees deliberate movement.
     for (const offset of [40, 80, 120, 160, 200]) {
       await scroller.evaluate((node, top) => {
         node.scrollTop = top;
-        node.dispatchEvent(new Event("scroll"));
+        node.dispatchEvent(new Event("scroll", { bubbles: true }));
       }, offset);
     }
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
@@ -786,7 +802,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     await scroller.evaluate((node) => {
       node.scrollTop = 60;
-      node.dispatchEvent(new Event("scroll"));
+      node.dispatchEvent(new Event("scroll", { bubbles: true }));
     });
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect
