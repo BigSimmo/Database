@@ -13,6 +13,15 @@ describe("check-july8-live-batch R17 index definition probe", () => {
     expect(normalizeIndexDef(definition)).toContain("create unique index");
   });
 
+  it("accepts the ANY(ARRAY) partial unique index definition format", () => {
+    const definition = `
+      CREATE UNIQUE INDEX ingestion_jobs_one_open_per_document_uidx
+      ON public.ingestion_jobs (document_id)
+      WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]))
+    `;
+    expect(isExpectedR17IndexDef(definition)).toBe(true);
+  });
+
   it("rejects a same-named index on the wrong columns", () => {
     const definition =
       "CREATE UNIQUE INDEX ingestion_jobs_one_open_per_document_uidx ON public.ingestion_jobs (batch_id)";

@@ -40,13 +40,23 @@ export function isExpectedR17IndexDef(def: string) {
     if (whereClause.includes(status)) return false;
   }
 
+  let statuses: string[] = [];
   const inMatch = whereClause.match(/status\s+in\s*\(([^)]+)\)/);
-  if (!inMatch) return false;
+  const anyMatch = whereClause.match(/status\s*=\s*any\s*\(\s*(?:array\s*)?\[([^\]]+)\]/);
 
-  const statuses = inMatch[1]
-    .split(",")
-    .map((value) => value.trim().replace(/^['"]|['"]$/g, ""))
-    .sort();
+  if (inMatch) {
+    statuses = inMatch[1]
+      .split(",")
+      .map((value) => value.split("::")[0].trim().replace(/^['"]|['"]$/g, ""));
+  } else if (anyMatch) {
+    statuses = anyMatch[1]
+      .split(",")
+      .map((value) => value.split("::")[0].trim().replace(/^['"]|['"]$/g, ""));
+  } else {
+    return false;
+  }
+
+  statuses = statuses.sort();
   return statuses.length === 2 && statuses[0] === "pending" && statuses[1] === "processing";
 }
 
@@ -146,27 +156,42 @@ async function checkWorkerLeaseFence(supabase: AdminClient) {
 }
 
 async function findR17ProbeDocument(supabase: AdminClient) {
-  const { data: docs, error } = await supabase.from("documents").select("id").limit(200);
-  if (error) {
-    throw new Error(`R17 probe: could not list documents: ${error.message}`);
-  }
-  if (!docs?.length) {
-    throw new Error("R17 probe: no documents available for enforcement check");
-  }
+  const pageSize = 100;
+  let page = 0;
 
-  for (const doc of docs) {
-    const { data: openJobs, error: openError } = await supabase
-      .from("ingestion_jobs")
+  while (true) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data: docs, error } = await supabase
+      .from("documents")
       .select("id")
-      .eq("document_id", doc.id)
-      .in("status", ["pending", "processing"])
-      .limit(1);
-    if (openError) {
-      throw new Error(`R17 probe: open-job lookup failed: ${openError.message}`);
+      .order("id")
+      .range(from, to);
+
+    if (error) {
+      throw new Error(`R17 probe: could not list documents: ${error.message}`);
     }
-    if (!openJobs?.length) {
-      return doc.id;
+    if (!docs?.length) {
+      break;
     }
+
+    for (const doc of docs) {
+      const { data: openJobs, error: openError } = await supabase
+        .from("ingestion_jobs")
+        .select("id")
+        .eq("document_id", doc.id)
+        .in("status", ["pending", "processing"])
+        .limit(1);
+      if (openError) {
+        throw new Error(`R17 probe: open-job lookup failed: ${openError.message}`);
+      }
+      if (!openJobs?.length) {
+        return doc.id;
+      }
+    }
+
+    page++;
   }
 
   throw new Error("R17 probe: could not find a document without open ingestion jobs");
@@ -183,48 +208,59 @@ async function cleanupLegacyR17ProbeRows(supabase: AdminClient) {
 }
 
 async function checkR17IndexEnforcement(supabase: AdminClient) {
-  await cleanupLegacyR17ProbeRows(supabase);
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await cleanupLegacyR17ProbeRows(supabase);
 
-  const documentId = await findR17ProbeDocument(supabase);
-  const primaryJobId = randomUUID();
-  const duplicateJobId = randomUUID();
-  const nextRunAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-  const baseRow = {
-    document_id: documentId,
-    status: "pending" as const,
-    stage: "queued",
-    progress: 0,
-    next_run_at: nextRunAt,
-  };
+    const documentId = await findR17ProbeDocument(supabase);
+    const primaryJobId = randomUUID();
+    const duplicateJobId = randomUUID();
+    const nextRunAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const baseRow = {
+      document_id: documentId,
+      status: "pending" as const,
+      stage: "queued",
+      progress: 0,
+      next_run_at: nextRunAt,
+    };
 
-  const { error: firstError } = await supabase.from("ingestion_jobs").insert({
-    id: primaryJobId,
-    ...baseRow,
-  });
-  if (firstError) {
-    throw new Error(`R17 probe: could not insert primary open job: ${firstError.message}`);
-  }
-
-  try {
-    const { error: duplicateError } = await supabase.from("ingestion_jobs").insert({
-      id: duplicateJobId,
+    const { error: firstError } = await supabase.from("ingestion_jobs").insert({
+      id: primaryJobId,
       ...baseRow,
     });
 
-    if (!duplicateError) {
-      await supabase.from("ingestion_jobs").delete().eq("id", duplicateJobId);
-      throw new Error(
-        `${R17_INDEX} is not enforcing uniqueness — duplicate open job insert succeeded for document ${documentId}`,
-      );
+    if (firstError) {
+      if (isR17IndexUniqueViolation(firstError) && attempt < maxAttempts) {
+        console.log(`[July8 Live Batch] Race detected on doc ${documentId} (attempt ${attempt}/${maxAttempts}). Retrying...`);
+        continue;
+      }
+      throw new Error(`R17 probe: could not insert primary open job: ${firstError.message}`);
     }
 
-    if (!isR17IndexUniqueViolation(duplicateError)) {
-      throw new Error(
-        `R17 probe: duplicate insert must violate ${R17_INDEX}, not a generic key conflict: ${duplicateError.message}`,
-      );
+    try {
+      const { error: duplicateError } = await supabase.from("ingestion_jobs").insert({
+        id: duplicateJobId,
+        ...baseRow,
+      });
+
+      if (!duplicateError) {
+        await supabase.from("ingestion_jobs").delete().eq("id", duplicateJobId);
+        throw new Error(
+          `${R17_INDEX} is not enforcing uniqueness — duplicate open job insert succeeded for document ${documentId}`,
+        );
+      }
+
+      if (!isR17IndexUniqueViolation(duplicateError)) {
+        throw new Error(
+          `R17 probe: duplicate insert must violate ${R17_INDEX}, not a generic key conflict: ${duplicateError.message}`,
+        );
+      }
+
+      // Success, break out of loop
+      break;
+    } finally {
+      await supabase.from("ingestion_jobs").delete().in("id", [primaryJobId, duplicateJobId]);
     }
-  } finally {
-    await supabase.from("ingestion_jobs").delete().in("id", [primaryJobId, duplicateJobId]);
   }
 }
 
