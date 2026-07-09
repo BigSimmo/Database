@@ -111,6 +111,7 @@ function GlobalMockupSearchShellClient({
   useEffect(() => {
     reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   }, [phoneScrollHide.reportScroll]);
+  const scrollCaptureCleanupRef = useRef<(() => void) | null>(null);
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;
@@ -324,9 +325,16 @@ function GlobalMockupSearchShellClient({
   // Page canvases can become nested scrollers when `overflow-x-hidden` pairs with
   // a flex height cap (overflow-y becomes auto per CSS). Capture descendant scroll
   // so the phone dock/header still hide while users scroll results.
-  useEffect(() => {
-    const main = mainRef.current;
-    if (!main) return undefined;
+  const setMainRef = (main: HTMLDivElement | null) => {
+    mainRef.current = main;
+
+    // Clean up any previous listener before attaching a new one.
+    if (scrollCaptureCleanupRef.current) {
+      scrollCaptureCleanupRef.current();
+      scrollCaptureCleanupRef.current = null;
+    }
+
+    if (!main) return;
 
     const onScrollCapture = (event: Event) => {
       const target = event.target;
@@ -336,8 +344,8 @@ function GlobalMockupSearchShellClient({
     };
 
     main.addEventListener("scroll", onScrollCapture, { capture: true, passive: true });
-    return () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
-  }, []);
+    scrollCaptureCleanupRef.current = () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
+  };
 
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
@@ -356,7 +364,7 @@ function GlobalMockupSearchShellClient({
   if (!chromeVisible) {
     return (
       <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
-        <div id="main-content" tabIndex={-1} className="min-h-dvh min-w-0 overflow-x-hidden focus:outline-none">
+        <div id="main-content" ref={setMainRef} tabIndex={-1} className="min-h-dvh min-w-0 overflow-x-hidden focus:outline-none">
           {children}
         </div>
       </div>
@@ -465,7 +473,7 @@ function GlobalMockupSearchShellClient({
 
         <div
           id="main-content"
-          ref={mainRef}
+          ref={setMainRef}
           tabIndex={-1}
           onScroll={handleMainScroll}
           className={cn(
