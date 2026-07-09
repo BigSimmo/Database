@@ -504,7 +504,9 @@ export function evaluateGoldenRetrievalCase(args: {
   latencyMs: number;
   timedOut?: boolean;
   latencyFailures?: string[];
+  globalForceEmbedding?: boolean;
 }): GoldenRetrievalResult {
+  const forceEmbedding = Boolean(args.testCase.forceEmbedding || args.globalForceEmbedding);
   const documentHits = expectedDocumentHits(args.testCase.expectedDocumentSubstrings, args.results, 5);
   const contentHits = expectedContentHits(args.testCase.expectedContentTerms, args.results, 5);
   const topK = args.testCase.topK;
@@ -544,7 +546,7 @@ export function evaluateGoldenRetrievalCase(args: {
   if (args.testCase.expectTableEvidence && !tableEvidenceFound) {
     failures.push("expected table evidence in top 5");
   }
-  if (args.testCase.forceEmbedding) {
+  if (forceEmbedding) {
     if (args.telemetry.embedding_skipped) failures.push("forceEmbedding expected embedding to run");
     if (args.telemetry.retrieval_strategy === "search_cache") failures.push("forceEmbedding served search cache");
     if (
@@ -560,7 +562,7 @@ export function evaluateGoldenRetrievalCase(args: {
   return {
     id: args.testCase.id,
     query: args.testCase.query,
-    forceEmbedding: args.testCase.forceEmbedding ?? false,
+    forceEmbedding,
     expectedQueryClass: args.testCase.expectedQueryClass,
     actualQueryClass,
     expectedDocumentSubstrings: args.testCase.expectedDocumentSubstrings,
@@ -876,6 +878,7 @@ async function main() {
       latencyMs,
       timedOut: searchOutcome.timedOut,
       latencyFailures,
+      globalForceEmbedding: args.forceEmbedding,
     });
     results.push(result);
 

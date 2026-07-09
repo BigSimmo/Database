@@ -108,7 +108,8 @@ function parseArgs(argv: string[]): Args {
 }
 
 function rowNeedsRefresh(row: ImageRow, committedGeneration: string) {
-  if (row.index_generation_id !== null && row.index_generation_id !== committedGeneration) return true;
+  if (row.index_generation_id === null) return true;
+  if (row.index_generation_id !== committedGeneration) return true;
   return committedIndexGeneration(row.metadata) !== committedGeneration;
 }
 
