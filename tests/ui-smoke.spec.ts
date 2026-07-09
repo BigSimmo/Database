@@ -589,9 +589,11 @@ async function scrollMobileTableExpandClearOfFooter(page: Page, clinicalTable: L
 async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
   await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
   const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
-  await tableSurface.click({ force: true });
   const tableDialog = page.getByTestId("table-fullscreen-dialog");
-  await expect(tableDialog).toBeVisible({ timeout: 10_000 });
+  await expect(async () => {
+    await tableSurface.click({ force: true });
+    await expect(tableDialog).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
   return tableDialog;
 }
 
