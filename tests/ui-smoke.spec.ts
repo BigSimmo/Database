@@ -572,26 +572,33 @@ async function scrollMobileTableExpandClearOfFooter(page: Page, clinicalTable: L
   await clinicalTable.scrollIntoViewIfNeeded();
   await page.evaluate(() => {
     const expand = document.querySelector('[data-testid="table-expand-button"]');
-    const main = document.querySelector("main");
+    const scrollContainer = document.querySelector("main#main-content");
     const footer = document.querySelector(
       ".answer-footer-search-dock, .dashboard-composer-edge.answer-footer-search-edge",
     );
-    if (!expand || !main) return;
-    const expandRect = expand.getBoundingClientRect();
-    const footerTop = footer?.getBoundingClientRect().top ?? window.innerHeight;
-    const overlap = expandRect.bottom - footerTop + 20;
-    if (overlap > 0) {
-      main.scrollTop += overlap;
+    if (!expand || !scrollContainer) return;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const expandRect = expand.getBoundingClientRect();
+      const footerTop = footer?.getBoundingClientRect().top ?? window.innerHeight;
+      const currentOverlap = expandRect.bottom - footerTop + 24;
+      if (currentOverlap <= 0) break;
+      scrollContainer.scrollTop += currentOverlap;
     }
   });
 }
 
 async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
   await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
+  const expandButton = clinicalTable.getByTestId("table-expand-button");
   const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
   const tableDialog = page.getByTestId("table-fullscreen-dialog");
   await expect(async () => {
-    await tableSurface.click({ force: true });
+    if (await tableDialog.isVisible().catch(() => false)) return;
+    if (await expandButton.isVisible().catch(() => false)) {
+      await expandButton.click();
+    } else {
+      await tableSurface.click();
+    }
     await expect(tableDialog).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 15_000 });
   return tableDialog;
@@ -1205,10 +1212,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");
     await expect(tableDialog).toBeHidden();
-    await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeFocused();
+    if (await tableExpandButton.isVisible().catch(() => false)) {
+      await expect(tableExpandButton).toBeFocused();
+    } else {
+      await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeFocused();
+    }
     if (await tableExpandButton.isVisible().catch(() => false)) {
       await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
-      await tableExpandButton.click({ force: true });
+      await tableExpandButton.click();
       await expect(tableDialog).toBeVisible();
       await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
       await expect(tableDialog).toBeHidden();
@@ -1799,7 +1810,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await expect(expandButton).toBeVisible();
       await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
-      await expandButton.click({ force: true });
+      await expandButton.click();
       const dialog = page.getByTestId("table-fullscreen-dialog");
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole("table")).toBeVisible();
