@@ -64,15 +64,13 @@ function CrossModeLinkActions({
   link,
   query,
   onModeSearch,
-  compact = false,
 }: {
   link: CrossModeLink;
   query: string;
   onModeSearch: (mode: AppModeId, query: string) => void;
-  compact?: boolean;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", compact ? "pt-1" : "pt-0.5")}>
+    <div className="flex flex-wrap items-center gap-2 pt-1">
       <Link
         href={link.detailHref}
         onClick={() => logCrossModeLinkOpen(query, link)}
@@ -102,6 +100,7 @@ function CrossModeLinkActions({
 function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCardProps) {
   return (
     <article
+      role="listitem"
       className={cn(
         sourceCard,
         "flex shrink-0 flex-col gap-2 p-3",
@@ -129,7 +128,7 @@ function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCar
           <CrossModeLinkBadges badges={link.badges} />
         </div>
       </div>
-      <CrossModeLinkActions link={link} query={query} onModeSearch={onModeSearch} compact />
+      <CrossModeLinkActions link={link} query={query} onModeSearch={onModeSearch} />
     </article>
   );
 }
@@ -220,6 +219,9 @@ export function CrossModeLinksStrip({
       </p>
 
       <div
+        role="list"
+        tabIndex={links.length > 1 ? 0 : undefined}
+        aria-label={links.length > 1 ? "Related library matches; scroll horizontally for more" : undefined}
         className="cross-mode-links-rail polished-scroll grid gap-2 overflow-x-auto overscroll-x-contain pb-1 md:flex md:w-max md:max-w-full md:gap-2.5"
         data-testid="cross-mode-links-rail"
       >
