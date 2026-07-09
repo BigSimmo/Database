@@ -123,34 +123,63 @@ function ensureOwnerCount(counts: Map<string, OwnerCounts>, ownerId: string) {
 async function listEligibleOwnerCounts(supabase: Awaited<ReturnType<typeof loadAdminClient>>) {
   const counts = new Map<string, OwnerCounts>();
 
-  const { data: registryRows, error: registryError } = await supabase
-    .from("clinical_registry_records")
-    .select("owner_id, kind");
-  if (registryError) throw new Error(`Could not load registry owner counts: ${registryError.message}`);
-  for (const row of registryRows ?? []) {
-    const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
-    if (!ownerId) continue;
-    const count = ensureOwnerCount(counts, ownerId);
-    if (row.kind === "form") count.form += 1;
-    else count.service += 1;
+  // Paginate clinical_registry_records to handle more than 1000 rows
+  let registryOffset = 0;
+  const registryPageSize = 1000;
+  while (true) {
+    const { data: registryRows, error: registryError } = await supabase
+      .from("clinical_registry_records")
+      .select("owner_id, kind")
+      .range(registryOffset, registryOffset + registryPageSize - 1);
+    if (registryError) throw new Error(`Could not load registry owner counts: ${registryError.message}`);
+    if (!registryRows || registryRows.length === 0) break;
+    for (const row of registryRows) {
+      const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
+      if (!ownerId) continue;
+      const count = ensureOwnerCount(counts, ownerId);
+      if (row.kind === "form") count.form += 1;
+      else count.service += 1;
+    }
+    if (registryRows.length < registryPageSize) break;
+    registryOffset += registryPageSize;
   }
 
-  const { data: medicationRows, error: medicationError } = await supabase.from("medication_records").select("owner_id");
-  if (medicationError) throw new Error(`Could not load medication owner counts: ${medicationError.message}`);
-  for (const row of medicationRows ?? []) {
-    const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
-    if (!ownerId) continue;
-    ensureOwnerCount(counts, ownerId).medication += 1;
+  // Paginate medication_records to handle more than 1000 rows
+  let medicationOffset = 0;
+  const medicationPageSize = 1000;
+  while (true) {
+    const { data: medicationRows, error: medicationError } = await supabase
+      .from("medication_records")
+      .select("owner_id")
+      .range(medicationOffset, medicationOffset + medicationPageSize - 1);
+    if (medicationError) throw new Error(`Could not load medication owner counts: ${medicationError.message}`);
+    if (!medicationRows || medicationRows.length === 0) break;
+    for (const row of medicationRows) {
+      const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
+      if (!ownerId) continue;
+      ensureOwnerCount(counts, ownerId).medication += 1;
+    }
+    if (medicationRows.length < medicationPageSize) break;
+    medicationOffset += medicationPageSize;
   }
 
-  const { data: differentialRows, error: differentialError } = await supabase
-    .from("differential_records")
-    .select("owner_id");
-  if (differentialError) throw new Error(`Could not load differential owner counts: ${differentialError.message}`);
-  for (const row of differentialRows ?? []) {
-    const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
-    if (!ownerId) continue;
-    ensureOwnerCount(counts, ownerId).differential += 1;
+  // Paginate differential_records to handle more than 1000 rows
+  let differentialOffset = 0;
+  const differentialPageSize = 1000;
+  while (true) {
+    const { data: differentialRows, error: differentialError } = await supabase
+      .from("differential_records")
+      .select("owner_id")
+      .range(differentialOffset, differentialOffset + differentialPageSize - 1);
+    if (differentialError) throw new Error(`Could not load differential owner counts: ${differentialError.message}`);
+    if (!differentialRows || differentialRows.length === 0) break;
+    for (const row of differentialRows) {
+      const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
+      if (!ownerId) continue;
+      ensureOwnerCount(counts, ownerId).differential += 1;
+    }
+    if (differentialRows.length < differentialPageSize) break;
+    differentialOffset += differentialPageSize;
   }
 
   return [...counts.values()].sort((left, right) => {

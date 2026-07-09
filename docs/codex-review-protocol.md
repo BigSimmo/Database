@@ -23,7 +23,11 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 - For a pure review request, do not edit files, stage, commit, push, post PR comments, rerun hosted CI, or call provider-backed services.
 - If the user clearly asks to fix confirmed findings, make the smallest safe change and verify with local, static, or mocked checks first.
 - Ask before any OpenAI, Supabase, GitHub/GitLab, hosted CI, or provider-backed workflow.
-- Update `docs/branch-review-ledger.md` after completed branch/PR reviews with date, branch/ref, HEAD, scope, outcome, and checks.
+
+## Post-Review Ledger Update
+
+- After completing a branch or PR review, update `docs/branch-review-ledger.md` with date, branch/ref, HEAD (from `git rev-parse`), scope, outcome, and checks run.
+- This ledger update is not part of pure-review mode and should be performed as a separate step when the review workflow allows file edits.
 
 ## Severity Guide
 
