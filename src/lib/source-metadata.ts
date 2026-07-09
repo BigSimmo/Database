@@ -17,6 +17,13 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
 
   return {
     source_kind: stringOrNull(value.source_kind),
+<<<<<<< HEAD
+=======
+    registry_record_kind: stringOrNull(value.registry_record_kind),
+    registry_record_subkind: stringOrNull(value.registry_record_subkind),
+    registry_record_id: stringOrNull(value.registry_record_id),
+    registry_record_slug: stringOrNull(value.registry_record_slug),
+>>>>>>> origin/main
     source_title: stringOrNull(value.source_title),
     publisher: stringOrNull(value.publisher),
     jurisdiction: stringOrNull(value.jurisdiction),

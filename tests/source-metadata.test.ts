@@ -39,6 +39,27 @@ describe("source metadata helpers", () => {
     expect(line).toContain("Jurisdiction: Australia/WA");
   });
 
+<<<<<<< HEAD
+=======
+  it("preserves registry route metadata during normalization", () => {
+    const metadata = normalizeSourceMetadata({
+      source_kind: "registry_record",
+      registry_record_kind: "service",
+      registry_record_subkind: null,
+      registry_record_id: "svc-123",
+      registry_record_slug: "perth-adult-mental-health",
+      source_title: "Perth Adult Mental Health",
+      document_status: "current",
+      clinical_validation_status: "approved",
+    });
+
+    expect(metadata.registry_record_kind).toBe("service");
+    expect(metadata.registry_record_subkind).toBeNull();
+    expect(metadata.registry_record_id).toBe("svc-123");
+    expect(metadata.registry_record_slug).toBe("perth-adult-mental-health");
+  });
+
+>>>>>>> origin/main
   it("preserves stale status labels for registry summaries", () => {
     const metadata = normalizeSourceMetadata({
       source_kind: "registry_record",
