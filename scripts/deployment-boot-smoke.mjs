@@ -124,8 +124,7 @@ async function bootSmoke() {
       // fail with real errors, but /api/local-project-id does not.
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "placeholder-ci-service-role",
       OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "placeholder-ci-openai",
-      RAG_QUERY_HASH_SECRET:
-        process.env.RAG_QUERY_HASH_SECRET ?? "placeholder-ci-query-hash-secret",
+      RAG_QUERY_HASH_SECRET: process.env.RAG_QUERY_HASH_SECRET ?? "placeholder-ci-query-hash-secret",
     },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
