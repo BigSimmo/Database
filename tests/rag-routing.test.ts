@@ -183,7 +183,8 @@ describe("RAG answer routing", () => {
       source({
         title: "Clozapine Prescribing and Monitoring",
         file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
-        content: "FBC monitoring is weekly for the first 18 weeks and then every 4 weeks if blood results are in range.",
+        content:
+          "FBC monitoring is weekly for the first 18 weeks and then every 4 weeks if blood results are in range.",
         text_rank: 0.14,
       }),
     ]);
