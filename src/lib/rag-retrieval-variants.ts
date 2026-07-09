@@ -11,6 +11,7 @@ const ragAliasCacheTtlMs = 60_000;
 const maxRagAliasesPerScope = 200;
 const maxRagAliasExpansions = 12;
 
+/** Text candidate budget for query class. */
 export function textCandidateBudgetForQueryClass(queryClass: RagQueryClass | undefined, topK: number) {
   if (queryClass === "comparison") return Math.max(topK * 7, 72);
   if (queryClass === "table_threshold" || queryClass === "medication_dose_risk") return Math.max(topK * 4, 40);
@@ -29,14 +30,17 @@ export type RagAliasInput = {
 
 const ragAliasCache = new Map<string, { expiresAt: number; aliases: RagAliasInput[] }>();
 
+/** Normalize retrieval variant. */
 export function normalizeRetrievalVariant(value: string) {
   return value.normalize("NFKC").replace(/\s+/g, " ").trim();
 }
 
+/** Retrieval variant from terms. */
 function retrievalVariantFromTerms(terms: string[]) {
   return buildClinicalTextSearchQuery(terms.filter(Boolean).join(" "));
 }
 
+/** Normalize alias lookup. */
 function normalizeAliasLookup(value: string) {
   return value
     .normalize("NFKC")
@@ -45,10 +49,12 @@ function normalizeAliasLookup(value: string) {
     .trim();
 }
 
+/** Escaped alias pattern. */
 function escapedAliasPattern(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
 }
 
+/** Alias appears in query. */
 function aliasAppearsInQuery(normalizedQuery: string, alias: string) {
   const normalizedAlias = normalizeAliasLookup(alias);
   if (!normalizedQuery || !normalizedAlias) return false;
@@ -56,6 +62,7 @@ function aliasAppearsInQuery(normalizedQuery: string, alias: string) {
   return pattern.test(normalizedQuery);
 }
 
+/** Select rag alias expansions. */
 export function selectRagAliasExpansions(query: string, aliases: RagAliasInput[], limit = maxRagAliasExpansions) {
   const normalizedQuery = normalizeAliasLookup(query);
   const expansions: string[] = [];
@@ -80,6 +87,7 @@ export function selectRagAliasExpansions(query: string, aliases: RagAliasInput[]
   return expansions;
 }
 
+/** Should apply unsupported search short circuit. */
 export function shouldApplyUnsupportedSearchShortCircuit(
   query: string,
   analysis: ClinicalQueryAnalysis,
@@ -88,6 +96,7 @@ export function shouldApplyUnsupportedSearchShortCircuit(
   return aliasExpansions.length === 0 && shouldShortCircuitUnsupportedSearch(query, analysis);
 }
 
+/** Fetch enabled rag aliases. */
 export async function fetchEnabledRagAliases(
   supabase: ReturnType<typeof createAdminClient>,
   ownerId?: string,
@@ -96,6 +105,7 @@ export async function fetchEnabledRagAliases(
   const cached = ragAliasCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.aliases;
 
+  /** Read scope. */
   async function readScope(scopeOwnerId: string | null) {
     let query = supabase
       .from("rag_aliases")
@@ -133,6 +143,7 @@ export async function fetchEnabledRagAliases(
   }
 }
 
+/** Assert global search allowed. */
 export function assertGlobalSearchAllowed(args: SearchChunksArgs) {
   if (args.ownerId || args.allowGlobalSearch || isDemoMode() || isLocalNoAuthMode()) return;
   if (process.env.NODE_ENV === "production") {
@@ -140,6 +151,7 @@ export function assertGlobalSearchAllowed(args: SearchChunksArgs) {
   }
 }
 
+/** Owner scope for document filtered retrieval. */
 export function ownerScopeForDocumentFilteredRetrieval(
   ownerId: string | undefined,
   documentIds: string[] | undefined,
@@ -148,6 +160,7 @@ export function ownerScopeForDocumentFilteredRetrieval(
   return retrievalOwnerFilter({ ownerId, documentIds, allowGlobalSearch });
 }
 
+/** Build retrieval query variants. */
 export function buildRetrievalQueryVariants(
   query: string,
   analysis: ClinicalQueryAnalysis,
@@ -261,6 +274,7 @@ export function buildRetrievalQueryVariants(
 // is recovered; ts_rank_cd still ranks chunks matching more terms highest, so topical docs surface
 // on top rather than flooding with single-term matches. Only used as a fallback when the strict
 // AND variants returned nothing, so it never displaces a working precise match.
+/** Relax variant to or query. */
 export function relaxVariantToOrQuery(variant: string): string | null {
   const tokens = Array.from(
     new Set(
@@ -290,6 +304,7 @@ const strongTextMatchTopRankBar = 0.3;
 // In that case OR-relaxed recall is appended BEHIND the strict matches (append-only: strict
 // results keep merge precedence), so this can widen the pool but never displace a precise
 // match. A sparse set anchored by a strong hit does NOT relax.
+/** Should relax weak text matches. */
 export function shouldRelaxWeakTextMatches(merged: SearchResult[]): boolean {
   if (merged.length === 0) return false;
   const topTextRank = merged.reduce((top, result) => Math.max(top, result.text_rank ?? 0), 0);

@@ -559,7 +559,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                         <span
                           key={chip.label ?? `form-chip-${index}`}
                           className={cn(
-                            "inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2 text-[0.68rem] font-bold uppercase leading-none sm:min-h-7 sm:px-2.5 sm:text-xs",
+                            "inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2 text-2xs font-bold uppercase leading-none sm:min-h-7 sm:px-2.5 sm:text-xs",
                             chipToneClass(chip.tone),
                           )}
                         >
