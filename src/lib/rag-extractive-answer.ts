@@ -285,11 +285,12 @@ function answerIntentEvidencePattern(intent: AnswerIntent) {
 }
 
 function requiresBloodCountEvidence(query: string) {
-  return /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils)\b/i.test(query);
+  return /\b(?:anc|fbc|full blood count|blood count|wbc|wcc|white blood cells?|white cells?|neutrophils?)\b/i.test(query);
 }
 
 function asksForWithholdAction(query: string) {
-  return /\b(?:withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued)\b/i.test(query);
+  return /\b(?:withhold|withheld|withholding|hold|held|cease|stop|stopped|discontinue|discontinued)\b/i.test(query);
+}
 }
 
 function hasBloodCountEvidence(text: string) {
