@@ -9,6 +9,7 @@ import { rowToMedicationRecord } from "@/lib/medication-records";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
 import { searchChunksWithTelemetry } from "@/lib/rag";
+import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { rowToServiceRecord } from "@/lib/registry-records";
 import { fetchOwnerRegistryRowsWithSeed } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
@@ -226,6 +227,21 @@ async function searchToolsDomain(args: ResolvedSearchArgs): Promise<UniversalSea
   }));
 }
 
+function searchResultDocumentHref(result: SearchResult) {
+  const metadata =
+    result.source_metadata && typeof result.source_metadata === "object"
+      ? (result.source_metadata as Record<string, unknown>)
+      : {};
+  const registryHref = registryCorpusDetailHref({
+    kind: metadata.registry_record_kind,
+    slug: metadata.registry_record_slug,
+    subkind: metadata.registry_record_subkind,
+    recordId: metadata.registry_record_id,
+  });
+  if (registryHref) return registryHref;
+  return `/documents/${result.document_id}`;
+}
+
 function documentItemsFromChunks(results: SearchResult[], limit: number): UniversalSearchItem[] {
   const byDocument = new Map<string, UniversalSearchItem>();
   for (const result of results) {
@@ -240,7 +256,7 @@ function documentItemsFromChunks(results: SearchResult[], limit: number): Univer
       kind: "documents",
       title: result.title,
       subtitle: result.section_heading ?? undefined,
-      href: `/documents/${result.document_id}`,
+      href: searchResultDocumentHref(result),
       score,
       meta: result.file_name,
     });
@@ -248,6 +264,16 @@ function documentItemsFromChunks(results: SearchResult[], limit: number): Univer
   return Array.from(byDocument.values())
     .sort((left, right) => right.score - left.score)
     .slice(0, limit);
+}
+
+function documentHrefMapFromChunks(results: SearchResult[]) {
+  const hrefByDocument = new Map<string, string>();
+  for (const result of results) {
+    if (!hrefByDocument.has(result.document_id)) {
+      hrefByDocument.set(result.document_id, searchResultDocumentHref(result));
+    }
+  }
+  return hrefByDocument;
 }
 
 async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
@@ -268,6 +294,7 @@ async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<Universa
     // still embed. Owner scoping and public-corpus behavior are unchanged (handled downstream).
     lexicalOnly: true,
   });
+  const hrefByDocument = documentHrefMapFromChunks(results);
   const related = await fetchRelatedDocuments({
     supabase: args.supabase,
     ownerId: args.ownerId,
@@ -281,7 +308,7 @@ async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<Universa
       kind: "documents" as const,
       title: document.title,
       subtitle: document.summary ?? undefined,
-      href: `/documents/${document.document_id}`,
+      href: hrefByDocument.get(document.document_id) ?? `/documents/${document.document_id}`,
       score: document.score,
       meta: document.match_reason,
     }));

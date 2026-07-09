@@ -7,17 +7,25 @@ Sequenced, operator-applied plan for the state-machine violations that could
 
 Author date: 2026-07-08. All facts below were read from the **live** project
 `Clinical KB Database` (`sjrfecxgysukkwxsowpy`) via read-only `execute_sql`;
-nothing here was applied to live. Function bodies are quoted from
+nothing here was applied to live at author time. **Status refresh 2026-07-09:** July 8 migrations are merged to `main` but pending live apply — see [`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md). Function bodies are quoted from
 `pg_get_functiondef` so migrations are derived from live truth, not `schema.sql`
 (which is known-drifted — see R24e and `docs/database-drift-detection.md`).
 
-## Already landed (do not redo)
+## Already landed on `main` (do not redo)
 
 - **R11, R15/R16, R22, R24d-gate** — merged (PR #346).
 - **R11 janitor-side guard** (`scripts/cleanup-storage.ts` +
   `src/lib/storage-cleanup-safety.ts`) and **R1 lease heartbeat**
   (`shouldPersistJobProgress` in `src/lib/ingestion.ts`, worker refresh of
   `locked_at`) — merged (PR #369).
+- **R1/R2/R7/R9/R23 RPC hardening** — migration `20260708130000` merged (PR #380); **pending live apply**.
+- **R24e** — phantom `ingestion_job_stages.job_id` FK dropped from `schema.sql` (PR #380 batch); **pending live apply** (no-op on live).
+- **R17** — partial unique index + reindex-route 409 handling merged (PR #405); migration `20260708170000` — **pending live apply** (normal `db push` when queue quiet).
+- **R5** — metadata deep-merge RPC + worker merged (PR #408); **pending live apply** + worker redeploy.
+
+## Still open (not merged or needs design)
+
+- **deep-memory delete-scoping** — design required (see bottom of this doc).
 
 ## Global rules for this release
 
@@ -298,13 +306,12 @@ naive scope — it can crash live enrichment.**
 
 ## Suggested landing order
 
-1. **R24e** (repo-only, unblocks fresh/preview envs) — via drift backlog #8.
-2. **R9**, **R23** (self-contained, behavior-preserving RPCs, DB-only).
-3. **R2 fences** (expand/contract: migration, then worker deploy) — the root fix.
-4. **R7** (small; pick option b if retry/recovery is the source).
-5. **R17** (with the reindex-route 409 change) — via drift backlog #7.
-6. **R5** (coordinated worker + commit RPC).
-7. **deep-memory scoping** — only after the section-ownership design is agreed.
+**Superseded for merged items** — use [`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md)
+for live apply of R24e → RPC hardening → fail-closed → R5 → R17 (`20260708170000`).
+
+Remaining repo work:
+
+1. **deep-memory scoping** — only after the section-ownership design is agreed.
 
 Every DB item ends with `npm run check:drift` green and (for retrieval-affecting
 items) `npm run eval:retrieval:quality` unchanged.

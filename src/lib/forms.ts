@@ -215,7 +215,7 @@ export const formRecords: FormRecord[] = [
   },
 ];
 
-function formRecordSearchText(form: FormRecord) {
+export function formRecordSearchText(form: FormRecord) {
   const values = [
     form.title,
     form.slug,

@@ -286,6 +286,37 @@ describe("golden retrieval eval helpers", () => {
     ).toBe("table_threshold");
   });
 
+  it("marks globally forced embedding cases for vector-layer failure checks", () => {
+    const evaluated = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "case-1",
+        query: "What ANC threshold should withhold clozapine?",
+        expectedQueryClass: "table_threshold",
+        expectedDocumentSubstrings: ["ClozapinePresAdminMonitor"],
+        expectedContentTerms: ["anc"],
+        topK: 8,
+        expectTableEvidence: false,
+      },
+      results: [result({ content: "ANC below 1.5 requires withholding clozapine." })],
+      telemetry: {
+        query_class: "table_threshold",
+        retrieval_strategy: "text_fast_path",
+        embedding_skipped: true,
+        retrieval_layer_counts: {},
+      },
+      latencyMs: 50,
+      globalForceEmbedding: true,
+    });
+
+    expect(evaluated.forceEmbedding).toBe(true);
+    expect(evaluated.failures).toEqual(
+      expect.arrayContaining([
+        "forceEmbedding expected embedding to run",
+        "forceEmbedding found no vector-layer candidates",
+      ]),
+    );
+  });
+
   it("converts captured RAG eval cases into golden retrieval cases", () => {
     expect(
       capturedRagCaseToGoldenCase({

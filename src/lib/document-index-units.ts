@@ -105,6 +105,91 @@ function compact(value: unknown, limit = 900) {
   return compacted.length <= limit ? compacted : `${compacted.slice(0, limit - 3).trim()}...`;
 }
 
+function boundedEditDistance(left: string, right: string, maxDistance: number) {
+  if (Math.abs(left.length - right.length) > maxDistance) return maxDistance + 1;
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex];
+    let rowMin = current[0]!;
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      const value = Math.min(
+        previous[rightIndex]! + 1,
+        current[rightIndex - 1]! + 1,
+        previous[rightIndex - 1]! + substitutionCost,
+      );
+      current[rightIndex] = value;
+      rowMin = Math.min(rowMin, value);
+    }
+    if (rowMin > maxDistance) return maxDistance + 1;
+    previous = current;
+  }
+  return previous[right.length] ?? maxDistance + 1;
+}
+
+function referenceDictionary(reference: string) {
+  return Array.from(new Set(reference.toLowerCase().match(/[a-z]{6,}/g) ?? []));
+}
+
+function bestOcrRepair(fragment: string, dictionary: string[]) {
+  const collapsed = fragment.toLowerCase().replace(/[^a-z]/g, "");
+  if (collapsed.length < 6) return null;
+  let best: { word: string; distance: number } | null = null;
+  for (const word of dictionary) {
+    const maxDistance = word.length >= 10 ? 2 : 1;
+    if (Math.abs(word.length - collapsed.length) > maxDistance) continue;
+    const distance = boundedEditDistance(collapsed, word, maxDistance);
+    if (distance <= maxDistance && (!best || distance < best.distance)) best = { word, distance };
+  }
+  return best?.word ?? null;
+}
+
+function dropsIsolatedSingleLetterToken(fragment: string, repair: string) {
+  const tokens = fragment.match(/\b[A-Za-z]+\b/g) ?? [];
+  const repairLower = repair.toLowerCase();
+  for (const token of tokens) {
+    if (token.length !== 1) continue;
+    const letterPattern = new RegExp(`\\b${token}\\b`, "i");
+    if (!letterPattern.test(fragment) || letterPattern.test(repairLower)) continue;
+    const remainingTokens = fragment
+      .replace(letterPattern, "")
+      .match(/\b[A-Za-z]+\b/g)
+      ?.filter((remaining) => remaining.length > 0);
+    if (!remainingTokens?.length) continue;
+    if (remainingTokens.every((remaining) => new RegExp(`\\b${remaining}\\b`, "i").test(repairLower))) return true;
+  }
+  return false;
+}
+
+export function repairOcrDropoutAgainstReference(text: string, reference: string) {
+  const dictionary = referenceDictionary(reference);
+  if (dictionary.length === 0) return { text, replacements: [] as Array<{ from: string; to: string }> };
+  const tokenMatches = Array.from(text.matchAll(/[A-Za-z]+/g));
+  const replacements: Array<{ from: string; to: string }> = [];
+  let repaired = text;
+
+  for (let windowSize = 5; windowSize >= 2; windowSize -= 1) {
+    for (let index = tokenMatches.length - windowSize; index >= 0; index -= 1) {
+      const window = tokenMatches.slice(index, index + windowSize);
+      if (!window.some((match) => match[0].length === 1)) continue;
+      const start = window[0]!.index ?? 0;
+      const last = window[window.length - 1]!;
+      const end = (last.index ?? 0) + last[0].length;
+      const fragment = text.slice(start, end);
+      if (!/^[A-Za-z]+(?:\s+[A-Za-z]+)+$/.test(fragment)) continue;
+      const repair = bestOcrRepair(fragment, dictionary);
+      if (!repair || repair === fragment.toLowerCase()) continue;
+      if (dropsIsolatedSingleLetterToken(fragment, repair)) continue;
+      const currentFragment = repaired.slice(start, end);
+      if (currentFragment !== fragment) continue;
+      repaired = `${repaired.slice(0, start)}${repair}${repaired.slice(end)}`;
+      replacements.push({ from: fragment, to: repair });
+    }
+  }
+
+  return { text: repaired, replacements };
+}
+
 function indexGenerationFromChunk(chunk?: { metadata?: Record<string, unknown> | null } | null) {
   const generation = chunk?.metadata?.index_generation_id;
   return typeof generation === "string" && generation.trim() ? generation.trim() : null;
@@ -580,7 +665,10 @@ function buildUnit(args: {
   metadata?: Record<string, unknown>;
 }): DocumentIndexUnitInput | null {
   const title = compact(args.title, 160);
-  const content = compact(clinicalVocabularySearchText(args.content), 1400);
+  const ocrRepair = args.sourceChunk?.content
+    ? repairOcrDropoutAgainstReference(args.content, args.sourceChunk.content)
+    : { text: args.content, replacements: [] as Array<{ from: string; to: string }> };
+  const content = compact(clinicalVocabularySearchText(ocrRepair.text), 1400);
   if (!title || !content) return null;
   return {
     owner_id: args.document.owner_id ?? null,
@@ -603,6 +691,12 @@ function buildUnit(args: {
       index_generation_id: indexGenerationFromChunk(args.sourceChunk),
       chunk_index: args.sourceChunk?.chunk_index ?? null,
       section_heading: args.sourceChunk?.section_heading ?? null,
+      ...(ocrRepair.replacements.length
+        ? {
+            ocr_repair_version: "clean-chunk-fragment-v1",
+            ocr_replacements: ocrRepair.replacements.slice(0, 8),
+          }
+        : {}),
       ...args.metadata,
     },
   };

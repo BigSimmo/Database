@@ -23,7 +23,8 @@ env:
 
 jobs:
   # Fast deterministic merge gate: static checks, unit tests, and build.
-  # Intended as a required status check on main together with ui-smoke.
+  # Intended as a required status check on main together with ui-smoke,
+  # Gitleaks, and one migration replay gate.
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -137,9 +138,58 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
 
+  # Database migration replay in parallel with verify and ui-smoke. This is the
+  # repo-owned replay gate; if the external Supabase Preview check is already
+  # required and reliable, keep this advisory or path-filtered rather than
+  # requiring both replay gates on every PR.
+  db-reset-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: Restore Supabase Docker image cache
+        uses: actions/cache@v6
+        with:
+          path: /tmp/supabase-docker-cache
+          key: supabase-docker-${{ runner.os }}-${{ hashFiles('supabase/config.toml') }}
+          restore-keys: |
+            supabase-docker-${{ runner.os }}-
+
+      - name: Load cached Supabase Docker images
+        run: |
+          if [ -f /tmp/supabase-docker-cache/images.tar ]; then
+            docker load -i /tmp/supabase-docker-cache/images.tar
+          fi
+
+      - name: Start Supabase Local Emulator
+        run: supabase start
+
+      - name: Verify Migration Replay
+        run: supabase db reset
+
+      - name: Save Supabase Docker images
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/supabase-docker-cache
+          docker images --format '{{.Repository}}:{{.Tag}}' \
+            | grep -E '^(supabase/|ghcr.io/supabase/)' \
+            | sort -u \
+            | xargs -r docker save -o /tmp/supabase-docker-cache/images.tar
+
   release-browser-matrix:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-    needs: [verify, ui-smoke]
+    needs: [verify, ui-smoke, db-reset-verify]
     runs-on: ubuntu-latest
     timeout-minutes: 70
 

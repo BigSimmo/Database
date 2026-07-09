@@ -264,6 +264,91 @@ After completing `upload`, summarize the current branch and worktree state, whet
 
 <!-- END:codex-productivity-defaults -->
 
+## Codex GitHub review behavior
+
+These instructions apply to Codex GitHub pull request reviews and Codex tasks started from PR comments.
+
+- Keep automatic reviews focused and cost-conscious.
+- Prioritize high-confidence findings that affect correctness, security, privacy, data loss, auth/permissions, migrations, API contracts, production reliability, clinical behavior, source governance, or user-facing behavior.
+- Do not comment on formatting, naming, style, minor cleanup, or speculative refactors unless they create a real bug or maintainability risk.
+- Prefer fewer, stronger findings over exhaustive low-value review comments.
+- A finding must cite concrete changed code and explain the failure mode.
+- Do not suggest broad rewrites during review. Recommend the smallest change that resolves the issue.
+- Do not propose or start fixes unless explicitly asked with an `@codex fix...` or `@codex resolve...` comment, or when the repository's Codex auto-resolve workflow posts that command.
+
+### Severity calibration
+
+- P0: active security exposure, data loss/corruption already possible, severe production outage risk, credential leakage, or a critical issue that must be fixed immediately.
+- P1: security vulnerability, auth bypass, data exposure/loss, destructive migration risk, production-breaking regression, public API contract break, severe clinical/user-facing bug, or missing validation with realistic exploit/failure impact.
+- P2: important correctness bug, missing behavior test for meaningful changed behavior, edge case likely to affect users, reliability issue, unsafe assumption, or maintainability issue that will likely cause defects.
+- P3: style, naming, formatting, small cleanup, speculative improvements, or optional refactors. Avoid raising these in automatic reviews unless explicitly requested.
+
+For GitHub automatic reviews, focus mainly on P1-level findings. If a P2 issue is important enough to block the PR, explain why it should be treated as P1.
+
+### PR risk detection
+
+When reviewing, identify whether the PR touches any high-risk area:
+
+- authentication or authorization
+- user data, privacy, or private document access
+- database schema, migrations, RLS, SECURITY DEFINER functions, or Supabase privileges
+- clinical answer generation, source governance, retrieval/ranking, ingestion, or document access
+- payment, billing, subscriptions, or quotas
+- public API contracts
+- production configuration or deployment behavior
+- background jobs, scheduled tasks, workers, or queue processing
+- file upload/download or generated document access
+- AI/API provider calls, paid external services, or credential-dependent workflows
+
+If a high-risk area is touched, review more carefully for regressions, missing tests, rollback/safety notes, and conservative failure behavior.
+
+### Cost and usage control
+
+Avoid broad repeated review passes. Do not request exhaustive review behavior unless the PR touches security, auth, data loss, migrations, billing, production reliability, clinical output, source governance, or private document access. Prefer targeted validation and targeted review comments.
+
+### Fix behavior
+
+When explicitly asked to fix or resolve review findings:
+
+- Always fix P0 and P1 findings using the best minimal fix.
+- For P2 and lower-severity findings, decide whether the issue is worth fixing automatically.
+- Fix a P2 or lower finding only when the fix is clear, scoped, low-risk, and testable.
+- Do not automatically fix a P2 or lower finding when it requires broad refactoring, product judgment, dependency changes, credentials, paid/external APIs, large design decisions, or risky behavior changes.
+- If a P2 or lower finding is not worth fixing automatically, comment with the reason and the recommended human decision, then resolve the review conversation when supported.
+- Preserve unrelated work and avoid opportunistic refactors.
+- Do not add dependencies unless the issue cannot reasonably be fixed without one.
+- Do not change secrets, credentials, environment configuration, billing settings, deployment settings, or external service setup unless explicitly requested.
+- Do not use external APIs, paid services, credentials, secrets, live Supabase projects, or OpenAI provider calls unless explicitly authorized.
+- If a finding is ambiguous, unsafe to fix automatically, or requires a large rewrite, stop and explain the decision instead of guessing.
+- Add or update the smallest relevant test when the issue affects behavior.
+- Run the narrowest relevant validation for the touched surface before broader suites.
+- Summarize fixed issues, changed files, validation run, and any remaining human decisions.
+
+### Review comment lifecycle
+
+- Treat closing review conversations as part of the task when asked to fix or resolve comments.
+- After fixing a P0 or P1 finding, reply with the fix summary and resolve the review conversation when supported by GitHub permissions/tooling.
+- After fixing an approved P2 or lower finding, reply with the fix summary and resolve the review conversation when supported.
+- After deciding not to fix a P2 or lower finding, reply with the reason, note whether it is deferred or not actionable, and resolve the review conversation when supported.
+- Do not leave a review conversation open after it has been fixed or explicitly dispositioned.
+- If GitHub permissions/tooling do not allow resolving a review conversation, leave a clear reply that says the issue is fixed or dispositioned and that the conversation is ready for a human to resolve.
+
+### Automatic resolve trigger
+
+Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex posts a top-level review comment.
+
+- The workflow must only trigger from Codex review bot comments on open pull requests.
+- The workflow must skip review-thread replies so Codex fix summaries do not re-trigger the workflow.
+- The workflow must ask Codex to resolve all review comments using these repository instructions.
+- The workflow must avoid duplicate requests for the same pull request head commit.
+- The workflow must not run Codex directly with API credentials.
+- P0 and P1 findings should always be fixed.
+- P2 and lower findings should be fixed only when clear, scoped, low-risk, and testable; otherwise explain the decision and resolve or mark ready for human resolution.
+
+### Primary PR command
+
+`@codex resolve all review comments using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`
+
 ## Cursor Cloud specific instructions
 
 Durable notes for Cloud Agents. Standard commands live in `README.md` and `package.json`; only non-obvious caveats are captured here.

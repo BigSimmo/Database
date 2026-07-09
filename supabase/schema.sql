@@ -779,10 +779,9 @@ create index if not exists ingestion_jobs_document_status_idx
   on public.ingestion_jobs(document_id, status, created_at);
 -- R17 (docs/ingestion-concurrency-fix-workorder.md): structural guard against
 -- more than one open job per document. Migration
--- 20260708160000_ingestion_jobs_one_open_per_document.sql creates the live
--- equivalent with CONCURRENTLY (manual apply — see that file's header); this
--- non-concurrent form is for fresh/scratch replay only, where there is no
--- concurrent traffic to block.
+-- 20260708170000_ingestion_jobs_one_open_per_document.sql applies the same
+-- index transactionally via `db push`; operators on a busy queue may use the
+-- CONCURRENTLY variant documented in docs/operator-apply-july8-batch.md instead.
 create unique index if not exists ingestion_jobs_one_open_per_document_uidx
   on public.ingestion_jobs(document_id)
   where status in ('pending', 'processing');
@@ -2874,6 +2873,27 @@ $function$;
 
 revoke execute on function public.purge_expired_rag_queries(integer) from public, anon, authenticated;
 grant execute on function public.purge_expired_rag_queries(integer) to service_role;
+
+CREATE OR REPLACE FUNCTION public.purge_expired_rag_query_misses(p_retention_days integer DEFAULT 90)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+AS $function$
+declare
+  v_deleted integer;
+begin
+  if p_retention_days < 1 then
+    raise exception 'retention days must be positive';
+  end if;
+  delete from public.rag_query_misses where created_at < now() - make_interval(days => p_retention_days);
+  get diagnostics v_deleted = row_count;
+  return v_deleted;
+end;
+$function$;
+
+revoke execute on function public.purge_expired_rag_query_misses(integer) from public, anon, authenticated;
+grant execute on function public.purge_expired_rag_query_misses(integer) to service_role;
 
 CREATE OR REPLACE FUNCTION public.correct_clinical_query_terms(input_query text, min_sim real DEFAULT 0.45)
  RETURNS text

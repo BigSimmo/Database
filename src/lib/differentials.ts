@@ -147,7 +147,7 @@ function diagnosisHingeText(record: DifferentialRecord) {
   );
 }
 
-function diagnosisFullText(record: DifferentialRecord) {
+export function diagnosisFullText(record: DifferentialRecord) {
   return normalizeSearchText(
     [
       record.title,
@@ -213,7 +213,7 @@ function presentationSafetyText(workflow: DifferentialPresentationWorkflow) {
   return normalizeSearchText([workflow.subtitle, ...workflow.safetySnapshot.tags].join(" "));
 }
 
-function presentationFullText(workflow: DifferentialPresentationWorkflow) {
+export function presentationFullText(workflow: DifferentialPresentationWorkflow) {
   return normalizeSearchText(
     [
       workflow.title,

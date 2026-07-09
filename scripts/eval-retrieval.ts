@@ -1,11 +1,17 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import { z } from "zod";
 import { loadCapturedRagEvalCases, type RagEvalCase, type SupabaseEvalCaseClient } from "@/lib/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
-import { loadAdminClient, percentile, resolveEvalOwnerId, withProviderBackoff } from "./eval-utils";
+import {
+  loadAdminClient,
+  pauseBetweenEvalCases,
+  percentile,
+  resolveEvalOwnerId,
+  withProviderBackoff,
+} from "./eval-utils";
 
 loadEnvConfig(process.cwd());
 
@@ -36,6 +42,7 @@ type EvalArgs = {
   limit?: number;
   query?: string;
   json: boolean;
+  jsonOut?: string;
   failOnThreshold: boolean;
   mode: "combined" | "quality" | "latency";
   caseTimeoutMs: number;
@@ -160,6 +167,10 @@ function parseArgs(argv: string[]): EvalArgs {
     if (token === "--owner-id") args.ownerId = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--query") args.query = value;
+    if (token === "--json-out") {
+      args.jsonOut = value;
+      args.json = true;
+    }
     if (token === "--mode") {
       if (!["combined", "quality", "latency"].includes(value))
         throw new Error("--mode must be combined, quality, or latency.");
@@ -499,7 +510,9 @@ export function evaluateGoldenRetrievalCase(args: {
   latencyMs: number;
   timedOut?: boolean;
   latencyFailures?: string[];
+  globalForceEmbedding?: boolean;
 }): GoldenRetrievalResult {
+  const forceEmbedding = Boolean(args.testCase.forceEmbedding || args.globalForceEmbedding);
   const documentHits = expectedDocumentHits(args.testCase.expectedDocumentSubstrings, args.results, 5);
   const contentHits = expectedContentHits(args.testCase.expectedContentTerms, args.results, 5);
   const topK = args.testCase.topK;
@@ -539,7 +552,7 @@ export function evaluateGoldenRetrievalCase(args: {
   if (args.testCase.expectTableEvidence && !tableEvidenceFound) {
     failures.push("expected table evidence in top 5");
   }
-  if (args.testCase.forceEmbedding) {
+  if (forceEmbedding) {
     if (args.telemetry.embedding_skipped) failures.push("forceEmbedding expected embedding to run");
     if (args.telemetry.retrieval_strategy === "search_cache") failures.push("forceEmbedding served search cache");
     if (
@@ -555,7 +568,7 @@ export function evaluateGoldenRetrievalCase(args: {
   return {
     id: args.testCase.id,
     query: args.testCase.query,
-    forceEmbedding: args.testCase.forceEmbedding ?? false,
+    forceEmbedding,
     expectedQueryClass: args.testCase.expectedQueryClass,
     actualQueryClass,
     expectedDocumentSubstrings: args.testCase.expectedDocumentSubstrings,
@@ -830,7 +843,12 @@ async function main() {
     for (const warning of readinessWarnings) console.warn(`WARN ${warning}`);
   }
 
-  for (const testCase of cases) {
+  for (let caseIndex = 0; caseIndex < cases.length; caseIndex += 1) {
+    const testCase = cases[caseIndex]!;
+    await pauseBetweenEvalCases({
+      caseIndex,
+      forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
+    });
     const startedAt = Date.now();
     const searchPromise = withProviderBackoff(`retrieval:${testCase.id}`, () =>
       searchChunksWithTelemetry({
@@ -871,6 +889,7 @@ async function main() {
       latencyMs,
       timedOut: searchOutcome.timedOut,
       latencyFailures,
+      globalForceEmbedding: args.forceEmbedding,
     });
     results.push(result);
 
@@ -902,13 +921,20 @@ async function main() {
         ].filter(Boolean)
       : [];
   if (args.json) {
-    console.log(
-      JSON.stringify(
-        { fixture: args.fixture, mode: args.mode, readinessWarnings, latencyThresholdFailures, results, summary },
-        null,
-        2,
-      ),
-    );
+    const payload = {
+      fixture: args.fixture,
+      mode: args.mode,
+      readinessWarnings,
+      latencyThresholdFailures,
+      results,
+      summary,
+    };
+    const json = JSON.stringify(payload, null, 2);
+    if (args.jsonOut) {
+      mkdirSync(dirname(args.jsonOut), { recursive: true });
+      writeFileSync(args.jsonOut, `${json}\n`);
+    }
+    console.log(json);
   } else {
     printHumanSummary(summary);
     if (latencyThresholdFailures.length) {
