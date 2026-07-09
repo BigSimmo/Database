@@ -2267,16 +2267,34 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(composer).toBeVisible();
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
 
+    await page.evaluate(() => {
+      const spacer = document.createElement("div");
+      spacer.setAttribute("data-testid", "composer-hide-scroll-spacer");
+      spacer.style.height = "2000px";
+      document.body.appendChild(spacer);
+    });
+
     // Hide on deliberate scroll down past the activation offset.
-    await page.evaluate(() => window.scrollTo({ top: 120, behavior: "auto" }));
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await page.evaluate((top) => {
+        window.scrollTo({ top, behavior: "auto" });
+        window.dispatchEvent(new Event("scroll"));
+      }, offset);
+    }
     await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
 
     // Reappear on scroll up.
-    await page.evaluate(() => window.scrollTo({ top: 60, behavior: "auto" }));
+    await page.evaluate(() => {
+      window.scrollTo({ top: 60, behavior: "auto" });
+      window.dispatchEvent(new Event("scroll"));
+    });
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
 
     // Keyboard focus inside the composer reveals it while hidden.
-    await page.evaluate(() => window.scrollTo({ top: 240, behavior: "auto" }));
+    await page.evaluate(() => {
+      window.scrollTo({ top: 240, behavior: "auto" });
+      window.dispatchEvent(new Event("scroll"));
+    });
     await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
     await composer.locator("input").focus();
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");

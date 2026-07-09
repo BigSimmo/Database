@@ -107,6 +107,8 @@ function GlobalMockupSearchShellClient({
   const inputRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const phoneScrollHide = useScrollHideReporter();
+  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;
@@ -316,6 +318,24 @@ function GlobalMockupSearchShellClient({
   function handleMainScroll(event: UIEvent<HTMLDivElement>) {
     phoneScrollHide.reportScroll(event.currentTarget.scrollTop);
   }
+
+  // Page canvases can become nested scrollers when `overflow-x-hidden` pairs with
+  // a flex height cap (overflow-y becomes auto per CSS). Capture descendant scroll
+  // so the phone dock/header still hide while users scroll results.
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return undefined;
+
+    const onScrollCapture = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !main.contains(target)) return;
+      if (target.scrollHeight <= target.clientHeight + 1) return;
+      reportPhoneScrollHideRef.current(target.scrollTop);
+    };
+
+    main.addEventListener("scroll", onScrollCapture, { capture: true, passive: true });
+    return () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
+  }, []);
 
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);

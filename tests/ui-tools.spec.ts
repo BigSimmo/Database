@@ -433,10 +433,10 @@ test.describe("Clinical KB tools launcher", () => {
       expect(searchBox).not.toBeNull();
       expect(headingBox).not.toBeNull();
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-      // Short homes centre their hero+search block mid-screen on phones, so the
-      // search midpoint should land in a centred band rather than hug an edge.
+      // Edge-to-edge phones top-align short mode homes; the search midpoint should
+      // still sit in a comfortable band rather than hug the bottom edge.
       expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(820 * 0.72);
-      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.2);
+      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.15);
       const metrics = await globalSearchComposerMetrics(page, home.testId);
       expect(metrics).not.toBeNull();
       expect(metrics?.position).not.toBe("fixed");
@@ -762,21 +762,27 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(dock).toBeVisible();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
-    await page.evaluate(() => {
-      window.scrollTo({ top: 120, behavior: "auto" });
-      // WebKit doesn't reliably emit a native scroll event for a programmatic scrollTo, so the
-      // hide-on-scroll listener never ran and data-scroll-hidden stayed unset (release-browser-matrix
-      // WebKit flake). Dispatch one explicitly; harmless on Chromium/Firefox (the rAF guard dedupes).
-      window.dispatchEvent(new Event("scroll"));
-    });
+    // focus=1 leaves the composer focused; hide-on-scroll stays off while it has focus.
+    const viewport = page.viewportSize() ?? { width: 390, height: 844 };
+    await page.mouse.click(Math.max(1, viewport.width - 8), 8);
+
+    const main = page.locator("#main-content");
+    const scroller = page.locator("#main-content > div").first();
+    // Step scroll down so the shell's scroll reporter sees deliberate movement.
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await scroller.evaluate((node, top) => {
+        node.scrollTop = top;
+        node.dispatchEvent(new Event("scroll"));
+      }, offset);
+    }
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
     await expect
       .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"))
       .toBe(true);
 
-    await page.evaluate(() => {
-      window.scrollTo({ top: 60, behavior: "auto" });
-      window.dispatchEvent(new Event("scroll"));
+    await scroller.evaluate((node) => {
+      node.scrollTop = 60;
+      node.dispatchEvent(new Event("scroll"));
     });
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect
