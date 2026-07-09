@@ -10,10 +10,12 @@ Use this skill when auditing source files for maintainability, readability, and 
 ## Review Checklist
 
 ### 1. Maintainability & Naming
+
 - **Clean Naming:** Ensure functions, variables, and database keys carry logical, self-describing names.
 - **Decomposition:** Look for bloated files/functions that should be decomposed. Keep modules focused on a single responsibility.
 - **Duplication (DRY):** Consolidate duplicate helper logic, styles, and configurations.
 
 ### 2. Logic & Complexity
+
 - **Control Flow:** Simplify nested conditionals, deeply nested loops, or fragile edge-case handling.
 - **Dead Code:** Remove unused functions, comments, or commented-out code blocks left behind.

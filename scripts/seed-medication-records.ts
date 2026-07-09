@@ -2,7 +2,6 @@ import { loadEnvConfig } from "@next/env";
 
 import { confirm } from "./cli-utils";
 import { buildMedicationSeedRows } from "@/lib/medication-seed";
-import { embedMedicationRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import type { MedicationRecordRow } from "@/lib/medication-records";
 
 loadEnvConfig(process.cwd());
@@ -16,6 +15,10 @@ type SeedArgs = {
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   return createAdminClient();
+}
+
+async function loadRegistryCorpus() {
+  return import("@/lib/registry-corpus");
 }
 
 function parseArgs(argv: string[]): SeedArgs {
@@ -122,6 +125,7 @@ async function main() {
     console.log(`[medications:seed] Done. Owner now has ${count ?? "?"} medication records.`);
   }
 
+  const { embedMedicationRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
   if (registryCorpusEmbeddingEnabled()) {
     const { data: embeddedRows, error: embedRowsError } = await supabase
       .from("medication_records")

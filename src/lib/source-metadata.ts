@@ -17,6 +17,10 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
 
   return {
     source_kind: stringOrNull(value.source_kind),
+    registry_record_kind: stringOrNull(value.registry_record_kind),
+    registry_record_subkind: stringOrNull(value.registry_record_subkind),
+    registry_record_id: stringOrNull(value.registry_record_id),
+    registry_record_slug: stringOrNull(value.registry_record_slug),
     source_title: stringOrNull(value.source_title),
     publisher: stringOrNull(value.publisher),
     jurisdiction: stringOrNull(value.jurisdiction),
@@ -45,12 +49,12 @@ export function formatClinicalDate(value: string | null | undefined) {
 }
 
 export function sourceStatusLabel(metadata?: ClinicalSourceMetadata | null) {
-  if (metadata?.source_kind === "registry_record") return "Registry summary";
+  const registryPrefix = metadata?.source_kind === "registry_record" ? "Registry summary" : null;
   const status = metadata?.document_status ?? "unknown";
-  if (status === "current") return "Current source";
-  if (status === "review_due") return "Review due";
-  if (status === "outdated") return "Outdated source";
-  return "Review status unknown";
+  if (status === "current") return registryPrefix ?? "Current source";
+  if (status === "review_due") return registryPrefix ? `${registryPrefix} - review due` : "Review due";
+  if (status === "outdated") return registryPrefix ? `${registryPrefix} - outdated` : "Outdated source";
+  return registryPrefix ? `${registryPrefix} - review status unknown` : "Review status unknown";
 }
 
 export function validationStatusLabel(metadata?: ClinicalSourceMetadata | null) {

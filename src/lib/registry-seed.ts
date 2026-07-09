@@ -45,11 +45,7 @@ export async function ensureRegistrySeeded(
   if (error) throw new Error(`Registry seed failed: ${error.message}`);
   const seededRows = (data ?? []) as RegistryRecordRow[];
   if (registryCorpusEmbeddingEnabled()) {
-    try {
-      await embedClinicalRegistryRows(supabase, seededRows);
-    } catch (embedError) {
-      console.error(`[registry] corpus embedding failed for owner ${ownerId} (${kind})`, embedError);
-    }
+    await embedClinicalRegistryRows(supabase, seededRows);
   }
   return seededRows;
 }
@@ -85,6 +81,7 @@ export async function fetchOwnerRegistryRowsWithSeed(
       await ensureRegistrySeeded(supabase, ownerId, kind);
     } catch (seedError) {
       console.error(`[registry] auto-seed failed for owner ${ownerId} (${kind})`, seedError);
+      if (registryCorpusEmbeddingEnabled()) throw seedError;
     }
     rows = await fetchRecords();
   }

@@ -3,7 +3,6 @@ import { loadEnvConfig } from "@next/env";
 import { confirm } from "./cli-utils";
 import { buildDefaultDifferentialRows, loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import type { DifferentialRecordRow } from "@/lib/differential-records";
-import { embedDifferentialRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 
 loadEnvConfig(process.cwd());
 
@@ -16,6 +15,10 @@ type SeedArgs = {
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   return createAdminClient();
+}
+
+async function loadRegistryCorpus() {
+  return import("@/lib/registry-corpus");
 }
 
 function parseArgs(argv: string[]): SeedArgs {
@@ -125,6 +128,7 @@ async function main() {
     console.log(`[differentials:seed] Done. Owner now has ${count ?? "?"} differential records.`);
   }
 
+  const { embedDifferentialRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
   if (registryCorpusEmbeddingEnabled()) {
     const { data: embeddedRows, error: embedRowsError } = await supabase
       .from("differential_records")

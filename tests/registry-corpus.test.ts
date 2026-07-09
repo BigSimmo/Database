@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { clinicalRegistryRowsToCorpusEntries } from "../src/lib/registry-corpus";
+import { clinicalRegistryRowsToCorpusEntries, medicationRowsToCorpusEntries } from "../src/lib/registry-corpus";
+import type { MedicationRecordRow } from "../src/lib/medication-records";
 import type { RegistryRecordRow } from "../src/lib/registry-records";
 
 function registryRow(overrides: Partial<RegistryRecordRow> = {}): RegistryRecordRow {
@@ -40,6 +41,31 @@ function registryRow(overrides: Partial<RegistryRecordRow> = {}): RegistryRecord
   };
 }
 
+function medicationRow(overrides: Partial<MedicationRecordRow> = {}): MedicationRecordRow {
+  return {
+    id: "33333333-3333-4333-8333-333333333333",
+    owner_id: "22222222-2222-4222-8222-222222222222",
+    slug: "lithium",
+    name: "Lithium",
+    accent: null,
+    class: "Mood stabiliser",
+    subclass: "Mineral",
+    category: "mood-stabiliser",
+    schedule: "S4",
+    tag: "monitoring",
+    quick: [],
+    sections: [],
+    stats: {},
+    source_status: "current",
+    validation_status: "locally_reviewed",
+    last_reviewed_at: null,
+    review_due_at: null,
+    created_at: "2026-07-01T00:00:00.000Z",
+    updated_at: "2026-07-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 describe("registry corpus", () => {
   it("converts registry rows into source-governed corpus entries", () => {
     const [entry] = clinicalRegistryRowsToCorpusEntries([registryRow()]);
@@ -66,5 +92,11 @@ describe("registry corpus", () => {
 
     expect(entry).toMatchObject({ kind: "form", subkind: "form", slug: "transport-order" });
     expect(entry?.content).toContain("Form: Transport order");
+  });
+
+  it("maps scalar medication tags into registry corpus metadata", () => {
+    const [entry] = medicationRowsToCorpusEntries([medicationRow()]);
+
+    expect(entry?.metadata.tags).toEqual(["monitoring"]);
   });
 });

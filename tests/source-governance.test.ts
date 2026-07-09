@@ -288,6 +288,67 @@ describe("source governance warnings", () => {
     expect(groupSourceGovernanceWarnings(warnings)[0]?.message).toBe("1 registry summary used as supporting evidence.");
   });
 
+  it("keeps danger and warning source issues ahead of registry info when limiting warnings", () => {
+    const warnings = sourceGovernanceWarnings({
+      limit: 2,
+      results: [
+        result({
+          document_id: "registry-doc",
+          source_metadata: {
+            source_kind: "registry_record",
+            source_title: "Registry summary",
+            publisher: "Clinical KB registry",
+            jurisdiction: "WA/local clinical workspace",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "current",
+            clinical_validation_status: "locally_reviewed",
+            extraction_quality: "good",
+          },
+          indexing_quality: {
+            document_id: "registry-doc",
+            quality_score: 0.9,
+            extraction_quality: "good",
+            metrics: {},
+            issues: [],
+          },
+          table_facts: [],
+        }),
+        result({
+          document_id: "outdated-doc",
+          source_metadata: {
+            source_title: "Outdated guideline",
+            publisher: "WA Health",
+            jurisdiction: "Australia/WA",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "outdated",
+            clinical_validation_status: "unverified",
+            extraction_quality: "good",
+          },
+          indexing_quality: {
+            document_id: "outdated-doc",
+            quality_score: 0.9,
+            extraction_quality: "good",
+            metrics: {},
+            issues: [],
+          },
+          table_facts: [],
+        }),
+      ],
+    });
+
+    expect(warnings.map((warning) => warning.code)).toEqual(["outdated_source", "unverified_source"]);
+  });
+
   it("keeps the refusal message free of backend and source-backed wording", () => {
     expect(sourceGovernanceRefusalAnswer).not.toMatch(/source-backed|source-governance|admin|need review/i);
     expect(sourceGovernanceRefusalAnswer).toContain("matched documents are not suitable for clinical use yet");

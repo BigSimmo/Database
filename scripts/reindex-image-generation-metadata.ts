@@ -1,12 +1,10 @@
 import { loadEnvConfig } from "@next/env";
 import { confirm } from "./cli-utils";
 import { committedIndexGeneration, metadataRecord } from "@/lib/reindex-pipeline";
-import { assertSupabaseHealthy, probeSupabaseHealth } from "@/lib/supabase/health";
-import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireServerEnv } from "@/lib/env";
 
 loadEnvConfig(process.cwd());
+
+type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
 
 type Args = {
   documentId: string | null;
@@ -42,7 +40,12 @@ type UntypedTable = {
       column: string,
       value: string,
     ): {
-      range(from: number, to: number): Promise<{ data: unknown; error: { message: string } | null }>;
+      order(
+        column: string,
+        options: { ascending: boolean },
+      ): {
+        range(from: number, to: number): Promise<{ data: unknown; error: { message: string } | null }>;
+      };
     };
   };
   update(values: Record<string, unknown>): {
@@ -50,8 +53,25 @@ type UntypedTable = {
   };
 };
 
-function untypedTable(supabase: ReturnType<typeof createAdminClient>, table: string): UntypedTable {
+function untypedTable(supabase: AdminClient, table: string): UntypedTable {
   return supabase.from(table as never) as unknown as UntypedTable;
+}
+
+async function loadRuntime() {
+  const [{ createAdminClient }, { requireServerEnv }, health, project] = await Promise.all([
+    import("@/lib/supabase/admin"),
+    import("@/lib/env"),
+    import("@/lib/supabase/health"),
+    import("@/lib/supabase/project"),
+  ]);
+  return {
+    createAdminClient,
+    requireServerEnv,
+    assertSupabaseHealthy: health.assertSupabaseHealthy,
+    probeSupabaseHealth: health.probeSupabaseHealth,
+    checkSupabaseProjectConfig: project.checkSupabaseProjectConfig,
+    formatSupabaseProjectCheck: project.formatSupabaseProjectCheck,
+  };
 }
 
 function parseArgs(argv: string[]): Args {
@@ -79,20 +99,18 @@ function parseArgs(argv: string[]): Args {
       args.confirm = true;
       continue;
     }
+    if (token !== "--document-id" && token !== "--owner-id" && token !== "--limit") {
+      throw new Error(`Unknown argument: ${token}`);
+    }
 
     const value = argv[index + 1];
     if (!value || value.startsWith("--")) {
-      if (token === "--document-id" || token === "--owner-id" || token === "--limit") {
-        throw new Error(`Missing value for ${token}`);
-      }
-      continue;
+      throw new Error(`Missing value for ${token}`);
     }
     if (token === "--document-id") args.documentId = value;
     if (token === "--owner-id") args.ownerId = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
-    if (token === "--document-id" || token === "--owner-id" || token === "--limit") {
-      index += 1;
-    }
+    index += 1;
   }
 
   if (!Number.isFinite(args.limit) || args.limit <= 0) {
@@ -113,7 +131,7 @@ function rowNeedsRefresh(row: ImageRow, committedGeneration: string) {
 }
 
 async function loadDocuments(args: {
-  supabase: ReturnType<typeof createAdminClient>;
+  supabase: AdminClient;
   ownerId: string | null;
   documentId: string | null;
   allOwners: boolean;
@@ -136,12 +154,13 @@ async function loadDocuments(args: {
   return (data ?? []) as DocumentRow[];
 }
 
-async function loadImages(args: { supabase: ReturnType<typeof createAdminClient>; documentId: string }) {
+async function loadImages(args: { supabase: AdminClient; documentId: string }) {
   const rows: ImageRow[] = [];
   for (let offset = 0; ; offset += 1000) {
     const { data, error } = await untypedTable(args.supabase, "document_images")
       .select("id,index_generation_id,metadata")
       .eq("document_id", args.documentId)
+      .order("id", { ascending: true })
       .range(offset, offset + 999);
     if (error) throw new Error(error.message);
     const page = (data ?? []) as unknown as ImageRow[];
@@ -153,6 +172,14 @@ async function loadImages(args: { supabase: ReturnType<typeof createAdminClient>
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const {
+    createAdminClient,
+    requireServerEnv,
+    assertSupabaseHealthy,
+    probeSupabaseHealth,
+    checkSupabaseProjectConfig,
+    formatSupabaseProjectCheck,
+  } = await loadRuntime();
   requireServerEnv();
 
   const projectCheck = checkSupabaseProjectConfig(

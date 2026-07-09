@@ -1,7 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 
 import { confirm } from "./cli-utils";
-import { embedClinicalRegistryRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import type { RegistryRecordRow } from "@/lib/registry-records";
 import { type RegistryRecordKind } from "@/lib/registry-records";
 import { buildDefaultRegistryRows, defaultRegistryRecords } from "@/lib/registry-seed";
@@ -19,6 +18,10 @@ type SeedArgs = {
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   return createAdminClient();
+}
+
+async function loadRegistryCorpus() {
+  return import("@/lib/registry-corpus");
 }
 
 function parseArgs(argv: string[]): SeedArgs {
@@ -147,6 +150,7 @@ async function main() {
     console.log(`[registry:seed] Done. Owner now has ${count ?? "?"} registry records.`);
   }
 
+  const { embedClinicalRegistryRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
   if (registryCorpusEmbeddingEnabled()) {
     const kinds: RegistryRecordKind[] = args.kind === "all" ? ["service", "form"] : [args.kind];
     const { data: embeddedRows, error: embedRowsError } = await supabase

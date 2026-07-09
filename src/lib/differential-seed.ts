@@ -18,11 +18,7 @@ export async function ensureDifferentialsSeeded(
   if (error) throw new Error(`Differential seed failed: ${error.message}`);
   const seededRows = (data ?? []) as DifferentialRecordRow[];
   if (registryCorpusEmbeddingEnabled()) {
-    try {
-      await embedDifferentialRows(supabase, seededRows);
-    } catch (embedError) {
-      console.error(`[differentials] corpus embedding failed for owner ${ownerId}`, embedError);
-    }
+    await embedDifferentialRows(supabase, seededRows);
   }
   return seededRows;
 }

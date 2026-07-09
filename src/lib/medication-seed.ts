@@ -17,11 +17,7 @@ export async function ensureMedicationsSeeded(supabase: AdminClient, ownerId: st
   if (error) throw new Error(`Medication seed failed: ${error.message}`);
   const seededRows = (data ?? []) as MedicationRecordRow[];
   if (registryCorpusEmbeddingEnabled()) {
-    try {
-      await embedMedicationRows(supabase, seededRows);
-    } catch (embedError) {
-      console.error(`[medications] corpus embedding failed for owner ${ownerId}`, embedError);
-    }
+    await embedMedicationRows(supabase, seededRows);
   }
   return seededRows;
 }
@@ -55,6 +51,7 @@ export async function fetchOwnerMedicationRowsWithSeed(
       await ensureMedicationsSeeded(supabase, ownerId);
     } catch (seedError) {
       console.error(`[medications] auto-seed failed for owner ${ownerId}`, seedError);
+      if (registryCorpusEmbeddingEnabled()) throw seedError;
     }
     rows = await fetchRecords();
   }

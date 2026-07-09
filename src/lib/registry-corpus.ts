@@ -58,12 +58,6 @@ function compactText(parts: unknown[], limit = 8000) {
   return text.length <= limit ? text : `${text.slice(0, limit - 3).trim()}...`;
 }
 
-function stringArray(value: unknown) {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-    : [];
-}
-
 function registryBaseMetadata(entry: RegistryCorpusEntry): Record<string, Json> {
   return {
     source_kind: "registry_record",
@@ -207,7 +201,7 @@ export function medicationRowsToCorpusEntries(rows: MedicationRecordRow[]): Regi
       metadata: {
         medication_class: row.class,
         medication_subclass: row.subclass,
-        tags: stringArray(row.tag),
+        tags: row.tag ? [row.tag] : [],
       },
     };
   });
@@ -254,12 +248,32 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
   const embeddings = await embedTexts(entries.map((entry) => entry.content));
   const documents = entries.map(registryDocumentRow);
   const chunks = entries.map((entry, index) => registryChunkRow(entry, embeddings[index] as Vector));
+  const documentIds = documents.map((document) => document.id).filter((id): id is string => typeof id === "string");
+  const { data: existingDocuments, error: existingDocumentError } = await supabase
+    .from("documents")
+    .select("id")
+    .in("id", documentIds);
+  if (existingDocumentError) {
+    throw new Error(`Registry corpus preflight failed: ${existingDocumentError.message}`);
+  }
+  const existingDocumentIds = new Set((existingDocuments ?? []).map((document) => document.id));
 
   const { error: documentError } = await supabase.from("documents").upsert(documents, { onConflict: "id" });
   if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
 
   const { error: chunkError } = await supabase.from("document_chunks").upsert(chunks, { onConflict: "id" });
-  if (chunkError) throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
+  if (chunkError) {
+    const insertedDocumentIds = documentIds.filter((id) => !existingDocumentIds.has(id));
+    if (insertedDocumentIds.length > 0) {
+      const { error: rollbackError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
+      if (rollbackError) {
+        throw new Error(
+          `Registry corpus chunk upsert failed: ${chunkError.message}; rollback failed: ${rollbackError.message}`,
+        );
+      }
+    }
+    throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
+  }
 
   return { documentCount: documents.length, chunkCount: chunks.length };
 }

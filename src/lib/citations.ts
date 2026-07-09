@@ -76,7 +76,30 @@ export function formatCompactCitationLabel(citation: Pick<Citation, "title" | "f
   return `${shortTitle} ${page}`;
 }
 
+function registryCitationHref(citation: Citation) {
+  const metadata = citation.source_metadata;
+  if (metadata?.source_kind !== "registry_record") return null;
+
+  const slug = metadata.registry_record_slug;
+  if (!slug) return null;
+
+  const encodedSlug = encodeURIComponent(slug);
+  if (metadata.registry_record_kind === "service") return `/services/${encodedSlug}`;
+  if (metadata.registry_record_kind === "form") return `/forms/${encodedSlug}`;
+  if (metadata.registry_record_kind === "medication") return `/medications/${encodedSlug}`;
+  if (metadata.registry_record_kind === "differential") {
+    return metadata.registry_record_subkind === "presentation"
+      ? `/differentials/presentations/${encodedSlug}`
+      : `/differentials/diagnoses/${encodedSlug}`;
+  }
+
+  return null;
+}
+
 export function documentCitationHref(citation: Citation) {
+  const registryHref = registryCitationHref(citation);
+  if (registryHref) return registryHref;
+
   const params = new URLSearchParams();
   if (citation.page_number) params.set("page", String(citation.page_number));
   params.set("chunk", citation.chunk_id);

@@ -144,6 +144,14 @@ function bestOcrRepair(fragment: string, dictionary: string[]) {
   return best?.word ?? null;
 }
 
+function repairDropsStandaloneClinicalLetter(fragment: string, repair: string) {
+  const tokens = fragment.toLowerCase().match(/[a-z]+/g) ?? [];
+  if (!tokens.some((token) => token.length === 1)) return false;
+  return tokens.some(
+    (token, index) => token.length === 1 && tokens.filter((_, itemIndex) => itemIndex !== index).join("") === repair,
+  );
+}
+
 export function repairOcrDropoutAgainstReference(text: string, reference: string) {
   const dictionary = referenceDictionary(reference);
   if (dictionary.length === 0) return { text, replacements: [] as Array<{ from: string; to: string }> };
@@ -162,6 +170,7 @@ export function repairOcrDropoutAgainstReference(text: string, reference: string
       if (!/^[A-Za-z]+(?:\s+[A-Za-z]+)+$/.test(fragment)) continue;
       const repair = bestOcrRepair(fragment, dictionary);
       if (!repair || repair === fragment.toLowerCase()) continue;
+      if (repairDropsStandaloneClinicalLetter(fragment, repair)) continue;
       const currentFragment = repaired.slice(start, end);
       if (currentFragment !== fragment) continue;
       repaired = `${repaired.slice(0, start)}${repair}${repaired.slice(end)}`;

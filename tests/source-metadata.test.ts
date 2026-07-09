@@ -39,6 +39,18 @@ describe("source metadata helpers", () => {
     expect(line).toContain("Jurisdiction: Australia/WA");
   });
 
+  it("preserves stale status labels for registry summaries", () => {
+    const metadata = normalizeSourceMetadata({
+      source_kind: "registry_record",
+      document_status: "outdated",
+      clinical_validation_status: "locally_reviewed",
+    });
+
+    expect(sourceStatusLabel(metadata)).toBe("Registry summary - outdated");
+    expect(sourceProvenanceSummary(metadata)).toContain("Registry summary - outdated");
+    expect(clipboardProvenanceLine(metadata)).toContain("Review status: Registry summary - outdated");
+  });
+
   it("drops unknown filler segments but keeps governance warnings", () => {
     const emptySummary = sourceProvenanceSummary(normalizeSourceMetadata(null));
 

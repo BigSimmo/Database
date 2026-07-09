@@ -278,4 +278,48 @@ describe("document index units", () => {
       expect.arrayContaining([expect.objectContaining({ from: "p ycho ocial", to: "psychosocial" })]),
     );
   });
+
+  it("does not repair by deleting standalone clinical letter tokens", () => {
+    const units = buildDocumentIndexUnitInputs({
+      document,
+      chunks: [
+        {
+          id: "chunk-1",
+          document_id: "doc-1",
+          page_number: 8,
+          chunk_index: 0,
+          section_heading: "Supplements",
+          section_path: ["Supplements"],
+          content: "Vitamin deficiency and class antiarrhythmics are separate concepts.",
+          metadata: {},
+        },
+      ],
+      images: [
+        {
+          id: "image-letters",
+          pageNumber: 8,
+          sourceKind: "table_crop",
+          tableTitle: "Medication considerations",
+          tableRows: [
+            ["vitamin D deficiency", "check baseline status"],
+            ["Class I antiarrhythmics", "avoid in selected cardiac risk"],
+          ],
+          tableColumns: ["Risk", "Action"],
+          metadata: {},
+        },
+      ],
+    });
+
+    const repairedFragments = units.flatMap((unit) =>
+      Array.isArray(unit.metadata.ocr_replacements) ? unit.metadata.ocr_replacements : [],
+    );
+    expect(repairedFragments).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ from: "vitamin D deficiency" }),
+        expect.objectContaining({ from: "Class I antiarrhythmics" }),
+      ]),
+    );
+    expect(units.map((unit) => unit.content).join("\n")).toContain("vitamin D deficiency");
+    expect(units.map((unit) => unit.content).join("\n")).toContain("Class I antiarrhythmics");
+  });
 });
