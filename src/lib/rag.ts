@@ -2376,9 +2376,8 @@ async function attachDocumentRankingMetadata(
     for (const row of metadataRows) {
       cache.documentMetadata.set(row.document_id, { labels: row.labels, summary: row.summary });
     }
-    const metadataByDocument = new Map(metadataRows.map((row) => [row.document_id, row]));
     const enriched = results.map((result) => {
-      const metadata = metadataByDocument.get(result.document_id) ?? cache.documentMetadata.get(result.document_id);
+      const metadata = cache.documentMetadata.get(result.document_id);
       if (!metadata) return result;
       return {
         ...result,
@@ -2392,6 +2391,13 @@ async function attachDocumentRankingMetadata(
   }
 }
 
+function withCachedIndexQuality(results: SearchResult[], cache: DocumentRankingMetadataCache) {
+  return results.map((result) => ({
+    ...result,
+    indexing_quality: cache.indexQuality.get(result.document_id) ?? result.indexing_quality ?? null,
+  }));
+}
+
 async function attachIndexQualityMetadata(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
@@ -2401,12 +2407,7 @@ async function attachIndexQualityMetadata(
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   if (documentIds.length === 0) return results;
   const missingDocumentIds = documentIds.filter((documentId) => !cache.indexQuality.has(documentId));
-  if (missingDocumentIds.length === 0) {
-    return results.map((result) => ({
-      ...result,
-      indexing_quality: cache.indexQuality.get(result.document_id) ?? result.indexing_quality ?? null,
-    }));
-  }
+  if (missingDocumentIds.length === 0) return withCachedIndexQuality(results, cache);
   try {
     let query = supabase
       .from("document_index_quality")
@@ -2417,15 +2418,7 @@ async function attachIndexQualityMetadata(
     if (error) return results;
     for (const documentId of missingDocumentIds) cache.indexQuality.set(documentId, null);
     for (const row of data ?? []) cache.indexQuality.set(row.document_id, row as SearchResult["indexing_quality"]);
-    const qualityByDocument = new Map((data ?? []).map((row) => [row.document_id, row]));
-    return results.map((result) => ({
-      ...result,
-      indexing_quality:
-        (qualityByDocument.get(result.document_id) as SearchResult["indexing_quality"]) ??
-        cache.indexQuality.get(result.document_id) ??
-        result.indexing_quality ??
-        null,
-    }));
+    return withCachedIndexQuality(results, cache);
   } catch {
     return results;
   }
