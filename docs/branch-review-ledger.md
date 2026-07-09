@@ -18,6 +18,6 @@ Use this ledger to prevent repeated branch and PR reviews when the reviewed HEAD
 
 ## Review Records
 
-| Date | Branch or ref | Reviewed HEAD | Scope | Outcome | Checks |
-| --- | --- | --- | --- | --- | --- |
-| 2026-07-09 | example/branch | abc1234 | branch-cleanup | Example: already merged into `main`; no unique patch content. | `git log --right-only --cherry-pick main...example/branch`; `git diff --name-status main...example/branch` |
+| Date       | Branch or ref  | Reviewed HEAD | Scope          | Outcome                                                       | Checks                                                                                                     |
+| ---------- | -------------- | ------------- | -------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 2026-07-09 | example/branch | abc1234       | branch-cleanup | Example: already merged into `main`; no unique patch content. | `git log --right-only --cherry-pick main...example/branch`; `git diff --name-status main...example/branch` |

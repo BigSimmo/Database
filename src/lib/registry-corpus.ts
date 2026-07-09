@@ -443,6 +443,12 @@ export async function bestEffortReembedRegistryRecordAfterEdit(args: {
       `[${args.scope}] corpus re-embedding failed after registry edit for ${args.target.ownerId}/${args.target.corpusKind}/${args.target.slug}`,
       embedError,
     );
-    return { documentCount: 0, chunkCount: 0, skipped: true, reason: "failed", errorMessage } satisfies RegistryCorpusEmbedResult;
+    return {
+      documentCount: 0,
+      chunkCount: 0,
+      skipped: true,
+      reason: "failed",
+      errorMessage,
+    } satisfies RegistryCorpusEmbedResult;
   }
 }
