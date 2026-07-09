@@ -184,7 +184,7 @@ Operational rules that follow:
 | `OPENAI_API_KEY`                                 | **critical**     | runtime               | host secret store; GitHub repo secret                               |
 | `SUPABASE_PROJECT_REF` / `SUPABASE_PROJECT_NAME` | low              | runtime               | plain env (pins `check:supabase-project`)                           |
 | `INDEXING_V3_AGENT_SECRET`                       | high             | runtime               | Supabase Edge Function secrets                                      |
-| `RAG_QUERY_HASH_SECRET`                          | high             | runtime               | host secret store                                                   |
+| `RAG_QUERY_HASH_SECRET`                          | high             | runtime               | host secret store; GitHub repo secret (CI boot smoke)               |
 | `E2E_USER_EMAIL` / `E2E_USER_PASSWORD`           | medium           | CI only               | GitHub repo secrets                                                 |
 
 Rules:

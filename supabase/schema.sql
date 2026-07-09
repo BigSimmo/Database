@@ -777,6 +777,15 @@ create index if not exists ingestion_jobs_status_next_run_idx
   where status in ('pending', 'processing', 'failed');
 create index if not exists ingestion_jobs_document_status_idx
   on public.ingestion_jobs(document_id, status, created_at);
+-- R17 (docs/ingestion-concurrency-fix-workorder.md): structural guard against
+-- more than one open job per document. Migration
+-- 20260708160000_ingestion_jobs_one_open_per_document.sql creates the live
+-- equivalent with CONCURRENTLY (manual apply — see that file's header); this
+-- non-concurrent form is for fresh/scratch replay only, where there is no
+-- concurrent traffic to block.
+create unique index if not exists ingestion_jobs_one_open_per_document_uidx
+  on public.ingestion_jobs(document_id)
+  where status in ('pending', 'processing');
 drop index if exists public.ingestion_job_stages_doc_idx;
 create index if not exists ingestion_job_stages_document_started_idx
   on public.ingestion_job_stages(document_id, started_at desc);
@@ -1241,6 +1250,60 @@ begin
 end;
 $$;
 
+create or replace function public.jsonb_merge_deep(target_obj jsonb, patch_obj jsonb)
+returns jsonb
+language plpgsql
+immutable
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  merged jsonb := coalesce(target_obj, '{}'::jsonb);
+  key text;
+  incoming_value jsonb;
+begin
+  for key, incoming_value in
+    select j.key, j.value
+    from jsonb_each(coalesce(patch_obj, '{}'::jsonb)) as j
+  loop
+    -- JSON null means "delete this key" so worker deltas can clear sticky
+    -- error/gate fields that the old full-replace used to wipe implicitly.
+    if incoming_value = 'null'::jsonb then
+      merged := merged - key;
+    elsif jsonb_typeof(merged -> key) = 'object' and jsonb_typeof(incoming_value) = 'object' then
+      merged := jsonb_set(
+        merged,
+        array[key],
+        public.jsonb_merge_deep(merged -> key, incoming_value),
+        true
+      );
+    else
+      merged := jsonb_set(merged, array[key], incoming_value, true);
+    end if;
+  end loop;
+  return merged;
+end;
+$$;
+
+create or replace function public.apply_document_metadata_patch(
+  p_document_id uuid,
+  p_metadata_patch jsonb
+)
+returns void
+language plpgsql
+set search_path = public, extensions, pg_temp
+as $$
+begin
+  update public.documents
+  set
+    metadata = public.jsonb_merge_deep(
+      coalesce(metadata, '{}'::jsonb),
+      coalesce(p_metadata_patch, '{}'::jsonb)
+    ),
+    updated_at = now()
+  where id = p_document_id;
+end;
+$$;
+
 create or replace function public.commit_document_index_generation(
   p_document_id uuid,
   p_index_generation_id uuid,
@@ -1266,9 +1329,14 @@ begin
     chunk_count = p_chunk_count,
     image_count = p_image_count,
     error_message = null,
-    metadata = coalesce(p_metadata, '{}'::jsonb) || jsonb_build_object('index_generation_id', p_index_generation_id),
     updated_at = now()
   where id = p_document_id;
+
+  -- R5: merge worker-owned keys onto live metadata instead of full-replace.
+  perform public.apply_document_metadata_patch(
+    p_document_id,
+    coalesce(p_metadata, '{}'::jsonb) || jsonb_build_object('index_generation_id', p_index_generation_id)
+  );
 
   if p_pages is not null then
     delete from public.document_pages
@@ -2050,9 +2118,9 @@ parallel safe
 set search_path = public, pg_catalog
 as $$
   select case
-    when owner_filter is null then true
-    when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null
-    else row_owner_id = owner_filter
+    when owner_filter is null then false -- fail CLOSED (was: true) — no DB-level global escape hatch
+    when owner_filter = '00000000-0000-0000-0000-000000000000'::uuid then row_owner_id is null -- public corpus only
+    else row_owner_id = owner_filter -- exact owner
   end;
 $$;
 
@@ -4635,6 +4703,10 @@ grant select, insert, update, delete on table public.document_index_units to ser
 grant select on table public.document_index_units to authenticated;
 revoke execute on function public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid) from public, anon, authenticated;
 grant execute on function public.match_document_index_units_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid) to service_role;
+revoke execute on function public.jsonb_merge_deep(jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.jsonb_merge_deep(jsonb, jsonb) to service_role;
+revoke execute on function public.apply_document_metadata_patch(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.apply_document_metadata_patch(uuid, jsonb) to service_role;
 revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role;
 revoke execute on function public.cleanup_abandoned_document_index_generations(uuid, integer, boolean) from public, anon, authenticated;

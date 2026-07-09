@@ -427,6 +427,23 @@ export function neutralizePromptInstructions(text: string): string {
     "[neutralized-instruction: source instruction removed]",
   );
   cleaned = cleaned.replace(/\bdo\s+not\s+answer\b/gi, "[neutralized-instruction: answer-suppression request removed]");
+  // Defense-in-depth widening (threat-model #8). The answerInstructions
+  // provenance boundary is the primary defense for the meta-instruction class;
+  // these two patterns add belt-and-braces coverage for idioms that carry a
+  // near-zero false-positive risk on real clinical prose because they explicitly
+  // address the AI/assistant. We deliberately do NOT widen to "additional/new
+  // instructions:", "disregard the previous guidance", or bare "do not
+  // mention/exceed/administer" — those forms occur legitimately in dosing
+  // leaflets and superseding guidelines, so blanking them would corrupt genuine
+  // content. The regex is an arms race; the prompt boundary is the durable line.
+  cleaned = cleaned.replace(
+    /\b(?:note|attention|message|instructions?|instruction|directive|override|reminder|memo)\s+(?:to|for)\s+(?:the\s+|any\s+)?(?:ai|a\.i\.|assistant|assistants|model|llm|language\s+model|chat\s*bot|bot)\b/gi,
+    "[neutralized-instruction: AI-directed meta-instruction removed]",
+  );
+  cleaned = cleaned.replace(
+    /\bfrom\s+now\s+on\b[,;]?\s*(?:always\s+|please\s+|you\s+(?:must|should|will|are\s+to)\s+)?[^.\n]{0,40}?\b(?:recommend|say|state|answer|respond|reply|report|mention|claim)\b/gi,
+    "[neutralized-instruction: source directive removed]",
+  );
   return cleaned;
 }
 

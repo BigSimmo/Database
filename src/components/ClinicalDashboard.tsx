@@ -77,6 +77,7 @@ import {
 import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { answerRecovery, errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
@@ -669,6 +670,14 @@ export function ClinicalDashboard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const mainRef = useRef<HTMLElement>(null);
+  const [mainScrollRoot, setMainScrollRoot] = useState<HTMLElement | null>(null);
+  const assignMainRef = useCallback((node: HTMLElement | null) => {
+    mainRef.current = node;
+    setMainScrollRoot(node);
+  }, []);
+  const phoneScrollHide = useScrollHideReporter();
+  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
@@ -2653,6 +2662,31 @@ export function ClinicalDashboard({
     });
   }
 
+  function handleMainScroll() {
+    scheduleActiveSectionSync();
+  }
+
+  useEffect(() => {
+    const main = mainScrollRoot;
+    if (!main) return undefined;
+
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        reportPhoneScrollHideRef.current(main.scrollTop);
+      });
+    };
+
+    onScroll();
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      main.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [mainScrollRoot]);
+
   async function copyText(action: string, text: string) {
     let copied = false;
     try {
@@ -3115,15 +3149,15 @@ export function ClinicalDashboard({
           heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
           // Phone-only: the header sits above the internally scrolling <main>,
           // so hiding must collapse its layout space to hand it to content.
-          hideOnScroll={{ strategy: "collapse", containerRef: mainRef }}
+          hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
           onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
         />
 
         <main
           id="main-content"
-          ref={mainRef}
+          ref={assignMainRef}
           tabIndex={-1}
-          onScroll={scheduleActiveSectionSync}
+          onScroll={handleMainScroll}
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none",
             searchMode === "answer"
@@ -3136,7 +3170,9 @@ export function ClinicalDashboard({
                   // bottomSearchScrollHidden only ever goes true on phones.)
                   bottomSearchScrollHidden
                   ? "mb-0 sm:mb-24"
-                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                  : answerFollowUpSuggestions.length > 0
+                    ? "mb-[calc(18rem+env(safe-area-inset-bottom))] sm:mb-24"
+                    : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? bottomSearchScrollHidden
                   ? "mb-0 sm:mb-0"
@@ -3163,6 +3199,7 @@ export function ClinicalDashboard({
             <div
               className={cn(
                 "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+                compactMobileModeHome && "max-sm:px-0",
                 // Centred mode homes carry little content, so drop the large
                 // mobile bottom padding (the fixed composer already has its own
                 // reserved margin on <main>) to avoid a needless scrollbar.
@@ -3190,7 +3227,12 @@ export function ClinicalDashboard({
 
               <section
                 className={cn(
-                  "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
+                  compactMobileModeHome
+                    ? cn(
+                        "max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col",
+                        centeredModeHome && "max-sm:justify-center",
+                      )
+                    : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                   centeredModeHome || showAnswerHome
                     ? // Phones centre the home block mid-screen, matching the
                       // standalone-route homes; the pop-up action surface picks
@@ -3502,9 +3544,6 @@ export function ClinicalDashboard({
 
               {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
 
-              {activeModeResultKind === "answer" && answer && (
-                <CrossModeLinksSection queries={crossModeQueries} onModeSearch={handleCrossModeSearch} />
-              )}
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel
                   documents={relatedDocuments}

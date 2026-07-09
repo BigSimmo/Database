@@ -1,5 +1,6 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
+import { scrollPrimarySurface } from "./playwright-scroll";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { deriveGovernanceFromSections } from "../src/lib/medication-records";
@@ -572,26 +573,35 @@ async function scrollMobileTableExpandClearOfFooter(page: Page, clinicalTable: L
   await clinicalTable.scrollIntoViewIfNeeded();
   await page.evaluate(() => {
     const expand = document.querySelector('[data-testid="table-expand-button"]');
-    const main = document.querySelector("main");
+    const scrollContainer = document.querySelector("main#main-content");
     const footer = document.querySelector(
       ".answer-footer-search-dock, .dashboard-composer-edge.answer-footer-search-edge",
     );
-    if (!expand || !main) return;
-    const expandRect = expand.getBoundingClientRect();
-    const footerTop = footer?.getBoundingClientRect().top ?? window.innerHeight;
-    const overlap = expandRect.bottom - footerTop + 20;
-    if (overlap > 0) {
-      main.scrollTop += overlap;
+    if (!expand || !scrollContainer) return;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const expandRect = expand.getBoundingClientRect();
+      const footerTop = footer?.getBoundingClientRect().top ?? window.innerHeight;
+      const currentOverlap = expandRect.bottom - footerTop + 24;
+      if (currentOverlap <= 0) break;
+      scrollContainer.scrollTop += currentOverlap;
     }
   });
 }
 
 async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
   await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
+  const expandButton = clinicalTable.getByTestId("table-expand-button");
   const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
-  await tableSurface.click({ force: true });
   const tableDialog = page.getByTestId("table-fullscreen-dialog");
-  await expect(tableDialog).toBeVisible({ timeout: 10_000 });
+  await expect(async () => {
+    if (await tableDialog.isVisible().catch(() => false)) return;
+    if (await expandButton.isVisible().catch(() => false)) {
+      await expandButton.click();
+    } else {
+      await tableSurface.click();
+    }
+    await expect(tableDialog).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
   return tableDialog;
 }
 
@@ -1203,10 +1213,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");
     await expect(tableDialog).toBeHidden();
-    await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeFocused();
+    if (await tableExpandButton.isVisible().catch(() => false)) {
+      await expect(tableExpandButton).toBeFocused();
+    } else {
+      await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeFocused();
+    }
     if (await tableExpandButton.isVisible().catch(() => false)) {
       await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
-      await tableExpandButton.click({ force: true });
+      await tableExpandButton.click();
       await expect(tableDialog).toBeVisible();
       await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
       await expect(tableDialog).toBeHidden();
@@ -1480,6 +1494,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const answerSurface = page.locator('[data-dashboard-stage="answer-surface"]');
     const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
+    await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
+    const rail = strip.getByTestId("cross-mode-links-rail");
+    await expect(rail).toBeVisible();
+    await expect(rail).toHaveClass(/overflow-x-auto/);
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
     await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
@@ -1793,7 +1811,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await expect(expandButton).toBeVisible();
       await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
-      await expandButton.click({ force: true });
+      await expandButton.click();
       const dialog = page.getByTestId("table-fullscreen-dialog");
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole("table")).toBeVisible();
@@ -1969,6 +1987,32 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/medications\/acamprosate$/);
     await expectSingleMedicationPage(page);
     expect(parentNodeErrors).toEqual([]);
+  });
+
+  test("prescribing workflow shows full mobile action text without horizontal cutoff", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
+
+    const acamprosateCard = page.getByTestId("medication-result-acamprosate-phone");
+    await expect(acamprosateCard).toBeVisible({ timeout: 30_000 });
+    await expect(acamprosateCard).toContainText("Contraindicated in renal insufficiency");
+    await expect(acamprosateCard).toContainText("micromol/L");
+
+    const actionOverflow = await acamprosateCard.evaluate((card) => {
+      const action = Array.from(card.querySelectorAll("p")).find((node) =>
+        node.textContent?.includes("Contraindicated in renal insufficiency"),
+      );
+      if (!action) return { found: false, overflows: true };
+      return {
+        found: true,
+        overflows: action.scrollWidth > action.clientWidth + 1,
+        textOverflow: getComputedStyle(action).textOverflow,
+      };
+    });
+    expect(actionOverflow.found).toBe(true);
+    expect(actionOverflow.overflows).toBe(false);
+    expect(actionOverflow.textOverflow).not.toBe("ellipsis");
   });
 
   test("document search mode lists matching documents and scope actions", async ({ page }) => {
@@ -2187,6 +2231,41 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("phone universal header fully hides while scrolling dashboard main on phones", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, "/?mode=answer");
+
+    const header = page.locator("header.universal-header");
+    const collapseHost = page.getByTestId("universal-header-collapse");
+    await expect(header).toBeVisible();
+    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("relative");
+
+    const main = page.locator("main#main-content");
+    await main.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.setAttribute("data-testid", "header-hide-scroll-spacer");
+      spacer.style.height = "2000px";
+      node.appendChild(spacer);
+    });
+    // Step scroll down so the dashboard main listener sees deliberate movement.
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+
+    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () =>
+        header.evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          return Math.max(0, rect.bottom) - Math.max(0, rect.top);
+        }),
+      )
+      .toBe(0);
+  });
+
   test("document viewer bottom composer hides while scrolling down on phones", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page);
@@ -2200,16 +2279,26 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(composer).toBeVisible();
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
 
+    await page.evaluate(() => {
+      const main = window.document.getElementById("main-content");
+      const spacer = window.document.createElement("div");
+      spacer.setAttribute("data-testid", "composer-hide-scroll-spacer");
+      spacer.style.height = "2000px";
+      (main ?? window.document.body).appendChild(spacer);
+    });
+
     // Hide on deliberate scroll down past the activation offset.
-    await page.evaluate(() => window.scrollTo({ top: 120, behavior: "auto" }));
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await scrollPrimarySurface(page, offset);
+    }
     await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
 
     // Reappear on scroll up.
-    await page.evaluate(() => window.scrollTo({ top: 60, behavior: "auto" }));
+    await scrollPrimarySurface(page, 60);
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
 
     // Keyboard focus inside the composer reveals it while hidden.
-    await page.evaluate(() => window.scrollTo({ top: 240, behavior: "auto" }));
+    await scrollPrimarySurface(page, 240);
     await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
     await composer.locator("input").focus();
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");

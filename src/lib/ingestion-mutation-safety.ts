@@ -13,7 +13,7 @@ type AgentEnrichmentJobRow = {
 
 type IngestionJobStatus = "pending" | "processing" | "failed" | string;
 
-type IngestionJobRow = {
+export type IngestionJobRow = {
   id: string;
   document_id: string | null;
   status: IngestionJobStatus | null;
@@ -61,6 +61,9 @@ function isStaleProcessingJob(job: IngestionJobRow, staleAfterMinutes: number, n
   return age !== null && age >= staleAfterMinutes;
 }
 
+export const activeIngestionJobColumns =
+  "id,document_id,status,stage,locked_at,updated_at,error_message,attempt_count,max_attempts";
+
 function activeJobMessage(documentCount: number, staleCount: number) {
   if (staleCount > 0) {
     return staleCount === 1
@@ -70,6 +73,29 @@ function activeJobMessage(documentCount: number, staleCount: number) {
   return documentCount === 1
     ? "Document already has pending or processing indexing work."
     : "One or more selected documents already have pending or processing indexing work.";
+}
+
+// Shared by checkIngestionMutationSafety's pre-check and the reindex routes'
+// post-insert 23505 handler (R17): the pre-check SELECT and the unique index
+// on (document_id) where status in (pending,processing) guard the same
+// invariant, so a race that slips past the pre-check and hits the index
+// instead should still produce this same 409 shape, not a raw constraint error.
+export function buildActiveJobsSafetyResult(
+  activeJobs: IngestionJobRow[],
+  staleAfterMinutes: number,
+  checkedAt: string,
+  now: Date = new Date(),
+): Extract<IngestionMutationSafetyResult, { ok: false }> {
+  const staleProcessingJobs = activeJobs.filter((job) => isStaleProcessingJob(job, staleAfterMinutes, now.getTime()));
+  return {
+    ok: false,
+    status: 409,
+    checkedAt,
+    reason: staleProcessingJobs.length > 0 ? "stale_processing_jobs" : "active_jobs",
+    message: activeJobMessage(activeJobs.length, staleProcessingJobs.length),
+    activeJobs,
+    staleProcessingJobs,
+  };
 }
 
 // Rollback fence: a timestamptz value unique to this request. Queue-state
@@ -168,7 +194,7 @@ export async function checkIngestionMutationSafety(args: {
 
   const { data, error } = await args.supabase
     .from("ingestion_jobs")
-    .select("id,document_id,status,stage,locked_at,updated_at,error_message,attempt_count,max_attempts")
+    .select(activeIngestionJobColumns)
     .in("document_id", uniqueDocumentIds)
     .in("status", ["pending", "processing"]);
   if (error) throw new Error(error.message);
@@ -176,20 +202,9 @@ export async function checkIngestionMutationSafety(args: {
   const activeJobs = ((data ?? []) as IngestionJobRow[]).filter(
     (job) => job.status === "pending" || job.status === "processing",
   );
-  const staleProcessingJobs = activeJobs.filter((job) =>
-    isStaleProcessingJob(job, args.staleAfterMinutes, (args.now ?? new Date()).getTime()),
-  );
 
   if (activeJobs.length > 0) {
-    return {
-      ok: false,
-      status: 409,
-      checkedAt: health.checkedAt,
-      reason: staleProcessingJobs.length > 0 ? "stale_processing_jobs" : "active_jobs",
-      message: activeJobMessage(uniqueDocumentIds.length, staleProcessingJobs.length),
-      activeJobs,
-      staleProcessingJobs,
-    };
+    return buildActiveJobsSafetyResult(activeJobs, args.staleAfterMinutes, health.checkedAt, args.now);
   }
 
   return {

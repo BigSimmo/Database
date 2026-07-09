@@ -6,10 +6,13 @@ import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
 import { jsonError } from "@/lib/http";
 import {
+  activeIngestionJobColumns,
+  buildActiveJobsSafetyResult,
   checkIngestionMutationSafety,
   hasActiveAgentEnrichmentJob,
   ingestionMutationSafetyPayload,
   ingestionRollbackFenceStamp,
+  type IngestionJobRow,
 } from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import {
@@ -256,6 +259,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single();
 
     if (jobError) {
+      // R17: a unique index on ingestion_jobs(document_id) where status in
+      // (pending,processing) can reject this insert with 23505 when a
+      // concurrent request won the race between the pre-check above and this
+      // insert. That is the same "already queued" condition the pre-check
+      // reports, so surface it the same way (409, not a raw constraint 500).
+      if (jobError.code === "23505") {
+        const { data: raceJobs, error: raceJobsError } = await supabase
+          .from("ingestion_jobs")
+          .select(activeIngestionJobColumns)
+          .eq("document_id", id)
+          .in("status", ["pending", "processing"]);
+        if (!raceJobsError && (raceJobs?.length ?? 0) > 0) {
+          const safety = buildActiveJobsSafetyResult(
+            raceJobs as IngestionJobRow[],
+            env.WORKER_STALE_AFTER_MINUTES,
+            new Date().toISOString(),
+          );
+          return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: 409 });
+        }
+      }
       const { data: competingJobs, error: competingJobsError } = await supabase
         .from("ingestion_jobs")
         .select("id")

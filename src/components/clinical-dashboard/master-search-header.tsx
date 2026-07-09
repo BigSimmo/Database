@@ -10,7 +10,6 @@ import {
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type Ref,
-  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -244,8 +243,13 @@ export function MasterSearchHeader({
    *  content already flows beneath); "collapse" also releases the header's
    *  layout space (host keeps the header above an internally scrolling element).
    *  The phone bottom search composer hides in sync on search-mode pages.
-   *  `containerRef` points at the scrolling element; omit it to observe window scroll. */
-  hideOnScroll?: { strategy: "overlay" | "collapse"; containerRef?: RefObject<HTMLElement | null> };
+   *  Parent hosts with an internally scrolling element pass `scrollHidden` from
+   *  `useScrollHideReporter` wired to that element's scroll events. */
+  hideOnScroll?: {
+    strategy: "overlay" | "collapse";
+    /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
+    scrollHidden?: boolean;
+  };
   /** Fired when the phone bottom search dock enters or leaves the scroll-hidden state. */
   onBottomComposerScrollHiddenChange?: (hidden: boolean) => void;
 }) {
@@ -288,10 +292,10 @@ export function MasterSearchHeader({
   // into invisible controls).
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
-  const scrollHidden = useHideOnScroll({
-    containerRef: hideOnScroll?.containerRef,
-    disabled: !hideOnScroll,
+  const internalScrollHidden = useHideOnScroll({
+    disabled: !hideOnScroll || hideOnScroll.scrollHidden !== undefined,
   });
+  const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
   const phoneBottomSearchDockActive =
@@ -1088,8 +1092,14 @@ export function MasterSearchHeader({
               ? "floating-composer-edge dashboard-composer-edge z-40 mx-auto max-w-3xl max-sm:fixed max-sm:bottom-0 sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))] sm:z-20 lg:fixed lg:bottom-0 lg:top-auto lg:max-w-4xl"
               : usesMobileBottomStyle
                 ? cn(
-                    "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                    isHeroDesktopComposer ? "sm:hidden" : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+                    usesPhoneFooterDock
+                      ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
+                      : cn(
+                          "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                          isHeroDesktopComposer
+                            ? "sm:hidden"
+                            : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+                        ),
                   )
                 : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
           usesBottomComposerPlacement && "answer-footer-search-edge",
@@ -1336,12 +1346,15 @@ export function MasterSearchHeader({
       <header
         id="search"
         className={cn(
-          "edge-glass-header universal-header sticky top-0 z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl",
-          // Overlay hide-on-scroll (phones): the header is sticky over document
-          // scroll, so a plain translate reveals the content already flowing
-          // beneath it with zero layout shift. No transform is applied while
-          // visible so the fixed-position mobile mode menu keeps the viewport
-          // as its containing block.
+          "edge-glass-header universal-header z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl",
+          // Collapse hosts keep the header above an internally scrolling <main>, so
+          // sticky is unnecessary on phones and fights the 0fr grid collapse by
+          // pinning the bar inside the viewport. Overlay hosts need sticky so the
+          // header rides document scroll and can translate away with zero layout shift.
+          hideStrategy === "collapse" ? "max-sm:relative sm:sticky sm:top-0" : "sticky top-0",
+          // Overlay hide-on-scroll (phones): a plain translate reveals the content
+          // already flowing beneath it. No transform is applied while visible so
+          // the fixed-position mobile mode menu keeps the viewport as its containing block.
           hideStrategy === "overlay" &&
             "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
           hideStrategy === "overlay" && headerChromeHidden && "max-sm:-translate-y-full",
@@ -1548,6 +1561,8 @@ export function MasterSearchHeader({
     // never carries a transform, and everything is inert from sm up.
     return (
       <div
+        data-scroll-hidden={headerChromeHidden ? "true" : undefined}
+        data-testid="universal-header-collapse"
         className={cn(
           "max-sm:grid max-sm:transition-[grid-template-rows] max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
           headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",

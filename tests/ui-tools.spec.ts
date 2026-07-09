@@ -421,7 +421,7 @@ test.describe("Clinical KB tools launcher", () => {
     ] as const) {
       await gotoLauncher(page, home.path);
       await expect(page.getByTestId(home.testId)).toBeVisible();
-      await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+      await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
 
       const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
       await expect(heroSearch).toBeVisible();
@@ -430,13 +430,18 @@ test.describe("Clinical KB tools launcher", () => {
       const headingBox = await page
         .getByRole("heading", { level: home.headingLevel, name: home.heading })
         .boundingBox();
+      const mainBox = await page.locator("#main-content").boundingBox();
       expect(searchBox).not.toBeNull();
       expect(headingBox).not.toBeNull();
+      expect(mainBox).not.toBeNull();
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-      // Short homes centre their hero+search block mid-screen on phones, so the
-      // search midpoint should land in a centred band rather than hug an edge.
-      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(820 * 0.72);
-      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.2);
+      // Short homes centre their hero+search block in the scrollable main pane on
+      // phones (below the sticky header), not necessarily the full viewport.
+      const searchMidpoint = (searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2;
+      const mainTop = mainBox?.y ?? 0;
+      const mainHeight = mainBox?.height ?? 820;
+      expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.72);
+      expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.08);
       const metrics = await globalSearchComposerMetrics(page, home.testId);
       expect(metrics).not.toBeNull();
       expect(metrics?.position).not.toBe("fixed");
@@ -762,21 +767,42 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(dock).toBeVisible();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
+    // focus=1 leaves the composer focused; hide-on-scroll stays off while it has focus.
+    const input = visibleGlobalSearchInput(page).first();
+    await input.focus();
+    await page.keyboard.press("Escape");
+    await input.blur();
+    await expect(dock).not.toHaveAttribute("data-command-open", "true");
+
+    // Inject a spacer to ensure the container is scrollable even with minimal search results
     await page.evaluate(() => {
-      window.scrollTo({ top: 120, behavior: "auto" });
-      // WebKit doesn't reliably emit a native scroll event for a programmatic scrollTo, so the
-      // hide-on-scroll listener never ran and data-scroll-hidden stayed unset (release-browser-matrix
-      // WebKit flake). Dispatch one explicitly; harmless on Chromium/Firefox (the rAF guard dedupes).
-      window.dispatchEvent(new Event("scroll"));
+      const container = document.getElementById("main-content");
+      if (container) {
+        const spacer = document.createElement("div");
+        spacer.id = "test-scroll-spacer";
+        spacer.style.height = "2000px";
+        spacer.style.minHeight = "2000px";
+        spacer.style.display = "block";
+        container.appendChild(spacer);
+      }
     });
+
+    const scroller = page.locator("#main-content");
+    // Step scroll down so the shell's scroll reporter sees deliberate movement.
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await scroller.evaluate((node, top) => {
+        node.scrollTop = top;
+        node.dispatchEvent(new Event("scroll", { bubbles: true }));
+      }, offset);
+    }
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
     await expect
       .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"))
       .toBe(true);
 
-    await page.evaluate(() => {
-      window.scrollTo({ top: 60, behavior: "auto" });
-      window.dispatchEvent(new Event("scroll"));
+    await scroller.evaluate((node) => {
+      node.scrollTop = 60;
+      node.dispatchEvent(new Event("scroll", { bubbles: true }));
     });
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect
@@ -944,6 +970,87 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("differentials-catalogue-notice")).toBeVisible();
     await expect(page.getByText("Catalogue ranking").first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
+  });
+
+  test("differentials search badges stay single-line on narrow viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    await page.route(/\/api\/setup-status(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        json: {
+          demoMode: true,
+          checks: [
+            { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
+            { id: "project", label: "[REDACTED] target", status: "ready", detail: "Test project ready." },
+            { id: "schema", label: "supabase/schema.sql applied", status: "ready", detail: "Test schema ready." },
+            { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search ready." },
+            { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
+          ],
+        },
+      });
+    });
+    await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        json: {
+          results: [],
+          visualEvidence: [],
+          relatedDocuments: [],
+          documentMatches: [
+            {
+              document_id: "11111111-1111-4111-8111-111111111111",
+              title: "Acute confusion differential guide",
+              file_name: "acute-confusion-differentials.pdf",
+              labels: [],
+              summarySnippet: "Reviewed acute confusion differential guidance.",
+              bestPages: [1],
+              bestChunkIds: ["chunk-acute-confusion"],
+              imageCount: 0,
+              tableCount: 0,
+              matchReason: "Matched indexed passage",
+              score: 0.93,
+            },
+          ],
+          relevance: { verdict: "strong", score: 0.91, directSourceCount: 1, weakSourceCount: 0 },
+          smartPanel: {},
+          telemetry: { query_class: "differential_compare", retrieval_strategy: "text_fast_path" },
+          scope: { queryMode: "compare_guidance" },
+          sourceGovernanceWarnings: [],
+          demoMode: true,
+        },
+      });
+    });
+
+    await gotoLauncher(page, "/differentials");
+    await page.locator('input[placeholder="Ask or search a presentation"]:visible').first().fill("acute confusion");
+    await page.locator('button[aria-label="Search differential presentations"]:visible').click();
+
+    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    const tabs = page.getByTestId("differential-result-type-tabs");
+    await expect(tabs).toBeVisible();
+    await expect(tabs.getByRole("tab", { name: /All \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("tab", { name: /Presentations \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("tab", { name: /Diagnoses \(\d+\)/ })).toBeVisible();
+
+    const tabMetrics = await tabs.getByRole("tab").evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const rect = button.getBoundingClientRect();
+        return { height: rect.height, scrollHeight: button.scrollHeight };
+      }),
+    );
+    for (const tab of tabMetrics) {
+      expect(tab.scrollHeight).toBeLessThanOrEqual(tab.height + 1);
+    }
+
+    const emergentBadge = page.getByTestId("differential-status-badge").first();
+    await expect(emergentBadge).toBeVisible();
+    await expect(emergentBadge).toHaveText(/Emergent/i);
+    const badgeMetrics = await emergentBadge.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { height: rect.height, scrollHeight: element.scrollHeight };
+    });
+    expect(badgeMetrics.height).toBeGreaterThanOrEqual(22);
+    expect(badgeMetrics.scrollHeight).toBeLessThanOrEqual(badgeMetrics.height + 1);
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {

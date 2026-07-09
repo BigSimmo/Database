@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-09T06:25:31.894Z",
+  "generated_at": "2026-07-09T07:12:04.230Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "6156b7d030de666c5d307769b796431b6ec72ea26659abad75fdd465bce503c8",
-  "replay_seconds": 12,
+  "schema_sha256": "9b724669a80e0e4751abe4cfb6ed8e6ea152d3204350b2cbddac7d22093d7fb2",
+  "replay_seconds": 26,
   "snapshot": {
     "views": [
       {
@@ -4870,6 +4870,12 @@
         "def_hash": "a59d61034f2cb9337c13283574b698d9"
       },
       {
+        "def": "CREATE UNIQUE INDEX ingestion_jobs_one_open_per_document_uidx ON public.ingestion_jobs USING btree (document_id) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text]))",
+        "name": "ingestion_jobs_one_open_per_document_uidx",
+        "table": "ingestion_jobs",
+        "def_hash": "2bf0e17b1b46c2b2b225128eaf6dbf0e"
+      },
+      {
         "def": "CREATE UNIQUE INDEX ingestion_jobs_pkey ON public.ingestion_jobs USING btree (id)",
         "name": "ingestion_jobs_pkey",
         "table": "ingestion_jobs",
@@ -5634,6 +5640,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "91318c428667d073d12d42e2f7bf5505",
+        "signature": "public.apply_document_metadata_patch(uuid,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "e518193f2ffad7f87ae9bcd18164e099",
         "signature": "public.chunk_image_metadata(uuid[])"
       },
@@ -5666,7 +5680,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "b9b0836c354240f45f61ccfe40392317",
+        "def_hash": "594b1f715fbbfa1df1b1f1183a7fef5a",
         "signature": "public.commit_document_index_generation(uuid,uuid,text,integer,integer,integer,jsonb,jsonb,jsonb)"
       },
       {
@@ -5810,6 +5824,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "69c0b6affcaeb9a0e23a8673d4bbe7c0",
+        "signature": "public.jsonb_merge_deep(jsonb,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "6b939af904532b02ecea756f345a641b",
         "signature": "public.match_document_chunks_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)"
       },
@@ -5938,7 +5960,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "1d88b539bded5aa40393125f672b8cab",
+        "def_hash": "ca2877374851b432c4ca971e1e15f746",
         "signature": "public.retrieval_owner_matches(uuid,uuid)"
       },
       {

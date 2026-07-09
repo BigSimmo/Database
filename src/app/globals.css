@@ -192,6 +192,8 @@
   --danger-text: #b42318;
   --danger-bg: #fef3f2;
   --danger-border: #fda29b;
+  --danger-solid: #b42318;
+  --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -355,6 +357,8 @@
   --danger-text: #ff9ca4;
   --danger-bg: #401c24;
   --danger-border: #7f2e36;
+  --danger-solid: #b42318;
+  --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -704,12 +708,13 @@ summary::-webkit-details-marker {
     transparent 0%,
     color-mix(in srgb, var(--background) 8%, transparent) 38%,
     color-mix(in srgb, var(--background) 18%, transparent) 68%,
-    color-mix(in srgb, var(--background) 32%, transparent) 100%
+    color-mix(in srgb, var(--background) 32%, transparent) 88%,
+    color-mix(in srgb, var(--background) 42%, transparent) 100%
   );
   backdrop-filter: blur(2px) saturate(130%);
   -webkit-backdrop-filter: blur(2px) saturate(130%);
-  mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 45%) 28%, black 60%, black 100%);
-  -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 45%) 28%, black 60%, black 100%);
+  mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 45%) 28%, black 55%, black 100%);
+  -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 45%) 28%, black 55%, black 100%);
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop::before,
@@ -737,8 +742,8 @@ summary::-webkit-details-marker {
 .answer-footer-search-dock .answer-footer-search-backdrop::after {
   backdrop-filter: blur(22px) saturate(140%);
   -webkit-backdrop-filter: blur(22px) saturate(140%);
-  mask-image: linear-gradient(180deg, transparent 0%, transparent 55%, black 72%, black 100%);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, transparent 55%, black 72%, black 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, transparent 50%, black 68%, black 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, transparent 50%, black 68%, black 100%);
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -1340,6 +1345,19 @@ summary::-webkit-details-marker {
   display: none;
 }
 
+@media (min-width: 768px) {
+  .cross-mode-links-rail {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
+    -webkit-mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
+  }
+
+  .cross-mode-links-rail::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 .answer-suggestion-chip {
   display: inline-flex;
   max-width: min(100%, 18rem);
@@ -1549,17 +1567,22 @@ summary::-webkit-details-marker {
 }
 
 @media (max-width: 639px) {
-  .dashboard-composer-edge.answer-footer-search-edge {
+  .edge-glass-header {
+    padding-left: max(0px, var(--safe-area-left));
+    padding-right: max(0px, var(--safe-area-right));
+  }
+
+  .dashboard-composer-edge.answer-footer-search-edge:not(.answer-footer-search-dock) {
     width: min(calc(100vw - 8px - var(--safe-area-left) - var(--safe-area-right)), 400px);
   }
 
-  .document-mobile-search-edge {
+  .document-mobile-search-edge:not(.answer-footer-search-dock) {
     left: max(0.375rem, var(--safe-area-left));
     right: max(0.375rem, var(--safe-area-right));
     bottom: max(0.5rem, calc(var(--safe-area-bottom) + 0.375rem));
   }
 
-  .document-mobile-search-edge.answer-footer-search-edge {
+  .document-mobile-search-edge.answer-footer-search-edge:not(.answer-footer-search-dock) {
     left: 50%;
     right: auto;
     bottom: max(0.45rem, calc(var(--safe-area-bottom) + 0.35rem));
@@ -1569,7 +1592,9 @@ summary::-webkit-details-marker {
 
   /* Compact search/result views: no chip row below the pill, so the pill
      itself hugs the bottom edge and the scrim shrinks to match. */
-  .document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact {
+  .document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact:not(
+      .answer-footer-search-dock
+    ) {
     bottom: max(0.4rem, calc(var(--safe-area-bottom) + 0.3rem));
   }
 
@@ -1956,26 +1981,24 @@ summary::-webkit-details-marker {
 
   /* Premium hover transitions for source capsules */
   .source-capsule-hover {
-    box-shadow: var(--glow-soft), var(--shadow-inset);
     transition:
-      transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      box-shadow 180ms cubic-bezier(0.22, 1, 0.36, 1),
       border-color 150ms ease,
-      background-color 150ms ease !important;
+      box-shadow 150ms ease,
+      transform 150ms ease !important;
   }
 
   .source-capsule-hover:hover {
-    transform: translateY(-1px) scale(1.01);
-    box-shadow: var(--shadow-tight), var(--shadow-inset);
+    transform: translateY(-1px) !important;
+    box-shadow: var(--shadow-tight) !important;
   }
 
   .source-capsule-hover[aria-expanded="true"] {
     border-color: var(--clinical-accent);
-    box-shadow: var(--glow-soft), var(--shadow-inset);
+    box-shadow: var(--shadow-tight), var(--shadow-inset);
   }
 
   .source-capsule-hover[aria-expanded="true"]:hover {
-    transform: translateY(-1px) scale(1.01);
+    transform: translateY(-1px) !important;
     box-shadow: var(--shadow-tight), var(--shadow-inset);
   }
 
@@ -2061,6 +2084,8 @@ summary::-webkit-details-marker {
     --warning-soft: Canvas;
     --danger: Mark;
     --danger-soft: Canvas;
+    --danger-solid: Mark;
+    --danger-solid-contrast: Canvas;
     --tone-purple: CanvasText;
     --tone-indigo: CanvasText;
     --tone-rose: CanvasText;
