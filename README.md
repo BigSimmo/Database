@@ -183,8 +183,13 @@ npm run verify:release # check:runtime + lint + typecheck + test + build + test:
 ```
 
 CI runs `format:check` in the `verify` job alongside lint, typecheck,
-test:coverage, build, and edge-function typecheck. PRs also run the Chromium
-`ui-smoke` job in parallel.
+test:coverage, build, dependency audit, production-readiness CI mode, and
+edge-function typecheck. PRs also run Chromium `ui-smoke` and the repo-owned
+Supabase `db-reset-verify` job in parallel. The external `Supabase Preview`
+check, when enabled, is the branch-database migration replay gate. Docker image
+builds, full browser matrix, live drift, and live eval canary checks are
+path-filtered, scheduled, or manual rather than normal required checks for every
+source-only PR.
 
 ```bash
 npm run dev       # Next.js UI/API on this project's stable localhost port

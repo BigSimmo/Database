@@ -205,7 +205,7 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("broad_clinical_management_synthesis");
   });
 
-  it("uses the strong model for explicit multi-document comparisons", () => {
+  it("uses synthesis for explicit multi-document comparisons with strong support", () => {
     const selected = route("Compare the admission and discharge requirements", [
       source({ id: "chunk-1", document_id: "doc-1", title: "Admission" }),
       source({ id: "chunk-2", document_id: "doc-2", title: "Discharge" }),
@@ -214,6 +214,7 @@ describe("RAG answer routing", () => {
     ]);
 
     expect(selected.mode).toBe("strong");
+    expect(selected.model).toBe("strong-model");
     expect(selected.reason).toBe("multi_document_comparison_synthesis");
   });
 
@@ -228,13 +229,14 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("balanced_multi_document_synthesis");
   });
 
-  it("uses strong synthesis for simple two-document comparisons with strong support", () => {
+  it("uses synthesis for simple two-document comparisons with strong support", () => {
     const selected = route("Compare admission and discharge requirements", [
       source({ id: "chunk-1", document_id: "doc-1", title: "Admission" }),
       source({ id: "chunk-2", document_id: "doc-2", title: "Discharge" }),
     ]);
 
     expect(selected.mode).toBe("strong");
+    expect(selected.model).toBe("strong-model");
     expect(selected.reason).toBe("multi_document_comparison_synthesis");
   });
 

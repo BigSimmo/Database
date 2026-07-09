@@ -23,7 +23,8 @@ env:
 
 jobs:
   # Fast deterministic merge gate: static checks, unit tests, and build.
-  # Intended as a required status check on main together with ui-smoke.
+  # Intended as a required status check on main together with ui-smoke,
+  # Gitleaks, and one migration replay gate.
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -137,9 +138,10 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
 
-  # Database migration replay in parallel with verify and ui-smoke, so we verify
-  # that our schema and migration chain can rebuild cleanly from scratch on
-  # every PR.
+  # Database migration replay in parallel with verify and ui-smoke. This is the
+  # repo-owned replay gate; if the external Supabase Preview check is already
+  # required and reliable, keep this advisory or path-filtered rather than
+  # requiring both replay gates on every PR.
   db-reset-verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
