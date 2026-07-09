@@ -4539,7 +4539,10 @@ export function ClinicalDashboard({
             <section
               className={cn(
                 compactMobileModeHome
-                  ? "max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:justify-center"
+                  ? cn(
+                      "max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col",
+                      centeredModeHome && "max-sm:justify-center",
+                    )
                   : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                 centeredModeHome || (activeModeResultKind === "answer" && !answer && !loading)
                   ? // On tall phones the centred home leans slightly toward the
