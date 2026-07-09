@@ -1216,7 +1216,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");
     await expect(tableDialog).toBeHidden();
-    await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeFocused();
+    if (await tableExpandButton.isVisible().catch(() => false)) {
+      await expect(tableExpandButton).toBeFocused();
+    } else {
+      await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeFocused();
+    }
     if (await tableExpandButton.isVisible().catch(() => false)) {
       await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
       await tableExpandButton.evaluate((button: HTMLButtonElement) => {
