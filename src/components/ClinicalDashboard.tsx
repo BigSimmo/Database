@@ -38,8 +38,6 @@ import {
   primaryControl,
   textMuted,
   toneInfo,
-  toneSuccess,
-  toneWarning,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";

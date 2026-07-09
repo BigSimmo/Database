@@ -37,7 +37,6 @@ export function WebVitalsReporter() {
     if (!DEBUG_ENABLED) return;
     const rating = metric.rating ?? "";
     const color = RATING_COLOR[rating] ?? "#64748b";
-    // eslint-disable-next-line no-console
     console.log(
       `%c[web-vitals] ${metric.name} ${formatValue(metric.name, metric.value)} (${rating || "unrated"})`,
       `color:${color};font-weight:600`,
