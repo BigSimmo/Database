@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 
 // Matches phoneSearchLayoutMediaQuery in master-search-header.tsx — the repo's
 // phone/tablet seam. Hide-on-scroll only ever runs below the sm breakpoint.
@@ -50,12 +50,58 @@ function readPhoneMediaServer() {
   return false;
 }
 
+function usePhoneScrollHideActive(disabled = false) {
+  const isPhone = useSyncExternalStore(subscribeToPhoneMedia, readPhoneMedia, readPhoneMediaServer);
+  return isPhone && !disabled;
+}
+
+/**
+ * Imperative scroll-offset reporter for hosts that already own a React `onScroll`
+ * handler on the scrolling element (for example ClinicalDashboard `<main>`).
+ */
+export function useScrollHideReporter(disabled = false) {
+  const [hidden, setHidden] = useState(false);
+  const hiddenRef = useRef(false);
+  const lastOffsetRef = useRef(0);
+  const active = usePhoneScrollHideActive(disabled);
+
+  const reportScroll = useCallback(
+    (offset: number) => {
+      if (!active || offset < 0) return;
+      const lastOffset = lastOffsetRef.current;
+      const delta = offset - lastOffset;
+      if (Math.abs(delta) < minimumDelta && offset > topRevealOffset) return;
+      const update = computeScrollHideUpdate({
+        offset,
+        lastOffset,
+        currentlyHidden: hiddenRef.current,
+      });
+      lastOffsetRef.current = update.lastOffset;
+      hiddenRef.current = update.hidden;
+      setHidden(update.hidden);
+    },
+    [active],
+  );
+
+  useEffect(() => {
+    if (active) return undefined;
+    hiddenRef.current = false;
+    lastOffsetRef.current = 0;
+    const frame = window.requestAnimationFrame(() => setHidden(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [active]);
+
+  return { hidden: active && hidden, reportScroll };
+}
+
 interface UseHideOnScrollOptions {
   /**
    * Element that owns the scrolling. When omitted the window/document scroll
    * position is observed instead.
    */
   containerRef?: RefObject<HTMLElement | null>;
+  /** Resolved scroll container; preferred over containerRef when the host sets it via callback ref. */
+  scrollContainer?: HTMLElement | null;
   /** Disables the behavior entirely (state resets to visible). */
   disabled?: boolean;
 }
@@ -67,30 +113,32 @@ interface UseHideOnScrollOptions {
  * on any deliberate scroll up or when near the top. Inert (always visible)
  * above the phone breakpoint.
  */
-export function useHideOnScroll({ containerRef, disabled = false }: UseHideOnScrollOptions): boolean {
-  const [hidden, setHidden] = useState(false);
-  const isPhone = useSyncExternalStore(subscribeToPhoneMedia, readPhoneMedia, readPhoneMediaServer);
-  const active = isPhone && !disabled;
+export function useHideOnScroll({
+  containerRef,
+  scrollContainer = null,
+  disabled = false,
+}: UseHideOnScrollOptions): boolean {
+  const { hidden, reportScroll } = useScrollHideReporter(disabled);
+  const active = usePhoneScrollHideActive(disabled);
 
   useEffect(() => {
     if (!active) return;
 
-    const container = containerRef?.current ?? null;
-    const target: HTMLElement | Window = container ?? window;
-    const readOffset = () => (container ? container.scrollTop : window.scrollY);
-
-    let lastOffset = readOffset();
     let frame = 0;
+    let attachedTarget: HTMLElement | Window | null = null;
+    let attachFrame = 0;
+    let disposed = false;
+
+    const resolveContainer = () => scrollContainer ?? containerRef?.current ?? null;
+
+    const readOffset = () => {
+      const container = resolveContainer();
+      return container ? container.scrollTop : window.scrollY;
+    };
 
     const evaluate = () => {
       frame = 0;
-      const offset = readOffset();
-      if (offset < 0) return;
-      const delta = offset - lastOffset;
-      if (Math.abs(delta) < minimumDelta && offset > topRevealOffset) return;
-      const update = computeScrollHideUpdate({ offset, lastOffset, currentlyHidden: false });
-      lastOffset = update.lastOffset;
-      setHidden(update.hidden);
+      reportScroll(readOffset());
     };
 
     const onScroll = () => {
@@ -98,14 +146,39 @@ export function useHideOnScroll({ containerRef, disabled = false }: UseHideOnScr
       frame = window.requestAnimationFrame(evaluate);
     };
 
-    target.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      target.removeEventListener("scroll", onScroll);
-      if (frame) window.cancelAnimationFrame(frame);
-      // Leaving the phone breakpoint (or unmounting) always restores the chrome.
-      setHidden(false);
-    };
-  }, [active, containerRef]);
+    const attach = () => {
+      const container = resolveContainer();
+      if (containerRef && !container) return false;
 
-  return active && hidden;
+      const target: HTMLElement | Window = container ?? window;
+      if (target === attachedTarget) return true;
+
+      attachedTarget?.removeEventListener("scroll", onScroll);
+      attachedTarget = target;
+      target.addEventListener("scroll", onScroll, { passive: true });
+      reportScroll(readOffset());
+      return true;
+    };
+
+    const waitForContainer = () => {
+      if (disposed) return;
+      if (attach()) return;
+      attachFrame = window.requestAnimationFrame(waitForContainer);
+    };
+
+    if (containerRef) {
+      waitForContainer();
+    } else {
+      attach();
+    }
+
+    return () => {
+      disposed = true;
+      attachedTarget?.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+      if (attachFrame) window.cancelAnimationFrame(attachFrame);
+    };
+  }, [active, containerRef, scrollContainer, reportScroll]);
+
+  return hidden;
 }

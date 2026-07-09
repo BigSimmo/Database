@@ -23,7 +23,7 @@ import {
   WifiOff,
   Wrench,
 } from "lucide-react";
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
@@ -77,6 +77,7 @@ import {
 import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { answerRecovery, errorCopy } from "@/lib/ui-copy";
 import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
@@ -669,6 +670,7 @@ export function ClinicalDashboard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const mainRef = useRef<HTMLElement>(null);
+  const phoneScrollHide = useScrollHideReporter();
   const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
@@ -2653,6 +2655,11 @@ export function ClinicalDashboard({
     });
   }
 
+  function handleMainScroll(event: UIEvent<HTMLElement>) {
+    scheduleActiveSectionSync();
+    phoneScrollHide.reportScroll(event.currentTarget.scrollTop);
+  }
+
   async function copyText(action: string, text: string) {
     let copied = false;
     try {
@@ -3115,7 +3122,7 @@ export function ClinicalDashboard({
           heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
           // Phone-only: the header sits above the internally scrolling <main>,
           // so hiding must collapse its layout space to hand it to content.
-          hideOnScroll={{ strategy: "collapse", containerRef: mainRef }}
+          hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden, containerRef: mainRef }}
           onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
         />
 
@@ -3123,7 +3130,7 @@ export function ClinicalDashboard({
           id="main-content"
           ref={mainRef}
           tabIndex={-1}
-          onScroll={scheduleActiveSectionSync}
+          onScroll={handleMainScroll}
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none",
             searchMode === "answer"
