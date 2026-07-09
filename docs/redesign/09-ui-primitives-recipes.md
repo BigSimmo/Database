@@ -43,20 +43,20 @@ Values are tokens; the target sizes follow the `-11`/`-12` spacing scale (L6).
 
 ### Interactive controls (tap targets)
 
-| Recipe                   | Purpose                               | Tap                 | Hover             | Active | Focus-visible             | Disabled |
-| ------------------------ | ------------------------------------- | ------------------- | ----------------- | ------ | ------------------------- | -------- |
-| `controlBase`            | Base for buttons (composed by others) | `min-h-11`          | — (subclass adds) | ✅     | ✅                        | ✅       |
-| `primaryControl`         | Primary command button                | ✅                  | ✅                | ✅     | ✅                        | ✅       |
-| `floatingControl`        | Secondary / floating button           | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
-| `toolbarButton`          | Square icon button                    | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
-| `navPill`                | Nav / segmented pill                  | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
-| `chatMicroAction`        | Small chat action (copy, retry…)      | `min-h-11 min-w-11` | ✅                | ❌     | ✅                        | ✅       |
+| Recipe                   | Purpose                               | Tap                                      | Hover             | Active | Focus-visible             | Disabled |
+| ------------------------ | ------------------------------------- | ---------------------------------------- | ----------------- | ------ | ------------------------- | -------- |
+| `controlBase`            | Base for buttons (composed by others) | `min-h-11`                               | — (subclass adds) | ✅     | ✅                        | ✅       |
+| `primaryControl`         | Primary command button                | ✅                                       | ✅                | ✅     | ✅                        | ✅       |
+| `floatingControl`        | Secondary / floating button           | `min-h-11`                               | ✅                | ❌     | ✅                        | ✅       |
+| `toolbarButton`          | Square icon button                    | `h-11 w-11`                              | ✅                | ❌     | ✅                        | ✅       |
+| `navPill`                | Nav / segmented pill                  | `min-h-11`                               | ✅                | ❌     | ✅                        | ✅       |
+| `chatMicroAction`        | Small chat action (copy, retry…)      | `min-h-11 min-w-11`                      | ✅                | ❌     | ✅                        | ✅       |
 | `sourceCapsule`          | Inline citation capsule               | `min-h-11` mobile / `sm:min-h-8` desktop | ✅                | ❌     | ✅ (`focus-ring-premium`) | ❌       |
-| `chatComposerIconButton` | Composer icon button                  | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
-| `chatSendButton`         | Composer send (accent)                | `h-11 w-11`         | ✅                | ❌     | ✅                        | ✅       |
-| `sidebarItem`            | Sidebar nav row                       | `min-h-11`          | ✅                | ❌     | ✅                        | ✅       |
-| `sidebarToolTile`        | Sidebar tool tile                     | `min-h-[64px]`      | ✅                | ❌     | ✅                        | ❌       |
-| `shellChip`              | Filter / mode chip                    | `min-h-11`          | ✅                | ❌     | ❌                        | ❌       |
+| `chatComposerIconButton` | Composer icon button                  | `h-11 w-11`                              | ✅                | ❌     | ✅                        | ✅       |
+| `chatSendButton`         | Composer send (accent)                | `h-11 w-11`                              | ✅                | ❌     | ✅                        | ✅       |
+| `sidebarItem`            | Sidebar nav row                       | `min-h-11`                               | ✅                | ❌     | ✅                        | ✅       |
+| `sidebarToolTile`        | Sidebar tool tile                     | `min-h-[64px]`                           | ✅                | ❌     | ✅                        | ❌       |
+| `shellChip`              | Filter / mode chip                    | `min-h-11`                               | ✅                | ❌     | ❌                        | ❌       |
 
 ### Form fields
 

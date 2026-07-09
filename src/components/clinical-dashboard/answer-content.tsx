@@ -632,47 +632,48 @@ export function NaturalLanguageAnswer({
           </span>
         </p>
         <div className="space-y-1">
-        {sourceOnly ? (
-          <section
-            data-testid="source-only-disclosure"
-            role="note"
-            className={cn(
-              "w-fit max-w-full overflow-hidden rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 text-xs",
-              textMuted,
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-              className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
-              aria-expanded={sourceOnlyNoticeOpen}
-              aria-controls="source-only-disclosure-detail"
+          {sourceOnly ? (
+            <section
+              data-testid="source-only-disclosure"
+              role="note"
+              className={cn(
+                "w-fit max-w-full overflow-hidden rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 text-xs",
+                textMuted,
+              )}
             >
-              <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
-              <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
-              <span className="shrink-0 text-2xs text-[color:var(--text-muted)]">· verify passages</span>
-              <ChevronDown
-                className={cn(
-                  "ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition-transform",
-                  sourceOnlyNoticeOpen && "rotate-180",
-                )}
-                aria-hidden
-              />
-            </button>
-            {sourceOnlyNoticeOpen ? (
-              <div
-                id="source-only-disclosure-detail"
-                className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-2xs leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+              <button
+                type="button"
+                onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
+                className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+                aria-expanded={sourceOnlyNoticeOpen}
+                aria-controls="source-only-disclosure-detail"
               >
-                <p>
-                  This answer was assembled from your documents without the AI model, so it may be less complete. Verify
-                  dose, threshold, route, timing, monitoring, and risk details against the cited passages below.
-                </p>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
-        {sourceCapsuleButton}
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
+                <span className="shrink-0 text-2xs text-[color:var(--text-muted)]">· verify passages</span>
+                <ChevronDown
+                  className={cn(
+                    "ml-auto h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition-transform",
+                    sourceOnlyNoticeOpen && "rotate-180",
+                  )}
+                  aria-hidden
+                />
+              </button>
+              {sourceOnlyNoticeOpen ? (
+                <div
+                  id="source-only-disclosure-detail"
+                  className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-2xs leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+                >
+                  <p>
+                    This answer was assembled from your documents without the AI model, so it may be less complete.
+                    Verify dose, threshold, route, timing, monitoring, and risk details against the cited passages
+                    below.
+                  </p>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+          {sourceCapsuleButton}
         </div>
         {canOpenSourcePreview && !usePreviewSheet ? (
           <SourcePreviewPopover
