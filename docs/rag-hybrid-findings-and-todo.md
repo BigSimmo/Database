@@ -257,15 +257,18 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     vocabulary table, never the raw query, so RET-H4 holds). Remaining: terms OUTSIDE the
     curated vocabulary still cannot be captured without a privacy review; promotion tooling
     from `candidate_aliases` → `rag_aliases` is still manual.
-18. ⏳ **`document_index_units` vector recall** — no HNSW index (dropped 2026-07-02) and hosted
-    Supabase denies `ALTER FUNCTION … SET hnsw.ef_search` for the `language sql` hybrid RPCs, so
-    only `match_document_memory_cards_hybrid` pins `ef_search=100`. Concrete measurement plan
-    (needs live keys, ~1 hour): run `eval:retrieval:quality` twice with `--force-embedding`
-    (bypasses lexical fast paths, exercising vectors directly) — once as-is and once after
-    `create index concurrently` on `document_index_units.embedding` in a Supabase branch — and
-    compare doc-recall@5 + p90 latency. If recall gain < 1 case, close as not-worth-4.4GB. The
-    ef_search half can be retested via the plpgsql-wrapper trick that memory_cards already uses
-    (wrap the `language sql` RPC in a plpgsql shim that SETs it).
+18. ✅ **`document_index_units` vector recall / HNSW measurement — CLOSED as not worth adding
+    (2026-07-09).** Measured with live keys under the explicit eval budget. Production baseline
+    `eval:retrieval:quality -- --force-embedding` produced `document_recall_at_5=0.9306`,
+    `content_recall_at_5=1`, `top_k_hit_rate=0.9444`, `force_embedding_failure_count=0`,
+    `p90_latency_ms=23293`, and `index_units_layer_count=0`. A data-cloned Supabase preview branch
+    (`rag-index-units-hnsw-20260709`) was created, branch-only HNSW index
+    `document_index_units_embedding_hnsw_idx` was applied and confirmed, then the same eval was run
+    against the branch. Candidate result: recall unchanged, failed cases unchanged, `index_units` still
+    unused, median latency worsened by `+3698ms`, p90 worsened by `+13963ms`. The preview branch was
+    deleted. **Do not add this HNSW index to production.** Revisit only if the retrieval path is changed
+    to actually use `document_index_units.embedding` and a new eval shows at least one recall win without
+    material p90 regression.
 19. ✅ **Demo fallback can mask live retrieval failures in non-prod — DONE (2026-07-06).**
     `nonProductionSupabaseDemoFallbackReason` (the shared choke point for /api/search,
     /api/answer, and /api/answer/stream) now emits a loud `console.warn` naming the env vars to
@@ -300,21 +303,25 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     answer-confidence label — "high" requires a genuine-cosine citation; synthetic-origin
     evidence caps at "medium" (strictly tightening, ordering/routing untouched, unit-tested in
     tests/rag-score.test.ts).
-22. ⏳ **Registry-to-corpus embedding (universal search Phase 5).** Medications/services/forms/
-    differentials are federated into `/api/search/universal` but are not retrieval-corpus
-    entities, so Answer mode cannot cite them. Concrete implementation spec (in order):
-    1. Flag `RAG_REGISTRY_CORPUS_EMBEDDING` (default off) in `src/lib/env.ts`.
-    2. Ingestion script `scripts/embed-registry-records.ts`: map each registry record to a
-       synthetic "document" (`metadata.source_kind = 'registry_record'`, title = record title,
-       one chunk per record from the record's search text, embedded with the standard
-       `text-embedding-3-small` path) so the existing chunk pipeline/RPCs need no schema change.
-    3. Re-embed on registry edit: hook `ensureRegistrySeeded` / record-update routes to enqueue
-       re-embedding for the changed slug only.
-    4. Answer-surface labelling: `sourceGovernanceWarnings` must label registry-backed
-       citations distinctly (registry records are curated summaries, not source documents).
-    5. Gates before enabling anywhere real: `eval:retrieval:quality` 23/23 with the flag ON,
-       plus invented-term controls ("florbizone syndrome management") still refusing — registry
-       rows must not become a fabrication surface for unsupported topics.
+22. 🔶 **Registry-to-corpus embedding (universal search Phase 5) — implementation restored and live
+    owner embedded (2026-07-09).** Medications/services/forms/differentials are federated into
+    `/api/search/universal` but were not retrieval-corpus entities, so Answer mode could not cite them.
+    Implemented pieces: `RAG_REGISTRY_CORPUS_EMBEDDING` default-off flag,
+    `scripts/embed-registry-records.ts` dry-run/write/list-owner tool, synthetic document/chunk mapping
+    with `metadata.source_kind = 'registry_record'`, source-governance labelling, comparator tooling,
+    and registry corpus tests. The sentinel-owner dry-run
+    (`00000000-0000-0000-0000-000000000000`) correctly found zero rows. `--list-owners` found the real
+    registry owner `4f1b3c19-3c39-4597-b9df-168c8e6007ff` with 739 eligible rows; guarded write with
+    `RAG_REGISTRY_CORPUS_EMBEDDING=true --write --confirm` upserted 739 synthetic registry corpus
+    chunks. Post-write retrieval eval passed with `document_recall_at_5=1`, `content_recall_at_5=1`,
+    `top_k_hit_rate=1`, `force_embedding_failure_count=0`, `failed_cases=[]`. Post-write
+    `eval:quality -- --rag-only` completed under budget; invented-term controls still refused and
+    numeric grounding failure rate was `0`. Remaining blockers are not registry regressions:
+    citation failure rate `0.0227` and RAG latency thresholds (`p95=44847ms`; route p95 extractive
+    `46745ms`, fast `27131ms`, strong `63613ms`). Remaining implementation before treating this as
+    fully productized: re-embed-on-edit hooks for registry updates and a dedicated answer-mode UX check
+    that registry-backed citations are labelled as curated registry records rather than primary source
+    documents.
 23. ⏳ **Finding #11 full fix (RAG optimisation Phase 2)** — the classifier-verdict memo (shipped
     2026-07-06) makes zero-result behaviour deterministic per query but does not close the gap:
     the deterministic analyzer still cannot tell in-corpus topics from out-of-corpus ones.

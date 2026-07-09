@@ -149,13 +149,13 @@ describe("clinical search query normalization", () => {
 
   it("expands community patients to the local Pts abbreviation for title matching", () => {
     expect(buildClinicalTextSearchQuery("What is the process for admission of community patients?")).toBe(
-      "admission community pts",
+      "admission community patients pts",
     );
   });
 
   it("expands admission and discharge comparisons toward local community patient titles", () => {
     expect(buildClinicalTextSearchQuery("Compare admission and discharge requirements")).toBe(
-      "admission discharge community pts",
+      "admission discharge community patients pts",
     );
   });
 

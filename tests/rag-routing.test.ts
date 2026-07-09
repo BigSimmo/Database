@@ -60,6 +60,23 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("clinical_fast_grounded_synthesis");
   });
 
+  it("uses extractive retrieval for direct medication monitoring lookups with title support", () => {
+    const selected = route("What safety monitoring is required for clozapine?", [
+      source({
+        title: "Clozapine Prescribing, Administration and Monitoring",
+        file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+        content: "Clozapine prescribing, administration, and monitoring requirements.",
+        similarity: 0.92,
+        hybrid_score: 0.94,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.model).toBeNull();
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
   it("uses the strong model for medication or risk-heavy decision questions", () => {
     const selected = route("What ANC threshold should stop clozapine?", [source()]);
 
@@ -129,12 +146,45 @@ describe("RAG answer routing", () => {
     expect(selected.model).toBeNull();
   });
 
-  it("uses strong synthesis for safety-critical threshold lookups with strong source support", () => {
+  it("skips generation when document lookup title support is only incidental", () => {
+    const selected = route("What does the clozapine gardening equipment checklist require?", [
+      source({
+        title: "Clozapine Prescribing, Administration and Monitoring",
+        file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+        content: "Clozapine prescribing and blood monitoring guidance.",
+        similarity: 0.86,
+        hybrid_score: 0.88,
+        text_rank: 0.01,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("document_lookup_without_title_support");
+    expect(selected.model).toBeNull();
+  });
+
+  it("uses extractive retrieval for safety-critical threshold lookups with strong title support", () => {
     const selected = route("What ANC threshold should stop clozapine?", [
       source({
         title: "Clozapine Prescribing and Monitoring",
         file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+        content: "ANC threshold table: withhold clozapine and repeat FBC when the result is below threshold.",
         text_rank: 0.08,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.model).toBeNull();
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it("uses the strong model for clozapine blood threshold queries without explicit action evidence", () => {
+    const selected = route("What FBC threshold should withhold clozapine?", [
+      source({
+        title: "Clozapine Prescribing and Monitoring",
+        file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+        content: "FBC monitoring is weekly for the first 18 weeks and then every 4 weeks if blood results are in range.",
+        text_rank: 0.14,
       }),
     ]);
 
@@ -162,7 +212,7 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("explicit_table_or_source_lookup");
   });
 
-  it("keeps medication action questions on model synthesis even when table evidence exists", () => {
+  it("uses extractive retrieval for listed medication route questions with table evidence", () => {
     const selected = route("What IM or PO options are listed for agitation?", [
       source({
         title: "Agitation and Arousal Pharmacological Management",
@@ -176,9 +226,9 @@ describe("RAG answer routing", () => {
       }),
     ]);
 
-    expect(selected.mode).toBe("fast");
-    expect(selected.model).toBe("fast-model");
-    expect(selected.reason).toBe("clinical_fast_grounded_synthesis");
+    expect(selected.mode).toBe("extractive");
+    expect(selected.model).toBeNull();
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
   });
 
   it("keeps broad summaries on the fast synthesis path", () => {
@@ -205,7 +255,7 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("broad_clinical_management_synthesis");
   });
 
-  it("uses the strong model for explicit multi-document comparisons", () => {
+  it("uses extractive retrieval for explicit multi-document comparisons with strong support", () => {
     const selected = route("Compare the admission and discharge requirements", [
       source({ id: "chunk-1", document_id: "doc-1", title: "Admission" }),
       source({ id: "chunk-2", document_id: "doc-2", title: "Discharge" }),
@@ -213,8 +263,8 @@ describe("RAG answer routing", () => {
       source({ id: "chunk-4", document_id: "doc-4", title: "Review" }),
     ]);
 
-    expect(selected.mode).toBe("strong");
-    expect(selected.reason).toBe("multi_document_comparison_synthesis");
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
   });
 
   it("uses the fast model for routine balanced multi-document synthesis", () => {
@@ -228,14 +278,14 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("balanced_multi_document_synthesis");
   });
 
-  it("uses strong synthesis for simple two-document comparisons with strong support", () => {
+  it("uses extractive retrieval for simple two-document comparisons with strong support", () => {
     const selected = route("Compare admission and discharge requirements", [
       source({ id: "chunk-1", document_id: "doc-1", title: "Admission" }),
       source({ id: "chunk-2", document_id: "doc-2", title: "Discharge" }),
     ]);
 
-    expect(selected.mode).toBe("strong");
-    expect(selected.reason).toBe("multi_document_comparison_synthesis");
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
   });
 
   it("skips generation when retrieval has no plausible support", () => {
