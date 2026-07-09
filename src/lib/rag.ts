@@ -321,6 +321,7 @@ const answerJsonOutputSchema = {
   required: ["answer", "grounded", "confidence", "answerSections", "citations", "quoteCards", "conflictsOrGaps"],
 };
 
+/** Answer json output schema for results. */
 export function answerJsonOutputSchemaForResults(results: SearchResult[]) {
   const chunkIds = Array.from(new Set(results.map((result) => result.id).filter(Boolean)));
   if (chunkIds.length === 0) return answerJsonOutputSchema;
@@ -353,6 +354,7 @@ const confidenceOrder = {
 export const machineReadableFallbackAnswer =
   "The indexed sources were not machine-readable enough to produce a formatted answer.";
 
+/** Throw if aborted. */
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
     throw signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
@@ -481,6 +483,7 @@ export type SearchTelemetry = {
     | "unsupported_short_circuit";
 };
 
+/** Retrieval plan for query class. */
 export function retrievalPlanForQueryClass(queryClass?: RagQueryClass) {
   switch (queryClass) {
     case "document_lookup":
@@ -516,6 +519,7 @@ const tableVisualEvidenceUnitTypes = new Set([
   "risk_matrix_cell",
 ]);
 
+/** Provenance layer keys. */
 function provenanceLayerKeys(result: SearchResult) {
   const layers = new Set<string>(["chunk"]);
   if (result.memory_cards?.length) layers.add("memory_card");
@@ -531,10 +535,12 @@ function provenanceLayerKeys(result: SearchResult) {
   return layers;
 }
 
+/** Layer top score. */
 function layerTopScore(results: SearchResult[]) {
   return Number(Math.max(0, ...results.map((result) => result.hybrid_score ?? result.similarity ?? 0)).toFixed(4));
 }
 
+/** Record retrieval layer. */
 function recordRetrievalLayer(
   telemetry: SearchTelemetry,
   layer: string,
@@ -565,6 +571,7 @@ function recordRetrievalLayer(
 // where telemetry is in scope, record the failing RPC + code so it shows up in rag_retrieval_logs.
 type SupabaseRpcError = { message?: string; code?: string; details?: string; hint?: string } | null;
 
+/** Record hybrid rpc error. */
 function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc: string, error: SupabaseRpcError) {
   if (!error) return;
   const code = error.code ?? "unknown";
@@ -577,6 +584,7 @@ function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc: strin
   }
 }
 
+/** Record search score telemetry. */
 function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
   if (!results.length) {
     telemetry.top_score = 0;
@@ -645,6 +653,7 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
   }, 0);
 }
 
+/** Should use second stage rerank. */
 function shouldUseSecondStageRerank(queryClass: RagQueryClass | undefined, results: SearchResult[], topK: number) {
   if (results.length <= 1) return false;
   const topScore = Math.max(0, results[0]?.hybrid_score ?? results[0]?.similarity ?? 0);
@@ -661,6 +670,7 @@ function shouldUseSecondStageRerank(queryClass: RagQueryClass | undefined, resul
   return topScoresClose && hasVisualEvidence;
 }
 
+/** Second stage score. */
 function secondStageScore(result: SearchResult, queryClass: RagQueryClass | undefined, index: number) {
   let score = result.score_explanation?.finalScore ?? result.hybrid_score ?? result.similarity ?? 0;
   const unitType = result.index_unit?.unit_type ?? "";
@@ -700,6 +710,7 @@ function secondStageScore(result: SearchResult, queryClass: RagQueryClass | unde
   return score;
 }
 
+/** Apply second stage rerank if needed. */
 function applySecondStageRerankIfNeeded(args: {
   queryClass?: RagQueryClass;
   results: SearchResult[];
@@ -812,6 +823,7 @@ const answerJsonSchema = z.object({
 // hybrid score via scoreValue, not a pure cosine — a stricter pure-`similarity` gate would change
 // behaviour and needs eval validation.) Ordering, routing, and coverage gates are untouched — this
 // only stops the fabricated scale from masquerading as strong semantic evidence in the label.
+/** Derive confidence. */
 export function deriveConfidence(
   results: SearchResult[],
   acceptedCitations: Array<Pick<Citation, "chunk_id">>,
@@ -829,6 +841,7 @@ export function deriveConfidence(
   return "low";
 }
 
+/** Score value. */
 export function scoreValue(result: SearchResult) {
   const similarity = result.similarity ?? 0;
   const hybrid = result.hybrid_score ?? similarity;
@@ -836,6 +849,7 @@ export function scoreValue(result: SearchResult) {
   return Math.min(1, hybrid);
 }
 
+/** Build retrieval diagnostics. */
 function buildRetrievalDiagnostics(args: {
   queryClass: RagQueryClass;
   query: string;
@@ -882,6 +896,7 @@ function buildRetrievalDiagnostics(args: {
   } satisfies RetrievalDiagnostics;
 }
 
+/** Apply confidence gate. */
 function applyConfidenceGate(
   route: {
     mode: "unsupported" | "extractive" | "fast" | "strong";
@@ -908,6 +923,7 @@ function applyConfidenceGate(
   };
 }
 
+/** Clamp confidence. */
 function clampConfidence(
   proposed: RagAnswer["confidence"] | undefined,
   derived: RagAnswer["confidence"],
@@ -924,6 +940,7 @@ type SanitizedCitations = {
   invalidCount: number;
 };
 
+/** Sanitize citations. */
 function sanitizeCitations(
   proposed: Array<{ chunk_id: string }> | undefined,
   results: SearchResult[],
@@ -950,6 +967,7 @@ function sanitizeCitations(
   return { citations: [], modelCited: false, proposedCount, invalidCount };
 }
 
+/** Infer answer section kind. */
 function inferAnswerSectionKind(
   proposed: AnswerSectionKind | undefined,
   heading: string,
@@ -971,6 +989,7 @@ function inferAnswerSectionKind(
   return "bottom_line";
 }
 
+/** Normalize answer section support level. */
 function normalizeAnswerSectionSupportLevel(
   proposed: AnswerSectionSupportLevel | undefined,
   sources: SearchResult[],
@@ -984,6 +1003,7 @@ function normalizeAnswerSectionSupportLevel(
   return sources.length ? "direct" : "unsupported";
 }
 
+/** Remove incomplete trailing sentence. */
 function removeIncompleteTrailingSentence(value: string) {
   const text = value.trim();
   if (!text || /[.!?]["')\]]*$/.test(text)) return text;
@@ -996,6 +1016,7 @@ function removeIncompleteTrailingSentence(value: string) {
   return complete.length >= 32 ? complete : text;
 }
 
+/** Sanitize answer section heading text. */
 function sanitizeAnswerSectionHeadingText(heading: string, body: string) {
   const structuredHeading = sanitizeStructuredText(heading, { minLength: 1, minTokens: 1 });
   const polishedHeading = structuredHeading ? sanitizeAnswerText(structuredHeading) || structuredHeading : "";
@@ -1008,6 +1029,7 @@ function sanitizeAnswerSectionHeadingText(heading: string, body: string) {
   return cleanAnswerSectionHeading(usableHeading, body);
 }
 
+/** Sanitize answer sections. */
 function sanitizeAnswerSections(
   sections: AnswerSection[] | undefined,
   results: SearchResult[],
@@ -1046,6 +1068,7 @@ function sanitizeAnswerSections(
       return true;
     });
 }
+/** Normalize search results. */
 function normalizeSearchResults(results: SearchResult[]) {
   return results.map((result) => ({
     ...result,
@@ -1053,6 +1076,7 @@ function normalizeSearchResults(results: SearchResult[]) {
   }));
 }
 
+/** Safe fallback answer. */
 function safeFallbackAnswer(raw: string, results: SearchResult[], query?: string): RagAnswer {
   // B5: on model-JSON parse failure we cannot trust any model-asserted citation
   // mapping. Do NOT back-fill all retrieved chunks as citations and stamp the
@@ -1075,6 +1099,7 @@ function safeFallbackAnswer(raw: string, results: SearchResult[], query?: string
   return applyNumericVerification(answer);
 }
 
+/** Add OpenAI usage. */
 function addOpenAIUsage(total: OpenAITokenUsage, usage?: OpenAITokenUsage) {
   if (!usage) return total;
   return {
@@ -1086,10 +1111,12 @@ function addOpenAIUsage(total: OpenAITokenUsage, usage?: OpenAITokenUsage) {
   };
 }
 
+/** Has OpenAI usage. */
 function hasOpenAIUsage(usage: OpenAITokenUsage) {
   return Object.values(usage).some((value) => typeof value === "number" && value > 0);
 }
 
+/** Fallback reason from routing. */
 export function fallbackReasonFromRouting(reason?: string | null) {
   if (!reason) return null;
   return (
@@ -1160,6 +1187,7 @@ const queryClassifierParseSchema = z.object({
   expandedTerms: z.array(z.string()).max(10),
 });
 
+/** Unique text values. */
 function uniqueTextValues(values: Array<string | null | undefined>, limit = 32) {
   const seen = new Set<string>();
   const output: string[] = [];
@@ -1190,6 +1218,7 @@ const classifierVerdictMemoMaxEntries = 500;
 const classifierVerdictMemo = new Map<string, { expiresAt: number; verdict: ClassifierVerdict }>();
 const classifierVerdictInflight = new Map<string, Promise<ClassifierVerdict>>();
 
+/** Classifier verdict memo key. */
 function classifierVerdictMemoKey(query: string, analysis: ClinicalQueryAnalysis) {
   const normalizedQuery = query.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
   // The deterministic class + confidence bucket are part of the key so a deterministic-analyzer
@@ -1197,6 +1226,7 @@ function classifierVerdictMemoKey(query: string, analysis: ClinicalQueryAnalysis
   return `${normalizedQuery}::${analysis.queryClass}::${analysis.confidence.toFixed(2)}`;
 }
 
+/** Store classifier verdict memo. */
 function storeClassifierVerdictMemo(key: string, verdict: ClassifierVerdict) {
   if (classifierVerdictMemo.size >= classifierVerdictMemoMaxEntries) {
     const oldestKey = classifierVerdictMemo.keys().next().value;
@@ -1205,11 +1235,13 @@ function storeClassifierVerdictMemo(key: string, verdict: ClassifierVerdict) {
   classifierVerdictMemo.set(key, { expiresAt: Date.now() + classifierVerdictMemoTtlMs, verdict });
 }
 
+/** Reset classifier verdict memo for tests. */
 export function resetClassifierVerdictMemoForTests() {
   classifierVerdictMemo.clear();
   classifierVerdictInflight.clear();
 }
 
+/** Request classifier verdict. */
 async function requestClassifierVerdict(query: string, analysis: ClinicalQueryAnalysis): Promise<ClassifierVerdict> {
   const result = await generateStructuredTextResult(
     [
@@ -1245,6 +1277,7 @@ async function requestClassifierVerdict(query: string, analysis: ClinicalQueryAn
   return queryClassifierParseSchema.parse(JSON.parse(result.text));
 }
 
+/** Apply classifier verdict. */
 function applyClassifierVerdict(analysis: ClinicalQueryAnalysis, parsed: ClassifierVerdict): ClinicalQueryAnalysis {
   if (parsed.confidence < 0.58 || parsed.queryClass === "unsupported_or_general") return analysis;
   return {
@@ -1271,6 +1304,7 @@ function applyClassifierVerdict(analysis: ClinicalQueryAnalysis, parsed: Classif
   } satisfies ClinicalQueryAnalysis;
 }
 
+/** Analyze query with classifier fallback. */
 export async function analyzeQueryWithClassifierFallback(
   query: string,
   analysis: ClinicalQueryAnalysis,
@@ -1362,6 +1396,7 @@ export async function analyzeQueryWithClassifierFallback(
 
 // Shared eligibility gate for the unsupported soft tail: a low-signal unsupported_or_general
 // analysis with no title/medication/threshold intent and no non-default reasons.
+/** Unsupported soft tail eligible. */
 function unsupportedSoftTailEligible(analysis: ClinicalQueryAnalysis) {
   if (analysis.queryClass !== "unsupported_or_general") return false;
   if (analysis.documentTitleIntent || analysis.medications.length || analysis.thresholdTerms.length) return false;
@@ -1369,6 +1404,7 @@ function unsupportedSoftTailEligible(analysis: ClinicalQueryAnalysis) {
   return true;
 }
 
+/** Should short circuit unsupported search. */
 export function shouldShortCircuitUnsupportedSearch(query: string, analysis: ClinicalQueryAnalysis) {
   if (unavailableDocumentNoisePattern.test(query)) return true;
   if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return true;
@@ -1381,6 +1417,7 @@ export function shouldShortCircuitUnsupportedSearch(query: string, analysis: Cli
 // pattern guards (out-of-corpus medical list, consumer-noise, unavailable-document noise).
 // Corpus grounding is scoped to exactly this branch: the pattern-guarded refusals and every
 // higher-confidence class keep their existing behaviour untouched.
+/** Is unsupported soft tail analysis. */
 function isUnsupportedSoftTailAnalysis(query: string, analysis: ClinicalQueryAnalysis) {
   if (unavailableDocumentNoisePattern.test(query)) return false;
   if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return false;
@@ -1389,6 +1426,7 @@ function isUnsupportedSoftTailAnalysis(query: string, analysis: ClinicalQueryAna
   return analysis.confidence <= 0.42 && analysis.expandedTerms.length <= 5;
 }
 
+/** Metadata expansion term score. */
 function metadataExpansionTermScore(queryTokens: Set<string>, value: string, sourceWeight: number) {
   const tokens = normalizedClinicalSearchTokens(value);
   if (tokens.length === 0) return 0;
@@ -1397,6 +1435,7 @@ function metadataExpansionTermScore(queryTokens: Set<string>, value: string, sou
   return sourceWeight + overlap * 0.6 + compactness;
 }
 
+/** Candidate metadata expansion terms. */
 function candidateMetadataExpansionTerms(query: string, candidates: SearchResult[], limit = 12) {
   const queryTokens = new Set(normalizedClinicalSearchTokens(query));
   const scoredTerms: Array<{ value: string; score: number }> = [];
@@ -1439,6 +1478,7 @@ function candidateMetadataExpansionTerms(query: string, candidates: SearchResult
   );
 }
 
+/** Expand clinical query with candidate metadata. */
 function expandClinicalQueryWithCandidateMetadata(query: string, expandedQuery: string, candidates: SearchResult[]) {
   const metadataTerms = candidateMetadataExpansionTerms(query, candidates);
   if (metadataTerms.length === 0) return expandedQuery;
@@ -1449,6 +1489,7 @@ type RagQueryInsert = Omit<Database["public"]["Tables"]["rag_queries"]["Insert"]
   metadata?: Record<string, unknown>;
 };
 
+/** Insert rag query. */
 async function insertRagQuery(row: RagQueryInsert) {
   const supabase = createAdminClient();
   // Redact potential-PHI raw query text centrally so every logRagQuery caller is
@@ -1462,6 +1503,7 @@ async function insertRagQuery(row: RagQueryInsert) {
   await supabase.from("rag_queries").insert(safeRow);
 }
 
+/** Log rag query. */
 async function logRagQuery(row: RagQueryInsert) {
   if (env.RAG_AWAIT_QUERY_LOGS) {
     await insertRagQuery(row);
@@ -1471,6 +1513,7 @@ async function logRagQuery(row: RagQueryInsert) {
   void insertRagQuery(row).catch(() => undefined);
 }
 
+/** Merge search results. */
 function mergeSearchResults(primary: SearchResult[], secondary: SearchResult[]) {
   const merged = new Map<string, SearchResult>();
 
@@ -1489,6 +1532,7 @@ function mergeSearchResults(primary: SearchResult[], secondary: SearchResult[]) 
   return Array.from(merged.values());
 }
 
+/** Search text chunk candidates. */
 async function searchTextChunkCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   queryVariants: string[];
@@ -1648,6 +1692,7 @@ type TableFactRpcRow = {
   metadata?: Record<string, unknown> | null;
 };
 
+/** Document lookup chunk terms. */
 function documentLookupChunkTerms(query: string) {
   const shortClinicalTerms = new Set(["ed", "im", "po", "pt"]);
   return normalizedClinicalSearchTokens(query)
@@ -1655,6 +1700,7 @@ function documentLookupChunkTerms(query: string) {
     .slice(0, 8);
 }
 
+/** Document lookup chunk score. */
 function documentLookupChunkScore(chunk: DocumentLookupChunkRow, terms: string[]) {
   if (terms.length === 0) return 0;
   const heading = chunk.section_heading?.toLowerCase() ?? "";
@@ -1665,6 +1711,7 @@ function documentLookupChunkScore(chunk: DocumentLookupChunkRow, terms: string[]
   return coverage + headingHits * 0.08 + Math.max(0, 0.08 - chunk.chunk_index * 0.0005);
 }
 
+/** Fetch best document lookup chunks. */
 async function fetchBestDocumentLookupChunks(args: {
   supabase: ReturnType<typeof createAdminClient>;
   documentIds: string[];
@@ -1734,6 +1781,7 @@ async function fetchBestDocumentLookupChunks(args: {
   return { chunks: fallbackChunks as DocumentLookupChunkRow[], terms };
 }
 
+/** Fetch document title alias rows. */
 async function fetchDocumentTitleAliasRows(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -1765,6 +1813,7 @@ async function fetchDocumentTitleAliasRows(args: {
   }));
 }
 
+/** Search document lookup fast path. */
 async function searchDocumentLookupFastPath(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -1869,6 +1918,7 @@ async function searchDocumentLookupFastPath(args: {
     .slice(0, args.matchCount);
 }
 
+/** Collect memory cards. */
 export function collectMemoryCards(results: SearchResult[], limit = 8) {
   const seen = new Set<string>();
   const cards: DocumentMemoryCard[] = [];
@@ -1884,6 +1934,7 @@ export function collectMemoryCards(results: SearchResult[], limit = 8) {
   return cards;
 }
 
+/** Build indexing quality. */
 export function buildIndexingQuality(results: SearchResult[], memoryCards: DocumentMemoryCard[]): DocumentIndexQuality {
   const sourceMetadata = results.map((result) => normalizeSourceMetadata(result.source_metadata));
   const indexedQualityRows = results
@@ -1928,6 +1979,7 @@ export function buildIndexingQuality(results: SearchResult[], memoryCards: Docum
   };
 }
 
+/** Build answer score explanations. */
 export function buildAnswerScoreExplanations(
   results: SearchResult[],
   limit = 8,
@@ -1942,6 +1994,7 @@ export function buildAnswerScoreExplanations(
   }));
 }
 
+/** Score explanation log metadata. */
 function scoreExplanationLogMetadata(scoreExplanations: NonNullable<RagAnswer["scoreExplanations"]>) {
   return {
     score_explanation_count: scoreExplanations.length,
@@ -1967,12 +2020,14 @@ function scoreExplanationLogMetadata(scoreExplanations: NonNullable<RagAnswer["s
   };
 }
 
+/** Memory card chunk score. */
 function memoryCardChunkScore(card: DocumentMemoryCard) {
   const hybridScore = Number(card.metadata?.memory_hybrid_score);
   if (Number.isFinite(hybridScore) && hybridScore > 0) return Math.min(1, hybridScore);
   return Math.min(1, card.confidence ?? 0.5);
 }
 
+/** Load chunks for memory cards. */
 async function loadChunksForMemoryCards(
   supabase: ReturnType<typeof createAdminClient>,
   cards: DocumentMemoryCard[],
@@ -2044,6 +2099,7 @@ async function loadChunksForMemoryCards(
     .filter(Boolean) as SearchResult[];
 }
 
+/** Load chunks for signal matches. */
 async function loadChunksForSignalMatches(args: {
   supabase: ReturnType<typeof createAdminClient>;
   matches: ChunkSignalMatch[];
@@ -2129,6 +2185,7 @@ async function loadChunksForSignalMatches(args: {
     .filter(Boolean) as SearchResult[];
 }
 
+/** Search table fact candidates. */
 async function searchTableFactCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -2181,6 +2238,7 @@ async function searchTableFactCandidates(args: {
   });
 }
 
+/** Search embedding field candidates. */
 async function searchEmbeddingFieldCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -2232,6 +2290,7 @@ async function searchEmbeddingFieldCandidates(args: {
   return loadChunksForSignalMatches({ supabase: args.supabase, matches, ownerId: args.ownerId });
 }
 
+/** Search index unit candidates. */
 async function searchIndexUnitCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -2287,6 +2346,7 @@ async function searchIndexUnitCandidates(args: {
 
 type MemoryCardCache = Map<string, ReturnType<typeof fetchMemoryCardsForQuery>>;
 
+/** With memory boosted candidates. */
 async function withMemoryBoostedCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -2339,6 +2399,7 @@ type DocumentRankingMetadataCache = {
   indexQuality: Map<string, SearchResult["indexing_quality"] | null>;
 };
 
+/** Create document ranking metadata cache. */
 function createDocumentRankingMetadataCache(): DocumentRankingMetadataCache {
   return {
     documentMetadata: new Map(),
@@ -2346,6 +2407,7 @@ function createDocumentRankingMetadataCache(): DocumentRankingMetadataCache {
   };
 }
 
+/** Attach document ranking metadata. */
 async function attachDocumentRankingMetadata(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
@@ -2408,6 +2470,7 @@ async function attachDocumentRankingMetadata(
   }
 }
 
+/** With cached index quality. */
 function withCachedIndexQuality(results: SearchResult[], cache: DocumentRankingMetadataCache) {
   return results.map((result) => ({
     ...result,
@@ -2415,6 +2478,7 @@ function withCachedIndexQuality(results: SearchResult[], cache: DocumentRankingM
   }));
 }
 
+/** Attach index quality metadata. */
 async function attachIndexQualityMetadata(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
@@ -2441,6 +2505,7 @@ async function attachIndexQualityMetadata(
   }
 }
 
+/** Attach page visual evidence. */
 async function attachPageVisualEvidence(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
@@ -2562,6 +2627,7 @@ async function attachPageVisualEvidence(
   });
 }
 
+/** Decide text fast path. */
 export function decideTextFastPath(
   query: string,
   results: SearchResult[],
@@ -2641,6 +2707,7 @@ export function decideTextFastPath(
   return { returnFastPath: false, reason: "weak_text_match" };
 }
 
+/** Normalize document alias text. */
 function normalizeDocumentAliasText(value: string) {
   return value
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -2650,6 +2717,7 @@ function normalizeDocumentAliasText(value: string) {
     .trim();
 }
 
+/** Has document alias without top title support. */
 function hasDocumentAliasWithoutTopTitleSupport(query: string, results: SearchResult[]) {
   const aliases = analyzeClinicalQuery(query)
     .documentTitleTerms.map(normalizeDocumentAliasText)
@@ -2663,11 +2731,13 @@ function hasDocumentAliasWithoutTopTitleSupport(query: string, results: SearchRe
   });
 }
 
+/** Has admission community lookup intent. */
 function hasAdmissionCommunityLookupIntent(query: string) {
   const normalized = normalizeDocumentAliasText(query);
   return /\badmission\b/.test(normalized) && /\bcommunity\b/.test(normalized);
 }
 
+/** Has admission community title support. */
 function hasAdmissionCommunityTitleSupport(results: SearchResult[]) {
   return results.slice(0, 5).some((result) => {
     if (result.match_explanation?.titleHit || result.match_explanation?.labelHit) {
@@ -2683,6 +2753,7 @@ function hasAdmissionCommunityTitleSupport(results: SearchResult[]) {
   });
 }
 
+/** Should return before memory. */
 function shouldReturnBeforeMemory(
   queryClass: RagQueryClass,
   decision: { returnFastPath: boolean; reason: string | null },
@@ -2694,6 +2765,7 @@ function shouldReturnBeforeMemory(
   return !shouldUseMemoryBeforeFastPath(queryClass);
 }
 
+/** Evidence text for gate. */
 export function evidenceTextForGate(result: SearchResult) {
   const tableText = (result.table_facts ?? [])
     .map((fact) =>
@@ -2727,14 +2799,17 @@ export function evidenceTextForGate(result: SearchResult) {
   ).toLowerCase();
 }
 
+/** Top evidence text. */
 function topEvidenceText(results: SearchResult[], limit = 5) {
   return results.slice(0, limit).map(evidenceTextForGate).join(" ");
 }
 
+/** Has any term. */
 function hasAnyTerm(text: string, pattern: RegExp) {
   return pattern.test(text);
 }
 
+/** Is risk flowchart next step query. */
 function isRiskFlowchartNextStepQuery(query: string) {
   return (
     /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk[\s-]*matrix)\b/i.test(query) &&
@@ -2743,6 +2818,7 @@ function isRiskFlowchartNextStepQuery(query: string) {
   );
 }
 
+/** Has risk flowchart action evidence. */
 function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], limit = 5) {
   // A single result must carry BOTH the zone context and the action language
   // (escalate / urgent review): scattering the two term groups across different
@@ -2767,16 +2843,19 @@ function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], 
   });
 }
 
+/** Has dose amount evidence for gate. */
 function hasDoseAmountEvidenceForGate(result: SearchResult) {
   return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(evidenceTextForGate(result));
 }
 
+/** Has route evidence for gate. */
 function hasRouteEvidenceForGate(result: SearchResult) {
   return /\b(?:oral|orally|intramuscular|intramuscularly|subcutaneous|subcutaneously|subcut|sublingual|sublingually|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(
     evidenceTextForGate(result),
   );
 }
 
+/** Has direct source image evidence. */
 function hasDirectSourceImageEvidence(result: SearchResult) {
   const sourceImageIds = new Set(
     [result.index_unit?.source_image_id, ...(result.table_facts ?? []).map((fact) => fact.source_image_id)].filter(
@@ -2791,6 +2870,7 @@ function hasDirectSourceImageEvidence(result: SearchResult) {
   );
 }
 
+/** Source image required for query. */
 function sourceImageRequiredForQuery(query: string) {
   return (
     /\b(?:show|display|attach|open|view|source|original)\b/i.test(query) &&
@@ -2798,6 +2878,7 @@ function sourceImageRequiredForQuery(query: string) {
   );
 }
 
+/** Direct title or alias support. */
 function directTitleOrAliasSupport(query: string, results: SearchResult[]) {
   return (
     hasDirectTitleSupport(query, results) ||
@@ -2805,6 +2886,7 @@ function directTitleOrAliasSupport(query: string, results: SearchResult[]) {
   );
 }
 
+/** Record retrieval selection telemetry. */
 function recordRetrievalSelectionTelemetry(
   telemetry: SearchTelemetry,
   intent: RetrievalIntent,
@@ -2814,6 +2896,7 @@ function recordRetrievalSelectionTelemetry(
   telemetry.retrieval_selection = summary;
 }
 
+/** Select ranked retrieval results. */
 function selectRankedRetrievalResults(args: {
   query: string;
   queryClass: RagQueryClass;
@@ -2835,6 +2918,7 @@ function selectRankedRetrievalResults(args: {
   return selection.results;
 }
 
+/** Evaluate evidence coverage gate. */
 export function evaluateEvidenceCoverageGate(
   query: string,
   results: SearchResult[],
@@ -3018,6 +3102,7 @@ export function evaluateEvidenceCoverageGate(
   };
 }
 
+/** Prepare coverage gate results. */
 async function prepareCoverageGateResults(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -3057,6 +3142,7 @@ async function prepareCoverageGateResults(args: {
   return results;
 }
 
+/** Apply coverage gate telemetry. */
 function applyCoverageGateTelemetry(
   telemetry: SearchTelemetry,
   gate: ReturnType<typeof evaluateEvidenceCoverageGate>,
@@ -3073,6 +3159,7 @@ function applyCoverageGateTelemetry(
   }
 }
 
+/** Mark embedding skipped by text fast path. */
 function markEmbeddingSkippedByTextFastPath(telemetry: SearchTelemetry, reason: string | null) {
   telemetry.embedding_skipped = true;
   telemetry.embedding_skip_reason = reason ?? "text_fast_path";
@@ -3080,6 +3167,7 @@ function markEmbeddingSkippedByTextFastPath(telemetry: SearchTelemetry, reason: 
   telemetry.vector_skipped_reason = reason ?? "text_fast_path";
 }
 
+/** Should attempt document lookup fast path. */
 function shouldAttemptDocumentLookupFastPath(queryClass: RagQueryClass) {
   return (
     queryClass === "document_lookup" ||
@@ -3089,10 +3177,12 @@ function shouldAttemptDocumentLookupFastPath(queryClass: RagQueryClass) {
   );
 }
 
+/** Should use memory before fast path. */
 function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
   return queryClass === "table_threshold" || queryClass === "medication_dose_risk" || queryClass === "comparison";
 }
 
+/** Memory card answer score. */
 function memoryCardAnswerScore(card: DocumentMemoryCard, query: string, queryClass: RagQueryClass) {
   const content = sourceTextForDisplay(card.content);
   if (!content) return -1;
@@ -3136,6 +3226,7 @@ function memoryCardAnswerScore(card: DocumentMemoryCard, query: string, queryCla
   return tokenHits * 0.08 + typeBoost + doseBoost + (card.confidence ?? 0) * 0.08 + lowValueTitlePenalty;
 }
 
+/** Rank memory cards for answer. */
 export function rankMemoryCardsForAnswer(cards: DocumentMemoryCard[], query: string, queryClass: RagQueryClass) {
   return [...cards]
     .map((card, index) => ({
@@ -3148,6 +3239,7 @@ export function rankMemoryCardsForAnswer(cards: DocumentMemoryCard[], query: str
     .map((item) => item.card);
 }
 
+/** Search chunks with telemetry. */
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   assertGlobalSearchAllowed(args);
   throwIfAborted(args.signal);
@@ -3782,6 +3874,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   return { results, telemetry };
 }
 
+/** Build related documents safe. */
 async function buildRelatedDocumentsSafe(args: { query: string; results: SearchResult[]; ownerId?: string }) {
   try {
     return await fetchRelatedDocuments({
@@ -3795,11 +3888,13 @@ async function buildRelatedDocumentsSafe(args: { query: string; results: SearchR
   }
 }
 
+/** Search chunks. */
 export async function searchChunks(args: SearchChunksArgs) {
   const { results } = await searchChunksWithTelemetry(args);
   return results;
 }
 
+/** Parse answer json. */
 export function parseAnswerJson(raw: string, results: SearchResult[], query?: string): RagAnswer {
   try {
     const parsed = answerJsonSchema.parse(JSON.parse(raw));
@@ -3844,6 +3939,7 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
   }
 }
 
+/** Annotate answer with diagnostics. */
 function annotateAnswerWithDiagnostics<T extends RagAnswer>(
   answer: T,
   diagnostics: RetrievalDiagnostics,
@@ -3860,10 +3956,12 @@ function annotateAnswerWithDiagnostics<T extends RagAnswer>(
   };
 }
 
+/** Answer question. */
 export async function answerQuestion(query: string, documentId?: string) {
   return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
 }
 
+/** Answer question with scope. */
 export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs): Promise<RagAnswer> {
   const startedAt = Date.now();
   const coalescingEnabled = !args.skipCache && env.RAG_ANSWER_CACHE_TTL_MS > 0 && env.RAG_ANSWER_CACHE_SIZE > 0;
@@ -3894,6 +3992,7 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
   return pending;
 }
 
+/** Answer question with scope uncoalesced. */
 async function answerQuestionWithScopeUncoalesced(
   args: AnswerQuestionWithScopeArgs,
   startedAt: number,
@@ -4426,6 +4525,7 @@ Threshold/decision question -> targeted lead sentence plus a couple of tight sec
 
 Return data matching the supplied structured output schema.`;
 
+  /** Build answer input. */
   function buildAnswerInput(contextResults: SearchResult[]) {
     const sourceGuide = crossDocumentPlan.enabled ? buildCrossDocumentSourceGuide(contextResults) : "";
     const fusedBrief = crossDocumentFusionBrief?.text ?? "";
@@ -4495,6 +4595,7 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
   const contextPackOptions = { crossDocument: crossDocumentPlan.enabled };
   const packedContextCache = new Map<string, SearchResult[]>();
 
+  /** Pack context for generation. */
   async function packContextForGeneration(contextResults: SearchResult[]) {
     const cacheKey = packedContextCacheKey(contextResults, queryClass, {
       ...contextPackOptions,
@@ -4513,6 +4614,7 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
     return packed;
   }
 
+  /** Generate with model. */
   async function generateWithModel(
     model: string,
     contextResults: SearchResult[],
@@ -4565,15 +4667,18 @@ ${qualityRetryInstruction}`
     }
   }
 
+  /** Generation incomplete reason. */
   function generationIncompleteReason(result: OpenAITextResult) {
     return result.incompleteReason ?? (result.status === "incomplete" ? "incomplete" : "unknown");
   }
 
+  /** Generation retry reason. */
   function generationRetryReason(prefix: string, result: OpenAITextResult) {
     const reason = generationIncompleteReason(result);
     return reason === "max_output_tokens" ? `${prefix}_max_output_tokens` : `${prefix}_incomplete_${reason}`;
   }
 
+  /** Should recover fast failure extractively. */
   function shouldRecoverFastFailureExtractively(retryReason: string) {
     const sourceBackedRecoveryRetryReasons = new Set([
       "fast_unsupported_retry_strong",
@@ -4593,6 +4698,7 @@ ${qualityRetryInstruction}`
     );
   }
 
+  /** Summarize generation failure reason. */
   function summarizeGenerationFailureReason(error: unknown) {
     const message = (error instanceof Error ? error.message : typeof error === "string" ? error : "").trim();
     const normalized = message.toLowerCase();
@@ -4610,6 +4716,7 @@ ${qualityRetryInstruction}`
     return "generation_failed";
   }
 
+  /** Build generation fallback answer. */
   async function buildGenerationFallbackAnswer(
     error: unknown,
     relatedDocuments: RelatedDocument[],
@@ -5163,6 +5270,7 @@ ${qualityRetryInstruction}`
   }
 }
 
+/** Summarize document. */
 export async function summarizeDocument(documentId: string, ownerId?: string) {
   const supabase = createAdminClient();
   let documentQuery = supabase.from("documents").select("id,title,file_name,metadata").eq("id", documentId);

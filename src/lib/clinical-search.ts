@@ -44,6 +44,7 @@ export const riskZoneActionPattern =
   /\b(?:escalat\w+|urgent\w*|respond\w*|actions?\s+required|call(?:ing)?\s+(?:a\s+)?met\b|met\s+call|(?:senior|immediate|medical|clinical|clinician|nursing|officer)\s+(?:clinician\s+|specialist\s+|nurse\s+|officer\s+)?review\w*)\b/i;
 
 // The zone colour a query names, if any ("red-zone risk" -> "red").
+/** Queried zone colour. */
 export function queriedZoneColour(query: string) {
   return query.match(new RegExp(`\\b(${zoneColourAlternatives})[\\s-]*zones?\\b`, "i"))?.[1]?.toLowerCase() ?? null;
 }
@@ -54,6 +55,7 @@ export function queriedZoneColour(query: string) {
 // bare token ("... | Red | escalate ..."). Shared by the fast-path guard and
 // coverage gate in rag.ts and the ranking source check here so a red-zone
 // question is never satisfied (or boosted) by another colour's action evidence.
+/** Zone context patterns for query. */
 export function zoneContextPatternsForQuery(query: string) {
   const colour = queriedZoneColour(query);
   const colourGroup = colour ?? `(?:${zoneColourAlternatives})`;
@@ -366,6 +368,7 @@ const outsideCorpusMedicalPattern =
 const shortClinicalSearchTerms = new Set(["ed", "im", "po", "pt"]);
 const simpleRequirementsQuestionPattern = /^\s*(?:what|which)\s+(?:are|is)\s+.+\brequirements?\s*\??\s*$/i;
 
+/** Tokens. */
 function tokens(text: string) {
   return text
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -374,6 +377,7 @@ function tokens(text: string) {
     .filter((token) => token.length > 2 || shortClinicalSearchTerms.has(token));
 }
 
+/** Normalize analysis text. */
 function normalizeAnalysisText(text: string) {
   return text
     .normalize("NFKC")
@@ -384,10 +388,12 @@ function normalizeAnalysisText(text: string) {
     .trim();
 }
 
+/** Corrected tokens. */
 function correctedTokens(query: string) {
   return tokens(query).map((token) => typoCorrections.get(token) ?? token);
 }
 
+/** Unique. */
 function unique(values: string[], limit = 30) {
   const seen = new Set<string>();
   const output: string[] = [];
@@ -401,6 +407,7 @@ function unique(values: string[], limit = 30) {
   return output;
 }
 
+/** Term matches query. */
 function termMatchesQuery(normalizedQuery: string, term: string) {
   const normalizedTerm = normalizeAnalysisText(term);
   if (!normalizedTerm) return false;
@@ -408,6 +415,7 @@ function termMatchesQuery(normalizedQuery: string, term: string) {
   return new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`).test(normalizedQuery);
 }
 
+/** Aliases for query. */
 function aliasesForQuery(normalizedQuery: string, groups: string[][]) {
   const matches: string[] = [];
   for (const group of groups) {
@@ -418,18 +426,21 @@ function aliasesForQuery(normalizedQuery: string, groups: string[][]) {
   return unique(matches, 40);
 }
 
+/** Medication terms. */
 function medicationTerms(normalizedQuery: string) {
   return aliasesForQuery(normalizedQuery, medicationAliasGroups).filter((term) =>
     medicationAliasGroups.some((group) => group[0] === term),
   );
 }
 
+/** Acronym terms. */
 function acronymTerms(query: string, normalizedQuery: string) {
   const direct = (query.match(/\b[A-Z]{2,6}\b/g) ?? []).map((term) => term.toLowerCase());
   const aliases = aliasesForQuery(normalizedQuery, domainAliasGroups).filter((term) => /^[a-z]{2,6}$/.test(term));
   return unique([...direct, ...aliases], 12);
 }
 
+/** Threshold terms for. */
 function thresholdTermsFor(normalizedQuery: string) {
   if (!thresholdSignalPattern.test(normalizedQuery)) return [];
   return unique(
@@ -442,6 +453,7 @@ function thresholdTermsFor(normalizedQuery: string) {
   );
 }
 
+/** Build stable query rewrite. */
 function buildStableQueryRewrite(args: {
   originalQuery: string;
   normalizedQuery: string;
@@ -496,10 +508,12 @@ function buildStableQueryRewrite(args: {
   };
 }
 
+/** Document title terms for. */
 function documentTitleTermsFor(normalizedQuery: string) {
   return aliasesForQuery(normalizedQuery, documentTitleAliasGroups);
 }
 
+/** Query class from signals. */
 function queryClassFromSignals(args: {
   normalizedQuery: string;
   medications: string[];
@@ -553,6 +567,7 @@ function queryClassFromSignals(args: {
   return "unsupported_or_general";
 }
 
+/** Intent from signals. */
 function intentFromSignals(queryClass: RagQueryClass, normalizedQuery: string): ClinicalQueryIntent {
   if (queryClass === "comparison") return "comparison";
   if (queryClass === "broad_summary") return "broad_summary";
@@ -574,6 +589,7 @@ function intentFromSignals(queryClass: RagQueryClass, normalizedQuery: string): 
   return "general";
 }
 
+/** Analysis confidence. */
 function analysisConfidence(args: {
   queryClass: RagQueryClass;
   reasons: string[];
@@ -590,6 +606,7 @@ function analysisConfidence(args: {
   return clamp(score);
 }
 
+/** Parse date as years ago. */
 function parseDateAsYearsAgo(value?: string | null) {
   if (!value) return null;
   const date = new Date(value);
@@ -598,6 +615,7 @@ function parseDateAsYearsAgo(value?: string | null) {
   return Math.max(0, (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24 * 365));
 }
 
+/** Clamp. */
 function clamp(value: number) {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 }
@@ -609,6 +627,7 @@ function clamp(value: number) {
 // a digit-adjacent allowance so unit-attached doses ("100mg") still count;
 // longer entries keep deliberate prefix semantics ("escalat" → escalation,
 // "table" → tables).
+/** Contains any. */
 function containsAny(value: string, values: readonly string[]) {
   return values.some((item) => {
     const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -617,6 +636,7 @@ function containsAny(value: string, values: readonly string[]) {
   });
 }
 
+/** Normalize query token for lookups. */
 function normalizeQueryTokenForLookups(value: string) {
   return value
     .toLowerCase()
@@ -626,16 +646,19 @@ function normalizeQueryTokenForLookups(value: string) {
     .trim();
 }
 
+/** Normalized clinical query tokens. */
 function normalizedClinicalQueryTokens(query: string) {
   return normalizedClinicalSearchTokens(query)
     .map((token) => token.toLowerCase())
     .filter((token) => token.length > 2);
 }
 
+/** Has image evidence need. */
 function hasImageEvidenceNeed(query: string) {
   return /table|chart|diagram|flowchart|figure|image|visual|source image|dose card|medication chart/i.test(query);
 }
 
+/** Extraction quality score. */
 function extractionQualityScore(result: SearchResult) {
   const quality = result.source_metadata?.extraction_quality;
   if (quality === "partial") return -0.005;
@@ -643,6 +666,7 @@ function extractionQualityScore(result: SearchResult) {
   return 0;
 }
 
+/** Index quality rank signal. */
 function indexQualityRankSignal(result: SearchResult) {
   const quality = result.indexing_quality;
   if (!quality) return 0;
@@ -655,6 +679,7 @@ function indexQualityRankSignal(result: SearchResult) {
   return -0.09 - issuePenalty;
 }
 
+/** Source quality rank signal. */
 function sourceQualityRankSignal(result: SearchResult, queryClass: RagQueryClass) {
   let score = 0;
   const metadata = result.source_metadata;
@@ -709,6 +734,7 @@ function sourceQualityRankSignal(result: SearchResult, queryClass: RagQueryClass
   return score;
 }
 
+/** Evidence density boost. */
 function evidenceDensityBoost(result: SearchResult, tokens: string[]) {
   if (!tokens.length) return 0;
   const haystack = normalizeQueryTokenForLookups(
@@ -720,6 +746,7 @@ function evidenceDensityBoost(result: SearchResult, tokens: string[]) {
   return Math.min(0.1, hits * 0.028);
 }
 
+/** Has dose evidence support. */
 export function hasDoseEvidenceSupport(result: SearchResult) {
   const haystack = clinicalResultEvidenceHaystack(result);
   return /\b(?:dose|dosage|dosing|mg|mcg|microgram|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer\w*|titration|titrate|frequency|maximum|tablet|injection|antipsychotic|benzodiazepine|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
@@ -727,6 +754,7 @@ export function hasDoseEvidenceSupport(result: SearchResult) {
   );
 }
 
+/** Has medication dose amount evidence. */
 function hasMedicationDoseAmountEvidence(result: SearchResult) {
   const haystack = clinicalResultEvidenceHaystack(result);
   return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(haystack);
@@ -737,6 +765,7 @@ function hasMedicationDoseAmountEvidence(result: SearchResult) {
 // answer to a dose/threshold query — and the least likely to repeat the drug
 // name. Such passages must be exempt from the dose/core-concept keyword
 // penalties so they are never demoted below boilerplate. See RET-H2.
+/** Has numeric or table evidence. */
 export function hasNumericOrTableEvidence(result: SearchResult) {
   if ((result.table_facts?.length ?? 0) > 0) return true;
   if (
@@ -757,6 +786,7 @@ export function hasNumericOrTableEvidence(result: SearchResult) {
         );
 }
 
+/** Has structured threshold evidence. */
 export function hasStructuredThresholdEvidence(result: SearchResult) {
   const fieldType = result.match_explanation?.fieldType ?? null;
   const unitType = result.index_unit?.unit_type ?? result.match_explanation?.indexUnitType ?? null;
@@ -787,6 +817,7 @@ export function hasStructuredThresholdEvidence(result: SearchResult) {
   );
 }
 
+/** Section depth signal. */
 function sectionDepthSignal(querySignal: IntentSignals, sectionHeading: string | null) {
   if (!sectionHeading || !querySignal.sectionedLookup) return 0;
   if (/(protocol|procedure|pathway|workflow|algorithm|escalat|risk|monitor)/i.test(sectionHeading)) return 0.035;
@@ -798,6 +829,7 @@ function sectionDepthSignal(querySignal: IntentSignals, sectionHeading: string |
 // though "review" is an escalation signal word.
 const explicitDoseTerms = ["dose", "dosage", "dosing", "titrat", "mg", "mcg"] as const;
 
+/** Classify query intent. */
 export function classifyQueryIntent(query: string): IntentSignals {
   const lowered = query.toLowerCase();
   const match = intentPatterns.find((entry) => entry.pattern.test(query));
@@ -817,6 +849,7 @@ export function classifyQueryIntent(query: string): IntentSignals {
 const clinicalQueryAnalysisCache = new Map<string, ClinicalQueryAnalysis>();
 const clinicalQueryAnalysisCacheLimit = 32;
 
+/** Analyze clinical query. */
 export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
   const originalQuery = query.trim();
   const cached = clinicalQueryAnalysisCache.get(originalQuery);
@@ -923,6 +956,7 @@ export function analyzeClinicalQuery(query: string): ClinicalQueryAnalysis {
   return structuredClone(analysis);
 }
 
+/** Classify rag query. */
 export function classifyRagQuery(query: string): RagQueryClassification {
   const analysis = analyzeClinicalQuery(query);
   return {
@@ -933,6 +967,7 @@ export function classifyRagQuery(query: string): RagQueryClassification {
   };
 }
 
+/** Image evidence signal. */
 function imageEvidenceSignal(query: string, result: SearchResult) {
   const queryTokens = normalizedClinicalSearchTokens(query).join(" ");
   const hasImageQuery = /table|chart|flowchart|diagram|graph|appendix|figure|matrix/.test(queryTokens);
@@ -957,6 +992,7 @@ function imageEvidenceSignal(query: string, result: SearchResult) {
   return 0;
 }
 
+/** Section match boost. */
 function sectionMatchBoost(query: string, result: SearchResult) {
   const loweredQuery = query.toLowerCase();
   const sectionText = [result.section_heading, ...(result.section_path ?? [])].filter(Boolean).join(" ");
@@ -972,6 +1008,7 @@ function sectionMatchBoost(query: string, result: SearchResult) {
   return Math.min(0.15, matches.length * 0.03 + (exactSectionPhrase ? 0.045 : 0));
 }
 
+/** Document metadata boost. */
 function documentMetadataBoost(query: string, result: SearchResult, normalizedTokens: string[]) {
   if (!normalizedTokens.length) return 0;
   const queryClass = classifyRagQuery(query).queryClass;
@@ -1012,6 +1049,7 @@ function documentMetadataBoost(query: string, result: SearchResult, normalizedTo
   );
 }
 
+/** Query class asset boost. */
 function queryClassAssetBoost(args: { queryClass: RagQueryClass; normalizedQuery: string; result: SearchResult }) {
   const fieldType = args.result.match_explanation?.fieldType ?? null;
   const unitType = args.result.index_unit?.unit_type ?? args.result.match_explanation?.indexUnitType ?? null;
@@ -1051,6 +1089,7 @@ function queryClassAssetBoost(args: { queryClass: RagQueryClass; normalizedQuery
   return Math.min(0.16, score);
 }
 
+/** Normalized clinical search tokens. */
 export function normalizedClinicalSearchTokens(query: string) {
   const baseTokens = correctedTokens(query);
   return baseTokens
@@ -1059,6 +1098,7 @@ export function normalizedClinicalSearchTokens(query: string) {
     .filter((token) => (token.length > 2 || shortClinicalSearchTerms.has(token)) && !textSearchStopWords.has(token));
 }
 
+/** Build clinical text search query. */
 export function buildClinicalTextSearchQuery(query: string) {
   const normalizedTokens = normalizedClinicalSearchTokens(query);
   const correctedQueryText = correctedTokens(query).join(" ");
@@ -1152,6 +1192,7 @@ export function buildClinicalTextSearchQuery(query: string) {
   return uniqueTokens.length >= 1 ? uniqueTokens.join(" ") : query;
 }
 
+/** Expand clinical query. */
 export function expandClinicalQuery(query: string) {
   const analysis = analyzeClinicalQuery(query);
   const lowered = analysis.normalizedQuery;
@@ -1171,10 +1212,12 @@ export function expandClinicalQuery(query: string) {
   return `${query} ${Array.from(additions).join(" ")}`;
 }
 
+/** Round score. */
 function roundScore(value: number) {
   return Number(value.toFixed(4));
 }
 
+/** Clinical rank explanation. */
 export function clinicalRankExplanation(query: string, result: SearchResult): SearchScoreExplanation {
   const analysis = analyzeClinicalQuery(query);
   const queryTokens = tokens(query);
@@ -1521,10 +1564,12 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
   };
 }
 
+/** Clinical rank score. */
 export function clinicalRankScore(query: string, result: SearchResult) {
   return clinicalRankExplanation(query, result).finalScore;
 }
 
+/** Ranking tie break score. */
 function rankingTieBreakScore(query: string, result: SearchResult, explanation: SearchScoreExplanation) {
   const analysis = analyzeClinicalQuery(query);
   const queryClass = analysis.queryClass;
@@ -1664,6 +1709,7 @@ function rankingTieBreakScore(query: string, result: SearchResult, explanation: 
   return roundScore(score);
 }
 
+/** Rank clinical results. */
 export function rankClinicalResults(query: string, results: SearchResult[]) {
   const intent = classifyQueryIntent(query);
   const wantsImageEvidence = hasImageEvidenceNeed(query) || intent.imageEvidenceFocus;
