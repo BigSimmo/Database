@@ -157,6 +157,10 @@ Operational notes:
   failure can be corpus-state-dependent (see the clozapine-wcc history).
   Triage order: rerun via `workflow_dispatch` → check `hybrid_rpc_errors` and
   `check:indexing` → only then bisect code.
+- Forced-vector golden cases (`forceEmbedding`) run after many text-fast-path
+  cases; the workflow sets `RAG_EVAL_CASE_DELAY_MS` and
+  `RAG_EVAL_FORCE_EMBEDDING_DELAY_MS` so embedding calls do not exhaust the
+  nightly OpenAI rate limit mid-run.
 - Evals write telemetry rows (`rag_queries`) but mutate no content.
 - Cost bound: ~34 retrieval cases (embedding calls only on forced-vector
   probes) + 8 generated answers per night.

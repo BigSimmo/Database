@@ -15,6 +15,23 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function evalCaseDelayMs() {
+  const parsed = Number.parseInt(process.env.RAG_EVAL_CASE_DELAY_MS ?? "", 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+export function evalForceEmbeddingDelayMs() {
+  const parsed = Number.parseInt(process.env.RAG_EVAL_FORCE_EMBEDDING_DELAY_MS ?? "", 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+export async function pauseBetweenEvalCases(options: { caseIndex: number; forceEmbedding?: boolean }) {
+  if (options.caseIndex <= 0) return;
+  let delayMs = evalCaseDelayMs();
+  if (options.forceEmbedding) delayMs += evalForceEmbeddingDelayMs();
+  if (delayMs > 0) await sleep(delayMs);
+}
+
 function providerRetryNumber(value: string | undefined, fallback: number) {
   const parsed = Number.parseInt(value ?? "", 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;

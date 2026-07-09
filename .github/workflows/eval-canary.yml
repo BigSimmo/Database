@@ -38,6 +38,13 @@ env:
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  # Pace golden retrieval so forced-vector probes do not trip transient 429s
+  # after a long text-fast-path run (see vector-ptsd history in eval-canary).
+  RAG_EVAL_CASE_DELAY_MS: 2000
+  RAG_EVAL_FORCE_EMBEDDING_DELAY_MS: 5000
+  RAG_EVAL_PROVIDER_RETRY_ATTEMPTS: 6
+  RAG_EVAL_PROVIDER_RETRY_INITIAL_MS: 8000
+  RAG_EVAL_PROVIDER_RETRY_MAX_MS: 120000
   # The live corpus is all-public (owner_id = NULL). Owner-scoped retrieval
   # fail-closes on a null owner, so the eval must run as the public-owner
   # sentinel. resolveEvalOwnerId (scripts/eval-utils.ts) defaults to that
