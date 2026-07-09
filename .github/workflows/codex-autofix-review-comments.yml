@@ -39,12 +39,23 @@ jobs:
             const issue_number = pr.number;
             const marker = `<!-- codex-autoresolve:${pr.head.sha} -->`;
 
-            const existingComments = await github.paginate(github.rest.issues.listComments, {
-              owner,
-              repo,
-              issue_number,
-              per_page: 100,
-            });
+            let existingComments;
+            try {
+              existingComments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              });
+            } catch (error) {
+              if (error.status === 403) {
+                core.warning("Skipping Codex auto-resolve request because GitHub denied permission to list issue comments.");
+                core.notice("Grant issues: read/write permission or allow the workflow token to read issue comments to enable duplicate request checks.");
+                return;
+              }
+
+              throw error;
+            }
 
             if (existingComments.some((comment) => (comment.body || "").includes(marker))) {
               core.notice("Skipping duplicate Codex auto-resolve request for this PR head commit.");
