@@ -1111,7 +1111,7 @@ function addOpenAIUsage(total: OpenAITokenUsage, usage?: OpenAITokenUsage) {
   };
 }
 
-/** Has open aiusage. */
+/** Has OpenAI usage. */
 function hasOpenAIUsage(usage: OpenAITokenUsage) {
   return Object.values(usage).some((value) => typeof value === "number" && value > 0);
 }
