@@ -21,7 +21,9 @@ requirePattern(
   "pull_request_review_comment created trigger",
   /pull_request_review_comment:\s*\n\s*types:\s*\[created\]/,
 );
+requirePattern("issue_comment created trigger", /issue_comment:\s*\n\s*types:\s*\[created\]/);
 requirePattern("open pull request job guard", /github\.event\.pull_request\.state == 'open'/);
+requirePattern("open issue comment PR guard", /github\.event\.issue\.pull_request/);
 requirePattern("Codex actor guard", /chatgpt-codex-connector/);
 requirePattern("review-thread reply skip", /in_reply_to_id/);
 requirePattern("auto-resolve request skip", /@codex resolve all review comments/);
@@ -31,7 +33,7 @@ requirePattern("head SHA label lock", /codex-ar-\$\{headSha\}/);
 requirePattern("pull-requests write permission", /pull-requests:\s*write/);
 requirePattern(
   "SHA-scoped concurrency with cancel",
-  /codex-autoresolve-\$\{\{ github\.event\.pull_request\.number \}\}-\$\{\{ github\.event\.pull_request\.head\.sha \}\}/,
+  /codex-autoresolve-\$\{\{ github\.event\.pull_request\.number \|\| github\.event\.issue\.number \}\}-\$\{\{ github\.event\.pull_request\.head\.sha \|\| 'issue-comment' \}\}/,
 );
 requirePattern("cancel in-progress concurrency", /cancel-in-progress:\s*true/);
 requirePattern("AGENTS.md primary command reference", /AGENTS\.md § Codex GitHub review behavior/);

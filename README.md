@@ -167,6 +167,7 @@ hosted Supabase MCP server uses OAuth, not repo secrets.
 - `docs/reindex-runbook.md` — safe reindex and ingestion recovery
 - `docs/retrieval-quality-runbook.md` — RAG/retrieval eval gates
 - `docs/codex-prompt-playbook.md` — copy/paste prompts for common repo work
+- `docs/codex-review-protocol.md` — shared Codex review throttling; pairs with `AGENTS.md` and `.github/workflows/codex-autofix-review-comments.yml` for PR review + auto-resolve
 - `docs/supabase-migration-reconciliation.md` — migration drift and repair policy
 - `docs/site-map.md` — generated route map (`npm run sitemap:update`)
 

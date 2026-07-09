@@ -381,6 +381,10 @@ When explicitly asked to fix or resolve review findings:
 - Add or update the smallest relevant test when the issue affects behavior.
 - Run the narrowest relevant validation for the touched surface before broader suites.
 - Summarize fixed issues, changed files, validation run, and any remaining human decisions.
+- End every resolve pass with a completion summary listing:
+  - fixed threads or findings
+  - deferred or not-actionable threads with the reason
+  - any threads Codex could not resolve because of GitHub permissions/tooling limits
 
 ### Review comment lifecycle
 
@@ -393,13 +397,14 @@ When explicitly asked to fix or resolve review findings:
 
 ### Automatic resolve trigger
 
-Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex posts a PR review or inline review comment.
+Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex posts a PR review, inline review comment, or actionable top-level PR comment.
 
 - The workflow must only trigger from Codex review bot reviews or comments on open pull requests.
 - The workflow must skip `APPROVED`/`DISMISSED` reviews and other no-finding review submissions.
 - The workflow must skip review-thread replies and auto-resolve request comments so Codex fix summaries do not re-trigger the workflow.
 - The workflow must ask Codex to resolve all review comments using these repository instructions.
 - The workflow must avoid duplicate requests for the same pull request head SHA using a PR label plus marker comment, and may request again when the head SHA changes.
+- To force another resolve pass on the current head SHA, post the Primary PR command manually on the PR.
 - The workflow must not run Codex directly with API credentials.
 - When auto-resolve is workflow-triggered, Codex may commit, push to the PR branch, reply on review threads, and resolve conversations without another confirmation step. Do not rerun hosted CI or call paid/provider APIs unless explicitly authorized.
 - P0 and P1 findings should always be fixed.

@@ -5,6 +5,8 @@ on:
     types: [submitted]
   pull_request_review_comment:
     types: [created]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -12,7 +14,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: codex-autoresolve-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+  group: codex-autoresolve-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event.pull_request.head.sha || 'issue-comment' }}
   cancel-in-progress: true
 
 jobs:
@@ -20,9 +22,18 @@ jobs:
     name: Request Codex auto-resolve
     runs-on: ubuntu-latest
     if: >
-      github.event.pull_request.state == 'open' &&
       (
-        contains(github.event.review.user.login, 'chatgpt-codex-connector') ||
+        github.event_name != 'issue_comment' &&
+        github.event.pull_request.state == 'open' &&
+        (
+          contains(github.event.review.user.login, 'chatgpt-codex-connector') ||
+          contains(github.event.comment.user.login, 'chatgpt-codex-connector')
+        )
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        github.event.issue.state == 'open' &&
         contains(github.event.comment.user.login, 'chatgpt-codex-connector')
       )
     steps:
@@ -61,7 +72,28 @@ jobs:
               return codexActors.some((actor) => normalized === actor || normalized.includes("chatgpt-codex-connector"));
             }
 
+            async function loadPullRequest() {
+              if (context.payload.pull_request) {
+                return context.payload.pull_request;
+              }
+
+              const issue = context.payload.issue;
+              if (!issue?.pull_request) {
+                return null;
+              }
+
+              const { data: pullRequest } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: issue.number,
+              });
+              return pullRequest;
+            }
+
             function sourceActor() {
+              if (context.eventName === "issue_comment") {
+                return context.payload.comment?.user?.login || "";
+              }
               if (context.eventName === "pull_request_review") {
                 return context.payload.review?.user?.login || "";
               }
@@ -69,6 +101,9 @@ jobs:
             }
 
             function sourceBody() {
+              if (context.eventName === "issue_comment") {
+                return context.payload.comment?.body || "";
+              }
               if (context.eventName === "pull_request_review") {
                 return context.payload.review?.body || "";
               }
@@ -76,6 +111,9 @@ jobs:
             }
 
             function sourceId() {
+              if (context.eventName === "issue_comment") {
+                return `issue-comment:${context.payload.comment?.id}`;
+              }
               if (context.eventName === "pull_request_review") {
                 return `review:${context.payload.review?.id}`;
               }
@@ -130,6 +168,19 @@ jobs:
               return true;
             }
 
+            function shouldSkipIssueComment(body) {
+              if (hasSeverityFindingMarkers(body)) {
+                return false;
+              }
+
+              if (/\b(findings?|blocking|must fix|changes requested)\b/i.test(body || "")) {
+                return false;
+              }
+
+              core.notice("Skipping Codex auto-resolve request because the PR comment has no actionable findings.");
+              return true;
+            }
+
             if (!isCodexActor(sourceActor())) {
               core.notice(`Skipping because actor ${sourceActor()} is not the Codex review bot.`);
               return;
@@ -149,7 +200,7 @@ jobs:
               return;
             }
 
-            const pr = context.payload.pull_request;
+            const pr = await loadPullRequest();
             if (!pr) {
               core.notice("Skipping Codex auto-resolve request because the pull request payload is missing.");
               return;
@@ -171,6 +222,10 @@ jobs:
               if (await shouldSkipSubmittedReview(github, owner, repo, issue_number, context.payload.review)) {
                 return;
               }
+            }
+
+            if (context.eventName === "issue_comment" && shouldSkipIssueComment(sourceBody())) {
+              return;
             }
 
             let existingLabels;
