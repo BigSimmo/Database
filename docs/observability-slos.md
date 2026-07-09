@@ -146,10 +146,9 @@ Failing loudly:
   `eval-canary` (or comments on the existing open one), so a regression
   creates a durable, assignable artifact rather than a missed notification.
 
-Required repo secrets (same ones CI's deployment boot smoke already uses,
-plus the eval owner): `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`,
-`RAG_QUERY_HASH_SECRET`, `E2E_USER_EMAIL` (resolved to the eval owner via
-`RAG_EVAL_OWNER_EMAIL`).
+Required repo secrets: `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`,
+`E2E_USER_EMAIL` (resolved to the eval owner via `RAG_EVAL_OWNER_EMAIL`).
+The workflow preflights these and fails with an explicit message when absent.
 The workflow preflights these and fails with an explicit message when absent.
 
 Operational notes:
