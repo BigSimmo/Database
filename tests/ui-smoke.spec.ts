@@ -589,9 +589,11 @@ async function scrollMobileTableExpandClearOfFooter(page: Page, clinicalTable: L
 async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
   await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
   const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
-  await tableSurface.click({ force: true });
   const tableDialog = page.getByTestId("table-fullscreen-dialog");
-  await expect(tableDialog).toBeVisible({ timeout: 10_000 });
+  await expect(async () => {
+    await tableSurface.click({ force: true });
+    await expect(tableDialog).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
   return tableDialog;
 }
 
@@ -1975,6 +1977,32 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(parentNodeErrors).toEqual([]);
   });
 
+  test("prescribing workflow shows full mobile action text without horizontal cutoff", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
+
+    const acamprosateCard = page.getByTestId("medication-result-acamprosate-phone");
+    await expect(acamprosateCard).toBeVisible({ timeout: 30_000 });
+    await expect(acamprosateCard).toContainText("Contraindicated in renal insufficiency");
+    await expect(acamprosateCard).toContainText("micromol/L");
+
+    const actionOverflow = await acamprosateCard.evaluate((card) => {
+      const action = Array.from(card.querySelectorAll("p")).find((node) =>
+        node.textContent?.includes("Contraindicated in renal insufficiency"),
+      );
+      if (!action) return { found: false, overflows: true };
+      return {
+        found: true,
+        overflows: action.scrollWidth > action.clientWidth + 1,
+        textOverflow: getComputedStyle(action).textOverflow,
+      };
+    });
+    expect(actionOverflow.found).toBe(true);
+    expect(actionOverflow.overflows).toBe(false);
+    expect(actionOverflow.textOverflow).not.toBe("ellipsis");
+  });
+
   test("document search mode lists matching documents and scope actions", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
@@ -2189,6 +2217,41 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(fitWidthScrollStyles.overflowX).toBe("hidden");
     expect(fitWidthScrollStyles.touchAction).toContain("pan-y");
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone universal header fully hides while scrolling dashboard main on phones", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoApp(page, "/?mode=answer");
+
+    const header = page.locator("header.universal-header");
+    const collapseHost = page.getByTestId("universal-header-collapse");
+    await expect(header).toBeVisible();
+    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("relative");
+
+    const main = page.locator("main#main-content");
+    await main.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.setAttribute("data-testid", "header-hide-scroll-spacer");
+      spacer.style.height = "2000px";
+      node.appendChild(spacer);
+    });
+    // Step scroll down so the dashboard main listener sees deliberate movement.
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+
+    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () =>
+        header.evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          return Math.max(0, rect.bottom) - Math.max(0, rect.top);
+        }),
+      )
+      .toBe(0);
   });
 
   test("document viewer bottom composer hides while scrolling down on phones", async ({ page }) => {

@@ -23,7 +23,7 @@ import {
   WifiOff,
   Wrench,
 } from "lucide-react";
-import { type CSSProperties, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
@@ -670,7 +670,14 @@ export function ClinicalDashboard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const mainRef = useRef<HTMLElement>(null);
+  const [mainScrollRoot, setMainScrollRoot] = useState<HTMLElement | null>(null);
+  const assignMainRef = useCallback((node: HTMLElement | null) => {
+    mainRef.current = node;
+    setMainScrollRoot(node);
+  }, []);
   const phoneScrollHide = useScrollHideReporter();
+  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
@@ -2655,10 +2662,30 @@ export function ClinicalDashboard({
     });
   }
 
-  function handleMainScroll(event: UIEvent<HTMLElement>) {
+  function handleMainScroll() {
     scheduleActiveSectionSync();
-    phoneScrollHide.reportScroll(event.currentTarget.scrollTop);
   }
+
+  useEffect(() => {
+    const main = mainScrollRoot;
+    if (!main) return undefined;
+
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        reportPhoneScrollHideRef.current(main.scrollTop);
+      });
+    };
+
+    onScroll();
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      main.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [mainScrollRoot]);
 
   async function copyText(action: string, text: string) {
     let copied = false;
@@ -3122,13 +3149,13 @@ export function ClinicalDashboard({
           heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
           // Phone-only: the header sits above the internally scrolling <main>,
           // so hiding must collapse its layout space to hand it to content.
-          hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden, containerRef: mainRef }}
+          hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
           onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
         />
 
         <main
           id="main-content"
-          ref={mainRef}
+          ref={assignMainRef}
           tabIndex={-1}
           onScroll={handleMainScroll}
           className={cn(

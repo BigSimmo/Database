@@ -264,7 +264,7 @@ function DoseCeiling({ value }: { value: string }) {
       <span className="rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-3xs uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
         Ceiling
       </span>
-      <span className="whitespace-nowrap nums text-[color:var(--text-heading)]">{value}</span>
+      <span className="nums break-words text-[color:var(--text-heading)] md:whitespace-nowrap">{value}</span>
     </span>
   );
 }
@@ -355,10 +355,10 @@ function MedicationResults({
                   <span className="flex min-w-0 items-center gap-2.5">
                     <ResultToneIcon result={result} />
                     <span className="min-w-0">
-                      <span className="block truncate text-base-minus font-semibold text-[color:var(--text-heading)]">
+                      <span className="block break-words text-base-minus font-semibold text-[color:var(--text-heading)]">
                         {result.name}
                       </span>
-                      <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                      <span className="block break-words text-xs font-medium text-[color:var(--text-muted)]">
                         {result.indication}
                       </span>
                       <span className="mt-1 flex flex-wrap gap-1">
@@ -368,7 +368,7 @@ function MedicationResults({
                   </span>
                   <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{result.dose}</span>
                   <DoseCeiling value={result.ceiling} />
-                  <span className="text-sm-minus font-medium leading-[1.4] text-[color:var(--text-heading)]">
+                  <span className="break-words text-sm-minus font-medium leading-[1.4] text-[color:var(--text-heading)]">
                     {result.action}
                   </span>
                   {result.href ? (
@@ -415,7 +415,7 @@ function MedicationResults({
         {visibleMedicationResults.map((result, index) => {
           const selected = index === 0 && Boolean(query.trim());
           const cardClassName = cn(
-            "w-full rounded-lg border bg-[color:var(--surface-raised)] p-2 text-left shadow-[var(--shadow-inset)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            "min-w-0 w-full rounded-lg border bg-[color:var(--surface-raised)] p-2 text-left shadow-[var(--shadow-inset)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             selected
               ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35"
               : result.href
@@ -423,33 +423,33 @@ function MedicationResults({
                 : "border-[color:var(--border)] opacity-80",
           );
           const cardContent = (
-            <div className="flex items-start gap-2.5">
+            <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-2.5">
               <ResultToneIcon result={result} />
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
-                      {result.name}
-                    </p>
-                    <p className="truncate text-xs font-medium text-[color:var(--text-muted)]">{result.indication}</p>
-                  </div>
-                  {result.href ? (
-                    <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
-                  ) : (
-                    <span className="mt-1 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-                      Soon
-                    </span>
-                  )}
+              <div className="min-w-0 space-y-1.5">
+                <div className="min-w-0">
+                  <p className="line-clamp-2 break-words text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
+                    {result.name}
+                  </p>
+                  <p className="break-words text-xs font-medium text-[color:var(--text-muted)]">{result.indication}</p>
                 </div>
-                <span className="flex flex-wrap gap-1.5">
+                <span className="flex max-w-full flex-wrap gap-1.5">
                   <ResultMatchBadge result={result} />
                 </span>
-                <div className="flex flex-wrap items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
-                  <span>{result.dose}</span>
+                <div className="flex max-w-full flex-wrap items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
+                  <span className="break-words">{result.dose}</span>
                   <DoseCeiling value={result.ceiling} />
                 </div>
-                <p className="text-xs leading-[1.45] text-[color:var(--text-muted)]">{result.action}</p>
+                <p className="break-words text-pretty text-xs leading-[1.45] text-[color:var(--text-muted)]">
+                  {result.action}
+                </p>
               </div>
+              {result.href ? (
+                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
+              ) : (
+                <span className="mt-1 shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  Soon
+                </span>
+              )}
             </div>
           );
 
