@@ -56,6 +56,9 @@ jobs:
       - name: Runtime alignment
         run: npm run check:runtime
 
+      - name: Codex auto-resolve workflow guard
+        run: npm run check:codex-autofix-workflow
+
       - name: Dependency vulnerability audit
         # Non-mutating gate. The document parsers (pdf-parse, pdfjs-dist, mammoth,
         # exceljs, jszip) process untrusted uploads, so high/critical advisories in

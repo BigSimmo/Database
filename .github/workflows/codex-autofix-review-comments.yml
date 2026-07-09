@@ -14,7 +14,11 @@ permissions:
   pull-requests: read
 
 concurrency:
+<<<<<<< HEAD
   group: codex-autoresolve-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event.pull_request.head.sha || github.event.review.id || github.event.comment.id }}
+=======
+  group: codex-autoresolve-${{ github.event.pull_request.number }}
+>>>>>>> origin/main
   cancel-in-progress: false
 
 jobs:
@@ -79,11 +83,21 @@ jobs:
               return;
             }
 
+<<<<<<< HEAD
             if (sourceBody().includes("codex-autoresolve:") || sourceBody().includes("@codex resolve all review comments")) {
+=======
+            const sourceBody = reviewComment.body || "";
+            if (
+              sourceBody.includes("codex-autoresolve:") ||
+              sourceBody.includes("codex-autoresolve-pr:") ||
+              sourceBody.includes("@codex resolve all review comments")
+            ) {
+>>>>>>> origin/main
               core.notice("Skipping Codex auto-resolve request because the source comment already looks like an auto-resolve request.");
               return;
             }
 
+<<<<<<< HEAD
             const pr = await loadPullRequest();
             if (!pr) {
               return;
@@ -94,20 +108,33 @@ jobs:
               return;
             }
 
+=======
+>>>>>>> origin/main
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue_number = pr.number;
-            const marker = `<!-- codex-autoresolve:${pr.head.sha} -->`;
+            const marker = `<!-- codex-autoresolve-pr:${pr.number} -->`;
 
-            const existingComments = await github.paginate(github.rest.issues.listComments, {
-              owner,
-              repo,
-              issue_number,
-              per_page: 100,
-            });
+            let existingComments;
+            try {
+              existingComments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              });
+            } catch (error) {
+              if (error.status === 403) {
+                core.warning("Skipping Codex auto-resolve request because GitHub denied permission to list issue comments.");
+                core.notice("Grant issues: read/write permission or allow the workflow token to read issue comments to enable duplicate request checks.");
+                return;
+              }
+
+              throw error;
+            }
 
             if (existingComments.some((comment) => (comment.body || "").includes(marker))) {
-              core.notice("Skipping duplicate Codex auto-resolve request for this PR head commit.");
+              core.notice("Skipping duplicate Codex auto-resolve request for this pull request.");
               return;
             }
 
@@ -117,9 +144,18 @@ jobs:
               "@codex resolve all review comments using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.",
             ].join("\n\n");
 
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number,
-              body: prompt,
-            });
+            try {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body: prompt,
+              });
+            } catch (error) {
+              if (error.status === 403) {
+                core.warning("Skipping Codex auto-resolve request because this workflow token cannot comment on the pull request.");
+                return;
+              }
+
+              throw error;
+            }
