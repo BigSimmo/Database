@@ -13,6 +13,7 @@ import {
   relaxVariantToOrQuery,
   shouldRelaxWeakTextMatches,
 } from "../src/lib/rag";
+import { maxTextRpcQueryVariants } from "../src/lib/rag-retrieval-variants";
 import type { SearchResult } from "../src/lib/types";
 
 function result(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -59,6 +60,15 @@ describe("retrieval query variants", () => {
     expect(variants.length).toBeLessThanOrEqual(4);
   });
 
+  it("prioritizes amber/red blood-result variants for clozapine FBC withhold questions", () => {
+    const query = "What FBC threshold should withhold clozapine?";
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+
+    expect(variants).toContain("clozapine blood results amber red range");
+    expect(variants.indexOf("clozapine blood results amber red range")).toBeLessThan(maxTextRpcQueryVariants);
+    expect(variants.length).toBeLessThanOrEqual(4);
+  });
+
   it("adds document-title-focused variants for document lookup intent", () => {
     const query = "Where is the active community patients in ED document?";
     const analysis = analyzeClinicalQuery(query);
@@ -66,6 +76,16 @@ describe("retrieval query variants", () => {
 
     expect(analysis.documentTitleIntent).toBe(true);
     expect(variants.some((variant) => variant.includes("active community"))).toBe(true);
+    expect(variants.length).toBeLessThanOrEqual(4);
+  });
+
+  it("adds exact title variants for community admission lookups", () => {
+    const query = "What is the process for admission of community patients?";
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+
+    expect(variants).toEqual(
+      expect.arrayContaining(["admission of community patients", "admission community patients"]),
+    );
     expect(variants.length).toBeLessThanOrEqual(4);
   });
 

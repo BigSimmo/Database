@@ -1,0 +1,59 @@
+name: Live drift check
+
+# Live Supabase drift detection is useful, but it must not slow PR iteration or
+# touch live services on every branch. Keep it scheduled/manual only.
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, aligned with the existing Sunday off-peak CI cadence.
+    - cron: "30 18 * * 0"
+
+concurrency:
+  group: live-drift-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+  SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
+  SUPABASE_PROJECT_NAME: Clinical KB Database
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+jobs:
+  live-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Preflight required secrets
+        run: |
+          missing=""
+          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Live drift check cannot run - missing repo secrets:$missing"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Guard Supabase project identity
+        run: npm run check:supabase-project
+
+      - name: Compare live schema drift
+        run: npm run check:drift
