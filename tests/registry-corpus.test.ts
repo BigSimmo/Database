@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { clinicalRegistryRowsToCorpusEntries } from "../src/lib/registry-corpus";
+import { buildDefaultMedicationRows } from "../src/lib/medication-fixtures";
+import { clinicalRegistryRowsToCorpusEntries, medicationRowsToCorpusEntries } from "../src/lib/registry-corpus";
+import { registryCorpusDetailHref } from "../src/lib/registry-corpus-links";
+import type { MedicationRecordRow } from "../src/lib/medication-records";
 import type { RegistryRecordRow } from "../src/lib/registry-records";
 
 function registryRow(overrides: Partial<RegistryRecordRow> = {}): RegistryRecordRow {
@@ -68,6 +71,7 @@ describe("registry corpus", () => {
     expect(entry?.content).toContain("Form: Transport order");
   });
 
+<<<<<<< HEAD
   it("keeps re-embed-on-edit hooks inert unless registry corpus embedding is enabled", async () => {
     vi.stubEnv("RAG_REGISTRY_CORPUS_EMBEDDING", "false");
     vi.resetModules();
@@ -91,5 +95,29 @@ describe("registry corpus", () => {
       vi.unstubAllEnvs();
       vi.resetModules();
     }
+=======
+  it("maps scalar medication tags into metadata.tags", () => {
+    const rows = buildDefaultMedicationRows("22222222-2222-4222-8222-222222222222") as MedicationRecordRow[];
+    const [entry] = medicationRowsToCorpusEntries(rows.map((row) => ({ ...row, tag: "alcohol" })));
+
+    expect(entry?.metadata.tags).toEqual(["alcohol"]);
+  });
+
+  it("builds registry detail hrefs for embedded corpus rows", () => {
+    expect(
+      registryCorpusDetailHref({
+        kind: "service",
+        slug: "crisis-service",
+      }),
+    ).toBe("/services/crisis-service");
+    expect(
+      registryCorpusDetailHref({
+        kind: "differential",
+        slug: "psychosis",
+        subkind: "presentation",
+        recordId: "44444444-4444-4444-8444-444444444444",
+      }),
+    ).toBe("/differentials/presentations/44444444-4444-4444-8444-444444444444");
+>>>>>>> origin/claude/llm-pipeline-review
   });
 });

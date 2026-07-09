@@ -10,6 +10,7 @@ import {
 import { env } from "@/lib/env";
 import { formRecordSearchText } from "@/lib/forms";
 import { rowToMedicationRecord, type MedicationRecordRow } from "@/lib/medication-records";
+import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { rowToServiceRecord, type RegistryRecordKind, type RegistryRecordRow } from "@/lib/registry-records";
 import { serviceRecordSearchText } from "@/lib/services";
 import type { Json, TablesInsert, Vector } from "@/lib/supabase/database.types";
@@ -73,12 +74,6 @@ function compactText(parts: unknown[], limit = 8000) {
   return text.length <= limit ? text : `${text.slice(0, limit - 3).trim()}...`;
 }
 
-function stringArray(value: unknown) {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-    : [];
-}
-
 function registryBaseMetadata(entry: RegistryCorpusEntry): Record<string, Json> {
   return {
     source_kind: "registry_record",
@@ -103,9 +98,23 @@ function registryEntryMetadata(entry: RegistryCorpusEntry): Record<string, Json>
   return { ...registryBaseMetadata(entry), ...entry.metadata };
 }
 
-function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"documents"> {
+function registryCorpusIdentity(entry: RegistryCorpusEntry) {
   return {
-    id: registryDocumentId(entry),
+    documentId: registryDocumentId(entry),
+    metadata: registryEntryMetadata(entry),
+  };
+}
+
+function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"documents"> {
+  const { documentId, metadata } = registryCorpusIdentity(entry);
+  const detailHref = registryCorpusDetailHref({
+    kind: entry.kind,
+    slug: entry.slug,
+    subkind: entry.subkind,
+    recordId: entry.recordId,
+  });
+  return {
+    id: documentId,
     owner_id: entry.ownerId,
     title: entry.title,
     description: entry.subtitle,
@@ -119,14 +128,18 @@ function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"document
     chunk_count: 1,
     image_count: 0,
     content_hash: sha256(entry.content),
-    metadata: registryEntryMetadata(entry),
+    metadata: {
+      ...metadata,
+      registry_detail_href: detailHref,
+    },
   };
 }
 
 function registryChunkRow(entry: RegistryCorpusEntry, embedding: Vector): TablesInsert<"document_chunks"> {
+  const { documentId, metadata } = registryCorpusIdentity(entry);
   return {
     id: deterministicUuid(`registry-chunk:${entry.kind}:${entry.recordId}`),
-    document_id: registryDocumentId(entry),
+    document_id: documentId,
     chunk_index: 0,
     page_number: 1,
     section_heading: "Registry summary",
@@ -137,7 +150,7 @@ function registryChunkRow(entry: RegistryCorpusEntry, embedding: Vector): Tables
     image_ids: [],
     content_hash: sha256(entry.content),
     embedding,
-    metadata: registryEntryMetadata(entry),
+    metadata,
   };
 }
 
@@ -226,7 +239,7 @@ export function medicationRowsToCorpusEntries(rows: MedicationRecordRow[]): Regi
       metadata: {
         medication_class: row.class,
         medication_subclass: row.subclass,
-        tags: stringArray(row.tag),
+        tags: row.tag ? [row.tag] : [],
       },
     };
   });
@@ -270,8 +283,23 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
   if (entries.length === 0) return { documentCount: 0, chunkCount: 0 };
 
   const { embedTexts } = await import("@/lib/openai");
+<<<<<<< HEAD
   let documentCount = 0;
   let chunkCount = 0;
+=======
+  const embeddings = await embedTexts(entries.map((entry) => entry.content));
+  const documents = entries.map(registryDocumentRow);
+  const chunks = entries.map((entry, index) => registryChunkRow(entry, embeddings[index] as Vector));
+  const documentIds = documents.map((document) => document.id).filter((id): id is string => typeof id === "string");
+  const { data: existingDocuments, error: existingDocumentError } = await supabase
+    .from("documents")
+    .select("id")
+    .in("id", documentIds);
+  if (existingDocumentError) {
+    throw new Error(`Registry corpus preflight failed: ${existingDocumentError.message}`);
+  }
+  const existingDocumentIds = new Set((existingDocuments ?? []).map((document) => document.id));
+>>>>>>> origin/claude/llm-pipeline-review
 
   for (let start = 0; start < entries.length; start += REGISTRY_EMBEDDING_WRITE_BATCH_SIZE) {
     const batch = entries.slice(start, start + REGISTRY_EMBEDDING_WRITE_BATCH_SIZE);
@@ -279,8 +307,24 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
     const documents = batch.map(registryDocumentRow);
     const chunks = batch.map((entry, index) => registryChunkRow(entry, embeddings[index] as Vector));
 
+<<<<<<< HEAD
     const { error: documentError } = await supabase.from("documents").upsert(documents, { onConflict: "id" });
     if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
+=======
+  const { error: chunkError } = await supabase.from("document_chunks").upsert(chunks, { onConflict: "id" });
+  if (chunkError) {
+    const insertedDocumentIds = documentIds.filter((id) => !existingDocumentIds.has(id));
+    if (insertedDocumentIds.length > 0) {
+      const { error: rollbackError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
+      if (rollbackError) {
+        throw new Error(
+          `Registry corpus chunk upsert failed: ${chunkError.message}; rollback failed: ${rollbackError.message}`,
+        );
+      }
+    }
+    throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
+  }
+>>>>>>> origin/claude/llm-pipeline-review
 
     const { error: chunkError } = await supabase.from("document_chunks").upsert(chunks, { onConflict: "id" });
     if (chunkError) throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
@@ -302,23 +346,6 @@ export function embedMedicationRows(supabase: AdminClient, rows: MedicationRecor
 
 export function embedDifferentialRows(supabase: AdminClient, rows: DifferentialRecordRow[]) {
   return embedRegistryCorpusEntries(supabase, differentialRowsToCorpusEntries(rows));
-}
-
-/** Best-effort corpus embedding for a seed path: failures are logged, not thrown,
- *  so a broken embedding call never blocks the seed write it runs after. */
-export async function bestEffortEmbedRows(args: {
-  scope: string;
-  ownerId: string;
-  detail?: string;
-  embed: () => Promise<unknown>;
-}) {
-  if (!registryCorpusEmbeddingEnabled()) return;
-  try {
-    await args.embed();
-  } catch (embedError) {
-    const suffix = args.detail ? ` ${args.detail}` : "";
-    console.error(`[${args.scope}] corpus embedding failed for owner ${args.ownerId}${suffix}`, embedError);
-  }
 }
 
 /** Reload an owner's rows for a table and embed them, returning the chunk count

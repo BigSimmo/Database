@@ -54,6 +54,15 @@ export function isCommittedGenerationMetadata(args: { rowMetadata?: unknown; com
   return rowGeneration === args.committedGeneration;
 }
 
+export function imageRowNeedsGenerationRestamp(args: {
+  indexGenerationId: string | null;
+  metadata: unknown;
+  committedGeneration: string;
+}) {
+  if (args.indexGenerationId !== args.committedGeneration) return true;
+  return committedIndexGeneration(args.metadata) !== args.committedGeneration;
+}
+
 export function isAbandonedStagedGeneration(args: {
   rowMetadata?: unknown;
   rowGenerationId?: string | null;

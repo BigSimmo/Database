@@ -1,6 +1,6 @@
 import { formRecords } from "@/lib/forms";
 import { buildDefaultFormRows, buildDefaultServiceRows, defaultServiceRecords } from "@/lib/registry-fixtures";
-import { bestEffortEmbedRows, embedClinicalRegistryRows } from "@/lib/registry-corpus";
+import { embedClinicalRegistryRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import { type RegistryRecordInsert, type RegistryRecordKind, type RegistryRecordRow } from "@/lib/registry-records";
 
 // Type-only reference to the admin client so this module carries no runtime
@@ -44,12 +44,9 @@ export async function ensureRegistrySeeded(
     .select("*");
   if (error) throw new Error(`Registry seed failed: ${error.message}`);
   const seededRows = (data ?? []) as RegistryRecordRow[];
-  await bestEffortEmbedRows({
-    scope: "registry",
-    ownerId,
-    detail: `(${kind})`,
-    embed: () => embedClinicalRegistryRows(supabase, seededRows),
-  });
+  if (registryCorpusEmbeddingEnabled()) {
+    await embedClinicalRegistryRows(supabase, seededRows);
+  }
   return seededRows;
 }
 
@@ -84,6 +81,7 @@ export async function fetchOwnerRegistryRowsWithSeed(
       await ensureRegistrySeeded(supabase, ownerId, kind);
     } catch (seedError) {
       console.error(`[registry] auto-seed failed for owner ${ownerId} (${kind})`, seedError);
+      if (registryCorpusEmbeddingEnabled()) throw seedError;
     }
     rows = await fetchRecords();
   }

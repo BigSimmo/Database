@@ -1,5 +1,5 @@
 import { buildDefaultMedicationRows, defaultMedicationRecords } from "@/lib/medication-fixtures";
-import { bestEffortEmbedRows, embedMedicationRows } from "@/lib/registry-corpus";
+import { embedMedicationRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import { type MedicationRecordInsert, type MedicationRecordRow } from "@/lib/medication-records";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
@@ -16,11 +16,9 @@ export async function ensureMedicationsSeeded(supabase: AdminClient, ownerId: st
     .select("*");
   if (error) throw new Error(`Medication seed failed: ${error.message}`);
   const seededRows = (data ?? []) as MedicationRecordRow[];
-  await bestEffortEmbedRows({
-    scope: "medications",
-    ownerId,
-    embed: () => embedMedicationRows(supabase, seededRows),
-  });
+  if (registryCorpusEmbeddingEnabled()) {
+    await embedMedicationRows(supabase, seededRows);
+  }
   return seededRows;
 }
 
@@ -53,6 +51,7 @@ export async function fetchOwnerMedicationRowsWithSeed(
       await ensureMedicationsSeeded(supabase, ownerId);
     } catch (seedError) {
       console.error(`[medications] auto-seed failed for owner ${ownerId}`, seedError);
+      if (registryCorpusEmbeddingEnabled()) throw seedError;
     }
     rows = await fetchRecords();
   }

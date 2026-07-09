@@ -144,6 +144,23 @@ function bestOcrRepair(fragment: string, dictionary: string[]) {
   return best?.word ?? null;
 }
 
+function dropsIsolatedSingleLetterToken(fragment: string, repair: string) {
+  const tokens = fragment.match(/\b[A-Za-z]+\b/g) ?? [];
+  const repairLower = repair.toLowerCase();
+  for (const token of tokens) {
+    if (token.length !== 1) continue;
+    const letterPattern = new RegExp(`\\b${token}\\b`, "i");
+    if (!letterPattern.test(fragment) || letterPattern.test(repairLower)) continue;
+    const remainingTokens = fragment
+      .replace(letterPattern, "")
+      .match(/\b[A-Za-z]+\b/g)
+      ?.filter((remaining) => remaining.length > 0);
+    if (!remainingTokens?.length) continue;
+    if (remainingTokens.every((remaining) => new RegExp(`\\b${remaining}\\b`, "i").test(repairLower))) return true;
+  }
+  return false;
+}
+
 export function repairOcrDropoutAgainstReference(text: string, reference: string) {
   const dictionary = referenceDictionary(reference);
   if (dictionary.length === 0) return { text, replacements: [] as Array<{ from: string; to: string }> };
@@ -162,6 +179,7 @@ export function repairOcrDropoutAgainstReference(text: string, reference: string
       if (!/^[A-Za-z]+(?:\s+[A-Za-z]+)+$/.test(fragment)) continue;
       const repair = bestOcrRepair(fragment, dictionary);
       if (!repair || repair === fragment.toLowerCase()) continue;
+      if (dropsIsolatedSingleLetterToken(fragment, repair)) continue;
       const currentFragment = repaired.slice(start, end);
       if (currentFragment !== fragment) continue;
       repaired = `${repaired.slice(0, start)}${repair}${repaired.slice(end)}`;

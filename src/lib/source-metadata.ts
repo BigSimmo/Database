@@ -45,8 +45,12 @@ export function formatClinicalDate(value: string | null | undefined) {
 }
 
 export function sourceStatusLabel(metadata?: ClinicalSourceMetadata | null) {
-  if (metadata?.source_kind === "registry_record") return "Registry summary";
   const status = metadata?.document_status ?? "unknown";
+  if (metadata?.source_kind === "registry_record") {
+    if (status === "review_due") return "Registry summary · Review due";
+    if (status === "outdated") return "Registry summary · Outdated source";
+    return "Registry summary";
+  }
   if (status === "current") return "Current source";
   if (status === "review_due") return "Review due";
   if (status === "outdated") return "Outdated source";

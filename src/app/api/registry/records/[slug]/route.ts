@@ -17,6 +17,7 @@ import {
   rowToServiceRecord,
   type RegistryRecordRow,
 } from "@/lib/registry-records";
+import { registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import { ensureRegistrySeeded } from "@/lib/registry-seed";
 import { getServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -128,6 +129,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
           await ensureRegistrySeeded(supabase, access.ownerId, kind);
         } catch (seedError) {
           console.error(`[registry] auto-seed failed for owner ${access.ownerId} (${kind})`, seedError);
+          if (registryCorpusEmbeddingEnabled()) throw seedError;
         }
         row = await fetchRecord();
       }

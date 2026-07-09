@@ -151,15 +151,39 @@ jobs:
           persist-credentials: false
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v3
         with:
           version: latest
+
+      - name: Restore Supabase Docker image cache
+        uses: actions/cache@v6
+        with:
+          path: /tmp/supabase-docker-cache
+          key: supabase-docker-${{ runner.os }}-${{ hashFiles('supabase/config.toml') }}
+          restore-keys: |
+            supabase-docker-${{ runner.os }}-
+
+      - name: Load cached Supabase Docker images
+        run: |
+          if [ -f /tmp/supabase-docker-cache/images.tar ]; then
+            docker load -i /tmp/supabase-docker-cache/images.tar
+          fi
 
       - name: Start Supabase Local Emulator
         run: supabase start
 
       - name: Verify Migration Replay
         run: supabase db reset
+
+      - name: Save Supabase Docker images
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/supabase-docker-cache
+          docker images --format '{{.Repository}}:{{.Tag}}' \
+            | grep -E '^(supabase/|ghcr.io/supabase/)' \
+            | sort -u \
+            | xargs -r docker save -o /tmp/supabase-docker-cache/images.tar
 
   release-browser-matrix:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
