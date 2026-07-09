@@ -7,6 +7,10 @@ description: Reviews Next/React boundaries, state ownership, duplicated client s
 
 Use this skill when reviewing Next.js App Router structures, component boundaries, state management, and React performance.
 
+## Repository Review Protocol
+
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+
 ## Review Checklist
 
 ### 1. Next.js App Router Boundaries

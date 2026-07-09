@@ -7,6 +7,10 @@ description: Reviews code quality, naming structures, control flow patterns, abs
 
 Use this skill when auditing source files for maintainability, readability, and structural patterns.
 
+## Repository Review Protocol
+
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+
 ## Review Checklist
 
 ### 1. Maintainability & Naming

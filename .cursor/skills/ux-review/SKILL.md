@@ -7,6 +7,10 @@ description: Reviews the question-to-answer flow, source-review friction, eviden
 
 Use this skill when reviewing user interface flows, search input behaviors, sidebars, modal navigation, and responsiveness.
 
+## Repository Review Protocol
+
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+
 ## Review Checklist
 
 ### 1. Search Composer Integration
