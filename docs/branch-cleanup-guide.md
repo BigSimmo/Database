@@ -41,7 +41,16 @@ Before deleting anything:
    git worktree list --porcelain
    ```
 
-5. For each candidate branch, check whether it has patch content not on `main`:
+5. Filter candidates through the review ledger before inspecting branch diffs:
+
+   ```powershell
+   git rev-parse BRANCH_NAME
+   Select-String -Path docs\branch-review-ledger.md -Pattern "BRANCH_NAME"
+   ```
+
+   If `docs/branch-review-ledger.md` already records the same branch, HEAD SHA, and `branch-cleanup` scope as completed, skip that unchanged branch and summarize the prior outcome. Re-review only when the HEAD changed or the user explicitly asks for a fresh pass.
+
+6. For each remaining candidate branch, check whether it has patch content not on `main`:
 
    ```powershell
    git log --format="%h %s" --right-only --cherry-pick main...BRANCH_NAME
@@ -53,9 +62,11 @@ Delete a branch only when the cherry-pick-aware log is empty, or when the branch
 ## Recommended Cleanup Order
 
 1. Fetch and inspect current branch state with the commands above.
-2. For each candidate branch, confirm patch-unique commits and file diffs against `main`.
-3. Port, commit, or explicitly reject useful patch content before deleting any branch ref.
-4. Remove detached worktrees only when clean, unneeded, and absent from active `git worktree list` output.
+2. Resolve each candidate's HEAD and skip unchanged completed reviews recorded in `docs/branch-review-ledger.md`.
+3. For each remaining candidate branch, confirm patch-unique commits and file diffs against `main`.
+4. Port, commit, or explicitly reject useful patch content before deleting any branch ref.
+5. Record completed cleanup reviews in `docs/branch-review-ledger.md`.
+6. Remove detached worktrees only when clean, unneeded, and absent from active `git worktree list` output.
 
 ## Final Verification
 
