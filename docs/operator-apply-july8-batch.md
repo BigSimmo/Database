@@ -69,12 +69,12 @@ active end-to-end.
 
 ## Probe semantics (`check:july8-live-batch`)
 
-| Check                                    | Pass means                                                                             |
-| ---------------------------------------- | -------------------------------------------------------------------------------------- |
-| `retrieval_owner_matches(null, …)`       | Returns **false** (fail-closed live)                                                   |
-| `jsonb_merge_deep`                       | RPC exists and merges objects                                                          |
-| `complete_ingestion_job` + `p_worker_id` | Accepts the lease-fence parameter (returns `ok:false`, not signature error)            |
-| R17 index                                | `ingestion_jobs_one_open_per_document_uidx` present in `schema_drift_snapshot` indexes |
+| Check                                    | Pass means                                                                                                                                                                               |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `retrieval_owner_matches(null, …)`       | Returns **false** (fail-closed live)                                                                                                                                                     |
+| `jsonb_merge_deep`                       | RPC exists and merges objects                                                                                                                                                            |
+| `complete_ingestion_job` + `p_worker_id` | Accepts the lease-fence parameter (returns `ok:false`, not signature error)                                                                                                              |
+| R17 index                                | Named in `schema_drift_snapshot` with the partial-unique definition on `ingestion_jobs(document_id)`, and a duplicate open-job insert is rejected (catches invalid `CONCURRENTLY` stubs) |
 
 ## Still open (not this batch)
 

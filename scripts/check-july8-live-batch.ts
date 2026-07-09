@@ -5,10 +5,33 @@ loadEnvConfig(process.cwd());
 const R17_INDEX = "ingestion_jobs_one_open_per_document_uidx";
 const PROBE_JOB_ID = "00000000-0000-0000-0000-000000000099";
 const PROBE_DOC_ID = "00000000-0000-0000-0000-000000000098";
+const R17_PROBE_JOB_PRIMARY = "00000000-0000-0000-0000-000000000097";
+const R17_PROBE_JOB_DUPLICATE = "00000000-0000-0000-0000-000000000096";
+
+type DriftIndex = {
+  name?: unknown;
+  def?: unknown;
+};
 
 type DriftSnapshot = {
-  indexes?: Array<{ name?: unknown }>;
+  indexes?: DriftIndex[];
 };
+
+export function normalizeIndexDef(def: string) {
+  return def.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+export function isExpectedR17IndexDef(def: string) {
+  const normalized = normalizeIndexDef(def);
+  return (
+    normalized.includes("create unique index") &&
+    normalized.includes("ingestion_jobs") &&
+    normalized.includes("(document_id)") &&
+    normalized.includes("where") &&
+    normalized.includes("pending") &&
+    normalized.includes("processing")
+  );
+}
 
 type AdminClient = ReturnType<Awaited<typeof import("@/lib/supabase/admin")>["createAdminClient"]>;
 
@@ -99,6 +122,78 @@ async function checkWorkerLeaseFence(supabase: AdminClient) {
   console.log("[July8 Live Batch] PASS: complete_ingestion_job accepts p_worker_id lease fence.");
 }
 
+async function findR17ProbeDocument(supabase: AdminClient) {
+  const { data: docs, error } = await supabase.from("documents").select("id").limit(200);
+  if (error) {
+    throw new Error(`R17 probe: could not list documents: ${error.message}`);
+  }
+  if (!docs?.length) {
+    throw new Error("R17 probe: no documents available for enforcement check");
+  }
+
+  for (const doc of docs) {
+    const { data: openJobs, error: openError } = await supabase
+      .from("ingestion_jobs")
+      .select("id")
+      .eq("document_id", doc.id)
+      .in("status", ["pending", "processing"])
+      .limit(1);
+    if (openError) {
+      throw new Error(`R17 probe: open-job lookup failed: ${openError.message}`);
+    }
+    if (!openJobs?.length) {
+      return doc.id;
+    }
+  }
+
+  throw new Error("R17 probe: could not find a document without open ingestion jobs");
+}
+
+async function checkR17IndexEnforcement(supabase: AdminClient) {
+  const documentId = await findR17ProbeDocument(supabase);
+  const nextRunAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const baseRow = {
+    document_id: documentId,
+    status: "pending" as const,
+    stage: "queued",
+    progress: 0,
+    next_run_at: nextRunAt,
+  };
+
+  const { error: firstError } = await supabase.from("ingestion_jobs").insert({
+    id: R17_PROBE_JOB_PRIMARY,
+    ...baseRow,
+  });
+  if (firstError) {
+    throw new Error(`R17 probe: could not insert primary open job: ${firstError.message}`);
+  }
+
+  try {
+    const { error: duplicateError } = await supabase.from("ingestion_jobs").insert({
+      id: R17_PROBE_JOB_DUPLICATE,
+      ...baseRow,
+    });
+
+    if (!duplicateError) {
+      await supabase.from("ingestion_jobs").delete().eq("id", R17_PROBE_JOB_DUPLICATE);
+      throw new Error(
+        `${R17_INDEX} is not enforcing uniqueness — duplicate open job insert succeeded for document ${documentId}`,
+      );
+    }
+
+    const duplicateMessage = duplicateError.message.toLowerCase();
+    const isUniqueViolation =
+      duplicateError.code === "23505" ||
+      duplicateMessage.includes(R17_INDEX) ||
+      duplicateMessage.includes("duplicate key");
+    if (!isUniqueViolation) {
+      throw new Error(`R17 probe: unexpected duplicate-insert error: ${duplicateError.message}`);
+    }
+  } finally {
+    await supabase.from("ingestion_jobs").delete().eq("id", R17_PROBE_JOB_PRIMARY);
+  }
+}
+
 async function checkR17Index(supabase: AdminClient) {
   const { data, error } = await supabase.rpc("schema_drift_snapshot" as never);
   if (error) {
@@ -106,14 +201,22 @@ async function checkR17Index(supabase: AdminClient) {
   }
 
   const indexes = (data as DriftSnapshot | null)?.indexes ?? [];
-  const found = indexes.some((entry) => entry?.name === R17_INDEX);
-  if (!found) {
+  const entry = indexes.find((index) => index?.name === R17_INDEX);
+  if (!entry) {
     throw new Error(
       `${R17_INDEX} missing on live — apply 20260708170000_ingestion_jobs_one_open_per_document.sql (or manual CONCURRENTLY + repair 20260708170000)`,
     );
   }
 
-  console.log("[July8 Live Batch] PASS: R17 partial unique index is live.");
+  const definition = typeof entry.def === "string" ? entry.def : "";
+  if (!isExpectedR17IndexDef(definition)) {
+    throw new Error(
+      `${R17_INDEX} definition mismatch — expected partial unique index on ingestion_jobs(document_id) for open statuses; got: ${definition || "<empty>"}`,
+    );
+  }
+
+  await checkR17IndexEnforcement(supabase);
+  console.log("[July8 Live Batch] PASS: R17 partial unique index is live, valid, and enforcing.");
 }
 
 async function main() {
