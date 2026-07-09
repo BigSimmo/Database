@@ -3,6 +3,7 @@ import {
   DEFAULT_EVAL_OWNER_ID,
   expectedFileCoverage,
   isProviderRateLimitError,
+  pauseBetweenEvalCases,
   resolveEvalOwnerId,
   validateRagAnswer,
   withProviderBackoff,
@@ -96,6 +97,24 @@ describe("RAG eval source identity matching", () => {
     expect(result).toBe("ok");
     expect(attempts).toBe(2);
     expect(isProviderRateLimitError(new Error("429 too many requests"))).toBe(true);
+  });
+
+  it("pauses between eval cases when configured", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubEnv("RAG_EVAL_CASE_DELAY_MS", "15");
+      vi.stubEnv("RAG_EVAL_FORCE_EMBEDDING_DELAY_MS", "15");
+
+      const pausePromise = pauseBetweenEvalCases({ caseIndex: 1, forceEmbedding: true });
+      await vi.advanceTimersByTimeAsync(30);
+      await pausePromise;
+
+      await pauseBetweenEvalCases({ caseIndex: 0, forceEmbedding: true });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    }
   });
 });
 
