@@ -148,7 +148,8 @@ Failing loudly:
 
 Required repo secrets (same ones CI's deployment boot smoke already uses,
 plus the eval owner): `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`,
-`E2E_USER_EMAIL` (resolved to the eval owner via `RAG_EVAL_OWNER_EMAIL`).
+`RAG_QUERY_HASH_SECRET`, `E2E_USER_EMAIL` (resolved to the eval owner via
+`RAG_EVAL_OWNER_EMAIL`).
 The workflow preflights these and fails with an explicit message when absent.
 
 Operational notes:
