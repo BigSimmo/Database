@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 loadEnvConfig(process.cwd());
 
 const R17_INDEX = "ingestion_jobs_one_open_per_document_uidx";
+export const R17_PROBE_STAGE = "july8-live-batch-probe";
 const LEGACY_R17_PROBE_JOB_IDS = [
   "00000000-0000-0000-0000-000000000097",
   "00000000-0000-0000-0000-000000000096",
@@ -45,13 +46,19 @@ export function isExpectedR17IndexDef(def: string) {
   const anyMatch = whereClause.match(/status\s*=\s*any\s*\(\s*(?:array\s*)?\[([^\]]+)\]/);
 
   if (inMatch) {
-    statuses = inMatch[1]
-      .split(",")
-      .map((value) => value.split("::")[0].trim().replace(/^['"]|['"]$/g, ""));
+    statuses = inMatch[1].split(",").map((value) =>
+      value
+        .split("::")[0]
+        .trim()
+        .replace(/^['"]|['"]$/g, ""),
+    );
   } else if (anyMatch) {
-    statuses = anyMatch[1]
-      .split(",")
-      .map((value) => value.split("::")[0].trim().replace(/^['"]|['"]$/g, ""));
+    statuses = anyMatch[1].split(",").map((value) =>
+      value
+        .split("::")[0]
+        .trim()
+        .replace(/^['"]|['"]$/g, ""),
+    );
   } else {
     return false;
   }
@@ -155,6 +162,49 @@ async function checkWorkerLeaseFence(supabase: AdminClient) {
   console.log("[July8 Live Batch] PASS: complete_ingestion_job accepts p_worker_id lease fence.");
 }
 
+async function deleteR17ProbeJobIds(supabase: AdminClient, ids: readonly string[], context: string) {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.from("ingestion_jobs").delete().in("id", uniqueIds);
+  if (error) {
+    throw new Error(`R17 probe: ${context} cleanup failed: ${error.message}`);
+  }
+}
+
+async function sweepStrandedR17ProbeRows(supabase: AdminClient) {
+  const { error } = await supabase
+    .from("ingestion_jobs")
+    .delete()
+    .eq("stage", R17_PROBE_STAGE)
+    .in("status", ["pending", "processing"]);
+  if (error) {
+    throw new Error(`R17 probe: could not sweep stranded probe rows: ${error.message}`);
+  }
+}
+
+async function assertNoStrandedR17ProbeRows(supabase: AdminClient) {
+  const { data, error } = await supabase
+    .from("ingestion_jobs")
+    .select("id")
+    .eq("stage", R17_PROBE_STAGE)
+    .in("status", ["pending", "processing"])
+    .limit(1);
+  if (error) {
+    throw new Error(`R17 probe: could not verify probe cleanup: ${error.message}`);
+  }
+  if (data?.length) {
+    throw new Error(`R17 probe: stranded probe job ${data[0]?.id} remains after cleanup — manual delete required`);
+  }
+}
+
+async function prepareR17ProbeCleanup(supabase: AdminClient) {
+  await deleteR17ProbeJobIds(supabase, LEGACY_R17_PROBE_JOB_IDS, "legacy");
+  await sweepStrandedR17ProbeRows(supabase);
+}
+
 async function findR17ProbeDocument(supabase: AdminClient) {
   const pageSize = 100;
   let page = 0;
@@ -163,11 +213,7 @@ async function findR17ProbeDocument(supabase: AdminClient) {
     const from = page * pageSize;
     const to = from + pageSize - 1;
 
-    const { data: docs, error } = await supabase
-      .from("documents")
-      .select("id")
-      .order("id")
-      .range(from, to);
+    const { data: docs, error } = await supabase.from("documents").select("id").order("id").range(from, to);
 
     if (error) {
       throw new Error(`R17 probe: could not list documents: ${error.message}`);
@@ -197,20 +243,10 @@ async function findR17ProbeDocument(supabase: AdminClient) {
   throw new Error("R17 probe: could not find a document without open ingestion jobs");
 }
 
-async function cleanupLegacyR17ProbeRows(supabase: AdminClient) {
-  const { error } = await supabase
-    .from("ingestion_jobs")
-    .delete()
-    .in("id", [...LEGACY_R17_PROBE_JOB_IDS]);
-  if (error) {
-    throw new Error(`R17 probe: could not clean legacy probe rows: ${error.message}`);
-  }
-}
-
 async function checkR17IndexEnforcement(supabase: AdminClient) {
   const maxAttempts = 5;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    await cleanupLegacyR17ProbeRows(supabase);
+    await prepareR17ProbeCleanup(supabase);
 
     const documentId = await findR17ProbeDocument(supabase);
     const primaryJobId = randomUUID();
@@ -219,7 +255,7 @@ async function checkR17IndexEnforcement(supabase: AdminClient) {
     const baseRow = {
       document_id: documentId,
       status: "pending" as const,
-      stage: "queued",
+      stage: R17_PROBE_STAGE,
       progress: 0,
       next_run_at: nextRunAt,
     };
@@ -231,7 +267,9 @@ async function checkR17IndexEnforcement(supabase: AdminClient) {
 
     if (firstError) {
       if (isR17IndexUniqueViolation(firstError) && attempt < maxAttempts) {
-        console.log(`[July8 Live Batch] Race detected on doc ${documentId} (attempt ${attempt}/${maxAttempts}). Retrying...`);
+        console.log(
+          `[July8 Live Batch] Race detected on doc ${documentId} (attempt ${attempt}/${maxAttempts}). Retrying...`,
+        );
         continue;
       }
       throw new Error(`R17 probe: could not insert primary open job: ${firstError.message}`);
@@ -244,7 +282,7 @@ async function checkR17IndexEnforcement(supabase: AdminClient) {
       });
 
       if (!duplicateError) {
-        await supabase.from("ingestion_jobs").delete().eq("id", duplicateJobId);
+        await deleteR17ProbeJobIds(supabase, [duplicateJobId], "unexpected duplicate");
         throw new Error(
           `${R17_INDEX} is not enforcing uniqueness — duplicate open job insert succeeded for document ${documentId}`,
         );
@@ -259,9 +297,11 @@ async function checkR17IndexEnforcement(supabase: AdminClient) {
       // Success, break out of loop
       break;
     } finally {
-      await supabase.from("ingestion_jobs").delete().in("id", [primaryJobId, duplicateJobId]);
+      await deleteR17ProbeJobIds(supabase, [primaryJobId, duplicateJobId], "enforcement");
     }
   }
+
+  await assertNoStrandedR17ProbeRows(supabase);
 }
 
 async function checkR17Index(supabase: AdminClient) {

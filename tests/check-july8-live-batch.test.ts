@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { isExpectedR17IndexDef, isR17IndexUniqueViolation, normalizeIndexDef } from "../scripts/check-july8-live-batch";
+import {
+  isExpectedR17IndexDef,
+  isR17IndexUniqueViolation,
+  normalizeIndexDef,
+  R17_PROBE_STAGE,
+} from "../scripts/check-july8-live-batch";
 
 describe("check-july8-live-batch R17 index definition probe", () => {
   it("accepts the canonical partial unique index definition", () => {
@@ -58,5 +63,11 @@ describe("isR17IndexUniqueViolation", () => {
         message: 'duplicate key value violates unique constraint "ingestion_jobs_pkey"',
       }),
     ).toBe(false);
+  });
+});
+
+describe("R17 probe row tagging", () => {
+  it("uses a dedicated stage marker for mark-and-sweep cleanup", () => {
+    expect(R17_PROBE_STAGE).toBe("july8-live-batch-probe");
   });
 });
