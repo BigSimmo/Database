@@ -106,6 +106,57 @@ describe("citations", () => {
     expect(documentCitationHref(citationFromResult(result))).toBe("/documents/doc-1?page=12&chunk=chunk-1");
   });
 
+  it("links registry citations to their native detail route instead of the storage-backed document viewer", () => {
+    expect(
+      documentCitationHref(
+        citation({
+          source_metadata: {
+            source_kind: "registry_record",
+            registry_record_kind: "service",
+            registry_record_slug: "crisis-service",
+            source_title: "Crisis service",
+            publisher: "Clinical KB registry",
+            jurisdiction: "WA/local clinical workspace",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "current",
+            clinical_validation_status: "locally_reviewed",
+            extraction_quality: "good",
+          },
+        }),
+      ),
+    ).toBe("/services/crisis-service");
+
+    expect(
+      documentCitationHref(
+        citation({
+          source_metadata: {
+            source_kind: "registry_record",
+            registry_record_kind: "differential",
+            registry_record_subkind: "presentation",
+            registry_record_slug: "first-episode-psychosis",
+            source_title: "First episode psychosis",
+            publisher: "Clinical KB registry",
+            jurisdiction: "WA/local clinical workspace",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "current",
+            clinical_validation_status: "locally_reviewed",
+            extraction_quality: "good",
+          },
+        }),
+      ),
+    ).toBe("/differentials/presentations/first-episode-psychosis");
+  });
+
   it("deduplicates visible citations by document page and chunk", () => {
     const citations = uniqueCitations([
       citation(),

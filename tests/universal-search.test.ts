@@ -85,6 +85,66 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
     expect(documents?.items.length ?? 0).toBeGreaterThan(0);
     expect(documents?.items[0]?.href).toContain("/documents/");
   });
+
+  it("keeps registry hrefs when document search uses related-document mapping", async () => {
+    vi.doMock("@/lib/rag", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../src/lib/rag")>();
+      return {
+        ...actual,
+        searchChunksWithTelemetry: vi.fn(async () => ({
+          results: [
+            {
+              id: "registry-chunk",
+              document_id: "registry-doc",
+              title: "Crisis service",
+              file_name: "service-crisis-service.registry.json",
+              page_number: 1,
+              hybrid_score: 0.92,
+              similarity: 0.9,
+              images: [],
+              source_metadata: {
+                source_kind: "registry_record",
+                registry_record_kind: "service",
+                registry_record_slug: "crisis-service",
+              },
+            },
+          ],
+        })),
+      };
+    });
+    vi.doMock("@/lib/document-enrichment", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../src/lib/document-enrichment")>();
+      return {
+        ...actual,
+        fetchRelatedDocuments: vi.fn(async () => [
+          {
+            document_id: "registry-doc",
+            title: "Crisis service",
+            file_name: "service-crisis-service.registry.json",
+            labels: [],
+            summary: null,
+            best_pages: [1],
+            best_chunk_ids: ["registry-chunk"],
+            image_count: 0,
+            table_count: 0,
+            match_reason: "Matched 1 indexed passage",
+            score: 0.92,
+          },
+        ]),
+      };
+    });
+
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const response = await runUniversalSearch({
+      query: "crisis service",
+      limitPerDomain: 5,
+      domains: ["documents"],
+      demo: false,
+      supabase: {} as Parameters<typeof runUniversalSearch>[0]["supabase"],
+    });
+
+    expect(response.groups[0]?.items[0]?.href).toBe("/services/crisis-service");
+  });
 });
 
 describe("GET /api/search/universal (demo mode)", () => {

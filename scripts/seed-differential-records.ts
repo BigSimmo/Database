@@ -2,6 +2,7 @@ import { loadEnvConfig } from "@next/env";
 
 import { confirm } from "./cli-utils";
 import { buildDefaultDifferentialRows, loadDifferentialSnapshot } from "@/lib/differential-fixtures";
+import type { DifferentialRecordRow } from "@/lib/differential-records";
 
 loadEnvConfig(process.cwd());
 
@@ -14,6 +15,10 @@ type SeedArgs = {
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   return createAdminClient();
+}
+
+async function loadRegistryCorpus() {
+  return import("@/lib/registry-corpus");
 }
 
 function parseArgs(argv: string[]): SeedArgs {
@@ -45,6 +50,7 @@ function parseArgs(argv: string[]): SeedArgs {
 }
 
 async function main() {
+  const { embedDifferentialRows, embedReloadedOwnerRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
   const args = parseArgs(process.argv.slice(2));
   if (!args.ownerId) {
     throw new Error("No owner id. Pass --owner-id <uuid> or set LOCAL_NO_AUTH_OWNER_ID.");
@@ -121,6 +127,15 @@ async function main() {
     console.warn(`[differentials:seed] Upsert succeeded but count check failed: ${countError.message}`);
   } else {
     console.log(`[differentials:seed] Done. Owner now has ${count ?? "?"} differential records.`);
+  }
+
+  if (registryCorpusEmbeddingEnabled()) {
+    const chunkCount = await embedReloadedOwnerRows(
+      supabase.from("differential_records").select("*").eq("owner_id", args.ownerId),
+      (rows) => embedDifferentialRows(supabase, rows as DifferentialRecordRow[]),
+      "differential",
+    );
+    console.log(`[differentials:seed] Embedded ${chunkCount} registry corpus chunk(s).`);
   }
 }
 

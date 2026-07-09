@@ -2331,29 +2331,70 @@ async function withMemoryBoostedCandidates(args: {
   };
 }
 
+type DocumentRankingMetadataCache = {
+  documentMetadata: Map<
+    string,
+    { labels: SearchResult["document_labels"]; summary: SearchResult["document_summary"] } | null
+  >;
+  indexQuality: Map<string, SearchResult["indexing_quality"] | null>;
+};
+
+function createDocumentRankingMetadataCache(): DocumentRankingMetadataCache {
+  return {
+    documentMetadata: new Map(),
+    indexQuality: new Map(),
+  };
+}
+
 async function attachDocumentRankingMetadata(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
   ownerId?: string,
+  cache = createDocumentRankingMetadataCache(),
 ) {
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   if (documentIds.length === 0) return results;
-  const missingMetadata = results.some(
-    (result) =>
-      (result.document_labels === undefined || result.document_labels.length === 0) &&
-      (result.document_summary === undefined || result.document_summary === null),
+  const missingDocumentIds = documentIds.filter(
+    (documentId) =>
+      !cache.documentMetadata.has(documentId) &&
+      results.some(
+        (result) =>
+          result.document_id === documentId &&
+          (result.document_labels === undefined || result.document_labels.length === 0) &&
+          (result.document_summary === undefined || result.document_summary === null),
+      ),
   );
-  if (!missingMetadata) return attachIndexQualityMetadata(supabase, results, ownerId);
+  if (missingDocumentIds.length === 0) {
+    const enriched = results.map((result) => {
+      const metadata = cache.documentMetadata.get(result.document_id);
+      if (!metadata) return result;
+      if (
+        (result.document_labels !== undefined && result.document_labels.length > 0) ||
+        (result.document_summary !== undefined && result.document_summary !== null)
+      ) {
+        return result;
+      }
+      return {
+        ...result,
+        document_labels: metadata.labels,
+        document_summary: metadata.summary,
+      };
+    });
+    return attachIndexQualityMetadata(supabase, enriched, ownerId, cache);
+  }
 
   try {
     const metadataRows = await fetchRelatedDocumentMetadata({
       supabase,
       ownerId,
-      documentIds,
+      documentIds: missingDocumentIds,
     });
-    const metadataByDocument = new Map(metadataRows.map((row) => [row.document_id, row]));
+    for (const documentId of missingDocumentIds) cache.documentMetadata.set(documentId, null);
+    for (const row of metadataRows) {
+      cache.documentMetadata.set(row.document_id, { labels: row.labels, summary: row.summary });
+    }
     const enriched = results.map((result) => {
-      const metadata = metadataByDocument.get(result.document_id);
+      const metadata = cache.documentMetadata.get(result.document_id);
       if (!metadata) return result;
       return {
         ...result,
@@ -2361,35 +2402,40 @@ async function attachDocumentRankingMetadata(
         document_summary: metadata.summary,
       };
     });
-    return attachIndexQualityMetadata(supabase, enriched, ownerId);
+    return attachIndexQualityMetadata(supabase, enriched, ownerId, cache);
   } catch {
     return results;
   }
+}
+
+function withCachedIndexQuality(results: SearchResult[], cache: DocumentRankingMetadataCache) {
+  return results.map((result) => ({
+    ...result,
+    indexing_quality: cache.indexQuality.get(result.document_id) ?? result.indexing_quality ?? null,
+  }));
 }
 
 async function attachIndexQualityMetadata(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
   ownerId?: string,
+  cache = createDocumentRankingMetadataCache(),
 ): Promise<SearchResult[]> {
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   if (documentIds.length === 0) return results;
+  const missingDocumentIds = documentIds.filter((documentId) => !cache.indexQuality.has(documentId));
+  if (missingDocumentIds.length === 0) return withCachedIndexQuality(results, cache);
   try {
     let query = supabase
       .from("document_index_quality")
       .select("document_id,owner_id,quality_score,extraction_quality,metrics,issues,updated_at")
-      .in("document_id", documentIds);
+      .in("document_id", missingDocumentIds);
     if (ownerId) query = query.eq("owner_id", ownerId);
     const { data, error } = await query;
-    if (error || !data?.length) return results;
-    const qualityByDocument = new Map(data.map((row) => [row.document_id, row]));
-    return results.map((result) => ({
-      ...result,
-      indexing_quality:
-        (qualityByDocument.get(result.document_id) as SearchResult["indexing_quality"]) ??
-        result.indexing_quality ??
-        null,
-    }));
+    if (error) return results;
+    for (const documentId of missingDocumentIds) cache.indexQuality.set(documentId, null);
+    for (const row of data ?? []) cache.indexQuality.set(row.document_id, row as SearchResult["indexing_quality"]);
+    return withCachedIndexQuality(results, cache);
   } catch {
     return results;
   }
@@ -2949,9 +2995,15 @@ async function prepareCoverageGateResults(args: {
   maxResultsPerDocument: number;
   queryClass: RagQueryClass;
   telemetry: SearchTelemetry;
+  metadataCache: DocumentRankingMetadataCache;
 }) {
   const startedAt = Date.now();
-  const candidates = await attachDocumentRankingMetadata(args.supabase, args.candidates, args.ownerId);
+  const candidates = await attachDocumentRankingMetadata(
+    args.supabase,
+    args.candidates,
+    args.ownerId,
+    args.metadataCache,
+  );
   let results = await attachPageVisualEvidence(
     args.supabase,
     selectRankedRetrievalResults({
@@ -3007,16 +3059,6 @@ function shouldAttemptDocumentLookupFastPath(queryClass: RagQueryClass) {
 
 function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
   return queryClass === "table_threshold" || queryClass === "medication_dose_risk" || queryClass === "comparison";
-}
-
-function shouldPreloadEmbedding(queryAnalysis: ReturnType<typeof analyzeClinicalQuery>) {
-  if (queryAnalysis.documentTitleIntent && queryAnalysis.queryClass === "document_lookup") return false;
-  return (
-    queryAnalysis.queryClass === "comparison" ||
-    queryAnalysis.queryClass === "broad_summary" ||
-    (queryAnalysis.queryClass === "medication_dose_risk" && queryAnalysis.needsSynthesis) ||
-    queryAnalysis.needsClassifierFallback
-  );
 }
 
 function memoryCardAnswerScore(card: DocumentMemoryCard, query: string, queryClass: RagQueryClass) {
@@ -3087,6 +3129,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   // A3: shared across every withMemoryBoostedCandidates call in this request so the same
   // owner/query memory cards are fetched at most once per (query, embedding-present, count).
   const memoryCardCache: MemoryCardCache = new Map();
+  const documentRankingMetadataCache = createDocumentRankingMetadataCache();
   const retrievalQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
   const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
   const documentFilterList = args.documentIds?.length
@@ -3216,13 +3259,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const maxResultsPerDocument = queryClassification.queryClass === "comparison" ? 2 : 4;
   const minSimilarity = args.minSimilarity ?? 0.15;
   let embeddingStartedAt = 0;
-  const preloadedEmbedding =
-    !sourceOnlyRetrieval && !args.lexicalOnly && shouldPreloadEmbedding(queryAnalysis)
-      ? (() => {
-          embeddingStartedAt = Date.now();
-          return Promise.resolve(embedTextWithTelemetry(expandedQuery)).catch(() => null);
-        })()
-      : null;
 
   let textFastResults: SearchResult[] = [];
   const textRpcStartedAt = Date.now();
@@ -3246,10 +3282,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
 
   if (textData.length) {
     const rerankStartedAt = Date.now();
-    const textCandidates = await attachDocumentRankingMetadata(supabase, textData as SearchResult[], args.ownerId);
-    if (!preloadedEmbedding) {
-      expandedQuery = expandClinicalQueryWithCandidateMetadata(args.query, expandedQuery, textCandidates);
-    }
+    const textCandidates = await attachDocumentRankingMetadata(
+      supabase,
+      textData as SearchResult[],
+      args.ownerId,
+      documentRankingMetadataCache,
+    );
+    expandedQuery = expandClinicalQueryWithCandidateMetadata(args.query, expandedQuery, textCandidates);
     const baseTextResults = selectRankedRetrievalResults({
       query: retrievalQuery,
       queryClass: queryClassification.queryClass,
@@ -3368,10 +3407,9 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         supabase,
         mergeSearchResults(documentLookupData, textFastResults),
         args.ownerId,
+        documentRankingMetadataCache,
       );
-      if (!preloadedEmbedding) {
-        expandedQuery = expandClinicalQueryWithCandidateMetadata(args.query, expandedQuery, documentLookupCandidates);
-      }
+      expandedQuery = expandClinicalQueryWithCandidateMetadata(args.query, expandedQuery, documentLookupCandidates);
       const memoryBoost = await withMemoryBoostedCandidates({
         supabase,
         query: args.query,
@@ -3442,6 +3480,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       maxResultsPerDocument,
       queryClass: queryClassification.queryClass,
       telemetry,
+      metadataCache: documentRankingMetadataCache,
     });
     const coverageGate = evaluateEvidenceCoverageGate(args.query, coverageGateResults, queryClassification.queryClass);
     applyCoverageGateTelemetry(telemetry, coverageGate, !args.forceEmbedding && coverageGate.accepted);
@@ -3466,23 +3505,20 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   }
 
   throwIfAborted(args.signal);
-  if (!embeddingStartedAt) embeddingStartedAt = Date.now();
-  let embeddingResult = await preloadedEmbedding;
-  if (!embeddingResult) {
-    embeddingStartedAt = Date.now();
-    try {
-      embeddingResult = await embedTextWithTelemetry(expandedQuery);
-    } catch (error) {
-      // In auto mode a failed embedding call (e.g. quota exhausted) degrades to the lexical
-      // results already gathered rather than failing the whole search. "openai" mode rethrows.
-      if (args.forceEmbedding || !allowsAutoDegrade()) throw error;
-      telemetry.embedding_skipped = true;
-      telemetry.embedding_skip_reason = sourceOnlyReason(error);
-      telemetry.vector_skipped_reason = classifyProviderFailure(error);
-      telemetry.retrieval_strategy = telemetry.retrieval_strategy ?? "text_fast_path";
-      recordSearchScoreTelemetry(telemetry, textFastResults);
-      return { results: textFastResults, telemetry };
-    }
+  embeddingStartedAt = Date.now();
+  let embeddingResult: Awaited<ReturnType<typeof embedTextWithTelemetry>> | null = null;
+  try {
+    embeddingResult = await embedTextWithTelemetry(expandedQuery);
+  } catch (error) {
+    // In auto mode a failed embedding call (e.g. quota exhausted) degrades to the lexical
+    // results already gathered rather than failing the whole search. "openai" mode rethrows.
+    if (args.forceEmbedding || !allowsAutoDegrade()) throw error;
+    telemetry.embedding_skipped = true;
+    telemetry.embedding_skip_reason = sourceOnlyReason(error);
+    telemetry.vector_skipped_reason = classifyProviderFailure(error);
+    telemetry.retrieval_strategy = telemetry.retrieval_strategy ?? "text_fast_path";
+    recordSearchScoreTelemetry(telemetry, textFastResults);
+    return { results: textFastResults, telemetry };
   }
   const { embedding, cacheHit } = embeddingResult;
   telemetry.embedding_latency_ms = Date.now() - embeddingStartedAt;
@@ -3587,7 +3623,12 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   if (!hybridError) {
     const rerankStartedAt = Date.now();
     const merged = args.forceEmbedding ? vectorCandidates : mergeSearchResults(vectorCandidates, textFastResults);
-    const mergedWithMetadata = await attachDocumentRankingMetadata(supabase, merged, args.ownerId);
+    const mergedWithMetadata = await attachDocumentRankingMetadata(
+      supabase,
+      merged,
+      args.ownerId,
+      documentRankingMetadataCache,
+    );
     const memoryBoost = await withMemoryBoostedCandidates({
       supabase,
       query: retrievalQuery,
@@ -3668,6 +3709,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     supabase,
     args.forceEmbedding ? fallbackVectorCandidates : mergeSearchResults(fallbackVectorCandidates, textFastResults),
     args.ownerId,
+    documentRankingMetadataCache,
   );
   const memoryBoost = await withMemoryBoostedCandidates({
     supabase,

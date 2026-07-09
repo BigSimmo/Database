@@ -3,6 +3,7 @@ import {
   buildDocumentIndexUnitInputs,
   countDocumentIndexUnitsByType,
   documentIntelligenceVersion,
+  repairOcrDropoutAgainstReference,
 } from "../src/lib/document-index-units";
 
 const document = {
@@ -242,5 +243,60 @@ describe("document index units", () => {
       source_image_id: "image-sparse-med",
       metadata: expect.objectContaining({ visual_item_type: "sparse_visual_fallback" }),
     });
+  });
+
+  it("repairs whitespace-fragmented OCR words against the source chunk", () => {
+    const units = buildDocumentIndexUnitInputs({
+      document,
+      chunks: [
+        {
+          id: "chunk-1",
+          document_id: "doc-1",
+          page_number: 7,
+          chunk_index: 0,
+          section_heading: "Discharge",
+          section_path: ["Discharge"],
+          content: "Psychosocial interventions should be documented before discharge.",
+          metadata: {},
+        },
+      ],
+      images: [
+        {
+          id: "image-ocr",
+          pageNumber: 7,
+          sourceKind: "table_crop",
+          tableTitle: "Discharge table",
+          tableRows: [["p ycho ocial", "Document before discharge"]],
+          tableColumns: ["Intervention", "Action"],
+          metadata: {},
+        },
+      ],
+    });
+
+    const repaired = units.find((unit) => unit.metadata.ocr_repair_version === "clean-chunk-fragment-v1");
+    expect(repaired?.content).toContain("psychosocial");
+    expect(repaired?.metadata.ocr_replacements).toEqual(
+      expect.arrayContaining([expect.objectContaining({ from: "p ycho ocial", to: "psychosocial" })]),
+    );
+  });
+
+  it("does not drop isolated single-letter clinical tokens during OCR repair", () => {
+    const { text, replacements } = repairOcrDropoutAgainstReference(
+      "vitamin D deficiency may require supplementation",
+      "vitamin D deficiency monitoring protocol",
+    );
+
+    expect(text).toContain("vitamin D");
+    expect(replacements).toEqual([]);
+  });
+
+  it("still repairs whitespace-fragmented OCR words against the source chunk", () => {
+    const { text, replacements } = repairOcrDropoutAgainstReference(
+      "p ycho ocial",
+      "Psychosocial interventions should be documented before discharge.",
+    );
+
+    expect(text).toContain("psychosocial");
+    expect(replacements).toEqual([expect.objectContaining({ from: "p ycho ocial", to: "psychosocial" })]);
   });
 });

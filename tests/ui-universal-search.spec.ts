@@ -49,7 +49,7 @@ async function mockUniversalSearch(page: Page) {
 }
 
 async function openComposer(page: Page) {
-  await page.goto("/?mode=documents&focus=1");
+  await page.goto("/?mode=documents&focus=1", { waitUntil: "domcontentloaded" });
   const input = page.getByTestId("global-search-input").first();
   await input.click();
   return input;
