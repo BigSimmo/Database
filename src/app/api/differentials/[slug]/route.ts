@@ -19,6 +19,7 @@ import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differenti
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
+import { registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery } from "@/lib/validation/query";
@@ -146,6 +147,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
           await ensureDifferentialsSeeded(supabase, access.ownerId);
         } catch (seedError) {
           console.error(`[differentials] auto-seed failed for owner ${access.ownerId}`, seedError);
+          if (registryCorpusEmbeddingEnabled()) throw seedError;
         }
         row = await fetchRecord();
       }

@@ -94,6 +94,11 @@ export type DocumentOrganizationProfile = {
 };
 
 export type ClinicalSourceMetadata = {
+  source_kind?: "document" | "registry_record" | string | null;
+  registry_record_kind?: "service" | "form" | "medication" | "differential" | string | null;
+  registry_record_subkind?: string | null;
+  registry_record_id?: string | null;
+  registry_record_slug?: string | null;
   source_title: string | null;
   publisher: string | null;
   publisher_code?: string | null;
@@ -137,7 +142,8 @@ export type SourceGovernanceWarning = {
     | "partial_extraction"
     | "low_index_quality"
     | "weak_evidence"
-    | "weak_table_extraction";
+    | "weak_table_extraction"
+    | "registry_record_source";
   severity: "info" | "warning" | "danger";
   message: string;
   document_id?: string;

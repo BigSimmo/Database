@@ -8,6 +8,10 @@ import { type RegistryRecordInsert, type RegistryRecordKind, type RegistryRecord
 // client into `ensureRegistrySeeded`.
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
 
+function loadRegistryCorpus() {
+  return import("@/lib/registry-corpus");
+}
+
 /** The curated default registry fixtures for a kind — the same set the CLI
  *  seeds and the API falls back to when an owner has no records yet. */
 export function defaultRegistryRecords(kind: RegistryRecordKind) {
@@ -42,7 +46,12 @@ export async function ensureRegistrySeeded(
     .upsert(rows, { onConflict: "owner_id,kind,slug" })
     .select("*");
   if (error) throw new Error(`Registry seed failed: ${error.message}`);
-  return (data ?? []) as RegistryRecordRow[];
+  const seededRows = (data ?? []) as RegistryRecordRow[];
+  const { embedClinicalRegistryRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
+  if (registryCorpusEmbeddingEnabled()) {
+    await embedClinicalRegistryRows(supabase, seededRows);
+  }
+  return seededRows;
 }
 
 /**
@@ -76,6 +85,8 @@ export async function fetchOwnerRegistryRowsWithSeed(
       await ensureRegistrySeeded(supabase, ownerId, kind);
     } catch (seedError) {
       console.error(`[registry] auto-seed failed for owner ${ownerId} (${kind})`, seedError);
+      const { registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
+      if (registryCorpusEmbeddingEnabled()) throw seedError;
     }
     rows = await fetchRecords();
   }
