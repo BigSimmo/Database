@@ -1938,7 +1938,24 @@ export function DocumentViewer({
   // mobile actions sheet is open or while focus sits inside the composer
   // (keyboard users must not tab into invisible controls).
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
-  const scrollHidden = useHideOnScroll({});
+  const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const sync = () => {
+      if (cancelled) return;
+      const main = window.document.getElementById("main-content");
+      setShellScrollContainer((current) => (current === main ? current : main));
+    };
+    const frame = window.requestAnimationFrame(sync);
+    const observer = new MutationObserver(sync);
+    observer.observe(window.document.body, { childList: true, subtree: true });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, []);
+  const scrollHidden = useHideOnScroll(shellScrollContainer ? { scrollContainer: shellScrollContainer } : {});
   const composerScrollHidden = scrollHidden && !mobileActionsOpen && !composerChromeFocused;
   const [useNativePdfViewer, setUseNativePdfViewer] = useState(() => getInitialPdfViewerMode().useNativePdfViewer);
   const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(

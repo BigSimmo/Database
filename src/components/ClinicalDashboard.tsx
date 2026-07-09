@@ -3170,7 +3170,9 @@ export function ClinicalDashboard({
                   // bottomSearchScrollHidden only ever goes true on phones.)
                   bottomSearchScrollHidden
                   ? "mb-0 sm:mb-24"
-                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                  : answerFollowUpSuggestions.length > 0
+                    ? "mb-[calc(18rem+env(safe-area-inset-bottom))] sm:mb-24"
+                    : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? bottomSearchScrollHidden
                   ? "mb-0 sm:mb-0"
@@ -3197,6 +3199,7 @@ export function ClinicalDashboard({
             <div
               className={cn(
                 "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+                compactMobileModeHome && "max-sm:px-0",
                 // Centred mode homes carry little content, so drop the large
                 // mobile bottom padding (the fixed composer already has its own
                 // reserved margin on <main>) to avoid a needless scrollbar.
@@ -3224,7 +3227,12 @@ export function ClinicalDashboard({
 
               <section
                 className={cn(
-                  "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
+                  compactMobileModeHome
+                    ? cn(
+                        "max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col",
+                        centeredModeHome && "max-sm:justify-center",
+                      )
+                    : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                   centeredModeHome || showAnswerHome
                     ? // Phones centre the home block mid-screen, matching the
                       // standalone-route homes; the pop-up action surface picks

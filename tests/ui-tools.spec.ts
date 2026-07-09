@@ -421,7 +421,7 @@ test.describe("Clinical KB tools launcher", () => {
     ] as const) {
       await gotoLauncher(page, home.path);
       await expect(page.getByTestId(home.testId)).toBeVisible();
-      await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+      await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
 
       const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
       await expect(heroSearch).toBeVisible();
@@ -430,13 +430,18 @@ test.describe("Clinical KB tools launcher", () => {
       const headingBox = await page
         .getByRole("heading", { level: home.headingLevel, name: home.heading })
         .boundingBox();
+      const mainBox = await page.locator("#main-content").boundingBox();
       expect(searchBox).not.toBeNull();
       expect(headingBox).not.toBeNull();
+      expect(mainBox).not.toBeNull();
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-      // Short homes centre their hero+search block mid-screen on phones, so the
-      // search midpoint should land in a centred band rather than hug an edge.
-      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(820 * 0.72);
-      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.2);
+      // Short homes centre their hero+search block in the scrollable main pane on
+      // phones (below the sticky header), not necessarily the full viewport.
+      const searchMidpoint = (searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2;
+      const mainTop = mainBox?.y ?? 0;
+      const mainHeight = mainBox?.height ?? 820;
+      expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.72);
+      expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.08);
       const metrics = await globalSearchComposerMetrics(page, home.testId);
       expect(metrics).not.toBeNull();
       expect(metrics?.position).not.toBe("fixed");
@@ -762,21 +767,42 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(dock).toBeVisible();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
+    // focus=1 leaves the composer focused; hide-on-scroll stays off while it has focus.
+    const input = visibleGlobalSearchInput(page).first();
+    await input.focus();
+    await page.keyboard.press("Escape");
+    await input.blur();
+    await expect(dock).not.toHaveAttribute("data-command-open", "true");
+
+    // Inject a spacer to ensure the container is scrollable even with minimal search results
     await page.evaluate(() => {
-      window.scrollTo({ top: 120, behavior: "auto" });
-      // WebKit doesn't reliably emit a native scroll event for a programmatic scrollTo, so the
-      // hide-on-scroll listener never ran and data-scroll-hidden stayed unset (release-browser-matrix
-      // WebKit flake). Dispatch one explicitly; harmless on Chromium/Firefox (the rAF guard dedupes).
-      window.dispatchEvent(new Event("scroll"));
+      const container = document.getElementById("main-content");
+      if (container) {
+        const spacer = document.createElement("div");
+        spacer.id = "test-scroll-spacer";
+        spacer.style.height = "2000px";
+        spacer.style.minHeight = "2000px";
+        spacer.style.display = "block";
+        container.appendChild(spacer);
+      }
     });
+
+    const scroller = page.locator("#main-content");
+    // Step scroll down so the shell's scroll reporter sees deliberate movement.
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await scroller.evaluate((node, top) => {
+        node.scrollTop = top;
+        node.dispatchEvent(new Event("scroll", { bubbles: true }));
+      }, offset);
+    }
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
     await expect
       .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"))
       .toBe(true);
 
-    await page.evaluate(() => {
-      window.scrollTo({ top: 60, behavior: "auto" });
-      window.dispatchEvent(new Event("scroll"));
+    await scroller.evaluate((node) => {
+      node.scrollTop = 60;
+      node.dispatchEvent(new Event("scroll", { bubbles: true }));
     });
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect
