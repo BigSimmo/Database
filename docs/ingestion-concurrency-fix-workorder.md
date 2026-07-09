@@ -20,7 +20,7 @@ nothing here was applied to live at author time. **Status refresh 2026-07-09:** 
   `locked_at`) — merged (PR #369).
 - **R1/R2/R7/R9/R23 RPC hardening** — migration `20260708130000` merged (PR #380); **pending live apply**.
 - **R24e** — phantom `ingestion_job_stages.job_id` FK dropped from `schema.sql` (PR #380 batch); **pending live apply** (no-op on live).
-- **R17** — partial unique index + reindex-route 409 handling merged (PR #405); **pending live apply** (manual `CONCURRENTLY` index).
+- **R17** — partial unique index + reindex-route 409 handling merged (PR #405); migration `20260708170000` — **pending live apply** (normal `db push` when queue quiet).
 - **R5** — metadata deep-merge RPC + worker merged (PR #408); **pending live apply** + worker redeploy.
 
 ## Still open (not merged or needs design)
@@ -307,7 +307,7 @@ naive scope — it can crash live enrichment.**
 ## Suggested landing order
 
 **Superseded for merged items** — use [`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md)
-for live apply of R24e → RPC hardening → fail-closed → R5 → R17 (manual index).
+for live apply of R24e → RPC hardening → fail-closed → R5 → R17 (`20260708170000`).
 
 Remaining repo work:
 

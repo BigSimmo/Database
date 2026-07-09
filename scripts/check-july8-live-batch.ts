@@ -102,16 +102,14 @@ async function checkWorkerLeaseFence(supabase: AdminClient) {
 async function checkR17Index(supabase: AdminClient) {
   const { data, error } = await supabase.rpc("schema_drift_snapshot" as never);
   if (error) {
-    console.warn("[July8 Live Batch] SKIP: R17 index probe — schema_drift_snapshot unavailable:", error.message);
-    console.warn("[July8 Live Batch] Manually confirm ingestion_jobs_one_open_per_document_uidx after applying R17.");
-    return;
+    throw new Error(`schema_drift_snapshot unavailable — cannot verify ${R17_INDEX}: ${error.message}`);
   }
 
   const indexes = (data as DriftSnapshot | null)?.indexes ?? [];
   const found = indexes.some((entry) => entry?.name === R17_INDEX);
   if (!found) {
     throw new Error(
-      `${R17_INDEX} missing on live — apply R17 manually (CREATE INDEX CONCURRENTLY) then migration repair`,
+      `${R17_INDEX} missing on live — apply 20260708170000_ingestion_jobs_one_open_per_document.sql (or manual CONCURRENTLY + repair 20260708170000)`,
     );
   }
 
@@ -119,12 +117,8 @@ async function checkR17Index(supabase: AdminClient) {
 }
 
 async function main() {
-  const { isDemoMode } = await import("@/lib/env");
-  if (isDemoMode()) {
-    console.log("[July8 Live Batch] SKIP: demo mode — no live Supabase project linked.");
-    console.log("[July8 Live Batch] See docs/operator-apply-july8-batch.md for the apply runbook.");
-    process.exit(0);
-  }
+  const { requireServerEnv } = await import("@/lib/env");
+  requireServerEnv();
 
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();

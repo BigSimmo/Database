@@ -19,31 +19,46 @@ is live — `worker/main.ts` already passes `p_worker_id` to completion RPCs.
 
 ## Apply order
 
-| Step | Migration                                                 | What                                         | How                                                     |
-| ---- | --------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------- |
-| 1    | `20260708140000_drop_ingestion_job_stages_job_id_fk.sql`  | R24e — drop phantom FK from fresh-env schema | Normal `supabase db push` (no-op on live)               |
-| 2    | `20260708130000_ingestion_concurrency_rpc_hardening.sql`  | R1/R2 lease fences, R7/R9/R23 RPC hardening  | Normal push — **apply before worker redeploy**          |
-| 3    | `20260708150000_ensure_retrieval_owner_matches.sql`       | Ensure helper exists before fail-closed      | Normal push                                             |
-| 4    | `20260708160000_retrieval_owner_matches_fail_closed.sql`  | Tenancy fail-closed (#409)                   | Normal push                                             |
-| 5    | `20260708310000_r5_document_metadata_merge.sql`           | R5 metadata deep-merge (#408)                | Normal push (safe before worker; redeploy worker after) |
-| 6    | `20260708160000_ingestion_jobs_one_open_per_document.sql` | R17 one-open-job index (#405)                | **Manual** — see below                                  |
+All steps below are safe through a single `supabase db push` when the ingestion
+queue is quiet. R17 uses its **own migration version** (`20260708170000`, not
+`20260708160000`) so history/repair cannot collide with the fail-closed tenancy
+migration at `20260708160000`.
+
+| Step | Migration                                                 | What                                         | How                                            |
+| ---- | --------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------- |
+| 1    | `20260708140000_drop_ingestion_job_stages_job_id_fk.sql`  | R24e — drop phantom FK from fresh-env schema | Normal `supabase db push` (no-op on live)      |
+| 2    | `20260708130000_ingestion_concurrency_rpc_hardening.sql`  | R1/R2 lease fences, R7/R9/R23 RPC hardening  | Normal push — **apply before worker redeploy** |
+| 3    | `20260708150000_ensure_retrieval_owner_matches.sql`       | Ensure helper exists before fail-closed      | Normal push                                    |
+| 4    | `20260708160000_retrieval_owner_matches_fail_closed.sql`  | Tenancy fail-closed (#409)                   | Normal push                                    |
+| 5    | `20260708310000_r5_document_metadata_merge.sql`           | R5 metadata deep-merge (#408)                | Normal push (safe before worker)               |
+| 6    | `20260708170000_ingestion_jobs_one_open_per_document.sql` | R17 one-open-job index (#405)                | Normal push when queue quiet — see below       |
 
 Reindex routes for R17 (409 on duplicate job) are already on `main`.
 
-### R17 manual index (step 6)
+### R17 on a busy live queue (optional)
 
-`CREATE INDEX CONCURRENTLY` cannot run inside a txn-wrapped migration push. Run
-the statement from the migration file directly against live (SQL editor or
-`supabase db query --linked` with autocommit), then record history:
+When `jobs_pending` / `jobs_processing` are non-zero, or you want a lock-free
+build, apply the index manually **before** recording migration history:
+
+```sql
+create unique index concurrently if not exists ingestion_jobs_one_open_per_document_uidx
+  on public.ingestion_jobs (document_id)
+  where status in ('pending', 'processing');
+```
+
+Then mark only the R17 version as applied (never `20260708160000`):
 
 ```bash
-supabase migration repair --linked --status applied 20260708160000
+supabase migration repair --linked --status applied 20260708170000
 ```
+
+If the queue is quiet, skip the manual SQL — step 6 in the table applies the
+transactional `CREATE UNIQUE INDEX` via `db push`.
 
 ## Post-apply verification
 
 ```bash
-npm run check:july8-live-batch    # targeted live probes (needs live keys)
+npm run check:july8-live-batch    # requires live keys — fails if absent
 npm run check:drift
 npm run check:indexing
 npm run eval:retrieval:quality    # must stay 36/36 (retrieval-affecting: step 4 only)
