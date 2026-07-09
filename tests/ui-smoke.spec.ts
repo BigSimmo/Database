@@ -595,13 +595,9 @@ async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
   await expect(async () => {
     if (await tableDialog.isVisible().catch(() => false)) return;
     if (await expandButton.isVisible().catch(() => false)) {
-      await expandButton.evaluate((button: HTMLButtonElement) => {
-        button.click();
-      });
+      await expandButton.click();
     } else {
-      await tableSurface.evaluate((surface: HTMLElement) => {
-        surface.click();
-      });
+      await tableSurface.click();
     }
     await expect(tableDialog).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 15_000 });
@@ -1223,9 +1219,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     }
     if (await tableExpandButton.isVisible().catch(() => false)) {
       await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
-      await tableExpandButton.evaluate((button: HTMLButtonElement) => {
-        button.click();
-      });
+      await tableExpandButton.click();
       await expect(tableDialog).toBeVisible();
       await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
       await expect(tableDialog).toBeHidden();
@@ -1816,9 +1810,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await expect(expandButton).toBeVisible();
       await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
-      await expandButton.evaluate((button: HTMLButtonElement) => {
-        button.click();
-      });
+      await expandButton.click();
       const dialog = page.getByTestId("table-fullscreen-dialog");
       await expect(dialog).toBeVisible();
       await expect(dialog.getByRole("table")).toBeVisible();
