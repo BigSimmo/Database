@@ -243,8 +243,8 @@ function queryTopicTokens(query: string) {
 function querySpecificTitleTokens(query: string) {
   return normalizeLookupText(query)
     .split(/\s+/)
-    .map((token) => token.replace(/s$/, ""))
-    .filter((token) => token.length > 2 && !specificTitleStopWords.has(token));
+    .filter((token) => token.length > 2 && !specificTitleStopWords.has(token))
+    .map((token) => token.replace(/s$/, ""));
 }
 
 export function hasDirectTitleSupport(query: string, results: SearchResult[]) {

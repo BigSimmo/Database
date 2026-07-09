@@ -7,6 +7,10 @@ description: Reviews credentials, token handling, JWT claims, service-role confi
 
 Use this skill when reviewing code that touches authentication, database schemas, environment variables, storage, or external API gateways.
 
+## Repository Review Protocol
+
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+
 ## Review Checklist
 
 ### 1. Key Confinement & Environment Safety
