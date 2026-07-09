@@ -205,9 +205,7 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
         className,
       )}
     >
-      {status === "emergent" ? (
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/90" aria-hidden />
-      ) : null}
+      {status === "emergent" ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/90" aria-hidden /> : null}
       {statusLabel(status)}
     </span>
   );
