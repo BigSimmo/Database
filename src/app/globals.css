@@ -192,6 +192,8 @@
   --danger-text: #b42318;
   --danger-bg: #fef3f2;
   --danger-border: #fda29b;
+  --danger-solid: #b42318;
+  --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -355,6 +357,8 @@
   --danger-text: #ff9ca4;
   --danger-bg: #401c24;
   --danger-border: #7f2e36;
+  --danger-solid: #b42318;
+  --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -2072,6 +2076,8 @@ summary::-webkit-details-marker {
     --warning-soft: Canvas;
     --danger: Mark;
     --danger-soft: Canvas;
+    --danger-solid: Mark;
+    --danger-solid-contrast: Canvas;
     --tone-purple: CanvasText;
     --tone-indigo: CanvasText;
     --tone-rose: CanvasText;

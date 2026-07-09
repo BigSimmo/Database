@@ -161,7 +161,9 @@ function statusLabel(status: DifferentialRecord["status"]) {
 }
 
 function statusTone(status: DifferentialRecord["status"]) {
-  if (status === "emergent") return "border-transparent bg-[color:var(--danger)] text-white";
+  if (status === "emergent") {
+    return "border-transparent bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)]";
+  }
   if (status === "urgent") {
     return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
   }
@@ -205,7 +207,9 @@ function StatusBadge({ status, className }: { status: DifferentialRecord["status
         className,
       )}
     >
-      {status === "emergent" ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/90" aria-hidden /> : null}
+      {status === "emergent" ? (
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--danger-solid-contrast)]/90" aria-hidden />
+      ) : null}
       {statusLabel(status)}
     </span>
   );
