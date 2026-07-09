@@ -1099,7 +1099,7 @@ function safeFallbackAnswer(raw: string, results: SearchResult[], query?: string
   return applyNumericVerification(answer);
 }
 
-/** Add open aiusage. */
+/** Add OpenAI usage. */
 function addOpenAIUsage(total: OpenAITokenUsage, usage?: OpenAITokenUsage) {
   if (!usage) return total;
   return {
