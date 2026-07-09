@@ -46,6 +46,14 @@ const retrievalOwnerFilterSentinelMigration = readFileSync(
   new URL("../supabase/migrations/20260705210000_retrieval_owner_filter_sentinel.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const ingestionJobsOneOpenNeutralizedMigration = readFileSync(
+  new URL("../supabase/migrations/20260708160000_ingestion_jobs_one_open_per_document.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ingestionJobsOneOpenMigration = readFileSync(
+  new URL("../supabase/migrations/20260708170000_ingestion_jobs_one_open_per_document.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const atomicReindexMigration = readFileSync(
   new URL("../supabase/migrations/20260628000000_atomic_reindex_generation_commit.sql", import.meta.url),
   "utf8",
@@ -461,6 +469,7 @@ describe("Supabase schema Data API grants", () => {
       ["audit_logs", 2],
       ["audit_logs_service_role_policy", 2],
       ["indexing_reliability_recovery", 2],
+      ["ingestion_jobs_one_open_per_document", 2],
       ["rag_queries_retention", 2],
     ]);
     const stemCounts = new Map<string, number>();
@@ -888,5 +897,13 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).not.toMatch(/select cron\.schedule\(/);
     }
     expect(ragQueriesRetentionDuplicateMigration).toMatch(/select 1;/);
+  });
+
+  it("keeps ingestion_jobs_one_open stem neutralized for preview history parity", () => {
+    expect(ingestionJobsOneOpenNeutralizedMigration).toContain("NEUTRALIZED 2026-07-09");
+    expect(ingestionJobsOneOpenNeutralizedMigration).toContain("select 1 where false;");
+    expect(ingestionJobsOneOpenNeutralizedMigration).not.toContain("concurrently");
+    expect(ingestionJobsOneOpenMigration).toContain("ingestion_jobs_one_open_per_document_uidx");
+    expect(ingestionJobsOneOpenMigration).not.toContain("concurrently");
   });
 });
