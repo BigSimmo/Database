@@ -1,6 +1,5 @@
 import { formRecords } from "@/lib/forms";
 import { buildDefaultFormRows, buildDefaultServiceRows, defaultServiceRecords } from "@/lib/registry-fixtures";
-import { embedClinicalRegistryRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import { type RegistryRecordInsert, type RegistryRecordKind, type RegistryRecordRow } from "@/lib/registry-records";
 
 // Type-only reference to the admin client so this module carries no runtime
@@ -8,6 +7,10 @@ import { type RegistryRecordInsert, type RegistryRecordKind, type RegistryRecord
 // builders without pulling in service-role env, and callers pass their own
 // client into `ensureRegistrySeeded`.
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
+
+function loadRegistryCorpus() {
+  return import("@/lib/registry-corpus");
+}
 
 /** The curated default registry fixtures for a kind — the same set the CLI
  *  seeds and the API falls back to when an owner has no records yet. */
@@ -44,6 +47,7 @@ export async function ensureRegistrySeeded(
     .select("*");
   if (error) throw new Error(`Registry seed failed: ${error.message}`);
   const seededRows = (data ?? []) as RegistryRecordRow[];
+  const { embedClinicalRegistryRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
   if (registryCorpusEmbeddingEnabled()) {
     await embedClinicalRegistryRows(supabase, seededRows);
   }
@@ -81,6 +85,7 @@ export async function fetchOwnerRegistryRowsWithSeed(
       await ensureRegistrySeeded(supabase, ownerId, kind);
     } catch (seedError) {
       console.error(`[registry] auto-seed failed for owner ${ownerId} (${kind})`, seedError);
+      const { registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
       if (registryCorpusEmbeddingEnabled()) throw seedError;
     }
     rows = await fetchRecords();

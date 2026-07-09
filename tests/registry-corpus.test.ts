@@ -113,10 +113,10 @@ describe("registry corpus", () => {
     expect(
       registryCorpusDetailHref({
         kind: "differential",
-        slug: "psychosis",
+        slug: "first-episode-psychosis",
         subkind: "presentation",
         recordId: "44444444-4444-4444-8444-444444444444",
       }),
-    ).toBe("/differentials/presentations/44444444-4444-4444-8444-444444444444");
+    ).toBe("/differentials/presentations/first-episode-psychosis");
   });
 });

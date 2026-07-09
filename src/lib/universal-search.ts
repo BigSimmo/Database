@@ -266,6 +266,16 @@ function documentItemsFromChunks(results: SearchResult[], limit: number): Univer
     .slice(0, limit);
 }
 
+function documentHrefMapFromChunks(results: SearchResult[]) {
+  const hrefByDocument = new Map<string, string>();
+  for (const result of results) {
+    if (!hrefByDocument.has(result.document_id)) {
+      hrefByDocument.set(result.document_id, searchResultDocumentHref(result));
+    }
+  }
+  return hrefByDocument;
+}
+
 async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   // Original query on purpose: the live retrieval path runs its own analyzeClinicalQuery.
   if (args.demo || !args.supabase) {
@@ -284,6 +294,7 @@ async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<Universa
     // still embed. Owner scoping and public-corpus behavior are unchanged (handled downstream).
     lexicalOnly: true,
   });
+  const hrefByDocument = documentHrefMapFromChunks(results);
   const related = await fetchRelatedDocuments({
     supabase: args.supabase,
     ownerId: args.ownerId,
@@ -297,7 +308,7 @@ async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<Universa
       kind: "documents" as const,
       title: document.title,
       subtitle: document.summary ?? undefined,
-      href: `/documents/${document.document_id}`,
+      href: hrefByDocument.get(document.document_id) ?? `/documents/${document.document_id}`,
       score: document.score,
       meta: document.match_reason,
     }));
