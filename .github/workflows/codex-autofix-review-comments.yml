@@ -5,8 +5,6 @@ on:
     types: [submitted]
   pull_request_review_comment:
     types: [created]
-  issue_comment:
-    types: [created]
 
 permissions:
   contents: read
@@ -14,7 +12,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: codex-autoresolve-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event.pull_request.head.sha || github.event.review.id || github.event.comment.id }}
+  group: codex-autoresolve-${{ github.event.pull_request.number }}
   cancel-in-progress: false
 
 jobs:
@@ -30,21 +28,6 @@ jobs:
             const codexLoginFragment = "chatgpt-codex-connector";
 
             async function loadPullRequest() {
-              if (context.eventName === "issue_comment") {
-                const issue = context.payload.issue;
-                if (!issue?.pull_request) {
-                  core.notice("Skipping because this issue comment is not on a pull request.");
-                  return null;
-                }
-
-                const { data } = await github.rest.pulls.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: issue.number,
-                });
-                return data;
-              }
-
               return context.payload.pull_request || null;
             }
 
@@ -97,7 +80,7 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue_number = pr.number;
-            const marker = `<!-- codex-autoresolve:${pr.head.sha} -->`;
+            const marker = `<!-- codex-autoresolve-pr:${pr.number} -->`;
 
             const existingComments = await github.paginate(github.rest.issues.listComments, {
               owner,
@@ -107,7 +90,7 @@ jobs:
             });
 
             if (existingComments.some((comment) => (comment.body || "").includes(marker))) {
-              core.notice("Skipping duplicate Codex auto-resolve request for this PR head commit.");
+              core.notice("Skipping duplicate Codex auto-resolve request for this pull request.");
               return;
             }
 
