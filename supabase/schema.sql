@@ -2841,6 +2841,12 @@ begin
 end;
 $function$;
 
+revoke execute on function public.fail_or_retry_ingestion_job(uuid, uuid, uuid, boolean, text, text, text, timestamp with time zone, text) from public, anon, authenticated;
+grant execute on function public.fail_or_retry_ingestion_job(uuid, uuid, uuid, boolean, text, text, text, timestamp with time zone, text) to service_role;
+
+revoke execute on function public.complete_ingestion_job(uuid, uuid, uuid, text, text) from public, anon, authenticated;
+grant execute on function public.complete_ingestion_job(uuid, uuid, uuid, text, text) to service_role;
+
 revoke execute on function public.set_owner_id_from_auth_uid() from public, anon, authenticated;
 grant execute on function public.set_owner_id_from_auth_uid() to service_role;
 

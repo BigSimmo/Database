@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { clinicalRegistryRowsToCorpusEntries } from "../src/lib/registry-corpus";
 import type { RegistryRecordRow } from "../src/lib/registry-records";
@@ -66,5 +66,30 @@ describe("registry corpus", () => {
 
     expect(entry).toMatchObject({ kind: "form", subkind: "form", slug: "transport-order" });
     expect(entry?.content).toContain("Form: Transport order");
+  });
+
+  it("keeps re-embed-on-edit hooks inert unless registry corpus embedding is enabled", async () => {
+    vi.stubEnv("RAG_REGISTRY_CORPUS_EMBEDDING", "false");
+    vi.resetModules();
+    try {
+      const { reembedRegistryRecordAfterEdit } = await import("../src/lib/registry-corpus");
+      const supabase = {
+        from: vi.fn(() => {
+          throw new Error("should not touch Supabase when disabled");
+        }),
+      };
+
+      await expect(
+        reembedRegistryRecordAfterEdit(supabase as never, {
+          corpusKind: "medication",
+          ownerId: "22222222-2222-4222-8222-222222222222",
+          slug: "clozapine",
+        }),
+      ).resolves.toEqual({ documentCount: 0, chunkCount: 0, skipped: true, reason: "disabled" });
+      expect(supabase.from).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
   });
 });

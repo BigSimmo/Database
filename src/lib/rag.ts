@@ -2602,6 +2602,9 @@ export function decideTextFastPath(
     if (isRiskFlowchartNextStepQuery(query) && !hasRiskFlowchartActionEvidence(query, results)) {
       return { returnFastPath: false, reason: "risk_flowchart_requires_action_evidence" };
     }
+    if (hasAdmissionCommunityLookupIntent(query) && !hasAdmissionCommunityTitleSupport(results)) {
+      return { returnFastPath: false, reason: "admission_community_requires_title_rescue" };
+    }
     if (directTitleSupport && strongestScore >= 0.32) {
       return { returnFastPath: true, reason: "direct_title_text_match" };
     }
@@ -2640,6 +2643,26 @@ function hasDocumentAliasWithoutTopTitleSupport(query: string, results: SearchRe
     if (result.match_explanation?.titleHit || result.match_explanation?.labelHit) return true;
     const title = normalizeDocumentAliasText(`${result.title} ${result.file_name}`);
     return aliases.some((alias) => title.includes(alias));
+  });
+}
+
+function hasAdmissionCommunityLookupIntent(query: string) {
+  const normalized = normalizeDocumentAliasText(query);
+  return /\badmission\b/.test(normalized) && /\bcommunity\b/.test(normalized);
+}
+
+function hasAdmissionCommunityTitleSupport(results: SearchResult[]) {
+  return results.slice(0, 5).some((result) => {
+    if (result.match_explanation?.titleHit || result.match_explanation?.labelHit) {
+      const title = normalizeDocumentAliasText(`${result.title} ${result.file_name}`);
+      return /\badmission\b/.test(title) && /\bcommunity\b/.test(title);
+    }
+    const title = normalizeDocumentAliasText(`${result.title} ${result.file_name}`);
+    return (
+      title.includes("admission of community patient") ||
+      title.includes("admission community pt") ||
+      title.includes("admission to discharge for community")
+    );
   });
 }
 
@@ -2912,6 +2935,15 @@ export function evaluateEvidenceCoverageGate(
   }
 
   if (queryClass === "document_lookup") {
+    if (hasAdmissionCommunityLookupIntent(query) && !hasAdmissionCommunityTitleSupport(top)) {
+      return {
+        accepted: false,
+        reason: "missing_admission_community_title_support",
+        strategy: "document_lookup_fast_path",
+        sourceImageRequired,
+        sourceImageSatisfied,
+      };
+    }
     if (/\bactive community patients?\b/i.test(query) && /\bed\b/i.test(query)) {
       const accepted =
         hasDirectTitle &&
@@ -4508,6 +4540,7 @@ ${qualityRetryInstruction}`
         instructions: answerInstructions,
         promptCacheKey: "clinical-rag-answer-v18",
         timeoutMs: env.OPENAI_ANSWER_TIMEOUT_MS,
+        maxRetries: 0,
         reasoningEffort: useStrongReasoning
           ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)
           : env.OPENAI_FAST_REASONING_EFFORT,
@@ -4538,10 +4571,31 @@ ${qualityRetryInstruction}`
     return reason === "max_output_tokens" ? `${prefix}_max_output_tokens` : `${prefix}_incomplete_${reason}`;
   }
 
+  function shouldRecoverFastFailureExtractively(retryReason: string) {
+    const sourceBackedRecoveryRetryReasons = new Set([
+      "fast_unsupported_retry_strong",
+      "fast_unusable_retry_strong",
+      "fast_template_retry_strong",
+      "fast_quality_retry_strong",
+    ]);
+    return (
+      route.mode === "fast" &&
+      route.reason === "strong_routine_retrieval" &&
+      answerInputResults.length > 0 &&
+      queryClass !== "comparison" &&
+      queryClass !== "broad_summary" &&
+      queryClass !== "medication_dose_risk" &&
+      queryClass !== "table_threshold" &&
+      sourceBackedRecoveryRetryReasons.has(retryReason)
+    );
+  }
+
   function summarizeGenerationFailureReason(error: unknown) {
     const message = (error instanceof Error ? error.message : typeof error === "string" ? error : "").trim();
     const normalized = message.toLowerCase();
+    const sourceBackedRecovery = normalized.match(/\bsource_backed_extractive_recovery:([a-z0-9_]+)/);
 
+    if (sourceBackedRecovery) return `source_backed_extractive_recovery_${sourceBackedRecovery[1]}`;
     if (!normalized) return "generation_failed";
     if (/\bmax_output_tokens\b/.test(normalized)) return "provider_incomplete_max_output_tokens";
     if (/\bincomplete\b/.test(normalized)) return "provider_incomplete";
@@ -4721,6 +4775,11 @@ ${qualityRetryInstruction}`
               : fastAnswerWasOverExpanded
                 ? "fast_overexpanded_simple_retry_strong"
                 : "fast_quality_retry_strong";
+      if (shouldRecoverFastFailureExtractively(retryReason)) {
+        answerRetryCount += 1;
+        answerRetryReasons.push(`fast_source_backed_extractive_recovery:${retryReason}`);
+        throw new Error(`source_backed_extractive_recovery:${retryReason}`);
+      }
       answerRetryCount += 1;
       answerRetryReasons.push(retryReason);
       modelUsed = env.OPENAI_STRONG_ANSWER_MODEL;

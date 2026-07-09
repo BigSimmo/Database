@@ -284,6 +284,26 @@ function answerIntentEvidencePattern(intent: AnswerIntent) {
   }
 }
 
+function requiresBloodCountEvidence(query: string) {
+  return /\b(?:anc|fbc|wbc|wcc|neutrophil|neutrophils)\b/i.test(query);
+}
+
+function asksForWithholdAction(query: string) {
+  return /\b(?:withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued)\b/i.test(query);
+}
+
+function hasBloodCountEvidence(text: string) {
+  return /\b(?:anc|fbc|full blood count|wbc|wcc|white blood cell|white cell|neutrophil|neutrophils|blood count)\b/i.test(
+    text,
+  );
+}
+
+function hasWithholdActionEvidence(text: string) {
+  return /\b(?:withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued|red range|amber range|red|amber)\b/i.test(
+    text,
+  );
+}
+
 function resultCoversAnswerIntent(result: SearchResult, query: string, intent: AnswerIntent) {
   if (intent === "unsupported") return false;
   const text = evidenceTextForGate(result);
@@ -298,6 +318,8 @@ function resultCoversAnswerIntent(result: SearchResult, query: string, intent: A
   const intentCoverage = answerIntentEvidencePattern(intent).test(text);
   if (!intentCoverage) return false;
   if (intentTokens.length > 0 && !intentTokens.some((token) => queryTokenMatchesText(token, text))) return false;
+  if (intent === "red_result_action" && requiresBloodCountEvidence(query) && !hasBloodCountEvidence(text)) return false;
+  if (intent === "red_result_action" && asksForWithholdAction(query) && !hasWithholdActionEvidence(text)) return false;
   if (/\brenal\b/i.test(query) && !/\b(?:renal|kidney|eGFR|creatinine)\b/i.test(text)) return false;
   if (/\bmax(?:imum)?\b/i.test(query) && !/\b(?:max(?:imum)?|\d+(?:\.\d+)?\s?(?:mg|mcg))\b/i.test(text)) {
     return false;
@@ -559,6 +581,8 @@ function factSupportsAnswerIntent(
       );
     case "red_result_action":
       if (kind !== "threshold_action" && kind !== "caveat") return false;
+      if (requiresBloodCountEvidence(query) && !hasBloodCountEvidence(text)) return false;
+      if (asksForWithholdAction(query) && !hasWithholdActionEvidence(text)) return false;
       return (
         /\b(?:withhold|cease|stop|discontinue|discontinued|contact|urgent|repeat|review|call for help|escalat\w*|monitor|toxicity|rash)\b/i.test(
           text,
