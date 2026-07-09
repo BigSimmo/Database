@@ -62,7 +62,11 @@ jobs:
               return;
             }
 
-            if (sourceBody().includes("codex-autoresolve:") || sourceBody().includes("@codex resolve all review comments")) {
+            if (
+              sourceBody().includes("codex-autoresolve:") ||
+              sourceBody().includes("codex-autoresolve-pr:") ||
+              sourceBody().includes("@codex resolve all review comments")
+            ) {
               core.notice("Skipping Codex auto-resolve request because the source comment already looks like an auto-resolve request.");
               return;
             }
@@ -100,9 +104,17 @@ jobs:
               "@codex resolve all review comments using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.",
             ].join("\n\n");
 
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number,
-              body: prompt,
-            });
+            try {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body: prompt,
+              });
+            } catch (error) {
+              if (error.status === 403) {
+                core.warning("Skipping Codex auto-resolve request because this workflow token cannot comment on the pull request.");
+                return;
+              }
+              throw error;
+            }
