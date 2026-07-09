@@ -111,42 +111,6 @@ Scope and safety:
 
 <!-- END:bug-hunter-shortcut -->
 
-<!-- BEGIN:codex-review-throttling -->
-
-## Codex review throttling and routing
-
-Do not review branches opportunistically. Review the current changed diff, PR, or branch only when the user explicitly asks for review/audit/hunter/cleanup/upload work, when CI/check failures are the task, or when the current change touches high-risk areas that require a targeted review before handoff.
-
-Use `docs/codex-review-protocol.md` as the shared review protocol for every repo-local review skill, branch/PR review, audit, bug hunt, release-readiness check, and PR/CI review.
-
-Before reviewing a branch or PR:
-
-- Check `docs/branch-review-ledger.md` if it exists.
-- Resolve the target with `git rev-parse <branch-or-ref>`.
-- If the same branch/ref and HEAD SHA were already reviewed for the same scope, summarize the prior ledger outcome and skip the repeat review unless the user explicitly requests a fresh pass.
-- If the target HEAD changed, review only the changed scope and update the ledger after the review.
-
-Before reviewing multiple branches:
-
-- Build a short branch inventory first: branch, upstream, ahead/behind, last commit, and merged status.
-- Skip branches already merged into `main`.
-- Skip unchanged branches already recorded in `docs/branch-review-ledger.md`.
-- Do not re-review every branch after ordinary coding tasks.
-- If a repeated request targets unchanged reviewed branches, summarize the prior result and ask before doing another full pass.
-
-Review routing:
-
-- `diff-review`: Use for explicit review of the current diff, PR, or named branch. Findings first, ordered by severity, with file/line evidence.
-- `bug-hunter`: Use only for the exact `bug-hunter` shortcut or an explicit defect-hunt request. Prioritize reproducible bugs and smallest proof.
-- `repo-auditor`: Use for explicit repo-wide audit/refactor/dead-code/import/dependency-structure requests. Treat outputs as triage, not automatic delete lists.
-- `release-readiness`: Use for explicit release, merge, PR readiness, or handoff confidence requests. Do not run provider-backed gates without confirmation.
-- `branch-cleanup`: Use only when the prompt explicitly asks for branch cleanup/hygiene or branch deletion candidates. Apply `docs/branch-cleanup-guide.md` and the review ledger before inspecting branch diffs.
-- `pr-ci-fix`: Confirmation-required for this repo. GitHub/GitLab API calls, PR comments, CI reruns, commits, and pushes require explicit user approval and must respect the upload/handoff rules.
-
-When a branch or PR review completes, record the reviewed branch/ref, HEAD SHA, date, scope, outcome, and checks in `docs/branch-review-ledger.md`.
-
-<!-- END:codex-review-throttling -->
-
 <!-- BEGIN:local-server-safety -->
 
 # Local server safety
@@ -183,17 +147,6 @@ When a branch or PR review completes, record the reviewed branch/ref, HEAD SHA, 
 - Run `npm run check:supabase-project` after changing Supabase env values.
 
 <!-- END:supabase-project-safety -->
-
-<!-- BEGIN:api-confirmation-boundary -->
-
-# API and provider confirmation boundary
-
-- Never run, modify, test, or otherwise interact with OpenAI, Supabase, GitHub/GitLab, hosted CI, production-like services, or provider-backed workflows without explicit user confirmation.
-- Treat indirect API usage inside scripts, tests, release checks, PR tooling, and review automation as confirmation-required too.
-- Prefer local, static, mocked, or offline checks. If a recommended verification would touch a provider, report the command and ask before running it.
-- `npm run check:supabase-project`, live PR/CI tooling, answer-generation checks, ingestion checks against live services, and release gates that call providers are not automatic.
-
-<!-- END:api-confirmation-boundary -->
 
 <!-- BEGIN:upload-shortcut -->
 
@@ -277,13 +230,9 @@ If changes appear unrelated, incomplete, experimental, or WIP, do not commit eve
 
 ## Branch cleanup and reference updates
 
-During `upload`, branch cleanup is limited to the current branch and its upstream unless the user explicitly asks for `branch-cleanup`, branch hygiene, deletion candidates, or stale branch review.
+If stale, inappropriate, merged, or unnecessary branches are detected, list cleanup candidates but do not delete or rename branches automatically.
 
-Do not enumerate, diff, or re-review unrelated stale branches during a normal upload/handoff. If the user explicitly asks for branch cleanup, first apply `docs/branch-review-ledger.md` to skip unchanged reviewed branches, then follow `docs/branch-cleanup-guide.md`.
-
-If stale, inappropriate, merged, or unnecessary current-branch references are detected, list cleanup candidates but do not delete or rename branches automatically.
-
-Before recommending deletion or rename for the current branch, audit accessible references including `.github/workflows/*`, CI/CD config, deployment config, scripts, package scripts, docs, release notes or release scripts, safe environment/config files, branch-specific config, open PR metadata if accessible, and GitHub branch protection/default branch metadata if safely accessible.
+Before recommending deletion or rename, audit accessible references including `.github/workflows/*`, CI/CD config, deployment config, scripts, package scripts, docs, release notes or release scripts, safe environment/config files, branch-specific config, open PR metadata if accessible, and GitHub branch protection/default branch metadata if safely accessible.
 
 Update repo-tracked references to a renamed or replacement branch only when the old branch reference is clearly found, the replacement is obvious, the change is low-risk, and the user has approved the branch rename or deletion. If the replacement is unclear, report the reference and ask what it should point to.
 
@@ -295,7 +244,7 @@ Run the smallest relevant checks that are available and appropriate, such as tes
 
 ## Final report
 
-After completing `upload`, summarize the current branch and worktree state, whether the worktree is clean, what changed, files committed, commit hash and message if created, whether anything was pushed, remote branch and likely PR target, checks run and results, checks not run and why, current-branch cleanup candidates or why broader branch cleanup was skipped, branch references found or updated, risky actions skipped, and exact confirmation needed for any recommended follow-up.
+After completing `upload`, summarize the current branch and worktree state, whether the worktree is clean, what changed, files committed, commit hash and message if created, whether anything was pushed, remote branch and likely PR target, checks run and results, checks not run and why, branch cleanup candidates, branch references found or updated, risky actions skipped, and exact confirmation needed for any recommended follow-up.
 
 <!-- END:upload-shortcut -->
 
@@ -386,9 +335,9 @@ When explicitly asked to fix or resolve review findings:
 
 ### Automatic resolve trigger
 
-Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex posts a PR review or inline review comment.
+Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex posts a top-level review comment.
 
-- The workflow must only trigger from Codex review bot reviews or comments on open pull requests.
+- The workflow must only trigger from Codex review bot comments on open pull requests.
 - The workflow must skip review-thread replies and auto-resolve request comments so Codex fix summaries do not re-trigger the workflow.
 - The workflow must ask Codex to resolve all review comments using these repository instructions.
 - The workflow must avoid duplicate requests for the same pull request, even after follow-up commits change the head SHA.
