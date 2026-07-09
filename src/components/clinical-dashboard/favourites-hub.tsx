@@ -16,6 +16,7 @@ import {
 import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import { cn, floatingControl, iconTilePremium, panelSubtle, primaryControl } from "@/components/ui-primitives";
 import {
   favouriteItems,

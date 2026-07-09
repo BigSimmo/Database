@@ -102,6 +102,7 @@ import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { RelatedDocumentsPanel } from "@/components/clinical-dashboard/document-results";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
@@ -172,6 +173,7 @@ import {
   DrawerGroupLabel,
   type DocumentDrawerMode,
   type DocumentDrawerStatusFilter,
+  type LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/document-admin";
 
 
@@ -195,7 +197,7 @@ export const ApplicationsLauncherWorkspace = dynamic(
   { ssr: false },
 );
 const DocumentDrawer = dynamic(
-  () => import("@/components/clinical-dashboard/document-admin/document-drawer").then((m) => m.DocumentDrawer),
+  () => import("@/components/clinical-dashboard/document-admin").then((m) => m.DocumentDrawer),
   { ssr: false },
 );
 
@@ -4079,6 +4081,10 @@ export function ClinicalDashboard({
     const priorQueries = [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery];
     return buildAnswerFollowUpSuggestions(latestAnswerQuery, answer, priorQueries);
   }, [answer, latestAnswerQuery, priorAnswerTurns]);
+  const crossModeQueries = useMemo(
+    () => [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery],
+    [priorAnswerTurns, latestAnswerQuery],
+  );
   const hiddenPriorTurnCount = Math.max(0, priorAnswerTurns.length - maxVisiblePriorTurns);
   const visiblePriorTurns = useMemo(() => {
     if (showEarlierTurns || hiddenPriorTurnCount === 0) return priorAnswerTurns;
@@ -4639,6 +4645,9 @@ export function ClinicalDashboard({
                 ) : (
                   <>
                     <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+                    {searchMode === "documents" && modeSearchSubmitted && (
+                      <CrossModeLinksSection queries={[query]} onModeSearch={crossModeSearch} />
+                    )}
                     <DocumentSearchResultsPanel
                       matches={documentMatches}
                       recordMatches={recordSearchMatches}
@@ -4717,6 +4726,8 @@ export function ClinicalDashboard({
                       followUpSuggestions={answerFollowUpSuggestions}
                       onPickFollowUpSuggestion={handlePickFollowUpSuggestion}
                       followUpSuggestionsDisabled={loading}
+                      crossModeQueries={crossModeQueries}
+                      onCrossModeSearch={crossModeSearch}
                     />
                   </>
                 ) : null
