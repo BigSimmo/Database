@@ -10,6 +10,10 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const securityHeaders = buildSecurityHeaders(resolveRuntimeFlags());
 
 const nextConfig: NextConfig = {
+  // Playwright and some local tooling hit the dev server via 127.0.0.1; without
+  // this, Next blocks HMR/client hydration from that host and phone scroll-hide
+  // never wires up its listeners.
+  allowedDevOrigins: ["127.0.0.1"],
   devIndicators: false,
   experimental: {
     cpus: 1,
