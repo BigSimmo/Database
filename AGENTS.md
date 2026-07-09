@@ -386,20 +386,11 @@ When explicitly asked to fix or resolve review findings:
 
 ### Automatic resolve trigger
 
-<<<<<<< HEAD
 Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex posts a PR review or inline review comment.
 
 - The workflow must only trigger from Codex review bot reviews or comments on open pull requests.
 - The workflow must skip review-thread replies and auto-resolve request comments so Codex fix summaries do not re-trigger the workflow.
 - The workflow must ask Codex to resolve all review comments using these repository instructions.
-=======
-Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests one scoped resolve task after Codex posts an inline PR review comment.
-
-- The workflow must only trigger from Codex review bot comments on open pull requests.
-- Do not add `issue_comment`, `pull_request_review`, scheduled, push, or broad PR triggers to this workflow without explicit human approval.
-- The workflow must skip review-thread replies and auto-resolve request comments so Codex fix summaries do not re-trigger the workflow.
-- The workflow must ask Codex to resolve only actionable Codex review findings for the triggering pull request and current head.
->>>>>>> origin/main
 - The workflow must avoid duplicate requests for the same pull request, even after follow-up commits change the head SHA.
 - The workflow must not run Codex directly with API credentials.
 - P0 and P1 findings should always be fixed.

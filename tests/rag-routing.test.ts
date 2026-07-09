@@ -183,28 +183,7 @@ describe("RAG answer routing", () => {
       source({
         title: "Clozapine Prescribing and Monitoring",
         file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
-<<<<<<< HEAD
         content: "FBC monitoring is weekly for the first 18 weeks and then every 4 weeks if blood results are in range.",
-=======
-        content:
-          "FBC monitoring is weekly for the first 18 weeks and then every 4 weeks if blood results are in range.",
-        text_rank: 0.14,
-      }),
-    ]);
-
-    expect(selected.mode).toBe("strong");
-    expect(selected.model).toBe("strong-model");
-    expect(selected.reason).toBe("clinical_risk_or_complex_query");
-  });
-
-  it("does not treat unrelated stop wording as clozapine blood withhold evidence", () => {
-    const selected = route("What FBC threshold should withhold clozapine?", [
-      source({
-        title: "Clozapine Prescribing and Monitoring",
-        file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
-        content:
-          "FBC monitoring is weekly for the first 18 weeks. Patients should stop smoking before starting treatment.",
->>>>>>> origin/main
         text_rank: 0.14,
       }),
     ]);

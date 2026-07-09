@@ -412,13 +412,7 @@ describe("RAG structured-output fallback", () => {
     );
 
     expect(answer.routingMode).toBe("extractive");
-<<<<<<< HEAD
     expect(answer.routingReason).toMatch(/high_confidence_extractive_retrieval|source_backed_(?:extractive|review)_fallback/);
-=======
-    expect(answer.routingReason).toMatch(
-      /high_confidence_extractive_retrieval|source_backed_(?:extractive|review)_fallback/,
-    );
->>>>>>> origin/main
     expect(answer.grounded).toBe(true);
     expect(answer.citations.length).toBeGreaterThan(0);
     expect(answer.answer).toMatch(/source support|indexed document|supports this query|ECT Procedure/i);

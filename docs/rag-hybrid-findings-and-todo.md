@@ -313,14 +313,8 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     (`00000000-0000-0000-0000-000000000000`) correctly found zero rows. `--list-owners` found the real
     registry owner `4f1b3c19-3c39-4597-b9df-168c8e6007ff` with 739 eligible rows; guarded write with
     `RAG_REGISTRY_CORPUS_EMBEDDING=true --write --confirm` upserted 739 synthetic registry corpus
-<<<<<<< HEAD
     chunks. Post-write retrieval eval passed with `document_recall_at_5=1`, `content_recall_at_5=1`,
     `top_k_hit_rate=1`, `force_embedding_failure_count=0`, `failed_cases=[]`. Post-write
-=======
-    chunks. Ran `npm run eval:retrieval:quality -- --force-embedding`: passed with
-    `document_recall_at_5=1`, `content_recall_at_5=1`, `top_k_hit_rate=1`,
-    `force_embedding_failure_count=0`, `failed_cases=[]`. Post-write
->>>>>>> origin/main
     `eval:quality -- --rag-only` completed under budget; invented-term controls still refused and
     numeric grounding failure rate was `0`. Remaining blockers are not registry regressions:
     citation failure rate `0.0227` and RAG latency thresholds (`p95=44847ms`; route p95 extractive

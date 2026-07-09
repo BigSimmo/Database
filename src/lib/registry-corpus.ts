@@ -49,10 +49,7 @@ export type RegistryCorpusEditTarget =
 
 const REGISTRY_EMBEDDING_WRITE_BATCH_SIZE = 64;
 
-<<<<<<< HEAD
-=======
 /** Sha256. */
->>>>>>> origin/main
 function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -312,20 +309,13 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
 
     const { data: existingDocuments, error: existingDocumentError } = await supabase
       .from("documents")
-<<<<<<< HEAD
-      .select("id")
-=======
       .select("*")
->>>>>>> origin/main
       .in("id", documentIds);
     if (existingDocumentError) {
       throw new Error(`Registry corpus preflight failed: ${existingDocumentError.message}`);
     }
     const existingDocumentIds = new Set((existingDocuments ?? []).map((document) => document.id));
-<<<<<<< HEAD
-=======
     const existingDocumentSnapshots = existingDocuments ?? [];
->>>>>>> origin/main
 
     const { error: documentError } = await supabase.from("documents").upsert(documents, { onConflict: "id" });
     if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
@@ -333,17 +323,6 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
     const { error: chunkError } = await supabase.from("document_chunks").upsert(chunks, { onConflict: "id" });
     if (chunkError) {
       const insertedDocumentIds = documentIds.filter((id) => !existingDocumentIds.has(id));
-<<<<<<< HEAD
-      if (insertedDocumentIds.length > 0) {
-        const { error: rollbackError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
-        if (rollbackError) {
-          throw new Error(
-            `Registry corpus chunk upsert failed: ${chunkError.message}; rollback failed: ${rollbackError.message}`,
-          );
-        }
-      }
-      throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}`);
-=======
       const rollbackErrors: string[] = [];
       if (insertedDocumentIds.length > 0) {
         const { error: deleteError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
@@ -357,7 +336,6 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
       }
       const suffix = rollbackErrors.length > 0 ? `; rollback errors: ${rollbackErrors.join(", ")}` : "";
       throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}${suffix}`);
->>>>>>> origin/main
     }
 
     documentCount += documents.length;
@@ -397,18 +375,12 @@ export async function embedReloadedOwnerRows<Row>(
   return chunkCount;
 }
 
-<<<<<<< HEAD
-=======
 /** Skipped registry embed result. */
->>>>>>> origin/main
 function skippedRegistryEmbedResult(reason: RegistryCorpusEmbedResult["reason"]): RegistryCorpusEmbedResult {
   return { documentCount: 0, chunkCount: 0, skipped: true, reason };
 }
 
-<<<<<<< HEAD
-=======
 /** Reembed clinical registry record by slug. */
->>>>>>> origin/main
 export async function reembedClinicalRegistryRecordBySlug(
   supabase: AdminClient,
   args: { ownerId: string; slug: string; kind?: RegistryRecordKind },
@@ -424,10 +396,7 @@ export async function reembedClinicalRegistryRecordBySlug(
   return embedClinicalRegistryRows(supabase, [data as RegistryRecordRow]);
 }
 
-<<<<<<< HEAD
-=======
 /** Reembed medication record by slug. */
->>>>>>> origin/main
 export async function reembedMedicationRecordBySlug(
   supabase: AdminClient,
   args: { ownerId: string; slug: string },
@@ -446,10 +415,7 @@ export async function reembedMedicationRecordBySlug(
   return embedMedicationRows(supabase, [data as MedicationRecordRow]);
 }
 
-<<<<<<< HEAD
-=======
 /** Reembed differential record by slug. */
->>>>>>> origin/main
 export async function reembedDifferentialRecordBySlug(
   supabase: AdminClient,
   args: { ownerId: string; slug: string; kind?: DifferentialRecordRow["kind"] },
@@ -465,10 +431,7 @@ export async function reembedDifferentialRecordBySlug(
   return embedDifferentialRows(supabase, [data as DifferentialRecordRow]);
 }
 
-<<<<<<< HEAD
-=======
 /** Reembed registry record after edit. */
->>>>>>> origin/main
 export function reembedRegistryRecordAfterEdit(
   supabase: AdminClient,
   target: RegistryCorpusEditTarget,
@@ -492,10 +455,7 @@ export function reembedRegistryRecordAfterEdit(
   });
 }
 
-<<<<<<< HEAD
-=======
 /** Best effort reembed registry record after edit. */
->>>>>>> origin/main
 export async function bestEffortReembedRegistryRecordAfterEdit(args: {
   supabase: AdminClient;
   target: RegistryCorpusEditTarget;
@@ -511,9 +471,6 @@ export async function bestEffortReembedRegistryRecordAfterEdit(args: {
       `[${args.scope}] corpus re-embedding failed after registry edit for ${args.target.ownerId}/${args.target.corpusKind}/${args.target.slug}`,
       embedError,
     );
-<<<<<<< HEAD
-    return { documentCount: 0, chunkCount: 0, skipped: true, reason: "failed", errorMessage } satisfies RegistryCorpusEmbedResult;
-=======
     return {
       documentCount: 0,
       chunkCount: 0,
@@ -521,6 +478,5 @@ export async function bestEffortReembedRegistryRecordAfterEdit(args: {
       reason: "failed",
       errorMessage,
     } satisfies RegistryCorpusEmbedResult;
->>>>>>> origin/main
   }
 }

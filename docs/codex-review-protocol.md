@@ -21,17 +21,10 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 ## Mutation Rules
 
 - For a pure review request, do not edit files, stage, commit, push, post PR comments, rerun hosted CI, or call provider-backed services.
-<<<<<<< HEAD
   - Exception: append the completed review record to `docs/branch-review-ledger.md` so throttling state persists.
 - If the user clearly asks to fix confirmed findings, make the smallest safe change and verify with local, static, or mocked checks first.
 - Ask before any OpenAI, Supabase, GitHub/GitLab, hosted CI, or provider-backed workflow.
 - After any completed branch/PR review, update `docs/branch-review-ledger.md` with date, branch/ref, HEAD, scope, outcome, and checks. This ledger append is allowed even during a pure review.
-=======
-- If the user clearly asks to fix confirmed findings, make the smallest safe change and verify with local, static, or mocked checks first.
-- Ask before any OpenAI, Supabase, GitHub/GitLab, hosted CI, or provider-backed workflow.
-- For pure reviews, do not update `docs/branch-review-ledger.md` unless the user explicitly asks for a committed process update. If a ledger note would be useful, mention the suggested row in the final response instead.
-- When the user explicitly asks for a branch/PR review record, update `docs/branch-review-ledger.md` with date, branch/ref, HEAD, scope, outcome, and checks as a scoped documentation change.
->>>>>>> origin/main
 
 ## Severity Guide
 
