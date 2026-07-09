@@ -250,6 +250,44 @@ describe("source governance warnings", () => {
     expect(visibleCodes).not.toContain("non_local_source");
   });
 
+  it("surfaces registry summaries as visible info warnings", () => {
+    const warnings = sourceGovernanceWarnings({
+      results: [
+        result({
+          source_metadata: {
+            source_kind: "registry_record",
+            source_title: "Crisis service summary",
+            publisher: "Clinical KB registry",
+            jurisdiction: "WA/local clinical workspace",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "current",
+            clinical_validation_status: "locally_reviewed",
+            extraction_quality: "good",
+          },
+          indexing_quality: {
+            document_id: "doc-1",
+            quality_score: 0.9,
+            extraction_quality: "good",
+            metrics: {},
+            issues: [],
+          },
+          table_facts: [],
+        }),
+      ],
+    });
+
+    expect(warnings).toEqual([expect.objectContaining({ code: "registry_record_source", severity: "info" })]);
+    expect(frontendSourceGovernanceWarnings(warnings).map((warning) => warning.code)).toEqual([
+      "registry_record_source",
+    ]);
+    expect(groupSourceGovernanceWarnings(warnings)[0]?.message).toBe("1 registry summary used as supporting evidence.");
+  });
+
   it("keeps the refusal message free of backend and source-backed wording", () => {
     expect(sourceGovernanceRefusalAnswer).not.toMatch(/source-backed|source-governance|admin|need review/i);
     expect(sourceGovernanceRefusalAnswer).toContain("matched documents are not suitable for clinical use yet");

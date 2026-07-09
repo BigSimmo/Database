@@ -2,6 +2,8 @@ import { loadEnvConfig } from "@next/env";
 
 import { confirm } from "./cli-utils";
 import { buildDefaultDifferentialRows, loadDifferentialSnapshot } from "@/lib/differential-fixtures";
+import type { DifferentialRecordRow } from "@/lib/differential-records";
+import { embedDifferentialRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 
 loadEnvConfig(process.cwd());
 
@@ -121,6 +123,16 @@ async function main() {
     console.warn(`[differentials:seed] Upsert succeeded but count check failed: ${countError.message}`);
   } else {
     console.log(`[differentials:seed] Done. Owner now has ${count ?? "?"} differential records.`);
+  }
+
+  if (registryCorpusEmbeddingEnabled()) {
+    const { data: embeddedRows, error: embedRowsError } = await supabase
+      .from("differential_records")
+      .select("*")
+      .eq("owner_id", args.ownerId);
+    if (embedRowsError) throw new Error(`Could not reload differential rows for embedding: ${embedRowsError.message}`);
+    const embedded = await embedDifferentialRows(supabase, (embeddedRows ?? []) as DifferentialRecordRow[]);
+    console.log(`[differentials:seed] Embedded ${embedded.chunkCount} registry corpus chunk(s).`);
   }
 }
 

@@ -11,7 +11,8 @@ export type SourceGovernanceWarning = {
     | "partial_extraction"
     | "low_index_quality"
     | "weak_evidence"
-    | "weak_table_extraction";
+    | "weak_table_extraction"
+    | "registry_record_source";
   severity: "info" | "warning" | "danger";
   message: string;
   document_id?: string;
@@ -58,6 +59,7 @@ const frontendVisibleWarningCodes = new Set<SourceGovernanceWarning["code"]>([
   // searchable regardless of clinical_validation_status), "not locally
   // validated" is a clinically material caveat, not routine review metadata.
   "unverified_source",
+  "registry_record_source",
 ]);
 
 function isLocalMetadataText(value: string) {
@@ -91,6 +93,17 @@ export function sourceGovernanceWarnings(args: {
     const source = normalizeSourceMetadata(result.source_metadata);
     const title = result.title;
     const document_id = result.document_id;
+
+    if (source.source_kind === "registry_record") {
+      pushUnique(warnings, {
+        code: "registry_record_source",
+        severity: "info",
+        message:
+          "One or more supporting sources are curated registry summaries, not source documents; verify against linked source documents for clinical decisions.",
+        document_id,
+        title,
+      });
+    }
 
     if (source.document_status === "outdated") {
       pushUnique(warnings, {
@@ -195,6 +208,8 @@ function groupedMessage(warning: SourceGovernanceWarning, count: number) {
     return `${plural(count, "source")} ${count === 1 ? "has" : "have"} low indexing quality.`;
   if (warning.code === "weak_table_extraction")
     return `${plural(count, "table evidence item")} reviewed as administrative, unrelated, or poor extraction.`;
+  if (warning.code === "registry_record_source")
+    return `${plural(count, "registry summary", "registry summaries")} used as supporting evidence.`;
   return warning.message;
 }
 

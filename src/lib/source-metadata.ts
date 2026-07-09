@@ -16,6 +16,7 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
   const value = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
 
   return {
+    source_kind: stringOrNull(value.source_kind),
     source_title: stringOrNull(value.source_title),
     publisher: stringOrNull(value.publisher),
     jurisdiction: stringOrNull(value.jurisdiction),
@@ -44,6 +45,7 @@ export function formatClinicalDate(value: string | null | undefined) {
 }
 
 export function sourceStatusLabel(metadata?: ClinicalSourceMetadata | null) {
+  if (metadata?.source_kind === "registry_record") return "Registry summary";
   const status = metadata?.document_status ?? "unknown";
   if (status === "current") return "Current source";
   if (status === "review_due") return "Review due";

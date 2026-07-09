@@ -243,4 +243,39 @@ describe("document index units", () => {
       metadata: expect.objectContaining({ visual_item_type: "sparse_visual_fallback" }),
     });
   });
+
+  it("repairs whitespace-fragmented OCR words against the source chunk", () => {
+    const units = buildDocumentIndexUnitInputs({
+      document,
+      chunks: [
+        {
+          id: "chunk-1",
+          document_id: "doc-1",
+          page_number: 7,
+          chunk_index: 0,
+          section_heading: "Discharge",
+          section_path: ["Discharge"],
+          content: "Psychosocial interventions should be documented before discharge.",
+          metadata: {},
+        },
+      ],
+      images: [
+        {
+          id: "image-ocr",
+          pageNumber: 7,
+          sourceKind: "table_crop",
+          tableTitle: "Discharge table",
+          tableRows: [["p ycho ocial", "Document before discharge"]],
+          tableColumns: ["Intervention", "Action"],
+          metadata: {},
+        },
+      ],
+    });
+
+    const repaired = units.find((unit) => unit.metadata.ocr_repair_version === "clean-chunk-fragment-v1");
+    expect(repaired?.content).toContain("psychosocial");
+    expect(repaired?.metadata.ocr_replacements).toEqual(
+      expect.arrayContaining([expect.objectContaining({ from: "p ycho ocial", to: "psychosocial" })]),
+    );
+  });
 });

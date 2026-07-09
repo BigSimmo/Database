@@ -2807,6 +2807,27 @@ $function$;
 revoke execute on function public.purge_expired_rag_queries(integer) from public, anon, authenticated;
 grant execute on function public.purge_expired_rag_queries(integer) to service_role;
 
+CREATE OR REPLACE FUNCTION public.purge_expired_rag_query_misses(p_retention_days integer DEFAULT 90)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_catalog', 'pg_temp'
+AS $function$
+declare
+  v_deleted integer;
+begin
+  if p_retention_days < 1 then
+    raise exception 'retention days must be positive';
+  end if;
+  delete from public.rag_query_misses where created_at < now() - make_interval(days => p_retention_days);
+  get diagnostics v_deleted = row_count;
+  return v_deleted;
+end;
+$function$;
+
+revoke execute on function public.purge_expired_rag_query_misses(integer) from public, anon, authenticated;
+grant execute on function public.purge_expired_rag_query_misses(integer) to service_role;
+
 CREATE OR REPLACE FUNCTION public.correct_clinical_query_terms(input_query text, min_sim real DEFAULT 0.45)
  RETURNS text
  LANGUAGE plpgsql

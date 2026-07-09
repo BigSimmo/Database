@@ -2,6 +2,8 @@ import { loadEnvConfig } from "@next/env";
 
 import { confirm } from "./cli-utils";
 import { buildMedicationSeedRows } from "@/lib/medication-seed";
+import { embedMedicationRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
+import type { MedicationRecordRow } from "@/lib/medication-records";
 
 loadEnvConfig(process.cwd());
 
@@ -118,6 +120,16 @@ async function main() {
     console.warn(`[medications:seed] Upsert succeeded but count check failed: ${countError.message}`);
   } else {
     console.log(`[medications:seed] Done. Owner now has ${count ?? "?"} medication records.`);
+  }
+
+  if (registryCorpusEmbeddingEnabled()) {
+    const { data: embeddedRows, error: embedRowsError } = await supabase
+      .from("medication_records")
+      .select("*")
+      .eq("owner_id", args.ownerId);
+    if (embedRowsError) throw new Error(`Could not reload medication rows for embedding: ${embedRowsError.message}`);
+    const embedded = await embedMedicationRows(supabase, (embeddedRows ?? []) as MedicationRecordRow[]);
+    console.log(`[medications:seed] Embedded ${embedded.chunkCount} registry corpus chunk(s).`);
   }
 }
 

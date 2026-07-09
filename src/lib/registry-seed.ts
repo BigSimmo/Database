@@ -1,5 +1,6 @@
 import { formRecords } from "@/lib/forms";
 import { buildDefaultFormRows, buildDefaultServiceRows, defaultServiceRecords } from "@/lib/registry-fixtures";
+import { embedClinicalRegistryRows, registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import { type RegistryRecordInsert, type RegistryRecordKind, type RegistryRecordRow } from "@/lib/registry-records";
 
 // Type-only reference to the admin client so this module carries no runtime
@@ -42,7 +43,15 @@ export async function ensureRegistrySeeded(
     .upsert(rows, { onConflict: "owner_id,kind,slug" })
     .select("*");
   if (error) throw new Error(`Registry seed failed: ${error.message}`);
-  return (data ?? []) as RegistryRecordRow[];
+  const seededRows = (data ?? []) as RegistryRecordRow[];
+  if (registryCorpusEmbeddingEnabled()) {
+    try {
+      await embedClinicalRegistryRows(supabase, seededRows);
+    } catch (embedError) {
+      console.error(`[registry] corpus embedding failed for owner ${ownerId} (${kind})`, embedError);
+    }
+  }
+  return seededRows;
 }
 
 /**

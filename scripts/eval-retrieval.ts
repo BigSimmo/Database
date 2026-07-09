@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import { z } from "zod";
@@ -36,6 +36,7 @@ type EvalArgs = {
   limit?: number;
   query?: string;
   json: boolean;
+  jsonOut?: string;
   failOnThreshold: boolean;
   mode: "combined" | "quality" | "latency";
   caseTimeoutMs: number;
@@ -160,6 +161,10 @@ function parseArgs(argv: string[]): EvalArgs {
     if (token === "--owner-id") args.ownerId = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--query") args.query = value;
+    if (token === "--json-out") {
+      args.jsonOut = value;
+      args.json = true;
+    }
     if (token === "--mode") {
       if (!["combined", "quality", "latency"].includes(value))
         throw new Error("--mode must be combined, quality, or latency.");
@@ -902,13 +907,20 @@ async function main() {
         ].filter(Boolean)
       : [];
   if (args.json) {
-    console.log(
-      JSON.stringify(
-        { fixture: args.fixture, mode: args.mode, readinessWarnings, latencyThresholdFailures, results, summary },
-        null,
-        2,
-      ),
-    );
+    const payload = {
+      fixture: args.fixture,
+      mode: args.mode,
+      readinessWarnings,
+      latencyThresholdFailures,
+      results,
+      summary,
+    };
+    const json = JSON.stringify(payload, null, 2);
+    if (args.jsonOut) {
+      mkdirSync(dirname(args.jsonOut), { recursive: true });
+      writeFileSync(args.jsonOut, `${json}\n`);
+    }
+    console.log(json);
   } else {
     printHumanSummary(summary);
     if (latencyThresholdFailures.length) {

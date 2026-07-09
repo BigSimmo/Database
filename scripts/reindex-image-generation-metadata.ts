@@ -36,6 +36,24 @@ type ImagePatch = {
   metadata: Record<string, unknown>;
 };
 
+type UntypedTable = {
+  select(columns: string): {
+    eq(
+      column: string,
+      value: string,
+    ): {
+      range(from: number, to: number): Promise<{ data: unknown; error: { message: string } | null }>;
+    };
+  };
+  update(values: Record<string, unknown>): {
+    eq(column: string, value: string): Promise<{ error: { message: string } | null }>;
+  };
+};
+
+function untypedTable(supabase: ReturnType<typeof createAdminClient>, table: string): UntypedTable {
+  return supabase.from(table as never) as unknown as UntypedTable;
+}
+
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     documentId: null,
@@ -101,9 +119,13 @@ async function loadDocuments(args: {
   allOwners: boolean;
   limit: number;
 }) {
-  let query = args.supabase.from("documents").select("id,title,file_name,metadata").eq("status", "indexed").order("created_at", {
-    ascending: false,
-  });
+  let query = args.supabase
+    .from("documents")
+    .select("id,title,file_name,metadata")
+    .eq("status", "indexed")
+    .order("created_at", {
+      ascending: false,
+    });
 
   if (args.documentId) query = query.eq("id", args.documentId);
   if (args.ownerId) query = query.eq("owner_id", args.ownerId);
@@ -114,19 +136,15 @@ async function loadDocuments(args: {
   return (data ?? []) as DocumentRow[];
 }
 
-async function loadImages(args: {
-  supabase: ReturnType<typeof createAdminClient>;
-  documentId: string;
-}) {
+async function loadImages(args: { supabase: ReturnType<typeof createAdminClient>; documentId: string }) {
   const rows: ImageRow[] = [];
   for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await args.supabase
-      .from("document_images")
+    const { data, error } = await untypedTable(args.supabase, "document_images")
       .select("id,index_generation_id,metadata")
       .eq("document_id", args.documentId)
       .range(offset, offset + 999);
     if (error) throw new Error(error.message);
-    const page = (data ?? []) as ImageRow[];
+    const page = (data ?? []) as unknown as ImageRow[];
     rows.push(...page);
     if (page.length < 1000) break;
   }
@@ -169,7 +187,11 @@ async function main() {
     return;
   }
 
-  const label = args.allOwners ? "all owners" : args.documentId ? `document ${args.documentId}` : `owner ${args.ownerId}`;
+  const label = args.allOwners
+    ? "all owners"
+    : args.documentId
+      ? `document ${args.documentId}`
+      : `owner ${args.ownerId}`;
   console.log(`Loaded ${documents.length} indexed document(s) for ${label} inspection.`);
 
   const patches: ImagePatch[] = [];
@@ -179,7 +201,9 @@ async function main() {
   for (const document of documents) {
     const committedGeneration = committedIndexGeneration(document.metadata);
     if (!committedGeneration) {
-      console.log(`SKIP ${document.title ?? document.file_name ?? document.id}: missing index_generation_id in documents.metadata`);
+      console.log(
+        `SKIP ${document.title ?? document.file_name ?? document.id}: missing index_generation_id in documents.metadata`,
+      );
       continue;
     }
 
@@ -226,8 +250,7 @@ async function main() {
     const batch = patches.slice(start, start + 8);
     await Promise.all(
       batch.map(async (patch) => {
-        const { error } = await supabase
-          .from("document_images")
+        const { error } = await untypedTable(supabase, "document_images")
           .update({
             index_generation_id: patch.indexGenerationId,
             metadata: patch.metadata,

@@ -106,13 +106,7 @@
       "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
-    {
-      "category": "functions",
-      "key": "public.retrieval_owner_matches(uuid,uuid)",
-      "kind": "mismatch",
-      "reason": "ACL-only drift: live retains a default PUBLIC execute grant (=X/postgres) that schema.sql (service-role-only) does not. Same posture as search_document_chunks — this is a security-invoker helper, RLS still applies; revoke on live via an approved hardening migration, then remove. The prior search_path half of this drift (live pg_catalog vs schema.sql pg_temp) was reconciled 2026-07-08: schema.sql + drift-manifest def_hash now match live's body (verified read-only via schema_drift_snapshot). This function is a stable boolean owner-scoping helper — NOT one of the raw-SQL retrieval RPCs (match_document_chunks et al.) whose bodies genuinely diverge; do not conflate.",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
+
     {
       "category": "functions",
       "key": "public.run_all_visual_eval_cases(integer)",
@@ -127,20 +121,7 @@
       "reason": "Live-only function (raw-SQL era) not yet codified into schema.sql/migrations; codification wave follow-up (same pattern as 20260705230000 and 20260707000000).",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
-    {
-      "category": "functions",
-      "key": "public.search_document_chunks(uuid,text,integer,uuid)",
-      "kind": "mismatch",
-      "reason": "Live retains default PUBLIC execute (security-invoker fn, RLS still applies); schema.sql declares service-role-only. Revoke on live via an approved hardening migration. Remove after apply.",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
-    {
-      "category": "functions",
-      "key": "public.search_schema_health()",
-      "kind": "mismatch",
-      "reason": "APPLIED to live 2026-07-08 via migration 20260706010000 (search_schema_health M13 guard); live now matches schema.sql. Entry retained until the drift manifest is regenerated; safe to remove then. (Live may re-drift from concurrent multi-session edits.)",
-      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
-    },
+
     {
       "category": "functions",
       "key": "public.set_document_embedding_field_content_hash()",
