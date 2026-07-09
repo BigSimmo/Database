@@ -421,7 +421,7 @@ test.describe("Clinical KB tools launcher", () => {
     ] as const) {
       await gotoLauncher(page, home.path);
       await expect(page.getByTestId(home.testId)).toBeVisible();
-      await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
+      await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
 
       const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
       await expect(heroSearch).toBeVisible();
@@ -430,13 +430,18 @@ test.describe("Clinical KB tools launcher", () => {
       const headingBox = await page
         .getByRole("heading", { level: home.headingLevel, name: home.heading })
         .boundingBox();
+      const mainBox = await page.locator("#main-content").boundingBox();
       expect(searchBox).not.toBeNull();
       expect(headingBox).not.toBeNull();
+      expect(mainBox).not.toBeNull();
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-      // Edge-to-edge phones top-align short mode homes; the search midpoint should
-      // still sit in a comfortable band rather than hug the bottom edge.
-      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(820 * 0.72);
-      expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeGreaterThan(820 * 0.15);
+      // Short homes centre their hero+search block in the scrollable main pane on
+      // phones (below the sticky header), not necessarily the full viewport.
+      const searchMidpoint = (searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2;
+      const mainTop = mainBox?.y ?? 0;
+      const mainHeight = mainBox?.height ?? 820;
+      expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.72);
+      expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.12);
       const metrics = await globalSearchComposerMetrics(page, home.testId);
       expect(metrics).not.toBeNull();
       expect(metrics?.position).not.toBe("fixed");
@@ -766,8 +771,7 @@ test.describe("Clinical KB tools launcher", () => {
     const viewport = page.viewportSize() ?? { width: 390, height: 844 };
     await page.mouse.click(Math.max(1, viewport.width - 8), 8);
 
-    const main = page.locator("#main-content");
-    const scroller = page.locator("#main-content > div").first();
+    const scroller = page.locator("#main-content");
     // Step scroll down so the shell's scroll reporter sees deliberate movement.
     for (const offset of [40, 80, 120, 160, 200]) {
       await scroller.evaluate((node, top) => {

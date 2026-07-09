@@ -1,5 +1,6 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
+import { scrollPrimarySurface } from "./playwright-scroll";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { deriveGovernanceFromSections } from "../src/lib/medication-records";
@@ -2268,33 +2269,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
 
     await page.evaluate(() => {
-      const spacer = document.createElement("div");
+      const main = window.document.getElementById("main-content");
+      const spacer = window.document.createElement("div");
       spacer.setAttribute("data-testid", "composer-hide-scroll-spacer");
       spacer.style.height = "2000px";
-      document.body.appendChild(spacer);
+      (main ?? window.document.body).appendChild(spacer);
     });
 
     // Hide on deliberate scroll down past the activation offset.
     for (const offset of [40, 80, 120, 160, 200]) {
-      await page.evaluate((top) => {
-        window.scrollTo({ top, behavior: "auto" });
-        window.dispatchEvent(new Event("scroll"));
-      }, offset);
+      await scrollPrimarySurface(page, offset);
     }
     await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
 
     // Reappear on scroll up.
-    await page.evaluate(() => {
-      window.scrollTo({ top: 60, behavior: "auto" });
-      window.dispatchEvent(new Event("scroll"));
-    });
+    await scrollPrimarySurface(page, 60);
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
 
     // Keyboard focus inside the composer reveals it while hidden.
-    await page.evaluate(() => {
-      window.scrollTo({ top: 240, behavior: "auto" });
-      window.dispatchEvent(new Event("scroll"));
-    });
+    await scrollPrimarySurface(page, 240);
     await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
     await composer.locator("input").focus();
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");

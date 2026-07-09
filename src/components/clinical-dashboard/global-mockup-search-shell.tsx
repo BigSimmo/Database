@@ -108,7 +108,9 @@ function GlobalMockupSearchShellClient({
   const mainRef = useRef<HTMLDivElement>(null);
   const phoneScrollHide = useScrollHideReporter();
   const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
-  reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
+  useEffect(() => {
+    reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
+  }, [phoneScrollHide.reportScroll]);
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;
@@ -455,7 +457,7 @@ function GlobalMockupSearchShellClient({
             heroComposerFromTablet={isStandaloneModeHome}
             // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the header/composer to hand space back to content.
-            hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden, containerRef: mainRef }}
+            hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
             onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
             queryInputAutoFocus={searchParams.get("focus") === "1"}
           />
@@ -479,21 +481,24 @@ function GlobalMockupSearchShellClient({
                     : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
-          <ClientHydrationBoundary
-            fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
-          >
-            <SearchCommandProvider
-              value={{
-                query,
-                modeId: searchMode,
-                commandScopes,
-                onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
-                onClearScopes: () => setCommandScopes([]),
-              }}
+          <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">
+            <ClientHydrationBoundary
+              fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
             >
-              {children}
-            </SearchCommandProvider>
-          </ClientHydrationBoundary>
+              <SearchCommandProvider
+                value={{
+                  query,
+                  modeId: searchMode,
+                  commandScopes,
+                  onRemoveScope: (scopeId) =>
+                    setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
+                  onClearScopes: () => setCommandScopes([]),
+                }}
+              >
+                {children}
+              </SearchCommandProvider>
+            </ClientHydrationBoundary>
+          </div>
         </div>
       </div>
 
