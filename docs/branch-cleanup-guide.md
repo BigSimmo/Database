@@ -46,9 +46,8 @@ Before deleting anything:
    ```powershell
    $branch = "BRANCH_NAME"
    $head = git rev-parse $branch
-   $escapedBranch = [regex]::Escape($branch)
    Get-Content docs\branch-review-ledger.md |
-     Select-String -Pattern "\|\s*$escapedBranch\s*\|\s*$head\s*\|\s*branch-cleanup\s*\|"
+     Select-String -Pattern "\|\s*$branch\s*\|\s*$head\s*\|\s*branch-cleanup\s*\|"
    ```
 
    Skip the branch only when a ledger row matches the same branch/ref, reviewed HEAD, and `branch-cleanup` scope together. A branch-name-only match is not enough. Re-review when the HEAD changed or the user explicitly asks for a fresh pass.
