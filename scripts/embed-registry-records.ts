@@ -117,10 +117,7 @@ type OwnerCounts = {
   differential: number;
 };
 
-<<<<<<< HEAD
 /** Ensure owner count. */
-=======
->>>>>>> origin/main
 function ensureOwnerCount(counts: Map<string, OwnerCounts>, ownerId: string) {
   let count = counts.get(ownerId);
   if (!count) {
@@ -130,40 +127,7 @@ function ensureOwnerCount(counts: Map<string, OwnerCounts>, ownerId: string) {
   return count;
 }
 
-<<<<<<< HEAD
 /** List eligible owner counts. */
-async function listEligibleOwnerCounts(supabase: Awaited<ReturnType<typeof loadAdminClient>>) {
-  const counts = new Map<string, OwnerCounts>();
-
-  const { data: registryRows, error: registryError } = await supabase
-    .from("clinical_registry_records")
-    .select("owner_id, kind");
-  if (registryError) throw new Error(`Could not load registry owner counts: ${registryError.message}`);
-  for (const row of registryRows ?? []) {
-    const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
-    if (!ownerId) continue;
-    const count = ensureOwnerCount(counts, ownerId);
-    if (row.kind === "form") count.form += 1;
-    else count.service += 1;
-  }
-
-  const { data: medicationRows, error: medicationError } = await supabase.from("medication_records").select("owner_id");
-  if (medicationError) throw new Error(`Could not load medication owner counts: ${medicationError.message}`);
-  for (const row of medicationRows ?? []) {
-    const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
-    if (!ownerId) continue;
-    ensureOwnerCount(counts, ownerId).medication += 1;
-  }
-
-  const { data: differentialRows, error: differentialError } = await supabase
-    .from("differential_records")
-    .select("owner_id");
-  if (differentialError) throw new Error(`Could not load differential owner counts: ${differentialError.message}`);
-  for (const row of differentialRows ?? []) {
-    const ownerId = typeof row.owner_id === "string" ? row.owner_id : null;
-    if (!ownerId) continue;
-    ensureOwnerCount(counts, ownerId).differential += 1;
-=======
 async function listEligibleOwnerCounts(supabase: Awaited<ReturnType<typeof loadAdminClient>>) {
   const counts = new Map<string, OwnerCounts>();
 
@@ -222,7 +186,6 @@ async function listEligibleOwnerCounts(supabase: Awaited<ReturnType<typeof loadA
     }
     if (differentialRows.length < pageSize) break;
     differentialOffset += pageSize;
->>>>>>> origin/main
   }
 
   return [...counts.values()].sort((left, right) => {
@@ -232,10 +195,7 @@ async function listEligibleOwnerCounts(supabase: Awaited<ReturnType<typeof loadA
   });
 }
 
-<<<<<<< HEAD
 /** Main. */
-=======
->>>>>>> origin/main
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const supabase = await loadAdminClient();

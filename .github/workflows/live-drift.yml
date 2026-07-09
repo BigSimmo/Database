@@ -20,10 +20,6 @@ env:
   SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
   SUPABASE_PROJECT_NAME: Clinical KB Database
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
-<<<<<<< HEAD
-=======
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
->>>>>>> origin/main
 
 jobs:
   live-drift:
@@ -37,11 +33,8 @@ jobs:
           persist-credentials: false
 
       - name: Preflight required secrets
-<<<<<<< HEAD
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-=======
->>>>>>> origin/main
         run: |
           missing=""
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
@@ -62,7 +55,6 @@ jobs:
 
       - name: Guard Supabase project identity
         run: npm run check:supabase-project
-<<<<<<< HEAD
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
@@ -70,8 +62,3 @@ jobs:
         run: npm run check:drift
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-=======
-
-      - name: Compare live schema drift
-        run: npm run check:drift
->>>>>>> origin/main
