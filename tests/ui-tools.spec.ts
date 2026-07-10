@@ -454,6 +454,37 @@ test.describe("Clinical KB tools launcher", () => {
     }
   });
 
+  // Required-gate guard for the bug class PR #456 fixed and then reintroduced in
+  // a narrower form: a mode-home page rendering with NO search composer at some
+  // width. Presence plus hero containment are asserted at the extreme widths on
+  // one dashboard-shell home and one standalone-shell home; the full 5-route
+  // design spec stays in the advisory "mode home routes center the shared
+  // search on mobile" test above.
+  test("mode home search composer is always present at phone and desktop widths @critical", async ({ page }) => {
+    test.setTimeout(120_000);
+    await mockAnswerDashboardApi(page);
+
+    for (const viewport of [
+      { name: "phone", width: 390, height: 820 },
+      { name: "desktop", width: 1280, height: 900 },
+    ] as const) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+      for (const home of [
+        { path: "/?mode=answer", testId: "answer-empty-state" },
+        { path: "/services", testId: "services-home" },
+      ] as const) {
+        await gotoLauncher(page, home.path);
+        await expect(page.getByTestId(home.testId)).toBeVisible();
+        // The composer must never vanish: exactly one visible search input.
+        await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
+        // Hero-centred design: the input lives inside the mode-home hero at
+        // every width, phones included.
+        await expect(page.getByTestId(home.testId).getByTestId("global-search-input")).toBeVisible();
+      }
+    }
+  });
+
   test("all mode home heroes share identical sizing on mobile", async ({ page }) => {
     test.setTimeout(150_000);
     await mockAnswerDashboardApi(page);
