@@ -1487,6 +1487,26 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("a routed scope change reruns a manually submitted answer", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const answerRequests: string[] = [];
+    const question = "lithium monitoring";
+    await mockDemoApi(page, { onAnswerRequest: (query) => answerRequests.push(query) });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, question);
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect.poll(() => answerRequests).toEqual([question]);
+
+    const scopedUrl = `/?mode=answer&q=${encodeURIComponent(question)}&run=1&scope.sourceStatuses=outdated`;
+    await page.evaluate((url) => window.history.pushState(null, "", url), scopedUrl);
+
+    await expect.poll(() => answerRequests).toEqual([question, question]);
+    await expect(page).toHaveURL(/scope\.sourceStatuses=outdated/);
+  });
+
   test("answer results surface cross-mode quick links", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);

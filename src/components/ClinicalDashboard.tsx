@@ -2115,6 +2115,14 @@ export function ClinicalDashboard({
         applySearchResult(successfulPayload, trimmedQuery, !replaceExistingAnswer);
         if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
         if (successfulPayload.kind === "answer") {
+          // Explicit composer submissions do not pass through the URL auto-run
+          // effect. Seed their completed context so a later in-place route to
+          // the same query with different intent/scope is recognized as a
+          // replacement search instead of leaving the old answer on screen.
+          autoRunSearchSignatureRef.current = searchSubmissionSignature(targetMode, trimmedQuery, {
+            queryMode: targetQueryMode,
+            scopeFilters: filtersOverride,
+          });
           // The composer is a draft box in a conversation: clear it so the
           // user can type the next follow-up immediately.
           setQuery("");
