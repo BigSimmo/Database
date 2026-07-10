@@ -257,7 +257,10 @@ function GlobalMockupStandaloneSearchShellClient({
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
   const usesInlineModeHomeComposer = shouldShowSearchComposer && isStandaloneModeHome;
   const reservesFloatingComposer = shouldShowSearchComposer && !usesInlineModeHomeComposer;
-  const mobileComposerReserve = !reservesFloatingComposer
+  // Standalone mode homes use an inline hero composer from `sm` upward, but
+  // phones still render the fixed bottom dock. Reserve its full height on the
+  // phone layout even though the wider layouts do not need floating clearance.
+  const mobileComposerReserve = !shouldShowSearchComposer
     ? "2rem"
     : searchMode === "answer"
       ? "calc(9rem + env(safe-area-inset-bottom))"
