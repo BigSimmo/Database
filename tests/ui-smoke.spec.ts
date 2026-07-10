@@ -2079,11 +2079,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/documents\/search\?.*q=lithium\+monitoring/);
     await expect(page.getByRole("heading", { name: "Find source evidence" })).toBeVisible();
     const documentResults = page.getByRole("region", { name: "Document results" });
-    await expect(documentResults).toContainText("Clozapine prescribing and monitoring guidelines");
+    // The command centre now renders live /api/search results (see mockDemoApi), not the
+    // former in-file fixtures: the mocked lithium query returns "Synthetic lithium monitoring
+    // protocol" with real table/image evidence counts and links to the document viewer.
+    await expect(documentResults).toContainText("Synthetic lithium monitoring protocol");
     await expect(documentResults).toContainText("Best match");
-    await expect(documentResults).toContainText("Table evidence");
+    await expect(documentResults).toContainText("Tables 1");
     await expect(documentResults.getByRole("link", { name: "Open document" }).first()).toBeVisible();
-    await expect(documentResults.getByRole("link", { name: "Evidence" }).first()).toBeVisible();
     await expect(page.getByRole("complementary").filter({ hasText: "Selected source" })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
