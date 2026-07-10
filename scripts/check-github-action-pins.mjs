@@ -34,6 +34,7 @@ const supportedMajorRanges = new Map([
 const usesPattern = /^\s*uses:\s*([^@\s]+)@v(\d+)\s*(?:#.*)?$/;
 const runsOnLatestPattern = /^\s*runs-on:\s*ubuntu-latest\s*(?:#.*)?$/;
 const failures = [];
+const expectedSupabaseCliVersion = "2.108.0";
 
 for (const fileName of readdirSync(workflowDir)
   .filter((name) => /\.ya?ml$/i.test(name))
@@ -62,6 +63,35 @@ for (const fileName of readdirSync(workflowDir)
       );
     }
   });
+}
+
+const ciWorkflowPath = path.join(workflowDir, "ci.yml");
+const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");
+const requiredCiFragments = [
+  `SUPABASE_CLI_VERSION: ${expectedSupabaseCliVersion}`,
+  "version: ${{ env.SUPABASE_CLI_VERSION }}",
+  "id: supabase-docker-cache",
+  "supabase-docker-${{ runner.os }}-cli-${{ env.SUPABASE_CLI_VERSION }}-",
+  "if: success() && steps.supabase-docker-cache.outputs.cache-hit != 'true'",
+];
+
+for (const fragment of requiredCiFragments) {
+  if (!ciWorkflow.includes(fragment)) {
+    failures.push(`ci.yml: missing required pinned Supabase/cache contract: ${fragment}`);
+  }
+}
+
+if (/\bversion:\s*latest\b/.test(ciWorkflow)) {
+  failures.push("ci.yml: required workflow tooling must not use version: latest.");
+}
+
+const sastWorkflowPath = path.join(workflowDir, "sast.yml");
+const sastWorkflow = readFileSync(sastWorkflowPath, "utf8");
+if (!/^\s{4}continue-on-error:\s*true\s*$/m.test(sastWorkflow)) {
+  failures.push("sast.yml: Semgrep must remain advisory while it depends on mutable registry rules.");
+}
+if (!/src worker scripts supabase\/functions/.test(sastWorkflow)) {
+  failures.push("sast.yml: Semgrep must scan Supabase Edge Function source.");
 }
 
 if (failures.length > 0) {
