@@ -18,9 +18,18 @@ describe("local server project identity", () => {
     const backslashRoot = "/work/Clinical\\KB";
     const slashRoot = "/work/Clinical/KB";
 
+    expect(normalizeProjectRoot(upperCaseRoot, "linux")).not.toBe(normalizeProjectRoot(lowerCaseRoot, "linux"));
     expect(normalizeProjectRoot(backslashRoot, "linux")).toContain("\\");
-    expect(localProjectId(upperCaseRoot, "linux")).not.toBe(localProjectId(lowerCaseRoot, "linux"));
-    expect(stableProjectPort(upperCaseRoot, "linux")).not.toBe(stableProjectPort(lowerCaseRoot, "linux"));
-    expect(localProjectId(backslashRoot, "linux")).not.toBe(localProjectId(slashRoot, "linux"));
+    expect(normalizeProjectRoot(backslashRoot, "linux")).not.toBe(normalizeProjectRoot(slashRoot, "linux"));
+
+    for (const root of [upperCaseRoot, lowerCaseRoot, backslashRoot, slashRoot]) {
+      const projectId = localProjectId(root, "linux");
+      const port = stableProjectPort(root, "linux");
+      expect(projectId).toBe(localProjectId(root, "linux"));
+      expect(projectId).toMatch(/^clinical-kb:[0-9a-f]{12}$/);
+      expect(port).toBe(stableProjectPort(root, "linux"));
+      expect(port).toBeGreaterThanOrEqual(3100);
+      expect(port).toBeLessThanOrEqual(4599);
+    }
   });
 });
