@@ -2003,22 +2003,47 @@ summary::-webkit-details-marker {
   }
 
   .polished-scroll {
-    scrollbar-color: color-mix(in srgb, var(--border-strong) 80%, transparent) transparent;
+    scrollbar-color: color-mix(in srgb, var(--border-strong) 65%, transparent) transparent;
     scrollbar-width: thin;
+    transition: scrollbar-color 200ms ease;
+  }
+
+  .polished-scroll:hover,
+  .polished-scroll:focus-within {
+    scrollbar-color: color-mix(in srgb, var(--border-strong) 95%, var(--text-soft) 15%) transparent;
   }
 
   .polished-scroll::-webkit-scrollbar {
-    height: 0.5rem;
-    width: 0.5rem;
-  }
-
-  .polished-scroll::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--border-strong) 72%, transparent);
-    border-radius: 999px;
+    height: 0.75rem;
+    width: 0.75rem;
   }
 
   .polished-scroll::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  .polished-scroll::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  .polished-scroll::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--border-strong) 60%, transparent);
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    transition: background-color 150ms ease;
+  }
+
+  .polished-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--border-strong) 90%, var(--text-soft) 15%);
+  }
+
+  .polished-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in srgb, var(--clinical-accent) 40%, var(--border-strong));
+  }
+
+  .polished-scroll::-webkit-scrollbar-thumb:active {
+    background-color: color-mix(in srgb, var(--clinical-accent) 60%, var(--border-strong));
   }
 }
 
