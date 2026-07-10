@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildClinicalTextSearchQuery } from "@/lib/clinical-search";
+import { readExpiringCacheEntry, writeBoundedExpiringCacheEntry } from "@/lib/bounded-ttl-cache";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { env } from "@/lib/env";
 import { queryCacheKeyForStorage } from "@/lib/query-privacy";
@@ -8,7 +9,7 @@ import { ragCacheKeyMatchesOwner } from "@/lib/rag-cache-utils";
 import { compactContextText } from "@/lib/rag-source-block";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
-import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag";
+import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag-contracts";
 import type { Json } from "@/lib/supabase/database.types";
 import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
@@ -20,6 +21,7 @@ const searchCache = new Map<
 >();
 const ragCacheDependencyVersion = "rag-cache-v12";
 const cacheIndexingVersionTtlMs = 5000;
+const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
 
 function scopeKey(args: Pick<SearchChunksArgs, "documentId" | "documentIds">) {
@@ -275,8 +277,8 @@ function sharedCacheSelector(
 
 export async function cacheIndexingVersion(args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId">) {
   const cacheKey = cacheIndexingVersionCacheKey(args);
-  const cached = cacheIndexingVersionCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const cached = readExpiringCacheEntry(cacheIndexingVersionCache, cacheKey);
+  if (cached) return cached.value;
 
   let value = `${ragDeepMemoryVersion}:index-stamp-unavailable`;
   try {
@@ -306,7 +308,12 @@ export async function cacheIndexingVersion(args: Pick<SearchChunksArgs, "documen
   } catch {
     value = `${ragDeepMemoryVersion}:index-stamp-unavailable`;
   }
-  cacheIndexingVersionCache.set(cacheKey, { value, expiresAt: Date.now() + cacheIndexingVersionTtlMs });
+  writeBoundedExpiringCacheEntry(
+    cacheIndexingVersionCache,
+    cacheKey,
+    { value, expiresAt: Date.now() + cacheIndexingVersionTtlMs },
+    cacheIndexingVersionMaxEntries,
+  );
   return value;
 }
 

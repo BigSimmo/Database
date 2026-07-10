@@ -1,16 +1,18 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, X } from "lucide-react";
 
-import {
-  ApplicationsLauncherWorkspace,
-  mobileSectionFabMediaQuery,
-  navigationHashes,
-} from "@/components/ClinicalDashboard";
+import { mobileSectionFabMediaQuery, navigationHashes } from "@/components/clinical-dashboard/dashboard-contracts";
 import { cn } from "@/components/ui-primitives";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { type AppModeId, appModeSearchConfig } from "@/lib/app-modes";
+
+const ApplicationsLauncherWorkspace = dynamic(
+  () => import("@/components/applications-launcher-page").then((module) => module.ApplicationsLauncherWorkspace),
+  { ssr: false },
+);
 
 export function ToolsHub({ query, desktopComposerSlotId }: { query: string; desktopComposerSlotId?: string }) {
   return <ApplicationsLauncherWorkspace query={query} desktopComposerSlotId={desktopComposerSlotId} />;
