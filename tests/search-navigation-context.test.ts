@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { appendSearchNavigationContext, readSearchNavigationContext } from "@/lib/search-navigation-context";
+import {
+  appendSearchNavigationContext,
+  readSearchNavigationContext,
+  searchNavigationContextSignature,
+  searchSubmissionSignature,
+} from "@/lib/search-navigation-context";
 
 describe("search navigation context", () => {
   it("round-trips query intent and active scope filters", () => {
@@ -50,5 +55,23 @@ describe("search navigation context", () => {
     const params = new URLSearchParams("mode=answer");
     appendSearchNavigationContext(params, { queryMode: "auto", scopeFilters: {} });
     expect(params.toString()).toBe("mode=answer");
+  });
+
+  it("changes the submission signature when routed intent or scope changes", () => {
+    const current = searchNavigationContextSignature({
+      queryMode: "monitoring_schedule",
+      scopeFilters: { sourceStatuses: ["current"], locality: "local" },
+    });
+    const outdated = searchNavigationContextSignature({
+      queryMode: "monitoring_schedule",
+      scopeFilters: { sourceStatuses: ["outdated"], locality: "local" },
+    });
+
+    expect(current).not.toBe(outdated);
+    expect(current).toContain("queryMode=monitoring_schedule");
+    expect(current).toContain("scope.sourceStatuses=current");
+    expect(searchSubmissionSignature("answer", "lithium", { scopeFilters: { sourceStatuses: ["current"] } })).not.toBe(
+      searchSubmissionSignature("answer", "lithium", { scopeFilters: { sourceStatuses: ["outdated"] } }),
+    );
   });
 });

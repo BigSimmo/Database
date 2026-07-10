@@ -155,7 +155,12 @@ import {
   type AppModeSearchKind,
 } from "@/lib/app-modes";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { readSearchNavigationContext } from "@/lib/search-navigation-context";
+import {
+  readSearchNavigationContext,
+  searchNavigationContextSignature,
+  searchSubmissionSignature,
+  type SearchNavigationContext,
+} from "@/lib/search-navigation-context";
 import { rankFormRecords } from "@/lib/forms";
 import { rankServiceRecords } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
@@ -726,6 +731,8 @@ export function ClinicalDashboard({
     autoRunSearch && searchParams.get("run") === "1" && submittedUrlModeMatchesActive
       ? (searchParams.get("q") ?? searchParams.get("query") ?? "").trim()
       : "";
+  const routedSearchContext = useMemo(() => readSearchNavigationContext(searchParams), [searchParams]);
+  const routedSearchContextSignature = searchNavigationContextSignature(routedSearchContext);
 
   // Record matches come from the owner-scoped registry API (mock fixtures in
   // demo mode); ranking stays client-side so live-typing behaviour is
@@ -1920,11 +1927,16 @@ export function ClinicalDashboard({
     if (answerData.demoMode) setDemoMode(true);
   }
 
-  async function executeSearch(searchText: string, targetMode: AppModeId = searchMode, filtersOverride = scopeFilters) {
+  async function executeSearch(
+    searchText: string,
+    targetMode: AppModeId = searchMode,
+    filtersOverride = scopeFilters,
+    queryModeOverride = queryMode,
+  ) {
     const trimmedQuery = searchText.trim();
     if (!trimmedQuery) return;
     const modeSearch = appModeSearchConfig(targetMode);
-    const targetQueryMode = appModeQueryMode(targetMode, queryMode);
+    const targetQueryMode = appModeQueryMode(targetMode, queryModeOverride);
     const isDifferentialsMode = modeSearch.resultKind === "differentials";
     // Note: no automatic mode-default label scope for Services/Forms. Applying
     // one on every search routed resolveSearchScope's label path over the whole
@@ -2159,18 +2171,28 @@ export function ClinicalDashboard({
     }
   }
 
-  async function ask(searchText = query) {
+  async function ask(searchText = query, contextOverride?: SearchNavigationContext) {
     const trimmedQuery = searchText.trim();
+    const effectiveQueryMode = contextOverride?.queryMode ?? queryMode;
+    const effectiveScopeFilters = contextOverride?.scopeFilters ?? scopeFilters;
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
-      router.push(documentsSearchHref({ query: trimmedQuery, focus: true, run: true, queryMode, scopeFilters }));
+      router.push(
+        documentsSearchHref({
+          query: trimmedQuery,
+          focus: true,
+          run: true,
+          queryMode: effectiveQueryMode,
+          scopeFilters: effectiveScopeFilters,
+        }),
+      );
       return;
     }
     if (searchMode === "prescribing") {
       setMedicationSearchQuery(searchText);
       return;
     }
-    await executeSearch(searchText, searchMode, scopeFilters);
+    await executeSearch(searchText, searchMode, effectiveScopeFilters, effectiveQueryMode);
   }
   const askRef = useRef(ask);
   askRef.current = ask;
@@ -2181,20 +2203,24 @@ export function ClinicalDashboard({
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !submittedSearchText || !canAutoRunMode || loading) return;
     if (searchMode === "answer" && !answerThreadBootstrapped) return;
+    const signaturePrefix = `${searchMode}:${submittedSearchText}`;
+    const signature = searchSubmissionSignature(searchMode, submittedSearchText, routedSearchContext);
+    const previousSignature = autoRunSearchSignatureRef.current;
+    const routedContextChanged =
+      previousSignature?.startsWith(`${signaturePrefix}:`) === true && previousSignature !== signature;
     // Once an answer is on screen, composer edits are follow-up drafts and must
     // only run on explicit submit — not on every query keystroke while run=1
     // keeps autoRunSearch enabled from the URL.
-    if (searchMode === "answer" && answer) return;
+    if (searchMode === "answer" && answer && !routedContextChanged) return;
     // After reload, the URL query matches the restored latest turn — do not
     // archive it again into a duplicate prior turn.
-    if (searchMode === "answer" && latestAnswerQuery?.trim() === submittedSearchText) {
-      autoRunSearchSignatureRef.current = `${searchMode}:${submittedSearchText}`;
+    if (searchMode === "answer" && latestAnswerQuery?.trim() === submittedSearchText && !routedContextChanged) {
+      autoRunSearchSignatureRef.current = signature;
       return;
     }
-    const signature = `${searchMode}:${submittedSearchText}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
-    void askRef.current(submittedSearchText);
+    void askRef.current(submittedSearchText, routedSearchContext);
   }, [
     autoRunSearch,
     canRunSearch,
@@ -2205,6 +2231,8 @@ export function ClinicalDashboard({
     answer,
     answerThreadBootstrapped,
     latestAnswerQuery,
+    routedSearchContext,
+    routedSearchContextSignature,
   ]);
 
   function pickRecentQuery(recentQuery: string) {

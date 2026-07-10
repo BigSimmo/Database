@@ -146,6 +146,14 @@ export function appendSearchNavigationContext(params: URLSearchParams, context: 
   return params;
 }
 
+export function searchNavigationContextSignature(context: SearchNavigationContext = {}) {
+  return appendSearchNavigationContext(new URLSearchParams(), context).toString();
+}
+
+export function searchSubmissionSignature(mode: string, query: string, context: SearchNavigationContext = {}) {
+  return `${mode}:${query}:${searchNavigationContextSignature(context)}`;
+}
+
 export function readSearchNavigationContext(params: ReadableSearchParams): Required<SearchNavigationContext> {
   const rawQueryMode = params.get(queryModeParam);
   const queryMode =
