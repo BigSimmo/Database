@@ -209,8 +209,8 @@ function CommandDropdown({
                       onMouseEnter={() => onHoverItem(item.id)}
                       onMouseDown={(event) => {
                         event.preventDefault();
-                        item.onSelect();
                       }}
+                      onClick={item.onSelect}
                       className="cursor-pointer"
                     >
                       {item.render(activeItemId === item.id)}
@@ -227,8 +227,8 @@ function CommandDropdown({
                     onMouseEnter={() => onHoverItem(item.id)}
                     onMouseDown={(event) => {
                       event.preventDefault();
-                      item.onSelect();
                     }}
+                    onClick={item.onSelect}
                     className="cursor-pointer"
                   >
                     {item.render(activeItemId === item.id)}
@@ -502,7 +502,7 @@ export function UniversalSearchCommandSurface({
             label: action.label,
             onSelect: () => {
               onDropdownOpenChange(false);
-              router.push(action.href);
+              onCrossMode("answer", trimmedQuery);
             },
             render: (active) => (
               <OptionShell active={active} hint="Answer">
