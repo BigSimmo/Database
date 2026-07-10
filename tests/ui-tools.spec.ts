@@ -734,17 +734,20 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("form detail mobile keeps the floating global search clear of decision context", async ({ page }) => {
+  test("form detail mobile renders decision context after the form content", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/forms/transport-crisis-form");
 
     await expect(page.getByTestId("form-detail-page")).toBeVisible();
     await expect(page.getByTestId("form-decision-context-mobile")).toBeVisible();
     await expect(page.locator('[data-testid="global-search-input"]:visible')).toHaveCount(1);
+
+    // Decision context now stacks below the priority facts and source snapshot
+    // on phones — the primary form content reads first.
     await expectVerticalSeparation(
       page,
-      '[data-testid="form-decision-context-mobile"] [role="tablist"], [data-testid="form-decision-context-mobile"] > div:nth-child(2)',
-      '[data-testid="global-search-input"]',
+      '[aria-label="Priority facts"]',
+      '[data-testid="form-decision-context-mobile"]',
       8,
     );
     await expectNoPageHorizontalOverflow(page);
