@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { appName, localProjectId } from "./local-server-utils.mjs";
+import { appName, localProjectId } from "../src/lib/local-server-utils.mjs";
 
 function parsePositiveInt(name, fallback) {
   const rawValue = process.env[name];

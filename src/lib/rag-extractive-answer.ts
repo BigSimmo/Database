@@ -15,7 +15,7 @@ import {
   machineReadableFallbackAnswer,
   rankMemoryCardsForAnswer,
   scoreValue,
-} from "@/lib/rag";
+} from "@/lib/rag-answer-support";
 import {
   hasClinicalAnswerQualityIssue,
   looksLikeJsonArtifact,
