@@ -128,6 +128,7 @@ import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
   classifyAnswerError,
+  createAnswerRequestWatchdog,
   isRetryableError,
   isRetryableMessage,
   isRetryableStatus,
@@ -340,6 +341,7 @@ async function readAnswerStream(
   onProgress: (message: string) => void,
   onToken?: (delta: string) => void,
   onRevising?: () => void,
+  onActivity?: () => void,
 ): Promise<AnswerPayload> {
   if (!response.body) throw makeSearchError("Answer stream could not be opened.", undefined, true);
 
@@ -407,6 +409,9 @@ async function readAnswerStream(
 
   while (true) {
     const { value, done } = await reader.read();
+    // Any received bytes — progress events, token deltas, or server heartbeat
+    // comments — count as liveness for the caller's stall watchdog.
+    if (value && value.length > 0) onActivity?.();
     buffer += decoder.decode(value, { stream: !done });
 
     let separator = findSseSeparator(buffer);
@@ -472,14 +477,12 @@ type AnswerTurn = {
 
 const maxVisiblePriorTurns = 10;
 
-// Upper bound on a single answer request. The stream sends only progress events
-// then one `final` blob after the full server-side generation, so a hung stream
-// otherwise spins the UI forever with no close event. Generous enough not to
-// abort a legitimately slow generation; a wait past this is treated as a stall.
-const answerRequestTimeoutMs = 60_000;
-
 // Non-retryable so an aborted request does not immediately re-fetch against the
-// already-aborted signal; the user re-submits to try again.
+// already-aborted signal; the user re-submits to try again. Raised by the
+// stall watchdog (see createAnswerRequestWatchdog): a live stream that keeps
+// delivering progress/token/heartbeat bytes is never aborted, no matter how
+// long a fast->strong escalation takes, so this now only appears when the
+// stream genuinely went silent or hit the absolute ceiling.
 function answerTimedOutError() {
   return makeSearchError("Answer generation timed out. Please try again.", 408, false);
 }
@@ -1764,6 +1767,7 @@ export function ClinicalDashboard({
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
     onProgress: (message: string) => void = setAnswerProgress,
     signal?: AbortSignal,
+    onStreamActivity?: () => void,
   ) {
     setStreamingAnswer(null);
     let response: Response;
@@ -1805,6 +1809,7 @@ export function ClinicalDashboard({
         onProgress,
         (delta) => setStreamingAnswer((prev) => ({ text: (prev?.text ?? "") + delta, revising: false })),
         () => setStreamingAnswer({ text: "", revising: true }),
+        onStreamActivity,
       );
     } catch (error) {
       if (answerTimedOutRef.current) throw answerTimedOutError();
@@ -2019,13 +2024,16 @@ export function ClinicalDashboard({
           ]
         : [{ query: requestQuery, isKeyword: false }];
 
-    // Bound this search with a timeout on the shared abort controller so a
-    // stalled answer stream recovers instead of spinning forever.
+    // Bound this search with a stall watchdog on the shared abort controller so
+    // a hung stream recovers instead of spinning forever. Answer streams reset
+    // the inactivity window on every received chunk, so a slow-but-live
+    // generation (fast -> strong escalation) is not aborted mid-stream; plain
+    // document searches never touch the watchdog and keep the flat window.
     answerTimedOutRef.current = false;
-    const answerTimeout = window.setTimeout(() => {
+    const answerWatchdog = createAnswerRequestWatchdog(() => {
       answerTimedOutRef.current = true;
       abortController.abort();
-    }, answerRequestTimeoutMs);
+    });
 
     try {
       let successfulPayload: SearchResultModePayload | null = null;
@@ -2055,7 +2063,14 @@ export function ClinicalDashboard({
                 )
               : await runWithRetries(
                   () =>
-                    requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress, abortController.signal),
+                    requestAnswer(
+                      entry.query,
+                      filtersOverride,
+                      targetQueryMode,
+                      onProgress,
+                      abortController.signal,
+                      answerWatchdog.touch,
+                    ),
                   onProgress,
                 );
 
@@ -2115,7 +2130,7 @@ export function ClinicalDashboard({
         setLastFailedQuery(trimmedQuery);
       }
     } finally {
-      window.clearTimeout(answerTimeout);
+      answerWatchdog.cancel();
       answerTimedOutRef.current = false;
       if (searchAbortRef.current === abortController) searchAbortRef.current = null;
       if (requestId === searchRequestSeqRef.current) {

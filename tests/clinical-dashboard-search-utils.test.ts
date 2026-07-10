@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   answerPayloadIsUsable,
+  answerRequestMaxDurationMs,
+  answerStallTimeoutMs,
   classifyAnswerError,
+  createAnswerRequestWatchdog,
   isRetryableError,
   keywordQueryFromNaturalLanguage,
   makeSearchError,
@@ -74,5 +77,84 @@ describe("clinical dashboard search utilities", () => {
     expect(classifyAnswerError(new Error("Search failed"))).toBe("failure");
     expect(classifyAnswerError(null)).toBe("failure");
     expect(classifyAnswerError("boom")).toBe("failure");
+  });
+});
+
+describe("answer request watchdog", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("fires once after the stall window when the stream shows no activity", () => {
+    const onTimeout = vi.fn();
+    const watchdog = createAnswerRequestWatchdog(onTimeout);
+
+    vi.advanceTimersByTime(answerStallTimeoutMs - 1);
+    expect(onTimeout).not.toHaveBeenCalled();
+    expect(watchdog.timedOut).toBe(false);
+
+    vi.advanceTimersByTime(1);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+    expect(watchdog.timedOut).toBe(true);
+
+    // Neither timer fires a second time.
+    vi.advanceTimersByTime(answerRequestMaxDurationMs);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fire while the stream keeps showing activity, even past the old flat timeout", () => {
+    const onTimeout = vi.fn();
+    const watchdog = createAnswerRequestWatchdog(onTimeout);
+
+    // Simulate a slow fast->strong escalation: activity every 15s for 2 minutes.
+    for (let elapsed = 0; elapsed < 120_000; elapsed += 15_000) {
+      vi.advanceTimersByTime(15_000);
+      watchdog.touch();
+    }
+    expect(onTimeout).not.toHaveBeenCalled();
+    watchdog.cancel();
+  });
+
+  it("enforces the absolute ceiling even when activity never stops", () => {
+    const onTimeout = vi.fn();
+    const watchdog = createAnswerRequestWatchdog(onTimeout);
+
+    for (let elapsed = 0; elapsed < answerRequestMaxDurationMs; elapsed += 10_000) {
+      vi.advanceTimersByTime(10_000);
+      watchdog.touch();
+    }
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+    expect(watchdog.timedOut).toBe(true);
+  });
+
+  it("never fires after cancel, and touch after cancel stays inert", () => {
+    const onTimeout = vi.fn();
+    const watchdog = createAnswerRequestWatchdog(onTimeout);
+
+    watchdog.cancel();
+    watchdog.touch();
+    vi.advanceTimersByTime(answerRequestMaxDurationMs * 2);
+    expect(onTimeout).not.toHaveBeenCalled();
+    expect(watchdog.timedOut).toBe(false);
+  });
+
+  it("respects custom stall and ceiling budgets", () => {
+    const onTimeout = vi.fn();
+    const watchdog = createAnswerRequestWatchdog(onTimeout, { stallMs: 100, maxDurationMs: 250 });
+
+    vi.advanceTimersByTime(90);
+    watchdog.touch();
+    vi.advanceTimersByTime(90);
+    watchdog.touch();
+    expect(onTimeout).not.toHaveBeenCalled();
+
+    // 180ms elapsed; ceiling at 250ms fires before the next stall window ends.
+    vi.advanceTimersByTime(70);
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+    expect(watchdog.timedOut).toBe(true);
   });
 });
