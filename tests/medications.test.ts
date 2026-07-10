@@ -148,9 +148,7 @@ describe("medication action tone", () => {
       "Any hepatic impairment (e.g. cirrhosis)",
     );
     expect(firstClinicalSentence("Start 1.5 mg NOCTE. Titrate weekly.")).toBe("Start 1.5 mg NOCTE");
-    expect(firstClinicalSentence("Rash, nausea, etc. may occur. Stop if severe.")).toBe(
-      "Rash, nausea, etc. may occur",
-    );
+    expect(firstClinicalSentence("Rash, nausea, etc. may occur. Stop if severe.")).toBe("Rash, nausea, etc. may occur");
     expect(firstClinicalSentence("No trailing period")).toBe("No trailing period");
   });
 });
