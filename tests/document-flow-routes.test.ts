@@ -10,6 +10,22 @@ describe("document flow routes", () => {
     );
   });
 
+  it("keeps query intent and scope filters in document-search navigation", () => {
+    const href = new URL(
+      documentsSearchHref({
+        query: "lithium monitoring",
+        run: true,
+        queryMode: "monitoring_schedule",
+        scopeFilters: { medications: ["lithium"], locality: "local" },
+      }),
+      "https://clinical.test",
+    );
+
+    expect(href.searchParams.get("queryMode")).toBe("monitoring_schedule");
+    expect(href.searchParams.getAll("scope.medications")).toEqual(["lithium"]);
+    expect(href.searchParams.get("scope.locality")).toBe("local");
+  });
+
   it("builds reader and evidence links with defaults", () => {
     expect(documentReaderHref()).toContain("q=clozapine+monitoring+table");
     expect(documentEvidenceHref({ evidence: "renal-table" })).toContain("evidence=renal-table");

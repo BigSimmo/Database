@@ -803,7 +803,7 @@ export function MasterSearchHeader({
               value={filterText(scopeFilters[field.key])}
               onChange={(event) => updateTextScopeFilter(field.key, event.target.value)}
               placeholder={field.placeholder}
-              className="h-10 min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
             />
           </label>
         ))}
@@ -964,7 +964,7 @@ export function MasterSearchHeader({
                 value={queryMode}
                 onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
                 aria-label="Clinical query mode"
-                className="h-10 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                className="h-tap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
               >
                 {queryModeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -989,7 +989,7 @@ export function MasterSearchHeader({
                         : [],
                     })
                   }
-                  className="h-10 min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                  className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
                 >
                   <option value="">Any status</option>
                   <option value="current">Current</option>
@@ -1011,7 +1011,7 @@ export function MasterSearchHeader({
                       locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
                     })
                   }
-                  className="h-10 min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                  className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
                 >
                   <option value="">Any locality</option>
                   <option value="local">Local only</option>
@@ -1035,7 +1035,7 @@ export function MasterSearchHeader({
               <button
                 type="button"
                 onClick={() => onScopeFiltersChange({})}
-                className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                className={cn(floatingControl, "px-3 text-xs lg:min-h-9")}
               >
                 Clear refine filters
               </button>
@@ -1043,7 +1043,7 @@ export function MasterSearchHeader({
           </div>
         </details>
         <details className="group hidden min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5 sm:block">
-          <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 px-0.5">
+          <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-0.5 lg:min-h-8">
             <span className={eyebrowText}>Label filters</span>
             <span className="flex items-center gap-2 text-2xs font-semibold text-[color:var(--text-soft)]">
               {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, action, intent"}
@@ -1055,7 +1055,7 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={() => onScopeFiltersChange({})}
-              className={cn(floatingControl, "min-h-9 w-fit px-3 text-xs")}
+              className={cn(floatingControl, "w-fit px-3 text-xs lg:min-h-9")}
             >
               Clear refine filters
             </button>

@@ -154,6 +154,7 @@ import {
   type AppModeSearchKind,
 } from "@/lib/app-modes";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
+import { readSearchNavigationContext } from "@/lib/search-navigation-context";
 import { rankFormRecords } from "@/lib/forms";
 import { rankServiceRecords } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
@@ -653,6 +654,7 @@ export function ClinicalDashboard({
 }: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [initialSearchNavigationContext] = useState(() => readSearchNavigationContext(searchParams));
   const mainRef = useRef<HTMLElement>(null);
   const [mainScrollRoot, setMainScrollRoot] = useState<HTMLElement | null>(null);
   const assignMainRef = useCallback((node: HTMLElement | null) => {
@@ -709,7 +711,7 @@ export function ClinicalDashboard({
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
   const [searchRelevance, setSearchRelevance] = useState<EvidenceRelevance | null>(null);
   const [searchFacets, setSearchFacets] = useState<SearchFacets | null>(null);
-  const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
+  const [queryMode, setQueryMode] = useState<ClinicalQueryMode>(initialSearchNavigationContext.queryMode);
   const activeModeSearch = appModeSearchConfig(searchMode);
   const activeModeResultKind = appModeResultKind(searchMode);
   const requestQueryMode = appModeQueryMode(searchMode, queryMode);
@@ -827,7 +829,7 @@ export function ClinicalDashboard({
     setAnswerProgress(null);
     setDifferentialEvidenceQuery(null);
   }, [resetAnswerThread]);
-  const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
+  const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>(initialSearchNavigationContext.scopeFilters);
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
   const [sourceGovernanceWarnings, setSourceGovernanceWarnings] = useState<SourceGovernanceWarning[]>([]);
   const [answerViewMode, setAnswerViewMode] = useState<AnswerViewMode>("high_yield");
@@ -1585,6 +1587,9 @@ export function ClinicalDashboard({
     const searchParamString = searchParams.toString();
     if (lastSyncedSearchParamsRef.current === searchParamString) return;
     lastSyncedSearchParamsRef.current = searchParamString;
+    const nextSearchContext = readSearchNavigationContext(new URLSearchParams(searchParamString));
+    setQueryMode(nextSearchContext.queryMode);
+    setScopeFilters(nextSearchContext.scopeFilters);
     if (searchParams.get("run") === "1") return;
 
     const mode = searchParams.get("mode");
@@ -2099,7 +2104,16 @@ export function ClinicalDashboard({
           // Keep only the latest question in the URL; the full thread lives in
           // React state until refresh or New chat.
           modeChangeFromUiRef.current = true;
-          window.history.replaceState(null, "", appModeHomeHref(targetMode, { query: trimmedQuery, run: true }));
+          window.history.replaceState(
+            null,
+            "",
+            appModeHomeHref(targetMode, {
+              query: trimmedQuery,
+              run: true,
+              queryMode,
+              scopeFilters: filtersOverride,
+            }),
+          );
           if (isAnswerFollowUp) {
             window.requestAnimationFrame(() => {
               const main = mainRef.current;
@@ -2137,14 +2151,16 @@ export function ClinicalDashboard({
     setAnswerProgress(null);
     rememberRecentQuery(trimmedSearchText);
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
-    if (updateUrl) router.replace(appModeHomeHref("prescribing", { query: trimmedSearchText }));
+    if (updateUrl) {
+      router.replace(appModeHomeHref("prescribing", { query: trimmedSearchText, queryMode, scopeFilters }));
+    }
   }
 
   async function ask(searchText = query) {
     const trimmedQuery = searchText.trim();
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
-      router.push(documentsSearchHref({ query: trimmedQuery, focus: true, run: true }));
+      router.push(documentsSearchHref({ query: trimmedQuery, focus: true, run: true, queryMode, scopeFilters }));
       return;
     }
     if (searchMode === "prescribing") {
@@ -2219,7 +2235,7 @@ export function ClinicalDashboard({
       setMedicationSearchQuery(crossQuery);
     }
     setSearchMode(mode);
-    router.push(appModeHomeHref(mode, { query: crossQuery, focus: true, run: true }));
+    router.push(appModeHomeHref(mode, { query: crossQuery, focus: true, run: true, queryMode, scopeFilters }));
   }
 
   async function submitAnswerFeedback(feedbackType: AnswerFeedbackType) {
@@ -2303,8 +2319,16 @@ export function ClinicalDashboard({
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
   }
 
-  function updateDocumentSearchUrl(searchText: string, mode: AppModeId = "documents") {
-    window.history.replaceState(null, "", appModeHomeHref(mode, { query: searchText }));
+  function updateDocumentSearchUrl(
+    searchText: string,
+    mode: AppModeId = "documents",
+    filtersOverride: SearchScopeFilters = scopeFilters,
+  ) {
+    window.history.replaceState(
+      null,
+      "",
+      appModeHomeHref(mode, { query: searchText, queryMode, scopeFilters: filtersOverride }),
+    );
   }
 
   async function runDocumentSearchShortcut(
@@ -2324,7 +2348,17 @@ export function ClinicalDashboard({
       setAnswerProgress(null);
       rememberRecentQuery(trimmedSearchText);
       window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
-      if (updateUrl) router.push(documentsSearchHref({ query: trimmedSearchText, focus: true, run: true }));
+      if (updateUrl) {
+        router.push(
+          documentsSearchHref({
+            query: trimmedSearchText,
+            focus: true,
+            run: true,
+            queryMode,
+            scopeFilters: filtersOverride,
+          }),
+        );
+      }
       return;
     }
     if (!canRunSearch) {
@@ -2349,7 +2383,7 @@ export function ClinicalDashboard({
     setAnswerViewMode("high_yield");
     rememberRecentQuery(trimmedSearchText);
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
-    if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode);
+    if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode, filtersOverride);
 
     const requestId = ++searchRequestSeqRef.current;
 
@@ -2479,7 +2513,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setDocumentMatches([]);
     setSearchMode(mode);
-    router.push(appModeHomeHref(mode));
+    router.push(appModeHomeHref(mode, { queryMode, scopeFilters }));
   }
 
   function focusComposerInput() {
@@ -3408,7 +3442,7 @@ export function ClinicalDashboard({
                     onClearQuery={() => {
                       setQuery("");
                       setModeSearchSubmitted(false);
-                      router.replace(appModeHomeHref("favourites", { focus: true }));
+                      router.replace(appModeHomeHref("favourites", { focus: true, queryMode, scopeFilters }));
                     }}
                     onAddFavourite={() =>
                       setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })

@@ -40,6 +40,7 @@ import {
 } from "@/lib/app-modes";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
@@ -193,8 +194,12 @@ function GlobalMockupStandaloneSearchShellClient({
   // mount is a no-op — the state above is already derived from the URL.
   const lastSyncedSearchParamsRef = useRef(searchParamString);
   const [searchMode, setSearchMode] = useState<AppModeId>(resolvedSearchMode);
-  const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
-  const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
+  const [queryMode, setQueryMode] = useState<ClinicalQueryMode>(
+    () => readSearchNavigationContext(searchParams).queryMode,
+  );
+  const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>(
+    () => readSearchNavigationContext(searchParams).scopeFilters,
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [guideOpen, setGuideOpen] = useState(false);
@@ -250,7 +255,9 @@ function GlobalMockupStandaloneSearchShellClient({
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
-  const mobileComposerReserve = !shouldShowSearchComposer
+  const usesInlineModeHomeComposer = shouldShowSearchComposer && isStandaloneModeHome;
+  const reservesFloatingComposer = shouldShowSearchComposer && !usesInlineModeHomeComposer;
+  const mobileComposerReserve = !reservesFloatingComposer
     ? "2rem"
     : searchMode === "answer"
       ? "calc(9rem + env(safe-area-inset-bottom))"
@@ -271,6 +278,9 @@ function GlobalMockupStandaloneSearchShellClient({
     lastSyncedSearchParamsRef.current = searchParamString;
     setSearchMode(resolvedSearchMode);
     setQuery(currentUrlHasQuery ? requestedQuery : "");
+    const nextSearchContext = readSearchNavigationContext(new URLSearchParams(searchParamString));
+    setQueryMode(nextSearchContext.queryMode);
+    setScopeFilters(nextSearchContext.scopeFilters);
   }, [currentUrlHasQuery, requestedQuery, resolvedSearchMode, searchParamString]);
 
   useEffect(() => {
@@ -338,12 +348,13 @@ function GlobalMockupStandaloneSearchShellClient({
     setAccountSetupOpen(true);
   }
 
-  function navigateToMode(mode: AppModeId, options: { query?: string; run?: boolean; focus?: boolean } = {}) {
+  function navigateToMode(mode: AppModeId, options: SearchNavigationOptions = {}) {
+    const nextOptions = { queryMode, scopeFilters, ...options };
     if (mode === "documents" && options.query?.trim()) {
-      router.push(documentsSearchHref(options));
+      router.push(documentsSearchHref(nextOptions));
       return;
     }
-    router.push(appModeHomeHref(mode, options));
+    router.push(appModeHomeHref(mode, nextOptions));
   }
 
   function submitSearch() {
@@ -367,7 +378,9 @@ function GlobalMockupStandaloneSearchShellClient({
     setQuery("");
     setMobileMenuOpen(false);
     setSearchMode("answer");
-    navigateToMode("answer", { focus: true });
+    setQueryMode("auto");
+    setScopeFilters({});
+    router.push(appModeHomeHref("answer", { focus: true }));
   }
 
   function pickRecentQuery(recentQuery: string) {
@@ -483,7 +496,9 @@ function GlobalMockupStandaloneSearchShellClient({
             onQueryModeChange={setQueryMode}
             onScopeFiltersChange={setScopeFilters}
             onToggleScope={() => undefined}
-            onOpenUpload={() => router.push(`${appModeHomeHref("documents", { focus: true })}#sources`)}
+            onOpenUpload={() =>
+              router.push(`${appModeHomeHref("documents", { focus: true, queryMode, scopeFilters })}#sources`)
+            }
             onOpenEvidence={() => navigateToMode("answer", { focus: true })}
             onNewChat={startNewAnswerChat}
             onOpenMobileSidebar={() => setMobileMenuOpen(true)}
@@ -526,7 +541,7 @@ function GlobalMockupStandaloneSearchShellClient({
           onScroll={handleMainScroll}
           className={cn(
             "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)]",
-            !shouldShowSearchComposer
+            !reservesFloatingComposer
               ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
               : bottomSearchScrollHidden
                 ? "max-sm:pb-8 sm:pb-8"
@@ -534,7 +549,7 @@ function GlobalMockupStandaloneSearchShellClient({
                   ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
                   : useCompactBottomSearch
                     ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
-                    : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
+                    : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8",
           )}
         >
           <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">
