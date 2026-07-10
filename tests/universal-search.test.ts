@@ -52,7 +52,7 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
       demo: true,
     });
     expect(response.groups.map((group) => group.kind)).toEqual(
-      ["documents", "medications", "services", "forms", "differentials", "tools"].filter((domain) =>
+      ["documents", "medications", "services", "forms", "differentials", "presentations", "tools"].filter((domain) =>
         ["tools", "differentials"].includes(domain),
       ),
     );
@@ -76,6 +76,31 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
     expect(tools?.items).toEqual([]);
     const differentials = response.groups.find((group) => group.kind === "differentials");
     expect(differentials?.error).toBeUndefined();
+  });
+
+  it("isolates a failing presentations adapter without touching the differentials group", async () => {
+    vi.doMock("@/lib/differentials", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../src/lib/differentials")>();
+      return {
+        ...actual,
+        rankPresentationWorkflows: () => {
+          throw new Error("presentations adapter exploded");
+        },
+      };
+    });
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const response = await runUniversalSearch({ query: "confusion", limitPerDomain: 3, demo: true });
+
+    const presentations = response.groups.find((group) => group.kind === "presentations");
+    expect(presentations?.error).toBe(true);
+    expect(presentations?.items).toEqual([]);
+    const differentials = response.groups.find((group) => group.kind === "differentials");
+    expect(differentials?.error).toBeUndefined();
+    expect(differentials?.items.length ?? 0).toBeGreaterThan(0);
+
+    // doMock registrations survive resetModules, so drop it here or every later test in this
+    // file would import the throwing presentations ranker.
+    vi.doUnmock("@/lib/differentials");
   });
 
   it("uses demo document search when no Supabase client is supplied", async () => {
@@ -178,6 +203,18 @@ describe("GET /api/search/universal (demo mode)", () => {
     const payload = (await response.json()) as { groups: Array<{ kind: string }> };
     expect(payload.groups.map((group) => group.kind)).toEqual(["tools"]);
   });
+
+  it("serves the presentations domain through the CSV filter", async () => {
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
+    const { GET } = await import("../src/app/api/search/universal/route");
+    const response = await GET(
+      new Request("http://localhost/api/search/universal?q=confusion&domains=presentations,bogus"),
+    );
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as { groups: Array<{ kind: string; items: Array<{ href: string }> }> };
+    expect(payload.groups.map((group) => group.kind)).toEqual(["presentations"]);
+    expect(payload.groups[0]?.items[0]?.href).toContain("/differentials/presentations/");
+  });
 });
 
 describe("runUniversalSearch (query intelligence & ranking)", () => {
@@ -258,6 +295,63 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
     const expanded = rankMedicationRecords(records, "zzznotarealterm", 5, ["clozapine"]);
     expect(expanded.some((match) => match.medication.name.toLowerCase() === "clozapine")).toBe(true);
   });
+
+  it("surfaces both the presentation and its candidate differentials for a symptom query", async () => {
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const response = await runUniversalSearch({
+      query: "confusion",
+      limitPerDomain: 5,
+      domains: ["differentials", "presentations"],
+      demo: true,
+    });
+    const presentations = response.groups.find((group) => group.kind === "presentations");
+    expect(presentations?.items[0]?.id).toBe("acute-confusion-encephalopathy");
+    expect(presentations?.items[0]?.href).toBe("/differentials/presentations/acute-confusion-encephalopathy");
+    expect(presentations?.items[0]?.badge).toBe("Emergent");
+    // The reverse link lane surfaces the presentation's candidate differentials for the same
+    // symptom vocabulary even though their own titles never contain "confusion".
+    const differentials = response.groups.find((group) => group.kind === "differentials");
+    const candidateSlugs = new Set([
+      "delirium",
+      "substance-intoxication",
+      "substance-withdrawal",
+      "post-ictal-confusion",
+      "dementia-with-superimposed-delirium",
+      "wernicke-encephalopathy",
+      "hepatic-encephalopathy",
+    ]);
+    expect(differentials?.items.some((item) => candidateSlugs.has(item.id))).toBe(true);
+  });
+
+  it("leads with the presentation for a symptom phrase that whole-phrase-matches its title", async () => {
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const response = await runUniversalSearch({
+      query: "acute confusion",
+      limitPerDomain: 5,
+      domains: ["differentials", "presentations"],
+      demo: true,
+    });
+    // No diagnosis title contains the phrase, so only the presentations group is confident and
+    // it is promoted to lead + Best match.
+    expect(response.domainOrder?.[0]).toBe("presentations");
+    expect(response.topHit?.kind).toBe("presentations");
+    expect(response.topHit?.href).toBe("/differentials/presentations/acute-confusion-encephalopathy");
+  });
+
+  it("prefers the exact diagnosis over the umbrella presentation when both titles match", async () => {
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const response = await runUniversalSearch({
+      query: "substance intoxication",
+      limitPerDomain: 5,
+      domains: ["differentials", "presentations"],
+      demo: true,
+    });
+    // Both kinds hold a confident whole-phrase title match ("Substance intoxication" is a
+    // diagnosis and an umbrella presentation); canonical order pins Best match to the precise
+    // diagnosis page ahead of the umbrella.
+    expect(response.topHit?.kind).toBe("differentials");
+    expect(response.domainOrder?.slice(0, 2)).toEqual(["differentials", "presentations"]);
+  });
 });
 
 // Regression guard: outside an explicit demo/local deploy, no caller — including an anonymous,
@@ -314,7 +408,15 @@ describe("GET /api/search/universal (live public/owner path)", () => {
     // Replace only the entrypoint; the schema still needs the real domain list.
     vi.doMock("@/lib/universal-search", () => ({
       runUniversalSearch,
-      universalSearchDomains: ["documents", "medications", "services", "forms", "differentials", "tools"],
+      universalSearchDomains: [
+        "documents",
+        "medications",
+        "services",
+        "forms",
+        "differentials",
+        "presentations",
+        "tools",
+      ],
     }));
   }
 
