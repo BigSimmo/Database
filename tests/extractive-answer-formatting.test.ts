@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { sentenceFromFact, splitClinicalEvidenceSentences } from "../src/lib/rag-extractive-answer";
+import {
+  buildExtractiveAnswer,
+  sentenceFromFact,
+  splitClinicalEvidenceSentences,
+} from "../src/lib/rag-extractive-answer";
+import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 // Regression for the live source-only answer that rendered as:
 // "For lithium, twice daily dosing should be spaced by 12 hours. The guidance
@@ -78,5 +83,48 @@ describe("extractive sentence stitching", () => {
     );
     expect(sentence).toBeTruthy();
     expect(sentence).not.toMatch(/lithium/i);
+  });
+});
+
+describe("extractive answer end to end", () => {
+  it("renders the lithium source-only case cleanly through buildExtractiveAnswer", () => {
+    const result = {
+      id: "lithium-chunk-1",
+      document_id: "lithium-doc",
+      title: "Lithium Therapy Guideline",
+      file_name: "Lithium Therapy Guideline.pdf",
+      page_number: 3,
+      chunk_index: 2,
+      section_heading: "Dosing",
+      content:
+        "Twice daily dosing should be spaced by 12 hours. Acute Mania: o IR product: 750 to 1000mg daily in 2 or 3 divided doses or as a single dose at night.",
+      image_ids: [],
+      similarity: 0.88,
+      hybrid_score: 0.93,
+      images: [],
+    } as unknown as SearchResult;
+
+    const answer = buildExtractiveAnswer({
+      query: "lithium dosing",
+      queryClass: "medication_dose_risk",
+      results: [result],
+      quoteCards: [],
+      documentBreakdown: [] as RagAnswer["documentBreakdown"],
+      evidenceSummary: undefined as unknown as RagAnswer["evidenceSummary"],
+      sourceCoverage: undefined as unknown as RagAnswer["sourceCoverage"],
+      conflictsOrGaps: [],
+      visualEvidence: [] as unknown as RagAnswer["visualEvidence"],
+      bestSource: undefined as unknown as RagAnswer["bestSource"],
+      smartPanel: undefined as unknown as RagAnswer["smartPanel"],
+      relatedDocuments: [] as unknown as RagAnswer["relatedDocuments"],
+      routeReason: "demo",
+      timings: undefined as unknown as RagAnswer["latencyTimings"],
+    });
+
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).not.toMatch(/\bo\s+[A-Z]/);
+    expect(plain).not.toMatch(/that for lithium/i);
+    expect(plain).toMatch(/^For lithium, twice daily dosing should be spaced by 12 hours\./);
+    expect(plain).toMatch(/For acute mania, IR product is 750 to 1000mg daily/);
   });
 });

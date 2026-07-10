@@ -759,6 +759,12 @@ function tableFactsToClinicalFacts(result: SearchResult, query: string, intent: 
     .filter((fact): fact is ExtractedClinicalFact => Boolean(fact));
 }
 
+function withTerminalPunctuation(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return /[.:;!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
 /** Extract clinical facts from results. */
 function extractClinicalFactsFromResults(results: SearchResult[], query: string, intent: AnswerIntent, limit = 8) {
   const seen = new Set<string>();
@@ -773,12 +779,27 @@ function extractClinicalFactsFromResults(results: SearchResult[], query: string,
       facts.push(fact);
     }
 
+    // Each evidence segment gets terminal punctuation before joining: the
+    // prose cleaner collapses the newlines, and without it a bare section
+    // heading or synopsis tail glues onto the next segment's first sentence
+    // ("Dosing Twice daily dosing should…"). The heading gets a colon so it
+    // reads as a label for the content that follows it — unless the content
+    // already opens with the heading text, where prepending it would only
+    // fabricate a contentless "Label: Label." fact.
+    const sectionHeading = result.section_heading?.trim();
+    const contentLeadsWithHeading = Boolean(
+      sectionHeading && (result.content ?? "").trim().toLowerCase().startsWith(sectionHeading.toLowerCase()),
+    );
     const text = [
-      result.retrieval_synopsis,
-      result.section_heading,
-      result.content,
-      result.adjacent_context,
-      ...(result.memory_cards ?? []).map((card) => card.content),
+      withTerminalPunctuation(result.retrieval_synopsis),
+      sectionHeading && !contentLeadsWithHeading
+        ? /[.:;!?]$/.test(sectionHeading)
+          ? sectionHeading
+          : `${sectionHeading}:`
+        : null,
+      withTerminalPunctuation(result.content),
+      withTerminalPunctuation(result.adjacent_context),
+      ...(result.memory_cards ?? []).map((card) => withTerminalPunctuation(card.content)),
     ]
       .filter(Boolean)
       .join("\n");
