@@ -9,9 +9,15 @@ import {
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
+import { buildServerTimingHeader, type ServerTimingEntry } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
-import { runUniversalSearch, universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search";
+import {
+  runUniversalSearch,
+  universalSearchDomains,
+  type UniversalSearchDomain,
+  type UniversalSearchResponse,
+} from "@/lib/universal-search";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
@@ -41,8 +47,19 @@ const universalSearchQuerySchema = z.object({
     }),
 });
 
-function universalResponse(payload: Record<string, unknown>) {
-  return NextResponse.json(payload, { headers: { "Cache-Control": "private, no-store" } });
+function universalResponse(
+  payload: Record<string, unknown> & Partial<Pick<UniversalSearchResponse, "groups" | "tookMs">>,
+) {
+  const headers: Record<string, string> = { "Cache-Control": "private, no-store" };
+  // Per-domain + total durations for DevTools; names/durations only (no query data).
+  const timingEntries: ServerTimingEntry[] = (payload.groups ?? []).map((group) => ({
+    name: group.kind,
+    durMs: group.latencyMs,
+  }));
+  if (typeof payload.tookMs === "number") timingEntries.push({ name: "total", durMs: payload.tookMs });
+  const serverTiming = buildServerTimingHeader(timingEntries);
+  if (serverTiming) headers["Server-Timing"] = serverTiming;
+  return NextResponse.json(payload, { headers });
 }
 
 export async function GET(request: Request) {
