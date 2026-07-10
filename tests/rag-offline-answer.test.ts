@@ -16,6 +16,20 @@ function source(overrides: Partial<SearchResult> = {}): SearchResult {
     similarity: 0.95,
     hybrid_score: 0.95,
     text_rank: 1.2,
+    table_facts: [
+      {
+        id: "clozapine-anc-threshold",
+        document_id: "clozapine-doc",
+        source_chunk_id: "clozapine-chunk-1",
+        source_image_id: null,
+        page_number: 11,
+        table_title: "Clozapine ANC thresholds",
+        row_label: "ANC below 1.5 x 10^9/L",
+        clinical_parameter: "ANC",
+        threshold_value: "below 1.5 x 10^9/L",
+        action: "Withhold clozapine and repeat FBC.",
+      },
+    ],
     source_metadata: {
       source_title: "Clozapine source",
       publisher: "Local service",
@@ -92,7 +106,7 @@ afterEach(() => {
 });
 
 describe("source-only / offline answers", () => {
-  it("answers from sources deterministically without calling the model or embeddings", async () => {
+  it("returns the source/citation wire contract without calling the model or embeddings", async () => {
     const { answer, generateStructuredTextResult, embedTextWithTelemetry } = await answerOffline(
       "What ANC threshold should withhold clozapine?",
       [source()],
@@ -103,7 +117,35 @@ describe("source-only / offline answers", () => {
     expect(answer.modelUsed).toBeNull();
     expect(answer.routingMode).toBe("extractive");
     expect(answer.routingReason).toContain("source_only");
-    expect(answer.sources.length).toBeGreaterThan(0);
+    expect(answer).toMatchObject({
+      answer: expect.any(String),
+      grounded: false,
+      confidence: "unsupported",
+      citations: [
+        expect.objectContaining({
+          chunk_id: "clozapine-chunk-1",
+          document_id: "clozapine-doc",
+          title: "Clozapine Prescribing Administration Monitoring",
+          file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+          page_number: 11,
+          source_metadata: expect.objectContaining({
+            jurisdiction: "Australia/WA",
+            document_status: "current",
+            clinical_validation_status: "approved",
+          }),
+        }),
+      ],
+      sources: [
+        expect.objectContaining({
+          id: "clozapine-chunk-1",
+          document_id: "clozapine-doc",
+          page_number: 11,
+        }),
+      ],
+    });
+    expect(new Set(answer.sources.map((item) => item.id))).toEqual(
+      new Set(answer.citations.map((citation) => citation.chunk_id)),
+    );
     // quality signalling for the UI disclosure
     expect(answer.answerQualityTier).toBe("source_only");
     expect(answer.providerMode).toBe("offline");
@@ -119,6 +161,12 @@ describe("source-only / offline answers", () => {
     expect(generateStructuredTextResult).not.toHaveBeenCalled();
     expect(answer.modelUsed).toBeNull();
     expect(answer.routingMode).toBe("unsupported");
-    expect(answer.grounded).toBe(false);
+    expect(answer).toMatchObject({
+      answer: expect.any(String),
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+    });
   });
 });
