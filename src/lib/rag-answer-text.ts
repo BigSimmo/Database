@@ -1,6 +1,7 @@
 import {
   clinicalProseUsefulness,
   isLowYieldClinicalText,
+  normalizeInlineBulletGlyphs,
   sourceTextForClinicalProse,
 } from "@/lib/source-text-sanitizer";
 
@@ -204,7 +205,7 @@ function separateSettingRunOns(value: string): string {
 }
 
 export function polishClinicalAnswerProse(value: string) {
-  const cleaned = normalizeSectionText(value)
+  const cleaned = normalizeInlineBulletGlyphs(normalizeSectionText(value))
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(productCatalogueFragmentPattern, " ")
     .replace(brandOrFormularyFragmentPattern, " ")

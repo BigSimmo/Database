@@ -526,30 +526,52 @@ export function polishStoredSynopsis(value: string) {
   return repairTruncatedCompactTail(segments.join(" | "));
 }
 
+// Bullet glyphs (•◦▪‣●) and the PDF/Word sub-bullet rendered as a bare
+// lowercase "o" between words become the joiner. A leading bullet is dropped
+// outright. Hyphen bullets are left alone — indistinguishable from compound
+// hyphens and ranges. The "o" sub-bullet only converts when whitespace-
+// delimited, not after a digit ("37 o C" stays), and followed by a
+// capitalized token of 2+ chars ("o C" and "blood group o positive" stay).
+// A "\n" joiner turns each list item into its own line (extractive-answer
+// splitting treats those as fact boundaries); separator joiners get the
+// punctuation tidy-up passes, including "Label:; item" → "Label: item".
+const inlineBulletGlyphPattern = /\s*[•◦▪‣●]+\s*/g;
+const subBulletOGlyphPattern = /(?<=[^\d\s]\s)o(?=\s+(?:[A-Z][a-z0-9]|[A-Z]{2,}))/g;
+
+export function normalizeInlineBulletGlyphs(text: string, options: { joiner?: string } = {}): string {
+  const joiner = options.joiner ?? "; ";
+  const replaced = text
+    .replace(/^\s*[•◦▪‣●]+\s*/, "")
+    .replace(inlineBulletGlyphPattern, joiner)
+    .replace(subBulletOGlyphPattern, joiner);
+  if (joiner.includes("\n")) {
+    return replaced
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join("\n");
+  }
+  return replaced
+    .replace(/[ \t]+([,.;:])/g, "$1")
+    .replace(/;(?:\s*;)+/g, ";")
+    .replace(/:\s*;/g, ":")
+    .replace(/[ \t]{2,}/g, " ");
+}
+
 export function sourceTextForCompactDisplay(text: string) {
   return repairTruncatedCompactTail(
     readableWhitespace(
-      sourceTextForDisplayPreservingBreaks(text)
-        .replace(
-          /(?:^|\n)\s*(?:source|sources|citation|citations|document|file|filename|chunk|page|image|provenance|retrieved|indexed)\s*(?:id|ids|index|number|path)?\s*[:#=-]\s*[^\n]+/gi,
-          " ",
-        )
-        .replace(/\b(?:clinical table|table text|accessible table|image caption|caption|excerpt)\s*[:=-]\s*/gi, " ")
-        .replace(/\b(?:source|chunk|document|image)\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]{8,}\b/gi, " ")
-        .replace(/\bpage\s*(?:number)?\s*[:#=-]?\s*(?:n\/a|\d+(?:\s*[-,]\s*\d+)*)\b/gi, " ")
-        .replace(/\bchunk\s*(?:index)?\s*[:#=-]?\s*\d+\b/gi, " ")
-        // Bullet glyphs in a compact one-line preview become "; " separators
-        // (the same joiner readableTableRows uses); a leading bullet is
-        // dropped outright. Hyphen bullets are left alone — indistinguishable
-        // from compound hyphens and ranges.
-        .replace(/^\s*[•◦▪‣●]+\s*/, "")
-        .replace(/\s*[•◦▪‣●]+\s*/g, "; ")
-        // PDF sub-bullet glyph rendered as a bare lowercase "o" between words:
-        // only when whitespace-delimited, not after a digit ("37 o C" stays),
-        // and followed by a capitalized token of 2+ chars ("o C" stays).
-        .replace(/(?<=[^\d\s]\s)o(?=\s+(?:[A-Z][a-z0-9]|[A-Z]{2,}))/g, ";")
-        .replace(/\s+([,.;:])/g, "$1")
-        .replace(/;(?:\s*;)+/g, ";"),
+      normalizeInlineBulletGlyphs(
+        sourceTextForDisplayPreservingBreaks(text)
+          .replace(
+            /(?:^|\n)\s*(?:source|sources|citation|citations|document|file|filename|chunk|page|image|provenance|retrieved|indexed)\s*(?:id|ids|index|number|path)?\s*[:#=-]\s*[^\n]+/gi,
+            " ",
+          )
+          .replace(/\b(?:clinical table|table text|accessible table|image caption|caption|excerpt)\s*[:=-]\s*/gi, " ")
+          .replace(/\b(?:source|chunk|document|image)\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]{8,}\b/gi, " ")
+          .replace(/\bpage\s*(?:number)?\s*[:#=-]?\s*(?:n\/a|\d+(?:\s*[-,]\s*\d+)*)\b/gi, " ")
+          .replace(/\bchunk\s*(?:index)?\s*[:#=-]?\s*\d+\b/gi, " "),
+      ),
     ),
   );
 }
