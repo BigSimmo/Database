@@ -41,7 +41,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 ### Shell and routing
 
 - **Root layout:** `src/app/layout.tsx` — fonts, `AuthProvider`, global CSS
-- **App shell:** `src/app/app-shell-client.tsx` — `GlobalSearchShell` via `src/lib/shell-route-config.ts`
+- **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — route-aware standalone shell and lazy dashboard dispatch via `global-mockup-search-shell.tsx`
 - **Home:** `src/app/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
 - **Modes (8):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, prescribing, tools
@@ -81,14 +81,16 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### RAG, retrieval, answers
 
-| Module                                                                                                                  | Role                                       |
-| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `rag.ts`                                                                                                                | Main answer pipeline orchestrator          |
-| `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts`                                           | Model routing, provider modes, API surface |
-| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`                                                | Query modes and retrieval selection        |
-| `answer-ranking.ts`, `answer-verification.ts`, `answer-formatting.ts`, `answer-follow-up.ts`, `answer-render-policy.ts` | Answer quality and rendering               |
-| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                  | Evidence and synthesis                     |
-| `ranking-config.ts`, `search-scope.ts`, `rag-eval-cases.ts`                                                             | Ranking tuning and eval fixtures           |
+| Module                                                                                                                  | Role                                              |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `rag.ts`                                                                                                                | Main answer pipeline orchestrator                 |
+| `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts`                                           | Model routing, provider modes, API surface        |
+| `rag-contracts.ts`, `rag-answer-support.ts`, `rag-query-guard.ts`                                                       | Shared RAG contracts and pure answer/query policy |
+| `rag-cache.ts`, `rag-retrieval-variants.ts`                                                                             | Bounded caches and retrieval variants             |
+| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`                                                | Query modes and retrieval selection               |
+| `answer-ranking.ts`, `answer-verification.ts`, `answer-formatting.ts`, `answer-follow-up.ts`, `answer-render-policy.ts` | Answer quality and rendering                      |
+| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                  | Evidence and synthesis                            |
+| `ranking-config.ts`, `search-scope.ts`, `rag-eval-cases.ts`                                                             | Ranking tuning and eval fixtures                  |
 
 ### Ingestion and indexing
 
@@ -127,11 +129,11 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### Infra helpers
 
-| Module                                                                          | Role                                                          |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                     | External APIs and rate limits                                 |
-| `validation/`                                                                   | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts` |
-| `shell-route-config.ts`, `document-flow-routes.ts`, `local-project-identity.ts` | Routing and project identity                                  |
+| Module                                                                                           | Role                                                          |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                                      | External APIs and rate limits                                 |
+| `validation/`                                                                                    | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts` |
+| `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs` | Routing and project identity                                  |
 
 ---
 
