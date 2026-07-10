@@ -27,14 +27,8 @@ function scriptKind(filePath: string) {
   return ts.ScriptKind.TS;
 }
 
-function moduleSpecifiers(filePath: string) {
-  const source = ts.createSourceFile(
-    filePath,
-    fs.readFileSync(filePath, "utf8"),
-    ts.ScriptTarget.Latest,
-    true,
-    scriptKind(filePath),
-  );
+function moduleSpecifiersFromSource(filePath: string, sourceText: string) {
+  const source = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true, scriptKind(filePath));
   const staticImports = new Set<string>();
   const dynamicImports = new Set<string>();
 
@@ -71,19 +65,25 @@ function moduleSpecifiers(filePath: string) {
   }
 
   const visit = (node: ts.Node) => {
+    const moduleSpecifier = ts.isCallExpression(node) ? node.arguments[0] : undefined;
     if (
       ts.isCallExpression(node) &&
       node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length === 1 &&
-      ts.isStringLiteral(node.arguments[0])
+      (node.arguments.length === 1 || node.arguments.length === 2) &&
+      moduleSpecifier &&
+      ts.isStringLiteralLike(moduleSpecifier)
     ) {
-      dynamicImports.add(node.arguments[0].text);
+      dynamicImports.add(moduleSpecifier.text);
     }
     ts.forEachChild(node, visit);
   };
   visit(source);
 
   return { source, staticImports, dynamicImports };
+}
+
+function moduleSpecifiers(filePath: string) {
+  return moduleSpecifiersFromSource(filePath, fs.readFileSync(filePath, "utf8"));
 }
 
 function resolveModule(fromFile: string, specifier: string, fileSet: Set<string>) {
@@ -150,7 +150,8 @@ function runtimeCycles(graph: Map<string, string[]>) {
       onStack.delete(current);
       component.push(current);
     } while (current !== file);
-    if (component.length > 1) cycles.push(component);
+    const hasSelfCycle = (graph.get(file) ?? []).includes(file);
+    if (component.length > 1 || hasSelfCycle) cycles.push(component);
   };
 
   for (const file of graph.keys()) {
@@ -164,6 +165,20 @@ function relative(filePath: string) {
 }
 
 describe("architecture boundaries", () => {
+  it("tracks statically resolvable dynamic imports", () => {
+    const parsed = moduleSpecifiersFromSource(
+      "fixture.ts",
+      'import(`./template`); import("./with-options", { with: { type: "json" } }); import(`./${name}`);',
+    );
+
+    expect([...parsed.dynamicImports]).toEqual(["./template", "./with-options"]);
+  });
+
+  it("counts a runtime self-import as a cycle", () => {
+    const file = path.join(projectRoot, "src", "self.ts");
+    expect(runtimeCycles(new Map([[file, [file]]]))).toEqual([[file]]);
+  });
+
   it("has no runtime import cycles", () => {
     const { graph } = runtimeGraph();
     const cycles = runtimeCycles(graph).map((cycle) => cycle.map(relative).sort());
