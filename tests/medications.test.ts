@@ -1,7 +1,30 @@
 import { describe, expect, it } from "vitest";
 
 import { getMedicationRecord, loadMedicationSnapshot } from "@/lib/medication-snapshot";
-import { rankMedicationRecords } from "@/lib/medications";
+import {
+  firstClinicalSentence,
+  medicationActionDetail,
+  medicationToSearchResult,
+  rankMedicationRecords,
+  type MedicationRecord,
+} from "@/lib/medications";
+
+function buildRecord(overrides: Partial<MedicationRecord>): MedicationRecord {
+  return {
+    slug: "test-med",
+    name: "Test Med",
+    class: "",
+    subclass: "",
+    category: "",
+    accent: "#0f766e",
+    tag: "",
+    schedule: "",
+    stats: [],
+    sections: [],
+    quick: [],
+    ...overrides,
+  };
+}
 
 describe("medications catalogue", () => {
   it("loads the full reviewed export snapshot", () => {
@@ -40,5 +63,94 @@ describe("medications catalogue", () => {
     expect(record?.stats.length).toBeGreaterThan(0);
     expect(record?.sections.some((section) => section.type === "dose")).toBe(true);
     expect(record?.quick.length).toBeGreaterThan(0);
+  });
+});
+
+describe("medication action tone", () => {
+  it("marks quick avoid guidance as danger", () => {
+    const record = buildRecord({
+      quick: [{ label: "Avoid if", value: "**Severe renal impairment.** Check creatinine first." }],
+    });
+    expect(medicationActionDetail(record)).toEqual({ text: "Severe renal impairment", tone: "danger" });
+  });
+
+  it("marks absolute contraindications as danger", () => {
+    const record = buildRecord({
+      sections: [
+        {
+          title: "Contraindications",
+          type: "contra",
+          rows: [{ key: "Absolute", val: "Known hypersensitivity. Do not rechallenge." }],
+        },
+      ],
+    });
+    expect(medicationActionDetail(record)).toEqual({ text: "Known hypersensitivity", tone: "danger" });
+  });
+
+  it("keeps summary clinical-focus text neutral even when monitoring rows exist", () => {
+    const record = buildRecord({
+      sections: [
+        {
+          title: "Summary",
+          type: "summary",
+          rows: [{ key: "Clinical focus", val: "Supports abstinence maintenance." }],
+        },
+        {
+          title: "Monitoring",
+          type: "mon",
+          rows: [{ key: "Laboratory", val: "Check LFTs at baseline." }],
+        },
+      ],
+    });
+    expect(medicationActionDetail(record)).toEqual({ text: "Supports abstinence maintenance", tone: "neutral" });
+  });
+
+  it("marks laboratory monitoring guidance as warning", () => {
+    const record = buildRecord({
+      sections: [
+        {
+          title: "Monitoring",
+          type: "mon",
+          rows: [{ key: "Laboratory", val: "Check LFTs at baseline and 3 months." }],
+        },
+      ],
+    });
+    expect(medicationActionDetail(record)).toEqual({
+      text: "Check LFTs at baseline and 3 months",
+      tone: "warning",
+    });
+  });
+
+  it("falls back to a neutral reference prompt", () => {
+    expect(medicationActionDetail(buildRecord({}))).toEqual({
+      text: "Review full prescribing reference",
+      tone: "neutral",
+    });
+  });
+
+  it("threads actionTone into search results", () => {
+    const record = buildRecord({
+      quick: [{ label: "Avoid if", value: "Severe renal impairment." }],
+    });
+    const result = medicationToSearchResult({ medication: record, score: 15, reasons: [] });
+    expect(result.actionTone).toBe("danger");
+    expect(result.action).toBe("Severe renal impairment");
+  });
+
+  it("flags acamprosate's renal contraindication as danger from the snapshot", () => {
+    const record = getMedicationRecord("acamprosate");
+    expect(record).toBeTruthy();
+    expect(medicationActionDetail(record as MedicationRecord).tone).toBe("danger");
+  });
+
+  it("does not cut action text at abbreviations or decimals", () => {
+    expect(firstClinicalSentence("Any hepatic impairment (e.g. cirrhosis). Review LFTs.")).toBe(
+      "Any hepatic impairment (e.g. cirrhosis)",
+    );
+    expect(firstClinicalSentence("Start 1.5 mg NOCTE. Titrate weekly.")).toBe("Start 1.5 mg NOCTE");
+    expect(firstClinicalSentence("Rash, nausea, etc. may occur. Stop if severe.")).toBe(
+      "Rash, nausea, etc. may occur",
+    );
+    expect(firstClinicalSentence("No trailing period")).toBe("No trailing period");
   });
 });
