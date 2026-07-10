@@ -391,7 +391,7 @@ Automatic Codex review is review-only by default. This repository includes `.git
 - The workflow must only trigger from Codex review bot reviews or comments on open pull requests.
 - Match the trusted Codex connector bot by exact login and bot type; do not use substring login checks.
 - Keep per-pull-request concurrency on the authorized job, not the whole workflow, so unrelated review comments cannot displace a pending Codex request.
-- Pin the supported Node 24 based `actions/github-script` release to its reviewed immutable commit SHA.
+- Pin the supported Node 24-based `actions/github-script` release to its reviewed immutable commit SHA.
 - The workflow must skip review-thread replies and auto-resolve request comments so Codex fix summaries do not re-trigger the workflow.
 - The workflow must ask Codex to resolve all review comments using these repository instructions.
 - The workflow may request one repair per pull-request head SHA, capped at three automatic repair cycles per pull request.
