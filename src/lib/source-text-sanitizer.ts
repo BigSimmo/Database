@@ -536,7 +536,10 @@ export function polishStoredSynopsis(value: string) {
 // splitting treats those as fact boundaries); separator joiners get the
 // punctuation tidy-up passes, including "Label:; item" → "Label: item".
 const inlineBulletGlyphPattern = /\s*[•◦▪‣●]+\s*/g;
-const subBulletOGlyphPattern = /(?<=[^\d\s]\s)o(?=\s+(?:[A-Z][a-z0-9]|[A-Z]{2,}))/g;
+// The blood-group lookbehinds keep "blood group o RhD negative" /
+// "type o Negative" intact — there the lowercase "o" is the clinical value
+// itself, not a bullet glyph, even when a capitalized token follows.
+const subBulletOGlyphPattern = /(?<=[^\d\s]\s)(?<!\bgroup\s)(?<!\btype\s)o(?=\s+(?:[A-Z][a-z0-9]|[A-Z]{2,}))/g;
 
 export function normalizeInlineBulletGlyphs(text: string, options: { joiner?: string } = {}): string {
   const joiner = options.joiner ?? "; ";

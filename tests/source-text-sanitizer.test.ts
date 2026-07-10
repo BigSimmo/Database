@@ -403,6 +403,12 @@ describe("normalizeInlineBulletGlyphs", () => {
     expect(normalizeInlineBulletGlyphs("blood group o positive result")).toBe("blood group o positive result");
   });
 
+  it("keeps a blood-group 'o' intact before capitalized RhD labels", () => {
+    expect(normalizeInlineBulletGlyphs("blood group o RhD negative")).toBe("blood group o RhD negative");
+    expect(normalizeInlineBulletGlyphs("group o Negative units available")).toBe("group o Negative units available");
+    expect(normalizeInlineBulletGlyphs("blood type o Rh positive")).toBe("blood type o Rh positive");
+  });
+
   it("repairs a label colon followed by a converted sub-bullet ('Label:; item' → 'Label: item')", () => {
     expect(normalizeInlineBulletGlyphs("Acute Mania: o IR product: 750 to 1000mg daily")).toBe(
       "Acute Mania: IR product: 750 to 1000mg daily",

@@ -38,6 +38,15 @@ describe("extractive evidence splitting", () => {
     );
     expect(sentences.some((sentence) => /^For renal impairment,/i.test(sentence))).toBe(true);
   });
+
+  it("does not rewrite a preposition-ended colon phrase as a dose label", () => {
+    const sentences = splitClinicalEvidenceSentences(
+      "If tolerated poorly, reduce the total daily dose to: 500mg at night and review within one week.",
+    );
+    const doseSentence = sentences.find((sentence) => sentence.includes("500mg"));
+    expect(doseSentence).toBeDefined();
+    expect(doseSentence).not.toMatch(/to is 500mg/);
+  });
 });
 
 describe("extractive sentence stitching", () => {

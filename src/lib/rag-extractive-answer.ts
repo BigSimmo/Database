@@ -82,9 +82,11 @@ const leadingHeadingContextPattern = /^([A-Z][A-Za-z]+(?:[ /-][A-Za-z()]+){0,3})
 
 // "Label: <dose>" reads as "Label is <dose>" only when the colon is directly
 // followed by a numeric dose ("IR product: 750 to 1000mg" → "IR product is
-// 750 to 1000mg"); prose labels without a dose keep their colon.
+// 750 to 1000mg"); prose labels without a dose keep their colon. A label
+// ending in a preposition/verb particle is not a heading — "reduce dose to:
+// 500mg" must not become "reduce dose to is 500mg".
 const doseLabelColonPattern =
-  /([A-Za-z][\w-]*(?:\s+[\w-]+){0,3}):\s+(?=\d[^:]{0,24}?(?:mg|mcg|microg|m[lL]|units?|mmol|g)\b)/g;
+  /([A-Za-z][\w-]*(?:\s+[\w-]+){0,3})(?<!\b(?:to|by|at|of|in|on|with|into|onto|towards|per|over|under|from)):\s+(?=\d[^:]{0,24}?(?:mg|mcg|microg|m[lL]|units?|mmol|g)\b)/g;
 
 function rewriteLeadingHeadingContext(value: string) {
   return value.replace(leadingHeadingContextPattern, (match, label: string) => {
@@ -974,7 +976,13 @@ function buildFactSynthesizedAnswer(args: {
   const leadFacts = facts.slice(0, args.intent === "dose" ? 2 : 1);
   // Once the lead answer names the query entity, later lead sentences skip
   // their own entity prefix so the entity is not repeated in every sentence.
-  const entity = queryEntityTokens(args.query, args.intent)[0];
+  // Derived exactly the way sentenceFromFact derives its prefix entity (from
+  // the query's own classification, not the routed intent) so the suppression
+  // gate can never disagree with the prefix it is gating.
+  const entity = queryEntityTokens(
+    args.query,
+    classifyAnswerIntent(args.query, classifyRagQuery(args.query).queryClass),
+  )[0];
   let accumulated = "";
   const leadSentences: string[] = [];
   for (const fact of leadFacts) {
