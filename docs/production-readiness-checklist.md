@@ -2,9 +2,9 @@
 
 This is the runbook to make the app publishable in one focused pass.
 
-Last reviewed: 2026-07-04. Applies to any feature branch or release candidate.
+Last reviewed: 2026-07-10. Applies to any feature branch or release candidate.
 
-- Runtime target: Next.js 16.2.9, Node 24.x, npm 11.x.
+- Runtime target: Next.js 16.2.10, Node 24.x, npm 11.x.
 - Supabase target: `sjrfecxgysukkwxsowpy` (`Clinical KB Database`).
 
 ## Immediate completion targets

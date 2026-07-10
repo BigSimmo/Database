@@ -26,9 +26,9 @@ import {
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
+import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/client-env";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
-import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/env";
 import {
   appBackdrop,
   answerSurface,
@@ -78,13 +78,14 @@ import { MasterSearchHeader } from "@/components/clinical-dashboard/master-searc
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { answerRecovery, errorCopy } from "@/lib/ui-copy";
-import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
 import {
-  DrawerGroupLabel,
   type DocumentDrawerMode,
   type DocumentDrawerStatusFilter,
+  type DocumentPagination,
   type LabelReviewMutationBody,
-} from "@/components/clinical-dashboard/document-admin";
+  navigationHashes,
+  recentQueryStorageKey,
+} from "@/components/clinical-dashboard/dashboard-contracts";
 
 const DifferentialsHome = dynamic(
   () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
@@ -99,10 +100,6 @@ const MedicationPrescribingWorkspace = dynamic(
     import("@/components/clinical-dashboard/medication-prescribing-workspace").then(
       (m) => m.MedicationPrescribingWorkspace,
     ),
-  { ssr: false },
-);
-export const ApplicationsLauncherWorkspace = dynamic(
-  () => import("@/components/applications-launcher-page").then((m) => m.ApplicationsLauncherWorkspace),
   { ssr: false },
 );
 const DocumentDrawer = dynamic(
@@ -191,13 +188,9 @@ import type {
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { toolCatalogRecords } from "@/lib/tools-catalog";
 import { createQuoteFollowUp, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
 
-export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as const;
-export const mobileSectionFabMediaQuery =
-  "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
-
-export const recentQueryStorageKey = "clinical-kb-recent-queries";
 const documentPageSize = 150;
 const activeIndexingPollFallbackMs = 5_000;
 const setupRecheckPollMs = 60_000;
@@ -205,13 +198,6 @@ const indexingWorkDetailsPollMs = 15_000;
 const stagedDashboardExtraction = {
   answerSurface: true,
 } as const;
-export type DocumentPagination = {
-  limit: number;
-  offset: number;
-  total: number;
-  nextOffset: number;
-  hasMore: boolean;
-};
 type RefreshOptions = {
   includeSetup?: boolean;
   includeDashboardData?: boolean;
@@ -885,6 +871,21 @@ export function ClinicalDashboard({
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
+  const removeCommandScope = useCallback(
+    (scopeId: string) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
+    [],
+  );
+  const clearCommandScopes = useCallback(() => setCommandScopes([]), []);
+  const searchCommandContextValue = useMemo(
+    () => ({
+      query,
+      modeId: searchMode,
+      commandScopes,
+      onRemoveScope: removeCommandScope,
+      onClearScopes: clearCommandScopes,
+    }),
+    [query, searchMode, commandScopes, removeCommandScope, clearCommandScopes],
+  );
   const [indexingActionId, setIndexingActionId] = useState<string | null>(null);
   const [indexingActive, setIndexingActive] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
@@ -2830,7 +2831,7 @@ export function ClinicalDashboard({
       href: "#search",
       count:
         activeModeResultKind === "tools"
-          ? applicationsLauncherItemCount
+          ? toolCatalogRecords.length
           : activeModeResultKind === "favourites"
             ? null
             : activeModeResultKind === "documents"
@@ -3185,15 +3186,7 @@ export function ClinicalDashboard({
           )}
         >
           <h1 className="sr-only">Clinical Guide</h1>
-          <SearchCommandProvider
-            value={{
-              query,
-              modeId: searchMode,
-              commandScopes,
-              onRemoveScope: (scopeId) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
-              onClearScopes: () => setCommandScopes([]),
-            }}
-          >
+          <SearchCommandProvider value={searchCommandContextValue}>
             <div
               className={cn(
                 "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
@@ -3789,5 +3782,11 @@ export function ClinicalDashboard({
         />
       </div>
     </div>
+  );
+}
+
+function DrawerGroupLabel({ title }: { title: string }) {
+  return (
+    <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
   );
 }
