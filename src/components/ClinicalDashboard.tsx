@@ -128,6 +128,7 @@ import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
   classifyAnswerError,
+  isAnswerPayload,
   isRetryableError,
   isRetryableMessage,
   isRetryableStatus,
@@ -346,7 +347,6 @@ async function readAnswerStream(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let finalPayload: AnswerPayload | null = null;
 
   function processEvent(block: string) {
     const lines = block.split(/\r?\n/);
@@ -398,11 +398,13 @@ async function readAnswerStream(
       );
     }
     if (event === "final") {
-      finalPayload = data as AnswerPayload;
-      return true;
+      if (!isAnswerPayload(data)) {
+        throw makeSearchError("Answer stream returned an invalid final payload.", 502, true);
+      }
+      return data;
     }
 
-    return false;
+    return null;
   }
 
   while (true) {
@@ -413,9 +415,10 @@ async function readAnswerStream(
     while (separator) {
       const block = buffer.slice(0, separator.index).trim();
       buffer = buffer.slice(separator.index + separator.length);
-      if (block && processEvent(block) && finalPayload) {
+      const finalPayload = block ? processEvent(block) : null;
+      if (finalPayload) {
         await reader.cancel().catch(() => undefined);
-        return finalPayload as AnswerPayload;
+        return finalPayload;
       }
       separator = findSseSeparator(buffer);
     }
@@ -423,9 +426,9 @@ async function readAnswerStream(
     if (done) break;
   }
 
-  if (buffer.trim() && processEvent(buffer.trim()) && finalPayload) return finalPayload as AnswerPayload;
-  if (!finalPayload) throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
-  return finalPayload as AnswerPayload;
+  const finalPayload = buffer.trim() ? processEvent(buffer.trim()) : null;
+  if (finalPayload) return finalPayload;
+  throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
 }
 
 // Provisional view shown while an answer streams in. The prose is content-preserving (the same

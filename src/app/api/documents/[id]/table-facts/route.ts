@@ -93,6 +93,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Table fact not found." }, { status: 404 });
     }
 
+    let sourceImage: { id: string; metadata: unknown } | null = null;
+    if (fact.source_image_id) {
+      const { data: image, error: imageError } = await supabase
+        .from("document_images")
+        .select("id,metadata")
+        .eq("id", fact.source_image_id)
+        .eq("document_id", id)
+        .maybeSingle();
+      if (imageError) throw new Error(imageError.message);
+      if (image && !isCommittedGenerationMetadata({ rowMetadata: image.metadata, committedGeneration })) {
+        return NextResponse.json({ error: "Table fact not found." }, { status: 404 });
+      }
+      sourceImage = image;
+    }
+
     const reviewMetadata = tableReviewMetadata({
       reviewClass: parsed.reviewClass,
       notes: parsed.notes,
@@ -109,26 +124,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single();
     if (updateError) throw new Error(updateError.message);
 
-    if (fact.source_image_id) {
-      const { data: image } = await supabase
+    if (sourceImage && fact.source_image_id) {
+      const { error: imageUpdateError } = await supabase
         .from("document_images")
-        .select("id,metadata")
-        .eq("id", fact.source_image_id)
-        .eq("document_id", id)
-        .maybeSingle();
-      if (image) {
-        if (!isCommittedGenerationMetadata({ rowMetadata: image.metadata, committedGeneration })) {
-          return NextResponse.json({ error: "Table fact not found." }, { status: 404 });
-        }
-        const { error: imageUpdateError } = await supabase
-          .from("document_images")
-          .update({
-            metadata: { ...metadataRecord(image.metadata), ...reviewMetadata },
-            searchable: parsed.reviewClass === "clinical_useful" || parsed.reviewClass === "reference",
-          })
-          .eq("id", fact.source_image_id);
-        if (imageUpdateError) throw new Error(imageUpdateError.message);
-      }
+        .update({
+          metadata: { ...metadataRecord(sourceImage.metadata), ...reviewMetadata },
+          searchable: parsed.reviewClass === "clinical_useful" || parsed.reviewClass === "reference",
+        })
+        .eq("id", fact.source_image_id);
+      if (imageUpdateError) throw new Error(imageUpdateError.message);
     }
 
     invalidateRagCachesForOwner(user.id);
