@@ -1,7 +1,11 @@
 import fs from "node:fs";
 
 const workflowPath = process.argv[2] ?? ".github/workflows/codex-autofix-review-comments.yml";
+const agentInstructionsPath = "AGENTS.md";
+const reviewProtocolPath = "docs/codex-review-protocol.md";
 const workflow = fs.readFileSync(workflowPath, "utf8");
+const agentInstructions = fs.readFileSync(agentInstructionsPath, "utf8");
+const reviewProtocol = fs.readFileSync(reviewProtocolPath, "utf8");
 
 const failures = [];
 const githubScriptPin = "3a2844b7e9c422d3c10d287c895573f7108da1b3";
@@ -53,6 +57,29 @@ for (const { pattern, message } of forbiddenPatterns) {
   if (pattern.test(workflow)) {
     failures.push(message);
   }
+}
+
+for (const [path, contents] of [
+  [agentInstructionsPath, agentInstructions],
+  [reviewProtocolPath, reviewProtocol],
+]) {
+  if (/resolve all review comments/i.test(contents)) {
+    failures.push(`${path} must not instruct Codex to resolve all review comments.`);
+  }
+}
+
+if (!agentInstructions.includes(scopedResolveCommand)) {
+  failures.push(`${agentInstructionsPath} must contain the scoped actionable-findings command.`);
+}
+
+if (!reviewProtocol.includes("If the user clearly asks to fix confirmed findings, make the smallest safe change")) {
+  failures.push(`${reviewProtocolPath} must preserve the scoped fix boundary.`);
+}
+
+if (
+  !reviewProtocol.includes("Ask before any OpenAI, Supabase, GitHub/GitLab, hosted CI, or provider-backed workflow")
+) {
+  failures.push(`${reviewProtocolPath} must preserve the provider confirmation boundary.`);
 }
 
 const requiredTriggerAndPermissionChecks = [

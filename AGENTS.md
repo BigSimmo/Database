@@ -393,7 +393,7 @@ Automatic Codex review is review-only by default. This repository includes `.git
 - Keep per-pull-request concurrency on the authorized job, not the whole workflow, so unrelated review comments cannot displace a pending Codex request.
 - Pin the supported Node 24-based `actions/github-script` release to its reviewed immutable commit SHA.
 - The workflow must skip review-thread replies and auto-resolve request comments so Codex fix summaries do not re-trigger the workflow.
-- The workflow must ask Codex to resolve all review comments using these repository instructions.
+- The workflow must ask Codex to resolve only actionable Codex review findings for the triggering pull request and current head using these repository instructions.
 - The workflow may request one repair per pull-request head SHA, capped at three automatic repair cycles per pull request.
 - Only trust a pull-request deduplication marker when it was posted by the GitHub Actions bot.
 - Permission failures while reading or creating pull-request comments must fail the workflow visibly, not return a successful soft-skip.
