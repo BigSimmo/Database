@@ -129,6 +129,7 @@ import {
   answerPayloadIsUsable,
   classifyAnswerError,
   createAnswerRequestWatchdog,
+  isAnswerPayload,
   isRetryableError,
   isRetryableMessage,
   isRetryableStatus,
@@ -155,6 +156,13 @@ import {
   type AppModeSearchKind,
 } from "@/lib/app-modes";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
+import {
+  readSearchNavigationContext,
+  routedSubmissionContextChanged,
+  searchNavigationContextSignature,
+  searchSubmissionSignature,
+  type SearchNavigationContext,
+} from "@/lib/search-navigation-context";
 import { rankFormRecords } from "@/lib/forms";
 import { rankServiceRecords } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
@@ -348,7 +356,6 @@ async function readAnswerStream(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let finalPayload: AnswerPayload | null = null;
 
   function processEvent(block: string) {
     const lines = block.split(/\r?\n/);
@@ -400,11 +407,13 @@ async function readAnswerStream(
       );
     }
     if (event === "final") {
-      finalPayload = data as AnswerPayload;
-      return true;
+      if (!isAnswerPayload(data)) {
+        throw makeSearchError("Answer stream returned an invalid final payload.", 502, true);
+      }
+      return data;
     }
 
-    return false;
+    return null;
   }
 
   while (true) {
@@ -418,9 +427,10 @@ async function readAnswerStream(
     while (separator) {
       const block = buffer.slice(0, separator.index).trim();
       buffer = buffer.slice(separator.index + separator.length);
-      if (block && processEvent(block) && finalPayload) {
+      const finalPayload = block ? processEvent(block) : null;
+      if (finalPayload) {
         await reader.cancel().catch(() => undefined);
-        return finalPayload as AnswerPayload;
+        return finalPayload;
       }
       separator = findSseSeparator(buffer);
     }
@@ -428,9 +438,9 @@ async function readAnswerStream(
     if (done) break;
   }
 
-  if (buffer.trim() && processEvent(buffer.trim()) && finalPayload) return finalPayload as AnswerPayload;
-  if (!finalPayload) throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
-  return finalPayload as AnswerPayload;
+  const finalPayload = buffer.trim() ? processEvent(buffer.trim()) : null;
+  if (finalPayload) return finalPayload;
+  throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
 }
 
 // Provisional view shown while an answer streams in. The prose is content-preserving (the same
@@ -656,6 +666,7 @@ export function ClinicalDashboard({
 }: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [initialSearchNavigationContext] = useState(() => readSearchNavigationContext(searchParams));
   const mainRef = useRef<HTMLElement>(null);
   const [mainScrollRoot, setMainScrollRoot] = useState<HTMLElement | null>(null);
   const assignMainRef = useCallback((node: HTMLElement | null) => {
@@ -712,7 +723,7 @@ export function ClinicalDashboard({
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
   const [searchRelevance, setSearchRelevance] = useState<EvidenceRelevance | null>(null);
   const [searchFacets, setSearchFacets] = useState<SearchFacets | null>(null);
-  const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
+  const [queryMode, setQueryMode] = useState<ClinicalQueryMode>(initialSearchNavigationContext.queryMode);
   const activeModeSearch = appModeSearchConfig(searchMode);
   const activeModeResultKind = appModeResultKind(searchMode);
   const requestQueryMode = appModeQueryMode(searchMode, queryMode);
@@ -724,6 +735,8 @@ export function ClinicalDashboard({
     autoRunSearch && searchParams.get("run") === "1" && submittedUrlModeMatchesActive
       ? (searchParams.get("q") ?? searchParams.get("query") ?? "").trim()
       : "";
+  const routedSearchContext = useMemo(() => readSearchNavigationContext(searchParams), [searchParams]);
+  const routedSearchContextSignature = searchNavigationContextSignature(routedSearchContext);
 
   // Record matches come from the owner-scoped registry API (mock fixtures in
   // demo mode); ranking stays client-side so live-typing behaviour is
@@ -830,7 +843,7 @@ export function ClinicalDashboard({
     setAnswerProgress(null);
     setDifferentialEvidenceQuery(null);
   }, [resetAnswerThread]);
-  const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
+  const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>(initialSearchNavigationContext.scopeFilters);
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
   const [sourceGovernanceWarnings, setSourceGovernanceWarnings] = useState<SourceGovernanceWarning[]>([]);
   const [answerViewMode, setAnswerViewMode] = useState<AnswerViewMode>("high_yield");
@@ -1588,6 +1601,9 @@ export function ClinicalDashboard({
     const searchParamString = searchParams.toString();
     if (lastSyncedSearchParamsRef.current === searchParamString) return;
     lastSyncedSearchParamsRef.current = searchParamString;
+    const nextSearchContext = readSearchNavigationContext(new URLSearchParams(searchParamString));
+    setQueryMode(nextSearchContext.queryMode);
+    setScopeFilters(nextSearchContext.scopeFilters);
     if (searchParams.get("run") === "1") return;
 
     const mode = searchParams.get("mode");
@@ -1866,7 +1882,7 @@ export function ClinicalDashboard({
     searchAbortRef.current?.abort();
   }
 
-  function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
+  function applySearchResult(payload: SearchResultModePayload, displayQuery?: string, archivePreviousAnswer = true) {
     if (payload.kind === "documents") {
       setDocumentMatches(payload.documentMatches);
       setSources(payload.sources);
@@ -1880,7 +1896,7 @@ export function ClinicalDashboard({
     const answerData = payload.payload;
     // Archive the previous exchange before the new answer replaces it, so the
     // thread keeps every turn visible in the same window.
-    const priorTurn = latestAnswerTurnRef.current;
+    const priorTurn = archivePreviousAnswer ? latestAnswerTurnRef.current : null;
     if (priorTurn) {
       const turnId = `answer-turn-${++answerTurnSeqRef.current}`;
       setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }].slice(-maxStoredAnswerTurns));
@@ -1917,11 +1933,17 @@ export function ClinicalDashboard({
     if (answerData.demoMode) setDemoMode(true);
   }
 
-  async function executeSearch(searchText: string, targetMode: AppModeId = searchMode, filtersOverride = scopeFilters) {
+  async function executeSearch(
+    searchText: string,
+    targetMode: AppModeId = searchMode,
+    filtersOverride = scopeFilters,
+    queryModeOverride = queryMode,
+    replaceExistingAnswer = false,
+  ) {
     const trimmedQuery = searchText.trim();
     if (!trimmedQuery) return;
     const modeSearch = appModeSearchConfig(targetMode);
-    const targetQueryMode = appModeQueryMode(targetMode, queryMode);
+    const targetQueryMode = appModeQueryMode(targetMode, queryModeOverride);
     const isDifferentialsMode = modeSearch.resultKind === "differentials";
     // Note: no automatic mode-default label scope for Services/Forms. Applying
     // one on every search routed resolveSearchScope's label path over the whole
@@ -2011,7 +2033,7 @@ export function ClinicalDashboard({
     // previous turn's question before retrieval. The raw text the user typed
     // is what the thread displays (via displayQuery below).
     const isAnswerRequest = modeSearch.resultKind === "answer";
-    const priorTurnQuery = isAnswerRequest ? latestAnswerTurnRef.current?.query : undefined;
+    const priorTurnQuery = isAnswerRequest && !replaceExistingAnswer ? latestAnswerTurnRef.current?.query : undefined;
     const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
     const requestQuery = isAnswerRequest ? buildAnswerFollowUpQuery(priorTurnQuery, trimmedQuery) : trimmedQuery;
 
@@ -2105,16 +2127,33 @@ export function ClinicalDashboard({
 
       // M10: discard a stale response — a newer search owns the UI state.
       if (requestId === searchRequestSeqRef.current) {
-        applySearchResult(successfulPayload, trimmedQuery);
+        applySearchResult(successfulPayload, trimmedQuery, !replaceExistingAnswer);
         if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
         if (successfulPayload.kind === "answer") {
+          // Explicit composer submissions do not pass through the URL auto-run
+          // effect. Seed their completed context so a later in-place route to
+          // the same query with different intent/scope is recognized as a
+          // replacement search instead of leaving the old answer on screen.
+          autoRunSearchSignatureRef.current = searchSubmissionSignature(targetMode, trimmedQuery, {
+            queryMode: targetQueryMode,
+            scopeFilters: filtersOverride,
+          });
           // The composer is a draft box in a conversation: clear it so the
           // user can type the next follow-up immediately.
           setQuery("");
           // Keep only the latest question in the URL; the full thread lives in
           // React state until refresh or New chat.
           modeChangeFromUiRef.current = true;
-          window.history.replaceState(null, "", appModeHomeHref(targetMode, { query: trimmedQuery, run: true }));
+          window.history.replaceState(
+            null,
+            "",
+            appModeHomeHref(targetMode, {
+              query: trimmedQuery,
+              run: true,
+              queryMode: queryModeOverride,
+              scopeFilters: filtersOverride,
+            }),
+          );
           if (isAnswerFollowUp) {
             window.requestAnimationFrame(() => {
               const main = mainRef.current;
@@ -2152,21 +2191,33 @@ export function ClinicalDashboard({
     setAnswerProgress(null);
     rememberRecentQuery(trimmedSearchText);
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
-    if (updateUrl) router.replace(appModeHomeHref("prescribing", { query: trimmedSearchText }));
+    if (updateUrl) {
+      router.replace(appModeHomeHref("prescribing", { query: trimmedSearchText, queryMode, scopeFilters }));
+    }
   }
 
-  async function ask(searchText = query) {
+  async function ask(searchText = query, contextOverride?: SearchNavigationContext, replaceExistingAnswer = false) {
     const trimmedQuery = searchText.trim();
+    const effectiveQueryMode = contextOverride?.queryMode ?? queryMode;
+    const effectiveScopeFilters = contextOverride?.scopeFilters ?? scopeFilters;
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
-      router.push(documentsSearchHref({ query: trimmedQuery, focus: true, run: true }));
+      router.push(
+        documentsSearchHref({
+          query: trimmedQuery,
+          focus: true,
+          run: true,
+          queryMode: effectiveQueryMode,
+          scopeFilters: effectiveScopeFilters,
+        }),
+      );
       return;
     }
     if (searchMode === "prescribing") {
       setMedicationSearchQuery(searchText);
       return;
     }
-    await executeSearch(searchText, searchMode, scopeFilters);
+    await executeSearch(searchText, searchMode, effectiveScopeFilters, effectiveQueryMode, replaceExistingAnswer);
   }
   const askRef = useRef(ask);
   askRef.current = ask;
@@ -2177,20 +2228,27 @@ export function ClinicalDashboard({
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !submittedSearchText || !canAutoRunMode || loading) return;
     if (searchMode === "answer" && !answerThreadBootstrapped) return;
+    const previousSignature = autoRunSearchSignatureRef.current;
+    const signature = searchSubmissionSignature(searchMode, submittedSearchText, routedSearchContext);
+    const routedContextChanged = routedSubmissionContextChanged(
+      previousSignature,
+      searchMode,
+      submittedSearchText,
+      routedSearchContext,
+    );
     // Once an answer is on screen, composer edits are follow-up drafts and must
     // only run on explicit submit — not on every query keystroke while run=1
     // keeps autoRunSearch enabled from the URL.
-    if (searchMode === "answer" && answer) return;
+    if (searchMode === "answer" && answer && !routedContextChanged) return;
     // After reload, the URL query matches the restored latest turn — do not
     // archive it again into a duplicate prior turn.
-    if (searchMode === "answer" && latestAnswerQuery?.trim() === submittedSearchText) {
-      autoRunSearchSignatureRef.current = `${searchMode}:${submittedSearchText}`;
+    if (searchMode === "answer" && latestAnswerQuery?.trim() === submittedSearchText && !routedContextChanged) {
+      autoRunSearchSignatureRef.current = signature;
       return;
     }
-    const signature = `${searchMode}:${submittedSearchText}`;
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
-    void askRef.current(submittedSearchText);
+    void askRef.current(submittedSearchText, routedSearchContext, routedContextChanged);
   }, [
     autoRunSearch,
     canRunSearch,
@@ -2201,6 +2259,8 @@ export function ClinicalDashboard({
     answer,
     answerThreadBootstrapped,
     latestAnswerQuery,
+    routedSearchContext,
+    routedSearchContextSignature,
   ]);
 
   function pickRecentQuery(recentQuery: string) {
@@ -2234,7 +2294,7 @@ export function ClinicalDashboard({
       setMedicationSearchQuery(crossQuery);
     }
     setSearchMode(mode);
-    router.push(appModeHomeHref(mode, { query: crossQuery, focus: true, run: true }));
+    router.push(appModeHomeHref(mode, { query: crossQuery, focus: true, run: true, queryMode, scopeFilters }));
   }
 
   async function submitAnswerFeedback(feedbackType: AnswerFeedbackType) {
@@ -2318,8 +2378,16 @@ export function ClinicalDashboard({
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
   }
 
-  function updateDocumentSearchUrl(searchText: string, mode: AppModeId = "documents") {
-    window.history.replaceState(null, "", appModeHomeHref(mode, { query: searchText }));
+  function updateDocumentSearchUrl(
+    searchText: string,
+    mode: AppModeId = "documents",
+    filtersOverride: SearchScopeFilters = scopeFilters,
+  ) {
+    window.history.replaceState(
+      null,
+      "",
+      appModeHomeHref(mode, { query: searchText, queryMode, scopeFilters: filtersOverride }),
+    );
   }
 
   async function runDocumentSearchShortcut(
@@ -2339,7 +2407,17 @@ export function ClinicalDashboard({
       setAnswerProgress(null);
       rememberRecentQuery(trimmedSearchText);
       window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
-      if (updateUrl) router.push(documentsSearchHref({ query: trimmedSearchText, focus: true, run: true }));
+      if (updateUrl) {
+        router.push(
+          documentsSearchHref({
+            query: trimmedSearchText,
+            focus: true,
+            run: true,
+            queryMode,
+            scopeFilters: filtersOverride,
+          }),
+        );
+      }
       return;
     }
     if (!canRunSearch) {
@@ -2364,7 +2442,7 @@ export function ClinicalDashboard({
     setAnswerViewMode("high_yield");
     rememberRecentQuery(trimmedSearchText);
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
-    if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode);
+    if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode, filtersOverride);
 
     const requestId = ++searchRequestSeqRef.current;
 
@@ -2494,7 +2572,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setDocumentMatches([]);
     setSearchMode(mode);
-    router.push(appModeHomeHref(mode));
+    router.push(appModeHomeHref(mode, { queryMode, scopeFilters }));
   }
 
   function focusComposerInput() {
@@ -3423,7 +3501,7 @@ export function ClinicalDashboard({
                     onClearQuery={() => {
                       setQuery("");
                       setModeSearchSubmitted(false);
-                      router.replace(appModeHomeHref("favourites", { focus: true }));
+                      router.replace(appModeHomeHref("favourites", { focus: true, queryMode, scopeFilters }));
                     }}
                     onAddFavourite={() =>
                       setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })

@@ -154,7 +154,7 @@ function SafetySnapshot({ record }: { record: DifferentialRecord }) {
       ];
 
   return (
-    <section className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/50 p-3 shadow-[var(--shadow-inset)] sm:p-5">
+    <section className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
       <div className="flex items-start gap-3">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--danger)]/20 bg-[color:var(--surface)] text-[color:var(--danger)] sm:h-9 sm:w-9">
           <ShieldAlert className="h-4 w-4" aria-hidden />
