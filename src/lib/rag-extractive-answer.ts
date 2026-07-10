@@ -72,7 +72,14 @@ const extractiveLabelPattern =
 // Section labels that read as boilerplate rather than clinical context — never
 // rewritten into "For <label>, …" and never merged into a following fragment.
 const headingContextStoplistPattern =
-  /\b(?:note|warning|caution|important|nb|source|section|table|figure|page|summary|example|appendix|reference|contents|do|does|is|are|was|were|not)\b/i;
+  /\b(?:note|warning|caution|important|nb|source|section|table|figure|page|summary|example|appendix|reference|contents)\b/i;
+
+// Headings that carry the clinical action themselves ("Do not use:",
+// "Avoid:"). These must merge with their bullet items — the item alone often
+// lacks the verb ("Pregnancy") — but must keep their colon form instead of
+// being rewritten into noun context ("For avoid, pregnancy").
+const directiveHeadingPattern =
+  /\b(?:avoid|do|does|not|use|stop|cease|withhold|hold|discontinue|monitor|check|give|administer|contraindicat\w*|must|should|review|refer|contact|seek|consider|is|are|was|were)\b/i;
 
 // A leading section heading carried into a fact ("Acute Mania: 750mg…")
 // becomes readable context ("For acute mania, 750mg…") instead of a colon
@@ -91,6 +98,7 @@ const doseLabelColonPattern =
 function rewriteLeadingHeadingContext(value: string) {
   return value.replace(leadingHeadingContextPattern, (match, label: string) => {
     if (headingContextStoplistPattern.test(label)) return match;
+    if (directiveHeadingPattern.test(label)) return match;
     if (/\b[A-Z]{2,}\b/.test(label)) return match;
     return `For ${label.toLowerCase()}, `;
   });

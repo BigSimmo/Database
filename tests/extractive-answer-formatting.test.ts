@@ -39,6 +39,23 @@ describe("extractive evidence splitting", () => {
     expect(sentences.some((sentence) => /^For renal impairment,/i.test(sentence))).toBe(true);
   });
 
+  it("keeps a directive heading attached to its bullet item", () => {
+    const sentences = splitClinicalEvidenceSentences(
+      "Do not use: o Pregnancy or breastfeeding without specialist advice.",
+    );
+    const contraindication = sentences.find((sentence) => /pregnancy/i.test(sentence));
+    expect(contraindication).toBeDefined();
+    expect(contraindication).toMatch(/^Do not use:/i);
+  });
+
+  it("keeps a directive heading's colon form instead of rewriting it as noun context", () => {
+    const sentences = splitClinicalEvidenceSentences("Avoid: o Pregnancy in the first trimester of treatment.");
+    const avoidance = sentences.find((sentence) => /pregnancy/i.test(sentence));
+    expect(avoidance).toBeDefined();
+    expect(avoidance).not.toMatch(/^For avoid,/i);
+    expect(avoidance).toMatch(/^Avoid:/i);
+  });
+
   it("does not rewrite a preposition-ended colon phrase as a dose label", () => {
     const sentences = splitClinicalEvidenceSentences(
       "If tolerated poorly, reduce the total daily dose to: 500mg at night and review within one week.",
