@@ -651,14 +651,18 @@ function humanizeStatus(status: string) {
     .join(" ");
 }
 
-function formatDateish(value: string | null | undefined): string | null {
+// Exported for unit testing. Formats in UTC on purpose: a date-only ISO value like
+// "2026-07-10" parses to UTC midnight, so formatting in local time would roll back to
+// the previous calendar day in negative-offset zones (e.g. America/New_York). en-GB
+// day-month-year matches this Australian clinical KB's existing date style.
+export function formatDateish(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   if (!trimmed) return null;
   // Bare year or free text (e.g. "2026"): render verbatim.
   if (!/\d{4}-\d{2}/.test(trimmed)) return trimmed;
   const date = new Date(trimmed);
   if (Number.isNaN(date.getTime())) return trimmed;
-  return date.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 }
 
 function documentViewerHref(documentId: string, page: number | null, chunkId: string | null): string {
