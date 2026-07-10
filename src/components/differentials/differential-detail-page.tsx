@@ -31,6 +31,7 @@ import { CopyAfterReviewButton } from "@/components/differentials/differential-p
 import { cn, toneDanger, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
+  cleanDifferentialItem,
   differentialSourceStatusLabel,
   differentialStatusLabel,
   differentialValidationStatusLabel,
@@ -418,7 +419,7 @@ function SafetySnapshot({
                     theme.chip,
                   )}
                 >
-                  {tag}
+                  {cleanDifferentialItem(tag)}
                 </span>
               ))}
             </div>

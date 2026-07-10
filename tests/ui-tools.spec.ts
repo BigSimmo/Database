@@ -1375,12 +1375,19 @@ test.describe("Clinical KB differential diagnosis detail page", () => {
     expect(box.width + 2).toBeGreaterThanOrEqual(minSize);
   }
 
+  // The detail route is not in the Playwright runner's warm-up smoke set, so the
+  // first navigation of a run can pay the dev-server compile; mirror the 30s
+  // first-assertion timeout the presentation-page test uses.
+  async function gotoDetailPage(page: Page, path: string) {
+    await gotoLauncher(page, path);
+    await expect(page.getByTestId("differential-detail-page")).toBeVisible({ timeout: 30_000 });
+  }
+
   test("delirium detail sections expand, copy, and save at desktop", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
-    await gotoLauncher(page, "/differentials/diagnoses/delirium");
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
 
     const detailPage = page.getByTestId("differential-detail-page");
-    await expect(detailPage).toBeVisible();
     await expect(detailPage.getByRole("heading", { level: 1, name: "Delirium" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
 
@@ -1424,7 +1431,7 @@ test.describe("Clinical KB differential diagnosis detail page", () => {
     // Bookmark persists across a reload via localStorage.
     await detailPage.getByRole("button", { name: "Save diagnosis" }).click();
     await expect(detailPage.getByRole("button", { name: "Remove saved diagnosis" })).toBeVisible();
-    await gotoLauncher(page, "/differentials/diagnoses/delirium");
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
     await expect(detailPage.getByRole("button", { name: "Remove saved diagnosis" })).toBeVisible();
 
     await expectNoPageHorizontalOverflow(page);
@@ -1432,7 +1439,7 @@ test.describe("Clinical KB differential diagnosis detail page", () => {
 
   test("safety snapshot CTA opens and scrolls to must-not-miss on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await gotoLauncher(page, "/differentials/diagnoses/delirium");
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
 
     const mustNotMiss = page.locator("#differential-section-must-not-miss");
     await expect(mustNotMiss).toHaveJSProperty("open", false);
@@ -1445,7 +1452,7 @@ test.describe("Clinical KB differential diagnosis detail page", () => {
 
   test("detail sections toggle on mobile and stay within narrow viewports", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await gotoLauncher(page, "/differentials/diagnoses/delirium");
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
 
     const detailPage = page.getByTestId("differential-detail-page");
     await expect(detailPage).toBeVisible();
@@ -1467,7 +1474,7 @@ test.describe("Clinical KB differential diagnosis detail page", () => {
 
   test("tabs support keyboard navigation and ?tab= deep links", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page, "/differentials/diagnoses/delirium");
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
 
     const overviewTab = page.getByRole("tab", { name: "Overview" });
     await overviewTab.click();
@@ -1480,7 +1487,7 @@ test.describe("Clinical KB differential diagnosis detail page", () => {
     await page.keyboard.press("Home");
     await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
 
-    await gotoLauncher(page, "/differentials/diagnoses/delirium?tab=compare");
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium?tab=compare");
     await expect(page.getByRole("tab", { name: "Compare" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByTestId("differential-compare-open")).toHaveAttribute(
       "href",
@@ -1490,7 +1497,7 @@ test.describe("Clinical KB differential diagnosis detail page", () => {
 
   test("compare, related, and source tabs surface real content", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page, "/differentials/diagnoses/delirium");
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
 
     await page.getByRole("tab", { name: "Compare" }).click();
     await expect(page.getByRole("heading", { name: "Compare with related diagnoses" })).toBeVisible();
@@ -1516,10 +1523,9 @@ test.describe("Clinical KB differential diagnosis detail page", () => {
 
   test("safety snapshot derives honest facts for non-curated records", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page, "/differentials/diagnoses/akathisia");
+    await gotoDetailPage(page, "/differentials/diagnoses/akathisia");
 
     const detailPage = page.getByTestId("differential-detail-page");
-    await expect(detailPage).toBeVisible();
     await expect(detailPage.getByRole("heading", { name: "Safety snapshot" })).toBeVisible();
     // Non-curated records must never show fabricated clinical-course facts.
     await expect(detailPage.getByText("Onset", { exact: true })).toHaveCount(0);
