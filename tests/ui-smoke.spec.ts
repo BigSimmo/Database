@@ -199,10 +199,16 @@ async function fulfillAnswerResponse(route: Route, payload: unknown) {
 }
 
 type DemoAnswerOverride = (query: string, documentId?: string, documentIds?: string[]) => ReturnType<typeof demoAnswer>;
+type MockAnswerRequestBody = {
+  query?: string;
+  documentId?: string;
+  documentIds?: string[];
+  filters?: { sourceStatuses?: string[] };
+};
 type MockDemoApiOptions = {
   answerOverride?: DemoAnswerOverride;
   answerDelayMs?: number;
-  onAnswerRequest?: (query: string) => void;
+  onAnswerRequest?: (query: string, body: MockAnswerRequestBody) => void;
 };
 
 async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
@@ -279,13 +285,9 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
     await route.fulfill({ json: { items: [], demoMode: true } });
   });
   await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
-    const body = route.request().postDataJSON() as {
-      query?: string;
-      documentId?: string;
-      documentIds?: string[];
-    };
+    const body = route.request().postDataJSON() as MockAnswerRequestBody;
     const query = body.query ?? "What monitoring is required?";
-    options.onAnswerRequest?.(query);
+    options.onAnswerRequest?.(query, body);
     if (options.answerDelayMs) {
       await new Promise((resolve) => setTimeout(resolve, options.answerDelayMs));
     }
@@ -1487,6 +1489,33 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("a routed scope change reruns a manually submitted answer", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const answerRequests: string[] = [];
+    const answerRequestBodies: MockAnswerRequestBody[] = [];
+    const question = "lithium monitoring";
+    await mockDemoApi(page, {
+      onAnswerRequest: (query, body) => {
+        answerRequests.push(query);
+        answerRequestBodies.push(body);
+      },
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, question);
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect.poll(() => answerRequests).toEqual([question]);
+
+    const scopedUrl = `/?mode=answer&q=${encodeURIComponent(question)}&run=1&scope.sourceStatuses=outdated`;
+    await page.evaluate((url) => window.history.pushState(null, "", url), scopedUrl);
+
+    await expect.poll(() => answerRequests).toEqual([question, question]);
+    expect(answerRequestBodies[1]?.filters?.sourceStatuses).toEqual(["outdated"]);
+    await expect(page).toHaveURL(/scope\.sourceStatuses=outdated/);
+  });
+
   test("answer results surface cross-mode quick links", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
@@ -1857,6 +1886,43 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("differentials-search-results")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differentials-home")).toHaveCount(0);
+  });
+
+  test("newer routed differential context wins over an older response", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    let requestCount = 0;
+    await page.route(/\/api\/search$/, async (route) => {
+      requestCount += 1;
+      const currentRequest = requestCount;
+      if (currentRequest === 1) await new Promise((resolve) => setTimeout(resolve, 500));
+      const sourceCount = currentRequest === 1 ? 2 : 1;
+      await route
+        .fulfill({
+          json: {
+            documentMatches: Array.from({ length: sourceCount }, (_, index) => ({
+              document_id: `00000000-0000-4000-8000-00000000000${index}`,
+              title: `${currentRequest === 1 ? "Older" : "Current"} source ${index + 1}`,
+              file_name: `source-${index + 1}.pdf`,
+              score: 0.9 - index * 0.1,
+            })),
+          },
+        })
+        .catch(() => undefined);
+    });
+
+    await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
+    await expect.poll(() => requestCount).toBe(1);
+    await page.evaluate(() => {
+      window.history.pushState(null, "", "/differentials?q=acute+confusion&run=1&scope.sourceStatuses=outdated");
+    });
+
+    await expect.poll(() => requestCount).toBe(2);
+    const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
+    await expect(sourceStatus).toContainText("1 source");
+    await page.waitForTimeout(600);
+    await expect(sourceStatus).toContainText("1 source");
+    await expect(sourceStatus).not.toContainText("2 sources");
   });
 
   test("submitted favourites searches stay on the command library route", async ({ page }) => {

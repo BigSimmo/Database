@@ -37,7 +37,12 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { documentRelevancePercent } from "@/components/clinical-dashboard/relevance-score";
 import { cn } from "@/components/ui-primitives";
-import { documentEvidenceHref, documentReaderHref, documentsSearchHref } from "@/lib/document-flow-routes";
+import {
+  documentEvidenceHref,
+  documentReaderHref,
+  documentSearchRequestBody,
+  documentsSearchHref,
+} from "@/lib/document-flow-routes";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { DocumentMatch } from "@/lib/types";
 
@@ -720,6 +725,11 @@ function rowMatchesEvidenceType(row: DocumentSearchRow, type: "all" | EvidenceTy
 export function MasterDocumentSearch() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q")?.trim() || defaultQuery;
+  const searchParamString = searchParams.toString();
+  const requestBody = useMemo(
+    () => documentSearchRequestBody(new URLSearchParams(searchParamString), query),
+    [query, searchParamString],
+  );
   const { authorizationHeader } = useAuthSession();
   const [type, setType] = useState<"all" | EvidenceType>("all");
   const [rows, setRows] = useState<DocumentSearchRow[]>([]);
@@ -739,7 +749,7 @@ export function MasterDocumentSearch() {
       fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authorizationHeader },
-        body: JSON.stringify({ query, mode: "documents", documentLimit: 24, topK: 20, includeRelatedDocuments: true }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       })
         .then(async (response) => {
@@ -764,7 +774,7 @@ export function MasterDocumentSearch() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query, authorizationHeader]);
+  }, [query, requestBody, authorizationHeader]);
 
   const filtered = useMemo(() => rows.filter((row) => rowMatchesEvidenceType(row, type)), [rows, type]);
   const loading = status === "loading";

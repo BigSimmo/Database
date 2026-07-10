@@ -21,6 +21,11 @@ const scannedFiles = [
   };
 });
 
+const globalSearchShellSource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/global-mockup-search-shell.tsx"),
+  "utf8",
+);
+
 type FoundDeclaration = { node: ts.FunctionDeclaration; ast: ts.SourceFile };
 
 function findFunctionDeclaration(name: string): FoundDeclaration | null {
@@ -55,6 +60,11 @@ function descendantIdentifiers(node: ts.Node) {
 }
 
 describe("ClinicalDashboard merge-artifact guards", () => {
+  it("reserves phone space for the fixed mode-home composer", () => {
+    expect(globalSearchShellSource).toContain("const mobileComposerReserve = !shouldShowSearchComposer");
+    expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = !reservesFloatingComposer");
+  });
+
   it("does not reintroduce the obsolete output-mode copy helper", () => {
     expect(findFunctionDeclaration("clinicalOutputModeCopy")).toBeNull();
   });

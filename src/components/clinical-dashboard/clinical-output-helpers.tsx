@@ -184,7 +184,7 @@ export function AnswerViewModeControl({
             aria-label={`Show ${mode.label.toLowerCase()} answer view`}
             title={mode.label}
             className={cn(
-              "inline-flex min-h-9 min-w-0 flex-1 basis-[4.75rem] items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold transition sm:flex-none sm:basis-auto sm:px-2.5",
+              "inline-flex min-h-tap min-w-0 flex-1 basis-[4.75rem] items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold transition sm:flex-none sm:basis-auto sm:px-2.5 lg:min-h-9",
               active
                 ? "bg-[color:var(--primary)] text-[color:var(--primary-contrast)] shadow-sm"
                 : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
