@@ -4,6 +4,13 @@ import { appendFileSync } from "node:fs";
 
 const zeroSha = /^0{40}$/;
 
+const fullRunSentinelFiles = [
+  "src/app/api/answer/__ci_full_run__.ts",
+  "supabase/__ci_full_run__.sql",
+  "Dockerfile",
+  ".github/workflows/codex-autofix-review-comments.yml",
+];
+
 const outputs = [
   "docs_only",
   "source_changed",
@@ -26,6 +33,10 @@ function normalizePath(filePath) {
 
 function runGit(args) {
   return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+}
+
+function runGitRaw(args) {
+  return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
 }
 
 function getArgValue(args, name) {
@@ -68,6 +79,7 @@ const codexAutofixPatterns = [
 ];
 
 const uiPatterns = [
+  "data",
   "src/app",
   "src/components",
   "src/styles",
@@ -123,11 +135,12 @@ const containerPatterns = [
   /^scripts\/(check-node-engine|guard-next-build)\.(?:cjs|mjs)$/,
 ];
 
-const sourcePatterns = ["src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
+const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
 
-const coveragePatterns = ["src", "tests"];
+const coveragePatterns = ["data", "src", "tests", "vitest.config.mts"];
 
 const buildPatterns = [
+  "data",
   "src",
   "worker",
   "public",
@@ -203,17 +216,34 @@ function parseStatusPorcelain(raw) {
 }
 
 function changedFilesFromStatus() {
-  return parseStatusPorcelain(runGit(["status", "--porcelain=v1", "-z", "--untracked-files=all"]));
+  return parseStatusPorcelain(runGitRaw(["status", "--porcelain=v1", "-z", "--untracked-files=all"]));
+}
+
+function parseNameStatus(raw) {
+  const fields = raw.split("\0").filter(Boolean);
+  const files = [];
+
+  for (let index = 0; index < fields.length;) {
+    const status = fields[index++];
+    const firstPath = fields[index++];
+    if (!status || !firstPath) break;
+
+    files.push(firstPath);
+    if (/^[RC]/.test(status)) {
+      const secondPath = fields[index++];
+      if (secondPath) files.push(secondPath);
+    }
+  }
+
+  return files;
 }
 
 function changedFilesFromRange(base, head) {
   if (!base || !head || zeroSha.test(base) || zeroSha.test(head)) return null;
   try {
-    const raw = runGit(["diff", "--name-only", `${base}...${head}`]);
-    return raw ? raw.split(/\r?\n/).filter(Boolean) : [];
+    return parseNameStatus(runGitRaw(["diff", "--name-status", "-z", "--find-renames", `${base}...${head}`]));
   } catch {
-    const raw = runGit(["diff", "--name-only", base, head]);
-    return raw ? raw.split(/\r?\n/).filter(Boolean) : [];
+    return parseNameStatus(runGitRaw(["diff", "--name-status", "-z", "--find-renames", base, head]));
   }
 }
 
@@ -256,20 +286,19 @@ function resolveLocalBaseRef(args) {
     if (refExists(candidate)) return candidate;
   }
 
-  return upstream || null;
+  return null;
 }
 
 function changedFilesFromLocal(args) {
   const statusFiles = changedFilesFromStatus();
   const baseRef = resolveLocalBaseRef(args);
-  if (!baseRef) return statusFiles;
+  if (!baseRef) return [...fullRunSentinelFiles, ...statusFiles];
 
   try {
     const mergeBase = runGit(["merge-base", "HEAD", baseRef]);
-    const raw = runGit(["diff", "--name-only", `${mergeBase}...HEAD`]);
-    return [...(raw ? raw.split(/\r?\n/).filter(Boolean) : []), ...statusFiles];
+    return [...(changedFilesFromRange(mergeBase, "HEAD") ?? []), ...statusFiles];
   } catch {
-    return statusFiles;
+    return [...fullRunSentinelFiles, ...statusFiles];
   }
 }
 
@@ -290,7 +319,7 @@ function resolveChangedFiles(args) {
   if (ranged) return ranged;
 
   if (process.env.GITHUB_ACTIONS === "true") {
-    return ["src/__ci_full_run__.ts", "supabase/__ci_full_run__.sql", "Dockerfile", ".github/workflows/ci.yml"];
+    return fullRunSentinelFiles;
   }
 
   return changedFilesFromLocal(args);
@@ -317,6 +346,10 @@ function assertScope(name, files, expected) {
 }
 
 function selfTest() {
+  assertScope("unstaged-status", parseStatusPorcelain(" M scripts/ci-change-scope.mjs\0"), {
+    source_changed: true,
+    workflow_changed: true,
+  });
   assertScope("docs-only", ["docs/process-note.md"], {
     docs_only: true,
     source_changed: false,
@@ -326,6 +359,16 @@ function selfTest() {
     source_changed: true,
     coverage_changed: true,
     build_changed: false,
+  });
+  assertScope("coverage-config", ["vitest.config.mts"], {
+    source_changed: true,
+    coverage_changed: true,
+  });
+  assertScope("runtime-data", ["data/medications-snapshot.json"], {
+    source_changed: true,
+    coverage_changed: true,
+    ui_changed: true,
+    build_changed: true,
   });
   assertScope("ui", ["src/components/ClinicalDashboard.tsx", "tests/ui-smoke.spec.ts"], {
     docs_only: false,
@@ -387,6 +430,22 @@ function selfTest() {
     source_changed: true,
     rag_eval_changed: true,
     docs_only: false,
+  });
+  assertScope("ranged-rename", parseNameStatus("R100\0src/lib/rag-old.ts\0docs/rag-old.md\0"), {
+    source_changed: true,
+    rag_eval_changed: true,
+    docs_only: false,
+  });
+  assertScope("unknown-base-full-run", fullRunSentinelFiles, {
+    source_changed: true,
+    coverage_changed: true,
+    ui_changed: true,
+    db_changed: true,
+    container_changed: true,
+    rag_eval_changed: true,
+    workflow_changed: true,
+    codex_autofix_changed: true,
+    build_changed: true,
   });
   console.log("CI change scope self-test passed.");
 }
