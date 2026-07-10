@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { LocalProjectIdentityPayload } from "@/lib/local-project-identity";
-import { appName, localProjectId, projectPortEnd, projectPortStart } from "../../scripts/local-server-utils.mjs";
+import { appName, localProjectId, projectPortEnd, projectPortStart } from "@/lib/local-server-utils.mjs";
 
 const localHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 

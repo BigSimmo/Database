@@ -213,18 +213,19 @@ Rules:
   clinical production documents into staging.
 - One staging app container + one staging worker container from the _same_
   images, different env. `RAG_PROVIDER_MODE=auto` with staging OpenAI key.
-- **Known change required:** `src/lib/supabase/project.ts` pins the expected
-  project to production, so `check:supabase-project` will (correctly) fail on
-  staging until the expected-project table is made environment-aware. Do this
-  when the staging project is provisioned — a deliberate speed bump so staging
-  cannot silently be pointed at production.
+- `src/lib/supabase/project.ts` is staging-aware only when both
+  `SUPABASE_STAGING_PROJECT_REF` and `SUPABASE_STAGING_PROJECT_NAME` are set.
+  The declared staging ref must differ from production and every stale project;
+  otherwise `check:supabase-project` fails closed. See `docs/staging-setup.md`.
 - The soak test (`scripts/soak-test.ts`) targets staging **only** — see
   `docs/capacity-review.md`.
 
 ## 6. Rollout and rollback
 
-- Images are built from `main` (CI job to be added once a host account
-  exists), tagged with the git SHA, and deployed after the standard gates
+- `.github/workflows/docker-image.yml` validates both container builds on
+  `main`, release branches, a weekly schedule, and container-affecting pull
+  requests. It deliberately does not push to a registry; registry publication
+  and deployment remain host-specific release steps after the standard gates
   (`verify` + `ui-smoke` + the clinical governance preflight where relevant).
 - Rollback = redeploy the previous image tag. Database migrations follow the
   existing rule: committed migrations + `schema.sql` reconciliation only, never

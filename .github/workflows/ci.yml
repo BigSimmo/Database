@@ -22,13 +22,46 @@ env:
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
 
 jobs:
-  # Fast deterministic merge gate: static checks, unit tests, and build.
-  # Intended as a required status check on main together with ui-smoke,
-  # Gitleaks, and one migration replay gate.
-  verify:
+  changes:
+    name: Change scope
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.scope.outputs.docs_only }}
+      source_changed: ${{ steps.scope.outputs.source_changed }}
+      coverage_changed: ${{ steps.scope.outputs.coverage_changed }}
+      ui_changed: ${{ steps.scope.outputs.ui_changed }}
+      db_changed: ${{ steps.scope.outputs.db_changed }}
+      container_changed: ${{ steps.scope.outputs.container_changed }}
+      rag_eval_changed: ${{ steps.scope.outputs.rag_eval_changed }}
+      workflow_changed: ${{ steps.scope.outputs.workflow_changed }}
+      codex_autofix_changed: ${{ steps.scope.outputs.codex_autofix_changed }}
+      build_changed: ${{ steps.scope.outputs.build_changed }}
+      changed_files: ${{ steps.scope.outputs.changed_files }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Classify changed files
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+        run: node scripts/ci-change-scope.mjs
+
+  static-pr:
+    name: Static PR checks
+    needs: changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -42,34 +75,17 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Workflow action pin check
-        run: npm run check:github-actions
-
-      - name: Setup Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-
       - name: Install dependencies
         run: npm ci
 
       - name: Runtime alignment
         run: npm run check:runtime
 
-      - name: Codex auto-resolve workflow guard
-        run: npm run check:codex-autofix-workflow
+      - name: GitHub Actions pin check
+        run: npm run check:github-actions
 
-      - name: Dependency vulnerability audit
-        # Non-mutating gate. The document parsers (pdf-parse, pdfjs-dist, mammoth,
-        # exceljs, jszip) process untrusted uploads, so high/critical advisories in
-        # the production tree must block the merge rather than wait for Dependabot.
-        run: npm audit --omit=dev --audit-level=high
-
-      - name: Edge function typecheck
-        run: npm run check:edge:functions
-
-      - name: Production readiness (CI-safe)
-        run: npm run check:production-readiness:ci
+      - name: CI scope self-test
+        run: npm run check:ci-scope
 
       - name: Format check
         run: npm run format:check
@@ -80,31 +96,117 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Unit tests
+        run: npm run test
+
+  safety:
+    name: Safety and config checks
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency vulnerability audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Edge function typecheck
+        run: npm run check:edge:functions
+
+      - name: Production readiness (CI-safe)
+        run: npm run check:production-readiness:ci
+
+      - name: Codex auto-resolve workflow guard
+        if: needs.changes.outputs.codex_autofix_changed == 'true'
+        run: npm run check:codex-autofix-workflow
+
+      - name: Offline RAG preflight
+        if: needs.changes.outputs.rag_eval_changed == 'true'
+        run: npm run eval:rag:offline
+
+  coverage:
+    name: Unit coverage
+    needs: changes
+    if: needs.changes.outputs.coverage_changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Unit tests (with coverage gate)
         run: npm run test:coverage
+
+  build:
+    name: Build
+    needs: changes
+    if: needs.changes.outputs.build_changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build
         run: npm run build
 
       - name: Deployment boot smoke
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-        # No placeholder fallbacks: when the repository secrets are missing the
-        # smoke must fail with its explicit missing-env error rather than
-        # "pass" against a server that never saw real production env.
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           RAG_QUERY_HASH_SECRET: ${{ secrets.RAG_QUERY_HASH_SECRET }}
         run: npm run check:deployment-readiness
 
-  # Chromium browser smoke in parallel with verify, so the slowest check no
-  # longer serializes behind lint/typecheck/tests/build and a flaky smoke
-  # rerun does not repeat them. The runner boots its own dev server, so no
-  # build step is needed here.
-  ui-smoke:
+  ui-critical:
+    name: Critical UI smoke
+    needs: changes
+    if: needs.changes.outputs.ui_changed == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
-
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -130,28 +232,70 @@ jobs:
       - name: Install Chromium browser
         run: npx playwright install --with-deps chromium
 
-      - name: Chromium UI smoke
-        id: chromium-smoke
-        run: npm run test:e2e:chromium
+      - name: Chromium critical UI smoke
+        run: npm run test:e2e:critical
 
       - name: Upload UI diagnostics
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: verify-ui-diagnostics-${{ github.run_id }}
+          name: critical-ui-diagnostics-${{ github.run_id }}
           path: |
             test-results/
             playwright-report/
           if-no-files-found: ignore
 
-  # Database migration replay in parallel with verify and ui-smoke. This is the
-  # repo-owned replay gate; if the external Supabase Preview check is already
-  # required and reliable, keep this advisory or path-filtered rather than
-  # requiring both replay gates on every PR.
+  ui-regression:
+    name: Advisory UI regression
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore Chromium browser cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Chromium advisory regression
+        run: npm run test:e2e:advisory
+
+      - name: Upload advisory UI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: advisory-ui-diagnostics-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+
   db-reset-verify:
+    name: Migration replay
+    needs: changes
+    if: needs.changes.outputs.db_changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -193,9 +337,86 @@ jobs:
             | sort -u \
             | xargs -r docker save -o /tmp/supabase-docker-cache/images.tar
 
+  pr-required:
+    name: PR required
+    needs: [changes, static-pr, safety, coverage, build, ui-critical, db-reset-verify]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify required in-scope jobs
+        env:
+          DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
+          COVERAGE_CHANGED: ${{ needs.changes.outputs.coverage_changed }}
+          UI_CHANGED: ${{ needs.changes.outputs.ui_changed }}
+          DB_CHANGED: ${{ needs.changes.outputs.db_changed }}
+          BUILD_CHANGED: ${{ needs.changes.outputs.build_changed }}
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          STATIC_RESULT: ${{ needs.static-pr.result }}
+          SAFETY_RESULT: ${{ needs.safety.result }}
+          COVERAGE_RESULT: ${{ needs.coverage.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          UI_RESULT: ${{ needs.ui-critical.result }}
+          DB_RESULT: ${{ needs.db-reset-verify.result }}
+        run: |
+          set -euo pipefail
+
+          require_success() {
+            local name="$1"
+            local result="$2"
+            if [ "$result" != "success" ]; then
+              echo "::error::$name result was $result"
+              exit 1
+            fi
+          }
+
+          require_skipped_or_success() {
+            local name="$1"
+            local result="$2"
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              echo "::error::$name result was $result"
+              exit 1
+            fi
+          }
+
+          require_success "changes" "$CHANGES_RESULT"
+          require_success "static-pr" "$STATIC_RESULT"
+
+          if [ "$DOCS_ONLY" = "true" ]; then
+            require_skipped_or_success "safety" "$SAFETY_RESULT"
+          else
+            require_success "safety" "$SAFETY_RESULT"
+          fi
+
+          if [ "$COVERAGE_CHANGED" = "true" ]; then
+            require_success "coverage" "$COVERAGE_RESULT"
+          else
+            require_skipped_or_success "coverage" "$COVERAGE_RESULT"
+          fi
+
+          if [ "$BUILD_CHANGED" = "true" ]; then
+            require_success "build" "$BUILD_RESULT"
+          else
+            require_skipped_or_success "build" "$BUILD_RESULT"
+          fi
+
+          if [ "$UI_CHANGED" = "true" ]; then
+            require_success "ui-critical" "$UI_RESULT"
+          else
+            require_skipped_or_success "ui-critical" "$UI_RESULT"
+          fi
+
+          if [ "$DB_CHANGED" = "true" ]; then
+            require_success "db-reset-verify" "$DB_RESULT"
+          else
+            require_skipped_or_success "db-reset-verify" "$DB_RESULT"
+          fi
+
+          echo "Required in-scope PR checks passed."
+
   release-browser-matrix:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-    needs: [verify, ui-smoke, db-reset-verify]
+    needs: [pr-required]
     runs-on: ubuntu-24.04
     timeout-minutes: 70
 
