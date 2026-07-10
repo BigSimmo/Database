@@ -24,14 +24,14 @@ describe("/auth/callback", () => {
     expect(exchangeCodeForSession).toHaveBeenCalledWith("pkce-code");
   });
 
-  it("rejects cross-origin redirect targets", async () => {
+  it.each(["https://evil.example/steal", "//evil.example/steal"])("rejects unsafe redirect target %s", async (next) => {
     const exchangeCodeForSession = vi.fn(async () => ({ error: null }));
     vi.doMock("@/lib/supabase/server", () => ({
       createSupabaseServerClient: vi.fn(async () => ({ auth: { exchangeCodeForSession } })),
     }));
     const { GET } = await import("../src/app/auth/callback/route");
 
-    const response = await GET(callbackRequest("code=pkce-code&next=https%3A%2F%2Fevil.example%2Fsteal"));
+    const response = await GET(callbackRequest(`code=pkce-code&next=${encodeURIComponent(next)}`));
 
     expect(response.headers.get("location")).toBe("https://clinical.example/");
     expect(exchangeCodeForSession).toHaveBeenCalledWith("pkce-code");
@@ -45,6 +45,17 @@ describe("/auth/callback", () => {
     const response = await GET(callbackRequest("error_description=Link+expired"));
 
     expect(response.headers.get("location")).toBe("https://clinical.example/?auth_error=Link%20expired");
+    expect(createSupabaseServerClient).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the provider error code when no description is supplied", async () => {
+    const createSupabaseServerClient = vi.fn();
+    vi.doMock("@/lib/supabase/server", () => ({ createSupabaseServerClient }));
+    const { GET } = await import("../src/app/auth/callback/route");
+
+    const response = await GET(callbackRequest("error=access_denied"));
+
+    expect(response.headers.get("location")).toBe("https://clinical.example/?auth_error=access_denied");
     expect(createSupabaseServerClient).not.toHaveBeenCalled();
   });
 
