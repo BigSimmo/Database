@@ -52,6 +52,18 @@ describe("search navigation context", () => {
     });
   });
 
+  it("validates constrained values before applying their URL limits", () => {
+    const params = new URLSearchParams([
+      ["scope.sourceStatuses", "invalid-1"],
+      ["scope.sourceStatuses", "invalid-2"],
+      ["scope.sourceStatuses", "invalid-3"],
+      ["scope.sourceStatuses", "invalid-4"],
+      ["scope.sourceStatuses", "current"],
+    ]);
+
+    expect(readSearchNavigationContext(params).scopeFilters.sourceStatuses).toEqual(["current"]);
+  });
+
   it("keeps default context out of otherwise clean URLs", () => {
     const params = new URLSearchParams("mode=answer");
     appendSearchNavigationContext(params, { queryMode: "auto", scopeFilters: {} });
@@ -90,5 +102,11 @@ describe("search navigation context", () => {
         { scopeFilters: { sourceStatuses: ["outdated"] } },
       ),
     ).toBe(false);
+    expect(
+      routedSubmissionContextChanged("answer:lithium", "answer", "lithium", {
+        scopeFilters: { sourceStatuses: ["outdated"] },
+      }),
+    ).toBe(true);
+    expect(routedSubmissionContextChanged("answer:lithium", "answer", "lithium", {})).toBe(false);
   });
 });

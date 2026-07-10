@@ -95,14 +95,19 @@ const labelTypes = new Set<NonNullable<SearchScopeFilters["labelTypesAny"]>[numb
 const localityValues = new Set<NonNullable<SearchScopeFilters["locality"]>>(["local", "non_local"]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function uniqueTrimmed(values: string[], limit: number, maxLength: number) {
+function uniqueTrimmed(
+  values: string[],
+  limit: number,
+  maxLength: number,
+  isAllowed: (value: string) => boolean = () => true,
+) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
-    .filter((value) => value.length <= maxLength)
+    .filter((value) => value.length <= maxLength && isAllowed(value))
     .slice(0, limit);
 }
 
 function allowedValues<T extends string>(values: string[], allowed: ReadonlySet<T>, limit: number): T[] {
-  return uniqueTrimmed(values, limit, 120).filter((value): value is T => allowed.has(value as T));
+  return uniqueTrimmed(values, limit, 120, (value) => allowed.has(value as T)).map((value) => value as T);
 }
 
 function appendValues(
@@ -113,7 +118,7 @@ function appendValues(
   maxLength: number,
   isAllowed: (value: string) => boolean = () => true,
 ) {
-  for (const value of uniqueTrimmed([...(values ?? [])], limit, maxLength).filter(isAllowed)) {
+  for (const value of uniqueTrimmed([...(values ?? [])], limit, maxLength, isAllowed)) {
     params.append(scopeParam(key), value);
   }
 }
@@ -162,6 +167,9 @@ export function routedSubmissionContextChanged(
 ) {
   const signaturePrefix = `${mode}:${query}:`;
   const nextSignature = searchSubmissionSignature(mode, query, context);
+  if (previousSignature === `${mode}:${query}`) {
+    return searchNavigationContextSignature(context).length > 0;
+  }
   return previousSignature?.startsWith(signaturePrefix) === true && previousSignature !== nextSignature;
 }
 
@@ -197,7 +205,7 @@ export function readSearchNavigationContext(params: ReadableSearchParams): Requi
   const parsedLabelTypes = allowedValues(params.getAll(scopeParam("labelTypesAny")), labelTypes, 13);
   if (parsedLabelTypes.length) scopeFilters.labelTypesAny = parsedLabelTypes;
 
-  const importBatchIds = uniqueTrimmed(params.getAll(scopeParam("importBatchIds")), 25, 36).filter((value) =>
+  const importBatchIds = uniqueTrimmed(params.getAll(scopeParam("importBatchIds")), 25, 36, (value) =>
     uuidPattern.test(value),
   );
   if (importBatchIds.length) scopeFilters.importBatchIds = importBatchIds;
