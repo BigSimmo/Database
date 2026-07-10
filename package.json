@@ -12,6 +12,7 @@
     "preinstall": "node scripts/check-node-engine.cjs",
     "ensure": "node scripts/ensure-local-server.mjs",
     "build": "node scripts/guard-next-build.mjs && node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build --webpack",
+    "build:analyze": "node scripts/build-analyze.mjs",
     "start": "node scripts/dev-free-port.mjs start",
     "lint": "node --max-old-space-size=8192 ./node_modules/eslint/bin/eslint.js src tests scripts worker supabase playwright eslint.config.mjs next.config.ts playwright.config.ts playwright.visual.config.ts vitest.config.mts --no-error-on-unmatched-pattern",
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
@@ -135,6 +136,7 @@
     "uuid": "^11.1.1"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.2.10",
     "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^24.13.2",
     "@types/pdf-parse": "^1.1.5",
