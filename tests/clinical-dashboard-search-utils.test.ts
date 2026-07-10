@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   answerPayloadIsUsable,
   classifyAnswerError,
+  isAnswerPayload,
   isRetryableError,
   keywordQueryFromNaturalLanguage,
   makeSearchError,
@@ -50,6 +51,14 @@ describe("clinical dashboard search utilities", () => {
         }),
       ),
     ).toBe(true);
+  });
+
+  it("accepts only structurally valid answer payloads at the stream boundary", () => {
+    expect(isAnswerPayload(answer())).toBe(true);
+    expect(isAnswerPayload({ ...answer(), confidence: "certain" })).toBe(false);
+    expect(isAnswerPayload({ ...answer(), citations: null })).toBe(false);
+    expect(isAnswerPayload({ ...answer(), sources: "not-an-array" })).toBe(false);
+    expect(isAnswerPayload({ ...answer(), demoMode: "true" })).toBe(false);
   });
 
   it("classifies retryable search errors", () => {

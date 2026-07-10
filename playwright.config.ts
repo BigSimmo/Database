@@ -9,7 +9,8 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: /.*ui-(smoke|stress|accessibility|tools|tools-task-directory|overlap|universal-search)\.spec\.ts/,
+  testMatch:
+    /.*ui-(smoke|stress|accessibility|tools|tools-collapse|tools-task-directory|overlap|universal-search)\.spec\.ts/,
   timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
   expect: {
