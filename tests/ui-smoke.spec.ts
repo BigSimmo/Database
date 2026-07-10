@@ -1494,7 +1494,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, {
       waitUntil: "domcontentloaded",
     });
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
 
     const answerSurface = page.locator('[data-dashboard-stage="answer-surface"]');
     const strip = answerSurface.getByTestId("cross-mode-links");
