@@ -512,14 +512,47 @@ test.describe("Clinical KB tools launcher", () => {
     }
   });
 
-  test("phone bottom-dock search opens the command surface above the pill", async ({ page }) => {
+  test("phone bottom-dock search keeps the command popup hidden", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
-    await expect(visibleGlobalSearchInput(page).first()).toBeVisible();
+    const input = visibleGlobalSearchInput(page).first();
+    await expect(input).toBeVisible();
     await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
-    await commandSurfaceOpensAbovePill(page);
+
+    // Phones never show the universal command popup — it crowds the small
+    // screen — so focusing/typing must not surface the dropdown or its scrim.
+    await input.click();
+    await input.press("ArrowDown");
+    await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+    await expect(page.locator("form.answer-footer-search-dock")).not.toHaveAttribute("data-command-open", "true");
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone mode homes keep the shared search in the hero, not the bottom dock", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    for (const home of ["/services", "/forms", "/differentials", "/applications"]) {
+      await gotoLauncher(page, home);
+      const heroInput = page
+        .locator(".mode-home-composer-slot")
+        .getByTestId("global-search-input");
+      await expect(heroInput).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
+
+      // The pill sits in the flow of the hero, not fixed to the viewport bottom.
+      const geometry = await heroInput.evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight };
+      });
+      expect(geometry.top).toBeGreaterThan(0);
+      expect(geometry.bottom).toBeLessThan(geometry.viewportHeight - 40);
+
+      // Focusing the hero composer must not surface the universal popup on phones.
+      await heroInput.click();
+      await heroInput.press("ArrowDown");
+      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+      await expectNoPageHorizontalOverflow(page);
+    }
   });
 
   test("desktop answer footer opens the command surface above the pill", async ({ page }) => {

@@ -70,11 +70,6 @@ import { tagSearchText } from "@/lib/document-tags";
 
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
-const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
-// Standalone mode-home shells move the composer into the hero from the tablet
-// breakpoint up (see heroComposerFromTablet), so it sits in the middle of the
-// hero exactly like desktop instead of floating over the heading.
-const modeHomeComposerMediaQuery = "(min-width: 640px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 
 function splitFilterText(value: string) {
@@ -178,7 +173,6 @@ export function MasterSearchHeader({
   searchComposerVisible = true,
   desktopHomeComposerSlotId,
   mobileBottomSearchAddonSlotId,
-  heroComposerFromTablet = false,
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
@@ -230,12 +224,12 @@ export function MasterSearchHeader({
   mobileBottomSearchVariant?: "default" | "compact";
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
+  /** Mode-home slot the composer portals into at every viewport width, so the
+   *  search pill sits in the middle of the hero on phones as well as desktop
+   *  instead of docking to the bottom edge. */
   desktopHomeComposerSlotId?: string;
   /** Phone-only slot rendered above the bottom search pill for page-specific dock addons. */
   mobileBottomSearchAddonSlotId?: string;
-  /** Portal the composer into the hero slot from the tablet breakpoint (sm) up,
-   *  rather than the default desktop (lg) breakpoint. */
-  heroComposerFromTablet?: boolean;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
   /** Phone-only hide-on-scroll for the universal header and bottom search dock.
@@ -287,11 +281,6 @@ export function MasterSearchHeader({
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
-  // True while the hero-composer media query matches (tablet+ for mode-home
-  // pages). The portal can lag this by a frame or a retry cycle, so we track the
-  // match separately to suppress the inline fallback without waiting for the
-  // portal to mount — otherwise the inline composer flashes during that window.
-  const [desktopHomeComposerMediaMatches, setDesktopHomeComposerMediaMatches] = useState(false);
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
@@ -303,8 +292,13 @@ export function MasterSearchHeader({
   const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
+  // Mode homes portal the composer into the hero slot at every width, so the
+  // phone bottom dock only exists when no hero slot is provided.
   const phoneBottomSearchDockActive =
-    usesPhoneSearchLayout && searchComposerVisible && (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
+    usesPhoneSearchLayout &&
+    searchComposerVisible &&
+    !desktopHomeComposerSlotId &&
+    (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
   const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden =
     bottomComposerScrollHiddenActive &&
@@ -697,7 +691,6 @@ export function MasterSearchHeader({
     if (!desktopHomeComposerSlotId) {
       const frame = window.requestAnimationFrame(() => {
         setDesktopHomeComposerActive(false);
-        setDesktopHomeComposerMediaMatches(false);
         setDesktopHomeComposerHost(null);
       });
       return () => window.cancelAnimationFrame(frame);
@@ -709,13 +702,13 @@ export function MasterSearchHeader({
     // into it made React reconcile the portal against a container that another
     // part of the tree had already removed, throwing a null-parentNode error.
     // Because the host is stable, React's portal container never disappears.
+    // The slot is used at every viewport width — phones included — so mode
+    // homes keep the composer in the middle of the hero instead of docking it
+    // to the bottom edge.
     const host = document.createElement("div");
     // Layout-transparent so the composer lays out as a direct child of the slot.
     host.style.display = "contents";
 
-    const mediaQuery = window.matchMedia(
-      heroComposerFromTablet ? modeHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
-    );
     let frame: number | null = null;
     let retryTimeout: number | null = null;
     let portalRetryCount = 0;
@@ -724,8 +717,7 @@ export function MasterSearchHeader({
         window.clearTimeout(retryTimeout);
         retryTimeout = null;
       }
-      setDesktopHomeComposerMediaMatches(mediaQuery.matches);
-      const slot = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
+      const slot = document.getElementById(desktopHomeComposerSlotId);
       if (slot) {
         portalRetryCount = 0;
         if (host.parentNode !== slot) slot.appendChild(host);
@@ -734,7 +726,7 @@ export function MasterSearchHeader({
       } else {
         host.parentNode?.removeChild(host);
         setDesktopHomeComposerActive(false);
-        if (mediaQuery.matches && portalRetryCount < 24) {
+        if (portalRetryCount < 24) {
           portalRetryCount += 1;
           retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
         }
@@ -748,18 +740,15 @@ export function MasterSearchHeader({
     const observer = new MutationObserver(scheduleSync);
     observer.observe(document.body, { childList: true, subtree: true });
     scheduleSync();
-    mediaQuery.addEventListener("change", scheduleSync);
     return () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
       if (retryTimeout !== null) window.clearTimeout(retryTimeout);
       observer.disconnect();
-      mediaQuery.removeEventListener("change", scheduleSync);
       host.parentNode?.removeChild(host);
       setDesktopHomeComposerActive(false);
-      setDesktopHomeComposerMediaMatches(false);
       setDesktopHomeComposerHost(null);
     };
-  }, [desktopHomeComposerSlotId, heroComposerFromTablet]);
+  }, [desktopHomeComposerSlotId]);
 
   const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
   function dismissScope(reason: "outside" | "escape") {
@@ -1090,7 +1079,11 @@ export function MasterSearchHeader({
         onSubmit={submit}
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
         data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
-        data-command-open={usesBottomComposerPlacement && commandDropdownOpen ? "true" : undefined}
+        data-command-open={
+          // Phones never show the command dropdown, so the dock scrim must not
+          // grow for it — gate the open attribute to widths that can display it.
+          usesBottomComposerPlacement && !usesPhoneSearchLayout && commandDropdownOpen ? "true" : undefined
+        }
         data-scroll-hidden={shouldHideBottomOnScroll && bottomComposerHidden ? "true" : undefined}
         {...(shouldHideBottomOnScroll ? composerFocusProps : undefined)}
         className={cn(
@@ -1546,10 +1539,7 @@ export function MasterSearchHeader({
 
       {searchComposerVisible ? (
         <>
-          {(desktopHomeComposerActive && desktopHomeComposerHost) ||
-          (desktopHomeComposerSlotId && desktopHomeComposerMediaMatches)
-            ? null
-            : renderSearchComposer("default")}
+          {desktopHomeComposerSlotId ? null : renderSearchComposer("default")}
           {desktopHomeComposerActive && desktopHomeComposerHost
             ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
             : null}

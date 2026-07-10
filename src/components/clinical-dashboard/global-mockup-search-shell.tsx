@@ -250,13 +250,16 @@ function GlobalMockupStandaloneSearchShellClient({
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
-  const mobileComposerReserve = !shouldShowSearchComposer
-    ? "2rem"
-    : searchMode === "answer"
-      ? "calc(9rem + env(safe-area-inset-bottom))"
-      : useCompactBottomSearch
-        ? "calc(5.5rem + env(safe-area-inset-bottom))"
-        : "calc(9rem + env(safe-area-inset-bottom))";
+  // Standalone mode homes portal the composer into the hero (in-flow at every
+  // width), so phones need no bottom-dock clearance there.
+  const mobileComposerReserve =
+    !shouldShowSearchComposer || isStandaloneModeHome
+      ? "2rem"
+      : searchMode === "answer"
+        ? "calc(9rem + env(safe-area-inset-bottom))"
+        : useCompactBottomSearch
+          ? "calc(5.5rem + env(safe-area-inset-bottom))"
+          : "calc(9rem + env(safe-area-inset-bottom))";
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -510,7 +513,6 @@ function GlobalMockupStandaloneSearchShellClient({
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-            heroComposerFromTablet={isStandaloneModeHome}
             // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the header/composer to hand space back to content.
             hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}

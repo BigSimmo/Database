@@ -733,7 +733,9 @@ export function ApplicationsLauncherWorkspace({
       aria-labelledby="tools-home-title"
       className={cn(
         "mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-8 text-[color:var(--text)] sm:px-6 lg:px-8",
-        "pb-[calc(12rem+env(safe-area-inset-bottom))] sm:pb-8",
+        // The composer sits in the hero at every width, so phones only need a
+        // small safe-area cushion rather than bottom-dock clearance.
+        "pb-[calc(2rem+env(safe-area-inset-bottom))] sm:pb-8",
         "pt-7 sm:pt-10 lg:pt-14",
         className,
       )}
