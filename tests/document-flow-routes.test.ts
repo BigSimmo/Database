@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { documentEvidenceHref, documentReaderHref, documentsSearchHref } from "@/lib/document-flow-routes";
+import {
+  documentEvidenceHref,
+  documentReaderHref,
+  documentSearchRequestBody,
+  documentsSearchHref,
+} from "@/lib/document-flow-routes";
 
 describe("document flow routes", () => {
   it("builds search links with optional focus and run flags", () => {
@@ -24,6 +29,32 @@ describe("document flow routes", () => {
     expect(href.searchParams.get("queryMode")).toBe("monitoring_schedule");
     expect(href.searchParams.getAll("scope.medications")).toEqual(["lithium"]);
     expect(href.searchParams.get("scope.locality")).toBe("local");
+  });
+
+  it("applies routed intent and scope filters to the document-search API body", () => {
+    const href = new URL(
+      documentsSearchHref({
+        query: "lithium monitoring",
+        queryMode: "monitoring_schedule",
+        scopeFilters: {
+          medications: ["lithium"],
+          locality: "local",
+          sourceStatuses: ["current"],
+        },
+      }),
+      "https://clinical.test",
+    );
+
+    expect(documentSearchRequestBody(href.searchParams, "lithium monitoring")).toMatchObject({
+      query: "lithium monitoring",
+      mode: "documents",
+      queryMode: "monitoring_schedule",
+      filters: {
+        medications: ["lithium"],
+        locality: "local",
+        sourceStatuses: ["current"],
+      },
+    });
   });
 
   it("builds reader and evidence links with defaults", () => {

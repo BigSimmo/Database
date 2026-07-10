@@ -1,4 +1,8 @@
-import { appendSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
+import {
+  appendSearchNavigationContext,
+  readSearchNavigationContext,
+  type SearchNavigationOptions,
+} from "@/lib/search-navigation-context";
 
 export const DOCUMENTS_MODE_HOME_ROUTE = "/?mode=documents";
 export const DOCUMENT_SEARCH_ROUTE = "/documents/search";
@@ -19,6 +23,19 @@ export function documentsSearchHref(options: SearchNavigationOptions = {}) {
   if (options.run && query) params.set("run", "1");
   appendSearchNavigationContext(params, options);
   return `${DOCUMENT_SEARCH_ROUTE}?${params.toString()}`;
+}
+
+export function documentSearchRequestBody(params: Pick<URLSearchParams, "get" | "getAll">, query: string) {
+  const { queryMode, scopeFilters } = readSearchNavigationContext(params);
+  return {
+    query,
+    mode: "documents" as const,
+    filters: scopeFilters,
+    queryMode,
+    documentLimit: 24,
+    topK: 20,
+    includeRelatedDocuments: true,
+  };
 }
 
 export function documentReaderHref(
