@@ -83,7 +83,8 @@ const leadingHeadingContextPattern = /^([A-Z][A-Za-z]+(?:[ /-][A-Za-z()]+){0,3})
 // "Label: <dose>" reads as "Label is <dose>" only when the colon is directly
 // followed by a numeric dose ("IR product: 750 to 1000mg" → "IR product is
 // 750 to 1000mg"); prose labels without a dose keep their colon.
-const doseLabelColonPattern = /([A-Za-z][\w-]*(?:\s+[\w-]+){0,3}):\s+(?=\d[^:]{0,24}?(?:mg|mcg|microg|m[lL]|units?|mmol|g)\b)/g;
+const doseLabelColonPattern =
+  /([A-Za-z][\w-]*(?:\s+[\w-]+){0,3}):\s+(?=\d[^:]{0,24}?(?:mg|mcg|microg|m[lL]|units?|mmol|g)\b)/g;
 
 function rewriteLeadingHeadingContext(value: string) {
   return value.replace(leadingHeadingContextPattern, (match, label: string) => {

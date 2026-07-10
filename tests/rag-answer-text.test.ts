@@ -108,4 +108,14 @@ describe("RAG answer text helpers", () => {
     expect(hasClinicalAnswerQualityIssue("Complete the Consent to Clozapine Treatment Form EMR0270.")).toBe(true);
     expect(hasClinicalAnswerQualityIssue("Use PHQ-9 score, not HAM-D17, for this check.")).toBe(false);
   });
+
+  it("converts bullet glyphs and the sub-bullet 'o' into readable separators in answer prose", () => {
+    expect(
+      sanitizeAnswerText("Check levels weekly • Avoid concurrent nephrotoxins o Reduce dose in renal impairment"),
+    ).toBe("Check levels weekly; Avoid concurrent nephrotoxins; Reduce dose in renal impairment");
+  });
+
+  it("keeps a temperature-style ' o ' glyph untouched in answer prose", () => {
+    expect(sanitizeAnswerText("Store the solution below 37 o C at all times")).toContain("37 o C");
+  });
 });

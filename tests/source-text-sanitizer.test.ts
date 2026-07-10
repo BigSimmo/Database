@@ -5,6 +5,7 @@ import {
   isLowYieldClinicalText,
   lowYieldSourceNoiseScore,
   normalizeExtractedGlyphs,
+  normalizeInlineBulletGlyphs,
   polishStoredSynopsis,
   repairTruncatedCompactTail,
   fenceSourceEvidence,
@@ -379,5 +380,46 @@ describe("sourceTextForCompactDisplay snippet polish", () => {
   it("leaves a temperature-style ' o ' glyph and lowercase follow-ons untouched", () => {
     expect(sourceTextForCompactDisplay("Store below 37 o C at all times")).toBe("Store below 37 o C at all times");
     expect(sourceTextForCompactDisplay("blood group o positive result")).toBe("blood group o positive result");
+  });
+});
+
+describe("normalizeInlineBulletGlyphs", () => {
+  it("converts inline bullets and the sub-bullet 'o' glyph into separators with the default joiner", () => {
+    expect(
+      normalizeInlineBulletGlyphs(
+        "combination with lithium may lead to serotonin toxicity • Concurrent antipsychotic medications o Rapid dose increase of lithium and antipsychotics",
+      ),
+    ).toBe(
+      "combination with lithium may lead to serotonin toxicity; Concurrent antipsychotic medications; Rapid dose increase of lithium and antipsychotics",
+    );
+  });
+
+  it("drops a leading bullet outright", () => {
+    expect(normalizeInlineBulletGlyphs("• Monitor sodium levels weekly")).toBe("Monitor sodium levels weekly");
+  });
+
+  it("keeps a temperature-style ' o ' glyph and lowercase follow-ons untouched", () => {
+    expect(normalizeInlineBulletGlyphs("Store below 37 o C at all times")).toBe("Store below 37 o C at all times");
+    expect(normalizeInlineBulletGlyphs("blood group o positive result")).toBe("blood group o positive result");
+  });
+
+  it("repairs a label colon followed by a converted sub-bullet ('Label:; item' → 'Label: item')", () => {
+    expect(normalizeInlineBulletGlyphs("Acute Mania: o IR product: 750 to 1000mg daily")).toBe(
+      "Acute Mania: IR product: 750 to 1000mg daily",
+    );
+  });
+
+  it("is idempotent for the default joiner", () => {
+    const once = normalizeInlineBulletGlyphs("Dosing • start low o Titrate slowly against response");
+    expect(normalizeInlineBulletGlyphs(once)).toBe(once);
+  });
+
+  it("turns each list item into its own line with the newline joiner", () => {
+    expect(normalizeInlineBulletGlyphs("Acute Mania: o IR product: 750 to 1000mg daily", { joiner: "\n" })).toBe(
+      "Acute Mania:\nIR product: 750 to 1000mg daily",
+    );
+    expect(normalizeInlineBulletGlyphs("first point • Second point o Third point", { joiner: "\n" })).toBe(
+      "first point\nSecond point\nThird point",
+    );
   });
 });
