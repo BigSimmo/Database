@@ -390,7 +390,7 @@ Automatic Codex review is review-only by default. This repository includes `.git
 
 - The workflow must only trigger from Codex review bot reviews or comments on open pull requests.
 - The workflow must skip review-thread replies and auto-resolve request comments so Codex fix summaries do not re-trigger the workflow.
-- The workflow must ask Codex to resolve all review comments using these repository instructions.
+- The workflow must ask Codex to resolve only actionable Codex review findings for the triggering pull request and current head using these repository instructions.
 - The workflow must avoid duplicate requests for the same pull request, even after follow-up commits change the head SHA.
 - The workflow must not run Codex directly with API credentials.
 - P0 and P1 findings should always be fixed.

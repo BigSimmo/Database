@@ -31,6 +31,11 @@ async function gotoApp(page: Page, path: string) {
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 }
 
+async function gotoCriticalApp(page: Page, path: string) {
+  await page.goto(path, { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#main-content, main").first()).toBeVisible({ timeout: 30_000 });
+}
+
 async function expectSingleMedicationPage(page: Page) {
   // The medication route renders inside GlobalMockupSearchShell, whose Suspense
   // fallback and resolved client subtree both render `children`. During a
@@ -791,13 +796,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
-  test("anonymous user can see enabled live search without a forced sign-in gate", async ({ page }) => {
+  test("anonymous user can see enabled live search without a forced sign-in gate @critical", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockPrivateUnauthenticatedApi(page);
     await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { results: [], telemetry: { retrieval_strategy: "text_fast_path" } } });
     });
-    await gotoApp(page, "/");
+    await gotoCriticalApp(page, "/");
     await waitForDemoDashboardReady(page);
 
     await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
@@ -864,10 +869,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
   });
 
-  test("tablet shows icon rail without drawer trigger or expand control", async ({ page }) => {
+  test("tablet shows icon rail without drawer trigger or expand control @critical", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await mockDemoApi(page);
-    await gotoApp(page, "/?mode=answer");
+    await gotoCriticalApp(page, "/?mode=answer");
     await waitForDemoDashboardReady(page);
 
     await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
@@ -953,7 +958,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/");
+    await gotoCriticalApp(page, "/");
     await waitForDemoDashboardReady(page);
 
     const settings = accountSettingsDialog(page);
@@ -1109,10 +1114,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("demo answer flow reaches a source-backed answer", async ({ browserName, page }) => {
+  test("demo answer flow reaches a source-backed answer @critical", async ({ browserName, page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
-    await gotoApp(page, "/");
+    await gotoCriticalApp(page, "/");
     await waitForDemoDashboardReady(page);
 
     const question = "What clozapine monitoring items are shown in the table image?";
@@ -1954,7 +1959,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeButton).toBeFocused();
   });
 
-  test("prescribing workflow uses in-app medication routes", async ({ page }) => {
+  test("prescribing workflow uses in-app medication routes @critical", async ({ page }) => {
     test.setTimeout(120_000);
     // Regression guard: navigating away from a mode home used to throw
     // "Cannot read properties of null (reading 'parentNode')" because the header
@@ -1970,7 +1975,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
+    await gotoCriticalApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
 
     const globalSearchInput = page.getByTestId("global-search-input");
     await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
@@ -1983,7 +1988,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
     await expectSingleMedicationPage(page);
 
-    await gotoApp(page, "/mockups/medication-prescribing");
+    await gotoCriticalApp(page, "/mockups/medication-prescribing");
     await expect(page).toHaveURL(/\/medications\/acamprosate$/);
     await expectSingleMedicationPage(page);
     expect(parentNodeErrors).toEqual([]);
@@ -2018,7 +2023,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("document search mode lists matching documents and scope actions", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
-    await gotoApp(page, "/");
+    await gotoCriticalApp(page, "/");
     await waitForDemoDashboardReady(page);
 
     await switchToDocumentSearchMode(page);
@@ -2103,10 +2108,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("search regressions avoid fetch errors and open viewer hits", async ({ page }) => {
+  test("search regressions avoid fetch errors and open viewer hits @critical", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/");
+    await gotoCriticalApp(page, "/");
     await waitForDemoDashboardReady(page);
 
     await switchToDocumentSearchMode(page);
@@ -2119,7 +2124,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: /Search command centre|Find source evidence/ })).toBeVisible();
 
     const demoDocId = "11111111-1111-4111-8111-111111111111";
-    await gotoApp(page, `/documents/${demoDocId}?chunk=55555555-5555-4555-8555-555555555555`);
+    await gotoCriticalApp(page, `/documents/${demoDocId}?chunk=55555555-5555-4555-8555-555555555555`);
     await expect(page).toHaveURL(/chunk=55555555-5555-4555-8555-555555555555/);
     await expect(page.locator("#source-evidence").getByTestId("highlighted-source-passage")).toContainText(
       "Patient safety plan should include",
