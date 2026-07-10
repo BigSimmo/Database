@@ -111,10 +111,13 @@ const candidateIconBySlug: Array<[string, LucideIcon]> = [
   ["delirium", BrainCircuit],
 ];
 
-function routeWithQuery(path: string, query: string) {
+function routeWithQuery(path: string, query: string, selectedIds?: Set<string>) {
   const params = new URLSearchParams();
   const trimmedQuery = query.trim();
   if (trimmedQuery) params.set("q", trimmedQuery);
+  if (selectedIds && selectedIds.size > 0) {
+    params.set("ids", Array.from(selectedIds).join(","));
+  }
   const suffix = params.toString();
   return suffix ? `${path}?${suffix}` : path;
 }
@@ -125,7 +128,15 @@ function routeWithQuery(path: string, query: string) {
  * with it on scroll), but renders as a self-contained floating pill so it
  * reads as a batch-selection action rather than composer chrome.
  */
-function DifferentialsMobileCompareBar({ selectedCount, query }: { selectedCount: number; query: string }) {
+function DifferentialsMobileCompareBar({
+  selectedCount,
+  selectedIds,
+  query,
+}: {
+  selectedCount: number;
+  selectedIds: Set<string>;
+  query: string;
+}) {
   const [host, setHost] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -151,7 +162,7 @@ function DifferentialsMobileCompareBar({ selectedCount, query }: { selectedCount
     <div aria-live="polite" className="flex w-full justify-center">
       {hasSelection ? (
         <Link
-          href={routeWithQuery("/differentials/presentations", query)}
+          href={routeWithQuery("/differentials/presentations", query, selectedIds)}
           data-testid="differentials-compare-selected-mobile"
           className="inline-flex min-h-12 max-w-full items-center gap-2.5 rounded-full border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] py-1 pl-4 pr-2.5 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition active:bg-[color:var(--clinical-accent-hover)]"
         >
@@ -553,20 +564,35 @@ function BestAnswerCard({
   const visibleTags = best.tags.slice(0, tagLimit);
   const hiddenTagCount = best.tags.length - visibleTags.length;
 
+  // Use danger styling for emergent, accent styling for routine results
+  const isEmergent = best.status === "emergent";
+  const cardBorderColor = isEmergent ? "var(--danger-border)" : "var(--clinical-accent-border)";
+  const cardBgColor = isEmergent ? "var(--danger-soft)" : "var(--clinical-accent-soft)";
+  const iconBorderColor = isEmergent ? "var(--danger-border)" : "var(--clinical-accent-border)";
+  const iconColor = isEmergent ? "var(--danger)" : "var(--clinical-accent)";
+
   return (
     <section
       className={cn(
-        "rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/55 shadow-[var(--shadow-inset)]",
+        "rounded-lg border shadow-[var(--shadow-inset)]",
         compact ? "p-3.5" : "p-4",
       )}
+      style={{
+        borderColor: `color-mix(in srgb, ${cardBorderColor}, transparent)`,
+        backgroundColor: `color-mix(in srgb, ${cardBgColor}, transparent 45%)`,
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <span
             className={cn(
-              "grid shrink-0 place-items-center rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--surface)] text-[color:var(--danger)]",
+              "grid shrink-0 place-items-center rounded-lg border bg-[color:var(--surface)]",
               compact ? "h-12 w-12" : "h-14 w-14",
             )}
+            style={{
+              borderColor: `color-mix(in srgb, ${iconBorderColor}, transparent)`,
+              color: `color-mix(in srgb, ${iconColor}, transparent)`,
+            }}
           >
             <Icon className={cn("stroke-[1.8]", compact ? "h-7 w-7" : "h-8 w-8")} aria-hidden />
           </span>
@@ -683,11 +709,13 @@ function SourceStatusCard({
   sourceCount,
   evidenceState,
   loading,
+  sourcesChecked,
   onRunSourceSearch,
 }: {
   sourceCount: number;
   evidenceState: DifferentialEvidenceState;
   loading: boolean;
+  sourcesChecked: boolean;
   onRunSourceSearch: () => void;
 }) {
   const hasSourceEvidence = evidenceState === "source-backed";
@@ -704,27 +732,29 @@ function SourceStatusCard({
             {hasSourceEvidence ? "Source-backed" : "Guided local differential"}
           </span>
           <span className="text-[color:var(--text-muted)]">
-            {hasSourceEvidence ? `${sourceCount.toLocaleString()} sources` : "Evidence pending"}
+            {hasSourceEvidence ? `${sourceCount.toLocaleString()} sources` : sourcesChecked ? "0 matches" : "Evidence pending"}
           </span>
         </p>
         <p className="flex items-center justify-between gap-3 text-[color:var(--warning)]">
           <span className="inline-flex items-center gap-2">
             <CircleHelp className="h-4 w-4" aria-hidden />
-            {hasSourceEvidence ? "Imported catalogue" : "Run source search"}
+            {hasSourceEvidence ? "Imported catalogue" : sourcesChecked ? "Sources checked" : "Run source search"}
           </span>
           <span className="text-[color:var(--text-muted)]">
             {hasSourceEvidence
               ? `${sourceCount.toLocaleString()} source${sourceCount === 1 ? "" : "s"}`
-              : "Not yet checked"}
+              : sourcesChecked ? "No matches" : "Not yet checked"}
           </span>
         </p>
       </div>
       <p className="mt-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
         {hasSourceEvidence
           ? "Catalogue matches are ranked from the imported, locally reviewed differentials library."
-          : "Showing reviewed local differential records. Run source search to validate against indexed documents."}
+          : sourcesChecked
+            ? "No indexed documents matched this query. Showing catalogue-only results."
+            : "Showing reviewed local differential records. Run source search to validate against indexed documents."}
       </p>
-      {!hasSourceEvidence ? (
+      {!hasSourceEvidence && !sourcesChecked ? (
         <button
           type="button"
           onClick={onRunSourceSearch}
@@ -746,6 +776,7 @@ function InterpretationRail({
   sourceCount,
   evidenceState,
   loading,
+  sourcesChecked,
   onRunSourceSearch,
 }: {
   best: DifferentialResult;
@@ -754,6 +785,7 @@ function InterpretationRail({
   sourceCount: number;
   evidenceState: DifferentialEvidenceState;
   loading: boolean;
+  sourcesChecked: boolean;
   onRunSourceSearch: () => void;
 }) {
   const safetyLead = results.find((result) => result.status === "emergent") ?? best;
@@ -772,6 +804,7 @@ function InterpretationRail({
         sourceCount={sourceCount}
         evidenceState={evidenceState}
         loading={loading}
+        sourcesChecked={sourcesChecked}
         onRunSourceSearch={onRunSourceSearch}
       />
       <p className="px-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
@@ -833,6 +866,8 @@ function SearchResultsView({
   const evidenceIsCurrent = (evidenceQuery ?? "").trim().toLowerCase() === query.trim().toLowerCase();
   const currentDocumentMatches = evidenceIsCurrent ? documentMatches : undefined;
   const hasSourceEvidence = Boolean(currentDocumentMatches?.length);
+  // Distinguish between "not searched yet" (undefined) and "searched with zero results" (defined but empty)
+  const sourcesChecked = evidenceIsCurrent && documentMatches !== undefined;
   const evidenceState: DifferentialEvidenceState = hasSourceEvidence ? "source-backed" : "guided";
   // Count the sources that actually matched this search, never the whole
   // indexed library - the surrounding copy states these reflect real matches.
@@ -958,7 +993,7 @@ function SearchResultsView({
                 </h2>
               </div>
               <div className="hidden items-center gap-2 sm:flex">
-                {!hasSourceEvidence ? (
+                {!hasSourceEvidence && !sourcesChecked ? (
                   <button
                     type="button"
                     onClick={rerunSearch}
@@ -968,6 +1003,11 @@ function SearchResultsView({
                     <Search className="h-4 w-4" aria-hidden />
                     {loading ? "Searching sources" : "Run source search"}
                   </button>
+                ) : sourcesChecked && !hasSourceEvidence ? (
+                  <p className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 text-sm font-semibold text-[color:var(--text-heading)]">
+                    <Info className="h-4 w-4 text-[color:var(--warning)]" aria-hidden />
+                    No source matches found
+                  </p>
                 ) : null}
                 <SortSelect value={sortMode} onChange={setSortMode} className="min-h-10" />
               </div>
@@ -1005,7 +1045,7 @@ function SearchResultsView({
                 </span>
                 <SortSelect value={sortMode} onChange={setSortMode} />
               </div>
-              {!hasSourceEvidence ? (
+              {!hasSourceEvidence && !sourcesChecked ? (
                 <section
                   aria-label="Source status"
                   className="flex items-center justify-between gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 py-1.5 pl-3 pr-1.5 text-xs"
@@ -1022,6 +1062,16 @@ function SearchResultsView({
                     <Search className="h-3.5 w-3.5" aria-hidden />
                     {loading ? "Searching…" : "Run source search"}
                   </button>
+                </section>
+              ) : sourcesChecked && !hasSourceEvidence ? (
+                <section
+                  aria-label="Source status"
+                  className="flex items-center gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/40 py-2 pl-3 pr-3 text-xs"
+                >
+                  <Info className="h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden />
+                  <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
+                    No source matches found for this query.
+                  </p>
                 </section>
               ) : null}
             </div>
@@ -1072,7 +1122,7 @@ function SearchResultsView({
 
             {selectedCount > 0 ? (
               <Link
-                href={routeWithQuery("/differentials/presentations", query)}
+                href={routeWithQuery("/differentials/presentations", query, selectedIds)}
                 className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-base font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition hover:bg-[color:var(--clinical-accent-hover)] lg:inline-flex"
               >
                 <GitCompareArrows className="h-5 w-5" aria-hidden />
@@ -1097,12 +1147,13 @@ function SearchResultsView({
             sourceCount={reviewedSourceCount}
             evidenceState={evidenceState}
             loading={loading}
+            sourcesChecked={sourcesChecked}
             onRunSourceSearch={rerunSearch}
           />
         </div>
       )}
 
-      {best ? <DifferentialsMobileCompareBar selectedCount={selectedCount} query={query} /> : null}
+      {best ? <DifferentialsMobileCompareBar selectedCount={selectedCount} selectedIds={selectedIds} query={query} /> : null}
 
       <p className="pb-3 text-center text-xs font-medium text-[color:var(--text-muted)] lg:hidden">
         Clinical decision support only. Review before use.
