@@ -20,6 +20,7 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { parseJsonBody } from "@/lib/validation/body";
+import { answerServerTimingEntries, buildServerTimingHeader } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
@@ -69,6 +70,7 @@ function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string
 }
 
 export async function POST(request: Request) {
+  const routeStartedAt = Date.now();
   let body: AnswerRequestBody | null = null;
   try {
     const answerBody = await parseJsonBody(request, answerSchema, "Invalid answer request.");
@@ -154,12 +156,19 @@ export async function POST(request: Request) {
 
     logAnswerDiagnostics({ supabase, query: answerBody.query, ownerId: access.ownerId, answer });
 
-    return NextResponse.json({
-      ...answer,
-      degradedMode: answerDegradedModeSignal(answer),
-      scope: { ...scope, queryMode: answerBody.queryMode },
-      sourceGovernanceWarnings: warnings,
-    });
+    // Durations only — see server-timing.ts for the trust-boundary constraint.
+    const serverTiming = buildServerTimingHeader(
+      answerServerTimingEntries(answer.latencyTimings, Date.now() - routeStartedAt),
+    );
+    return NextResponse.json(
+      {
+        ...answer,
+        degradedMode: answerDegradedModeSignal(answer),
+        scope: { ...scope, queryMode: answerBody.queryMode },
+        sourceGovernanceWarnings: warnings,
+      },
+      serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
+    );
   } catch (error) {
     if (error instanceof serverAuth.AuthenticationError) {
       return serverAuth.unauthorizedResponse(error);
