@@ -231,9 +231,7 @@ export function CrossModeLinksSection({
       router.push(appModeHomeHref(mode, { query, focus: true, run: true }));
     });
 
-  return (
-    <CrossModeLinksStrip links={links} onModeSearch={handleModeSearch} query={telemetryQuery} variant={variant} />
-  );
+  return <CrossModeLinksStrip links={links} onModeSearch={handleModeSearch} query={telemetryQuery} variant={variant} />;
 }
 
 export function CrossModeLinksStrip({
@@ -278,9 +276,7 @@ export function CrossModeLinksStrip({
         aria-label={links.length > 1 ? "Related library matches; scroll horizontally for more" : undefined}
         className={cn(
           "cross-mode-links-rail polished-scroll overflow-x-auto overscroll-x-contain pb-1",
-          compact
-            ? "flex min-w-0 items-center gap-2 md:pb-0"
-            : "grid gap-2 md:flex md:w-max md:max-w-full md:gap-2.5",
+          compact ? "flex min-w-0 items-center gap-2 md:pb-0" : "grid gap-2 md:flex md:w-max md:max-w-full md:gap-2.5",
         )}
         data-testid="cross-mode-links-rail"
       >
