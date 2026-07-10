@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DifferentialsHome } from "@/components/clinical-dashboard/differentials-home";
 import { ModeHomeMain } from "@/components/mode-home-template";
@@ -27,11 +27,13 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
   const trimmedQuery = query.trim();
   const [loading, setLoading] = useState(false);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
+  const searchRequestSeqRef = useRef(0);
 
   const runSearch = useCallback(
     async (searchText: string) => {
       const normalized = searchText.trim();
       if (!normalized) return;
+      const requestId = ++searchRequestSeqRef.current;
 
       setLoading(true);
       try {
@@ -41,17 +43,20 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
           body: JSON.stringify(differentialsSearchRequestBody(new URLSearchParams(searchParamString), normalized)),
         });
 
+        if (requestId !== searchRequestSeqRef.current) return;
         if (!response.ok) {
           setDocumentMatches([]);
           return;
         }
 
         const payload = (await response.json()) as { documentMatches?: DocumentMatch[] };
+        if (requestId !== searchRequestSeqRef.current) return;
         setDocumentMatches(payload.documentMatches ?? []);
       } catch {
+        if (requestId !== searchRequestSeqRef.current) return;
         setDocumentMatches([]);
       } finally {
-        setLoading(false);
+        if (requestId === searchRequestSeqRef.current) setLoading(false);
       }
     },
     [searchParamString],
