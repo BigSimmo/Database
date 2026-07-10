@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { DifferentialDiagnosisPageClient } from "@/components/differentials/differential-diagnosis-page-client";
-import { differentialStaticParams, getDifferentialRecord } from "@/lib/differentials";
+import { differentialStaticParams, getDifferentialDetailContext, getDifferentialRecord } from "@/lib/differentials";
 
 type DifferentialDiagnosisRouteProps = {
   params: Promise<{ slug: string }>;
@@ -28,5 +28,11 @@ export default async function DifferentialDiagnosisRoute({ params }: Differentia
   const record = getDifferentialRecord(slug);
   if (!record) notFound();
 
-  return <DifferentialDiagnosisPageClient slug={slug} fallbackRecord={record} />;
+  return (
+    <DifferentialDiagnosisPageClient
+      slug={slug}
+      fallbackRecord={record}
+      detailContext={getDifferentialDetailContext(record)}
+    />
+  );
 }

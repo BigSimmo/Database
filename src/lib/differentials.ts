@@ -1,5 +1,7 @@
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
+import { cleanDifferentialItem, type DifferentialDetailContext } from "@/lib/differential-detail";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
+import { deriveGovernanceFromSnapshot } from "@/lib/differential-records";
 import type {
   DifferentialComparisonCandidate,
   DifferentialComparisonCriterion,
@@ -102,6 +104,58 @@ export function getDifferentialRecord(slug: string | null | undefined) {
 
 export function presentationStaticParams() {
   return differentialPresentations().map((presentation) => ({ slug: presentation.id }));
+}
+
+let diagnosisTitleToSlug: Map<string, string> | null = null;
+function diagnosisTitleSlugMap() {
+  if (!diagnosisTitleToSlug) {
+    diagnosisTitleToSlug = new Map();
+    for (const record of differentialRecords) {
+      const key = cleanDifferentialItem(record.title).toLowerCase();
+      if (key && !diagnosisTitleToSlug.has(key)) diagnosisTitleToSlug.set(key, record.slug);
+    }
+  }
+  return diagnosisTitleToSlug;
+}
+
+/** Server-computed context for the diagnosis detail page. Everything the page
+ *  needs from the full catalog travels in this small serializable payload so
+ *  the client component never imports the generated snapshot. */
+export function getDifferentialDetailContext(record: DifferentialRecord): DifferentialDetailContext {
+  const catalogSlugs = new Set(differentialRecords.map((entry) => entry.slug));
+  const knownRelatedSlugs = [...new Set(record.related.map((node) => node.id).filter((id) => catalogSlugs.has(id)))];
+
+  const overlapLinks: Record<string, string> = {};
+  const titleMap = diagnosisTitleSlugMap();
+  for (const section of record.sections) {
+    if (section.tone !== "overlap") continue;
+    for (const item of section.items) {
+      const cleaned = cleanDifferentialItem(item);
+      const slug = titleMap.get(cleaned.toLowerCase());
+      if (slug && slug !== record.slug) overlapLinks[cleaned] = slug;
+    }
+  }
+
+  const presentation =
+    differentialPresentations().find((workflow) =>
+      workflow.candidates.some((candidate) => candidate.slug === record.slug),
+    ) ?? null;
+
+  const snapshot = loadDifferentialSnapshot();
+  const governance = deriveGovernanceFromSnapshot(snapshot);
+  return {
+    knownRelatedSlugs,
+    overlapLinks,
+    comparePresentation: presentation ? { slug: presentation.id, title: presentation.title } : null,
+    source: {
+      version: snapshot.governance.version,
+      exportedAt: snapshot.exportedAt,
+      reviewStatus: snapshot.governance.reviewStatus,
+      sourceTitle: snapshot.governance.sourceTitle,
+      sourceStatus: governance.source_status,
+      validationStatus: governance.validation_status,
+    },
+  };
 }
 
 export function differentialStaticParams() {
