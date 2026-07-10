@@ -199,10 +199,16 @@ async function fulfillAnswerResponse(route: Route, payload: unknown) {
 }
 
 type DemoAnswerOverride = (query: string, documentId?: string, documentIds?: string[]) => ReturnType<typeof demoAnswer>;
+type MockAnswerRequestBody = {
+  query?: string;
+  documentId?: string;
+  documentIds?: string[];
+  filters?: { sourceStatuses?: string[] };
+};
 type MockDemoApiOptions = {
   answerOverride?: DemoAnswerOverride;
   answerDelayMs?: number;
-  onAnswerRequest?: (query: string) => void;
+  onAnswerRequest?: (query: string, body: MockAnswerRequestBody) => void;
 };
 
 async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
@@ -279,13 +285,9 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
     await route.fulfill({ json: { items: [], demoMode: true } });
   });
   await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
-    const body = route.request().postDataJSON() as {
-      query?: string;
-      documentId?: string;
-      documentIds?: string[];
-    };
+    const body = route.request().postDataJSON() as MockAnswerRequestBody;
     const query = body.query ?? "What monitoring is required?";
-    options.onAnswerRequest?.(query);
+    options.onAnswerRequest?.(query, body);
     if (options.answerDelayMs) {
       await new Promise((resolve) => setTimeout(resolve, options.answerDelayMs));
     }
@@ -1490,8 +1492,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("a routed scope change reruns a manually submitted answer", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     const answerRequests: string[] = [];
+    const answerRequestBodies: MockAnswerRequestBody[] = [];
     const question = "lithium monitoring";
-    await mockDemoApi(page, { onAnswerRequest: (query) => answerRequests.push(query) });
+    await mockDemoApi(page, {
+      onAnswerRequest: (query, body) => {
+        answerRequests.push(query);
+        answerRequestBodies.push(body);
+      },
+    });
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
@@ -1504,6 +1512,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.evaluate((url) => window.history.pushState(null, "", url), scopedUrl);
 
     await expect.poll(() => answerRequests).toEqual([question, question]);
+    expect(answerRequestBodies[1]?.filters?.sourceStatuses).toEqual(["outdated"]);
     await expect(page).toHaveURL(/scope\.sourceStatuses=outdated/);
   });
 
