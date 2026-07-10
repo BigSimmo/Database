@@ -16,7 +16,6 @@ import {
   ExternalLink,
   FileImage,
   FileText,
-  Filter,
   ImageIcon,
   Layers3,
   List,
@@ -34,6 +33,7 @@ import {
 import { ReactNode, useMemo, useState } from "react";
 
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
+import { DocumentBadge, DocumentFileTile, DocumentMetaRow } from "@/components/clinical-dashboard/document-ui";
 import { cn } from "@/components/ui-primitives";
 import { documentEvidenceHref, documentReaderHref, documentsSearchHref } from "@/lib/document-flow-routes";
 
@@ -231,19 +231,21 @@ const documents: DocumentFixture[] = [
 
 const defaultDocument = documents[0];
 const defaultQuery = "clozapine monitoring table";
-const sourceCategoryCounts = [
-  ["All sources", "Sample 2,065"],
-  ["Guidelines", "Sample 842"],
-  ["Procedures", "Sample 468"],
-  ["Reference", "Sample 411"],
-  ["Education", "Sample 344"],
-  ["Policies", "-"],
-] as const;
-const libraryCategoryCounts = [
-  ["Favorites", "Sample 23"],
-  ["Recent", "Sample 12"],
-  ["My notes", "Sample 8"],
-] as const;
+type SourceCategory = "All sources" | "Guidelines" | "Procedures" | "Reference";
+
+const sourceCategories: readonly SourceCategory[] = ["All sources", "Guidelines", "Procedures", "Reference"];
+
+const sourceCategoryMap: Record<string, Exclude<SourceCategory, "All sources">> = {
+  "Clinical Guidelines": "Guidelines",
+  "Guideline Summary": "Guidelines",
+  Procedure: "Procedures",
+  Reference: "Reference",
+  "Clinical Review": "Reference",
+};
+
+function documentMatchesCategory(document: DocumentFixture, category: SourceCategory) {
+  return category === "All sources" || sourceCategoryMap[document.source] === category;
+}
 const monitoringTableHeadings = ["Treatment duration", "Frequency", "Test", "Action threshold"] as const;
 const monitoringTableRows = [
   ["0 - 18 weeks", "Weekly", "Full Blood Count (ANC)", "ANC < 1.5 x10^9/L"],
@@ -349,6 +351,15 @@ function Pill({
   );
 }
 
+function BestMatchBadge() {
+  return (
+    <span className="inline-flex min-h-6 shrink-0 items-center gap-1 self-start rounded-full bg-[color:var(--clinical-accent)] px-2.5 text-2xs font-bold uppercase tracking-[0.04em] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+      <Sparkles className="h-3 w-3" aria-hidden="true" />
+      Best match
+    </span>
+  );
+}
+
 function IconButton({ label, icon: Icon, active = false }: { label: string; icon: LucideIcon; active?: boolean }) {
   return (
     <button
@@ -375,73 +386,43 @@ function FileTile({ label = "PDF" }: { label?: string }) {
   );
 }
 
-function CategoryRailSection({
-  title,
-  items,
-  activeLabel,
+function DocumentSearchCategoryRail({
+  category,
+  counts,
+  onSelect,
 }: {
-  title: string;
-  items: readonly (readonly [string, string])[];
-  activeLabel?: string;
+  category: SourceCategory;
+  counts: Record<SourceCategory, number>;
+  onSelect: (category: SourceCategory) => void;
 }) {
   return (
-    <section className="space-y-1">
-      <h2 className="px-3 text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{title}</h2>
-      {items.map(([label, count]) => {
-        const active = label === activeLabel;
-        return (
-          <button
-            key={label}
-            type="button"
-            className={cn(
-              "grid min-h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold transition",
-              focusRing,
-              active
-                ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-raised)] hover:text-[color:var(--text-heading)]",
-            )}
-          >
-            <span className="truncate">{label}</span>
-            <span className="nums text-xs font-bold text-[color:var(--text-soft)]">{count}</span>
-          </button>
-        );
-      })}
-    </section>
-  );
-}
-
-function DocumentSearchCategoryRail() {
-  return (
-    <aside className="hidden border-r border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-4 max-xl:!hidden xl:block">
-      <div className="sticky top-4 space-y-6">
-        <CategoryRailSection title="Documents" items={sourceCategoryCounts} activeLabel="All sources" />
-        <CategoryRailSection title="My library" items={libraryCategoryCounts} />
+    <aside className="hidden border-r border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-5 max-xl:!hidden xl:block">
+      <div className="sticky top-4">
         <section className="space-y-1">
-          <h2 className="px-3 text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Tools
+          <h2 className="px-3 pb-1 text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+            Documents
           </h2>
-          {[
-            ["Compare", BarChart3],
-            ["Collections", Layers3],
-            ["Uploads", Download],
-          ].map(([label, Icon]) =>
-            (() => {
-              const ToolIcon = Icon as LucideIcon;
-              return (
-                <button
-                  key={label as string}
-                  type="button"
-                  className={cn(
-                    "inline-flex min-h-9 w-full items-center gap-2 rounded-lg px-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-raised)] hover:text-[color:var(--text-heading)]",
-                    focusRing,
-                  )}
-                >
-                  <ToolIcon className="h-4 w-4" aria-hidden="true" />
-                  {label as string}
-                </button>
-              );
-            })(),
-          )}
+          {sourceCategories.map((label) => {
+            const active = label === category;
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => onSelect(label)}
+                aria-pressed={active}
+                className={cn(
+                  "grid min-h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold transition",
+                  focusRing,
+                  active
+                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-raised)] hover:text-[color:var(--text-heading)]",
+                )}
+              >
+                <span className="truncate">{label}</span>
+                <span className="nums text-xs font-bold text-[color:var(--text-soft)]">{counts[label]}</span>
+              </button>
+            );
+          })}
         </section>
       </div>
     </aside>
@@ -469,7 +450,7 @@ function SearchResultMobileCard({
           : "border-[color:var(--border)]",
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-[color:var(--clinical-accent)]">
             {evidence ? (
@@ -493,11 +474,11 @@ function SearchResultMobileCard({
             )}
           </div>
         </div>
-        {selected ? <Pill active>Best match</Pill> : <IconButton label="More result actions" icon={MoreVertical} />}
+        {selected ? <BestMatchBadge /> : null}
       </div>
       <div className="mt-3 flex min-w-0 gap-3">
         <div className="shrink-0">
-          <FileTile />
+          <DocumentFileTile kind="PDF" />
         </div>
         <div className="min-w-0 flex-1">
           <Link
@@ -526,7 +507,6 @@ function SearchResultMobileCard({
         <Pill tone={document.status === "Current" ? "green" : "amber"} icon={CheckCircle2}>
           {document.status}
         </Pill>
-        <Pill>{evidence ? evidenceLabel(evidence) : "No extracted evidence"}</Pill>
       </div>
       <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
         <Link
@@ -556,22 +536,10 @@ function SearchResultMobileCard({
   );
 }
 
-function DocumentShell({ children, hideSidebar = false }: { children: ReactNode; hideSidebar?: boolean }) {
+function DocumentShell({ children }: { children: ReactNode }) {
   return (
     <main className="min-h-screen bg-[color:var(--background)] text-[color:var(--text)]">
-      <div className="flex min-h-[calc(100dvh-4rem)]">
-        {!hideSidebar ? (
-          <aside className="hidden w-14 shrink-0 border-r border-[color:var(--border)] bg-[color:var(--surface)] lg:flex lg:flex-col lg:items-center lg:gap-2 lg:py-4">
-            <IconButton label="Documents" icon={FileText} active />
-            <IconButton label="Search" icon={Search} />
-            <IconButton label="Library" icon={BookOpen} />
-            <IconButton label="Evidence" icon={Layers3} />
-            <div className="mt-auto" />
-            <IconButton label="Bookmarks" icon={Bookmark} />
-          </aside>
-        ) : null}
-        <div className="min-w-0 flex-1">{children}</div>
-      </div>
+      <div className="min-h-[calc(100dvh-4rem)]">{children}</div>
     </main>
   );
 }
@@ -632,8 +600,11 @@ export function MasterDocumentSearch() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q")?.trim() || defaultQuery;
   const [type, setType] = useState<"all" | EvidenceType>("all");
+  const [category, setCategory] = useState<SourceCategory>("All sources");
 
-  const filtered = useMemo(() => {
+  // Query + evidence-type matches, before the category filter: category
+  // counts come from this list so they stay honest while a category is active.
+  const queryTypeFiltered = useMemo(() => {
     const lowered = query.toLowerCase();
     return documents.filter((document) => {
       const matchesQuery =
@@ -645,10 +616,33 @@ export function MasterDocumentSearch() {
     });
   }, [query, type]);
 
+  const categoryCounts = useMemo(() => {
+    const counts = { "All sources": queryTypeFiltered.length, Guidelines: 0, Procedures: 0, Reference: 0 } as Record<
+      SourceCategory,
+      number
+    >;
+    for (const document of queryTypeFiltered) {
+      const mapped = sourceCategoryMap[document.source];
+      if (mapped) counts[mapped] += 1;
+    }
+    return counts;
+  }, [queryTypeFiltered]);
+
+  const filtered = useMemo(
+    () => queryTypeFiltered.filter((document) => documentMatchesCategory(document, category)),
+    [queryTypeFiltered, category],
+  );
+
+  const filtersActive = type !== "all" || category !== "All sources";
+  const resetFilters = () => {
+    setType("all");
+    setCategory("All sources");
+  };
+
   return (
     <DocumentShell>
       <div className="grid min-h-[calc(100dvh-4rem)] xl:grid-cols-[12rem_minmax(0,1fr)]">
-        <DocumentSearchCategoryRail />
+        <DocumentSearchCategoryRail category={category} counts={categoryCounts} onSelect={setCategory} />
         <div className="mx-auto flex min-h-[calc(100dvh-4rem)] min-w-0 w-full max-w-[104rem] flex-col px-3 py-4 pb-24 sm:px-5 md:pb-12 lg:px-6">
           <header className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
@@ -668,20 +662,6 @@ export function MasterDocumentSearch() {
                 <Pill tone="green" icon={CheckCircle2}>
                   Sample · 2,065 indexed
                 </Pill>
-                <span className="hidden sm:inline-flex" title="Coming soon">
-                  <Pill icon={Bookmark}>Save search</Pill>
-                </span>
-                <button
-                  type="button"
-                  disabled
-                  title="Coming soon"
-                  className={cn(
-                    "ml-auto grid h-11 w-11 cursor-not-allowed place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-soft)] opacity-60 sm:hidden",
-                  )}
-                  aria-label="More search actions (coming soon)"
-                >
-                  <MoreVertical className="h-5 w-5" aria-hidden="true" />
-                </button>
               </div>
             </div>
             <div className="-mx-3 flex items-center gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
@@ -696,183 +676,155 @@ export function MasterDocumentSearch() {
                   key={key}
                   type="button"
                   onClick={() => setType(key as "all" | EvidenceType)}
+                  aria-pressed={type === key}
                   className={cn(
-                    "inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold shadow-[var(--shadow-inset)]",
+                    "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-bold shadow-[var(--shadow-inset)] transition sm:min-h-9",
                     focusRing,
                     type === key
                       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                      : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)]",
+                      : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] hover:border-[color:var(--border-strong)]",
                   )}
                 >
                   {label}
                 </button>
               ))}
-              <button
-                type="button"
-                disabled
-                title="Coming soon"
-                className={cn(
-                  "inline-flex min-h-9 shrink-0 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-3 text-xs font-bold text-[color:var(--success)] opacity-70 shadow-[var(--shadow-inset)] md:hidden",
-                )}
-              >
-                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                Current
-              </button>
-              <button
-                className={cn(
-                  "inline-flex min-h-9 shrink-0 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-bold text-[color:var(--text-soft)] opacity-70 shadow-[var(--shadow-inset)]",
-                )}
-                type="button"
-                disabled
-                title="Coming soon"
-              >
-                <Filter className="h-4 w-4" aria-hidden="true" />
-                More filters
-              </button>
-              <div className="ml-auto hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1 opacity-70 shadow-[var(--shadow-inset)] sm:flex">
-                <span className="inline-flex min-h-8 items-center gap-1 rounded-md bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)]">
-                  <Table2 className="h-3.5 w-3.5" />
-                  Table
-                </span>
-                <span className="inline-flex min-h-8 items-center gap-1 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)]">
-                  <List className="h-3.5 w-3.5" />
-                  List
-                </span>
-              </div>
+              <span className="h-5 w-px shrink-0 bg-[color:var(--border)] xl:hidden" aria-hidden="true" />
+              {sourceCategories.map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setCategory(label)}
+                  aria-pressed={category === label}
+                  className={cn(
+                    "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-bold shadow-[var(--shadow-inset)] transition sm:min-h-9 xl:hidden",
+                    focusRing,
+                    category === label
+                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                      : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-            <div className="flex items-center justify-between md:hidden">
-              <p className="text-lg font-extrabold text-[color:var(--text-heading)]">{filtered.length} results</p>
-              <button
-                type="button"
-                disabled
-                title="Coming soon"
-                className={cn(
-                  "inline-flex min-h-10 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--text-soft)] opacity-70 shadow-[var(--shadow-inset)]",
-                )}
-              >
-                Sort: Relevance
-                <ChevronDown className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
+            <p className="text-sm font-bold text-[color:var(--text-muted)]">
+              <span className="nums text-[color:var(--text-heading)]">{filtered.length}</span>{" "}
+              {filtered.length === 1 ? "result" : "results"}
+            </p>
           </header>
 
           <div className="mt-4">
-            <CrossModeLinksSection queries={[query]} />
+            <CrossModeLinksSection queries={[query]} variant="compact" />
           </div>
 
           <section className="mt-4 hidden min-h-0 flex-1 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] md:block">
-            <div className="grid min-w-[58rem] grid-cols-[minmax(20rem,1.7fr)_minmax(17rem,1.25fr)_9rem_8rem_5rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-3 text-xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-              <span>Document</span>
-              <span>Evidence</span>
-              <span>Status</span>
-              <span>Relevance</span>
-              <span>Actions</span>
-            </div>
             <div className="overflow-x-auto">
-              {filtered.length === 0 ? (
-                <div className="px-4 py-10 text-center">
-                  <p className="text-base font-extrabold text-[color:var(--text-heading)]">
-                    No documents match &ldquo;{query}&rdquo;
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">
-                    Try a broader search term{type !== "all" ? " or reset the evidence filter" : ""}.
-                  </p>
-                  {type !== "all" ? (
-                    <button
-                      type="button"
-                      onClick={() => setType("all")}
+              <div className="min-w-[56rem]">
+                <div className="grid grid-cols-[minmax(19rem,1.8fr)_minmax(16rem,1.3fr)_9.5rem_7.5rem_6.5rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-3 text-xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                  <span>Document</span>
+                  <span>Evidence</span>
+                  <span>Status</span>
+                  <span>Relevance</span>
+                  <span>Action</span>
+                </div>
+                {filtered.length === 0 ? (
+                  <div className="px-4 py-10 text-center">
+                    <p className="text-base font-extrabold text-[color:var(--text-heading)]">
+                      No documents match &ldquo;{query}&rdquo;
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">
+                      Try a broader search term{filtersActive ? " or reset the filters" : ""}.
+                    </p>
+                    {filtersActive ? (
+                      <button
+                        type="button"
+                        onClick={resetFilters}
+                        className={cn(
+                          "mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 text-sm font-bold text-[color:var(--clinical-accent)]",
+                          focusRing,
+                        )}
+                      >
+                        Show all sources
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+                {filtered.map((document, index) => {
+                  const rowEvidence = evidenceForType(document, type);
+                  const featured = index === 0;
+                  return (
+                    <article
+                      key={document.slug}
                       className={cn(
-                        "mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 text-sm font-bold text-[color:var(--clinical-accent)]",
-                        focusRing,
+                        "grid grid-cols-[minmax(19rem,1.8fr)_minmax(16rem,1.3fr)_9.5rem_7.5rem_6.5rem] items-center gap-3 border-b border-[color:var(--border)] px-4 py-3.5 transition-colors",
+                        featured
+                          ? "bg-gradient-to-r from-[color:var(--clinical-accent-soft)]/50 via-[color:var(--clinical-accent-soft)]/15 to-transparent shadow-[inset_3px_0_0_var(--clinical-accent)]"
+                          : "hover:bg-[color:var(--surface-subtle)]/60",
                       )}
                     >
-                      Show all sources
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-              {filtered.map((document, index) => {
-                const rowEvidence = evidenceForType(document, type);
-                return (
-                  <article
-                    key={document.slug}
-                    className={cn(
-                      "grid min-w-[58rem] grid-cols-[minmax(20rem,1.7fr)_minmax(17rem,1.25fr)_9rem_8rem_5rem] items-center gap-3 border-b border-[color:var(--border)] px-4 py-3",
-                      index === 0 &&
-                        "bg-[color:var(--clinical-accent-soft)]/30 shadow-[inset_3px_0_0_var(--clinical-accent)]",
-                    )}
-                  >
-                    <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3">
-                      <FileTile />
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap gap-1.5">
-                          {index === 0 ? <Pill active>Best match</Pill> : <Pill>Relevant</Pill>}
+                      <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3">
+                        <DocumentFileTile kind="PDF" />
+                        <div className="min-w-0">
+                          {featured ? <BestMatchBadge /> : null}
+                          <Link
+                            href={documentHref(document, query, rowEvidence)}
+                            className={cn(
+                              "block line-clamp-2 text-sm font-extrabold leading-5 text-[color:var(--text-heading)] transition-colors hover:text-[color:var(--clinical-accent)]",
+                              featured && "mt-1",
+                              focusRing,
+                            )}
+                          >
+                            {document.title}
+                          </Link>
+                          <DocumentMetaRow items={[document.kind, document.version]} className="mt-1" />
                         </div>
+                      </div>
+                      <div className="min-w-0">
+                        {rowEvidence ? (
+                          <DocumentBadge variant="high" icon={evidenceTypeIconFor(rowEvidence.type)}>
+                            {evidenceLabel(rowEvidence)} · p.{rowEvidence.page}
+                          </DocumentBadge>
+                        ) : (
+                          <p className="text-xs font-semibold text-[color:var(--text-soft)]">
+                            Document match · p.{document.page}
+                          </p>
+                        )}
+                        <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+                          {rowEvidence ? rowEvidence.body : document.snippet}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <Pill tone={document.status === "Current" ? "green" : "amber"}>{document.status}</Pill>
+                        <p className="text-xs font-semibold text-[color:var(--text-muted)]">{document.review}</p>
+                      </div>
+                      <div>
+                        <p className="nums text-sm font-extrabold text-[color:var(--clinical-accent)]">
+                          {document.relevance}%
+                        </p>
+                        <div className="mt-2 h-1.5 rounded-full bg-[color:var(--border)]" aria-hidden="true">
+                          <div
+                            className="h-full rounded-full bg-[color:var(--clinical-accent)]"
+                            style={{ width: `${document.relevance}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div>
                         <Link
                           href={documentHref(document, query, rowEvidence)}
                           className={cn(
-                            "mt-1 block line-clamp-2 text-sm font-extrabold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)]",
+                            "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-contrast)]",
                             focusRing,
                           )}
+                          aria-label={`Open ${document.title}`}
                         >
-                          {document.title}
+                          Open
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                         </Link>
-                        <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                          {document.kind} · {document.version} · {document.source}
-                        </p>
                       </div>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap gap-1.5">
-                        {rowEvidence ? (
-                          <Pill icon={evidenceTypeIconFor(rowEvidence.type)}>{evidenceLabel(rowEvidence)}</Pill>
-                        ) : (
-                          <Pill>No extracted evidence</Pill>
-                        )}
-                        <Pill>p.{rowEvidence?.page ?? document.page}</Pill>
-                        <Pill>{document.chunk}</Pill>
-                      </div>
-                      <p className="mt-1 truncate text-xs font-medium text-[color:var(--text-muted)]">
-                        {rowEvidence ? rowEvidence.body : document.snippet}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <Pill tone={document.status === "Current" ? "green" : "amber"}>{document.status}</Pill>
-                      <p className="text-xs font-semibold text-[color:var(--text-muted)]">{document.review}</p>
-                      <p className="text-xs font-semibold text-[color:var(--text-soft)]">{document.updated}</p>
-                    </div>
-                    <div>
-                      <p className="nums text-sm font-extrabold text-[color:var(--clinical-accent)]">
-                        {document.relevance}%
-                      </p>
-                      <div className="mt-2 h-1.5 rounded-full bg-[color:var(--border)]">
-                        <div
-                          className="h-full rounded-full bg-[color:var(--clinical-accent)]"
-                          style={{ width: `${document.relevance}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Link
-                        href={documentHref(document, query, rowEvidence)}
-                        className={cn(
-                          "grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text-heading)]",
-                          focusRing,
-                        )}
-                        aria-label={`Open ${document.title}`}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Link>
-                      <button
-                        type="button"
-                        className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)]"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
+                    </article>
+                  );
+                })}
+              </div>
             </div>
           </section>
 
@@ -883,12 +835,12 @@ export function MasterDocumentSearch() {
                   No documents match &ldquo;{query}&rdquo;
                 </p>
                 <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">
-                  Try a broader search term{type !== "all" ? " or reset the evidence filter" : ""}.
+                  Try a broader search term{filtersActive ? " or reset the filters" : ""}.
                 </p>
-                {type !== "all" ? (
+                {filtersActive ? (
                   <button
                     type="button"
-                    onClick={() => setType("all")}
+                    onClick={resetFilters}
                     className={cn(
                       "mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 text-sm font-bold text-[color:var(--clinical-accent)]",
                       focusRing,
@@ -1527,7 +1479,7 @@ export function MasterEvidenceDetail() {
 
   if (!evidence) {
     return (
-      <DocumentShell hideSidebar>
+      <DocumentShell>
         <div className="mx-auto max-w-3xl px-3 py-10 sm:px-5">
           <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-6 text-center shadow-[var(--shadow-soft)]">
             <h1 className="text-xl font-extrabold text-[color:var(--text-heading)]">No extracted evidence</h1>
@@ -1577,7 +1529,7 @@ function MasterEvidenceDetailContent({
   );
 
   return (
-    <DocumentShell hideSidebar>
+    <DocumentShell>
       <div className="lg:hidden">
         <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3">
           <div className="flex min-h-11 items-center gap-3">
@@ -1908,7 +1860,7 @@ function MasterEvidenceDetailContent({
 
 export function MasterDocumentIndex() {
   return (
-    <DocumentShell hideSidebar>
+    <DocumentShell>
       <div className="mx-auto max-w-7xl px-3 py-5 sm:px-6">
         <header className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--shadow-soft)]">
           <Pill active icon={ShieldCheck}>
