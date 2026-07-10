@@ -12,11 +12,14 @@ import {
   useState,
 } from "react";
 
-import { ClinicalDashboard } from "@/components/clinical-dashboard";
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { recentQueryStorageKey } from "@/components/ClinicalDashboard";
+import dynamic from "next/dynamic";
+
+// Import the dashboard module directly: the clinical-dashboard barrel re-exported
+// heavy result surfaces whose value exports were pulled eagerly through it,
+// defeating their dynamic() splits.
+import { ClinicalDashboard, recentQueryStorageKey } from "@/components/ClinicalDashboard";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
+import { useHasEverBeenTrue } from "@/components/clinical-dashboard/use-has-ever-been-true";
 import {
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
@@ -42,6 +45,17 @@ import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
+
+// Lazy dialogs, mounted on first open (see ClinicalDashboard for the same
+// pattern): their chunks never download for users who never open them.
+const SettingsDialog = dynamic(
+  () => import("@/components/clinical-dashboard/settings-dialog").then((m) => m.SettingsDialog),
+  { ssr: false },
+);
+const AccountSetupDialog = dynamic(
+  () => import("@/components/clinical-dashboard/account-setup-dialog").then((m) => m.AccountSetupDialog),
+  { ssr: false },
+);
 
 const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
   { value: "auto", label: "Auto" },
@@ -148,6 +162,8 @@ function GlobalMockupSearchShellClient({
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountSetupOpen, setAccountSetupOpen] = useState(false);
+  const settingsDialogMounted = useHasEverBeenTrue(settingsOpen);
+  const accountSetupDialogMounted = useHasEverBeenTrue(accountSetupOpen);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
@@ -507,16 +523,20 @@ function GlobalMockupSearchShellClient({
       </div>
 
       <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
-      <SettingsDialog
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        identity={sidebarIdentity}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onSignOut={auth.signOut}
-        onOpenGuide={openGuide}
-      />
-      <AccountSetupDialog open={accountSetupOpen} onClose={() => setAccountSetupOpen(false)} />
+      {settingsDialogMounted ? (
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          identity={sidebarIdentity}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onSignOut={auth.signOut}
+          onOpenGuide={openGuide}
+        />
+      ) : null}
+      {accountSetupDialogMounted ? (
+        <AccountSetupDialog open={accountSetupOpen} onClose={() => setAccountSetupOpen(false)} />
+      ) : null}
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
         // The workflow header keeps its menu trigger past md, so the drawer

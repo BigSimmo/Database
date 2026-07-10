@@ -40,12 +40,11 @@ import {
   toneInfo,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { useHasEverBeenTrue } from "@/components/clinical-dashboard/use-has-ever-been-true";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
-import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import {
@@ -54,18 +53,18 @@ import {
   ClinicalMobileSidebar,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import {
-  SetupChecklist,
-  UploadPanel,
-  IndexingMonitor,
-  IngestionQualityConsole,
-  LibraryHealthStrip,
   fallbackSetupChecks,
   hasReadyRequiredPublicSearchConfig,
   hasReadyPublicSearchSetup,
   type SetupCheck,
   type IngestionQualityReviewItem,
-} from "@/components/clinical-dashboard/DocumentManagerPanel";
-import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+} from "@/components/clinical-dashboard/document-manager-model";
+import {
+  DrawerGroupLabel,
+  GuideDialog,
+  GuideTrigger,
+  UtilityDrawer,
+} from "@/components/clinical-dashboard/dashboard-shell";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import {
   NaturalLanguageAnswer,
@@ -78,12 +77,17 @@ import { MasterSearchHeader } from "@/components/clinical-dashboard/master-searc
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { answerRecovery, errorCopy } from "@/lib/ui-copy";
-import { applicationsLauncherItemCount } from "@/components/applications-launcher-page";
-import {
-  DrawerGroupLabel,
-  type DocumentDrawerMode,
-  type DocumentDrawerStatusFilter,
-  type LabelReviewMutationBody,
+// The tools count comes from the shared data-only catalog, not the launcher page
+// component: a static value import from applications-launcher-page would pull the
+// whole 800-line module (icons and all) into this chunk and defeat the dynamic()
+// split below.
+import { toolCatalogRecords } from "@/lib/tools-catalog";
+// Type-only: erased at compile time, so this does not pull the admin drawer
+// module into the eager bundle (its components load via dynamic() above).
+import type {
+  DocumentDrawerMode,
+  DocumentDrawerStatusFilter,
+  LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/document-admin";
 
 const DifferentialsHome = dynamic(
@@ -107,6 +111,42 @@ export const ApplicationsLauncherWorkspace = dynamic(
 );
 const DocumentDrawer = dynamic(
   () => import("@/components/clinical-dashboard/document-admin").then((m) => m.DocumentDrawer),
+  { ssr: false },
+);
+// The document-manager admin surfaces render only inside drawers that start
+// closed, so their chunk downloads on first drawer open instead of shipping
+// with the dashboard. Data-only helpers stay in document-manager-model.ts.
+const SetupChecklist = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.SetupChecklist),
+  { ssr: false },
+);
+const UploadPanel = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.UploadPanel),
+  { ssr: false },
+);
+const IndexingMonitor = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.IndexingMonitor),
+  { ssr: false },
+);
+const IngestionQualityConsole = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.IngestionQualityConsole),
+  { ssr: false },
+);
+const LibraryHealthStrip = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.LibraryHealthStrip),
+  { ssr: false },
+);
+// Settings/account dialogs live in their own modules and render nothing until
+// opened (Sheet returns null when closed), so they mount lazily on first open —
+// gated with useHasEverBeenTrue so they stay mounted afterwards. GuideDialog
+// stays a static import: it shares dashboard-shell.tsx with the eagerly-used
+// UtilityDrawer/GuideTrigger, so splitting it would not remove any code.
+const SettingsDialog = dynamic(
+  () => import("@/components/clinical-dashboard/settings-dialog").then((m) => m.SettingsDialog),
+  { ssr: false },
+);
+const AccountSetupDialog = dynamic(
+  () => import("@/components/clinical-dashboard/account-setup-dialog").then((m) => m.AccountSetupDialog),
   { ssr: false },
 );
 
@@ -875,6 +915,8 @@ export function ClinicalDashboard({
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountSetupOpen, setAccountSetupOpen] = useState(false);
+  const settingsDialogMounted = useHasEverBeenTrue(settingsOpen);
+  const accountSetupDialogMounted = useHasEverBeenTrue(accountSetupOpen);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
@@ -2830,7 +2872,7 @@ export function ClinicalDashboard({
       href: "#search",
       count:
         activeModeResultKind === "tools"
-          ? applicationsLauncherItemCount
+          ? toolCatalogRecords.length
           : activeModeResultKind === "favourites"
             ? null
             : activeModeResultKind === "documents"
@@ -3762,16 +3804,18 @@ export function ClinicalDashboard({
           onNavigate={navigateMobileSection}
         />
         <GuideDialog open={guideOpen} onClose={closeGuide} />
-        <SettingsDialog
-          open={settingsOpen}
-          onClose={closeSettings}
-          identity={sidebarIdentity}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-          onSignOut={auth.signOut}
-          onOpenGuide={openGuide}
-        />
-        <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} />
+        {settingsDialogMounted ? (
+          <SettingsDialog
+            open={settingsOpen}
+            onClose={closeSettings}
+            identity={sidebarIdentity}
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onSignOut={auth.signOut}
+            onOpenGuide={openGuide}
+          />
+        ) : null}
+        {accountSetupDialogMounted ? <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} /> : null}
         <ClinicalMobileSidebar
           open={mobileSidebarOpen}
           recentQueries={recentQueries}

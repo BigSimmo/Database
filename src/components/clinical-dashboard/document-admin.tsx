@@ -1110,9 +1110,3 @@ function statusFilterLabel(filter: DocumentDrawerStatusFilter) {
   if (filter === "failed") return "Failed documents";
   return "All documents";
 }
-
-export function DrawerGroupLabel({ title }: { title: string }) {
-  return (
-    <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
-  );
-}

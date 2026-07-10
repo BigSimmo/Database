@@ -257,6 +257,15 @@ const guideSections = [
   },
 ] as const;
 
+// Drawer-chrome primitive kept here (already in the eager shell chunk) rather
+// than in document-admin: a value import from that module would pull the whole
+// admin drawer into the dashboard bundle and defeat its dynamic() split.
+export function DrawerGroupLabel({ title }: { title: string }) {
+  return (
+    <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
+  );
+}
+
 export function GuideDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Sheet

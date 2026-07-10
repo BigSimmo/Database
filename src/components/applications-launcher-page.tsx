@@ -138,8 +138,6 @@ const mobileFilters: Array<{ id: LauncherFilter; label: string; hasMenu?: boolea
   { id: "more", label: "More", hasMenu: true },
 ];
 
-export const applicationsLauncherItemCount = launcherApps.length;
-
 function appById(id: string) {
   return launcherApps.find((app) => app.id === id) ?? launcherApps[0];
 }
