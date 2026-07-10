@@ -21,6 +21,14 @@ const supportedMajorRanges = new Map([
       reason: "create-or-update-comment v6 is not a documented published major for this workflow.",
     },
   ],
+  [
+    "actions/github-script",
+    {
+      min: 8,
+      max: 9,
+      reason: "v7 uses the end-of-life Node 20 action runtime; use a Node 24 based release.",
+    },
+  ],
 ]);
 
 const usesPattern = /^\s*uses:\s*([^@\s]+)@v(\d+)\s*(?:#.*)?$/;
