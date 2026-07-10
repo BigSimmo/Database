@@ -15,7 +15,7 @@ import {
   EvidenceMapTable,
   simpleClinicalTableProps,
   sortClinicalDetailSections,
-} from "@/components/clinical-dashboard/evidence-panels";
+} from "@/components/clinical-dashboard/clinical-output-helpers";
 import { cn, iconTilePremium, metadataPill, panelSubtle, subtleStatusPill } from "@/components/ui-primitives";
 import type { RagAnswer } from "@/lib/types";
 import {
