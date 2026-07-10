@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   appendSearchNavigationContext,
   readSearchNavigationContext,
+  routedSubmissionContextChanged,
   searchNavigationContextSignature,
   searchSubmissionSignature,
 } from "@/lib/search-navigation-context";
@@ -73,5 +74,21 @@ describe("search navigation context", () => {
     expect(searchSubmissionSignature("answer", "lithium", { scopeFilters: { sourceStatuses: ["current"] } })).not.toBe(
       searchSubmissionSignature("answer", "lithium", { scopeFilters: { sourceStatuses: ["outdated"] } }),
     );
+    expect(
+      routedSubmissionContextChanged(
+        searchSubmissionSignature("answer", "lithium", { scopeFilters: { sourceStatuses: ["current"] } }),
+        "answer",
+        "lithium",
+        { scopeFilters: { sourceStatuses: ["outdated"] } },
+      ),
+    ).toBe(true);
+    expect(
+      routedSubmissionContextChanged(
+        searchSubmissionSignature("answer", "lithium", { scopeFilters: { sourceStatuses: ["current"] } }),
+        "answer",
+        "clozapine",
+        { scopeFilters: { sourceStatuses: ["outdated"] } },
+      ),
+    ).toBe(false);
   });
 });

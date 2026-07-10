@@ -154,6 +154,17 @@ export function searchSubmissionSignature(mode: string, query: string, context: 
   return `${mode}:${query}:${searchNavigationContextSignature(context)}`;
 }
 
+export function routedSubmissionContextChanged(
+  previousSignature: string | null,
+  mode: string,
+  query: string,
+  context: SearchNavigationContext = {},
+) {
+  const signaturePrefix = `${mode}:${query}:`;
+  const nextSignature = searchSubmissionSignature(mode, query, context);
+  return previousSignature?.startsWith(signaturePrefix) === true && previousSignature !== nextSignature;
+}
+
 export function readSearchNavigationContext(params: ReadableSearchParams): Required<SearchNavigationContext> {
   const rawQueryMode = params.get(queryModeParam);
   const queryMode =

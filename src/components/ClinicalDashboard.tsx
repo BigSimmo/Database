@@ -157,6 +157,7 @@ import {
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
   readSearchNavigationContext,
+  routedSubmissionContextChanged,
   searchNavigationContextSignature,
   searchSubmissionSignature,
   type SearchNavigationContext,
@@ -1876,7 +1877,7 @@ export function ClinicalDashboard({
     searchAbortRef.current?.abort();
   }
 
-  function applySearchResult(payload: SearchResultModePayload, displayQuery?: string) {
+  function applySearchResult(payload: SearchResultModePayload, displayQuery?: string, archivePreviousAnswer = true) {
     if (payload.kind === "documents") {
       setDocumentMatches(payload.documentMatches);
       setSources(payload.sources);
@@ -1890,7 +1891,7 @@ export function ClinicalDashboard({
     const answerData = payload.payload;
     // Archive the previous exchange before the new answer replaces it, so the
     // thread keeps every turn visible in the same window.
-    const priorTurn = latestAnswerTurnRef.current;
+    const priorTurn = archivePreviousAnswer ? latestAnswerTurnRef.current : null;
     if (priorTurn) {
       const turnId = `answer-turn-${++answerTurnSeqRef.current}`;
       setPriorAnswerTurns((turns) => [...turns, { id: turnId, ...priorTurn }].slice(-maxStoredAnswerTurns));
@@ -1932,6 +1933,7 @@ export function ClinicalDashboard({
     targetMode: AppModeId = searchMode,
     filtersOverride = scopeFilters,
     queryModeOverride = queryMode,
+    replaceExistingAnswer = false,
   ) {
     const trimmedQuery = searchText.trim();
     if (!trimmedQuery) return;
@@ -2026,7 +2028,7 @@ export function ClinicalDashboard({
     // previous turn's question before retrieval. The raw text the user typed
     // is what the thread displays (via displayQuery below).
     const isAnswerRequest = modeSearch.resultKind === "answer";
-    const priorTurnQuery = isAnswerRequest ? latestAnswerTurnRef.current?.query : undefined;
+    const priorTurnQuery = isAnswerRequest && !replaceExistingAnswer ? latestAnswerTurnRef.current?.query : undefined;
     const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
     const requestQuery = isAnswerRequest ? buildAnswerFollowUpQuery(priorTurnQuery, trimmedQuery) : trimmedQuery;
 
@@ -2110,7 +2112,7 @@ export function ClinicalDashboard({
 
       // M10: discard a stale response — a newer search owns the UI state.
       if (requestId === searchRequestSeqRef.current) {
-        applySearchResult(successfulPayload, trimmedQuery);
+        applySearchResult(successfulPayload, trimmedQuery, !replaceExistingAnswer);
         if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
         if (successfulPayload.kind === "answer") {
           // The composer is a draft box in a conversation: clear it so the
@@ -2125,7 +2127,7 @@ export function ClinicalDashboard({
             appModeHomeHref(targetMode, {
               query: trimmedQuery,
               run: true,
-              queryMode,
+              queryMode: queryModeOverride,
               scopeFilters: filtersOverride,
             }),
           );
@@ -2171,7 +2173,7 @@ export function ClinicalDashboard({
     }
   }
 
-  async function ask(searchText = query, contextOverride?: SearchNavigationContext) {
+  async function ask(searchText = query, contextOverride?: SearchNavigationContext, replaceExistingAnswer = false) {
     const trimmedQuery = searchText.trim();
     const effectiveQueryMode = contextOverride?.queryMode ?? queryMode;
     const effectiveScopeFilters = contextOverride?.scopeFilters ?? scopeFilters;
@@ -2192,7 +2194,7 @@ export function ClinicalDashboard({
       setMedicationSearchQuery(searchText);
       return;
     }
-    await executeSearch(searchText, searchMode, effectiveScopeFilters, effectiveQueryMode);
+    await executeSearch(searchText, searchMode, effectiveScopeFilters, effectiveQueryMode, replaceExistingAnswer);
   }
   const askRef = useRef(ask);
   askRef.current = ask;
@@ -2203,11 +2205,14 @@ export function ClinicalDashboard({
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !submittedSearchText || !canAutoRunMode || loading) return;
     if (searchMode === "answer" && !answerThreadBootstrapped) return;
-    const signaturePrefix = `${searchMode}:${submittedSearchText}`;
-    const signature = searchSubmissionSignature(searchMode, submittedSearchText, routedSearchContext);
     const previousSignature = autoRunSearchSignatureRef.current;
-    const routedContextChanged =
-      previousSignature?.startsWith(`${signaturePrefix}:`) === true && previousSignature !== signature;
+    const signature = searchSubmissionSignature(searchMode, submittedSearchText, routedSearchContext);
+    const routedContextChanged = routedSubmissionContextChanged(
+      previousSignature,
+      searchMode,
+      submittedSearchText,
+      routedSearchContext,
+    );
     // Once an answer is on screen, composer edits are follow-up drafts and must
     // only run on explicit submit — not on every query keystroke while run=1
     // keeps autoRunSearch enabled from the URL.
@@ -2220,7 +2225,7 @@ export function ClinicalDashboard({
     }
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
-    void askRef.current(submittedSearchText, routedSearchContext);
+    void askRef.current(submittedSearchText, routedSearchContext, routedContextChanged);
   }, [
     autoRunSearch,
     canRunSearch,
