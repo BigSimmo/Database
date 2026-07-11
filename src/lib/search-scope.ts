@@ -177,6 +177,24 @@ function metadataMatchesLocality(row: ScopeDocumentRow, filters: SearchScopeFilt
   return true;
 }
 
+// Anonymous public-scope resolution enumerates every public indexed document
+// (paginated reads up to the 5000-document ceiling) and the result is identical
+// for every anonymous caller, so one resolved scope is shared for a short TTL.
+// Only the zero-filter, no-explicit-ids default is cached; anything narrower is
+// per-request. Keyed by client instance (WeakMap) so the production admin
+// singleton shares one entry while test mocks stay isolated. Single-process,
+// like the app's other in-memory caches.
+const anonymousPublicScopeTtlMs = 60_000;
+const anonymousPublicScopeCache = new WeakMap<object, { scope: ResolvedSearchScope; expiresAtMs: number }>();
+
+function cloneResolvedScope(scope: ResolvedSearchScope): ResolvedSearchScope {
+  return {
+    ...scope,
+    documentIds: scope.documentIds ? [...scope.documentIds] : scope.documentIds,
+    warnings: [...scope.warnings],
+  };
+}
+
 export async function resolveSearchScope(args: {
   supabase: SupabaseClient;
   ownerId?: string | null;
@@ -190,6 +208,26 @@ export async function resolveSearchScope(args: {
   const activeFilterCount = activeScopeFilterCount(filters);
   const warnings: string[] = [];
   const publicOnly = args.publicOnly ?? !args.ownerId;
+
+  const cacheableAnonymousScope =
+    publicOnly &&
+    !args.ownerId &&
+    explicitIds.length === 0 &&
+    activeFilterCount === 0 &&
+    args.maxResolvedDocuments === undefined;
+  if (cacheableAnonymousScope) {
+    const cached = anonymousPublicScopeCache.get(args.supabase);
+    if (cached && cached.expiresAtMs > Date.now()) return cloneResolvedScope(cached.scope);
+  }
+  const cacheAnonymousScope = (scope: ResolvedSearchScope) => {
+    if (cacheableAnonymousScope) {
+      anonymousPublicScopeCache.set(args.supabase, {
+        scope: cloneResolvedScope(scope),
+        expiresAtMs: Date.now() + anonymousPublicScopeTtlMs,
+      });
+    }
+    return scope;
+  };
 
   if (activeFilterCount === 0 && !publicOnly && !(args.ownerId && explicitIds.length)) {
     return {
@@ -283,14 +321,14 @@ export async function resolveSearchScope(args: {
   const candidateIds = rows.map((row) => row.id);
   if (candidateIds.length === 0) {
     warnings.push("No indexed documents matched the selected filters.");
-    return {
+    return cacheAnonymousScope({
       documentIds: [],
       filters,
       activeFilterCount,
       matchedDocumentCount: 0,
       warnings,
       summary: "No matching documents",
-    };
+    });
   }
 
   const needsLabels =
@@ -346,7 +384,7 @@ export async function resolveSearchScope(args: {
   if (resolvedIds.length > 100)
     warnings.push(`${resolvedIds.length} documents match the selected scope; answers may be broad.`);
 
-  return {
+  return cacheAnonymousScope({
     documentIds: resolvedIds,
     filters,
     activeFilterCount,
@@ -356,5 +394,5 @@ export async function resolveSearchScope(args: {
       resolvedIds.length === 0
         ? "No matching documents"
         : `${resolvedIds.length} scoped document${resolvedIds.length === 1 ? "" : "s"}`,
-  };
+  });
 }

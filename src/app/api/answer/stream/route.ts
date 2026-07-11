@@ -137,7 +137,13 @@ function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
   };
 }
 
-function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, publicOnly = false) {
+function streamAnswer(
+  body: AnswerBody,
+  ownerId?: string,
+  signal?: AbortSignal,
+  publicOnly = false,
+  scopePromise?: ReturnType<typeof resolveSearchScope>,
+) {
   const encoder = new TextEncoder();
 
   return new Response(
@@ -156,13 +162,14 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
           send("progress", { stage: "retrieving", message: "Searching indexed documents." });
           const scope = isDemoMode()
             ? null
-            : await resolveSearchScope({
-                supabase: createAdminClient(),
-                ownerId,
-                publicOnly,
-                documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
-                filters: body.filters,
-              });
+            : await (scopePromise ??
+                resolveSearchScope({
+                  supabase: createAdminClient(),
+                  ownerId,
+                  publicOnly,
+                  documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
+                  filters: body.filters,
+                }));
           if (scope?.documentIds?.length === 0) {
             send("final", {
               answer:
@@ -265,6 +272,19 @@ export async function POST(request: Request) {
     const access = await publicAccessContext(request, supabase);
     const publicOnly = !access.authenticated && !isLocalNoAuthMode();
 
+    // Kick off the read-only scope resolution alongside the rate-limit consume;
+    // the stream awaits it (and the limit still rejects before retrieval). The
+    // detached catch marks a pre-await rejection handled — the stream's own
+    // await still observes and reports the real error.
+    const scopePromise = resolveSearchScope({
+      supabase,
+      ownerId: access.ownerId,
+      publicOnly,
+      documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
+      filters: body.filters,
+    });
+    void scopePromise.catch(() => undefined);
+
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
       subject: access.rateLimitSubject,
@@ -273,7 +293,7 @@ export async function POST(request: Request) {
     });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
 
-    return streamAnswer(body, access.ownerId, request.signal, publicOnly);
+    return streamAnswer(body, access.ownerId, request.signal, publicOnly, scopePromise);
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse(error);

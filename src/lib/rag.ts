@@ -352,6 +352,14 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
+// Bounds an in-flight retrieval RPC by the caller's AbortSignal so a client
+// disconnect cancels the HTTP request and frees the pooled Postgres connection.
+// throwIfAborted only checks *between* stages; without this, a fan-out of
+// match_* RPCs runs to completion for a caller that already went away.
+function withAbort<T extends { abortSignal(signal: AbortSignal): T }>(builder: T, signal?: AbortSignal): T {
+  return signal ? builder.abortSignal(signal) : builder;
+}
+
 export type SearchChunksArgs = {
   query: string;
   topK?: number;
@@ -1532,14 +1540,18 @@ async function searchTextChunkCandidates(args: {
   allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
+  signal?: AbortSignal;
 }) {
   const runChunkText = async (queryText: string, matchCount: number) => {
-    const { data, error } = await args.supabase.rpc("match_document_chunks_text", {
-      query_text: queryText,
-      match_count: matchCount,
-      document_filters: args.documentIds ?? undefined,
-      owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
-    });
+    const { data, error } = await withAbort(
+      args.supabase.rpc("match_document_chunks_text", {
+        query_text: queryText,
+        match_count: matchCount,
+        document_filters: args.documentIds ?? undefined,
+        owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
+      }),
+      args.signal,
+    );
     return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
   };
 
@@ -1583,10 +1595,13 @@ async function searchTextChunkCandidates(args: {
   const primary = variants[0] ?? "";
   let effectivePrimary = primary;
   if (primary) {
-    const { data: corrected } = await args.supabase.rpc("correct_clinical_query_terms", {
-      input_query: primary,
-      min_sim: 0.45,
-    });
+    const { data: corrected } = await withAbort(
+      args.supabase.rpc("correct_clinical_query_terms", {
+        input_query: primary,
+        min_sim: 0.45,
+      }),
+      args.signal,
+    );
     if (typeof corrected === "string" && corrected && corrected !== primary) {
       const correctedResults = await runChunkText(corrected, args.matchCount);
       if (correctedResults.length > 0) return correctedResults;
@@ -1710,14 +1725,18 @@ async function fetchBestDocumentLookupChunks(args: {
   limit: number;
   ownerId?: string;
   allowGlobalSearch?: boolean;
+  signal?: AbortSignal;
 }) {
   const terms = documentLookupChunkTerms(args.query);
-  const { data: rpcChunks, error: rpcError } = await args.supabase.rpc("match_document_lookup_chunks_text", {
-    query_text: args.query,
-    document_filters: args.documentIds ?? undefined,
-    match_count: Math.max(args.limit * 3, 24),
-    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
-  });
+  const { data: rpcChunks, error: rpcError } = await withAbort(
+    args.supabase.rpc("match_document_lookup_chunks_text", {
+      query_text: args.query,
+      document_filters: args.documentIds ?? undefined,
+      match_count: Math.max(args.limit * 3, 24),
+      owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
+    }),
+    args.signal,
+  );
   if (!rpcError && rpcChunks?.length) {
     const ranked = (rpcChunks as DocumentLookupChunkRow[])
       .map((chunk) => ({
@@ -1812,6 +1831,7 @@ async function searchDocumentLookupFastPath(args: {
   ownerId?: string;
   documentIds?: string[];
   matchCount: number;
+  signal?: AbortSignal;
 }): Promise<SearchResult[]> {
   if (!args.ownerId) return [] as SearchResult[];
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
@@ -1820,11 +1840,14 @@ async function searchDocumentLookupFastPath(args: {
   );
   const documentSets = await Promise.all(
     variants.map(async (variant, index) => {
-      const { data, error } = await args.supabase.rpc("match_documents_for_query", {
-        query_text: variant,
-        match_count: index === 0 ? 12 : 8,
-        owner_filter: requireOwnerScope(args.ownerId),
-      });
+      const { data, error } = await withAbort(
+        args.supabase.rpc("match_documents_for_query", {
+          query_text: variant,
+          match_count: index === 0 ? 12 : 8,
+          owner_filter: requireOwnerScope(args.ownerId),
+        }),
+        args.signal,
+      );
       if (error || !data?.length) return [] as DocumentLookupRow[];
       return data as DocumentLookupRow[];
     }),
@@ -1866,6 +1889,7 @@ async function searchDocumentLookupFastPath(args: {
     query: args.query,
     limit: Math.max(args.matchCount, rankedDocuments.length * 4),
     ownerId: args.ownerId,
+    signal: args.signal,
   });
 
   if (!chunks.length) return [];
@@ -2185,6 +2209,7 @@ async function searchTableFactCandidates(args: {
   documentIds?: string[];
   allowGlobalSearch?: boolean;
   matchCount: number;
+  signal?: AbortSignal;
 }) {
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
     0,
@@ -2192,12 +2217,15 @@ async function searchTableFactCandidates(args: {
   );
   const factSets = await Promise.all(
     variants.map(async (variant, index) => {
-      const { data, error } = await args.supabase.rpc("match_document_table_facts_text", {
-        query_text: variant,
-        match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
-        document_filters: args.documentIds ?? undefined,
-        owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
-      });
+      const { data, error } = await withAbort(
+        args.supabase.rpc("match_document_table_facts_text", {
+          query_text: variant,
+          match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
+          document_filters: args.documentIds ?? undefined,
+          owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
+        }),
+        args.signal,
+      );
       if (error || !data?.length) return [] as TableFactRpcRow[];
       return data as TableFactRpcRow[];
     }),
@@ -2239,15 +2267,19 @@ async function searchEmbeddingFieldCandidates(args: {
   allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
+  signal?: AbortSignal;
 }) {
-  const { data, error } = await args.supabase.rpc("match_document_embedding_fields_hybrid", {
-    query_embedding: args.queryEmbedding as unknown as string,
-    query_text: buildClinicalTextSearchQuery(args.query),
-    match_count: args.matchCount,
-    min_similarity: 0.12,
-    document_filters: args.documentIds ?? undefined,
-    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
-  });
+  const { data, error } = await withAbort(
+    args.supabase.rpc("match_document_embedding_fields_hybrid", {
+      query_embedding: args.queryEmbedding as unknown as string,
+      query_text: buildClinicalTextSearchQuery(args.query),
+      match_count: args.matchCount,
+      min_similarity: 0.12,
+      document_filters: args.documentIds ?? undefined,
+      owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
+    }),
+    args.signal,
+  );
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
   const matches = (
@@ -2291,15 +2323,19 @@ async function searchIndexUnitCandidates(args: {
   allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
+  signal?: AbortSignal;
 }) {
-  const { data, error } = await args.supabase.rpc("match_document_index_units_hybrid", {
-    query_embedding: args.queryEmbedding as unknown as string,
-    query_text: buildClinicalTextSearchQuery(args.query),
-    match_count: args.matchCount,
-    min_similarity: 0.1,
-    document_filters: args.documentIds ?? undefined,
-    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
-  });
+  const { data, error } = await withAbort(
+    args.supabase.rpc("match_document_index_units_hybrid", {
+      query_embedding: args.queryEmbedding as unknown as string,
+      query_text: buildClinicalTextSearchQuery(args.query),
+      match_count: args.matchCount,
+      min_similarity: 0.1,
+      document_filters: args.documentIds ?? undefined,
+      owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
+    }),
+    args.signal,
+  );
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
   const matches = (data as IndexUnitRpcRow[])
@@ -3335,6 +3371,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   if (sharedCached?.kind === "miss") {
     telemetry.shared_cache_status = "miss";
     telemetry.shared_cache_miss_reason = sharedCached.reason;
+    // The classification probe runs off the hot path; patch telemetry when it
+    // lands (query logging happens after generation, so it wins in practice).
+    if (sharedCached.deferredReason) {
+      void sharedCached.deferredReason.then((reason) => {
+        telemetry.shared_cache_miss_reason = reason;
+      });
+    }
   }
 
   if (
@@ -3348,10 +3391,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     // in searchTextChunkCandidates). Only reached for would-be-unsupported queries, so it adds no
     // hot-path cost; `typoCorrected` guards against recursion.
     if (!args.typoCorrected && !sourceOnlyRetrieval) {
-      const { data: corrected } = await supabase.rpc("correct_clinical_query_terms", {
-        input_query: retrievalQuery,
-        min_sim: 0.45,
-      });
+      const { data: corrected } = await withAbort(
+        supabase.rpc("correct_clinical_query_terms", {
+          input_query: retrievalQuery,
+          min_sim: 0.45,
+        }),
+        args.signal,
+      );
       if (typeof corrected === "string" && corrected && corrected.toLowerCase() !== retrievalQuery.toLowerCase()) {
         return searchChunksWithTelemetry({ ...args, query: corrected, typoCorrected: true });
       }
@@ -3385,6 +3431,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     allowGlobalSearch: args.allowGlobalSearch,
     matchCount: textCandidateCount,
     telemetry,
+    signal: args.signal,
   });
   telemetry.text_candidate_count = textData.length;
   telemetry.text_fast_path_latency_ms = Date.now() - textRpcStartedAt;
@@ -3487,6 +3534,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       documentIds: documentFilterList,
       allowGlobalSearch: args.allowGlobalSearch,
       matchCount: Math.min(candidateCount, 48),
+      signal: args.signal,
     });
     const tableFactLatencyMs = Date.now() - tableFactStartedAt;
     telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
@@ -3508,6 +3556,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       ownerId: args.ownerId,
       documentIds: documentFilterList,
       matchCount: candidateCount,
+      signal: args.signal,
     });
     const documentLookupLatencyMs = Date.now() - documentLookupStartedAt;
     telemetry.supabase_rpc_latency_ms += documentLookupLatencyMs;
@@ -3667,6 +3716,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 48),
         telemetry,
+        signal: args.signal,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
@@ -3681,19 +3731,27 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 64),
         telemetry,
+        signal: args.signal,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
     (async () => {
       const startedAt = Date.now();
-      const { data, error } = await supabase.rpc("match_document_chunks_hybrid", {
-        query_embedding: embedding as unknown as string,
-        query_text: args.forceEmbedding ? "" : textSearchQuery,
-        match_count: candidateCount,
-        min_similarity: minSimilarity,
-        document_filters: documentFilterList ?? undefined,
-        owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, documentFilterList, args.allowGlobalSearch),
-      });
+      const { data, error } = await withAbort(
+        supabase.rpc("match_document_chunks_hybrid", {
+          query_embedding: embedding as unknown as string,
+          query_text: args.forceEmbedding ? "" : textSearchQuery,
+          match_count: candidateCount,
+          min_similarity: minSimilarity,
+          document_filters: documentFilterList ?? undefined,
+          owner_filter: ownerScopeForDocumentFilteredRetrieval(
+            args.ownerId,
+            documentFilterList,
+            args.allowGlobalSearch,
+          ),
+        }),
+        args.signal,
+      );
       return { data, error, latencyMs: Date.now() - startedAt };
     })(),
   ]);
@@ -3788,17 +3846,20 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const fallbackRpcStartedAt = Date.now();
   const resultSets = await Promise.all(
     vectorFilters.map(async (documentFilter) => {
-      const { data, error } = await supabase.rpc("match_document_chunks", {
-        query_embedding: embedding as unknown as string,
-        match_count: candidateCount,
-        min_similarity: minSimilarity,
-        document_filter: documentFilter ?? undefined,
-        owner_filter: ownerScopeForDocumentFilteredRetrieval(
-          args.ownerId,
-          documentFilter ? [documentFilter] : undefined,
-          documentFilter ? undefined : args.allowGlobalSearch,
-        ),
-      });
+      const { data, error } = await withAbort(
+        supabase.rpc("match_document_chunks", {
+          query_embedding: embedding as unknown as string,
+          match_count: candidateCount,
+          min_similarity: minSimilarity,
+          document_filter: documentFilter ?? undefined,
+          owner_filter: ownerScopeForDocumentFilteredRetrieval(
+            args.ownerId,
+            documentFilter ? [documentFilter] : undefined,
+            documentFilter ? undefined : args.allowGlobalSearch,
+          ),
+        }),
+        args.signal,
+      );
 
       if (error) throw new Error(error.message);
       return (data ?? []) as SearchResult[];

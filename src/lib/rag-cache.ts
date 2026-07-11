@@ -249,7 +249,10 @@ type SharedCacheMissReason =
   | "expired"
   | "indexing_version_mismatch"
   | "dependency_version_mismatch"
-  | "unknown_filter_miss";
+  | "unknown_filter_miss"
+  // Placeholder while the off-path classification probe is still in flight;
+  // telemetry is patched with the real reason when it resolves (getSharedCachedSearch).
+  | "pending_probe";
 
 function sharedCacheSelector(
   supabase: ReturnType<typeof createAdminClient>,
@@ -316,14 +319,16 @@ export async function getSharedCachedSearch(
   queryVariants: string[] = [],
 ): Promise<
   | { kind: "hit"; results: SearchResult[]; telemetry: SearchTelemetry }
-  | { kind: "miss"; reason: SharedCacheMissReason }
+  // `deferredReason` classifies a generic miss (no_entry/expired/version mismatch)
+  // via a follow-up metadata query that must NOT block retrieval: the caller
+  // starts with `reason` ("pending_probe") and patches telemetry when it lands.
+  | { kind: "miss"; reason: SharedCacheMissReason; deferredReason?: Promise<SharedCacheMissReason> }
   | null
 > {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
   const normalizedQuery = retrievalPlanCacheQuery(args, queryClass, queryVariants);
   const indexingVersion = await cacheIndexingVersion(args);
-  async function probeSharedCacheMissReason(reasonFromLookup?: SharedCacheMissReason): Promise<SharedCacheMissReason> {
-    if (reasonFromLookup) return reasonFromLookup;
+  async function probeSharedCacheMissReason(): Promise<SharedCacheMissReason> {
     try {
       const supabase = createAdminClient();
       let probeQuery = supabase
@@ -361,11 +366,15 @@ export async function getSharedCachedSearch(
       indexingVersion,
       normalizedQuery,
     ).maybeSingle();
-    if (error) return { kind: "miss", reason: await probeSharedCacheMissReason("cache_lookup_error") };
-    if (!data?.payload) return { kind: "miss", reason: await probeSharedCacheMissReason() };
+    if (error) return { kind: "miss", reason: "cache_lookup_error" };
+    if (!data?.payload) {
+      // Do not await the classification probe on the hot path — it costs a full
+      // extra rag_response_cache round trip before retrieval can start.
+      return { kind: "miss", reason: "pending_probe", deferredReason: probeSharedCacheMissReason() };
+    }
     const payload = data.payload as { results?: SearchResult[]; telemetry?: Partial<SearchTelemetry> };
     if (!Array.isArray(payload.results)) {
-      return { kind: "miss", reason: await probeSharedCacheMissReason("cache_payload_invalid") };
+      return { kind: "miss", reason: "cache_payload_invalid" };
     }
     return {
       kind: "hit",

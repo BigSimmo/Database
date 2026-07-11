@@ -83,23 +83,27 @@ export async function POST(request: Request) {
     const access = await publicAccessContext(request, supabase);
     const publicOnly = !access.authenticated && !isLocalNoAuthMode();
 
-    const rateLimit = await consumeSubjectApiRateLimit({
-      supabase,
-      subject: access.rateLimitSubject,
-      bucket: "answer",
-      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
-    });
+    // Independent given `access`: the rate-limit consume and the read-only
+    // scope resolution overlap instead of running serially. The limit still
+    // rejects before any retrieval or generation starts.
+    const [rateLimit, scope] = await Promise.all([
+      consumeSubjectApiRateLimit({
+        supabase,
+        subject: access.rateLimitSubject,
+        bucket: "answer",
+        allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+      }),
+      resolveSearchScope({
+        supabase,
+        ownerId: access.ownerId,
+        publicOnly,
+        documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
+        filters: answerBody.filters,
+      }),
+    ]);
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
     }
-
-    const scope = await resolveSearchScope({
-      supabase,
-      ownerId: access.ownerId,
-      publicOnly,
-      documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
-      filters: answerBody.filters,
-    });
     if (scope.documentIds?.length === 0) {
       return NextResponse.json({
         answer:
