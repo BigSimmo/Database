@@ -3332,10 +3332,10 @@ export function ClinicalDashboard({
                 className={cn(
                   compactMobileModeHome
                     ? cn(
-                        // sm+ keeps a viewport-height floor so place-items-center
-                        // below actually centres the home block mid-screen (matching
-                        // the standalone-route homes) instead of hugging the header.
-                        "max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
+                        // Every breakpoint keeps a viewport-height floor so
+                        // justify/place-items-center has free space to centre the
+                        // home block instead of hugging the header.
+                        "max-sm:flex max-sm:min-h-[calc(100dvh-12.5rem)] max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
                         centeredModeHome && "max-sm:justify-center",
                       )
                     : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
