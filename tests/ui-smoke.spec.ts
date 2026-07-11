@@ -2358,6 +2358,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
     const composer = page.locator("form.document-viewer-composer");
     await expect(composer).toBeVisible();
+    // The chunk deep link intentionally scrolls the highlighted passage into
+    // view, which can initially hide the phone composer. Returning to the top
+    // must restore it before the explicit hide-on-scroll checks below.
+    await scrollPrimarySurface(page, 0);
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
 
     await page.evaluate(() => {
