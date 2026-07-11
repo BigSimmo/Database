@@ -70,6 +70,8 @@ import { tagSearchText } from "@/lib/document-tags";
 
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
+const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
+const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 
 function splitFilterText(value: string) {
@@ -281,15 +283,12 @@ export function MasterSearchHeader({
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
-<<<<<<< HEAD
-=======
   // True once the hero portal is conclusively unavailable — the media query
   // does not match, or the slot never appeared after the retry budget. While a
   // slot id is present and this is false the inline composer stays suppressed
   // (no flash while the portal mounts); once it flips true the inline composer
   // renders, so the search can never vanish from the page at any width.
   const [desktopHomeComposerFallback, setDesktopHomeComposerFallback] = useState(false);
->>>>>>> origin/main
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
@@ -716,10 +715,7 @@ export function MasterSearchHeader({
     if (!desktopHomeComposerSlotId) {
       const frame = window.requestAnimationFrame(() => {
         setDesktopHomeComposerActive(false);
-<<<<<<< HEAD
-=======
         setDesktopHomeComposerFallback(false);
->>>>>>> origin/main
         setDesktopHomeComposerHost(null);
       });
       return () => window.cancelAnimationFrame(frame);
@@ -738,6 +734,10 @@ export function MasterSearchHeader({
     // Layout-transparent so the composer lays out as a direct child of the slot.
     host.style.display = "contents";
 
+    const mediaQuery = window.matchMedia(
+      desktopHomeComposerSlotId ? modeHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
+    );
+
     let frame: number | null = null;
     let retryTimeout: number | null = null;
     let portalRetryCount = 0;
@@ -746,11 +746,7 @@ export function MasterSearchHeader({
         window.clearTimeout(retryTimeout);
         retryTimeout = null;
       }
-<<<<<<< HEAD
-      const slot = document.getElementById(desktopHomeComposerSlotId);
-=======
       const slot = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
->>>>>>> origin/main
       if (slot) {
         portalRetryCount = 0;
         if (host.parentNode !== slot) slot.appendChild(host);
@@ -760,7 +756,7 @@ export function MasterSearchHeader({
       } else {
         host.parentNode?.removeChild(host);
         setDesktopHomeComposerActive(false);
-        if (portalRetryCount < 24) {
+        if (mediaQuery.matches && portalRetryCount < 24) {
           portalRetryCount += 1;
           retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
         } else {
@@ -780,16 +776,15 @@ export function MasterSearchHeader({
     const observer = new MutationObserver(scheduleSync);
     observer.observe(document.body, { childList: true, subtree: true });
     scheduleSync();
+    mediaQuery.addEventListener("change", scheduleSync);
     return () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
       if (retryTimeout !== null) window.clearTimeout(retryTimeout);
       observer.disconnect();
+      mediaQuery.removeEventListener("change", scheduleSync);
       host.parentNode?.removeChild(host);
       setDesktopHomeComposerActive(false);
-<<<<<<< HEAD
-=======
       setDesktopHomeComposerFallback(false);
->>>>>>> origin/main
       setDesktopHomeComposerHost(null);
     };
   }, [desktopHomeComposerSlotId]);
@@ -1579,14 +1574,10 @@ export function MasterSearchHeader({
 
       {searchComposerVisible ? (
         <>
-<<<<<<< HEAD
-          {desktopHomeComposerSlotId ? null : renderSearchComposer("default")}
-=======
           {(desktopHomeComposerActive && desktopHomeComposerHost) ||
           (desktopHomeComposerSlotId && !desktopHomeComposerFallback)
             ? null
             : renderSearchComposer("default")}
->>>>>>> origin/main
           {desktopHomeComposerActive && desktopHomeComposerHost
             ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
             : null}

@@ -319,11 +319,17 @@ export function UniversalSearchCommandSurface({
   const [dropdownDisplayable, setDropdownDisplayable] = useState(false);
   useEffect(() => {
     const mediaQuery = window.matchMedia(placement === "bottom-dock" ? "(min-width: 640px)" : "(min-width: 1024px)");
-    const sync = () => setDropdownDisplayable(mediaQuery.matches);
+    const sync = () => {
+      setDropdownDisplayable(mediaQuery.matches);
+      if (!mediaQuery.matches) {
+        onDropdownOpenChange(false);
+        setActiveIndex(-1);
+      }
+    };
     sync();
     mediaQuery.addEventListener("change", sync);
     return () => mediaQuery.removeEventListener("change", sync);
-  }, [placement]);
+  }, [onDropdownOpenChange, placement]);
   // A true "everything" view: the active mode's own domain is included (no excludeDomain) so
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
@@ -710,6 +716,14 @@ export function UniversalSearchCommandSurface({
   const activeItemId = activeIndex >= 0 && activeIndex < flatItems.length ? flatItems[activeIndex].id : null;
 
   function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (!dropdownDisplayable) {
+      if (event.key === "Escape") {
+        onDropdownOpenChange(false);
+        setActiveIndex(-1);
+      }
+      onInputKeyDown?.(event);
+      return;
+    }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       onDropdownOpenChange(true);
@@ -788,7 +802,9 @@ export function UniversalSearchCommandSurface({
             handleComposerKeyDown(event as unknown as ReactKeyboardEvent<HTMLInputElement>);
           }
         }}
-        onFocusCapture={() => onDropdownOpenChange(true)}
+        onFocusCapture={() => {
+          if (dropdownDisplayable) onDropdownOpenChange(true);
+        }}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
             onDropdownOpenChange(false);
@@ -797,7 +813,7 @@ export function UniversalSearchCommandSurface({
         }}
       >
         {children}
-        {dropdownOpen ? (
+        {dropdownOpen && dropdownDisplayable ? (
           <CommandDropdown
             modeId={modeId}
             query={trimmedQuery}
@@ -819,7 +835,7 @@ export function UniversalSearchCommandSurface({
         examples={config.examples}
         onPickExample={(example) => {
           onQueryChange(example);
-          onDropdownOpenChange(true);
+          if (dropdownDisplayable) onDropdownOpenChange(true);
           onFocusSearchInput?.();
         }}
       />

@@ -565,9 +565,7 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     for (const home of ["/services", "/forms", "/differentials", "/applications"]) {
       await gotoLauncher(page, home);
-      const heroInput = page
-        .locator(".mode-home-composer-slot")
-        .getByTestId("global-search-input");
+      const heroInput = page.locator(".mode-home-composer-slot").getByTestId("global-search-input");
       await expect(heroInput).toBeVisible({ timeout: 15_000 });
       await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
 
