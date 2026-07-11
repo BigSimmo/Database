@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page } from "playwright/test";
 import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
@@ -1396,5 +1396,182 @@ test.describe("Responsive layout guards", () => {
     expect(tablet).not.toBeNull();
     const balance = Math.abs((tablet?.topGap ?? 0) - (tablet?.bottomGap ?? 0));
     expect(balance).toBeLessThan(Math.max(tablet?.topGap ?? 0, tablet?.bottomGap ?? 0) * 1.45);
+  });
+});
+
+test.describe("Clinical KB differential diagnosis detail page", () => {
+  test.describe.configure({ timeout: 90_000 });
+
+  async function expectMinTouchTarget(locator: Locator, minSize = 44) {
+    const box = await locator.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
+    // 2px tolerance mirrors the ui-smoke helper (sub-pixel rounding in scrolled containers).
+    expect(box.height + 2).toBeGreaterThanOrEqual(minSize);
+    expect(box.width + 2).toBeGreaterThanOrEqual(minSize);
+  }
+
+  // The detail route is not in the Playwright runner's warm-up smoke set, so the
+  // first navigation of a run can pay the dev-server compile; mirror the 30s
+  // first-assertion timeout the presentation-page test uses.
+  async function gotoDetailPage(page: Page, path: string) {
+    await gotoLauncher(page, path);
+    await expect(page.getByTestId("differential-detail-page")).toBeVisible({ timeout: 30_000 });
+  }
+
+  test("delirium detail sections expand, copy, and save at desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 920 });
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
+
+    const detailPage = page.getByTestId("differential-detail-page");
+    await expect(detailPage.getByRole("heading", { level: 1, name: "Delirium" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+
+    // Safety snapshot keeps the curated delirium facts and honest chip labelling.
+    await expect(detailPage.getByRole("heading", { name: "Safety snapshot" })).toBeVisible();
+    await expect(detailPage.getByText("Watch for")).toBeVisible();
+    await expect(detailPage.getByText("Onset", { exact: true })).toBeVisible();
+
+    // Section rows are real disclosures that reveal their items.
+    const mustNotMiss = page.locator("#differential-section-must-not-miss");
+    await expect(mustNotMiss).toHaveJSProperty("open", false);
+    await expectMinTouchTarget(mustNotMiss.locator("summary"));
+    await mustNotMiss.locator("summary").click();
+    await expect(mustNotMiss).toHaveJSProperty("open", true);
+    await expect(mustNotMiss.getByTestId("differential-section-items")).toBeVisible();
+    await expect(
+      mustNotMiss.getByTestId("differential-section-items").getByText("Sepsis", { exact: true }),
+    ).toBeVisible();
+
+    // Expand all / collapse all toggles every expandable section.
+    const expandAll = page.getByTestId("differential-expand-all");
+    await expect(expandAll).toHaveText(/Expand all/);
+    await expandAll.click();
+    const disclosureRows = page.locator('details[data-testid="differential-section-row"]');
+    const openStates = await disclosureRows.evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLDetailsElement).open),
+    );
+    expect(openStates.length).toBeGreaterThan(0);
+    expect(openStates.every(Boolean)).toBe(true);
+    await expect(expandAll).toHaveText(/Collapse all/);
+    await expandAll.click();
+    const closedStates = await disclosureRows.evaluateAll((nodes) =>
+      nodes.map((node) => (node as HTMLDetailsElement).open),
+    );
+    expect(closedStates.every((open) => !open)).toBe(true);
+
+    // Copy after review actually copies and reports success.
+    await detailPage.getByRole("button", { name: "Copy after review" }).click();
+    await expect(detailPage.getByRole("button", { name: "Copied" })).toBeVisible();
+
+    // Bookmark persists across a reload via localStorage.
+    await detailPage.getByRole("button", { name: "Save diagnosis" }).click();
+    await expect(detailPage.getByRole("button", { name: "Remove saved diagnosis" })).toBeVisible();
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
+    await expect(detailPage.getByRole("button", { name: "Remove saved diagnosis" })).toBeVisible();
+    await page.goto("/favourites", { waitUntil: "domcontentloaded" });
+    await expect(page.getByText("Delirium", { exact: true }).first()).toBeVisible();
+
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("safety snapshot CTA opens and scrolls to must-not-miss on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
+
+    const mustNotMiss = page.locator("#differential-section-must-not-miss");
+    await expect(mustNotMiss).toHaveJSProperty("open", false);
+    await page.getByTestId("differential-safety-cta").click();
+    await expect(mustNotMiss).toHaveJSProperty("open", true);
+    await expect(mustNotMiss.getByTestId("differential-section-items")).toBeVisible();
+    await expect(mustNotMiss).toBeInViewport();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("detail sections toggle on mobile and stay within narrow viewports", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
+
+    const detailPage = page.getByTestId("differential-detail-page");
+    await expect(detailPage).toBeVisible();
+
+    const whyItFits = page.locator("#differential-section-why-it-fits");
+    await expectMinTouchTarget(whyItFits.locator("summary"));
+    await whyItFits.locator("summary").click();
+    await expect(whyItFits).toHaveJSProperty("open", true);
+    await expect(whyItFits.getByTestId("differential-section-items")).toBeVisible();
+
+    await expectMinTouchTarget(page.getByRole("tab", { name: "Overview" }));
+    await expect(detailPage.getByRole("button", { name: /Compare \(\d+\)/ })).toBeVisible();
+    // The bookmark must stay reachable below lg where TopActions is hidden.
+    const mobileSave = detailPage.getByRole("button", { name: "Save diagnosis" });
+    await expect(mobileSave).toBeVisible();
+    await expectMinTouchTarget(mobileSave);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("tabs support keyboard navigation and ?tab= deep links", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
+
+    const overviewTab = page.getByRole("tab", { name: "Overview" });
+    await overviewTab.click();
+    await overviewTab.press("ArrowRight");
+    await expect(page.getByRole("tab", { name: "Compare" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "Compare" })).toBeFocused();
+    await page.keyboard.press("End");
+    await expect(page.getByRole("tab", { name: "Source" })).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(/tab=source/);
+    await page.keyboard.press("Home");
+    await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium?tab=compare");
+    await expect(page.getByRole("tab", { name: "Compare" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("differential-compare-open")).toHaveAttribute(
+      "href",
+      "/differentials/presentations/acute-confusion-encephalopathy",
+    );
+  });
+
+  test("compare, related, and source tabs surface real content", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoDetailPage(page, "/differentials/diagnoses/delirium");
+
+    await page.getByRole("tab", { name: "Compare" }).click();
+    await expect(page.getByRole("heading", { name: "Compare with related diagnoses" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Akathisia/ })).toHaveAttribute(
+      "href",
+      "/differentials/diagnoses/akathisia",
+    );
+    await expect(page.getByRole("button", { name: "Clear" })).toHaveCount(0);
+
+    await page.getByRole("tab", { name: "Related" }).click();
+    await expect(page.getByTestId("differential-related-row").first()).toHaveAttribute(
+      "href",
+      /\/differentials\/diagnoses\//,
+    );
+    await expect(page.getByRole("heading", { name: "Current presentation" })).toBeVisible();
+
+    await page.getByRole("tab", { name: "Source" }).click();
+    await expect(page.getByText("Review due")).toBeVisible();
+    await expect(page.getByText("Locally reviewed")).toBeVisible();
+    await expect(page.getByText("Use clinical judgement and local protocols.")).toBeVisible();
+    await expect(page.getByText(/^Exported \d{4}-\d{2}-\d{2}/)).toBeVisible();
+  });
+
+  test("safety snapshot derives honest facts for non-curated records", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoDetailPage(page, "/differentials/diagnoses/akathisia");
+
+    const detailPage = page.getByTestId("differential-detail-page");
+    await expect(detailPage.getByRole("heading", { name: "Safety snapshot" })).toBeVisible();
+    // Non-curated records must never show fabricated clinical-course facts.
+    await expect(detailPage.getByText("Onset", { exact: true })).toHaveCount(0);
+    await expect(detailPage.getByText("Treatable", { exact: true })).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
   });
 });
