@@ -1501,6 +1501,10 @@ test.describe("Clinical KB differential diagnosis detail page", () => {
 
     await expectMinTouchTarget(page.getByRole("tab", { name: "Overview" }));
     await expect(detailPage.getByRole("button", { name: /Compare \(\d+\)/ })).toBeVisible();
+    // The bookmark must stay reachable below lg where TopActions is hidden.
+    const mobileSave = detailPage.getByRole("button", { name: "Save diagnosis" });
+    await expect(mobileSave).toBeVisible();
+    await expectMinTouchTarget(mobileSave);
     await expectNoPageHorizontalOverflow(page);
 
     await page.setViewportSize({ width: 320, height: 700 });

@@ -15,7 +15,7 @@ import {
   type DifferentialRecordRow,
 } from "@/lib/differential-records";
 import { ensureDifferentialsSeeded, loadDifferentialSnapshot } from "@/lib/differential-seed";
-import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
+import { getDifferentialDetailContext, getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
@@ -63,6 +63,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       if (!record) return notFoundResponse(normalizedSlug);
       return differentialResponse({
         record,
+        detailContext: getDifferentialDetailContext(record),
         governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
         demoMode: true,
       });
@@ -84,6 +85,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       if (!record) return notFoundResponse(normalizedSlug);
       return differentialResponse({
         record,
+        detailContext: getDifferentialDetailContext(record),
         governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
         publicAccess: true,
       });
@@ -118,6 +120,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       if (!record) return notFoundResponse(normalizedSlug);
       return differentialResponse({
         record,
+        detailContext: getDifferentialDetailContext(record),
         governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
         publicAccess: true,
       });
@@ -158,7 +161,14 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       return differentialResponse({ workflow: rowToPresentationWorkflow(row), governance: rowGovernance(row) });
     }
 
-    return differentialResponse({ record: rowToDifferentialRecord(row), governance: rowGovernance(row) });
+    // Owner rows can drift from the bundled snapshot, so the catalog-derived
+    // context ships with the record the client will actually render.
+    const record = rowToDifferentialRecord(row);
+    return differentialResponse({
+      record,
+      detailContext: getDifferentialDetailContext(record),
+      governance: rowGovernance(row),
+    });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

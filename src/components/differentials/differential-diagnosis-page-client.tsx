@@ -14,13 +14,18 @@ export function DifferentialDiagnosisPageClient({
   fallbackRecord: DifferentialRecord;
   detailContext: DifferentialDetailContext;
 }) {
-  const { status, record, governance } = useDifferentialRecord(slug);
-  const resolvedRecord = status === "ready" && record ? record : fallbackRecord;
+  const { status, record, detailContext: liveContext, governance } = useDifferentialRecord(slug);
+  const ready = status === "ready" && record !== null;
+  const resolvedRecord = ready ? record : fallbackRecord;
+  // Prefer the context computed for the live record (owner rows can drift from
+  // the bundled snapshot); fall back to the SSR context when the API predates
+  // the field or the request failed.
+  const resolvedContext = ready && liveContext ? liveContext : detailContext;
   return (
     <DifferentialDetailPage
       record={resolvedRecord}
-      detailContext={detailContext}
-      liveGovernance={status === "ready" ? governance : null}
+      detailContext={resolvedContext}
+      liveGovernance={ready ? governance : null}
     />
   );
 }

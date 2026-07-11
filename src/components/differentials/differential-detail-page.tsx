@@ -742,9 +742,19 @@ function TopActions({
   );
 }
 
-function MobilePrimaryActions({ record, onCompare }: { record: DifferentialRecord; onCompare: () => void }) {
+function MobilePrimaryActions({
+  record,
+  saved,
+  onToggleSaved,
+  onCompare,
+}: {
+  record: DifferentialRecord;
+  saved: boolean;
+  onToggleSaved: () => void;
+  onCompare: () => void;
+}) {
   return (
-    <div className="grid grid-cols-2 gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] lg:hidden">
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] lg:hidden">
       <button
         type="button"
         onClick={onCompare}
@@ -758,6 +768,20 @@ function MobilePrimaryActions({ record, onCompare }: { record: DifferentialRecor
         text={formatDifferentialCopyText(record)}
         className="min-h-12 !bg-[color:var(--surface-raised)] !text-[color:var(--clinical-accent)] hover:!bg-[color:var(--surface-subtle)]"
       />
+      <button
+        type="button"
+        onClick={onToggleSaved}
+        aria-pressed={saved}
+        aria-label={saved ? "Remove saved diagnosis" : "Save diagnosis"}
+        className={cn(
+          "grid h-12 w-12 place-items-center rounded-md border",
+          saved
+            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+            : "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)]",
+        )}
+      >
+        {saved ? <BookmarkCheck className="h-4 w-4" aria-hidden /> : <Bookmark className="h-4 w-4" aria-hidden />}
+      </button>
     </div>
   );
 }
@@ -1059,7 +1083,7 @@ export function DifferentialDetailPage({
           ) : null}
         </div>
 
-        <MobilePrimaryActions record={record} onCompare={openCompareTab} />
+        <MobilePrimaryActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />
         <p className="rounded-lg border border-transparent px-1 text-xs leading-5 text-[color:var(--text-muted)]">
           Clinical decision support only. Review before use.
         </p>

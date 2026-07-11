@@ -116,11 +116,17 @@ describe("differentials API routes", () => {
     const response = await GET(request("/api/differentials/delirium?kind=diagnosis"), {
       params: Promise.resolve({ slug: "delirium" }),
     });
-    const payload = (await response.json()) as { record?: { slug: string }; demoMode?: boolean };
+    const payload = (await response.json()) as {
+      record?: { slug: string };
+      detailContext?: { comparePresentation?: { slug: string } | null; knownRelatedSlugs?: string[] };
+      demoMode?: boolean;
+    };
 
     expect(response.status).toBe(200);
     expect(payload.demoMode).toBe(true);
     expect(payload.record?.slug).toBe("delirium");
+    expect(payload.detailContext?.comparePresentation?.slug).toBe("acute-confusion-encephalopathy");
+    expect(payload.detailContext?.knownRelatedSlugs).toContain("akathisia");
     expect(client.from).not.toHaveBeenCalled();
   });
 
