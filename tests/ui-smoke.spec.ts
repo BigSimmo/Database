@@ -2197,6 +2197,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("#source-evidence").getByTestId("highlighted-source-passage")).toContainText(
       "Patient safety plan should include",
     );
+    await expect(
+      page.getByTestId("desktop-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
+    ).toBeVisible();
 
     const sourceSearch = page.getByLabel("Search within indexed source text").last();
     await sourceSearch.fill("safety plan include");
@@ -2230,6 +2233,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(evidence).toBeVisible();
     await expect(evidence.getByText("Highlighted source passage")).toBeVisible();
+    await expect(page.locator("#source-text-mobile")).toHaveJSProperty("open", true);
+    await expect(
+      page.getByTestId("mobile-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
+    ).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "Evidence" })).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "PDF" })).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "Text" })).toBeVisible();

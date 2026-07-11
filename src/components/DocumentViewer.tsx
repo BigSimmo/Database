@@ -2328,8 +2328,17 @@ export function DocumentViewer({
   const usefulPageCount = usefulDocumentPages(initialPage, pages).length || 1;
   useEffect(() => {
     if (!chunkId || loadingDocument) return;
-    const target = window.document.querySelector(`[data-source-chunk-id="${CSS.escape(chunkId)}"]`);
-    target?.scrollIntoView({ block: "center", behavior: "smooth" });
+    const desktopPanelVisible = window.matchMedia("(min-width: 1024px)").matches;
+    if (!desktopPanelVisible) {
+      const mobileDetails = window.document.getElementById("source-text-mobile");
+      if (mobileDetails instanceof HTMLDetailsElement) mobileDetails.open = true;
+    }
+
+    const idPrefix = desktopPanelVisible ? "desktop-chunk" : "mobile-chunk";
+    const frame = window.requestAnimationFrame(() => {
+      window.document.getElementById(`${idPrefix}-${chunkId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [chunkId, loadingDocument, chunks.length]);
   const retryPreview = () => {
     setViewerError(null);
