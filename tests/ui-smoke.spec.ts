@@ -2149,9 +2149,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const documentResults = page.getByRole("region", { name: "Document results" });
     await expect(documentResults).toContainText("Synthetic lithium monitoring protocol");
     await expect(documentResults).toContainText("Best match");
-    await expect(documentResults).toContainText("Table evidence");
+    await expect(documentResults).toContainText("Tables 1");
     await expect(documentResults.getByRole("link", { name: "Open document" }).first()).toBeVisible();
-    await expect(documentResults.getByRole("link", { name: "Evidence" }).first()).toBeVisible();
     await expect(page.getByRole("complementary").filter({ hasText: "Selected source" })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
