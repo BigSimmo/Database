@@ -184,6 +184,12 @@ image"}` — never a possibly-empty variable alone.
   noindexed (robots.ts + layout metadata), and exempt from token/type-scale rules — but
   **promoting a mockup to production means bringing it onto the token system first** (see the
   legacy-hex table above).
+- **Brand mark** is single-sourced in `src/lib/brand-mark.ts` (geometry + SVG builders).
+  `BrandMark` (`clinical-dashboard/brand.tsx`) renders it token-themed; `app/icon.svg`,
+  `app/apple-icon`, the PWA maskable icons, and `app/opengraph-image` all derive from it. To
+  change the mark, edit `brand-mark.ts` then `npm run brand:update`; `brand:check` (in
+  `verify:cheap`) guards `app/icon.svg` from drift. `app/favicon.ico` is a multi-resolution
+  binary the toolchain can't emit — regenerate it offline from `icon.svg` when the mark changes.
 
 ## 11. What NOT to do
 
