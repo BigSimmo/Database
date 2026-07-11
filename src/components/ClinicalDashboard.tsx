@@ -3253,7 +3253,6 @@ export function ClinicalDashboard({
             differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
-          heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
           // Phone-only: the header sits above the internally scrolling <main>,
           // so hiding must collapse its layout space to hand it to content.
           hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
@@ -3287,7 +3286,9 @@ export function ClinicalDashboard({
                     ? differentialsCompareAddonActive
                       ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
                       : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
-                    : compactMobileModeHome
+                    : // Mode homes keep the composer in the hero (in-flow at every
+                      // width), so phones need no bottom-dock clearance on them.
+                      compactMobileModeHome || showDesktopHomeComposer
                       ? "mb-0"
                       : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
                 : "mb-0",
@@ -3310,7 +3311,7 @@ export function ClinicalDashboard({
                   : hasMobileBottomSearch
                     ? compactMobileModeHome
                       ? "pb-4 sm:pb-10 lg:pb-12"
-                      : compactMobileBottomSearch
+                      : compactMobileBottomSearch || showDesktopHomeComposer
                         ? "pb-8 sm:pb-10 lg:pb-12"
                         : "pb-32 sm:pb-10 lg:pb-12"
                     : "pb-8 sm:pb-10 lg:pb-12",

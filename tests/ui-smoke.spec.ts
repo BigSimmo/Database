@@ -210,7 +210,7 @@ async function blockExternalRequests(page: Page) {
     const url = new URL(route.request().url());
     if (
       (url.protocol === "http:" || url.protocol === "https:") &&
-      !["localhost", "127.0.0.1", "::1"].includes(url.hostname)
+      !["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname)
     ) {
       await route.abort("blockedbyclient");
       return;
@@ -1906,9 +1906,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
     const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
-    await expect(sourceStatus).toContainText("Not yet checked");
+    const singularSourceCount = sourceStatus.getByText("1 source", { exact: true });
+    await expect(singularSourceCount).toBeVisible();
     await page.waitForTimeout(600);
-    await expect(sourceStatus).toContainText("Not yet checked");
+    await expect(singularSourceCount).toBeVisible();
     await expect(sourceStatus).not.toContainText("2 sources");
   });
 

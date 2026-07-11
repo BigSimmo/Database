@@ -9,7 +9,7 @@ import {
   useState,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
-  type Ref,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -71,10 +71,6 @@ import { tagSearchText } from "@/lib/document-tags";
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
-// Mode-home shells centre the composer in the hero at every width (see
-// heroComposerFromTablet): phones share the hero-centred landing design that
-// tests/ui-tools.spec.ts "mode home routes center the shared search on mobile"
-// encodes, so the query intentionally always matches.
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 
@@ -179,7 +175,6 @@ export function MasterSearchHeader({
   searchComposerVisible = true,
   desktopHomeComposerSlotId,
   mobileBottomSearchAddonSlotId,
-  heroComposerFromTablet = false,
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
@@ -211,7 +206,7 @@ export function MasterSearchHeader({
   onNewChat?: () => void;
   onOpenMobileSidebar?: () => void;
   queryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>;
-  queryInputRef?: Ref<HTMLInputElement>;
+  queryInputRef?: RefObject<HTMLInputElement | null>;
   queryInputAutoFocus?: boolean;
   /** Overrides the mode's default input placeholder (e.g. "Ask a follow-up..." mid-thread). */
   composerPlaceholder?: string;
@@ -231,12 +226,12 @@ export function MasterSearchHeader({
   mobileBottomSearchVariant?: "default" | "compact";
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
+  /** Mode-home slot the composer portals into at every viewport width, so the
+   *  search pill sits in the middle of the hero on phones as well as desktop
+   *  instead of docking to the bottom edge. */
   desktopHomeComposerSlotId?: string;
   /** Phone-only slot rendered above the bottom search pill for page-specific dock addons. */
   mobileBottomSearchAddonSlotId?: string;
-  /** Portal the composer into the hero slot from the tablet breakpoint (sm) up,
-   *  rather than the default desktop (lg) breakpoint. */
-  heroComposerFromTablet?: boolean;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
   /** Phone-only hide-on-scroll for the universal header and bottom search dock.
@@ -305,8 +300,13 @@ export function MasterSearchHeader({
   const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
+  // Mode homes portal the composer into the hero slot at every width, so the
+  // phone bottom dock only exists when no hero slot is provided.
   const phoneBottomSearchDockActive =
-    usesPhoneSearchLayout && searchComposerVisible && (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
+    usesPhoneSearchLayout &&
+    searchComposerVisible &&
+    !desktopHomeComposerSlotId &&
+    (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
   const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden =
     bottomComposerScrollHiddenActive &&
@@ -614,6 +614,22 @@ export function MasterSearchHeader({
     visibleAppModeOptions.findIndex((mode) => mode.id === selectedAppMode.id),
   );
 
+  // Both the hero-portal composer and the default composer bind the caller's
+  // queryInputRef. During home <-> result transitions the two briefly coexist,
+  // and React nulls a plain shared ref when the outgoing composer unmounts —
+  // clobbering the surviving input's binding (quote follow-up focus broke).
+  // A cleanup-function ref only clears the binding it still owns.
+  const bindQueryInputRef = useCallback(
+    (element: HTMLInputElement | null) => {
+      if (!element || !queryInputRef) return undefined;
+      queryInputRef.current = element;
+      return () => {
+        if (queryInputRef.current === element) queryInputRef.current = null;
+      };
+    },
+    [queryInputRef],
+  );
+
   function focusModeOption(index: number) {
     const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
     modeOptionRefs.current[nextIndex]?.focus();
@@ -711,13 +727,17 @@ export function MasterSearchHeader({
     // into it made React reconcile the portal against a container that another
     // part of the tree had already removed, throwing a null-parentNode error.
     // Because the host is stable, React's portal container never disappears.
+    // The slot is used at every viewport width — phones included — so mode
+    // homes keep the composer in the middle of the hero instead of docking it
+    // to the bottom edge.
     const host = document.createElement("div");
     // Layout-transparent so the composer lays out as a direct child of the slot.
     host.style.display = "contents";
 
     const mediaQuery = window.matchMedia(
-      heroComposerFromTablet ? modeHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
+      desktopHomeComposerSlotId ? modeHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
     );
+
     let frame: number | null = null;
     let retryTimeout: number | null = null;
     let portalRetryCount = 0;
@@ -767,7 +787,7 @@ export function MasterSearchHeader({
       setDesktopHomeComposerFallback(false);
       setDesktopHomeComposerHost(null);
     };
-  }, [desktopHomeComposerSlotId, heroComposerFromTablet]);
+  }, [desktopHomeComposerSlotId]);
 
   const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
   function dismissScope(reason: "outside" | "escape") {
@@ -1098,7 +1118,11 @@ export function MasterSearchHeader({
         onSubmit={submit}
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
         data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
-        data-command-open={usesBottomComposerPlacement && commandDropdownOpen ? "true" : undefined}
+        data-command-open={
+          // Phones never show the command dropdown, so the dock scrim must not
+          // grow for it — gate the open attribute to widths that can display it.
+          usesBottomComposerPlacement && !usesPhoneSearchLayout && commandDropdownOpen ? "true" : undefined
+        }
         data-scroll-hidden={shouldHideBottomOnScroll && bottomComposerHidden ? "true" : undefined}
         {...(shouldHideBottomOnScroll ? composerFocusProps : undefined)}
         className={cn(
@@ -1176,11 +1200,7 @@ export function MasterSearchHeader({
           onRunModeAction={runModeAction}
           onCommandScopesChange={(scopes) => onCommandScopesChange?.(scopes)}
           onListboxIdReady={setCommandListboxId}
-          onFocusSearchInput={() => {
-            if (queryInputRef && "current" in queryInputRef) {
-              queryInputRef.current?.focus();
-            }
-          }}
+          onFocusSearchInput={() => queryInputRef?.current?.focus()}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
@@ -1222,7 +1242,7 @@ export function MasterSearchHeader({
               pr-* utility, which let text run under an overlaid button. */}
             <label className="flex min-w-0 flex-1 items-center overflow-hidden">
               <input
-                ref={queryInputRef}
+                ref={bindQueryInputRef}
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
                 value={query}
