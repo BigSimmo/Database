@@ -143,6 +143,29 @@ describe("medication action tone", () => {
     expect(medicationActionDetail(record as MedicationRecord).tone).toBe("danger");
   });
 
+  it("does not mark explicit no-contraindication text as danger", () => {
+    const none = buildRecord({
+      quick: [{ label: "Avoid if", value: "NONE — No absolute contraindications in respiratory depression." }],
+    });
+    expect(medicationActionDetail(none).tone).toBe("neutral");
+
+    const noAbsolute = buildRecord({
+      quick: [{ label: "Avoid if", value: "No absolute contraindication in life-threatening anaphylaxis." }],
+    });
+    expect(medicationActionDetail(noAbsolute).tone).toBe("neutral");
+
+    const noneWithCaution = buildRecord({
+      quick: [{ label: "Avoid if", value: "None strictly absolute, but severe caution in respiratory failure." }],
+    });
+    expect(medicationActionDetail(noneWithCaution).tone).toBe("warning");
+  });
+
+  it("keeps naloxone's explicit NONE contraindication off the danger tone from the snapshot", () => {
+    const record = getMedicationRecord("naloxone");
+    expect(record).toBeTruthy();
+    expect(medicationActionDetail(record as MedicationRecord).tone).not.toBe("danger");
+  });
+
   it("does not cut action text at abbreviations or decimals", () => {
     expect(firstClinicalSentence("Any hepatic impairment (e.g. cirrhosis). Review LFTs.")).toBe(
       "Any hepatic impairment (e.g. cirrhosis)",

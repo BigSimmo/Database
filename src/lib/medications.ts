@@ -192,7 +192,15 @@ export function medicationActionDetail(record: MedicationRecord): { text: string
     tone: "neutral" as const,
   };
   const text = firstClinicalSentence(picked.raw.replace(/\*\*/g, "")) || "Review full prescribing reference";
-  return { text, tone: picked.tone };
+  // Avoid/contraindication fields sometimes explicitly say there is NO
+  // contraindication ("NONE — ...", "No absolute contraindication in ...").
+  // Those must not carry the danger icon / "Do not use" prefix: downgrade to
+  // warning when the displayed sentence still carries a caution, else neutral.
+  let tone = picked.tone;
+  if (tone === "danger" && /^(?:none\b|no\s+(?:absolute\s+)?contraindication)/i.test(text)) {
+    tone = /caution/i.test(text) ? "warning" : "neutral";
+  }
+  return { text, tone };
 }
 
 export function medicationAction(record: MedicationRecord) {
