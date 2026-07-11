@@ -2150,7 +2150,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Synthetic lithium monitoring protocol");
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("Tables 1");
-    await expect(documentResults.getByRole("link", { name: "Open document" }).first()).toBeVisible();
+    const openDocumentLink = documentResults.getByRole("link", { name: "Open document" }).first();
+    await expect(openDocumentLink).toBeVisible();
+    // The viewer link must target the mocked document with page + chunk params, so a regression
+    // that opens the wrong location can't slip through on link presence alone.
+    await expect(openDocumentLink).toHaveAttribute("href", /\/documents\/[^?]+\?page=\d+(&chunk=[^&]+)?$/);
     await expect(page.getByRole("complementary").filter({ hasText: "Selected source" })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
