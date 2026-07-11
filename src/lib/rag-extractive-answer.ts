@@ -24,7 +24,12 @@ import {
   splitBalancedWords,
 } from "@/lib/rag-answer-text";
 import { ragProviderMode } from "@/lib/rag-provider";
-import { isLowYieldClinicalText, sourceTextForClinicalProse } from "@/lib/source-text-sanitizer";
+import {
+  isLowYieldClinicalText,
+  normalizeInlineBulletGlyphs,
+  sourceTextForClinicalProse,
+  sourceTextForClinicalProsePreservingBreaks,
+} from "@/lib/source-text-sanitizer";
 import type {
   AnswerSection,
   AnswerSectionKind,
@@ -65,9 +70,55 @@ type ExtractedClinicalFact = {
 const extractiveLabelPattern =
   /\b(?:Medication point|Table evidence|Threshold\/action|Risk\/escalation|Workflow step|Section summary|Source point|Dose detail|Monitoring)\s*:\s*/gi;
 
+// Structural labels that are pure boilerplate — never merged into a
+// following fragment and never rewritten into "For <label>, …". Clinical
+// headings that happen to share a word are exempt: "Source control"
+// (infection-source management) and "Reference range/interval" (lab values)
+// are evidence, not provenance or bibliography labels.
+// "section" is anchored to the label start so structural "Section 2:" is
+// excluded while clinical phrases like "Caesarean section:" merge normally.
+const structuralHeadingStoplistPattern =
+  /\b(?:source(?!\s+control\b)|table|figure|page|summary|example|appendix|reference(?!\s+(?:range|interval)s?\b)|contents)\b|^\s*section\b/i;
+
+// Advisory labels ("Caution:", "Warning:") classify the fact that follows as
+// a caveat — they merge with their bullet items like directive headings do,
+// but keep their colon form instead of becoming "For caution, …".
+const advisoryHeadingPattern = /\b(?:note|warning|caution|important|nb)\b/i;
+
+// Headings that carry the clinical action themselves ("Do not use:",
+// "Avoid:"). These must merge with their bullet items — the item alone often
+// lacks the verb ("Pregnancy") — but must keep their colon form instead of
+// being rewritten into noun context ("For avoid, pregnancy").
+const directiveHeadingPattern =
+  /\b(?:avoid|do|does|not|use|stop|cease|withhold|hold|discontinue|monitor|check|give|administer|contraindicat\w*|must|should|review|refer|contact|seek|consider|is|are|was|were)\b/i;
+
+// A leading section heading carried into a fact ("Acute Mania: 750mg…")
+// becomes readable context ("For acute mania, 750mg…") instead of a colon
+// fragment glued mid-sentence. All-caps tokens (acronyms like "IR") keep
+// their casing, so labels containing one are left for the dose rewrite below.
+const leadingHeadingContextPattern = /^([A-Z][A-Za-z]+(?:[ /-][A-Za-z()]+){0,3}):\s+(?=\S)/;
+
+// "Label: <dose>" reads as "Label is <dose>" only when the colon is directly
+// followed by a numeric dose ("IR product: 750 to 1000mg" → "IR product is
+// 750 to 1000mg"); prose labels without a dose keep their colon. A label
+// ending in a preposition/verb particle is not a heading — "reduce dose to:
+// 500mg" must not become "reduce dose to is 500mg".
+const doseLabelColonPattern =
+  /([A-Za-z][\w-]*(?:\s+[\w-]+){0,3})(?<!\b(?:to|by|at|of|in|on|with|into|onto|towards|per|over|under|from)):\s+(?=\d[^:]{0,24}?(?:mg|mcg|microg|m[lL]|units?|mmol|g)\b)/g;
+
+function rewriteLeadingHeadingContext(value: string) {
+  return value.replace(leadingHeadingContextPattern, (match, label: string) => {
+    if (structuralHeadingStoplistPattern.test(label)) return match;
+    if (advisoryHeadingPattern.test(label)) return match;
+    if (directiveHeadingPattern.test(label)) return match;
+    if (/\b[A-Z]{2,}\b/.test(label)) return match;
+    return `For ${label.toLowerCase()}, `;
+  });
+}
+
 /** Clean extractive point text. */
 function cleanExtractivePointText(value: string) {
-  return sourceTextForClinicalProse(value)
+  const rewritten = normalizeInlineBulletGlyphs(sourceTextForClinicalProse(value))
     .replace(/\b(?:clinical_table|table_crop|diagram_crop)\b/gi, " ")
     .replace(
       /^(?:clinical\s+)?table\s+(?:showing|detailing|listing|outlining|describing)\b.*?:\s*(?=\b(?:if|when|for|cease|stop|withhold|contact|repeat|monitor|clozapine)\b)/i,
@@ -90,6 +141,11 @@ function cleanExtractivePointText(value: string) {
     .replace(/\s+([,.;:])/g, "$1")
     .replace(/(?:\.\s*){2,}/g, ". ")
     .trim();
+  // Directive/advisory labels keep their colon — "Avoid: 12.5 mg…" must not
+  // become the noun-label sentence "Avoid is 12.5 mg…".
+  return rewriteLeadingHeadingContext(rewritten).replace(doseLabelColonPattern, (match, label: string) =>
+    directiveHeadingPattern.test(label) || advisoryHeadingPattern.test(label) ? match : `${label} is `,
+  );
 }
 
 const extractiveClinicalDirectivePattern =
@@ -506,10 +562,51 @@ function isLowValueExtractiveCaption(clause: string) {
   return !extractiveClinicalDirectivePattern.test(clause);
 }
 
+// A short section heading ("Acute Mania:", "Day 1:", "do not use:",
+// "eGFR <30:", "K+ >5.5 mmol/L:", "48-72 hours:") left standing alone by the
+// bullet split. Merged into the fragment that follows it so the indication,
+// schedule, or threshold context survives the minimum-length filter instead
+// of being dropped — a dose or action without its day/step/threshold/time
+// window is unsafe. Clinical threshold notation is too varied to enumerate
+// character-by-character (comparators, electrolyte "+", degrees, micro
+// signs), so any short colon-terminated fragment with alphanumeric content
+// and no sentence punctuation qualifies (internal periods are decimals —
+// the sentence split has already happened); structural labels ("Page 4:",
+// "Table 2:") stay excluded by the stoplist and the word cap bounds it.
+const shortHeadingFragmentPattern = /^[^!?;:]{2,40}:$/;
+
+function isShortHeadingFragment(fragment: string) {
+  return (
+    shortHeadingFragmentPattern.test(fragment) &&
+    /[A-Za-z0-9]/.test(fragment) &&
+    fragment.split(/\s+/).length <= 4 &&
+    !structuralHeadingStoplistPattern.test(fragment)
+  );
+}
+
 /** Split clinical evidence sentences. */
-function splitClinicalEvidenceSentences(value: string) {
-  return sourceTextForClinicalProse(value)
+export function splitClinicalEvidenceSentences(value: string) {
+  const fragments = normalizeInlineBulletGlyphs(sourceTextForClinicalProsePreservingBreaks(value), { joiner: "\n" })
     .split(/\r?\n+|(?<=[.!?])\s+|\s+[•]\s+|\s+\|\s+/)
+    .map((fragment) => fragment.trim())
+    .filter(Boolean);
+  const merged: string[] = [];
+  let pendingHeading = "";
+  for (const fragment of fragments) {
+    if (isShortHeadingFragment(fragment)) {
+      // Sentence-case an OCR-lowercased heading ("day 1:" → "Day 1:") so the
+      // merged fact reads as a sentence start rather than being discarded as
+      // a mid-sentence fragment by the lowercase-start quality gate. Mixed-
+      // case clinical tokens ("eGFR <30:") keep their casing — they already
+      // pass that gate, and "EGFR" would corrupt the abbreviation.
+      const cased = /^[a-z][a-z]/.test(fragment) ? upperFirst(fragment) : fragment;
+      pendingHeading = pendingHeading ? `${pendingHeading} ${cased}` : cased;
+      continue;
+    }
+    merged.push(pendingHeading ? `${pendingHeading} ${fragment}` : fragment);
+    pendingHeading = "";
+  }
+  return merged
     .map(cleanExtractivePointText)
     .filter(
       (sentence) =>
@@ -703,6 +800,12 @@ function tableFactsToClinicalFacts(result: SearchResult, query: string, intent: 
     .filter((fact): fact is ExtractedClinicalFact => Boolean(fact));
 }
 
+function withTerminalPunctuation(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return /[.:;!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
 /** Extract clinical facts from results. */
 function extractClinicalFactsFromResults(results: SearchResult[], query: string, intent: AnswerIntent, limit = 8) {
   const seen = new Set<string>();
@@ -717,12 +820,27 @@ function extractClinicalFactsFromResults(results: SearchResult[], query: string,
       facts.push(fact);
     }
 
+    // Each evidence segment gets terminal punctuation before joining: the
+    // prose cleaner collapses the newlines, and without it a bare section
+    // heading or synopsis tail glues onto the next segment's first sentence
+    // ("Dosing Twice daily dosing should…"). The heading gets a colon so it
+    // reads as a label for the content that follows it — unless the content
+    // already opens with the heading text, where prepending it would only
+    // fabricate a contentless "Label: Label." fact.
+    const sectionHeading = result.section_heading?.trim();
+    const contentLeadsWithHeading = Boolean(
+      sectionHeading && (result.content ?? "").trim().toLowerCase().startsWith(sectionHeading.toLowerCase()),
+    );
     const text = [
-      result.retrieval_synopsis,
-      result.section_heading,
-      result.content,
-      result.adjacent_context,
-      ...(result.memory_cards ?? []).map((card) => card.content),
+      withTerminalPunctuation(result.retrieval_synopsis),
+      sectionHeading && !contentLeadsWithHeading
+        ? /[.:;!?]$/.test(sectionHeading)
+          ? sectionHeading
+          : `${sectionHeading}:`
+        : null,
+      withTerminalPunctuation(result.content),
+      withTerminalPunctuation(result.adjacent_context),
+      ...(result.memory_cards ?? []).map((card) => withTerminalPunctuation(card.content)),
     ]
       .filter(Boolean)
       .join("\n");
@@ -750,17 +868,27 @@ function extractClinicalFactsFromResults(results: SearchResult[], query: string,
 }
 
 /** Sentence from fact. */
-function sentenceFromFact(fact: ExtractedClinicalFact, query: string) {
+export function sentenceFromFact(
+  fact: ExtractedClinicalFact,
+  query: string,
+  options: { suppressEntityPrefix?: boolean } = {},
+) {
   const text = sanitizeAnswerText(cleanExtractivePointText(fact.text)).replace(/[.;,\s]+$/, "");
   if (!text) return "";
   const entity = queryEntityTokens(query, classifyAnswerIntent(query, classifyRagQuery(query).queryClass))[0];
   const needsEntityPrefix =
+    !options.suppressEntityPrefix &&
     entity &&
     fact.kind !== "bottom_line" &&
     !queryTokenMatchesText(entity, text) &&
     !/^(?:for|in|when|if|avoid|do not|must not|withhold|cease|stop|monitor|check|refer|arrange)\b/i.test(text);
-  const sentence = needsEntityPrefix ? `For ${entity}, ${text.charAt(0).toLowerCase()}${text.slice(1)}` : text;
-  return completeExtractiveSentence(sentence, query);
+  // Complete the bare fact first, then attach the entity once. Prefixing
+  // before completion let the "The guidance is that…" wrapper swallow the
+  // prefix and duplicate the entity ("For lithium, … that for lithium, …").
+  const completed = completeExtractiveSentence(text, query);
+  if (!completed || !needsEntityPrefix) return completed;
+  if (!/^The guidance\b/.test(completed)) return `For ${entity}, ${lowerFirst(completed)}`;
+  return completed.replace(/^The guidance/, `The guidance for ${entity}`);
 }
 
 /** Lower first. */
@@ -885,12 +1013,25 @@ function buildFactSynthesizedAnswer(args: {
   }
 
   const leadFacts = facts.slice(0, args.intent === "dose" ? 2 : 1);
-  const answer = sanitizeAnswerText(
-    leadFacts
-      .map((fact) => sentenceFromFact(fact, args.query))
-      .filter(Boolean)
-      .join(" "),
-  );
+  // Once the lead answer names the query entity, later lead sentences skip
+  // their own entity prefix so the entity is not repeated in every sentence.
+  // Derived exactly the way sentenceFromFact derives its prefix entity (from
+  // the query's own classification, not the routed intent) so the suppression
+  // gate can never disagree with the prefix it is gating.
+  const entity = queryEntityTokens(
+    args.query,
+    classifyAnswerIntent(args.query, classifyRagQuery(args.query).queryClass),
+  )[0];
+  let accumulated = "";
+  const leadSentences: string[] = [];
+  for (const fact of leadFacts) {
+    const suppressEntityPrefix = Boolean(entity && accumulated && queryTokenMatchesText(entity, accumulated));
+    const sentence = sentenceFromFact(fact, args.query, { suppressEntityPrefix });
+    if (!sentence) continue;
+    leadSentences.push(sentence);
+    accumulated = `${accumulated} ${sentence}`.trim();
+  }
+  const answer = sanitizeAnswerText(leadSentences.join(" "));
   const answerSections = buildFactSections(facts, args.query);
   return {
     answer: boldHighYieldClinicalText(answer, args.query),

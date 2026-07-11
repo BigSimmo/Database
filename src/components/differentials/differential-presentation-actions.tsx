@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ClipboardCopy } from "lucide-react";
 
 import { cn } from "@/components/ui-primitives";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 
 export function CopyAfterReviewButton({
   text,
@@ -18,7 +19,7 @@ export function CopyAfterReviewButton({
 
   async function copyText() {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyTextToClipboard(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {

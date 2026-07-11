@@ -580,7 +580,7 @@ test.describe("Clinical KB tools launcher", () => {
         // Compact hero mobile scale: 3rem icon, 1.625rem heading, 0.875rem subtitle.
         expect(metrics.iconWidth).toBe(48);
         expect(metrics.iconHeight).toBe(48);
-        expect(metrics.headingFontSize).toBeCloseTo(26, 0);
+        expect(metrics.headingFontSize).toBe(26);
         expect(metrics.subtitleFontSize).toBeCloseTo(14, 1);
       } else {
         expect(metrics, `${home.path} hero metrics`).toEqual(baseline);

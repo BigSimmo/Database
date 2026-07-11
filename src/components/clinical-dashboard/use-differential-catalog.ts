@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import type { DifferentialDetailContext } from "@/lib/differential-detail";
 import type { DifferentialSourceStatus, DifferentialValidationStatus } from "@/lib/differential-records";
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differentials";
 import { useAuthSession } from "@/lib/supabase/client";
@@ -29,6 +30,9 @@ export type DifferentialRequestStatus = "loading" | "ready" | "unauthorized" | "
 export type DifferentialRecordState = {
   status: DifferentialRequestStatus;
   record: DifferentialRecord | null;
+  /** Catalog context computed server-side for the returned record (may lag
+   *  older API deployments, so consumers keep an SSR fallback). */
+  detailContext: DifferentialDetailContext | null;
   demoMode: boolean;
   governance: DifferentialRecordGovernance | null;
 };
@@ -118,6 +122,7 @@ export function useDifferentialRecord(slug: string): DifferentialRecordState {
   const [state, setState] = useState<DifferentialRecordState>({
     status: "loading",
     record: null,
+    detailContext: null,
     demoMode: false,
     governance: null,
   });
@@ -130,31 +135,35 @@ export function useDifferentialRecord(slug: string): DifferentialRecordState {
         if (response.status === 401) {
           if (authStatus === "loading") return;
           if (authStatus === "authenticated") markSessionExpired();
-          setState({ status: "unauthorized", record: null, demoMode: false, governance: null });
+          setState({ status: "unauthorized", record: null, detailContext: null, demoMode: false, governance: null });
           return;
         }
         if (response.status === 404) {
-          setState({ status: "not_found", record: null, demoMode: false, governance: null });
+          setState({ status: "not_found", record: null, detailContext: null, demoMode: false, governance: null });
           return;
         }
         if (!response.ok) {
-          setState({ status: "error", record: null, demoMode: false, governance: null });
+          setState({ status: "error", record: null, detailContext: null, demoMode: false, governance: null });
           return;
         }
         const payload = (await response.json()) as {
           record?: DifferentialRecord;
+          detailContext?: DifferentialDetailContext;
           demoMode?: boolean;
           governance?: DifferentialRecordGovernance;
         };
         setState({
           status: payload.record ? "ready" : "not_found",
           record: payload.record ?? null,
+          detailContext: payload.detailContext ?? null,
           demoMode: Boolean(payload.demoMode),
           governance: payload.governance ?? null,
         });
       })
       .catch(() => {
-        if (active) setState({ status: "error", record: null, demoMode: false, governance: null });
+        if (active) {
+          setState({ status: "error", record: null, detailContext: null, demoMode: false, governance: null });
+        }
       });
     return () => {
       active = false;
