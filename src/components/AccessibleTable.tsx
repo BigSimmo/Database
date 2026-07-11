@@ -1,17 +1,7 @@
 "use client";
 
 import { Maximize2, X } from "lucide-react";
-import {
-  type KeyboardEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
 import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
@@ -336,6 +326,7 @@ export function AccessibleTable({
   lowConfidenceFallback?: ReactNode;
 }) {
   const dialogId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -366,7 +357,32 @@ export function AccessibleTable({
     document.body.style.overflow = "hidden";
     const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((element) => element.getAttribute("aria-hidden") !== "true");
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!dialogRef.current?.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => {
@@ -419,32 +435,10 @@ export function AccessibleTable({
     setOpen(true);
   }
 
-  function handleSurfaceKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (!canExpand) return;
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    openDialog(event.currentTarget);
-  }
-
   return (
     <>
       <div className="relative min-w-0">
-        <div
-          data-testid="accessible-table-surface"
-          onClick={(event) => openDialog(event.currentTarget)}
-          onKeyDown={handleSurfaceKeyDown}
-          role={canExpand ? "button" : undefined}
-          tabIndex={canExpand ? 0 : -1}
-          aria-label={canExpand ? `Open ${title} full table` : undefined}
-          aria-haspopup={canExpand ? "dialog" : undefined}
-          aria-expanded={canExpand ? dialogOpen : undefined}
-          aria-controls={dialogOpen ? dialogId : undefined}
-          className={cn(
-            "min-w-0",
-            canExpand &&
-              "relative z-50 cursor-zoom-in rounded-lg outline-none ring-offset-2 ring-offset-[color:var(--surface)] transition focus-within:ring-4 focus-within:ring-[color:var(--focus)]/25",
-          )}
-        >
+        <div data-testid="accessible-table-surface" className="min-w-0">
           {table}
         </div>
         {canExpand ? (
@@ -453,6 +447,7 @@ export function AccessibleTable({
             data-testid="table-expand-button"
             aria-label={`Open ${title} full screen`}
             aria-haspopup="dialog"
+            aria-expanded={dialogOpen}
             aria-controls={dialogOpen ? dialogId : undefined}
             onClick={(event) => {
               event.stopPropagation();
@@ -461,12 +456,14 @@ export function AccessibleTable({
             className="relative z-50 mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 scroll-mb-[calc(18rem+env(safe-area-inset-bottom))] rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
           >
             <span>Expand table</span>
-            <Maximize2 className="h-4 w-4" />
+            <Maximize2 className="h-4 w-4" aria-hidden />
           </button>
         ) : null}
       </div>
       {dialogOpen ? (
         <div
+          ref={dialogRef}
+          id={dialogId}
           data-testid="table-fullscreen-dialog"
           role="dialog"
           aria-modal="true"
@@ -492,7 +489,7 @@ export function AccessibleTable({
                 onClick={() => setOpen(false)}
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden />
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))]">

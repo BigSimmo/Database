@@ -1792,6 +1792,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
 
       const expandButton = clinicalTable.getByTestId("table-expand-button");
+      const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
       if (!viewport.expands) {
         await expect(page.getByRole("button", { name: "Open answer sources" })).toContainText(/sources?/i);
         await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
@@ -1822,11 +1823,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
         return;
       }
 
+      await expect(tableSurface).not.toHaveAttribute("role", "button");
+      await expect(tableSurface).not.toHaveAttribute("tabindex");
+      await expect(expandButton).toHaveAttribute("aria-expanded", "false");
       await page.keyboard.press("Escape");
       const surfaceDialog = await openMobileTableFullscreen(page, clinicalTable);
+      await expect(expandButton).toHaveAttribute("aria-expanded", "true");
+      await expect(surfaceDialog.getByRole("button", { name: "Close full-screen table" })).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      expect(await surfaceDialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await page.keyboard.press("Tab");
+      expect(await surfaceDialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await expect(surfaceDialog).toContainText("FBC/ANC");
       await page.keyboard.press("Escape");
       await expect(surfaceDialog).toBeHidden();
+      await expect(expandButton).toHaveAttribute("aria-expanded", "false");
 
       await expect(expandButton).toBeVisible();
       await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
