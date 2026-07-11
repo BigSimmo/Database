@@ -552,14 +552,24 @@ const subBulletOGlyphPattern = /(?<=^|[\r\n]|[^\d\s]\s)o(?=\s+(?:\d|[A-Z][a-z0-9
 // converts, so an OCR bullet cannot hide behind an unrelated group/type word.
 const bloodLabelTailPattern = /\bblood\s+(?:group|type):?\s$/i;
 const groupTypeLabelTailPattern = /\b(?:group|type):?\s$/i;
-const rhValueHeadPattern = /^\s+(?:rh(?:d)?|pos(?:itive)?|neg(?:ative)?)\b/i;
+// A word qualifying group/type ("risk group:", "test type:") marks a list
+// label, not a blood label — its positive/negative items are list content.
+const qualifiedGroupTypeTailPattern = /\b[A-Za-z][\w-]*\s+(?:group|type):?\s$/i;
+const rhValueHeadPattern = /^\s+rh(?:d)?\b/i;
+const posNegValueHeadPattern = /^\s+(?:pos(?:itive)?|neg(?:ative)?)\b/i;
 
 function replaceSubBulletOGlyphs(text: string, joiner: string) {
   return text.replace(subBulletOGlyphPattern, (match, offset: number) => {
     const before = text.slice(0, offset);
     const after = text.slice(offset + match.length);
     if (bloodLabelTailPattern.test(before)) return match;
-    if (groupTypeLabelTailPattern.test(before) && rhValueHeadPattern.test(after)) return match;
+    if (groupTypeLabelTailPattern.test(before)) {
+      // "o Rh…" is a strong blood signal under any group/type label;
+      // "o Positive/Negative" counts as a blood value only when the label is
+      // an unqualified (or blood-qualified) group/type.
+      if (rhValueHeadPattern.test(after)) return match;
+      if (posNegValueHeadPattern.test(after) && !qualifiedGroupTypeTailPattern.test(before)) return match;
+    }
     return joiner;
   });
 }

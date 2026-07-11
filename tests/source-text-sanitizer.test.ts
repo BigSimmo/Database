@@ -448,6 +448,17 @@ describe("normalizeInlineBulletGlyphs", () => {
     );
   });
 
+  it("converts positive/negative bullets under qualified non-blood labels but keeps blood values", () => {
+    expect(normalizeInlineBulletGlyphs("risk group: o Positive patients need review")).toBe(
+      "risk group: Positive patients need review",
+    );
+    expect(normalizeInlineBulletGlyphs("test type: o Negative screen requires repeat testing")).toBe(
+      "test type: Negative screen requires repeat testing",
+    );
+    expect(normalizeInlineBulletGlyphs("group o Negative units available")).toBe("group o Negative units available");
+    expect(normalizeInlineBulletGlyphs("donor group o RhD negative")).toBe("donor group o RhD negative");
+  });
+
   it("repairs a label colon followed by a converted sub-bullet ('Label:; item' → 'Label: item')", () => {
     expect(normalizeInlineBulletGlyphs("Acute Mania: o IR product: 750 to 1000mg daily")).toBe(
       "Acute Mania: IR product: 750 to 1000mg daily",
