@@ -153,7 +153,9 @@ function CommandDropdown({
   return (
     <div
       className={cn(
-        "universal-command-dropdown absolute left-0 right-0 z-30 overflow-hidden rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--surface)] shadow-[0_8px_20px_rgb(16_24_40_/_9%),0_24px_56px_rgb(16_24_40_/_14%)]",
+        // text-left: the hero composer slot sits inside the centred mode-home
+        // template, so without it the section headings inherit text-center.
+        "universal-command-dropdown absolute left-0 right-0 z-30 overflow-hidden rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--surface)] text-left shadow-[0_8px_20px_rgb(16_24_40_/_9%),0_24px_56px_rgb(16_24_40_/_14%)]",
         opensUpward ? "bottom-[calc(100%+0.5rem)] top-auto" : "top-[calc(100%+0.5rem)]",
         placement === "bottom-dock" ? "block" : "hidden lg:block",
       )}
@@ -180,7 +182,7 @@ function CommandDropdown({
         id={listboxId}
         role="listbox"
         aria-label={`${mode.label} search suggestions`}
-        className={cn("overflow-y-auto p-2", opensUpward ? "max-h-[min(38dvh,20rem)]" : "max-h-[26rem]")}
+        className={cn("overflow-y-auto p-2", opensUpward ? "max-h-[min(38dvh,20rem)]" : "max-h-[min(42dvh,24rem)]")}
       >
         {sections.map((section) =>
           section.items.length ? (

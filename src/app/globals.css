@@ -1306,7 +1306,7 @@ summary::-webkit-details-marker {
 
 @media (min-width: 640px) {
   .mode-home-composer-slot {
-    width: min(100%, clamp(28rem, 74vw, 54rem));
+    width: min(100%, clamp(28rem, 70vw, 48rem));
     max-width: calc(100vw - 3rem - var(--safe-area-left) - var(--safe-area-right));
   }
 
@@ -1518,7 +1518,7 @@ summary::-webkit-details-marker {
 
 @media (min-width: 1024px) {
   .mode-home-composer-slot {
-    width: min(100%, clamp(36rem, 56vw, 56rem));
+    width: min(100%, clamp(34rem, 50vw, 48rem));
   }
 
   .universal-top-search-edge {
