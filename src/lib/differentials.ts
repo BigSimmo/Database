@@ -75,6 +75,36 @@ export function getPresentationWorkflow(slug: string | null | undefined) {
   return differentialPresentations().find((presentation) => presentation.id === normalizedSlug) ?? null;
 }
 
+export function getPresentationWorkflowForDiagnosisIds(ids: Iterable<string>) {
+  const requestedIds = new Set(Array.from(ids, (id) => id.trim().toLowerCase()).filter(Boolean));
+  if (!requestedIds.size) return null;
+
+  let bestMatch: DifferentialPresentationWorkflow | null = null;
+  let bestMatchCount = 0;
+  for (const presentation of differentialPresentations()) {
+    const matchCount = presentation.candidates.reduce(
+      (count, candidate) => count + (requestedIds.has(candidate.slug) ? 1 : 0),
+      0,
+    );
+    if (matchCount > bestMatchCount) {
+      bestMatch = presentation;
+      bestMatchCount = matchCount;
+    }
+  }
+  return bestMatch;
+}
+
+export function getPresentationWorkflowSelectionForDiagnosisIds(ids: Iterable<string>) {
+  const diagnosisIds = Array.from(new Set(Array.from(ids, (id) => id.trim().toLowerCase()).filter(Boolean)));
+  const workflow = getPresentationWorkflowForDiagnosisIds(diagnosisIds);
+  if (!workflow) return null;
+  const candidateIds = new Set(workflow.candidates.map((candidate) => candidate.slug));
+  return {
+    workflow,
+    diagnosisIds: diagnosisIds.filter((id) => candidateIds.has(id)),
+  };
+}
+
 export const acuteConfusionPresentationWorkflow: DifferentialPresentationWorkflow =
   getPresentationWorkflow("acute-confusion-encephalopathy") ?? differentialPresentations()[0]!;
 
