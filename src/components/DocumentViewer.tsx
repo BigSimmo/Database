@@ -32,7 +32,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibleTable } from "@/components/AccessibleTable";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import {
@@ -50,11 +50,12 @@ import {
   appBackdrop,
   clinicalDivider,
   cn,
-  evidenceSurface,
+  codeText,
   eyebrowText,
   fieldControl,
   fieldLabel,
   floatingControl,
+  InlineNotice,
   LoadingPanel,
   panel,
   PanelHeading,
@@ -64,6 +65,7 @@ import {
   textMuted,
   toolbarButton,
 } from "@/components/ui-primitives";
+import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { formatClinicalDate } from "@/lib/source-metadata";
@@ -88,7 +90,12 @@ import {
   sourceTextForIndexedPage,
 } from "@/lib/source-text-sanitizer";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
-import { parseIndexedSourceText } from "@/lib/indexed-source-formatting";
+import { flowIndexedText, parseIndexedSourceText } from "@/lib/indexed-source-formatting";
+import {
+  formatDocumentSummary,
+  type FormattedDocumentSummary as FormattedDocumentSummaryModel,
+} from "@/lib/document-summary-formatting";
+import { buildDocumentSummaryBadges } from "@/lib/document-summary-badges";
 
 type PageRow = {
   id: string;
@@ -260,6 +267,75 @@ function ClinicalSummaryProfile({ profile }: { profile: ClinicalDocumentSummaryP
           </ul>
         </section>
       ))}
+    </div>
+  );
+}
+
+// Structured renderer for the raw stored summary text, sharing
+// ClinicalSummaryProfile's visual language (lead paragraph, eyebrow section
+// headings, accent-dot bullets). Collapsed by default with an explicit
+// "Show full summary" toggle so nothing is silently hidden.
+const collapsedSummarySectionCap = 4;
+const collapsedSummaryItemCap = 5;
+
+function FormattedHighYieldSummary({ formatted }: { formatted: FormattedDocumentSummaryModel }) {
+  const [expanded, setExpanded] = useState(false);
+  if (formatted.isEmpty) return null;
+
+  const visibleSections = expanded
+    ? formatted.sections
+    : formatted.sections
+        .slice(0, collapsedSummarySectionCap)
+        .map((section) => ({ ...section, items: section.items.slice(0, collapsedSummaryItemCap) }));
+  const totalItems = formatted.sections.reduce((count, section) => count + section.items.length, 0);
+  const visibleItems = visibleSections.reduce((count, section) => count + section.items.length, 0);
+  const hasOverflow = totalItems > visibleItems || formatted.sections.length > visibleSections.length;
+
+  return (
+    <div data-testid="formatted-high-yield-summary" className="mt-3 space-y-4">
+      {formatted.lead ? (
+        <p className={cn(proseMeasure, "text-base-minus leading-6 text-[color:var(--text-muted)]")}>
+          <SafeBoldText text={formatted.lead} />
+        </p>
+      ) : null}
+      {visibleSections.map((section, index) => (
+        <section
+          key={section.id}
+          className={cn((formatted.lead || index > 0) && "border-t border-[color:var(--border)] pt-3")}
+        >
+          <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            {section.heading ?? "Key points"}
+          </h3>
+          <ul className={cn(proseMeasure, "mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]")}>
+            {section.items.map((item, itemIndex) => (
+              <li key={`${section.id}:${itemIndex}`} className="flex gap-2">
+                <span
+                  aria-hidden="true"
+                  className="mt-[0.65em] h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)]"
+                />
+                <span>
+                  <SafeBoldText text={item} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+      {hasOverflow || expanded ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+          data-testid="toggle-full-summary"
+        >
+          {expanded ? "Show key points only" : "Show full summary"}
+        </button>
+      ) : null}
+      {formatted.truncatedTail ? (
+        <p className={cn("text-xs leading-5", textMuted)}>
+          Summary trimmed at indexing — open the source PDF for full detail.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -560,7 +636,7 @@ function DocumentViewerAnchors({
           <a
             key={anchor.href}
             href={anchor.href}
-            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--surface-subtle)]"
+            className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <Icon className="h-3.5 w-3.5" />
             {anchor.label}
@@ -582,7 +658,7 @@ function PinnedSourceEvidence({
   compact?: boolean;
   sectionId?: "source-evidence" | "source-evidence-rail";
 }) {
-  const displayContent = chunk ? sourceTextForDocumentViewer(chunk.content) : "";
+  const displayContent = chunk ? flowIndexedText(sourceTextForDocumentViewer(chunk.content)) : "";
   const previewLimit = compact ? 220 : 300;
   const [expandedChunkId, setExpandedChunkId] = useState<string | null>(null);
   const isLong = displayContent.length > previewLimit;
@@ -622,7 +698,7 @@ function PinnedSourceEvidence({
     <section
       id={sectionId}
       data-testid="pinned-source-evidence"
-      className={cn(evidenceSurface, "scroll-mt-24", compact ? "p-3" : "p-4")}
+      className={cn(panel, "scroll-mt-24", compact ? "p-3" : "p-4")}
     >
       <PanelHeading icon={Quote} title="Pinned source evidence" />
       {loading ? (
@@ -630,58 +706,45 @@ function PinnedSourceEvidence({
       ) : chunk ? (
         <div
           data-testid="highlighted-source-passage"
-          className={cn(
-            sourceCard,
-            "mt-3 overflow-hidden border-[color:var(--clinical-accent)] bg-[color:var(--surface)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--clinical-accent)]/20",
-            compact ? "text-sm leading-6" : "text-base-minus leading-7",
-          )}
+          className={cn("mt-3", compact ? "text-sm leading-6" : "text-base-minus leading-7")}
         >
-          <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)]/28 px-3 py-3">
-            <div className="min-w-0">
-              <p className="inline-flex min-h-7 items-center gap-1.5 rounded-md bg-[color:var(--clinical-accent)] px-2 text-xs font-bold text-[color:var(--clinical-accent-contrast)]">
-                <Target className="h-3.5 w-3.5" />
-                Highlighted source passage
-              </p>
-              {chunkMeta ? <p className={cn("mt-2", eyebrowText)}>{chunkMeta}</p> : null}
-              {chunk.section_heading && (
-                <p className="mt-2 font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
-              )}
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+            <p className="inline-flex min-h-6 items-center gap-1.5 rounded-md bg-[color:var(--clinical-accent-soft)] px-2 text-xs font-semibold text-[color:var(--clinical-accent)]">
+              <Target className="h-3.5 w-3.5" />
+              Highlighted source passage
+            </p>
+            {chunkMeta ? <p className={cn("text-2xs text-[color:var(--text-muted)]", codeText)}>{chunkMeta}</p> : null}
           </div>
-          <blockquote className="bg-[color:var(--surface)] px-3 py-3 text-[color:var(--text)]">
-            <p className="mb-2 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-              Excerpt
-            </p>
-            <p className="whitespace-pre-wrap rounded-md border border-[color:var(--border)] border-l-4 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-raised)] px-3 py-2">
-              {visibleContent || "No displayable clinical text was available for this indexed passage."}
-            </p>
+          {chunk.section_heading && (
+            <p className="mt-2 text-sm font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
+          )}
+          <blockquote className="mt-2 whitespace-pre-line rounded-lg bg-[color:var(--surface-inset)] px-3 py-2.5 text-[color:var(--text)]">
+            {visibleContent || "No displayable clinical text was available for this indexed passage."}
           </blockquote>
-          <div className="border-t border-[color:var(--border)] px-3 py-2">
-            <div className="flex flex-wrap gap-2">
-              <a href="#pdf-preview-section" className={cn(primaryButton, "min-h-9 px-3 text-xs")}>
-                <ExternalLink className="h-4 w-4" />
-                Open source
-              </a>
-              {compact && isLong ? (
-                <button
-                  type="button"
-                  onClick={() => setExpandedChunkId((current) => (current === chunk.id ? null : chunk.id))}
-                  className={cn(secondaryButton, "min-h-9 px-3 text-xs")}
-                  data-testid="toggle-full-passage"
-                >
-                  {expanded ? "Show passage preview" : "Show full passage"}
-                </button>
-              ) : null}
-            </div>
-            {compact ? (
-              <p className={cn("mt-2 text-xs leading-5", textMuted)}>
-                Full indexed page text remains available in the source text section.
-              </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <a href="#pdf-preview-section" className={cn(primaryButton, "min-h-9 px-3 text-xs")}>
+              <ExternalLink className="h-4 w-4" />
+              Open source
+            </a>
+            {compact && isLong ? (
+              <button
+                type="button"
+                onClick={() => setExpandedChunkId((current) => (current === chunk.id ? null : chunk.id))}
+                className={cn(secondaryButton, "min-h-9 px-3 text-xs")}
+                data-testid="toggle-full-passage"
+              >
+                {expanded ? "Show passage preview" : "Show full passage"}
+              </button>
             ) : null}
           </div>
+          {compact ? (
+            <p className={cn("mt-2 text-xs leading-5", textMuted)}>
+              Full indexed page text remains available in the source text section.
+            </p>
+          ) : null}
         </div>
       ) : (
-        <p className="mt-3 text-base-minus leading-6 text-[color:var(--clinical-accent)]">
+        <p className={cn("mt-3 text-base-minus leading-6", textMuted)}>
           Open a citation from an answer to see the exact indexed passage.
         </p>
       )}
@@ -704,21 +767,15 @@ function IndexedSourceText({
   }
 
   return (
-    <div className={cn("mt-4 grid", compact ? "gap-2" : "gap-3")}>
+    <div className={cn("mt-4 grid", proseMeasure, compact ? "gap-2.5" : "gap-3")}>
       {blocks.map((block) => {
         if (block.type === "heading") {
           return block.level === "title" ? (
-            <h3
-              key={block.id}
-              className="rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)]/20 px-3 py-2 text-sm font-bold text-[color:var(--text-heading)]"
-            >
+            <h3 key={block.id} className="text-base font-semibold leading-6 text-[color:var(--text-heading)]">
               {block.text}
             </h3>
           ) : (
-            <h4
-              key={block.id}
-              className="mt-1 border-l-4 border-[color:var(--clinical-accent)] pl-3 text-base-minus font-bold text-[color:var(--text-heading)]"
-            >
+            <h4 key={block.id} className="mt-2 text-sm font-bold text-[color:var(--text-heading)]">
               {block.text}
             </h4>
           );
@@ -729,12 +786,12 @@ function IndexedSourceText({
             <ul
               key={block.id}
               className={cn(
-                "space-y-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-3 text-base-minus leading-6 text-[color:var(--text)]",
-                compact && "px-4 py-2 text-sm leading-6",
+                "list-disc space-y-1.5 pl-5 text-base-minus leading-7 text-[color:var(--text)] marker:text-[color:var(--text-soft)]",
+                compact && "text-sm leading-6",
               )}
             >
               {block.items.map((item, index) => (
-                <li key={`${block.id}:${index}:${item}`} className="list-disc pl-1">
+                <li key={`${block.id}:${index}:${item}`} className="pl-1">
                   {item}
                 </li>
               ))}
@@ -758,10 +815,7 @@ function IndexedSourceText({
         return (
           <p
             key={block.id}
-            className={cn(
-              "rounded-lg border-l-4 border-[color:var(--clinical-accent)]/45 bg-[color:var(--clinical-accent-soft)]/14 py-2 pl-3 pr-2 text-base-minus leading-7 text-[color:var(--text)]",
-              compact && "text-sm leading-6",
-            )}
+            className={cn("text-base-minus leading-7 text-[color:var(--text)]", compact && "text-sm leading-6")}
           >
             {block.text}
           </p>
@@ -1018,10 +1072,12 @@ function IndexedTextPanel({
                     Excerpt
                   </p>
                   {normalizedSearch ? (
-                    <p className="whitespace-pre-wrap rounded-md border border-[color:var(--border)] border-l-4 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm leading-6 text-[color:var(--text)]">
+                    <p className="whitespace-pre-line rounded-lg bg-[color:var(--surface-inset)] px-3 py-2.5 text-sm leading-6 text-[color:var(--text)]">
                       <HighlightedSearchText
                         text={
-                          chunk.displayContent || "No displayable clinical text was available for this indexed passage."
+                          chunk.displayContent
+                            ? flowIndexedText(chunk.displayContent)
+                            : "No displayable clinical text was available for this indexed passage."
                         }
                         terms={highlightTermsFor(chunk.matchedTerms, normalizedSearch)}
                       />
@@ -1696,11 +1752,13 @@ function compactDocumentType(document: ClinicalDocument) {
 
 function documentOverviewText(document: ClinicalDocument) {
   const profile = document.summary?.clinical_specifics?.profile;
+  // The stored raw summary opens with PDF-header boilerplate on many live
+  // documents, so route it through the smart formatter and show its lead
+  // sentences instead of the raw string.
+  const formattedSummary = profile?.overview ? null : formatDocumentSummary(document.summary?.summary);
   const overview = profile?.overview
     ? cleanClinicalSummaryText(profile.overview)
-    : document.summary?.summary
-      ? cleanClinicalSummaryText(document.summary.summary)
-      : "";
+    : (formattedSummary?.lead ?? formattedSummary?.sections[0]?.items.join(" ") ?? "");
   if (overview && !/source-backed review/i.test(overview)) return overview;
   return "A clear overview of this document, useful pages, and source PDF access.";
 }
@@ -2341,7 +2399,18 @@ export function DocumentViewer({
   const selectedChunk = chunkId ? chunks.find((chunk) => chunk.id === chunkId) : undefined;
   const { clinicalImages, auditImages } = partitionViewerImages(images);
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
-  const usefulPageCount = usefulDocumentPages(initialPage, pages).length || 1;
+  const storedSummaryText = document?.summary?.summary ?? null;
+  const documentLabels = document?.labels;
+  const formattedStoredSummary = useMemo(() => formatDocumentSummary(storedSummaryText), [storedSummaryText]);
+  const summaryBadges = useMemo(
+    () => buildDocumentSummaryBadges({ labels: documentLabels, summaryText: storedSummaryText }),
+    [documentLabels, storedSummaryText],
+  );
+  const indexWarnings = Array.isArray(indexHealth?.warnings)
+    ? indexHealth.warnings.map((warning) => String(warning)).filter(Boolean)
+    : typeof indexHealth?.warnings === "string" && indexHealth.warnings
+      ? [indexHealth.warnings]
+      : [];
   useEffect(() => {
     if (!chunkId || loadingDocument) return;
     const target = window.document.querySelector(`[data-source-chunk-id="${CSS.escape(chunkId)}"]`);
@@ -2810,6 +2879,17 @@ export function DocumentViewer({
         </div>
 
         <aside className="min-w-0 space-y-4 sm:space-y-5">
+          {indexWarnings.length ? (
+            <InlineNotice tone="warning" className="text-xs">
+              <span className="font-bold">Extraction warnings</span>
+              {indexWarnings.slice(0, 4).map((warning) => (
+                <span key={warning} className="mt-1 block font-semibold">
+                  {warning}
+                </span>
+              ))}
+            </InlineNotice>
+          ) : null}
+
           <div className="hidden lg:block">
             <DocumentViewerAnchors
               evidenceHref="#source-evidence-rail"
@@ -2824,111 +2904,69 @@ export function DocumentViewer({
             />
           </div>
 
-          <section id="source-summary" className={cn(panel, "scroll-mt-24 p-4 source-print")}>
-            <PanelHeading
-              icon={FileText}
-              title="Document details"
-              description="Indexed content available for this source."
-            />
-            <dl className="mt-3 grid gap-2 text-sm font-semibold text-[color:var(--text-muted)] sm:grid-cols-2">
-              <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-                <dt>Pages</dt>
-                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">
-                  {(document?.page_count ?? pages.length) || "n/a"}
-                </dd>
-              </div>
-              <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-                <dt>Useful pages</dt>
-                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">{usefulPageCount}</dd>
-              </div>
-              <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-                <dt>Text sections</dt>
-                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">{chunks.length}</dd>
-              </div>
-              <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-                <dt>Tables and diagrams</dt>
-                <dd className="nums mt-1 text-lg font-bold text-[color:var(--text-heading)]">
-                  {clinicalImages.length}
-                </dd>
-              </div>
-            </dl>
-            {indexHealth ? (
-              <div className="mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                  Index health
-                </p>
-                <dl className="mt-2 grid gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-2">
-                  <div>
-                    <dt>Extraction</dt>
-                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.extractionQuality ?? "unknown"}</dd>
-                  </div>
-                  <div>
-                    <dt>Index version</dt>
-                    <dd className="mt-0.5 truncate font-mono tabular-nums text-[color:var(--text)]">
-                      {indexHealth.indexVersion ?? "unknown"}
-                    </dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt>Indexed</dt>
-                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.indexedAt ?? "not recorded"}</dd>
-                  </div>
-                </dl>
-                {(() => {
-                  const indexWarnings = Array.isArray(indexHealth.warnings)
-                    ? indexHealth.warnings.map((w) => String(w)).filter(Boolean)
-                    : typeof indexHealth.warnings === "string" && indexHealth.warnings
-                      ? [indexHealth.warnings]
-                      : [];
-                  return indexWarnings.length ? (
-                    <ul className="mt-3 grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
-                      {indexWarnings.slice(0, 4).map((warning) => (
-                        <li key={warning}>{warning}</li>
-                      ))}
-                    </ul>
-                  ) : null;
-                })()}
-              </div>
-            ) : null}
-          </section>
-
           {document ? (
-            <section className={cn(panel, "p-4 source-print")}>
+            <section
+              id="source-summary"
+              data-testid="high-yield-summary"
+              className={cn(panel, "scroll-mt-24 p-4 source-print")}
+            >
               <PanelHeading
                 icon={Sparkles}
                 title={
                   document.summary?.clinical_specifics?.profile ? "Clinical document profile" : "High-yield summary"
                 }
-                description="Indexing-time clinical summary and generated labels from source evidence."
+                description="What this document covers, from its indexed evidence."
               />
+              <BadgeCluster items={summaryBadges} limit={8} showOverflowCount className="mt-3" />
               {document.summary?.clinical_specifics?.profile ? (
                 <ClinicalSummaryProfile profile={document.summary.clinical_specifics.profile} />
-              ) : document.summary?.summary ? (
-                <p className="mt-3 whitespace-pre-wrap text-base-minus leading-6 text-[color:var(--text-muted)]">
-                  <SafeBoldText text={document.summary.summary} />
-                </p>
-              ) : null}
+              ) : (
+                <FormattedHighYieldSummary formatted={formattedStoredSummary} />
+              )}
               {!document.summary?.clinical_specifics?.profile && document.summary?.clinical_specifics && (
-                <div className="mt-4 grid gap-3">
+                <div className="mt-4 space-y-4">
                   {Object.entries(document.summary.clinical_specifics)
                     .filter(([key, items]) => key !== "profile" && Array.isArray(items) && items.length > 0)
                     .slice(0, 6)
                     .map(([key, items]) => (
-                      <div key={key} className={cn(sourceCard, "p-3")}>
-                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                      <section key={key} className="border-t border-[color:var(--border)] pt-3">
+                        <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                           {key.replaceAll("_", " ")}
-                        </p>
-                        <ul className="mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]">
+                        </h3>
+                        <ul
+                          className={cn(
+                            proseMeasure,
+                            "mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]",
+                          )}
+                        >
                           {(items as string[]).slice(0, 5).map((item, index) => (
-                            <li key={`${key}:${index}:${item}`}>
-                              - <SafeBoldText text={item} />
+                            <li key={`${key}:${index}:${item}`} className="flex gap-2">
+                              <span
+                                aria-hidden="true"
+                                className="mt-[0.65em] h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)]"
+                              />
+                              <span>
+                                <SafeBoldText text={item} />
+                              </span>
                             </li>
                           ))}
                         </ul>
-                      </div>
+                      </section>
                     ))}
                 </div>
               )}
-              <DocumentTagCloud labels={document.labels} limit={18} className="mt-4" onTagClick={searchByTag} grouped />
+              {document.labels?.length ? (
+                <div className="mt-4 border-t border-[color:var(--border)] pt-3">
+                  <p className={eyebrowText}>Browse by tag</p>
+                  <DocumentTagCloud
+                    labels={document.labels}
+                    limit={18}
+                    className="mt-2"
+                    onTagClick={searchByTag}
+                    grouped
+                  />
+                </div>
+              ) : null}
               {canUsePrivateApis ? (
                 <details className={cn(sourceCard, "mt-4 p-3")}>
                   <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
@@ -2951,7 +2989,13 @@ export function DocumentViewer({
             <PanelHeading
               icon={FileImage}
               title="Tables and diagrams"
-              description="Indexed tables, diagrams, and image captions."
+              description={
+                effectiveLoadingDocument
+                  ? "Indexed tables, diagrams, and image captions."
+                  : clinicalImages.length === 1
+                    ? "1 indexed table, diagram, or image caption."
+                    : `${clinicalImages.length} indexed tables, diagrams, and image captions.`
+              }
             />
             <div className="mt-3 space-y-3">
               {canUsePrivateApis && tableFacts.length ? (
@@ -2990,6 +3034,28 @@ export function DocumentViewer({
               ) : null}
             </div>
           </section>
+
+          {indexHealth ? (
+            <details data-testid="indexing-details" className={cn(panel, "p-3")}>
+              <summary className={cn("cursor-pointer select-none", eyebrowText)}>Indexing details</summary>
+              <dl className="mt-3 grid gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-2">
+                <div>
+                  <dt>Extraction</dt>
+                  <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.extractionQuality ?? "unknown"}</dd>
+                </div>
+                <div>
+                  <dt>Index version</dt>
+                  <dd className={cn("mt-0.5 truncate text-[color:var(--text)]", codeText)}>
+                    {indexHealth.indexVersion ?? "unknown"}
+                  </dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt>Indexed</dt>
+                  <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.indexedAt ?? "not recorded"}</dd>
+                </div>
+              </dl>
+            </details>
+          ) : null}
         </aside>
       </section>
       {readyDocument ? (

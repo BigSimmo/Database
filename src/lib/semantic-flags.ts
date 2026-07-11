@@ -192,6 +192,65 @@ export const SEMANTIC_FLAG_CATALOGUE: SemanticFlagDef[] = [
     tone: "danger",
     meaning: "Source is out of date — do not rely on it.",
   },
+  // High-yield summary badges (document viewer): derived from safety-relevant
+  // labels and phrases detected in the stored summary text.
+  {
+    id: "doc-summary-contraindication",
+    domain: "document",
+    label: "Contraindications",
+    tone: "danger",
+    meaning: "The document describes contraindications — read before acting.",
+  },
+  {
+    id: "doc-summary-narrow-ti",
+    domain: "document",
+    label: "Narrow therapeutic index",
+    tone: "warning",
+    meaning: "Covers a narrow therapeutic index medicine.",
+  },
+  {
+    id: "doc-summary-high-risk-med",
+    domain: "document",
+    label: "High-risk medication",
+    tone: "warning",
+    meaning: "Covers a locally designated high-risk medication.",
+  },
+  {
+    id: "doc-summary-controlled",
+    domain: "document",
+    label: "Schedule 8",
+    tone: "warning",
+    meaning: "Covers a controlled (Schedule 8) drug. Regulatory, not a clinical stop.",
+    iconKey: "controlled",
+  },
+  {
+    id: "doc-summary-toxicity",
+    domain: "document",
+    label: "Toxicity risk",
+    tone: "warning",
+    meaning: "Toxicity risks are described in the source.",
+  },
+  {
+    id: "doc-summary-escalation",
+    domain: "document",
+    label: "Escalation criteria",
+    tone: "warning",
+    meaning: "Contains escalation / urgent-review criteria.",
+  },
+  {
+    id: "doc-summary-pregnancy",
+    domain: "document",
+    label: "Pregnancy & lactation",
+    tone: "warning",
+    meaning: "Contains pregnancy / lactation guidance.",
+  },
+  {
+    id: "doc-summary-monitoring",
+    domain: "document",
+    label: "Monitoring required",
+    tone: "info",
+    meaning: "Contains monitoring requirements (levels, bloods, ECG).",
+  },
 
   // Evidence & retrieval
   {

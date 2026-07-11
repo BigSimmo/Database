@@ -13,7 +13,10 @@ function isPageFooter(line: string) {
 }
 
 function isNumberedHeading(line: string) {
-  return /^\d{1,2}\.\s+\S/.test(line.trim()) && line.trim().length <= 96;
+  // Supports multi-level numbering ("2.7. Dosage", "3.1.2 Monitoring") as well
+  // as top-level "9. Polypharmacy". A bare number ("12 hours") is not a
+  // heading — top-level numbering must carry its dot.
+  return /^\d{1,2}(?:(?:\.\d{1,2})+\.?|\.)\s+\S/.test(line.trim()) && line.trim().length <= 96;
 }
 
 function isLikelyTitle(rawLine: string, line: string, index: number) {
@@ -149,6 +152,57 @@ function paragraphFrom(lines: string[]) {
   return compactInline(lines.join(" "));
 }
 
+// PDF extraction inserts blank lines at soft wraps, so a wrapped sentence
+// arrives as separate blocks ("• NSAIDs: … and therefore" / "increase lithium
+// levels …"). This post-pass re-joins those continuations so text flows:
+// a paragraph starting lowercase (or following an unterminated paragraph)
+// continues the previous block; after a list it continues the last bullet.
+// Headings and tables are hard boundaries.
+export function mergeContinuationBlocks(blocks: IndexedTextBlock[]): IndexedTextBlock[] {
+  const merged: IndexedTextBlock[] = [];
+
+  for (const block of blocks) {
+    const previous = merged[merged.length - 1];
+    if (block.type === "paragraph" && previous) {
+      const startsAsContinuation = /^[a-z(]/.test(block.text);
+      if (previous.type === "paragraph" && (startsAsContinuation || !/[.!?:;]$/.test(previous.text))) {
+        previous.text = `${previous.text} ${block.text}`;
+        continue;
+      }
+      if (previous.type === "list" && startsAsContinuation && previous.items.length > 0) {
+        previous.items[previous.items.length - 1] = `${previous.items[previous.items.length - 1]} ${block.text}`;
+        continue;
+      }
+    }
+    if (block.type === "list" && previous?.type === "list") {
+      previous.items.push(...block.items);
+      continue;
+    }
+    merged.push(
+      block.type === "paragraph" ? { ...block } : block.type === "list" ? { ...block, items: [...block.items] } : block,
+    );
+  }
+
+  return merged;
+}
+
+// Excerpt display helper: raw chunk text keeps hard wraps from extraction.
+// Newlines become spaces so sentences flow; blank-line runs survive as
+// paragraph breaks unless they sit mid-sentence (next line starts lowercase),
+// which is how extraction separates soft-wrapped continuations.
+export function flowIndexedText(text: string): string {
+  return text
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+\n[ \t]*/g, "\n")
+    .replace(/\n+/g, (run: string, offset: number, full: string) => {
+      if (run.length === 1) return " ";
+      const next = full.charAt(offset + run.length);
+      return /[a-z(]/.test(next) ? " " : "\n\n";
+    })
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 export function parseIndexedSourceText(text: string): IndexedTextBlock[] {
   const rawLines = text
     .replace(/\r/g, "\n")
@@ -219,5 +273,5 @@ export function parseIndexedSourceText(text: string): IndexedTextBlock[] {
       blocks.push({ type: "paragraph", id: `paragraph:${index}:${paragraph.slice(0, 24)}`, text: paragraph });
   }
 
-  return blocks;
+  return mergeContinuationBlocks(blocks);
 }
