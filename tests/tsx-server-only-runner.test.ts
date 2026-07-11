@@ -8,9 +8,12 @@ describe("standalone TSX server-only compatibility", () => {
     };
     const directTsx = Object.entries(packageJson.scripts).filter(([, command]) => command.startsWith("tsx "));
     expect(directTsx).toEqual([]);
+    const bareTsxTargets = Object.entries(packageJson.scripts).filter(
+      ([, command]) => /(^|&&\s*)tsx\s/.test(command) || command.includes("npx tsx"),
+    );
+    expect(bareTsxTargets).toEqual([]);
     expect(packageJson.scripts["check:production-readiness:ci"]).toContain("scripts/run-tsx.mjs");
     expect(packageJson.scripts["check:supabase-project"]).toContain("scripts/run-tsx.mjs");
-    expect(packageJson.scripts["eval:rag:offline"]).toContain("scripts/run-tsx.mjs");
   });
 
   it("keeps the Next server-only marker while stubbing it only for standalone runners", () => {
@@ -26,6 +29,6 @@ describe("standalone TSX server-only compatibility", () => {
     expect(runner).toContain("const vitestNeedle = vitestBin.toLowerCase()");
     expect(runner).not.toContain("repoNeedle");
     expect(config).toContain("maxWorkers: 2");
-    expect(config).toContain("testTimeout: 30000");
+    expect(config).toContain("testTimeout: 30_000");
   });
 });
