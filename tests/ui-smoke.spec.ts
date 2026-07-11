@@ -2131,7 +2131,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(startHereBox).not.toBeNull();
     expect(documentsHeadingBox).not.toBeNull();
     expect((documentsHeadingBox?.y ?? 0) + (documentsHeadingBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
-    expect((startHereBox?.y ?? 0) + (startHereBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
+    expect(searchInputBox?.y ?? 0).toBeLessThan(startHereBox?.y ?? 0);
     const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
     const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
     const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();
