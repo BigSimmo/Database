@@ -49,7 +49,9 @@ When you meet a pre-token hardcode (mockups being promoted, old branches), map i
 | `slate-200` / `slate-500` / `slate-600`       | `var(--border)` / `var(--text-soft)` / `var(--text-muted)`        |
 | ad-hoc `rgba(...)` shadows                    | `var(--shadow-tight/soft/hover/elevated/inset)` or `--glow-*`     |
 
-## 2. Type scale
+## 2. Type & icon scale
+
+### Type
 
 Named steps live in the `@theme` block of `globals.css` and are **size-only** (no baked
 line-height/tracking — set `leading-*`/`tracking-*` at the call site):
@@ -68,6 +70,22 @@ line-height/tracking — set `leading-*`/`tracking-*` at the call site):
 - **Accepted exceptions:** one-off rem display headings (`text-[2rem]`, `text-[2.7rem]`, …)
   on hero/mode-home titles, and `*-mockups` files. Don't add scale steps for one-off display
   sizes.
+
+### Icon size
+
+Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
+`size-icon-xs` 12 · `size-icon-sm` 14 · `size-icon-md` 16 (default) · `size-icon-lg` 20 ·
+`size-icon-xl` 24 (px). These generate `size-icon-*` / `h-icon-*` / `w-icon-*`, exactly like
+`--spacing-tap` → `size-tap`.
+
+- Prefer `size-icon-md` over raw `h-4 w-4` for an icon glyph. `npm run check:icon-scale` counts
+  off-scale drift — the retired `4.5` (18px) half-step and arbitrary `≤24px` `h-[Npx]`.
+  **Ratchet:** report-only now; flip to `--strict` once the cluster migration lands.
+- **Responsive** icons add a breakpoint variant — `size-icon-md sm:size-icon-lg`. Reserve it for
+  a few roles (nav, composer, hero, panel headings); most icons stay one fixed size.
+- **Not** for container tiles (`iconTile` h-9, empty-state tile h-10) or non-icon boxes (the
+  `ToggleSwitch` knob, status dots) — those keep the integer spacing scale. Icon glyph size is
+  independent of the 44px tap target (§3), which stays on `--spacing-tap`.
 
 ## 3. Spacing & tap targets
 
