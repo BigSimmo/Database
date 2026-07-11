@@ -9,7 +9,7 @@ import {
   useState,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
-  type Ref,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -204,7 +204,7 @@ export function MasterSearchHeader({
   onNewChat?: () => void;
   onOpenMobileSidebar?: () => void;
   queryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>;
-  queryInputRef?: Ref<HTMLInputElement>;
+  queryInputRef?: RefObject<HTMLInputElement | null>;
   queryInputAutoFocus?: boolean;
   /** Overrides the mode's default input placeholder (e.g. "Ask a follow-up..." mid-thread). */
   composerPlaceholder?: string;
@@ -604,6 +604,22 @@ export function MasterSearchHeader({
   const selectedModeIndex = Math.max(
     0,
     visibleAppModeOptions.findIndex((mode) => mode.id === selectedAppMode.id),
+  );
+
+  // Both the hero-portal composer and the default composer bind the caller's
+  // queryInputRef. During home <-> result transitions the two briefly coexist,
+  // and React nulls a plain shared ref when the outgoing composer unmounts —
+  // clobbering the surviving input's binding (quote follow-up focus broke).
+  // A cleanup-function ref only clears the binding it still owns.
+  const bindQueryInputRef = useCallback(
+    (element: HTMLInputElement | null) => {
+      if (!element || !queryInputRef) return undefined;
+      queryInputRef.current = element;
+      return () => {
+        if (queryInputRef.current === element) queryInputRef.current = null;
+      };
+    },
+    [queryInputRef],
   );
 
   function focusModeOption(index: number) {
@@ -1161,11 +1177,7 @@ export function MasterSearchHeader({
           onRunModeAction={runModeAction}
           onCommandScopesChange={(scopes) => onCommandScopesChange?.(scopes)}
           onListboxIdReady={setCommandListboxId}
-          onFocusSearchInput={() => {
-            if (queryInputRef && "current" in queryInputRef) {
-              queryInputRef.current?.focus();
-            }
-          }}
+          onFocusSearchInput={() => queryInputRef?.current?.focus()}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
@@ -1207,7 +1219,7 @@ export function MasterSearchHeader({
               pr-* utility, which let text run under an overlaid button. */}
             <label className="flex min-w-0 flex-1 items-center overflow-hidden">
               <input
-                ref={queryInputRef}
+                ref={bindQueryInputRef}
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
                 value={query}
