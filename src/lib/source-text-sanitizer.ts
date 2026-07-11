@@ -536,21 +536,33 @@ export function polishStoredSynopsis(value: string) {
 // splitting treats those as fact boundaries); separator joiners get the
 // punctuation tidy-up passes, including "Label:; item" → "Label: item".
 const inlineBulletGlyphPattern = /\s*[•◦▪‣●]+\s*/g;
-// The blood-group lookbehind keeps "blood group o RhD negative" /
-// "Blood Type: o Negative" / "blood type: o Rh positive" intact — there the
-// lowercase "o" is the clinical value itself, not a bullet glyph, even when
-// a capitalized token follows. The label may carry a colon and any casing
-// (explicit case classes: an `i` flag would make the bullet `o` itself match
-// a clinical capital "O").
-const subBulletOGlyphPattern =
-  /(?<=[^\d\s]\s)(?<!\b(?:[Gg]roup|GROUP|[Tt]ype|TYPE):?\s)o(?=\s+(?:[A-Z][a-z0-9]|[A-Z]{2,}))/g;
+const subBulletOGlyphPattern = /(?<=[^\d\s]\s)o(?=\s+(?:[A-Z][a-z0-9]|[A-Z]{2,}))/g;
+// Blood-group exemptions: "blood group o RhD negative" / "Blood Type: o
+// Negative" (any casing, optional colon), or a bare "group/type o" directly
+// followed by an Rh/positive/negative value, keep their lowercase "o" — it
+// is the clinical value itself, not a bullet glyph. A non-blood label such
+// as "patient group o Adults" or "risk group: o Pregnant patients" still
+// converts, so an OCR bullet cannot hide behind an unrelated group/type word.
+const bloodLabelTailPattern = /\bblood\s+(?:group|type):?\s$/i;
+const groupTypeLabelTailPattern = /\b(?:group|type):?\s$/i;
+const rhValueHeadPattern = /^\s+(?:rh(?:d)?|pos(?:itive)?|neg(?:ative)?)\b/i;
+
+function replaceSubBulletOGlyphs(text: string, joiner: string) {
+  return text.replace(subBulletOGlyphPattern, (match, offset: number) => {
+    const before = text.slice(0, offset);
+    const after = text.slice(offset + match.length);
+    if (bloodLabelTailPattern.test(before)) return match;
+    if (groupTypeLabelTailPattern.test(before) && rhValueHeadPattern.test(after)) return match;
+    return joiner;
+  });
+}
 
 export function normalizeInlineBulletGlyphs(text: string, options: { joiner?: string } = {}): string {
   const joiner = options.joiner ?? "; ";
-  const replaced = text
-    .replace(/^\s*[•◦▪‣●]+\s*/, "")
-    .replace(inlineBulletGlyphPattern, joiner)
-    .replace(subBulletOGlyphPattern, joiner);
+  const replaced = replaceSubBulletOGlyphs(
+    text.replace(/^\s*[•◦▪‣●]+\s*/, "").replace(inlineBulletGlyphPattern, joiner),
+    joiner,
+  );
   if (joiner.includes("\n")) {
     return replaced
       .split("\n")

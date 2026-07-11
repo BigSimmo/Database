@@ -48,6 +48,18 @@ describe("extractive evidence splitting", () => {
     expect(contraindication).toMatch(/^Do not use:/i);
   });
 
+  it("keeps digit-bearing schedule headings attached to their dose items", () => {
+    const daySentences = splitClinicalEvidenceSentences("Day 1: o 25 mg nightly before considering an increase.");
+    const dayDose = daySentences.find((sentence) => sentence.includes("25 mg"));
+    expect(dayDose).toBeDefined();
+    expect(dayDose).toMatch(/^Day 1\b/);
+
+    const stepSentences = splitClinicalEvidenceSentences("Step 2: o Increase to 50 mg nightly if tolerated.");
+    const stepDose = stepSentences.find((sentence) => sentence.includes("50 mg"));
+    expect(stepDose).toBeDefined();
+    expect(stepDose).toMatch(/^Step 2\b/);
+  });
+
   it("keeps an advisory heading attached to its bullet item in colon form", () => {
     const sentences = splitClinicalEvidenceSentences(
       "Caution: o Pregnancy or breastfeeding requires specialist advice before dosing.",

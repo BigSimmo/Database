@@ -420,6 +420,15 @@ describe("normalizeInlineBulletGlyphs", () => {
     expect(normalizeInlineBulletGlyphs("BLOOD GROUP: o Rh positive")).toBe("BLOOD GROUP: o Rh positive");
   });
 
+  it("still converts an OCR bullet after non-blood group/type labels", () => {
+    expect(normalizeInlineBulletGlyphs("patient group o Adults should be offered CBT")).toBe(
+      "patient group; Adults should be offered CBT",
+    );
+    expect(normalizeInlineBulletGlyphs("risk group: o Pregnant patients need review")).toBe(
+      "risk group: Pregnant patients need review",
+    );
+  });
+
   it("repairs a label colon followed by a converted sub-bullet ('Label:; item' → 'Label: item')", () => {
     expect(normalizeInlineBulletGlyphs("Acute Mania: o IR product: 750 to 1000mg daily")).toBe(
       "Acute Mania: IR product: 750 to 1000mg daily",

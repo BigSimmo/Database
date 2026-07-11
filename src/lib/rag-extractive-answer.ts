@@ -552,10 +552,12 @@ function isLowValueExtractiveCaption(clause: string) {
   return !extractiveClinicalDirectivePattern.test(clause);
 }
 
-// A short digit-free section heading ("Acute Mania:") left standing alone by
-// the bullet split. Merged into the fragment that follows it so the indication
-// context survives the minimum-length filter instead of being dropped.
-const shortHeadingFragmentPattern = /^[A-Z][A-Za-z][A-Za-z /()-]{0,38}:$/;
+// A short section heading ("Acute Mania:", "Day 1:", "Step 2:") left standing
+// alone by the bullet split. Merged into the fragment that follows it so the
+// indication or schedule context survives the minimum-length filter instead
+// of being dropped — a dose without its day/step is unsafe. Structural labels
+// ("Page 4:", "Table 2:") are still excluded by the stoplist below.
+const shortHeadingFragmentPattern = /^[A-Z][A-Za-z][A-Za-z0-9 /()-]{0,38}:$/;
 
 function isShortHeadingFragment(fragment: string) {
   return (
