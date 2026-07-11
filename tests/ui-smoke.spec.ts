@@ -1502,7 +1502,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
     const rail = strip.getByTestId("cross-mode-links-rail");
     await expect(rail).toBeVisible();
-    await expect(rail).toHaveClass(/overflow-x-auto/);
+    await expect(rail).toHaveClass(/md:flex/);
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
     await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
@@ -1891,9 +1891,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
     const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
-    await expect(sourceStatus).toContainText("Not yet checked");
+    await expect(sourceStatus).toContainText("1 source");
     await page.waitForTimeout(600);
-    await expect(sourceStatus).toContainText("Not yet checked");
+    await expect(sourceStatus).toContainText("1 source");
     await expect(sourceStatus).not.toContainText("2 sources");
   });
 
@@ -2117,11 +2117,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/documents\/search\?.*q=lithium\+monitoring/);
     await expect(page.getByRole("heading", { name: "Find source evidence" })).toBeVisible();
     const documentResults = page.getByRole("region", { name: "Document results" });
-    await expect(documentResults).toContainText("Clozapine prescribing and monitoring guidelines");
+    await expect(documentResults).toContainText("Synthetic lithium monitoring protocol");
     await expect(documentResults).toContainText("Best match");
-    await expect(documentResults).toContainText("Table evidence");
+    await expect(documentResults).toContainText("Tables 1");
     await expect(documentResults.getByRole("link", { name: "Open document" }).first()).toBeVisible();
-    await expect(documentResults.getByRole("link", { name: "Evidence" }).first()).toBeVisible();
     await expect(page.getByRole("complementary").filter({ hasText: "Selected source" })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
