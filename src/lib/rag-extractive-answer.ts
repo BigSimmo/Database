@@ -69,10 +69,15 @@ type ExtractedClinicalFact = {
 const extractiveLabelPattern =
   /\b(?:Medication point|Table evidence|Threshold\/action|Risk\/escalation|Workflow step|Section summary|Source point|Dose detail|Monitoring)\s*:\s*/gi;
 
-// Section labels that read as boilerplate rather than clinical context — never
-// rewritten into "For <label>, …" and never merged into a following fragment.
-const headingContextStoplistPattern =
-  /\b(?:note|warning|caution|important|nb|source|section|table|figure|page|summary|example|appendix|reference|contents)\b/i;
+// Structural labels that are pure boilerplate — never merged into a
+// following fragment and never rewritten into "For <label>, …".
+const structuralHeadingStoplistPattern =
+  /\b(?:source|section|table|figure|page|summary|example|appendix|reference|contents)\b/i;
+
+// Advisory labels ("Caution:", "Warning:") classify the fact that follows as
+// a caveat — they merge with their bullet items like directive headings do,
+// but keep their colon form instead of becoming "For caution, …".
+const advisoryHeadingPattern = /\b(?:note|warning|caution|important|nb)\b/i;
 
 // Headings that carry the clinical action themselves ("Do not use:",
 // "Avoid:"). These must merge with their bullet items — the item alone often
@@ -97,7 +102,8 @@ const doseLabelColonPattern =
 
 function rewriteLeadingHeadingContext(value: string) {
   return value.replace(leadingHeadingContextPattern, (match, label: string) => {
-    if (headingContextStoplistPattern.test(label)) return match;
+    if (structuralHeadingStoplistPattern.test(label)) return match;
+    if (advisoryHeadingPattern.test(label)) return match;
     if (directiveHeadingPattern.test(label)) return match;
     if (/\b[A-Z]{2,}\b/.test(label)) return match;
     return `For ${label.toLowerCase()}, `;
@@ -555,7 +561,7 @@ function isShortHeadingFragment(fragment: string) {
   return (
     shortHeadingFragmentPattern.test(fragment) &&
     fragment.split(/\s+/).length <= 4 &&
-    !headingContextStoplistPattern.test(fragment)
+    !structuralHeadingStoplistPattern.test(fragment)
   );
 }
 

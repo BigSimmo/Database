@@ -48,6 +48,15 @@ describe("extractive evidence splitting", () => {
     expect(contraindication).toMatch(/^Do not use:/i);
   });
 
+  it("keeps an advisory heading attached to its bullet item in colon form", () => {
+    const sentences = splitClinicalEvidenceSentences(
+      "Caution: o Pregnancy or breastfeeding requires specialist advice before dosing.",
+    );
+    const caveat = sentences.find((sentence) => /pregnancy/i.test(sentence));
+    expect(caveat).toBeDefined();
+    expect(caveat).toMatch(/^Caution:/i);
+  });
+
   it("keeps a directive heading's colon form instead of rewriting it as noun context", () => {
     const sentences = splitClinicalEvidenceSentences("Avoid: o Pregnancy in the first trimester of treatment.");
     const avoidance = sentences.find((sentence) => /pregnancy/i.test(sentence));
