@@ -41,6 +41,14 @@ describe("toClientAnswerPayload", () => {
     expect(trimmed.document_summary).toBeUndefined();
   });
 
+  it("does not pass unclassified runtime fields through the route boundary", () => {
+    const source = { ...fullSource(), future_server_secret: "private" } as SearchResult;
+    const trimmed = toClientAnswerPayload(answerWith([source])).sources![0] as SearchResult & {
+      future_server_secret?: string;
+    };
+    expect(trimmed.future_server_secret).toBeUndefined();
+  });
+
   it("keeps identity, snippet, scoring, and governance fields intact", () => {
     const trimmed = toClientAnswerPayload(answerWith([fullSource()])).sources![0];
     expect(trimmed.id).toBe("chunk-1");

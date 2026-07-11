@@ -66,6 +66,7 @@ describe("proxy session refresh scoping", () => {
     const response = await proxy(requestWithSessionCookie("/documents/some-id"));
 
     expect(getUser).toHaveBeenCalledTimes(1);
+    expect(response.cookies.get("sb-unit-test-auth-token")?.value).toBe("rotated-session");
     expect(response.headers.get("content-security-policy")).toBeTruthy();
   });
 
