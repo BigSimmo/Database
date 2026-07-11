@@ -862,7 +862,16 @@ function SearchResultsView({
   const best = results[0] ?? null;
   // Same lead the desktop interpretation rail uses for its safety card.
   const safetyLead = results.find((result) => result.status === "emergent") ?? best;
-  const selectedCount = selectedIds.size;
+  const comparisonIds = useMemo(
+    () =>
+      new Set(
+        results
+          .filter((result) => result.kind === "diagnosis" && selectedIds.has(result.id))
+          .map((result) => result.id),
+      ),
+    [results, selectedIds],
+  );
+  const selectedCount = comparisonIds.size;
   // Catalogue results follow composer edits live, but document evidence only
   // updates on an executed source search — treat evidence fetched for a
   // different query as pending so the two panels never claim to be in sync.
@@ -1125,7 +1134,7 @@ function SearchResultsView({
 
             {selectedCount > 0 ? (
               <Link
-                href={routeWithQuery("/differentials/presentations", query, selectedIds)}
+                href={routeWithQuery("/differentials/presentations", query, comparisonIds)}
                 className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-base font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition hover:bg-[color:var(--clinical-accent-hover)] lg:inline-flex"
               >
                 <GitCompareArrows className="h-5 w-5" aria-hidden />
@@ -1157,7 +1166,7 @@ function SearchResultsView({
       )}
 
       {best ? (
-        <DifferentialsMobileCompareBar selectedCount={selectedCount} selectedIds={selectedIds} query={query} />
+        <DifferentialsMobileCompareBar selectedCount={selectedCount} selectedIds={comparisonIds} query={query} />
       ) : null}
 
       <p className="pb-3 text-center text-xs font-medium text-[color:var(--text-muted)] lg:hidden">
