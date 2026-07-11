@@ -8,6 +8,7 @@ import {
   type ApiRateLimitResult,
 } from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
+import { toClientAnswerPayload } from "@/lib/answer-client-payload";
 import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
@@ -231,7 +232,9 @@ function streamAnswer(
           }
 
           send("final", {
-            ...answer,
+            // Boundary trim only — governance warnings and diagnostics above
+            // consumed the full answer (see answer-client-payload.ts).
+            ...toClientAnswerPayload(answer),
             degradedMode: answerDegradedModeSignal(answer),
             scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
             sourceGovernanceWarnings: warnings,
