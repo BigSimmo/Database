@@ -219,11 +219,12 @@ function MedicationHome({
 function resultMatchesFilter(result: MedicationResult, filter: MedicationResultFilter) {
   if (filter === "best") return true;
   if (filter === "indication") return result.match !== "Related match";
-  // actionTone is source-derived (contraindication vs monitoring content), so it is a
-  // stronger signal than the text heuristics — a row whose action shows the danger
-  // icon must also be reachable through the Safety chip.
+  // actionTone is source-derived (contraindication vs caution vs monitoring content),
+  // so it is a stronger signal than the text heuristics — any row whose action shows
+  // a safety icon (danger or warning) must be reachable through the Safety chip. The
+  // chips are lenses, not partitions, so warning rows may also appear under Monitor.
   if (filter === "safety") {
-    return result.actionTone === "danger" || /check|avoid|caution|ceiling|max/i.test(result.action);
+    return result.actionTone !== "neutral" || /check|avoid|caution|ceiling|max/i.test(result.action);
   }
   return (
     result.actionTone === "warning" ||

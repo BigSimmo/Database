@@ -196,7 +196,7 @@ describe("medication action tone", () => {
     for (const slug of ["fexofenadine", "loratadine"]) {
       const record = getMedicationRecord(slug);
       expect(record).toBeTruthy();
-      expect(medicationActionDetail(record as MedicationRecord).tone).not.toBe("danger");
+      expect(medicationActionDetail(record as MedicationRecord).tone).toBe("warning");
     }
   });
 
