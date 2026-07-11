@@ -1,6 +1,6 @@
 {
   "version": "v10",
-  "exportedAt": "2026-07-05",
+  "exportedAt": "2026-07-10",
   "presentations": [
     {
       "id": "acute-confusion-encephalopathy",
@@ -4889,161 +4889,6 @@
             "what-argues-against": "Review locally.",
             "must-not-miss": "Missing real illness, self-harm through induction, safeguarding concerns.",
             "bedside-question": "Driven by excessive time, energy, and distress around symptoms, not by symptoms being fake.",
-            "immediate-action": "Stabilise and reassess.",
-            "investigations": "Guided by presentation.",
-            "mimics-overlap": "Review overlap locally."
-          }
-        }
-      ],
-      "reviewChecklist": [
-        "Stabilise and rule out immediate threats",
-        "Assess for reversible causes",
-        "Investigate and treat precipitants",
-        "Reassess and refine differential",
-        "Document and handoff"
-      ],
-      "highestUrgencyNote": "Safety first. Act early.",
-      "sourceStatus": {
-        "label": "Source pending review",
-        "version": "v10 | Local content only",
-        "lastUpdated": "Pending review"
-      }
-    },
-    {
-      "id": "urgency-urgent",
-      "title": "Urgency: urgent",
-      "status": "urgent",
-      "subtitle": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.",
-      "selectedCount": 4,
-      "totalCount": 7,
-      "safetySnapshot": {
-        "summary": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.",
-        "tags": ["Review must-not-miss causes"]
-      },
-      "criteria": [
-        {
-          "id": "why-it-fits",
-          "title": "Why it fits",
-          "tone": "fit"
-        },
-        {
-          "id": "what-argues-against",
-          "title": "What argues against",
-          "tone": "overlap"
-        },
-        {
-          "id": "must-not-miss",
-          "title": "Must-not-miss",
-          "tone": "warning"
-        },
-        {
-          "id": "bedside-question",
-          "title": "Bedside question",
-          "tone": "question"
-        },
-        {
-          "id": "immediate-action",
-          "title": "Immediate action",
-          "tone": "action"
-        },
-        {
-          "id": "investigations",
-          "title": "Investigations",
-          "tone": "test"
-        },
-        {
-          "id": "mimics-overlap",
-          "title": "Mimics / overlap",
-          "tone": "overlap"
-        }
-      ],
-      "candidates": [
-        {
-          "slug": "ocd",
-          "selected": true,
-          "comparison": {
-            "why-it-fits": "Repetitive intrusive harm/contamination/sexual/religious thoughts with rituals, reassurance, avoidance. Ego-dystonic, resisted",
-            "what-argues-against": "Review locally.",
-            "must-not-miss": "Functional collapse, hidden shame, severe depression, suicidality.",
-            "bedside-question": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.",
-            "immediate-action": "Stabilise and reassess.",
-            "investigations": "Guided by presentation.",
-            "mimics-overlap": "Review overlap locally."
-          }
-        },
-        {
-          "slug": "perinatal-ocd-intrusive-infant-harm-thoughts",
-          "selected": true,
-          "comparison": {
-            "why-it-fits": "Postpartum/antenatal distressing infant-harm images/urges with checking/avoidance. Ego-dystonic, horrifying, preserved insight",
-            "what-argues-against": "Review locally.",
-            "must-not-miss": "Failure to feed/care, severe insomnia, concealed risk.",
-            "bedside-question": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.",
-            "immediate-action": "Stabilise and reassess.",
-            "investigations": "Guided by presentation.",
-            "mimics-overlap": "Review overlap locally."
-          }
-        },
-        {
-          "slug": "ptsd-intrusive-memories-flashbacks",
-          "selected": true,
-          "comparison": {
-            "why-it-fits": "Repetitive images, body memories, reliving, dissociative episodes linked to trauma",
-            "what-argues-against": "Review locally.",
-            "must-not-miss": "Severe dissociation, self-harm, substance use, child-safety impairment.",
-            "bedside-question": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.",
-            "immediate-action": "Stabilise and reassess.",
-            "investigations": "Guided by presentation.",
-            "mimics-overlap": "Review overlap locally."
-          }
-        },
-        {
-          "slug": "psychotic-delusion",
-          "selected": true,
-          "comparison": {
-            "why-it-fits": "Fixed bizarre/persecutory belief with impaired reality testing, conviction-based",
-            "what-argues-against": "Review locally.",
-            "must-not-miss": "Command phenomena, severe self-neglect, violence, food/fluid refusal.",
-            "bedside-question": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.",
-            "immediate-action": "Stabilise and reassess.",
-            "investigations": "Guided by presentation.",
-            "mimics-overlap": "Review overlap locally."
-          }
-        },
-        {
-          "slug": "overvalued-idea",
-          "selected": false,
-          "comparison": {
-            "why-it-fits": "Strongly held but understandable idea around weight/appearance/health/morality. Between obsession and delusion",
-            "what-argues-against": "Review locally.",
-            "must-not-miss": "Starvation, self-injury, escalating treatment refusal.",
-            "bedside-question": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.",
-            "immediate-action": "Stabilise and reassess.",
-            "investigations": "Guided by presentation.",
-            "mimics-overlap": "Review overlap locally."
-          }
-        },
-        {
-          "slug": "gad-worry-depressive-rumination",
-          "selected": false,
-          "comparison": {
-            "why-it-fits": "Repeated catastrophic thinking, mental rehearsal, hopeless rumination without compulsions",
-            "what-argues-against": "Review locally.",
-            "must-not-miss": "Severe insomnia, suicidality, marked psychomotor slowing, functional collapse.",
-            "bedside-question": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.",
-            "immediate-action": "Stabilise and reassess.",
-            "investigations": "Guided by presentation.",
-            "mimics-overlap": "Review overlap locally."
-          }
-        },
-        {
-          "slug": "genuine-violent-homicidal-intent",
-          "selected": false,
-          "comparison": {
-            "why-it-fits": "Desire/plan/willingness to harm, ego-syntonic, grievance-based, with preparation",
-            "what-argues-against": "Review locally.",
-            "must-not-miss": "Immediate child-safety or public-safety emergency, weapon access, stalking.",
-            "bedside-question": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.",
             "immediate-action": "Stabilise and reassess.",
             "investigations": "Guided by presentation.",
             "mimics-overlap": "Review overlap locally."
@@ -14658,7 +14503,7 @@
           "note": "Desire/plan/willingness to harm, ego-syntonic, grievance-based, with preparation"
         }
       ],
-      "currentPresentation": ["Urgency: urgent"],
+      "currentPresentation": [],
       "investigations": [],
       "immediateActions": []
     },
@@ -15095,7 +14940,7 @@
           "note": "Severe postpartum depression with guilt, nihilism, deserved-punishment ideas. Mood-congruent psychosis"
         }
       ],
-      "currentPresentation": ["Urgency: urgent", "Focused comparator (perinatal)"],
+      "currentPresentation": ["Focused comparator (perinatal)"],
       "investigations": [],
       "immediateActions": []
     },
@@ -18958,7 +18803,6 @@
         }
       ],
       "currentPresentation": [
-        "Urgency: urgent",
         "Anxiety / Panic / Obsessions / Health Anxiety",
         "Panic disorder, Generalised anxiety disorder, OCD",
         "CLINICAL HINGE: Abrupt peak over minutes, recurrent unexpected attacks, anticipatory anxiety or avoidance."
@@ -19600,7 +19444,7 @@
           "note": "Desire/plan/willingness to harm, ego-syntonic, grievance-based, with preparation"
         }
       ],
-      "currentPresentation": ["Urgency: urgent"],
+      "currentPresentation": [],
       "investigations": [],
       "immediateActions": []
     },
@@ -20256,8 +20100,7 @@
         "Perinatal Acute Psychiatry",
         "Postpartum psychosis, Postnatal depression, Perinatal OCD / intrusive infant-harm thoughts",
         "CLINICAL HINGE: Psychotic or manic syndrome with abrupt change from baseline in the postpartum period.",
-        "Focused comparator (perinatal)",
-        "Urgency: urgent"
+        "Focused comparator (perinatal)"
       ],
       "investigations": [],
       "immediateActions": []
@@ -21453,7 +21296,7 @@
           "note": "Desire/plan/willingness to harm, ego-syntonic, grievance-based, with preparation"
         }
       ],
-      "currentPresentation": ["Urgency: urgent"],
+      "currentPresentation": [],
       "investigations": [],
       "immediateActions": []
     },
@@ -22930,7 +22773,7 @@
           "note": "Desire/plan/willingness to harm, ego-syntonic, grievance-based, with preparation"
         }
       ],
-      "currentPresentation": ["Urgency: urgent"],
+      "currentPresentation": [],
       "investigations": [],
       "immediateActions": []
     },

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { parseEntryFile, parseScenarioPresets, parseSearchAliases } from "../scripts/lib/parse-differentials-export";
+import {
+  buildDifferentialSnapshot,
+  parseEntryFile,
+  parseScenarioPresets,
+  parseSearchAliases,
+} from "../scripts/lib/parse-differentials-export";
+import { staleSeededPresentations } from "@/lib/differential-seed";
+import { isDifferentialMetadataArtifactTitle } from "@/lib/differential-snapshot";
 import {
   composeDifferentialSearchResults,
   differentialDiagnosesCards,
@@ -108,14 +115,61 @@ OPTIONS:
     expect(aliases.tags).toBeUndefined();
     expect(aliases.delirium).toEqual(["confusion", "fluctuation"]);
   });
+
+  it("excludes titleless metadata-row entries from presentations but keeps their diagnoses", () => {
+    // Mirrors the trap-tables appendix: no title line, so the first metadata
+    // row ("Urgency: urgent") would otherwise become the presentation title.
+    const trapEntry = `=== FOCUSED DIAGNOSTIC TRAP TABLES ===
+
+Urgency: urgent
+Axis: mixed
+Population: general
+
+PURPOSE: Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.
+
+OPTIONS:
+1. OCD — Repetitive intrusive thoughts with rituals. Red flags: Functional collapse.
+
+SOURCE: v10`;
+    const snapshot = buildDifferentialSnapshot({
+      entryFiles: [
+        { name: "01_Delirium.txt", content: deliriumEntry },
+        { name: "T_Focused_Diagnostic_Trap_Tables.txt", content: trapEntry },
+      ],
+      presetsMarkdown: "",
+      flowsMarkdown: "",
+      aliasesMarkdown: "",
+      governanceMarkdown: "",
+    });
+    expect(snapshot.presentations.map((presentation) => presentation.id)).toEqual(["acute-confusion-encephalopathy"]);
+    const ocd = snapshot.diagnoses.find((diagnosis) => diagnosis.slug === "ocd");
+    expect(ocd).toBeDefined();
+    // The artifact title must not leak into the kept diagnosis text either.
+    expect(ocd?.currentPresentation).not.toContain("Urgency: urgent");
+  });
 });
 
 describe("differential records", () => {
   it("loads v10 snapshot with presentations and diagnoses", () => {
     const snapshot = loadDifferentialSnapshot();
-    expect(snapshot.presentations).toHaveLength(31);
+    expect(snapshot.presentations).toHaveLength(30);
     expect(snapshot.diagnoses.length).toBeGreaterThan(100);
     expect(differentialRecords.length).toBe(snapshot.diagnoses.length);
+    // Export artifacts (metadata rows parsed as titles, e.g. "Urgency: urgent")
+    // must not ship as presentations.
+    expect(
+      snapshot.presentations.filter((presentation) => isDifferentialMetadataArtifactTitle(presentation.title)),
+    ).toEqual([]);
+  });
+
+  it("flags stale seeded presentation rows for pruning, leaving diagnoses alone", () => {
+    const rows = [
+      { kind: "presentation", slug: "urgency-urgent" },
+      { kind: "presentation", slug: "acute-confusion-encephalopathy" },
+      { kind: "diagnosis", slug: "urgency-urgent" },
+    ];
+    const stale = staleSeededPresentations(rows);
+    expect(stale).toEqual([{ kind: "presentation", slug: "urgency-urgent" }]);
   });
 
   it("links cards to routes", () => {

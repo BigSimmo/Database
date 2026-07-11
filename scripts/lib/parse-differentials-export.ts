@@ -1,3 +1,4 @@
+import { isDifferentialMetadataArtifactTitle } from "@/lib/differential-snapshot";
 import type {
   DifferentialComparisonCandidate,
   DifferentialComparisonCriterion,
@@ -347,7 +348,10 @@ function buildDiagnosisRecord(option: ParsedOption, presentation: ParsedPresenta
         likelihood: "possible" as const,
         note: candidate.summary,
       })),
-    currentPresentation: [presentation.title, ...presentation.mustNotMiss.slice(0, 2)],
+    currentPresentation: [
+      ...(isDifferentialMetadataArtifactTitle(presentation.title) ? [] : [presentation.title]),
+      ...presentation.mustNotMiss.slice(0, 2),
+    ],
     investigations: presentation.investigations,
     immediateActions: presentation.immediateActions,
   };
@@ -495,7 +499,12 @@ export function buildDifferentialSnapshot(input: {
   governanceMarkdown: string;
 }): DifferentialSnapshot {
   const parsedPresentations = input.entryFiles.map(({ name, content }) => parseEntryFile(content, pathBasename(name)));
-  const presentations = parsedPresentations.map(buildPresentationWorkflow);
+  // Titleless entry files (e.g. the focused diagnostic trap tables appendix)
+  // surface a metadata row as their title; they are not presentations, but
+  // their options are still real diagnoses — several exist in no other entry.
+  const presentations = parsedPresentations
+    .filter((parsed) => !isDifferentialMetadataArtifactTitle(parsed.title))
+    .map(buildPresentationWorkflow);
 
   const diagnosisMap = new Map<string, DifferentialRecord>();
   for (const parsed of parsedPresentations) {

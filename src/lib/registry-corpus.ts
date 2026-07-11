@@ -99,6 +99,13 @@ function registryDocumentId(entry: RegistryCorpusEntry) {
   return deterministicUuid(`registry-document:${entry.kind}:${entry.recordId}`);
 }
 
+/** Corpus document id for a differential record row. Chunks cascade from the
+ *  document, so deleting this id fully removes a pruned record from the
+ *  corpus. Used by the differentials seed CLI when cleaning up stale rows. */
+export function differentialCorpusDocumentId(recordId: string) {
+  return deterministicUuid(`registry-document:differential:${recordId}`);
+}
+
 /** Registry entry metadata. */
 function registryEntryMetadata(entry: RegistryCorpusEntry): Record<string, Json> {
   return { ...registryBaseMetadata(entry), ...entry.metadata };

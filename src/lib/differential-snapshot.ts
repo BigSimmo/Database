@@ -89,6 +89,15 @@ export type DifferentialSnapshotGovernance = {
   sourceTitle: string;
 };
 
+/** Entry files in the differentials export open with metadata rows ("Urgency:
+ *  urgent", "Axis: mixed", "Population: general"). When a file has no title
+ *  line, the parser surfaces the first metadata row as the entry title; such
+ *  rows are export artifacts, not clinical presentations, and must not become
+ *  workflows, routes, or search results. */
+export function isDifferentialMetadataArtifactTitle(title: string) {
+  return /^(urgency|axis|population)\s*:/i.test(title.trim());
+}
+
 export type DifferentialSnapshot = {
   version: string;
   exportedAt: string;

@@ -16,6 +16,7 @@ import {
 } from "@/lib/differential-records";
 import { ensureDifferentialsSeeded, loadDifferentialSnapshot } from "@/lib/differential-seed";
 import {
+  differentialPresentations,
   differentialRecords,
   rankDifferentialRecords,
   rankPresentationWorkflows,
@@ -61,11 +62,14 @@ function publicDifferentialPayload(kind: DifferentialRecordKind, q: string | und
   const snapshot = loadDifferentialSnapshot();
   const governance = deriveGovernanceFromSnapshot(snapshot);
   if (kind === "presentation") {
-    const ranked = q ? rankPresentationWorkflows(snapshot.presentations, q, limit) : null;
+    // differentialPresentations() (not snapshot.presentations) so export
+    // artifacts stay filtered out of the public payload.
+    const presentations = differentialPresentations();
+    const ranked = q ? rankPresentationWorkflows(presentations, q, limit) : null;
     return {
-      presentations: ranked ? ranked.map((match) => match.workflow) : snapshot.presentations,
+      presentations: ranked ? ranked.map((match) => match.workflow) : presentations,
       matches: ranked ? presentationMatchesPayload(ranked) : undefined,
-      total: snapshot.presentations.length,
+      total: presentations.length,
       governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
     };
   }
