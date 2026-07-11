@@ -573,10 +573,7 @@ function BestAnswerCard({
 
   return (
     <section
-      className={cn(
-        "rounded-lg border shadow-[var(--shadow-inset)]",
-        compact ? "p-3.5" : "p-4",
-      )}
+      className={cn("rounded-lg border shadow-[var(--shadow-inset)]", compact ? "p-3.5" : "p-4")}
       style={{
         borderColor: `color-mix(in srgb, ${cardBorderColor}, transparent)`,
         backgroundColor: `color-mix(in srgb, ${cardBgColor}, transparent 45%)`,
@@ -732,7 +729,11 @@ function SourceStatusCard({
             {hasSourceEvidence ? "Source-backed" : "Guided local differential"}
           </span>
           <span className="text-[color:var(--text-muted)]">
-            {hasSourceEvidence ? `${sourceCount.toLocaleString()} sources` : sourcesChecked ? "0 matches" : "Evidence pending"}
+            {hasSourceEvidence
+              ? `${sourceCount.toLocaleString()} sources`
+              : sourcesChecked
+                ? "0 matches"
+                : "Evidence pending"}
           </span>
         </p>
         <p className="flex items-center justify-between gap-3 text-[color:var(--warning)]">
@@ -743,7 +744,9 @@ function SourceStatusCard({
           <span className="text-[color:var(--text-muted)]">
             {hasSourceEvidence
               ? `${sourceCount.toLocaleString()} source${sourceCount === 1 ? "" : "s"}`
-              : sourcesChecked ? "No matches" : "Not yet checked"}
+              : sourcesChecked
+                ? "No matches"
+                : "Not yet checked"}
           </span>
         </p>
       </div>
@@ -1153,7 +1156,9 @@ function SearchResultsView({
         </div>
       )}
 
-      {best ? <DifferentialsMobileCompareBar selectedCount={selectedCount} selectedIds={selectedIds} query={query} /> : null}
+      {best ? (
+        <DifferentialsMobileCompareBar selectedCount={selectedCount} selectedIds={selectedIds} query={query} />
+      ) : null}
 
       <p className="pb-3 text-center text-xs font-medium text-[color:var(--text-muted)] lg:hidden">
         Clinical decision support only. Review before use.
