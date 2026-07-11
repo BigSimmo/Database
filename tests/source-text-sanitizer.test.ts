@@ -451,6 +451,15 @@ describe("normalizeInlineBulletGlyphs", () => {
     expect(normalizeInlineBulletGlyphs("Cell value:\no RhD negative")).toBe("Cell value:\no RhD negative");
   });
 
+  it("converts non-blood positive/negative list items at line starts", () => {
+    expect(normalizeInlineBulletGlyphs("o Positive symptoms require urgent review")).toBe(
+      "Positive symptoms require urgent review",
+    );
+    expect(normalizeInlineBulletGlyphs("o Negative screen requires repeat testing")).toBe(
+      "Negative screen requires repeat testing",
+    );
+  });
+
   it("still converts an OCR bullet after non-blood group/type labels", () => {
     expect(normalizeInlineBulletGlyphs("patient group o Adults should be offered CBT")).toBe(
       "patient group; Adults should be offered CBT",

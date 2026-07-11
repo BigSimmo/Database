@@ -74,8 +74,10 @@ const extractiveLabelPattern =
 // headings that happen to share a word are exempt: "Source control"
 // (infection-source management) and "Reference range/interval" (lab values)
 // are evidence, not provenance or bibliography labels.
+// "section" is anchored to the label start so structural "Section 2:" is
+// excluded while clinical phrases like "Caesarean section:" merge normally.
 const structuralHeadingStoplistPattern =
-  /\b(?:source(?!\s+control\b)|section|table|figure|page|summary|example|appendix|reference(?!\s+(?:range|interval)s?\b)|contents)\b/i;
+  /\b(?:source(?!\s+control\b)|table|figure|page|summary|example|appendix|reference(?!\s+(?:range|interval)s?\b)|contents)\b|^\s*section\b/i;
 
 // Advisory labels ("Caution:", "Warning:") classify the fact that follows as
 // a caveat — they merge with their bullet items like directive headings do,

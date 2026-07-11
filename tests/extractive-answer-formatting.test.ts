@@ -76,6 +76,14 @@ describe("extractive evidence splitting", () => {
     expect(anc).toMatch(/^ANC <0\.5:/);
   });
 
+  it("keeps clinical section headings while excluding structural section labels", () => {
+    const caesarean = splitClinicalEvidenceSentences(
+      "Caesarean section: o Give antibiotic prophylaxis before skin incision.",
+    ).find((sentence) => /antibiotic prophylaxis/i.test(sentence));
+    expect(caesarean).toBeDefined();
+    expect(caesarean).toMatch(/caesarean section/i);
+  });
+
   it("keeps reference-range headings attached to their numeric items", () => {
     const range = splitClinicalEvidenceSentences(
       "Reference range: o 0.6-1.0 mmol/L for maintenance lithium therapy.",

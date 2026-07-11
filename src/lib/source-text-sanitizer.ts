@@ -557,6 +557,10 @@ const groupTypeLabelTailPattern = /\b(?:group|type):?\s$/i;
 const qualifiedGroupTypeTailPattern = /\b[A-Za-z][\w-]*\s+(?:group|type):?\s$/i;
 const rhValueHeadPattern = /^\s+rh(?:d)?\b/i;
 const posNegValueHeadPattern = /^\s+(?:pos(?:itive)?|neg(?:ative)?)\b/i;
+// An entire line that is just the ABO value ("o RhD negative", "o Negative",
+// "o Rh positive") — the strongest signal that the "o" is the group itself.
+const standaloneBloodValueLinePattern =
+  /^o\s+(?:rh(?:d)?(?:\s+(?:pos(?:itive)?|neg(?:ative)?))?|pos(?:itive)?|neg(?:ative)?)$/i;
 
 function replaceSubBulletOGlyphs(text: string, joiner: string) {
   return text.replace(subBulletOGlyphPattern, (match, offset: number) => {
@@ -564,10 +568,15 @@ function replaceSubBulletOGlyphs(text: string, joiner: string) {
     const after = text.slice(offset + match.length);
     if (bloodLabelTailPattern.test(before)) return match;
     // A chunk/cell that IS the blood value ("o RhD negative", "o Negative")
-    // has no label context at all — an Rh/positive/negative follower at a
-    // string or line start is the value itself, not a bullet item.
+    // has no label context at all — but only when the whole line is the
+    // value. A positive/negative list ITEM ("o Positive symptoms require
+    // urgent review") is a bullet and converts.
     const atItemStart = offset === 0 || text[offset - 1] === "\n" || text[offset - 1] === "\r";
-    if (atItemStart && (rhValueHeadPattern.test(after) || posNegValueHeadPattern.test(after))) return match;
+    if (atItemStart) {
+      const lineEnd = text.indexOf("\n", offset);
+      const lineTail = text.slice(offset, lineEnd === -1 ? text.length : lineEnd).trim();
+      if (standaloneBloodValueLinePattern.test(lineTail)) return match;
+    }
     if (groupTypeLabelTailPattern.test(before)) {
       // "o Rh…" is a strong blood signal under any group/type label;
       // "o Positive/Negative" counts as a blood value only when the label is
