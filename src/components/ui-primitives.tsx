@@ -415,7 +415,7 @@ export function EmptyState({ icon: Icon, title, body }: { icon: IconComponent; t
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-          <Icon className="h-4.5 w-4.5" />
+          <Icon className="size-icon-lg" />
         </span>
         <div className="min-w-0">
           <p className="font-semibold text-[color:var(--text)]">{title}</p>

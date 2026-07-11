@@ -45,7 +45,7 @@ export function SectionHeading({
             compactMobile ? "h-7 w-7 sm:h-9 sm:w-9" : "h-9 w-9",
           )}
         >
-          <Icon className={cn(compactMobile ? "h-4 w-4 sm:h-4.5 sm:w-4.5" : "h-4.5 w-4.5")} />
+          <Icon className={cn(compactMobile ? "size-icon-md sm:size-icon-lg" : "size-icon-lg")} />
         </span>
         <div className="min-w-0">
           <h2 className="text-base-minus font-semibold text-[color:var(--text-heading)] sm:text-base">{title}</h2>

@@ -388,7 +388,7 @@ function ClinicalCollapsedRail({
               title="Expand sidebar"
             >
               <BrandMark className="h-7 w-7 group-hover:hidden group-focus-visible:hidden" />
-              <PanelLeftOpen className="hidden h-4.5 w-4.5 group-hover:block group-focus-visible:block" />
+              <PanelLeftOpen className="hidden size-icon-lg group-hover:block group-focus-visible:block" />
             </button>
           </>
         )}

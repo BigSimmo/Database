@@ -977,7 +977,7 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
             <header>
               <div className="flex min-w-0 items-start gap-3">
                 <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <Heart className="h-4.5 w-4.5" aria-hidden />
+                  <Heart className="size-icon-lg" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">

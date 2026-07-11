@@ -600,7 +600,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             <section className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2.5 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:gap-3 sm:p-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--danger-soft)] text-[color:var(--danger)] sm:h-10 sm:w-10">
-                  <FileText className="h-4.5 w-4.5 sm:h-5 sm:w-5" aria-hidden />
+                  <FileText className="size-icon-md sm:size-icon-lg" aria-hidden />
                 </span>
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">

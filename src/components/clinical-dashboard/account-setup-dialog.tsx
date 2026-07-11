@@ -212,7 +212,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                       <span className="min-w-0 whitespace-normal break-words text-xs leading-4">{source.label}</span>
                       <span
                         className={cn(
-                          "grid h-4.5 w-4.5 place-items-center rounded-full border sm:absolute sm:right-2 sm:top-2",
+                          "grid h-5 w-5 place-items-center rounded-full border sm:absolute sm:right-2 sm:top-2",
                           selected
                             ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                             : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-transparent",
@@ -310,7 +310,7 @@ function ProviderButton({ provider, onClick }: { provider: Provider; onClick: ()
 function ProviderMark({ provider }: { provider: Provider }) {
   if (provider === "Microsoft") {
     return (
-      <span className="grid h-4.5 w-4.5 shrink-0 grid-cols-2 gap-0.5" aria-hidden="true">
+      <span className="grid h-5 w-5 shrink-0 grid-cols-2 gap-0.5" aria-hidden="true">
         <span className="bg-[#f25022]" />
         <span className="bg-[#7fba00]" />
         <span className="bg-[#00a4ef]" />
@@ -321,7 +321,7 @@ function ProviderMark({ provider }: { provider: Provider }) {
 
   if (provider === "Apple") {
     return (
-      <Apple className="h-4.5 w-4.5 shrink-0 text-[color:var(--text-heading)]" aria-hidden="true" strokeWidth={2.4} />
+      <Apple className="size-icon-lg shrink-0 text-[color:var(--text-heading)]" aria-hidden="true" strokeWidth={2.4} />
     );
   }
 

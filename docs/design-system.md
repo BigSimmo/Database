@@ -78,9 +78,10 @@ Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
 `size-icon-xl` 24 (px). These generate `size-icon-*` / `h-icon-*` / `w-icon-*`, exactly like
 `--spacing-tap` → `size-tap`.
 
-- Prefer `size-icon-md` over raw `h-4 w-4` for an icon glyph. `npm run check:icon-scale` counts
-  off-scale drift — the retired `4.5` (18px) half-step and arbitrary `≤24px` `h-[Npx]`.
-  **Ratchet:** report-only now; flip to `--strict` once the cluster migration lands.
+- Prefer `size-icon-md` over raw `h-4 w-4` for an icon glyph. `npm run check:icon-scale --strict`
+  (in `verify:cheap`) blocks the retired `4.5` (18px) half-step — icon glyphs resolve to
+  `size-icon-lg`, non-icon 18px boxes to `h-5`. It does **not** touch raw `h-4 w-4` (which also
+  sizes non-icons), so migrating the long tail onto `size-icon-*` is opportunistic, not enforced.
 - **Responsive** icons add a breakpoint variant — `size-icon-md sm:size-icon-lg`. Reserve it for
   a few roles (nav, composer, hero, panel headings); most icons stay one fixed size.
 - **Not** for container tiles (`iconTile` h-9, empty-state tile h-10) or non-icon boxes (the

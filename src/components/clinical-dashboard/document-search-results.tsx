@@ -497,7 +497,7 @@ function SelectedDocumentEvidencePanel({
     >
       <div className="flex items-start gap-2">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-          <Sparkles className="h-4.5 w-4.5" aria-hidden="true" />
+          <Sparkles className="size-icon-lg" aria-hidden="true" />
         </span>
         <div className="min-w-0">
           <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">

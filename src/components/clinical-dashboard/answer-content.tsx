@@ -615,7 +615,7 @@ export function NaturalLanguageAnswer({
         className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
         aria-hidden="true"
       >
-        <ShieldCheck className="h-[18px] w-[18px]" />
+        <ShieldCheck className="size-icon-lg" />
       </span>
       <div className="min-w-0 space-y-1.5">
         <p className={chatAnswerText}>

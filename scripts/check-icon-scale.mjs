@@ -9,17 +9,18 @@
 //   --spacing-icon-lg 20px  → size-icon-lg
 //   --spacing-icon-xl 24px  → size-icon-xl
 //
-// It tracks two kinds of drift that are unambiguously icon sizing:
-//   1. The retired `4.5` half-step (h-4.5 / w-4.5 / size-4.5, 18px) — always an
-//      icon size, replaced by size-icon-sm/-md/-lg per site.
-//   2. Arbitrary square pixel sizes in the icon range (<= 24px), e.g.
-//      h-[18px] w-[18px] / size-[16px] — bypass the scale.
+// It enforces one unambiguous drift signal: the retired `4.5` half-step
+// (h-4.5 / w-4.5 / size-4.5, 18px). 18px is off the 4px grid; it was only ever
+// reached by icon glyphs and a handful of tiny boxes, and it resolves cleanly to
+// size-icon-lg (glyphs) or h-5 (non-icon boxes).
 //
 // It intentionally does NOT flag raw h-4 w-4 / h-5 w-5 etc.: those integer
 // spacing steps also size non-icons (the ToggleSwitch knob, status dots,
 // avatars, container tiles), so a blanket ban would false-positive. Migrating
 // icon glyphs onto size-icon-* is a codemod, not a lint rule — see
-// docs/design-system.md §2. Only the unambiguous drift above is enforced here.
+// docs/design-system.md §2. It also does NOT flag arbitrary h-[Npx]: those are
+// used by deliberate non-icon elements too (e.g. count-badge bubbles at 18px),
+// so flagging them would false-positive; genuine icon glyphs simply use the scale.
 // Mockups (*mockup*) are design-scratch and out of scope.
 //
 // Usage:
@@ -34,8 +35,6 @@ const strict = process.argv.includes("--strict");
 
 // Retired 18px half-step: (min-)h-4.5 / (min-)w-4.5 / size-4.5.
 const HALF_STEP = /\b(?:min-)?(?:h|w|size)-4\.5\b/g;
-// Arbitrary square pixel sizes: (min-)h-[Npx] / (min-)w-[Npx] / size-[Npx].
-const ARBITRARY_PX = /\b(?:min-)?(?:h|w|size)-\[(\d+)px\]/g;
 
 // Tracked source files under src (fast; respects .gitignore). Exclude mockups.
 const files = execSync("git ls-files src", { encoding: "utf8" })
@@ -55,17 +54,11 @@ for (const file of files) {
     for (const m of line.matchAll(HALF_STEP)) {
       hits.push({ file, line: i + 1, match: m[0] });
     }
-    for (const m of line.matchAll(ARBITRARY_PX)) {
-      // Only the icon glyph range (12–24px). Below 12px is dividers/dots/rules
-      // (e.g. w-[2px]); above 24px is avatars/tiles/shells — none are icon glyphs.
-      const px = Number(m[1]);
-      if (px >= 12 && px <= 24) hits.push({ file, line: i + 1, match: m[0] });
-    }
   });
 }
 
 if (hits.length === 0) {
-  console.log("✓ icon-scale: no off-scale icon sizes (4.5 half-step / arbitrary ≤24px) in src.");
+  console.log("✓ icon-scale: no retired 4.5 (18px) half-step icon sizes in src.");
   process.exit(0);
 }
 

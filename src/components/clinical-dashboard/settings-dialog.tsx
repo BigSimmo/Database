@@ -139,7 +139,7 @@ export function SettingsDialog({
       aria-label="Close settings"
       className="absolute right-2.5 top-[max(0.45rem,env(safe-area-inset-top))] z-10 grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:left-4 lg:right-auto lg:top-4 lg:h-10 lg:w-10"
     >
-      <X className="h-4.5 w-4.5" />
+      <X className="size-icon-lg" />
     </button>
   );
 

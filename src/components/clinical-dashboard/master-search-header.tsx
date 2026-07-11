@@ -1300,9 +1300,9 @@ export function MasterSearchHeader({
               ) : usesSendAffordance ? (
                 <Send className="h-4 w-4" />
               ) : usesModeIdentityAffordance ? (
-                <ModeIdentityIcon className="h-4.5 w-4.5" />
+                <ModeIdentityIcon className="size-icon-lg" />
               ) : (
-                <Search className="h-4.5 w-4.5" />
+                <Search className="size-icon-lg" />
               )}
               <span className="sr-only">{submitLabel}</span>
             </button>
