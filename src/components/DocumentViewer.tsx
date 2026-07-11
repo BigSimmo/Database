@@ -32,7 +32,7 @@ import {
   X,
 } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { AccessibleTable } from "@/components/AccessibleTable";
+import { AccessibleTable, hasRenderableAccessibleTable } from "@/components/AccessibleTable";
 import { documentDisplayTitle, documentOrganizationProfile } from "@/components/DocumentOrganizationBadges";
 import { formatDocumentLabelDisplay } from "@/lib/document-tags";
 import {
@@ -437,7 +437,15 @@ function DocumentImage({ image }: { image: ImageRow }) {
     : looksLikeTableText(image.tableTextSnippet)
       ? image.tableTextSnippet
       : null;
-  const hasStructuredTable = Boolean(tableMarkdown || image.tableRows?.length || image.tableColumns?.length);
+  // Only let the table "lead" (collapsing the source image) when AccessibleTable
+  // will actually render a table. Columns-only input or unparseable markdown
+  // render nothing, so those route to the image-first branch instead of leaving
+  // an empty caption above a hidden source image.
+  const hasStructuredTable = hasRenderableAccessibleTable({
+    markdown: tableMarkdown,
+    rows: image.tableRows,
+    columns: image.tableColumns,
+  });
   const tableCaption = tableHeading || cleanCaption || "Document table";
   const showImageCaptionLine = cleanCaption && cleanCaption !== tableCaption;
   const displayLabels = smartEvidenceTags(
@@ -529,6 +537,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
               compact={false}
               expandOnMobile
               dialogTitle={tableCaption}
+              lowConfidenceFallback={imageBlock}
             />
             {clinicalUseReasonLine}
           </figcaption>
