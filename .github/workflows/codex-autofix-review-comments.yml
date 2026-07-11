@@ -9,37 +9,50 @@ permissions:
   issues: write
   pull-requests: read
 
-concurrency:
-  group: codex-autoresolve-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
-
 jobs:
   request-codex-autoresolve:
     name: Request Codex auto-resolve
     runs-on: ubuntu-24.04
     if: >
       github.event.pull_request.state == 'open' &&
-      contains(github.event.comment.user.login, 'chatgpt-codex-connector')
+      github.event.comment.user.type == 'Bot' &&
+      (github.event.comment.user.login == 'chatgpt-codex-connector' ||
+      github.event.comment.user.login == 'chatgpt-codex-connector[bot]')
+    concurrency:
+      group: codex-autoresolve-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     steps:
       - name: Ask Codex to resolve review comments
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ github.token }}
           script: |
             const pr = context.payload.pull_request;
             const reviewComment = context.payload.comment;
+            const allowedCodexBotLogins = new Set([
+              "chatgpt-codex-connector",
+              "chatgpt-codex-connector[bot]",
+            ]);
+            const scopedResolveCommand = "@codex resolve actionable Codex review findings for this pull request and current head";
+
+            if (
+              reviewComment.user?.type !== "Bot" ||
+              !allowedCodexBotLogins.has(reviewComment.user.login)
+            ) {
+              core.warning("Skipping Codex auto-resolve request because the review comment author is not the trusted Codex connector bot.");
+              return;
+            }
 
             if (reviewComment.in_reply_to_id) {
               core.notice("Skipping Codex auto-resolve request because the comment is a review-thread reply.");
               return;
             }
 
-            const sourceBody = reviewComment.body || "";
-            if (
-              sourceBody.includes("codex-autoresolve:") ||
-              sourceBody.includes("codex-autoresolve-pr:") ||
-              sourceBody.includes("@codex resolve actionable Codex review findings for this pull request and current head")
-            ) {
+            const sourceBody = (reviewComment.body || "").trimStart();
+            const hasAutoResolveMarker =
+              sourceBody.startsWith("<!-- codex-autoresolve:") ||
+              sourceBody.startsWith("<!-- codex-autoresolve-pr:");
+            if (hasAutoResolveMarker && sourceBody.includes(scopedResolveCommand)) {
               core.notice("Skipping Codex auto-resolve request because the source comment already looks like an auto-resolve request.");
               return;
             }
@@ -47,7 +60,8 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue_number = pr.number;
-            const marker = `<!-- codex-autoresolve-pr:${pr.number} -->`;
+            const marker = `<!-- codex-autoresolve:${pr.head.sha} -->`;
+            const maxAutoResolveRequests = 3;
 
             let existingComments;
             try {
@@ -59,23 +73,39 @@ jobs:
               });
             } catch (error) {
               if (error.status === 403) {
-                core.warning("Skipping Codex auto-resolve request because GitHub denied permission to list issue comments.");
-                core.notice("Grant issues: read/write permission or allow the workflow token to read issue comments to enable duplicate request checks.");
+                const message = "Codex auto-resolve failed because GitHub denied permission to list issue comments.";
+                core.warning(message);
+                core.setFailed(message);
                 return;
               }
 
               throw error;
             }
 
-            if (existingComments.some((comment) => (comment.body || "").includes(marker))) {
-              core.notice("Skipping duplicate Codex auto-resolve request for this pull request.");
+            const trustedExistingRequests = existingComments.filter(
+              (comment) =>
+                comment.user?.type === "Bot" &&
+                comment.user.login === "github-actions[bot]" &&
+                (comment.body || "").trimStart().startsWith("<!-- codex-autoresolve"),
+            );
+            const hasTrustedExistingRequest = trustedExistingRequests.some((comment) =>
+              (comment.body || "").includes(marker),
+            );
+
+            if (hasTrustedExistingRequest) {
+              core.notice("Skipping duplicate Codex auto-resolve request for this pull request head.");
+              return;
+            }
+
+            if (trustedExistingRequests.length >= maxAutoResolveRequests) {
+              core.warning(`Skipping Codex auto-resolve request because this pull request reached the automatic repair limit of ${maxAutoResolveRequests}.`);
               return;
             }
 
             const prompt = [
               marker,
               `<!-- codex-autoresolve-source-review-comment:${reviewComment.id} -->`,
-              "@codex resolve actionable Codex review findings for this pull request and current head using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit unless explicitly asked. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.",
+              `${scopedResolveCommand} using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit unless explicitly asked. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`,
             ].join("\n\n");
 
             try {
@@ -87,7 +117,9 @@ jobs:
               });
             } catch (error) {
               if (error.status === 403) {
-                core.warning("Skipping Codex auto-resolve request because this workflow token cannot comment on the pull request.");
+                const message = "Codex auto-resolve failed because this workflow token cannot comment on the pull request.";
+                core.warning(message);
+                core.setFailed(message);
                 return;
               }
 

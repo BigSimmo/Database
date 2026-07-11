@@ -1,13 +1,16 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { readExpiringCacheEntry, writeBoundedExpiringCacheEntry } from "@/lib/bounded-ttl-cache";
 import { retrievalOwnerFilter } from "@/lib/owner-scope";
 import { buildClinicalTextSearchQuery, normalizedClinicalSearchTokens, queriedZoneColour } from "@/lib/clinical-search";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
-import { shouldShortCircuitUnsupportedSearch, type SearchChunksArgs } from "@/lib/rag";
+import type { SearchChunksArgs } from "@/lib/rag-contracts";
+import { shouldShortCircuitUnsupportedSearch } from "@/lib/rag-query-guard";
 import type { ClinicalQueryAnalysis, RagQueryClass, SearchResult } from "@/lib/types";
 
 const maxRetrievalQueryVariants = 4;
 export const maxTextRpcQueryVariants = 3;
 const ragAliasCacheTtlMs = 60_000;
+const maxRagAliasCacheEntries = 256;
 const maxRagAliasesPerScope = 200;
 const maxRagAliasExpansions = 12;
 
@@ -102,8 +105,8 @@ export async function fetchEnabledRagAliases(
   ownerId?: string,
 ): Promise<RagAliasInput[]> {
   const cacheKey = ownerId ? `owner:${ownerId}` : "global";
-  const cached = ragAliasCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) return cached.aliases;
+  const cached = readExpiringCacheEntry(ragAliasCache, cacheKey);
+  if (cached) return cached.aliases;
 
   /** Read scope. */
   async function readScope(scopeOwnerId: string | null) {
@@ -133,7 +136,12 @@ export async function fetchEnabledRagAliases(
       merged.push(alias);
       if (merged.length >= maxRagAliasesPerScope) break;
     }
-    ragAliasCache.set(cacheKey, { aliases: merged, expiresAt: Date.now() + ragAliasCacheTtlMs });
+    writeBoundedExpiringCacheEntry(
+      ragAliasCache,
+      cacheKey,
+      { aliases: merged, expiresAt: Date.now() + ragAliasCacheTtlMs },
+      maxRagAliasCacheEntries,
+    );
     return merged;
   } catch {
     // Do not cache an empty result on a transient rag_aliases read failure: caching [] would suppress

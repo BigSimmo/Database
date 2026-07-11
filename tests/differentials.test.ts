@@ -10,6 +10,8 @@ import {
   differentialStaticParams,
   getDifferentialRecord,
   getPresentationWorkflow,
+  getPresentationWorkflowForDiagnosisIds,
+  getPresentationWorkflowSelectionForDiagnosisIds,
   loadDifferentialSnapshot,
   rankDifferentialRecords,
   rankPresentationWorkflows,
@@ -19,6 +21,24 @@ import {
   type DifferentialRecord,
   type DifferentialRecordMatch,
 } from "@/lib/differentials";
+
+describe("presentation workflow routing", () => {
+  it("routes selected diagnoses to a workflow that contains them", () => {
+    expect(getPresentationWorkflowForDiagnosisIds(["bipolar-depression-mixed-state"])?.id).toBe(
+      "suicidal-ideation-suicide-attempt-self-harm",
+    );
+    expect(getPresentationWorkflowForDiagnosisIds([])).toBeNull();
+  });
+
+  it("forwards only diagnoses supported by the selected workflow", () => {
+    const selection = getPresentationWorkflowSelectionForDiagnosisIds([
+      "wernicke-encephalopathy",
+      "major-depressive-disorder",
+    ]);
+    expect(selection?.workflow.id).toBe("acute-confusion-encephalopathy");
+    expect(selection?.diagnosisIds).toEqual(["wernicke-encephalopathy"]);
+  });
+});
 
 const deliriumEntry = `=== ENTRY 1 ===
 Delirium / Acute Confusion / Encephalopathy
@@ -166,6 +186,37 @@ describe("differential records", () => {
   it("ranks the acute confusion presentation first for its own vocabulary", () => {
     const matches = rankPresentationWorkflows(differentialPresentations(), "acute confusion");
     expect(matches[0]?.workflow.id).toBe("acute-confusion-encephalopathy");
+  });
+
+  it("surfaces the containing presentation for a candidate diagnosis term", () => {
+    // "wernicke" is no presentation's own vocabulary; the cross-entity candidates lane links
+    // the query to the work-up that lists Wernicke encephalopathy as a differential.
+    const matches = rankPresentationWorkflows(differentialPresentations(), "wernicke");
+    expect(matches[0]?.workflow.id).toBe("acute-confusion-encephalopathy");
+    expect(matches[0]?.reasons).toContain("candidate differential");
+  });
+
+  it("threads expansions into the presentation ranker's expanded lane", () => {
+    // A nonsense base query matches nothing on its own…
+    expect(rankPresentationWorkflows(differentialPresentations(), "zzznotarealterm", 5)).toHaveLength(0);
+    // …but an expansion term surfaces the matching workflow (parity with rankDifferentialRecords).
+    const expanded = rankPresentationWorkflows(differentialPresentations(), "zzznotarealterm", 5, ["hallucinations"]);
+    expect(expanded.some((match) => match.workflow.id === "hallucinations")).toBe(true);
+  });
+
+  it("surfaces candidate diagnoses for a presentation-title query", () => {
+    const workflow = getPresentationWorkflow("acute-confusion-encephalopathy");
+    const matches = rankDifferentialRecords(
+      differentialRecords,
+      "acute confusion encephalopathy",
+      differentialRecords.length,
+    );
+    const matchedSlugs = new Set(matches.map((match) => match.record.slug));
+    // Every candidate of the matching presentation surfaces, even those whose own titles
+    // share none of the query vocabulary (e.g. delirium), via the reverse link lane.
+    expect(workflow?.candidates.every((candidate) => matchedSlugs.has(candidate.slug))).toBe(true);
+    const delirium = matches.find((match) => match.record.slug === "delirium");
+    expect(delirium?.reasons).toContain("presentation link");
   });
 
   it("does not leak service registry terms", () => {

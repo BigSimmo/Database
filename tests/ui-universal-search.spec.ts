@@ -39,6 +39,23 @@ const universalPayload = {
         },
       ],
     },
+    {
+      kind: "presentations",
+      total: 1,
+      latencyMs: 3,
+      items: [
+        {
+          id: "acute-confusion-encephalopathy",
+          kind: "presentations",
+          title: "Delirium / Acute Confusion / Encephalopathy",
+          subtitle: "Delirium and its encephalopathic mimics are acute medical emergencies",
+          href: "/differentials/presentations/acute-confusion-encephalopathy",
+          score: 18,
+          badge: "Emergent",
+          meta: "7 differentials",
+        },
+      ],
+    },
   ],
 };
 
@@ -65,6 +82,21 @@ test.describe("universal search typeahead", () => {
     await expect(page.getByRole("option", { name: /Acamprosate/ })).toBeVisible();
     await expect(page.getByText("Forms · 1")).toBeVisible();
     await expect(page.getByRole("option", { name: /View all in Medication/ })).toBeVisible();
+    // Presentations render as their own group borrowing the differentials mode target.
+    await expect(page.getByText("Presentations · 1")).toBeVisible();
+    await expect(page.getByRole("option", { name: /Acute Confusion/ })).toBeVisible();
+    await expect(page.getByRole("option", { name: /View all in Differentials/ })).toBeVisible();
+  });
+
+  test("selecting a presentation result navigates to the workflow page", async ({ page }) => {
+    await mockUniversalSearch(page);
+    const input = await openComposer(page);
+    await input.fill("acute confusion");
+
+    const option = page.getByRole("option", { name: /Acute Confusion/ });
+    await expect(option).toBeVisible();
+    await option.click();
+    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/);
   });
 
   test("selecting a grouped result navigates to the record", async ({ page }) => {
@@ -122,6 +154,24 @@ test.describe("universal search smart affordances", () => {
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: smartPayload });
     });
+    await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
+      const answer = {
+        answer: "Synthetic answer for the universal-search navigation check.",
+        grounded: false,
+        confidence: "unsupported",
+        citations: [],
+        sources: [],
+        demoMode: true,
+      };
+      if (new URL(route.request().url()).pathname.endsWith("/stream")) {
+        await route.fulfill({
+          body: `event: final\ndata: ${JSON.stringify(answer)}\n\n`,
+          contentType: "text/event-stream; charset=utf-8",
+        });
+        return;
+      }
+      await route.fulfill({ json: answer });
+    });
   }
 
   test("shows the interpretation banner, a Best match, and an Ask-this bridge", async ({ page }) => {
@@ -141,7 +191,12 @@ test.describe("universal search smart affordances", () => {
 
     const ask = page.getByRole("option", { name: /Ask this question/ });
     await expect(ask).toBeVisible();
+    const answerRequest = page.waitForRequest(
+      (request) => new URL(request.url()).pathname === "/api/answer/stream" && request.method() === "POST",
+    );
     await ask.click();
+    expect((await answerRequest).postDataJSON()).toMatchObject({ query: "acamprosat" });
+    await expect(page.getByRole("main").getByRole("heading", { name: "Answer", exact: true })).toBeVisible();
     await expect(page).toHaveURL(/mode=answer/);
   });
 });

@@ -191,7 +191,7 @@ export function ModeHomeStatusNotice({
       {actionHref && actionLabel ? (
         <Link
           href={actionHref}
-          className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
+          className="inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)] lg:min-h-9"
         >
           {actionLabel}
         </Link>
@@ -290,7 +290,7 @@ export function ModeHomeTemplate({
       {pills?.length ? (
         <section
           aria-label={pillsTitle ?? "Quick links"}
-          className="grid w-full max-w-none self-stretch gap-2.5 border-t border-[color:var(--border)]/70 px-4 pt-5 sm:px-0 sm:pt-6"
+          className="grid w-full max-w-none self-stretch gap-2.5 border-t border-[color:var(--border)]/70 px-4 pt-5 sm:px-0 sm:pt-5"
         >
           {pillsTitle || pillsAction ? (
             <div className="flex min-h-8 w-full items-center justify-between gap-3">
@@ -298,7 +298,7 @@ export function ModeHomeTemplate({
               {pillsAction}
             </div>
           ) : null}
-          <div className="flex w-full flex-wrap justify-center gap-2 sm:gap-2.5">
+          <div className="answer-suggestion-row-scroll -mx-4 flex w-[calc(100%+2rem)] justify-start gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:w-full sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 sm:pb-0 sm:gap-2.5">
             {pills.map((pill) => {
               const PillIcon = pill.icon;
               const displayLabel = pill.shortLabel ?? pill.label;
@@ -315,16 +315,20 @@ export function ModeHomeTemplate({
                 </>
               );
               const pillClassName =
-                "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm";
+                "inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm lg:min-h-9";
               const pillA11y = pill.shortLabel ? { "aria-label": pill.label, title: pill.label } : {};
               return pill.href ? (
                 <Link key={pill.label} href={pill.href} className={pillClassName} {...pillA11y}>
                   {content}
                 </Link>
-              ) : (
+              ) : pill.onClick ? (
                 <button key={pill.label} type="button" onClick={pill.onClick} className={pillClassName} {...pillA11y}>
                   {content}
                 </button>
+              ) : (
+                <span key={pill.label} className={pillClassName} {...pillA11y}>
+                  {content}
+                </span>
               );
             })}
           </div>

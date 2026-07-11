@@ -1,5 +1,6 @@
 import type { ClinicalQueryMode } from "@/lib/types";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
+import { appendSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 
 export type AppModeId =
   "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "prescribing" | "tools";
@@ -62,21 +63,21 @@ export const appModeDefinitions = [
   {
     id: "documents",
     label: "Documents",
-    description: "Search indexed PDFs and notes",
+    description: "Find source PDFs, notes, and evidence passages",
     search: {
       kind: "documents",
-      placeholder: "Search documents...",
-      inputAriaLabel: "Search indexed documents",
+      placeholder: "Search source documents...",
+      inputAriaLabel: "Search indexed source documents",
       submitIdleLabel: "Docs",
       submitBusyLabel: "Docs",
       submitAriaLabel: "Find matching documents",
       emptyTitle: "Enter a document search term",
-      readyTitle: "Find matching documents",
+      readyTitle: "Find matching source documents",
       progressLabel: "Finding matching documents.",
       resultKind: "documents",
       resultHeading: "Document matches",
       statusLabel: "Docs",
-      nextStep: "Review matching documents",
+      nextStep: "Open a source document or evidence passage",
       badgeLabel: null,
     },
   },
@@ -174,20 +175,20 @@ export const appModeDefinitions = [
   {
     id: "prescribing",
     label: "Medication",
-    description: "Prescribing checks and guidance",
+    description: "Medication dosing, safety, and monitoring checks",
     href: "/?mode=prescribing",
     search: {
       // Deliberately kind:"documents" (unlike forms): prescribing intentionally searches the
       // document corpus for dosing/threshold guidance (defaultQueryMode dose_threshold_lookup).
       // The medication registry joins cross-entity search via /api/search/universal instead.
       kind: "documents",
-      placeholder: "Search medications...",
-      inputAriaLabel: "Search medication guidance",
+      placeholder: "Search medication dosing or safety...",
+      inputAriaLabel: "Search medication dosing, safety, and monitoring guidance",
       submitIdleLabel: "Meds",
       submitBusyLabel: "Meds",
-      submitAriaLabel: "Search medication guidance",
+      submitAriaLabel: "Search medication prescribing guidance",
       emptyTitle: "Enter a medication search term",
-      readyTitle: "Search medication guidance",
+      readyTitle: "Search medication prescribing guidance",
       progressLabel: "Searching medication guidance.",
       resultKind: "documents",
       resultHeading: "Medication matches",
@@ -245,7 +246,7 @@ export function appModeSearchConfig(modeId: AppModeId) {
 
 const namespaceIsolatedModes = new Set<AppModeId>(["services", "forms", "favourites", "differentials"]);
 
-export function appModeHomeHref(modeId: AppModeId, options: { query?: string; focus?: boolean; run?: boolean } = {}) {
+export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
   const mode = appModeDefinition(modeId);
   const query = options.query?.trim();
 
@@ -258,6 +259,7 @@ export function appModeHomeHref(modeId: AppModeId, options: { query?: string; fo
     if (query) namespacedParams.set("q", query);
     if (options.focus) namespacedParams.set("focus", "1");
     if (options.run && query) namespacedParams.set("run", "1");
+    appendSearchNavigationContext(namespacedParams, options);
 
     const suffix = namespacedParams.toString();
     return suffix ? `${mode.href}?${suffix}` : mode.href;
@@ -266,6 +268,7 @@ export function appModeHomeHref(modeId: AppModeId, options: { query?: string; fo
   if ("href" in mode && mode.href && !query && !options.run) {
     const homeParams = new URLSearchParams();
     if (options.focus) homeParams.set("focus", "1");
+    appendSearchNavigationContext(homeParams, options);
     const suffix = homeParams.toString();
     const separator = mode.href.includes("?") ? "&" : "?";
     return suffix ? `${mode.href}${separator}${suffix}` : mode.href;
@@ -275,6 +278,7 @@ export function appModeHomeHref(modeId: AppModeId, options: { query?: string; fo
   if (query) params.set("q", query);
   if (options.focus) params.set("focus", "1");
   if (options.run && query) params.set("run", "1");
+  appendSearchNavigationContext(params, options);
   return `/?${params.toString()}`;
 }
 

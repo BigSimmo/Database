@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,6 +51,10 @@ function shouldTerminateCandidate(commandLine) {
     if (normalizedCommandLine.includes("\\scripts\\eval-")) return true;
     if (normalizedCommandLine.includes("\\scripts\\eval")) return true;
     return false;
+  }
+
+  if (hasRepoScripts && normalizedCommandLine.includes("\\scripts\\run-tsx.mjs")) {
+    return normalizedCommandLine.includes("\\scripts\\eval");
   }
 
   if (
@@ -207,104 +209,16 @@ function terminateEvalProcess(pid) {
   terminateEvalProcessTree(pid);
 }
 
-function resolveFromAncestorNodeModules(startDir) {
-  let dir = startDir;
-  for (;;) {
-    const candidate = resolve(dir, "node_modules", "tsx", "dist", "cli.mjs");
-    if (existsSync(candidate)) return candidate;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-
-function listGitWorktreeRoots() {
-  const result = spawnSync("git", ["worktree", "list", "--porcelain"], {
-    cwd: projectRoot,
-    encoding: "utf8",
-    windowsHide: true,
-  });
-  if (result.status !== 0) return [];
-
-  return (result.stdout || "")
-    .split(/\r?\n/)
-    .filter((line) => line.startsWith("worktree "))
-    .map((line) => line.slice("worktree ".length).trim())
-    .filter(Boolean);
-}
-
-// Resolve the tsx CLI without assuming node_modules sits directly under the
-// repo root. Fresh git worktrees frequently have a junctioned or hoisted
-// node_modules (or none at all), so honour Node's real resolution algorithm
-// before walking sibling worktrees and falling back to the historical path.
-function resolveTsxCliBin() {
-  const candidates = [];
-
-  // `tsx/cli` maps to `./dist/cli.mjs` via the package's exports map.
-  try {
-    candidates.push(fileURLToPath(import.meta.resolve("tsx/cli")));
-  } catch {
-    // Not resolvable via import.meta.resolve - try the next strategy.
-  }
-
-  // CJS fallback: resolve the (always-exported) package.json and read its `bin`.
-  // Deep specifiers like `tsx/dist/cli.mjs` are blocked by the package exports
-  // map, so we derive the bin path from the manifest instead.
-  try {
-    const require = createRequire(import.meta.url);
-    const pkgPath = require.resolve("tsx/package.json");
-    const bin = require("tsx/package.json").bin;
-    if (typeof bin === "string") candidates.push(resolve(dirname(pkgPath), bin));
-  } catch {
-    // Not resolvable via require - try the next strategy.
-  }
-
-  const ancestorMatch = resolveFromAncestorNodeModules(projectRoot);
-  if (ancestorMatch) candidates.push(ancestorMatch);
-
-  for (const root of listGitWorktreeRoots()) {
-    const worktreeMatch = resolveFromAncestorNodeModules(root);
-    if (worktreeMatch) candidates.push(worktreeMatch);
-  }
-
-  candidates.push(resolve(projectRoot, "node_modules", "tsx", "dist", "cli.mjs"));
-
-  return candidates.find((candidate) => candidate && existsSync(candidate)) ?? null;
-}
-
-// cmd.exe does not auto-quote args when spawning with `shell: true`, so wrap
-// anything that isn't a bare token (paths with spaces, etc.) ourselves.
-function quoteForCmd(arg) {
-  if (/^[A-Za-z0-9_.,:=\\/-]+$/.test(arg)) return arg;
-  return `"${arg.replaceAll('"', '""')}"`;
-}
-
 function runEvalScript() {
   const targetPath = resolve(projectRoot, targetScript);
-  const tsxBin = resolveTsxCliBin();
-
-  let command;
-  let commandArgs;
-  let useShell = false;
-
-  if (tsxBin) {
-    command = process.execPath;
-    commandArgs = [tsxBin, targetPath, ...forwardArgs];
-  } else {
-    // Last resort: let npx locate a tsx runtime (e.g. from a global cache or a
-    // parent workspace) without reaching out to the network to install it.
-    console.warn("[eval] tsx not found in node_modules; falling back to `npx --no-install tsx`.");
-    useShell = isWindows; // npx is a .cmd shim on Windows and needs a shell.
-    command = isWindows ? "npx.cmd" : "npx";
-    commandArgs = ["--no-install", "tsx", targetPath, ...forwardArgs];
-    if (useShell) commandArgs = commandArgs.map(quoteForCmd);
-  }
+  const command = process.execPath;
+  const commandArgs = [resolve(projectRoot, "scripts", "run-tsx.mjs"), targetPath, ...forwardArgs];
 
   const child = spawn(command, commandArgs, {
     cwd: projectRoot,
     stdio: "inherit",
     windowsHide: true,
-    shell: useShell,
+    shell: false,
   });
 
   const stopEvalProcess = () => {

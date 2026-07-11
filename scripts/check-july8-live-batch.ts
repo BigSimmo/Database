@@ -100,7 +100,7 @@ async function checkFailClosedRetrieval(supabase: AdminClient) {
 
   if (data === true) {
     throw new Error(
-      "retrieval_owner_matches still fail-OPEN on NULL owner_filter — apply 20260708160000_retrieval_owner_matches_fail_closed.sql",
+      "retrieval_owner_matches still fail-OPEN on NULL owner_filter — apply 20260708160001_retrieval_owner_matches_fail_closed.sql",
     );
   }
 

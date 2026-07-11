@@ -2,7 +2,7 @@
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appName, localProjectId, projectPortEnd, stableProjectPort } from "./local-server-utils.mjs";
+import { appName, localProjectId, projectPortEnd, stableProjectPort } from "../src/lib/local-server-utils.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const expectedProjectId = localProjectId(projectRoot);
