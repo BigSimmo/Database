@@ -42,7 +42,7 @@ import {
 
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { Sheet } from "@/components/ui/sheet";
-import { cn, chatComposerIconButton } from "@/components/ui-primitives";
+import { cn, chatComposerIconButton, toolbarButton } from "@/components/ui-primitives";
 
 export type ModeActionSetId =
   "answer" | "documents" | "services" | "forms" | "favourites" | "tools" | "differentials" | "prescribing";
@@ -52,6 +52,7 @@ type IntegratedSurfaceLayout = {
   placement: ModeActionPlacement;
   left: number;
   width: number;
+  caretLeft: number;
   top?: number;
   bottom?: number;
 };
@@ -63,7 +64,7 @@ function estimateActionListHeights(itemCount: number, integrated: boolean) {
   const rowGap = 6;
   const bodyPadding = integrated ? 24 : 20;
   const minBodyHeight = itemCount * rowHeight + Math.max(0, itemCount - 1) * rowGap + bodyPadding;
-  const headerHeight = 92;
+  const headerHeight = 76;
   return { minBodyHeight, minSurfaceHeight: minBodyHeight + headerHeight, headerHeight };
 }
 
@@ -387,12 +388,15 @@ export function ModeActionPopup({
     setBodyMaxHeight((current) => (current === nextBodyMaxHeight ? current : nextBodyMaxHeight));
 
     if (integrated) {
-      const maxSurfaceWidth = Math.min(window.innerWidth - edgePadding * 2, 360);
+      const maxSurfaceWidth = Math.min(window.innerWidth - edgePadding * 2, 384);
       const surfaceLeft = Math.max(edgePadding, Math.min(rect.left, window.innerWidth - maxSurfaceWidth - edgePadding));
       setIntegratedSurfaceLayout({
         placement: nextPlacement,
         left: surfaceLeft,
         width: maxSurfaceWidth,
+        // Keep the caret centred on the "+" trigger even when the surface is
+        // clamped to the viewport edge and no longer starts at the trigger.
+        caretLeft: Math.max(20, rect.left - surfaceLeft + rect.width / 2),
         ...(nextPlacement === "up"
           ? { bottom: window.innerHeight - rect.top + 14 }
           : { top: rect.bottom + integratedDownOffset }),
@@ -546,6 +550,7 @@ export function ModeActionPopup({
       ? {
           left: `${integratedSurfaceLayout.left}px`,
           width: `${integratedSurfaceLayout.width}px`,
+          "--mode-action-caret-left": `${integratedSurfaceLayout.caretLeft}px`,
           ...(integratedSurfaceLayout.top !== undefined ? { top: `${integratedSurfaceLayout.top}px` } : {}),
           ...(integratedSurfaceLayout.bottom !== undefined ? { bottom: `${integratedSurfaceLayout.bottom}px` } : {}),
         }
@@ -625,12 +630,79 @@ export function ModeActionPopup({
     );
   }
 
-  // Desktop popover header: the mode name doubles as the mode switcher, with the
-  // subtitle and a close control. Sheets use the Sheet component's own header.
+  // In-place mode picker: while the header's mode switcher is open, the popover
+  // body swaps the action rows for this list (same scroll area, so it can never
+  // be clipped by the panel the way a layered dropdown was). Escape or a second
+  // press of the title returns to the actions.
+  function renderModeList() {
+    if (!modeOptions?.length) return null;
+    return (
+      <div
+        id="mode-action-mode-menu"
+        role="menu"
+        aria-label="Choose search mode"
+        className="mode-action-body polished-scroll p-2.5"
+      >
+        <div className="grid gap-1.5">
+          {modeOptions.map((mode, index) => {
+            const Icon = mode.icon;
+            const active = mode.id === selectedModeId;
+            return (
+              <button
+                key={mode.id}
+                ref={(element) => {
+                  modeOptionRefs.current[index] = element;
+                }}
+                type="button"
+                role="menuitemradio"
+                aria-checked={active}
+                disabled={mode.disabled}
+                onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
+                onClick={() => selectMode(mode)}
+                className={cn("mode-action-mode-option", active && "mode-action-mode-option-active")}
+              >
+                <span className="mode-action-mode-option-icon">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-extrabold">{mode.label}</span>
+                  {mode.description ? (
+                    <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+                      {mode.description}
+                    </span>
+                  ) : null}
+                </span>
+                {active ? <Check className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Statement form (not a JSX ternary): react-hooks/refs treats helpers invoked
+  // conditionally inside JSX as possible non-render callbacks and then flags the
+  // ref writes/handlers inside both list renderers.
+  function renderPopoverBody() {
+    if (modeSelectorOpen && modeOptions?.length) return renderModeList();
+    return renderActionRows();
+  }
+
+  // Desktop popover header — same anatomy as the Sheet header the ≤1023px surface
+  // uses (accent icon tile + stacked title/subtitle + close), so the menu reads as
+  // one design across breakpoints. The title doubles as the mode switcher; the
+  // subtitle sits on its own full-width line so it can never be crushed.
   function renderPopoverHeader() {
     return (
-      <div className="mode-action-header border-b border-white/15">
-        <div className="mode-action-selector-shell">
+      <div className="relative z-[1] flex items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-4 py-3.5">
+        <span
+          aria-hidden="true"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
+        >
+          <TitleIcon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
           <button
             type="button"
             ref={modeButtonRef}
@@ -640,72 +712,34 @@ export function ModeActionPopup({
             aria-controls={modeSelectorOpen ? "mode-action-mode-menu" : undefined}
             onKeyDown={handleModeButtonKeyDown}
             onClick={() => canSwitchMode && setModeSelectorOpen((current) => !current)}
-            className="mode-action-mode-button"
+            className={cn(
+              "-mx-1.5 flex max-w-full items-center gap-1 rounded-lg px-1.5 py-0.5 text-left transition",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              canSwitchMode ? "hover:bg-[color:var(--surface-subtle)]" : "cursor-default",
+            )}
           >
-            <span className="mode-action-mode-icon">
-              <TitleIcon className="h-4.5 w-4.5" />
-            </span>
-            <span className="min-w-0 truncate">{title}</span>
+            <span className="min-w-0 truncate text-base font-semibold text-[color:var(--text-heading)]">{title}</span>
             {canSwitchMode ? (
               <ChevronDown
-                className={cn("h-4.5 w-4.5 shrink-0 transition", modeSelectorOpen && "rotate-180")}
+                className={cn(
+                  "h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition",
+                  modeSelectorOpen && "rotate-180",
+                )}
                 aria-hidden="true"
               />
             ) : null}
           </button>
-          {modeSelectorOpen && modeOptions?.length ? (
-            <div
-              id="mode-action-mode-menu"
-              role="menu"
-              aria-label="Choose search mode"
-              className="mode-action-mode-menu polished-scroll"
-            >
-              {modeOptions.map((mode, index) => {
-                const Icon = mode.icon;
-                const active = mode.id === selectedModeId;
-                return (
-                  <button
-                    key={mode.id}
-                    ref={(element) => {
-                      modeOptionRefs.current[index] = element;
-                    }}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={active}
-                    disabled={mode.disabled}
-                    onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
-                    onClick={() => selectMode(mode)}
-                    className={cn("mode-action-mode-option", active && "mode-action-mode-option-active")}
-                  >
-                    <span className="mode-action-mode-option-icon">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-extrabold">{mode.label}</span>
-                      {mode.description ? (
-                        <span className="block truncate text-2xs font-semibold text-[color:var(--text-soft)]">
-                          {mode.description}
-                        </span>
-                      ) : null}
-                    </span>
-                    {active ? <Check className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-        <div className="mode-action-header-summary">
-          <span aria-hidden="true" className="mode-action-header-divider" />
-          <span className="min-w-0 truncate">{headerSubtitle}</span>
+          <p className="truncate text-sm leading-5 text-[color:var(--text-muted)]">
+            {modeSelectorOpen ? "Choose search mode" : headerSubtitle}
+          </p>
         </div>
         <button
           type="button"
           onClick={closeAndRestoreFocus}
-          className="mode-action-close"
+          className={toolbarButton}
           aria-label={`Close ${title.toLowerCase()} options`}
         >
-          <X className="h-4.5 w-4.5" />
+          <X className="h-4 w-4" />
         </button>
       </div>
     );
@@ -732,7 +766,7 @@ export function ModeActionPopup({
                 ? integratedDownOffsetClass
                 : "top-[calc(100%+0.875rem)]"
             : null,
-          !integrated && "sm:w-[min(22rem,100%)]",
+          !integrated && "sm:w-[min(24rem,100%)]",
         )}
       >
         <div
@@ -742,23 +776,8 @@ export function ModeActionPopup({
           )}
         >
           {renderPopoverHeader()}
-          {renderActionRows()}
+          {renderPopoverBody()}
         </div>
-        {!integrated ? (
-          <>
-            {placement === "up" ? (
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute -bottom-[6px] left-8 h-3 w-3 rotate-45 border-b border-r border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[4px_4px_10px_rgb(15_37_48_/_5%)]"
-              />
-            ) : (
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute -top-[6px] left-8 h-3 w-3 rotate-45 border-l border-t border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[-4px_-4px_10px_rgb(15_37_48_/_5%)]"
-              />
-            )}
-          </>
-        ) : null}
       </div>
     ) : null;
 
