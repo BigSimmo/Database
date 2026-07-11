@@ -160,13 +160,13 @@ function SectionItems({
               {slug ? (
                 <Link
                   href={`/differentials/diagnoses/${slug}`}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]"
+                  className="inline-flex min-h-11 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]"
                 >
                   {item}
                   <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                 </Link>
               ) : (
-                <span className="inline-flex min-h-9 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-semibold text-[color:var(--text-muted)]">
+                <span className="inline-flex min-h-11 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-semibold text-[color:var(--text-muted)]">
                   {item}
                 </span>
               )}
@@ -714,11 +714,11 @@ function TopActions({
   onCompare: () => void;
 }) {
   return (
-    <div className="hidden items-center gap-3 lg:flex">
+    <div className="hidden shrink-0 items-center gap-3 lg:flex">
       <button
         type="button"
         onClick={onCompare}
-        className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
+        className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare
@@ -886,10 +886,10 @@ function Tabs({
             tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(tab.id)}
             className={cn(
-              "min-h-11 flex-1 whitespace-nowrap px-1 py-3 text-center text-xs sm:flex-none sm:px-4 sm:text-sm",
+              "focus-ring-tab min-h-11 flex-1 whitespace-nowrap border-b-2 px-1 py-3 text-center text-xs sm:flex-none sm:px-4 sm:text-sm",
               isActive
-                ? "border-b-2 border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
-                : "hover:text-[color:var(--text-heading)]",
+                ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
+                : "border-transparent hover:text-[color:var(--text-heading)]",
             )}
           >
             {tab.label}

@@ -1259,6 +1259,50 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("diagnosis detail actions stay tappable and tabs stay single-line", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await gotoLauncher(page, "/differentials/diagnoses/delirium");
+    await expect(page.getByTestId("differential-detail-page")).toBeVisible();
+    // The desktop action cluster must keep its intrinsic width (shrink-0) so the
+    // icon action does not get crushed below the 44px tap standard.
+    await expectMinTouchTarget(page.getByRole("button", { name: "Save diagnosis" }));
+
+    // Tabs: no page overflow and single-line labels at the narrowest width.
+    await page.setViewportSize({ width: 320, height: 700 });
+    await expect(page.getByTestId("differential-detail-page")).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    const overviewTab = page.getByRole("tab", { name: "Overview" });
+    await expect(overviewTab).toBeVisible();
+    // Count rendered label lines from text-node rects (an icon rect would bridge
+    // two wrapped lines and mask a wrap); the tab label must stay on one line.
+    const overviewLineCount = await overviewTab.evaluate((element) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      const rects: DOMRect[] = [];
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!(node.textContent ?? "").trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of range.getClientRects()) {
+          if (rect.height > 4 && rect.width > 1) rects.push(rect);
+        }
+      }
+      rects.sort((a, b) => a.top - b.top);
+      let lines = 0;
+      let lineBottom = Number.NEGATIVE_INFINITY;
+      for (const rect of rects) {
+        if (rect.top >= lineBottom - 4) {
+          lines += 1;
+          lineBottom = rect.bottom;
+        } else {
+          lineBottom = Math.max(lineBottom, rect.bottom);
+        }
+      }
+      return lines;
+    });
+    expect(overviewLineCount).toBe(1);
+  });
+
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
     const workflow = acuteConfusionPresentationWorkflow;
