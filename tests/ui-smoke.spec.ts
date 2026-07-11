@@ -2321,6 +2321,33 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("document viewer smart summary is structured with badges and demoted indexing details", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/documents/11111111-1111-4111-8111-111111111111?page=1");
+
+    const summaryCard = page.getByTestId("high-yield-summary");
+    await expect(summaryCard).toBeVisible();
+    // Smart summary: badge cluster from labels + detected phrases, structured
+    // sections, and no document-header boilerplate leaking through.
+    await expect(summaryCard.getByText("Narrow therapeutic index", { exact: true })).toBeVisible();
+    await expect(summaryCard.getByTestId("formatted-high-yield-summary")).toBeVisible();
+    await expect(summaryCard).not.toContainText("Reference #");
+    await expect(summaryCard).not.toContainText("Service/Department/Unit");
+
+    // The old meta-only "Document details" card is gone; indexing metadata is
+    // demoted behind a collapsed disclosure at the bottom of the sidebar.
+    await expect(page.getByText("Document details", { exact: true })).toHaveCount(0);
+    const indexingDetails = page.getByTestId("indexing-details");
+    await expect(indexingDetails).toBeVisible();
+    await expect(indexingDetails.getByText("rag-deep-memory-v1")).toBeHidden();
+    await indexingDetails.getByText("Indexing details", { exact: true }).click();
+    await expect(indexingDetails.getByText("rag-deep-memory-v1")).toBeVisible();
+
+    await expectDomIntegrity(page);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("phone universal header fully hides while scrolling dashboard main on phones", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, "/?mode=answer");

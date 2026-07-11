@@ -2,6 +2,8 @@ import type {
   ChunkImage,
   ClinicalDocument,
   DocumentBreakdown,
+  DocumentLabel,
+  DocumentSummary,
   IngestionJob,
   RagAnswer,
   SearchResult,
@@ -286,6 +288,157 @@ export const demoJobs: IngestionJob[] = demoDocuments.map((document, index) => (
   updated_at: now,
 }));
 
+// Labels + stored summaries let the document viewer's high-yield summary,
+// badge cluster, and tag cloud render in demo mode. The lithium summary
+// deliberately reproduces the stored-summary failure modes (glued header
+// boilerplate, repeated passages, an inline numbered heading, and a mid-word
+// truncated tail) that the display-time formatter repairs.
+export const demoDocumentLabels: DocumentLabel[] = [
+  {
+    id: "88888888-8888-4888-8888-888888888801",
+    document_id: demoDocuments[0].id,
+    label: "fiona stanley hospital",
+    label_type: "site",
+    source: "generated",
+    confidence: 0.94,
+  },
+  {
+    id: "88888888-8888-4888-8888-888888888802",
+    document_id: demoDocuments[0].id,
+    label: "lithium",
+    label_type: "medication",
+    source: "generated",
+    confidence: 0.97,
+  },
+  {
+    id: "88888888-8888-4888-8888-888888888803",
+    document_id: demoDocuments[0].id,
+    label: "mood stabilisers",
+    label_type: "medication",
+    source: "generated",
+    confidence: 0.82,
+  },
+  {
+    id: "88888888-8888-4888-8888-888888888804",
+    document_id: demoDocuments[0].id,
+    label: "toxicity risk",
+    label_type: "risk",
+    source: "generated",
+    confidence: 0.9,
+  },
+  {
+    id: "88888888-8888-4888-8888-888888888805",
+    document_id: demoDocuments[0].id,
+    label: "prescribing",
+    label_type: "workflow",
+    source: "generated",
+    confidence: 0.86,
+  },
+  {
+    id: "88888888-8888-4888-8888-888888888806",
+    document_id: demoDocuments[0].id,
+    label: "contains monitoring schedule",
+    label_type: "content_feature",
+    source: "generated",
+    confidence: 0.8,
+  },
+  {
+    id: "88888888-8888-4888-8888-888888888807",
+    document_id: demoDocuments[1].id,
+    label: "clozapine",
+    label_type: "medication",
+    source: "generated",
+    confidence: 0.97,
+  },
+  {
+    id: "88888888-8888-4888-8888-888888888808",
+    document_id: demoDocuments[1].id,
+    label: "agranulocytosis risk",
+    label_type: "risk",
+    source: "generated",
+    confidence: 0.88,
+  },
+  {
+    id: "88888888-8888-4888-8888-888888888809",
+    document_id: demoDocuments[2].id,
+    label: "risk assessment",
+    label_type: "workflow",
+    source: "generated",
+    confidence: 0.85,
+  },
+];
+
+const demoProfileItem = (text: string, pages: number[]) => ({
+  text,
+  source_chunk_ids: [],
+  source_image_ids: [],
+  pages,
+  evidence_type: "text" as const,
+  support: "direct" as const,
+});
+
+export const demoDocumentSummaries: DocumentSummary[] = [
+  {
+    id: "99999999-9999-4999-8999-999999999901",
+    document_id: demoDocuments[0].id,
+    summary:
+      "OFFICIAL Guideline Lithium Therapy- Initiation and Continuation Reference #: FSFHG-HW-GUI-0017 Scope Site " +
+      "Service/Department/Unit Disciplines Fiona Stanley Hospital Hospital Wide Medical, Nursing, Pharmacy " +
+      "Fremantle Hospital Lithium is a high-risk medication with a narrow therapeutic index. Careful patient " +
+      "selection and monitoring is required to minimise the risk of lithium toxicity. 1. Introduction Hospital " +
+      "Wide Medical, Nursing, Pharmacy Fremantle Hospital Lithium is a high-risk medication with a narrow " +
+      "therapeutic index. Careful patient selection and monitoring is required to minimise the risk of lithium " +
+      "toxicity. 1. Introduction In this synthetic protocol, lithium levels are checked 5 to 7 days after " +
+      "initiation or dose change, then repeated until stable. After stability the sample schedule uses lithium " +
+      "levels every 3 months, renal and thyroid tests every 6 months, and calcium annually. The therapeutic " +
+      "effect occurs gradually and may take up to three weeks. Escalate review for vomiting, diarrhoea, " +
+      "dehydration, acute kidney injury, new NSAID/ACE inhibitor/diuretic exposure, tremor, confusion, or " +
+      "ataxia. therapeutic effect occurs gradually and may take up to three weeks. Lithium is a narro",
+    clinical_specifics: {},
+    source_chunk_ids: [],
+    source_image_ids: [],
+    model: null,
+  },
+  {
+    id: "99999999-9999-4999-8999-999999999902",
+    document_id: demoDocuments[1].id,
+    summary:
+      "Synthetic clozapine monitoring summary covering FBC/ANC checks, myocarditis screening, metabolic " +
+      "monitoring, and constipation prevention.",
+    clinical_specifics: {
+      profile: {
+        overview:
+          "Synthetic clozapine monitoring protocol emphasising FBC/ANC monitoring, myocarditis symptom screening, metabolic monitoring, and constipation prevention. Demo only, not clinical guidance.",
+        applies_to: [demoProfileItem("Adults prescribed clozapine in the synthetic shared-care demo pathway.", [1])],
+        key_clinical_actions: [
+          demoProfileItem("Record baseline FBC/ANC, weight, lipids, glucose/HbA1c, and bowel history.", [1]),
+          demoProfileItem("Screen for myocarditis symptoms during initiation.", [1]),
+        ],
+        medication_dose_monitoring: [
+          demoProfileItem("Continue scheduled FBC/ANC monitoring per the synthetic protocol table.", [2]),
+        ],
+        thresholds_timing: [],
+        escalation_risk_warnings: [
+          demoProfileItem(
+            "Urgent review for fever, chest pain, dyspnoea, tachycardia, marked sedation, seizures, or severe constipation.",
+            [1],
+          ),
+        ],
+        required_forms_documentation: [],
+        not_covered: [],
+        important_tables_images: [
+          demoProfileItem("Monitoring domains table across baseline, initiation, and ongoing care.", [2]),
+        ],
+        best_questions: [],
+        source_quality_notes: [],
+      },
+    },
+    source_chunk_ids: [],
+    source_image_ids: [],
+    model: null,
+  },
+];
+
 export function getDemoDocument(id: string) {
   return demoDocuments.find((document) => document.id === id) ?? null;
 }
@@ -295,6 +448,8 @@ export function getDemoDocumentPayload(id: string, chunkId?: string | null) {
   if (!document) return null;
   const pages = demoPages.filter((page) => page.document_id === id);
   const images = demoImages.filter((image) => image.document_id === id);
+  const labels = demoDocumentLabels.filter((label) => label.document_id === id);
+  const summary = demoDocumentSummaries.find((row) => row.document_id === id) ?? null;
   const chunks = demoChunks
     .filter((chunk) => chunk.document_id === id)
     .filter((chunk) => !chunkId || chunk.id === chunkId)
@@ -308,7 +463,20 @@ export function getDemoDocumentPayload(id: string, chunkId?: string | null) {
       image_ids: chunk.image_ids,
     }));
 
-  return { document, pages, images, chunks };
+  // Shape mirrors the live GET /api/documents/[id] response (labels + summary
+  // joined onto the document, indexHealth synthesized from metadata).
+  return {
+    document: { ...document, labels, summary },
+    pages,
+    images,
+    chunks,
+    indexHealth: {
+      extractionQuality: syntheticMetadata.extraction_quality,
+      indexedAt: syntheticMetadata.indexed_at,
+      indexVersion: "rag-deep-memory-v1",
+      warnings: [],
+    },
+  };
 }
 
 const queryTerms: Record<string, string[]> = {

@@ -242,6 +242,17 @@ function stripLowYieldLines(value: string) {
     .join("\n");
 }
 
+// Shared with the document-summary formatter so its boilerplate stripping can
+// reuse the exact control-line vocabulary and the H2 keep-bias signals above
+// instead of duplicating the regexes.
+export function isDocumentControlLine(value: string) {
+  return sourceControlLinePattern.test(value);
+}
+
+export function hasClinicalContentSignal(value: string) {
+  return clinicalSignalPattern.test(value) || clinicalThresholdSignalPattern.test(value);
+}
+
 export function stripLowYieldSourceNoise(text: string) {
   return (
     stripLowYieldLines(text)
