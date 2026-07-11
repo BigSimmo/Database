@@ -175,7 +175,7 @@ export function AnswerSupportSummaryCard({
 }) {
   const supportRowCount = Number(clinicalAvailable) + Number(evidenceAvailable);
   const supportButtonClass =
-    "grid min-h-[60px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2.5 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+    "grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
   const safetyInteractive = Boolean(onOpenSafetyFindings && safetyFindingsCount > 0);
 
   return (
@@ -221,7 +221,7 @@ export function AnswerSupportSummaryCard({
           >
             <span
               className={cn(
-                "grid h-8 w-8 shrink-0 place-items-center rounded-md",
+                "grid h-7 w-7 shrink-0 place-items-center rounded-md",
                 priority.tone === "caution" ? "text-[color:var(--warning)]" : "text-[color:var(--clinical-accent)]",
               )}
               aria-hidden="true"
@@ -233,7 +233,9 @@ export function AnswerSupportSummaryCard({
               <p className={cn("mt-0.5 line-clamp-1 text-xs leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
             </div>
             {priority.sourceLabel ? (
-              <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-2xs")}>{priority.sourceLabel}</span>
+              <span className="nums inline-flex min-h-7 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)]">
+                {priority.sourceLabel}
+              </span>
             ) : null}
           </div>
         )
