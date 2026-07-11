@@ -426,6 +426,12 @@ describe("normalizeInlineBulletGlyphs", () => {
     expect(normalizeInlineBulletGlyphs("Store below 37 o C at all times")).toBe("Store below 37 o C at all times");
   });
 
+  it("converts a bare sub-bullet at the start of a chunk", () => {
+    expect(normalizeInlineBulletGlyphs("o 12.5 mg twice daily")).toBe("12.5 mg twice daily");
+    expect(normalizeInlineBulletGlyphs("o Start at 750 mg nightly")).toBe("Start at 750 mg nightly");
+    expect(normalizeInlineBulletGlyphs("o 12.5 mg twice daily", { joiner: "\n" })).toBe("12.5 mg twice daily");
+  });
+
   it("still converts an OCR bullet after non-blood group/type labels", () => {
     expect(normalizeInlineBulletGlyphs("patient group o Adults should be offered CBT")).toBe(
       "patient group; Adults should be offered CBT",

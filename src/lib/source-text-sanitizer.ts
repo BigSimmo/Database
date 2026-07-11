@@ -538,7 +538,9 @@ export function polishStoredSynopsis(value: string) {
 const inlineBulletGlyphPattern = /\s*[•◦▪‣●]+\s*/g;
 // The follower may be a capitalized token or a numeric dose start ("o 25 mg
 // nightly"); "37 o C" stays protected by the not-after-a-digit lookbehind.
-const subBulletOGlyphPattern = /(?<=[^\d\s]\s)o(?=\s+(?:\d|[A-Z][a-z0-9]|[A-Z]{2,}))/g;
+// A chunk can also BEGIN with the sub-bullet ("o 12.5 mg twice daily"),
+// hence the string-start alternative in the lookbehind.
+const subBulletOGlyphPattern = /(?<=^|[^\d\s]\s)o(?=\s+(?:\d|[A-Z][a-z0-9]|[A-Z]{2,}))/g;
 // Blood-group exemptions: "blood group o RhD negative" / "Blood Type: o
 // Negative" (any casing, optional colon), or a bare "group/type o" directly
 // followed by an Rh/positive/negative value, keep their lowercase "o" — it
@@ -573,6 +575,7 @@ export function normalizeInlineBulletGlyphs(text: string, options: { joiner?: st
       .join("\n");
   }
   return replaced
+    .replace(/^[;\s]+/, "")
     .replace(/[ \t]+([,.;:])/g, "$1")
     .replace(/;(?:\s*;)+/g, ";")
     .replace(/:\s*;/g, ":")

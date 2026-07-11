@@ -62,6 +62,21 @@ describe("extractive evidence splitting", () => {
     expect(stepDose).not.toMatch(/\bo\s+[A-Z0-9]/);
   });
 
+  it("merges lowercase headings with their bullet items", () => {
+    const contraindication = splitClinicalEvidenceSentences(
+      "do not use: o Pregnancy or breastfeeding without specialist advice.",
+    ).find((sentence) => /pregnancy/i.test(sentence));
+    expect(contraindication).toBeDefined();
+    expect(contraindication).toMatch(/^do not use:/i);
+
+    const schedule = splitClinicalEvidenceSentences("day 1: o 25 mg nightly before considering an increase.").find(
+      (sentence) => sentence.includes("25 mg"),
+    );
+    expect(schedule).toBeDefined();
+    expect(schedule).toMatch(/^day 1\b/i);
+    expect(schedule).not.toMatch(/\bo\s+\d/);
+  });
+
   it("keeps an advisory heading attached to its bullet item in colon form", () => {
     const sentences = splitClinicalEvidenceSentences(
       "Caution: o Pregnancy or breastfeeding requires specialist advice before dosing.",
