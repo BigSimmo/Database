@@ -27,6 +27,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
   const trimmedQuery = query.trim();
   const [loading, setLoading] = useState(false);
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
+  const [evidenceQuery, setEvidenceQuery] = useState<string | null>(null);
   const searchRequestSeqRef = useRef(0);
 
   const runSearch = useCallback(
@@ -51,6 +52,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
 
         const payload = (await response.json()) as { documentMatches?: DocumentMatch[] };
         if (requestId !== searchRequestSeqRef.current) return;
+        setEvidenceQuery(normalized);
         setDocumentMatches(payload.documentMatches ?? []);
       } catch {
         if (requestId !== searchRequestSeqRef.current) return;
@@ -75,6 +77,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
         query={query}
         loading={loading}
         documentMatches={documentMatches}
+        evidenceQuery={evidenceQuery}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         onRunSearch={(nextQuery) => {
           router.push(
