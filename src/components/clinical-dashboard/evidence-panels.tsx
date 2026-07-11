@@ -685,7 +685,7 @@ export function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={onOpenTables}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9"
           >
             <Table2 className="h-3.5 w-3.5" />
             Tables
@@ -863,7 +863,7 @@ export function SafetyFindingsListContent({ findings }: { findings: SafetyFindin
               </span>
               <Link
                 href={finding.href}
-                className="inline-flex min-h-8 min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="inline-flex min-h-tap min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-8"
                 aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
                 <span className="truncate">{formatCompactCitationLabel(finding.citation)}</span>
@@ -1039,7 +1039,7 @@ export function AnswerFeedbackPanel({
               disabled={Boolean(pending)}
               onClick={() => onSubmit(item.type)}
               className={cn(
-                "inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                "inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-10",
                 feedbackToneClass(item.tone),
               )}
             >
