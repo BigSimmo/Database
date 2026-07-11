@@ -37,6 +37,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
       const requestId = ++searchRequestSeqRef.current;
 
       setLoading(true);
+      setEvidenceQuery(null);
       try {
         const response = await fetch("/api/search", {
           method: "POST",
