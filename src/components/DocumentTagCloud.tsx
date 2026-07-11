@@ -71,8 +71,7 @@ function DocumentTagChip({
     groupToneClass(tag.group),
     tag.queryMatched && "ring-2 ring-[color:var(--focus)]/25",
     selected && "ring-2 ring-[color:var(--primary)]/35",
-    onTagClick &&
-      "cursor-pointer transition hover:-translate-y-0.5 hover:border-[color:var(--border-strong)] focus:outline-none focus:ring-2 focus:ring-[color:var(--focus)]/40",
+    onTagClick && "cursor-pointer transition hover:-translate-y-0.5 hover:border-[color:var(--border-strong)]",
   );
   const content = (
     <>

@@ -1799,6 +1799,17 @@ summary::-webkit-details-marker {
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 25%, transparent) !important;
   }
 
+  /* Underline-tab focus: an inset rounded ring that hugs the label instead of the
+     default full-height box, which collides with the tablist border. */
+  .focus-ring-tab {
+    border-radius: var(--radius-md);
+  }
+  .focus-ring-tab:focus-visible {
+    outline: 2px solid var(--focus) !important;
+    outline-offset: -4px !important;
+    box-shadow: none !important;
+  }
+
   /* Premium hover transitions for source capsules */
   .source-capsule-hover {
     transition:
