@@ -106,27 +106,32 @@ export function presentationStaticParams() {
   return differentialPresentations().map((presentation) => ({ slug: presentation.id }));
 }
 
-let diagnosisTitleToSlug: Map<string, string> | null = null;
-function diagnosisTitleSlugMap() {
-  if (!diagnosisTitleToSlug) {
-    diagnosisTitleToSlug = new Map();
-    for (const record of differentialRecords) {
-      const key = cleanDifferentialItem(record.title).toLowerCase();
-      if (key && !diagnosisTitleToSlug.has(key)) diagnosisTitleToSlug.set(key, record.slug);
-    }
+function diagnosisTitleSlugMap(records: DifferentialRecord[]) {
+  const titleToSlug = new Map<string, string>();
+  for (const record of records) {
+    const key = cleanDifferentialItem(record.title).toLowerCase();
+    if (key && !titleToSlug.has(key)) titleToSlug.set(key, record.slug);
   }
-  return diagnosisTitleToSlug;
+  return titleToSlug;
 }
 
 /** Server-computed context for the diagnosis detail page. Everything the page
  *  needs from the full catalog travels in this small serializable payload so
  *  the client component never imports the generated snapshot. */
-export function getDifferentialDetailContext(record: DifferentialRecord): DifferentialDetailContext {
-  const catalogSlugs = new Set(differentialRecords.map((entry) => entry.slug));
+export function getDifferentialDetailContext(
+  record: DifferentialRecord,
+  catalog: {
+    records?: DifferentialRecord[];
+    presentations?: DifferentialPresentationWorkflow[];
+  } = {},
+): DifferentialDetailContext {
+  const catalogRecords = catalog.records ?? differentialRecords;
+  const catalogPresentations = catalog.presentations ?? differentialPresentations();
+  const catalogSlugs = new Set(catalogRecords.map((entry) => entry.slug));
   const knownRelatedSlugs = [...new Set(record.related.map((node) => node.id).filter((id) => catalogSlugs.has(id)))];
 
   const overlapLinks: Record<string, string> = {};
-  const titleMap = diagnosisTitleSlugMap();
+  const titleMap = diagnosisTitleSlugMap(catalogRecords);
   for (const section of record.sections) {
     if (section.tone !== "overlap") continue;
     for (const item of section.items) {
@@ -137,9 +142,8 @@ export function getDifferentialDetailContext(record: DifferentialRecord): Differ
   }
 
   const presentation =
-    differentialPresentations().find((workflow) =>
-      workflow.candidates.some((candidate) => candidate.slug === record.slug),
-    ) ?? null;
+    catalogPresentations.find((workflow) => workflow.candidates.some((candidate) => candidate.slug === record.slug)) ??
+    null;
 
   const snapshot = loadDifferentialSnapshot();
   const governance = deriveGovernanceFromSnapshot(snapshot);

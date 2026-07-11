@@ -164,9 +164,22 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     // Owner rows can drift from the bundled snapshot, so the catalog-derived
     // context ships with the record the client will actually render.
     const record = rowToDifferentialRecord(row);
+    const { data: ownerRowsData, error: ownerRowsError } = await supabase
+      .from("differential_records")
+      .select("*")
+      .eq("owner_id", access.ownerId);
+    if (ownerRowsError) throw new Error(ownerRowsError.message);
+    const ownerRows = (ownerRowsData as DifferentialRecordRow[] | null) ?? [];
+    const ownerRecords = ownerRows.filter((entry) => entry.kind === "diagnosis").map(rowToDifferentialRecord);
+    const ownerPresentations = ownerRows
+      .filter((entry) => entry.kind === "presentation")
+      .map(rowToPresentationWorkflow);
     return differentialResponse({
       record,
-      detailContext: getDifferentialDetailContext(record),
+      detailContext: getDifferentialDetailContext(record, {
+        records: ownerRecords,
+        presentations: ownerPresentations,
+      }),
       governance: rowGovernance(row),
     });
   } catch (error) {

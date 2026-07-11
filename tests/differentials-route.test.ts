@@ -102,12 +102,75 @@ function request(path: string) {
   return new Request(`http://localhost${path}`);
 }
 
+function authenticatedRequest(path: string) {
+  return new Request(`http://localhost${path}`, { headers: { Authorization: `Bearer ${token}` } });
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.resetModules();
 });
 
 describe("differentials API routes", () => {
+  it("builds owner diagnosis detail context from the owner's current catalog rows", async () => {
+    const diagnosis = {
+      slug: "owner-diagnosis",
+      title: "Owner diagnosis",
+      related: [{ id: "owner-related" }],
+      sections: [{ tone: "overlap", items: ["Owner related"] }],
+    };
+    const related = {
+      slug: "owner-related",
+      title: "Owner related",
+      related: [],
+      sections: [],
+    };
+    const presentation = {
+      id: "owner-presentation",
+      title: "Owner presentation",
+      candidates: [{ slug: "owner-diagnosis" }],
+    };
+    const row = (kind: "diagnosis" | "presentation", slug: string, payload: unknown) => ({
+      owner_id: userId,
+      kind,
+      slug,
+      payload,
+      source_status: "current",
+      validation_status: "locally_reviewed",
+      last_reviewed_at: null,
+      review_due_at: null,
+    });
+    const diagnosisRow = row("diagnosis", diagnosis.slug, diagnosis);
+    const ownerRows = [
+      diagnosisRow,
+      row("diagnosis", related.slug, related),
+      row("presentation", presentation.id, presentation),
+    ];
+    const client = createSupabaseMock((call) => {
+      if (call.table === "differential_records" && call.maybeSingle) return ok(diagnosisRow);
+      if (call.table === "differential_records") return ok(ownerRows);
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/differentials/[slug]/route");
+
+    const response = await GET(authenticatedRequest("/api/differentials/owner-diagnosis?kind=diagnosis"), {
+      params: Promise.resolve({ slug: "owner-diagnosis" }),
+    });
+    const payload = (await response.json()) as {
+      detailContext?: {
+        knownRelatedSlugs?: string[];
+        overlapLinks?: Record<string, string>;
+        comparePresentation?: { slug: string } | null;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.detailContext?.knownRelatedSlugs).toEqual(["owner-related"]);
+    expect(payload.detailContext?.overlapLinks).toEqual({ "Owner related": "owner-related" });
+    expect(payload.detailContext?.comparePresentation?.slug).toBe("owner-presentation");
+  });
+
   it("serves delirium from snapshot in demo mode", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
