@@ -883,7 +883,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
   });
 
-  test("tablet shows icon rail without drawer trigger or expand control", async ({ page }) => {
+  test("tablet shows icon rail without drawer trigger or expand control @critical", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=answer");
@@ -1128,7 +1128,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("demo answer flow reaches a source-backed answer", async ({ browserName, page }) => {
+  test("demo answer flow reaches a source-backed answer @critical", async ({ browserName, page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -2018,7 +2018,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeButton).toBeFocused();
   });
 
-  test("prescribing workflow uses in-app medication routes", async ({ page }) => {
+  test("prescribing workflow uses in-app medication routes @critical", async ({ page }) => {
     test.setTimeout(120_000);
     // Regression guard: navigating away from a mode home used to throw
     // "Cannot read properties of null (reading 'parentNode')" because the header
@@ -2175,7 +2175,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("search regressions avoid fetch errors and open viewer hits", async ({ page }) => {
+  test("search regressions avoid fetch errors and open viewer hits @critical", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
