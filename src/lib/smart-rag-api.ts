@@ -1,7 +1,7 @@
 import { citationFromResult, documentCitationHref, formatCompactCitationLabel } from "@/lib/citations";
 import { sourceStrengthForSimilarity } from "@/lib/evidence";
 import { buildRetrievalIntent, summarizeRetrievalSelection } from "@/lib/retrieval-selection";
-import { sourceTextForDisplay } from "@/lib/source-text-sanitizer";
+import { normalizeInlineBulletGlyphs, sourceTextForDisplay } from "@/lib/source-text-sanitizer";
 import type {
   AnswerResponseMode,
   ConflictOrGap,
@@ -41,7 +41,7 @@ const queryClassIntent: Record<RagQueryClass, SmartRagApiPlan["intent"]> = {
 };
 
 function compact(value: string, limit: number) {
-  const normalized = sourceTextForDisplay(value).replace(/\s+/g, " ").trim();
+  const normalized = normalizeInlineBulletGlyphs(sourceTextForDisplay(value)).replace(/\s+/g, " ").trim();
   if (normalized.length <= limit) return normalized;
   return `${normalized.slice(0, limit - 3).trim()}...`;
 }

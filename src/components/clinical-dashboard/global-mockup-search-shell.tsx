@@ -543,7 +543,11 @@ function GlobalMockupStandaloneSearchShellClient({
           tabIndex={-1}
           onScroll={handleMainScroll}
           className={cn(
-            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)]",
+            // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
+            // auto, which turns #main-content into the sticky scrollport while the
+            // window does the actual scrolling — silently disabling every
+            // position:sticky descendant (e.g. the document viewer rail).
+            "min-w-0 focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
             !reservesFloatingComposer
               ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
               : bottomSearchScrollHidden

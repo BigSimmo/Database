@@ -151,13 +151,6 @@ type DocumentSearchResult = {
   score: number;
 };
 
-type DocumentIndexHealth = {
-  extractionQuality?: string | null;
-  indexedAt?: string | null;
-  indexVersion?: string | null;
-  warnings?: unknown;
-};
-
 const profileSectionLabels: Array<{
   key: keyof Omit<ClinicalDocumentSummaryProfile, "overview">;
   label: string;
@@ -542,8 +535,8 @@ function DocumentViewerAnchors({
   className?: string;
 }) {
   const anchors = [
-    { label: "Evidence", href: evidenceHref, icon: Quote },
     { label: "PDF", href: "#pdf-preview-section", icon: FileText },
+    { label: "Evidence", href: evidenceHref, icon: Quote },
     { label: "Text", href: textHref, icon: Search },
     { label: "Summary", href: "#source-summary", icon: Sparkles },
     { label: "Images", href: "#source-images", icon: FileImage },
@@ -1033,12 +1026,6 @@ function IndexedTextPanel({
                       compact
                     />
                   )}
-                  <div className="mt-3 flex flex-wrap gap-2 border-t border-[color:var(--border)] pt-3">
-                    <a href="#pdf-preview-section" className={cn(secondaryButton, "min-h-9 px-3 text-xs")}>
-                      <ExternalLink className="h-4 w-4" />
-                      Open source
-                    </a>
-                  </div>
                 </div>
               </article>
             ))
@@ -1764,16 +1751,16 @@ function DocumentOverviewLanding({
   const documentType = compactDocumentType(document);
 
   return (
-    <section className="grid gap-4">
+    <section className="grid gap-4 lg:grid-cols-3 lg:items-stretch">
       <Link
         href="/?mode=documents"
-        className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg px-1 text-sm font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]"
+        className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg px-1 text-sm font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] lg:col-span-3"
       >
         <ChevronLeft className="h-4 w-4" />
         Documents
       </Link>
 
-      <article className={cn(panel, "p-4 sm:p-5")}>
+      <article className={cn(panel, "p-4 sm:p-5 lg:col-span-3")}>
         <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
           <DocumentFileTile
             kind={documentType}
@@ -1924,7 +1911,6 @@ export function DocumentViewer({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
-  const [indexHealth, setIndexHealth] = useState<DocumentIndexHealth | null>(null);
   const [previewAttempt, setPreviewAttempt] = useState(0);
   const [sourceSearch, setSourceSearch] = useState("");
   const [documentSearchResults, setDocumentSearchResults] = useState<DocumentSearchResult[]>([]);
@@ -2133,14 +2119,12 @@ export function DocumentViewer({
           setImages(detail.images ?? []);
           setTableFacts(detail.tableFacts ?? []);
           setChunks(detail.chunks ?? []);
-          setIndexHealth(detail.indexHealth ?? null);
         } else {
           setDocument(null);
           setPages([]);
           setImages([]);
           setTableFacts([]);
           setChunks([]);
-          setIndexHealth(null);
           const message =
             detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.";
           if (!canUsePrivateApis && !clientDemoMode && message === "Document not found.") {
@@ -2344,7 +2328,24 @@ export function DocumentViewer({
   const usefulPageCount = usefulDocumentPages(initialPage, pages).length || 1;
   useEffect(() => {
     if (!chunkId || loadingDocument) return;
-    const target = window.document.querySelector(`[data-source-chunk-id="${CSS.escape(chunkId)}"]`);
+    // Both the mobile and desktop IndexedTextPanel render the pinned chunk, so a
+    // plain querySelector returns the first match in DOM order — the mobile one,
+    // which is display:none on lg+ and lives in a collapsed <details> on phones.
+    // Scroll the copy the user can actually see: skip display:none matches and
+    // expand the mobile <details> when the pinned chunk only exists inside it.
+    const matches = Array.from(
+      window.document.querySelectorAll<HTMLElement>(`[data-source-chunk-id="${CSS.escape(chunkId)}"]`),
+    );
+    const isDisplayed = (element: HTMLElement) => element.offsetParent !== null || element.getClientRects().length > 0;
+    const inClosedDetails = (element: HTMLElement) => Boolean(element.closest("details:not([open])"));
+    let target = matches.find((element) => isDisplayed(element) && !inClosedDetails(element));
+    if (!target) {
+      const collapsed = matches
+        .map((element) => element.closest("details"))
+        .find((node): node is HTMLDetailsElement => node instanceof HTMLDetailsElement && !node.open);
+      if (collapsed) collapsed.open = true;
+      target = matches.find((element) => isDisplayed(element) && !inClosedDetails(element)) ?? matches[0];
+    }
     target?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [chunkId, loadingDocument, chunks.length]);
   const retryPreview = () => {
@@ -2409,7 +2410,7 @@ export function DocumentViewer({
       className={cn(appBackdrop, "min-h-[100dvh] overflow-x-clip text-[color:var(--text)] focus:outline-none")}
     >
       <header className="edge-glass-header z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-[var(--shadow-tight)] backdrop-blur-xl">
-        <div className="mx-auto flex h-12 min-w-0 max-w-7xl items-center gap-2">
+        <div className="mx-auto flex h-12 min-w-0 max-w-[1440px] items-center gap-2">
           <Link
             href={documentHomeHref}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
@@ -2565,7 +2566,7 @@ export function DocumentViewer({
         </Sheet>
       ) : null}
 
-      <section className="mx-auto grid max-w-7xl gap-4 px-3 py-4 pb-36 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
+      <section className="mx-auto grid max-w-[1440px] gap-4 px-3 py-4 pb-36 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8">
         {(summary || summaryError) && (
           <div className="min-w-0 space-y-3 lg:col-span-2">
             {summary && (
@@ -2619,49 +2620,8 @@ export function DocumentViewer({
           </div>
         ) : null}
 
-        <div className="min-w-0 space-y-4 sm:space-y-5">
-          <div className="lg:hidden">
-            <DocumentViewerAnchors evidenceHref="#source-evidence" textHref="#source-text-mobile" className="mb-3" />
-            <PinnedSourceEvidence
-              loading={effectiveLoadingDocument}
-              chunk={selectedChunk}
-              compact
-              sectionId="source-evidence"
-            />
-          </div>
-
-          <details id="source-text-mobile" className={cn("group scroll-mt-24 lg:hidden", panel)}>
-            <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
-              <span className="inline-flex min-w-0 items-center gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                  <FileText className="h-4 w-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-[color:var(--text)]">Indexed page text</span>
-                  <span className={cn("block truncate text-xs", textMuted)}>
-                    {effectiveLoadingDocument
-                      ? "Loading indexed page text"
-                      : `Page ${selectedPage?.page_number ?? initialPage} extracted text`}
-                  </span>
-                </span>
-              </span>
-              <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
-            </summary>
-            <div className={cn(clinicalDivider, "p-4")}>
-              <IndexedTextPanel
-                loading={effectiveLoadingDocument}
-                selectedPage={selectedPage}
-                chunks={chunks}
-                search={sourceSearch}
-                documentSearchResults={documentSearchResults}
-                searchingDocument={searchingDocument}
-                documentSearchError={documentSearchError}
-                idPrefix="mobile-chunk"
-                selectedChunkId={chunkId}
-                onSearchChange={setSourceSearch}
-              />
-            </div>
-          </details>
+        <div className="min-w-0 space-y-4 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
+          <DocumentViewerAnchors evidenceHref="#source-evidence" textHref="#source-text-mobile" className="lg:hidden" />
 
           <div id="pdf-preview-section" className={cn(panel, "scroll-mt-24 overflow-hidden")}>
             <div data-testid="pdf-preview">
@@ -2728,7 +2688,10 @@ export function DocumentViewer({
                 </div>
               ) : signedUrl && document?.file_type === "application/pdf" ? (
                 <>
-                  <div className="mb-2 grid grid-cols-2 gap-2 px-2 pt-2 sm:flex sm:flex-wrap sm:justify-center sm:px-0 sm:pt-0">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-2 pt-2 sm:px-3">
+                    <p className={cn("hidden min-w-0 flex-1 text-2xs sm:block", textMuted)}>
+                      Browser PDF mode keeps heavy-zoom pages crisp and is recommended when zoom quality looks soft.
+                    </p>
                     <button
                       type="button"
                       onClick={() => {
@@ -2736,40 +2699,14 @@ export function DocumentViewer({
                         setUseNativePdfViewer((current) => !current);
                       }}
                       aria-label={useNativePdfViewer ? "Switch to canvas zoom mode" : "Switch to browser PDF mode"}
-                      className={cn(secondaryButton, "col-span-2 min-h-11 justify-center px-3 text-xs sm:col-span-1")}
+                      className={cn(secondaryButton, "min-h-11 w-full justify-center px-3 text-xs sm:w-auto")}
                     >
                       <span className="sm:hidden">{useNativePdfViewer ? "Canvas mode" : "Browser mode"}</span>
                       <span className="hidden sm:inline">
                         {useNativePdfViewer ? "Use canvas zoom mode" : "Use browser PDF mode"}
                       </span>
                     </button>
-                    <a
-                      href={signedUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={cn(secondaryButton, "min-h-11 justify-center px-3 text-xs")}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      <span className="sm:hidden">Open PDF</span>
-                      <span className="hidden sm:inline">Open original PDF</span>
-                    </a>
-                    {downloadSignedUrl ? (
-                      <a
-                        href={downloadSignedUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        download={document.file_name || "clinical-source.pdf"}
-                        className={cn(secondaryButton, "min-h-11 justify-center px-3 text-xs")}
-                      >
-                        <Download className="h-4 w-4" />
-                        <span className="sm:hidden">Download</span>
-                        <span className="hidden sm:inline">Download PDF</span>
-                      </a>
-                    ) : null}
                   </div>
-                  <p className="mb-2 hidden text-center text-2xs text-[color:var(--text-muted)] sm:block">
-                    Browser PDF mode keeps heavy-zoom pages crisp and is recommended when zoom quality looks soft.
-                  </p>
                   {useNativePdfViewer ? (
                     <NativePdfEmbed url={signedUrl} title={documentDisplayTitle(document)} initialPage={initialPage} />
                   ) : (
@@ -2792,6 +2729,47 @@ export function DocumentViewer({
             </div>
           </div>
 
+          <div className="grid gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:hidden">
+            <PinnedSourceEvidence
+              loading={effectiveLoadingDocument}
+              chunk={selectedChunk}
+              compact
+              sectionId="source-evidence"
+            />
+            <details id="source-text-mobile" className={cn("group min-w-0 scroll-mt-24", panel)}>
+              <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                <span className="inline-flex min-w-0 items-center gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+                    <FileText className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[color:var(--text)]">Indexed page text</span>
+                    <span className={cn("block truncate text-xs", textMuted)}>
+                      {effectiveLoadingDocument
+                        ? "Loading indexed page text"
+                        : `Page ${selectedPage?.page_number ?? initialPage} extracted text`}
+                    </span>
+                  </span>
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
+              </summary>
+              <div className={cn(clinicalDivider, "p-4")}>
+                <IndexedTextPanel
+                  loading={effectiveLoadingDocument}
+                  selectedPage={selectedPage}
+                  chunks={chunks}
+                  search={sourceSearch}
+                  documentSearchResults={documentSearchResults}
+                  searchingDocument={searchingDocument}
+                  documentSearchError={documentSearchError}
+                  idPrefix="mobile-chunk"
+                  selectedChunkId={chunkId}
+                  onSearchChange={setSourceSearch}
+                />
+              </div>
+            </details>
+          </div>
+
           <div className="hidden lg:block">
             <IndexedTextPanel
               loading={effectiveLoadingDocument}
@@ -2809,7 +2787,7 @@ export function DocumentViewer({
           </div>
         </div>
 
-        <aside className="min-w-0 space-y-4 sm:space-y-5">
+        <aside className="polished-scroll min-w-0 grid content-start gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:sticky lg:top-[81px] lg:max-h-[calc(100dvh-97px)] lg:grid-cols-1 lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
           <div className="hidden lg:block">
             <DocumentViewerAnchors
               evidenceHref="#source-evidence-rail"
@@ -2852,43 +2830,6 @@ export function DocumentViewer({
                 </dd>
               </div>
             </dl>
-            {indexHealth ? (
-              <div className="mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                  Index health
-                </p>
-                <dl className="mt-2 grid gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-2">
-                  <div>
-                    <dt>Extraction</dt>
-                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.extractionQuality ?? "unknown"}</dd>
-                  </div>
-                  <div>
-                    <dt>Index version</dt>
-                    <dd className="mt-0.5 truncate font-mono tabular-nums text-[color:var(--text)]">
-                      {indexHealth.indexVersion ?? "unknown"}
-                    </dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt>Indexed</dt>
-                    <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.indexedAt ?? "not recorded"}</dd>
-                  </div>
-                </dl>
-                {(() => {
-                  const indexWarnings = Array.isArray(indexHealth.warnings)
-                    ? indexHealth.warnings.map((w) => String(w)).filter(Boolean)
-                    : typeof indexHealth.warnings === "string" && indexHealth.warnings
-                      ? [indexHealth.warnings]
-                      : [];
-                  return indexWarnings.length ? (
-                    <ul className="mt-3 grid gap-1 text-xs font-semibold text-[color:var(--warning)]">
-                      {indexWarnings.slice(0, 4).map((warning) => (
-                        <li key={warning}>{warning}</li>
-                      ))}
-                    </ul>
-                  ) : null;
-                })()}
-              </div>
-            ) : null}
           </section>
 
           {document ? (
@@ -2947,7 +2888,7 @@ export function DocumentViewer({
             </section>
           ) : null}
 
-          <section id="source-images" className={cn(panel, "scroll-mt-24 p-4")}>
+          <section id="source-images" className={cn(panel, "scroll-mt-24 p-4 md:col-span-2 lg:col-span-1")}>
             <PanelHeading
               icon={FileImage}
               title="Tables and diagrams"

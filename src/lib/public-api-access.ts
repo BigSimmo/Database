@@ -25,8 +25,11 @@ function requestIpSignal(request: Request) {
 }
 
 export function anonymousApiSubjectKey(request: Request) {
-  const userAgent = request.headers.get("user-agent")?.slice(0, 180) || "unknown-agent";
-  const source = `${requestIpSignal(request)}\n${userAgent}`;
+  // User-Agent is caller-controlled and therefore must not partition a quota:
+  // rotating it would mint a fresh paid-answer allowance for every request.
+  // If no trusted proxy IP is available, every unknown caller intentionally
+  // shares the same conservative quota rather than failing open.
+  const source = requestIpSignal(request);
   return `anon:${createHash("sha256").update(source).digest("hex").slice(0, 32)}`;
 }
 

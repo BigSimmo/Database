@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardList } from "lucide-react";
+import { BrainCircuit, ClipboardList } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { useEffect, useMemo, useState } from "react";
 
@@ -8,6 +8,7 @@ import type { FavouriteItem } from "@/components/clinical-dashboard/favourites-p
 import type { ServiceRecord } from "@/lib/services";
 import {
   readSavedRegistrySlugs,
+  savedDifferentialsStorageKey,
   savedFormsStorageKey,
   savedServicesStorageKey,
   subscribeSavedRegistrySlugs,
@@ -32,11 +33,13 @@ function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): F
 export function useSavedRegistryFavourites(): FavouriteItem[] {
   const [savedServices, setSavedServices] = useState<string[]>([]);
   const [savedForms, setSavedForms] = useState<string[]>([]);
+  const [savedDifferentials, setSavedDifferentials] = useState<string[]>([]);
 
   useEffect(() => {
     const refresh = () => {
       setSavedServices(readSavedRegistrySlugs(savedServicesStorageKey));
       setSavedForms(readSavedRegistrySlugs(savedFormsStorageKey));
+      setSavedDifferentials(readSavedRegistrySlugs(savedDifferentialsStorageKey));
     };
     refresh();
     return subscribeSavedRegistrySlugs(refresh);
@@ -54,6 +57,22 @@ export function useSavedRegistryFavourites(): FavouriteItem[] {
     const formItems = forms.records
       .filter((record) => savedFormSet.has(record.slug))
       .map((record) => recordToFavourite(record, "forms"));
-    return [...serviceItems, ...formItems];
-  }, [services.records, forms.records, savedServices, savedForms]);
+    const differentialItems: FavouriteItem[] = savedDifferentials.map((slug) => ({
+      id: `differentials:${slug}`,
+      title: slug
+        .split("-")
+        .filter(Boolean)
+        .map((word) => word[0]?.toUpperCase() + word.slice(1))
+        .join(" "),
+      type: "differentials",
+      set: "Saved differentials",
+      meta: "Saved diagnosis",
+      sourceMeta: "Differential",
+      primaryAction: "Open",
+      href: `/differentials/diagnoses/${encodeURIComponent(slug)}`,
+      icon: BrainCircuit,
+      keywords: slug.replaceAll("-", " "),
+    }));
+    return [...serviceItems, ...formItems, ...differentialItems];
+  }, [services.records, forms.records, savedServices, savedForms, savedDifferentials]);
 }

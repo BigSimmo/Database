@@ -69,9 +69,12 @@ them only after the shared `rag_response_cache` hit rate is confirmed healthy.
 - `node:24-bookworm-slim` in all stages — respects `engines`/`engine-strict`
   and the `preinstall` engine guard.
 - The build stage runs the repo's own `npm run build`
-  (`guard-next-build.mjs` + `next build --webpack`) — **the image build fails
-  exactly where a local build would**. The build allocates an 8 GiB heap; give
-  the Docker builder ≥ 10 GiB memory.
+  (`guard-next-build.mjs` + `next build --webpack` + the client-bundle secret
+  scan) — **the image build fails exactly where a local build would**. The
+  `--webpack` flag is deliberate: `next.config.ts` carries a webpack-specific
+  WasmHash workaround and the CSP-nonce work was validated against webpack
+  prod chunks, so switching bundlers needs its own verified change. The build
+  allocates an 8 GiB heap; give the Docker builder ≥ 10 GiB memory.
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are
   build args (they inline into the client bundle). The publishable key is
   public by design; the placeholder default exists so CI can build without
