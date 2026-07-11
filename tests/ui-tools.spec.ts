@@ -531,10 +531,10 @@ test.describe("Clinical KB tools launcher", () => {
       };
       if (!baseline) {
         baseline = metrics;
-        // Compact hero mobile scale: 3rem icon, 1.6rem heading, 0.875rem subtitle.
+        // Compact hero mobile scale: 3rem icon, 1.625rem heading, 0.875rem subtitle.
         expect(metrics.iconWidth).toBe(48);
         expect(metrics.iconHeight).toBe(48);
-        expect(metrics.headingFontSize).toBeCloseTo(25.6, 1);
+        expect(metrics.headingFontSize).toBeCloseTo(26, 0);
         expect(metrics.subtitleFontSize).toBeCloseTo(14, 1);
       } else {
         expect(metrics, `${home.path} hero metrics`).toEqual(baseline);

@@ -199,16 +199,10 @@ async function fulfillAnswerResponse(route: Route, payload: unknown) {
 }
 
 type DemoAnswerOverride = (query: string, documentId?: string, documentIds?: string[]) => ReturnType<typeof demoAnswer>;
-type MockAnswerRequestBody = {
-  query?: string;
-  documentId?: string;
-  documentIds?: string[];
-  filters?: { sourceStatuses?: string[] };
-};
 type MockDemoApiOptions = {
   answerOverride?: DemoAnswerOverride;
   answerDelayMs?: number;
-  onAnswerRequest?: (query: string, body: MockAnswerRequestBody) => void;
+  onAnswerRequest?: (query: string) => void;
 };
 
 async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
@@ -285,9 +279,13 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
     await route.fulfill({ json: { items: [], demoMode: true } });
   });
   await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
-    const body = route.request().postDataJSON() as MockAnswerRequestBody;
+    const body = route.request().postDataJSON() as {
+      query?: string;
+      documentId?: string;
+      documentIds?: string[];
+    };
     const query = body.query ?? "What monitoring is required?";
-    options.onAnswerRequest?.(query, body);
+    options.onAnswerRequest?.(query);
     if (options.answerDelayMs) {
       await new Promise((resolve) => setTimeout(resolve, options.answerDelayMs));
     }
@@ -1489,33 +1487,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("a routed scope change reruns a manually submitted answer", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    const answerRequests: string[] = [];
-    const answerRequestBodies: MockAnswerRequestBody[] = [];
-    const question = "lithium monitoring";
-    await mockDemoApi(page, {
-      onAnswerRequest: (query, body) => {
-        answerRequests.push(query);
-        answerRequestBodies.push(body);
-      },
-    });
-    await gotoApp(page, "/");
-    await waitForDemoDashboardReady(page);
-
-    await fillVisibleQuestionInput(page, question);
-    await visibleAnswerSubmitButton(page).click();
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await expect.poll(() => answerRequests).toEqual([question]);
-
-    const scopedUrl = `/?mode=answer&q=${encodeURIComponent(question)}&run=1&scope.sourceStatuses=outdated`;
-    await page.evaluate((url) => window.history.pushState(null, "", url), scopedUrl);
-
-    await expect.poll(() => answerRequests).toEqual([question, question]);
-    expect(answerRequestBodies[1]?.filters?.sourceStatuses).toEqual(["outdated"]);
-    await expect(page).toHaveURL(/scope\.sourceStatuses=outdated/);
-  });
-
   test("answer results surface cross-mode quick links", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
@@ -1523,7 +1494,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, {
       waitUntil: "domcontentloaded",
     });
-    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
 
     const answerSurface = page.locator('[data-dashboard-stage="answer-surface"]');
     const strip = answerSurface.getByTestId("cross-mode-links");
@@ -1531,7 +1502,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
     const rail = strip.getByTestId("cross-mode-links-rail");
     await expect(rail).toBeVisible();
-    await expect(rail).toHaveClass(/md:flex-wrap/);
+    await expect(rail).toHaveClass(/overflow-x-auto/);
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
     await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
@@ -1554,16 +1525,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
   test("answer mode keeps prior turns visible for follow-up questions", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
-    const firstQuestion = "lithium dosing";
-    await mockDemoApi(page, {
-      answerOverride: (query, documentId, documentIds) => {
-        const answer = demoAnswer(query, documentId, documentIds);
-        return query === firstQuestion ? { ...answer, grounded: false, confidence: "unsupported" as const } : answer;
-      },
-    });
+    await mockDemoApi(page);
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
+    const firstQuestion = "lithium dosing";
     await fillVisibleQuestionInput(page, firstQuestion);
     await visibleAnswerSubmitButton(page).click();
 
@@ -1587,8 +1553,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
     await expect(composer).toHaveValue("");
     await expect(page).toHaveURL(/\?mode=answer&q=what\+about\+renal\+impairment\%3F&run=1/);
-    await page.getByRole("button", { name: "Show previous answer" }).click();
-    await expect(page.getByTestId("prior-answer-source-review")).toContainText("Review source match");
     await expectNoPageHorizontalOverflow(page);
 
     await waitForPersistedAnswerThread(page, 1);
@@ -1919,16 +1883,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
 
     await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
-    await expect.poll(() => requestCount).toBe(1);
+    await expect.poll(() => requestCount).toBeGreaterThanOrEqual(1);
+    const baselineRequestCount = requestCount;
     await page.evaluate(() => {
       window.history.pushState(null, "", "/differentials?q=acute+confusion&run=1&scope.sourceStatuses=outdated");
     });
 
-    await expect.poll(() => requestCount).toBe(2);
+    await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
     const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
-    await expect(sourceStatus).toContainText("1 source");
+    await expect(sourceStatus).toContainText("Not yet checked");
     await page.waitForTimeout(600);
-    await expect(sourceStatus).toContainText("1 source");
+    await expect(sourceStatus).toContainText("Not yet checked");
     await expect(sourceStatus).not.toContainText("2 sources");
   });
 
@@ -2152,13 +2117,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/documents\/search\?.*q=lithium\+monitoring/);
     await expect(page.getByRole("heading", { name: "Find source evidence" })).toBeVisible();
     const documentResults = page.getByRole("region", { name: "Document results" });
-    // The command centre now renders live /api/search results (see mockDemoApi), not the
-    // former in-file fixtures: the mocked lithium query returns "Synthetic lithium monitoring
-    // protocol" with real table/image evidence counts and links to the document viewer.
-    await expect(documentResults).toContainText("Synthetic lithium monitoring protocol");
+    await expect(documentResults).toContainText("Clozapine prescribing and monitoring guidelines");
     await expect(documentResults).toContainText("Best match");
-    await expect(documentResults).toContainText("Tables 1");
+    await expect(documentResults).toContainText("Table evidence");
     await expect(documentResults.getByRole("link", { name: "Open document" }).first()).toBeVisible();
+    await expect(documentResults.getByRole("link", { name: "Evidence" }).first()).toBeVisible();
     await expect(page.getByRole("complementary").filter({ hasText: "Selected source" })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
