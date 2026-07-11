@@ -145,7 +145,12 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
     new ReadableStream({
       async start(controller) {
         const send = (event: string, data: unknown) => {
-          controller.enqueue(encoder.encode(encodeSse(event, data)));
+          try {
+            controller.enqueue(encoder.encode(encodeSse(event, data)));
+          } catch {
+            // The client may cancel between generation callbacks. Once the
+            // stream is closed there is no remaining consumer for this frame.
+          }
         };
         // Generation can go silent for long stretches (strong-route reasoning
         // before the first output token); heartbeat comments keep the
