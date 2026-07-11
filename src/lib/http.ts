@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { logger } from "@/lib/logger";
+import { safeErrorLogDetails } from "@/lib/privacy";
 
 export class PublicApiError extends Error {
   constructor(
@@ -28,25 +29,41 @@ function publicErrorMessage(error: unknown, status: number) {
   return "Request could not be completed.";
 }
 
+function publicErrorCode(error: unknown, status: number) {
+  if (error instanceof PublicApiError && error.details?.code) return error.details.code;
+  if (error instanceof ZodError) return "invalid_request";
+  if (status === 401) return "authentication_required";
+  if (status === 404) return "not_found";
+  if (status >= 500) return "internal_error";
+  return "request_failed";
+}
+
 function logSafeError(error: unknown, status: number) {
   const details = error instanceof PublicApiError ? error.details : undefined;
   logger.error("API request failed", {
     status,
-    name: error instanceof Error ? error.name : typeof error,
-    message: error instanceof Error ? error.message : String(error),
-    code: details?.code,
-    requestId: details?.requestId,
-    causeName: details?.causeName,
-    causeMessage: details?.causeMessage,
-    sqlState: details?.sqlState,
-    stack: error instanceof Error ? error.stack : undefined,
+    ...safeErrorLogDetails(error),
+    ...(details?.code ? { code: details.code } : {}),
+    ...(details?.requestId ? { requestId: details.requestId } : {}),
+    ...(details?.sqlState ? { sqlState: details.sqlState } : {}),
   });
 }
 
 export function jsonError(error: unknown, status = 500) {
   const responseStatus = error instanceof PublicApiError ? error.status : status;
+  const message = publicErrorMessage(error, responseStatus);
+  const code = publicErrorCode(error, responseStatus);
+  const requestId = error instanceof PublicApiError ? error.details?.requestId : undefined;
   logSafeError(error, responseStatus);
-  return NextResponse.json({ error: publicErrorMessage(error, responseStatus) }, { status: responseStatus });
+  return NextResponse.json(
+    {
+      error: message,
+      message,
+      code,
+      ...(requestId ? { requestId } : {}),
+    },
+    { status: responseStatus },
+  );
 }
 
 export function assertAllowedFile(file: File, maxUploadMb: number) {

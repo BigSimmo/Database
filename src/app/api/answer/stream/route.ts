@@ -24,6 +24,7 @@ import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
+import { safeErrorLogDetails } from "@/lib/privacy";
 import { parseJsonBody } from "@/lib/validation/body";
 import type { RagAnswer } from "@/lib/types";
 
@@ -107,11 +108,7 @@ function streamErrorPayload(error: unknown) {
 }
 
 function logStreamError(error: unknown) {
-  logger.error("Search stream failed", {
-    name: error instanceof Error ? error.name : typeof error,
-    message: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined,
-  });
+  logger.error("Search stream failed", safeErrorLogDetails(error));
 }
 
 function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {

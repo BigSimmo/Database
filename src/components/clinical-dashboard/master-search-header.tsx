@@ -74,7 +74,7 @@ const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
 // Standalone mode-home shells move the composer into the hero from the tablet
 // breakpoint up (see heroComposerFromTablet), so it sits in the middle of the
 // hero exactly like desktop instead of floating over the heading.
-const modeHomeComposerMediaQuery = "(min-width: 0px)";
+const modeHomeComposerMediaQuery = "(min-width: 640px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 
 function splitFilterText(value: string) {
@@ -287,6 +287,11 @@ export function MasterSearchHeader({
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
+  // True while the hero-composer media query matches (tablet+ for mode-home
+  // pages). The portal can lag this by a frame or a retry cycle, so we track the
+  // match separately to suppress the inline fallback without waiting for the
+  // portal to mount — otherwise the inline composer flashes during that window.
+  const [desktopHomeComposerMediaMatches, setDesktopHomeComposerMediaMatches] = useState(false);
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
@@ -692,6 +697,7 @@ export function MasterSearchHeader({
     if (!desktopHomeComposerSlotId) {
       const frame = window.requestAnimationFrame(() => {
         setDesktopHomeComposerActive(false);
+        setDesktopHomeComposerMediaMatches(false);
         setDesktopHomeComposerHost(null);
       });
       return () => window.cancelAnimationFrame(frame);
@@ -718,6 +724,7 @@ export function MasterSearchHeader({
         window.clearTimeout(retryTimeout);
         retryTimeout = null;
       }
+      setDesktopHomeComposerMediaMatches(mediaQuery.matches);
       const slot = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
       if (slot) {
         portalRetryCount = 0;
@@ -749,6 +756,7 @@ export function MasterSearchHeader({
       mediaQuery.removeEventListener("change", scheduleSync);
       host.parentNode?.removeChild(host);
       setDesktopHomeComposerActive(false);
+      setDesktopHomeComposerMediaMatches(false);
       setDesktopHomeComposerHost(null);
     };
   }, [desktopHomeComposerSlotId, heroComposerFromTablet]);
@@ -1538,11 +1546,10 @@ export function MasterSearchHeader({
 
       {searchComposerVisible ? (
         <>
-          {desktopHomeComposerActive && desktopHomeComposerHost
+          {(desktopHomeComposerActive && desktopHomeComposerHost) ||
+          (desktopHomeComposerSlotId && desktopHomeComposerMediaMatches)
             ? null
-            : desktopHomeComposerSlotId
-              ? null
-              : renderSearchComposer("default")}
+            : renderSearchComposer("default")}
           {desktopHomeComposerActive && desktopHomeComposerHost
             ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
             : null}

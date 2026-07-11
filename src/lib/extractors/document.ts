@@ -6,6 +6,7 @@ import ExcelJS from "exceljs";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import JSZip from "jszip";
+import { safeBufferFrom } from "@/lib/safe-buffer";
 import type { ExtractedDocument, ExtractedPage } from "@/lib/types";
 
 function runPythonPdfExtractor(filePath: string, outputDir: string) {
@@ -78,7 +79,8 @@ async function extractPdf(buffer: Buffer) {
           const mimeType = dataUrlMatch?.[1] ?? "image/png";
           const extension = mimeType.includes("jpeg") ? "jpg" : "png";
           const outputPath = path.join(imageDir, `fallback-page-${page.pageNumber}-image-${index + 1}.${extension}`);
-          const bytes = dataUrlMatch ? Buffer.from(dataUrlMatch[2], "base64") : Buffer.from(image.data);
+          const bytes = dataUrlMatch ? safeBufferFrom(dataUrlMatch[2], "base64") : Buffer.from(image.data);
+          if (!bytes) continue;
           await writeFile(outputPath, bytes);
           images.push({
             pageNumber: page.pageNumber,

@@ -200,7 +200,22 @@ type MockDemoApiOptions = {
   onAnswerRequest?: (query: string) => void;
 };
 
+async function blockExternalRequests(page: Page) {
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    if (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      !["localhost", "127.0.0.1", "::1"].includes(url.hostname)
+    ) {
+      await route.abort("blockedbyclient");
+      return;
+    }
+    await route.fallback();
+  });
+}
+
 async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
+  await blockExternalRequests(page);
   await mockLocalProjectIdentity(page);
   await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
@@ -791,7 +806,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
-  test("anonymous user can see enabled live search without a forced sign-in gate", async ({ page }) => {
+  test("anonymous user can see enabled live search without a forced sign-in gate @critical", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockPrivateUnauthenticatedApi(page);
     await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
@@ -1109,7 +1124,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("demo answer flow reaches a source-backed answer", async ({ browserName, page }) => {
+  test("demo answer flow reaches a source-backed answer @critical", async ({ browserName, page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -1954,7 +1969,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeButton).toBeFocused();
   });
 
-  test("prescribing workflow uses in-app medication routes", async ({ page }) => {
+  test("prescribing workflow uses in-app medication routes @critical", async ({ page }) => {
     test.setTimeout(120_000);
     // Regression guard: navigating away from a mode home used to throw
     // "Cannot read properties of null (reading 'parentNode')" because the header
@@ -1974,7 +1989,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const globalSearchInput = page.getByTestId("global-search-input");
     await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
-    await expect(globalSearchInput).toHaveAttribute("placeholder", "Search medications...");
+    await expect(globalSearchInput).toHaveAttribute("placeholder", "Search medication dosing or safety...");
     await expect(globalSearchInput).toHaveValue("acamprosate renal dose");
 
     const acamprosateResult = page.getByTestId("medication-result-acamprosate-desktop");
@@ -1982,6 +1997,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await acamprosateResult.click();
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
     await expectSingleMedicationPage(page);
+    await expect(page.getByRole("link", { name: "Back to medication search" })).toBeVisible();
 
     await gotoApp(page, "/mockups/medication-prescribing");
     await expect(page).toHaveURL(/\/medications\/acamprosate$/);
@@ -2013,9 +2029,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(actionOverflow.found).toBe(true);
     expect(actionOverflow.overflows).toBe(false);
     expect(actionOverflow.textOverflow).not.toBe("ellipsis");
+
+    await acamprosateCard.click();
+    await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
+    const backLink = page.getByRole("link", { name: "Back", exact: true });
+    await expect(backLink).toBeVisible();
+    await expectMinTouchTarget(backLink);
+    await backLink.click();
+    await expect(page).toHaveURL(/[?&]mode=prescribing/);
   });
 
-  test("document search mode lists matching documents and scope actions", async ({ page }) => {
+  test("document search mode lists matching documents and scope actions @critical", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -2036,7 +2060,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(startHereBox).not.toBeNull();
     expect(documentsHeadingBox).not.toBeNull();
     expect((documentsHeadingBox?.y ?? 0) + (documentsHeadingBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
-    expect(searchInputBox?.y ?? 0).toBeLessThan(startHereBox?.y ?? 0);
+    expect((startHereBox?.y ?? 0) + (startHereBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
     const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
     const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
     const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();
@@ -2332,7 +2356,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("document viewer failed preview exposes retry recovery", async ({ page }) => {
+  test("document viewer failed preview exposes retry recovery @critical", async ({ page }) => {
     await page.route("**/api/setup-status**", async (route) => {
       await route.fulfill({ json: { demoMode: true, checks: readySetupChecks } });
     });

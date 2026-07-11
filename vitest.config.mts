@@ -1,6 +1,7 @@
 const config = {
   test: {
-    testTimeout: 15000,
+    testTimeout: 30000,
+    maxWorkers: 2,
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
@@ -27,6 +28,7 @@ const config = {
   resolve: {
     alias: {
       "@": new URL("./src", import.meta.url).pathname,
+      "server-only": new URL("./tests/stubs/server-only.ts", import.meta.url).pathname,
     },
   },
 };

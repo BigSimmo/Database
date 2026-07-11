@@ -24,14 +24,14 @@ is live — `worker/main.ts` already passes `p_worker_id` to completion RPCs.
 All steps below are safe through a single `supabase db push` when the ingestion
 queue is quiet. R17 uses its **own migration version** (`20260708170000`, not
 `20260708160000`) so history/repair cannot collide with the fail-closed tenancy
-migration at `20260708160000`.
+migration at `20260708160001`.
 
 | Step | Migration                                                 | What                                         | How                                            |
 | ---- | --------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------- |
 | 1    | `20260708140000_drop_ingestion_job_stages_job_id_fk.sql`  | R24e — drop phantom FK from fresh-env schema | Normal `supabase db push` (no-op on live)      |
 | 2    | `20260708130000_ingestion_concurrency_rpc_hardening.sql`  | R1/R2 lease fences, R7/R9/R23 RPC hardening  | Normal push — **apply before worker redeploy** |
 | 3    | `20260708150000_ensure_retrieval_owner_matches.sql`       | Ensure helper exists before fail-closed      | Normal push                                    |
-| 4    | `20260708160000_retrieval_owner_matches_fail_closed.sql`  | Tenancy fail-closed (#409)                   | Normal push                                    |
+| 4    | `20260708160001_retrieval_owner_matches_fail_closed.sql`  | Tenancy fail-closed (#409)                   | Normal push                                    |
 | 5    | `20260708310000_r5_document_metadata_merge.sql`           | R5 metadata deep-merge (#408)                | Normal push (safe before worker)               |
 | 6    | `20260708170000_ingestion_jobs_one_open_per_document.sql` | R17 one-open-job index (#405)                | Normal push when queue quiet — see below       |
 

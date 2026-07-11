@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeScopeFilterCount, searchScopeFiltersSchema } from "@/lib/search-scope";
+import { activeScopeFilterCount, resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
 
 describe("search scope filters", () => {
   it("accepts smart document label filter groups", () => {
@@ -36,5 +36,24 @@ describe("search scope filters", () => {
 
   it("rejects unknown label types in labelTypesAny", () => {
     expect(() => searchScopeFiltersSchema.parse({ labelTypesAny: ["not-a-label-type"] })).toThrow();
+  });
+
+  it("does not enumerate every public document when no filters are requested", async () => {
+    const from = () => {
+      throw new Error("public all-document scope should be enforced by the retrieval owner sentinel");
+    };
+
+    await expect(
+      resolveSearchScope({
+        supabase: { from } as never,
+        ownerId: undefined,
+        publicOnly: true,
+      }),
+    ).resolves.toMatchObject({
+      documentIds: undefined,
+      activeFilterCount: 0,
+      matchedDocumentCount: null,
+      summary: "All public documents",
+    });
   });
 });

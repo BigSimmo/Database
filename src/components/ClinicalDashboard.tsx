@@ -28,7 +28,7 @@ import { type DocumentDeleteResult } from "@/components/DocumentManagementAction
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
-import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/env";
+import { isPublicLocalNoAuthMode, publicUploadsEnabled } from "@/lib/public-env";
 import {
   appBackdrop,
   answerSurface,
@@ -904,7 +904,7 @@ export function ClinicalDashboard({
   }, [authStatus, resetAnswerThread]);
   const supabaseEnvStatus = setupChecks.find((check) => check.id === "env")?.status;
   const browserAuthUnavailableDemoFallback = !auth.isConfigured && supabaseEnvStatus !== "ready";
-  const localNoAuthMode = isLocalNoAuthMode();
+  const localNoAuthMode = isPublicLocalNoAuthMode();
   const explicitDemoMode = demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const clientDemoMode = explicitDemoMode || browserAuthUnavailableDemoFallback || localNoAuthMode;
   const uploadReadOnlyMode =
