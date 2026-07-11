@@ -563,6 +563,11 @@ function replaceSubBulletOGlyphs(text: string, joiner: string) {
     const before = text.slice(0, offset);
     const after = text.slice(offset + match.length);
     if (bloodLabelTailPattern.test(before)) return match;
+    // A chunk/cell that IS the blood value ("o RhD negative", "o Negative")
+    // has no label context at all — an Rh/positive/negative follower at a
+    // string or line start is the value itself, not a bullet item.
+    const atItemStart = offset === 0 || text[offset - 1] === "\n" || text[offset - 1] === "\r";
+    if (atItemStart && (rhValueHeadPattern.test(after) || posNegValueHeadPattern.test(after))) return match;
     if (groupTypeLabelTailPattern.test(before)) {
       // "o Rh…" is a strong blood signal under any group/type label;
       // "o Positive/Negative" counts as a blood value only when the label is

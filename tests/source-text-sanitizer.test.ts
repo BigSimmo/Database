@@ -439,6 +439,12 @@ describe("normalizeInlineBulletGlyphs", () => {
     );
   });
 
+  it("keeps a standalone blood-value cell that begins with 'o'", () => {
+    expect(normalizeInlineBulletGlyphs("o RhD negative")).toBe("o RhD negative");
+    expect(normalizeInlineBulletGlyphs("o Negative")).toBe("o Negative");
+    expect(normalizeInlineBulletGlyphs("Cell value:\no RhD negative")).toBe("Cell value:\no RhD negative");
+  });
+
   it("still converts an OCR bullet after non-blood group/type labels", () => {
     expect(normalizeInlineBulletGlyphs("patient group o Adults should be offered CBT")).toBe(
       "patient group; Adults should be offered CBT",
