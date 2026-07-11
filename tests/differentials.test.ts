@@ -11,6 +11,7 @@ import {
   getDifferentialRecord,
   getPresentationWorkflow,
   getPresentationWorkflowForDiagnosisIds,
+  getPresentationWorkflowSelectionForDiagnosisIds,
   loadDifferentialSnapshot,
   rankDifferentialRecords,
   rankPresentationWorkflows,
@@ -27,6 +28,15 @@ describe("presentation workflow routing", () => {
       "suicidal-ideation-suicide-attempt-self-harm",
     );
     expect(getPresentationWorkflowForDiagnosisIds([])).toBeNull();
+  });
+
+  it("forwards only diagnoses supported by the selected workflow", () => {
+    const selection = getPresentationWorkflowSelectionForDiagnosisIds([
+      "wernicke-encephalopathy",
+      "major-depressive-disorder",
+    ]);
+    expect(selection?.workflow.id).toBe("acute-confusion-encephalopathy");
+    expect(selection?.diagnosisIds).toEqual(["wernicke-encephalopathy"]);
   });
 });
 

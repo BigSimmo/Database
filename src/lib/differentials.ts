@@ -94,6 +94,17 @@ export function getPresentationWorkflowForDiagnosisIds(ids: Iterable<string>) {
   return bestMatch;
 }
 
+export function getPresentationWorkflowSelectionForDiagnosisIds(ids: Iterable<string>) {
+  const diagnosisIds = Array.from(new Set(Array.from(ids, (id) => id.trim().toLowerCase()).filter(Boolean)));
+  const workflow = getPresentationWorkflowForDiagnosisIds(diagnosisIds);
+  if (!workflow) return null;
+  const candidateIds = new Set(workflow.candidates.map((candidate) => candidate.slug));
+  return {
+    workflow,
+    diagnosisIds: diagnosisIds.filter((id) => candidateIds.has(id)),
+  };
+}
+
 export const acuteConfusionPresentationWorkflow: DifferentialPresentationWorkflow =
   getPresentationWorkflow("acute-confusion-encephalopathy") ?? differentialPresentations()[0]!;
 
