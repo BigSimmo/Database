@@ -271,6 +271,13 @@ function splitIntoRawSections(text: string): RawSection[] {
 export function formatDocumentSummary(raw: string | null | undefined): FormattedDocumentSummary {
   if (!raw || !raw.trim()) return EMPTY_SUMMARY;
 
+  // The stored-summary truncation signal is a trailing ellipsis on the RAW text
+  // (the pre-fix retrieval_synopsis cut, e.g. "where poss..."). The sanitizer
+  // below normalizes that ellipsis into ". ", so capture it first — a complete
+  // final sentence that merely lacks punctuation has no raw ellipsis and must
+  // never be treated as truncated.
+  const rawEndedTruncated = /(?:\.{3}|…)\s*$/.test(raw.trim());
+
   // Reuse the house sanitizer first (glyph repair, protective markings, source
   // codes, label noise), then flatten to a single line for sentence work.
   const cleaned = cleanClinicalSummaryText(raw).replace(/\s+/g, " ").trim();
@@ -327,15 +334,35 @@ export function formatDocumentSummary(raw: string | null | undefined): Formatted
     if (headingKey) seenHeadings.set(headingKey, section);
   }
 
-  // Repair or drop a mid-word truncated tail on the very last item.
+  // Repair or drop a tail cut mid-thought at indexing. Two truncation signals,
+  // both conservative so a complete, unique final sentence that merely lacks
+  // punctuation is never dropped or mis-flagged:
+  //   (a) the RAW stored summary ended with an ellipsis marker (captured above,
+  //       before the sanitizer normalized it into a plain period); or
+  //   (b) the final sentence is a prefix of another kept sentence — a cut-off
+  //       repeat, e.g. "Lithium is a narro" vs "Lithium is a narrow … drug".
   for (let index = orderedSections.length - 1; index >= 0; index -= 1) {
     const items = orderedSections[index].items;
     if (!items.length) continue;
     const last = items[items.length - 1];
-    const endsWithEllipsis = /(?:\.{3}|…)\s*$/.test(last);
     const endsCleanly = /[.!?:;)\]"']$/.test(last.trim());
-    if (endsCleanly && !endsWithEllipsis) break;
-    const repaired = repairTruncatedCompactTail(endsWithEllipsis ? last : `${last} ...`);
+    const lastKey = normalizeSentenceKey(last);
+    const isTruncatedDuplicate =
+      !endsCleanly &&
+      lastKey.length >= 8 &&
+      orderedSections.some((section) =>
+        section.items.some((other) => {
+          if (other === last) return false;
+          const otherKey = normalizeSentenceKey(other);
+          return otherKey.length > lastKey.length && otherKey.startsWith(lastKey);
+        }),
+      );
+    if (!rawEndedTruncated && !isTruncatedDuplicate) break;
+    // Strip any terminal dots/ellipsis the sanitizer left (ASCII "..." or a
+    // Unicode "…"), then re-mark so repairTruncatedCompactTail drops the partial
+    // final token exactly once (avoids a doubled "… …").
+    const base = last.replace(/[.\s…]+$/, "");
+    const repaired = repairTruncatedCompactTail(`${base} ...`);
     truncatedTail = true;
     if (repaired && repaired.split(/\s+/).length >= 5) {
       items[items.length - 1] = repaired;

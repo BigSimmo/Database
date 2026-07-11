@@ -119,6 +119,20 @@ factors i.e. weight, comorbidities (e.g. renal impairment) and concomitant medic
     );
   });
 
+  it("does not classify decimal dose/value lines as numbered headings", () => {
+    for (const dose of ["12.5 mg daily", "2.5 mmol/L threshold", "0.5 mg at night"]) {
+      expect(parseIndexedSourceText(dose)).toContainEqual(expect.objectContaining({ type: "paragraph", text: dose }));
+      expect(parseIndexedSourceText(dose).some((block) => block.type === "heading")).toBe(false);
+    }
+    // Genuine numbered headings (Title-Case or digit-led) still resolve.
+    expect(parseIndexedSourceText("9. Polypharmacy")).toContainEqual(
+      expect.objectContaining({ type: "heading", text: "9. Polypharmacy" }),
+    );
+    expect(parseIndexedSourceText("2.7. Dosage (as lithium carbonate)")).toContainEqual(
+      expect.objectContaining({ type: "heading", text: "2.7. Dosage (as lithium carbonate)" }),
+    );
+  });
+
   it("merges unterminated paragraphs but never merges across headings or tables", () => {
     const heading: IndexedTextBlock = { type: "heading", id: "h", text: "1. Scope", level: "section" };
     const merged = mergeContinuationBlocks([
@@ -159,6 +173,14 @@ describe("flowIndexedText", () => {
     );
     expect(flowIndexedText("can reduce lithium clearance and therefore\n\nincrease lithium levels.")).toBe(
       "can reduce lithium clearance and therefore increase lithium levels.",
+    );
+  });
+
+  it("treats a Windows CRLF as a single line break, not a blank line", () => {
+    // \r\n must collapse to one newline (→ one space when flowing), not a
+    // paragraph break, so CRLF-sourced excerpts read identically to LF ones.
+    expect(flowIndexedText("Escalate review when there is vomiting,\r\ndiarrhoea, dehydration, or ataxia.")).toBe(
+      "Escalate review when there is vomiting, diarrhoea, dehydration, or ataxia.",
     );
   });
 });

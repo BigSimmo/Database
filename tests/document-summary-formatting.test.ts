@@ -137,4 +137,38 @@ describe("formatDocumentSummary", () => {
     );
     expect(formatted.sections.every((section) => section.heading === null)).toBe(true);
   });
+
+  it("keeps a complete final sentence that merely lacks terminal punctuation", () => {
+    // Regression: an unpunctuated but complete, unique final sentence must not be
+    // fabricated into an ellipsis, truncated, or flagged as trimmed.
+    const formatted = formatDocumentSummary(
+      "This guideline covers clozapine initiation. Weekly monitoring continues for 18 weeks",
+    );
+    const allText = [formatted.lead, ...formatted.sections.flatMap((s) => s.items)].filter(Boolean).join(" ");
+    expect(allText).toContain("Weekly monitoring continues for 18 weeks");
+    expect(allText).not.toMatch(/…$/);
+    expect(formatted.truncatedTail).toBe(false);
+  });
+
+  it("drops a no-ellipsis final fragment that is a cut-off repeat of a full sentence", () => {
+    // "…is a narro" is a prefix of the earlier full "…is a narrow therapeutic
+    // index drug." sentence — a truncated repeat that must be removed and flagged,
+    // even without a trailing ellipsis.
+    const formatted = formatDocumentSummary(
+      "Lithium is a narrow therapeutic index drug. Monitor serum levels every three months. Lithium is a narro",
+    );
+    const allText = [formatted.lead, ...formatted.sections.flatMap((s) => s.items)].filter(Boolean).join(" ");
+    expect(allText).toContain("narrow therapeutic index drug");
+    expect(allText).not.toMatch(/is a narro$/);
+    expect(formatted.truncatedTail).toBe(true);
+  });
+
+  it("repairs an explicit trailing-ellipsis truncation", () => {
+    const formatted = formatDocumentSummary(
+      "Baseline renal and thyroid function must be checked. Doses are titrated to serum lithium levels which should be measured where poss...",
+    );
+    const allText = [formatted.lead, ...formatted.sections.flatMap((s) => s.items)].filter(Boolean).join(" ");
+    expect(allText).not.toMatch(/where poss/);
+    expect(formatted.truncatedTail).toBe(true);
+  });
 });
