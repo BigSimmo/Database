@@ -418,6 +418,7 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
       { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
       { path: "/favourites", testId: "favourites-hub", heading: "Favourites command library", headingLevel: 1 },
+      { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
     ] as const) {
       await gotoLauncher(page, home.path);
       await expect(page.getByTestId(home.testId)).toBeVisible();
@@ -451,6 +452,37 @@ test.describe("Clinical KB tools launcher", () => {
       expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
       await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
+    }
+  });
+
+  // Required-gate guard for the bug class PR #456 fixed and then reintroduced in
+  // a narrower form: a mode-home page rendering with NO search composer at some
+  // width. Presence plus hero containment are asserted at the extreme widths on
+  // one dashboard-shell home and one standalone-shell home; the full 5-route
+  // design spec stays in the advisory "mode home routes center the shared
+  // search on mobile" test above.
+  test("mode home search composer is always present at phone and desktop widths @critical", async ({ page }) => {
+    test.setTimeout(120_000);
+    await mockAnswerDashboardApi(page);
+
+    for (const viewport of [
+      { name: "phone", width: 390, height: 820 },
+      { name: "desktop", width: 1280, height: 900 },
+    ] as const) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+      for (const home of [
+        { path: "/?mode=answer", testId: "answer-empty-state" },
+        { path: "/services", testId: "services-home" },
+      ] as const) {
+        await gotoLauncher(page, home.path);
+        await expect(page.getByTestId(home.testId)).toBeVisible();
+        // The composer must never vanish: exactly one visible search input.
+        await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
+        // Hero-centred design: the input lives inside the mode-home hero at
+        // every width, phones included.
+        await expect(page.getByTestId(home.testId).getByTestId("global-search-input")).toBeVisible();
+      }
     }
   });
 
@@ -590,6 +622,7 @@ test.describe("Clinical KB tools launcher", () => {
         { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
         { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
         { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
+        { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
       ] as const) {
         await gotoLauncher(page, home.path);
         await expect(page.getByTestId(home.testId)).toBeVisible();
@@ -765,17 +798,20 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("form detail mobile keeps the floating global search clear of decision context", async ({ page }) => {
+  test("form detail mobile renders decision context after the form content", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/forms/transport-crisis-form");
 
     await expect(page.getByTestId("form-detail-page")).toBeVisible();
     await expect(page.getByTestId("form-decision-context-mobile")).toBeVisible();
     await expect(page.locator('[data-testid="global-search-input"]:visible')).toHaveCount(1);
+
+    // Decision context now stacks below the priority facts and source snapshot
+    // on phones — the primary form content reads first.
     await expectVerticalSeparation(
       page,
-      '[data-testid="form-decision-context-mobile"] [role="tablist"], [data-testid="form-decision-context-mobile"] > div:nth-child(2)',
-      '[data-testid="global-search-input"]',
+      '[aria-label="Priority facts"]',
+      '[data-testid="form-decision-context-mobile"]',
       8,
     );
     await expectNoPageHorizontalOverflow(page);
