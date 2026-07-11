@@ -76,6 +76,14 @@ describe("extractive evidence splitting", () => {
     expect(anc).toMatch(/^ANC <0\.5:/);
   });
 
+  it("keeps plus-bearing electrolyte thresholds attached to their action items", () => {
+    const potassium = splitClinicalEvidenceSentences(
+      "K+ >5.5 mmol/L: o Withhold the next dose and recheck electrolytes.",
+    ).find((sentence) => /withhold/i.test(sentence));
+    expect(potassium).toBeDefined();
+    expect(potassium).toMatch(/^K\+ >5\.5 mmol\/L:/);
+  });
+
   it("keeps numeric time-window headings attached to their restart items", () => {
     const restart = splitClinicalEvidenceSentences("48-72 hours: o Restart clozapine at 12.5 mg and review.").find(
       (sentence) => sentence.includes("12.5 mg"),

@@ -561,7 +561,7 @@ function isLowValueExtractiveCaption(clause: string) {
 // is accepted, and comparator/decimal/numeric-leading threshold labels are
 // allowed; structural labels ("Page 4:", "Table 2:") stay excluded by the
 // stoplist.
-const shortHeadingFragmentPattern = /^[A-Za-z0-9<>≤≥][A-Za-z0-9<>≤≥-][A-Za-z0-9 /()<>≤≥.,%-]{0,38}:$/;
+const shortHeadingFragmentPattern = /^[A-Za-z0-9<>≤≥][A-Za-z0-9<>≤≥+-][A-Za-z0-9 /()<>≤≥.,%+-]{0,38}:$/;
 
 function isShortHeadingFragment(fragment: string) {
   return (
