@@ -8,6 +8,7 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+import { safeErrorLogDetails } from "@/lib/privacy";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { getFormRecord } from "@/lib/forms";
 import {
@@ -17,7 +18,6 @@ import {
   rowToServiceRecord,
   type RegistryRecordRow,
 } from "@/lib/registry-records";
-import { registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import { ensureRegistrySeeded } from "@/lib/registry-seed";
 import { getServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -125,13 +125,15 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       if ((count ?? 0) === 0) {
         // Only the seed write is best-effort; the re-read stays outside the try
         // so a genuine read failure surfaces rather than a misleading 404.
+        let seedError: unknown = null;
         try {
           await ensureRegistrySeeded(supabase, access.ownerId, kind);
-        } catch (seedError) {
-          console.error(`[registry] auto-seed failed for owner ${access.ownerId} (${kind})`, seedError);
-          if (registryCorpusEmbeddingEnabled()) throw seedError;
+        } catch (error) {
+          seedError = error;
+          console.error("[registry] auto-seed failed", { kind, ...safeErrorLogDetails(error) });
         }
         row = await fetchRecord();
+        if (!row && seedError) throw seedError;
       }
     }
     if (!row) return notFoundResponse(normalizedSlug);

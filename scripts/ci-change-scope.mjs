@@ -243,7 +243,13 @@ function changedFilesFromRange(base, head) {
   try {
     return parseNameStatus(runGitRaw(["diff", "--name-status", "-z", "--find-renames", `${base}...${head}`]));
   } catch {
-    return parseNameStatus(runGitRaw(["diff", "--name-status", "-z", "--find-renames", base, head]));
+    try {
+      return parseNameStatus(runGitRaw(["diff", "--name-status", "-z", "--find-renames", base, head]));
+    } catch {
+      // Unreachable base (e.g. force-push). Fall through to the full-run
+      // sentinel rather than failing the whole changes job.
+      return null;
+    }
   }
 }
 
