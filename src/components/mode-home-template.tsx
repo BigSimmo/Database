@@ -90,8 +90,8 @@ export function ModeHomeHero({
         <Heading
           id={`${testId ?? "mode-home"}-title`}
           className={cn(
-            "text-balance font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)] sm:text-[2.45rem] lg:text-[2.9rem]",
-            compact ? "text-[1.6rem]" : "text-[1.85rem]",
+            "text-balance font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)] sm:text-4xl lg:text-5xl",
+            compact ? "text-3xl-minus" : "text-3xl",
           )}
         >
           {title}
@@ -191,7 +191,7 @@ export function ModeHomeStatusNotice({
       {actionHref && actionLabel ? (
         <Link
           href={actionHref}
-          className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
+          className="inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)] lg:min-h-9"
         >
           {actionLabel}
         </Link>
@@ -245,10 +245,10 @@ export function ModeHomeTemplate({
                   <ActionIcon className="h-5 w-5 sm:h-7 sm:w-7" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-balance text-[0.98rem] font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] sm:text-[1.05rem]">
+                  <span className="block text-balance text-base font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] sm:text-lg-minus">
                     {action.title}
                   </span>
-                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-[0.9rem] sm:leading-6">
+                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6">
                     {action.description}
                   </span>
                 </span>
@@ -315,7 +315,7 @@ export function ModeHomeTemplate({
                 </>
               );
               const pillClassName =
-                "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm";
+                "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm lg:min-h-9";
               const pillA11y = pill.shortLabel ? { "aria-label": pill.label, title: pill.label } : {};
               return pill.href ? (
                 <Link key={pill.label} href={pill.href} className={pillClassName} {...pillA11y}>

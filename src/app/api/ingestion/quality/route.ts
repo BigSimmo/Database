@@ -115,6 +115,19 @@ function tableRowsFromMetadata(metadata: Record<string, unknown>) {
   return Array.isArray(rows) ? rows.length : 0;
 }
 
+function groupRowsByDocument<Row extends { document_id: string }>(rows: Row[]) {
+  const groupedRows = new Map<string, Row[]>();
+  for (const row of rows) {
+    const documentRows = groupedRows.get(row.document_id);
+    if (documentRows) {
+      documentRows.push(row);
+    } else {
+      groupedRows.set(row.document_id, [row]);
+    }
+  }
+  return groupedRows;
+}
+
 function itemPriority(item: ReviewItem) {
   const severityRank = item.severity === "danger" ? 0 : item.severity === "warning" ? 1 : 2;
   const typeRank: Record<ReviewType, number> = {
@@ -137,19 +150,10 @@ function buildReviewItems(args: {
   images: ImageRow[];
 }) {
   const qualityByDocument = new Map(args.qualityRows.map((row) => [row.document_id, row]));
-  const jobsByDocument = new Map<string, JobRow[]>();
-  const stagesByDocument = new Map<string, StageRow[]>();
-  const pagesByDocument = new Map<string, PageRow[]>();
-  const imagesByDocument = new Map<string, ImageRow[]>();
-
-  for (const row of args.jobs)
-    jobsByDocument.set(row.document_id, [...(jobsByDocument.get(row.document_id) ?? []), row]);
-  for (const row of args.stages)
-    stagesByDocument.set(row.document_id, [...(stagesByDocument.get(row.document_id) ?? []), row]);
-  for (const row of args.pages)
-    pagesByDocument.set(row.document_id, [...(pagesByDocument.get(row.document_id) ?? []), row]);
-  for (const row of args.images)
-    imagesByDocument.set(row.document_id, [...(imagesByDocument.get(row.document_id) ?? []), row]);
+  const jobsByDocument = groupRowsByDocument(args.jobs);
+  const stagesByDocument = groupRowsByDocument(args.stages);
+  const pagesByDocument = groupRowsByDocument(args.pages);
+  const imagesByDocument = groupRowsByDocument(args.images);
 
   const items: ReviewItem[] = [];
   const pushItem = (document: DocumentRow, item: Omit<ReviewItem, "documentId" | "documentTitle" | "fileName">) => {

@@ -16,7 +16,6 @@ import {
   Tag,
 } from "lucide-react";
 
-import { type DocumentPagination } from "@/components/ClinicalDashboard";
 import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import {
   DocumentOrganizationBadges,
@@ -26,6 +25,12 @@ import {
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
+import type {
+  DocumentDrawerMode,
+  DocumentDrawerStatusFilter,
+  DocumentPagination,
+  LabelReviewMutationBody,
+} from "@/components/clinical-dashboard/dashboard-contracts";
 import {
   cn,
   EmptyState,
@@ -122,9 +127,6 @@ function normalizedLabelReviewRow(label: DocumentLabel) {
 function labelTypeDisplay(value: DocumentLabelType) {
   return documentLabelTypeOptions.find((option) => option.value === value)?.label ?? value.replaceAll("_", " ");
 }
-
-export type LabelReviewMutationBody =
-  { labelId: string; action: "approve" | "hide" | "restore" } | { label: string; label_type: DocumentLabelType };
 
 function DocumentLabelReviewPanel({
   documents,
@@ -1092,8 +1094,6 @@ export function DocumentDrawer({
 }
 
 export type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
-export type DocumentDrawerMode = "recent" | "library" | "source" | "admin";
-export type DocumentDrawerStatusFilter = "all" | "indexed" | "indexing" | "failed";
 export type IndexingMonitorFilter = "all" | "active" | "failed";
 export type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
 
@@ -1109,10 +1109,4 @@ function statusFilterLabel(filter: DocumentDrawerStatusFilter) {
   if (filter === "indexing") return "Indexing documents";
   if (filter === "failed") return "Failed documents";
   return "All documents";
-}
-
-export function DrawerGroupLabel({ title }: { title: string }) {
-  return (
-    <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
-  );
 }

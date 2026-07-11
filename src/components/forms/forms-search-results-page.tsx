@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ChevronDown,
   ChevronRight,
-  Clock3,
   ExternalLink,
   FileText,
   Loader2,
@@ -16,7 +16,7 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useId, useMemo, useState } from "react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
 import { rankFormRecords, type FormSearchMatch } from "@/lib/forms";
@@ -49,6 +49,19 @@ const formCodesBySlug: Record<string, string> = {
 const sourceSnippetCount = 278;
 const taskCount = 8;
 const pathwayCount = 12;
+
+const refineFilters: {
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  enabled: boolean;
+  danger?: boolean;
+}[] = [
+  { icon: Shield, title: "High risk only", subtitle: "Show high risk forms", enabled: false, danger: true },
+  { icon: FileText, title: "Official forms", subtitle: "Limit to official forms", enabled: true },
+  { icon: Workflow, title: "Pathway linked", subtitle: "Show pathway-linked", enabled: true },
+  { icon: Search, title: "Source matches", subtitle: "Require source match", enabled: false },
+];
 
 function resultCode(match: FormSearchMatch, index: number) {
   return formCodesBySlug[match.service.slug] ?? String(index + 1);
@@ -89,7 +102,7 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
   return (
     <nav
       aria-label="Forms search sections"
-      className="flex min-w-0 items-end gap-7 border-b border-[color:var(--border)] text-sm font-extrabold text-[color:var(--text)]"
+      className="flex min-w-0 items-end gap-5 text-sm font-extrabold text-[color:var(--text)] sm:gap-7"
     >
       {tabs.map(([label, count], index) => (
         <button
@@ -98,7 +111,7 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
           disabled={index !== 0}
           title={index !== 0 ? "Coming soon" : undefined}
           className={cn(
-            "relative -mb-px flex min-h-14 items-center gap-2 whitespace-nowrap rounded-t-md",
+            "relative -mb-px flex min-h-12 items-center gap-2 whitespace-nowrap rounded-t-md",
             searchFocusRing,
             index === 0
               ? "text-[color:var(--clinical-accent)]"
@@ -120,6 +133,103 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
   );
 }
 
+function RefineFilterItem({
+  icon: Icon,
+  title,
+  subtitle,
+  enabled,
+  danger,
+}: {
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  enabled: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3">
+      <span
+        className={cn(
+          "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
+          danger
+            ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
+            : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+        )}
+      >
+        <Icon className="h-5 w-5" aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{title}</p>
+        <p className="mt-0.5 truncate text-xs font-medium text-[color:var(--text-muted)]">{subtitle}</p>
+      </div>
+      <ToggleSwitch enabled={enabled} aria-label={title} />
+    </div>
+  );
+}
+
+function RefineBar({ open, onToggle, panelId }: { open: boolean; onToggle: () => void; panelId: string }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      aria-controls={panelId}
+      onClick={onToggle}
+      className={cn(
+        "inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border px-3.5 text-sm font-extrabold transition",
+        searchFocusRing,
+        open
+          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+      )}
+    >
+      <SlidersHorizontal className="h-4 w-4" aria-hidden />
+      Refine
+      <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} aria-hidden />
+    </button>
+  );
+}
+
+function RefinePanel({ open, panelId }: { open: boolean; panelId: string }) {
+  if (!open) return null;
+  return (
+    <section
+      id={panelId}
+      data-testid="form-search-refine-panel"
+      aria-label="Refine results"
+      className={cn(searchResultsSection, "p-4 lg:p-5")}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Refine results</h2>
+          <p className="mt-0.5 text-xs font-medium text-[color:var(--text-muted)]">Filter controls are coming soon.</p>
+        </div>
+        <button
+          type="button"
+          disabled
+          title="Coming soon"
+          className={cn(
+            "cursor-not-allowed rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--clinical-accent)] opacity-70",
+            searchFocusRing,
+          )}
+        >
+          Reset
+        </button>
+      </div>
+      <div
+        className="mt-3 grid gap-2 opacity-70 sm:grid-cols-2 xl:grid-cols-4"
+        aria-disabled="true"
+        title="Coming soon"
+      >
+        {refineFilters.map((filter) => (
+          <RefineFilterItem key={filter.title} {...filter} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const resultsGridColumns = "md:grid-cols-[64px_minmax(0,1.35fr)_minmax(0,0.85fr)_minmax(0,1.35fr)_minmax(88px,auto)]";
+
 function ResultsTable({ matches, query }: { matches: FormSearchMatch[]; query: string }) {
   return (
     <section
@@ -127,10 +237,18 @@ function ResultsTable({ matches, query }: { matches: FormSearchMatch[]; query: s
       aria-label="Form record matches"
       className={cn("overflow-hidden", searchResultsSection)}
     >
-      <div className="p-5 pb-2">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 p-5 pb-3">
         <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Best matches</h2>
+        <span className="text-sm font-semibold text-[color:var(--text-muted)]">
+          {matches.length} {matches.length === 1 ? "form" : "forms"} · ranked by relevance
+        </span>
       </div>
-      <div className="hidden grid-cols-[86px_minmax(180px,1fr)_170px_minmax(180px,1fr)_86px] border-b border-[color:var(--border)] px-5 py-3 text-2xs font-bold uppercase text-[color:var(--text-muted)] md:grid">
+      <div
+        className={cn(
+          "grid gap-4 border-b border-[color:var(--border)] px-5 py-3 text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]",
+          resultsGridColumns,
+        )}
+      >
         <span>Form</span>
         <span>Title</span>
         <span>Tags</span>
@@ -144,17 +262,18 @@ function ResultsTable({ matches, query }: { matches: FormSearchMatch[]; query: s
             <article
               key={form.slug}
               data-testid={`form-search-result-${form.slug}`}
-              className="grid gap-4 border-b border-[color:var(--border)] px-5 py-4 transition last:border-b-0 hover:bg-[color:var(--surface-subtle)]/55 md:grid-cols-[86px_minmax(180px,1fr)_170px_minmax(180px,1fr)_86px] md:items-center"
+              className={cn(
+                "grid gap-4 border-b border-[color:var(--border)] px-5 py-4 transition last:border-b-0 hover:bg-[color:var(--surface-subtle)]/55 md:items-center",
+                resultsGridColumns,
+              )}
             >
-              <div className="grid h-12 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-3xl font-extrabold text-[color:var(--clinical-accent)]">
+              <div className="grid h-12 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-2xl font-extrabold text-[color:var(--clinical-accent)]">
                 {resultCode(match, index)}
               </div>
-              <div>
-                <h3 className="max-w-[21rem] text-sm font-extrabold leading-snug text-[color:var(--text-heading)]">
-                  {form.title}
-                </h3>
+              <div className="min-w-0">
+                <h3 className="text-sm font-extrabold leading-snug text-[color:var(--text-heading)]">{form.title}</h3>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex min-w-0 flex-wrap gap-2">
                 {(form.statusChips ?? []).slice(0, 2).map((chip, chipIndex) => {
                   const chipLabel = chip.label?.trim() || "Form";
                   return (
@@ -170,19 +289,19 @@ function ResultsTable({ matches, query }: { matches: FormSearchMatch[]; query: s
                   );
                 })}
               </div>
-              <p className="text-sm font-medium leading-relaxed text-[color:var(--text-muted)]">
+              <p className="min-w-0 text-sm font-medium leading-relaxed text-[color:var(--text-muted)]">
                 {compactMatchReason(match, query)}
               </p>
               <Link
                 href={`/forms/${form.slug}`}
                 aria-label={`Open ${form.title}`}
                 className={cn(
-                  "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] md:justify-self-end",
+                  "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] md:justify-self-end",
                   searchFocusRing,
                 )}
               >
                 Open
-                <ExternalLink className="h-4 w-4" />
+                <ExternalLink className="h-4 w-4" aria-hidden />
               </Link>
             </article>
           );
@@ -197,135 +316,8 @@ function ResultsTable({ matches, query }: { matches: FormSearchMatch[]; query: s
           )}
         >
           View all forms ({matches.length})
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4" aria-hidden />
         </Link>
-      </div>
-    </section>
-  );
-}
-
-function ToggleRow({
-  icon: Icon,
-  title,
-  subtitle,
-  enabled,
-  danger,
-}: {
-  icon: LucideIcon;
-  title: string;
-  subtitle: string;
-  enabled: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-[34px_1fr_42px] items-center gap-3 border-b border-[color:var(--border)] py-4 last:border-b-0">
-      <Icon className={cn("h-6 w-6", danger ? "text-[color:var(--danger)]" : "text-[color:var(--clinical-accent)]")} />
-      <div>
-        <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{title}</p>
-        <p className="mt-0.5 text-xs font-medium text-[color:var(--text-muted)]">{subtitle}</p>
-      </div>
-      <ToggleSwitch enabled={enabled} aria-label={title} />
-    </div>
-  );
-}
-
-function RefineRail() {
-  return (
-    <section className={cn(searchResultsSection, "p-5")} title="Coming soon">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Refine</h2>
-        <button
-          type="button"
-          disabled
-          title="Coming soon"
-          className={cn(
-            "cursor-not-allowed rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--clinical-accent)] opacity-70",
-            searchFocusRing,
-          )}
-        >
-          Reset
-        </button>
-      </div>
-      <div className="mt-4 opacity-70" aria-disabled="true">
-        <ToggleRow icon={Shield} title="High risk only" subtitle="Show high risk forms" enabled={false} danger />
-        <ToggleRow icon={FileText} title="Official forms" subtitle="Limit to official forms" enabled />
-        <ToggleRow icon={Workflow} title="Pathway linked" subtitle="Show pathway-linked" enabled />
-        <ToggleRow icon={Search} title="Source matches" subtitle="Require source match" enabled={false} />
-      </div>
-    </section>
-  );
-}
-
-function NextSteps() {
-  const steps = [
-    {
-      icon: FileText,
-      title: "Open Form 4A",
-      subtitle: "View the Transport order form",
-      href: "/forms/transport-crisis-form",
-    },
-    { icon: Workflow, title: "View transport pathway", subtitle: "Explore before, current, parallel, after" },
-    { icon: FileText, title: "Check source evidence", subtitle: "See matching sections and snippets" },
-  ];
-  return (
-    <section className={cn(searchResultsSection, "p-4 lg:p-5")}>
-      <h2 className="text-base font-extrabold text-[color:var(--text-heading)] lg:text-lg">Next steps</h2>
-      <div className="mt-2 lg:mt-3">
-        {steps.map(({ icon: Icon, title, subtitle, href }) => {
-          const rowClassName = cn(
-            "grid w-full grid-cols-[28px_1fr_18px] items-center gap-3 rounded-lg border-b border-[color:var(--border)] py-3 text-left transition last:border-b-0 lg:grid-cols-[32px_1fr_18px] lg:px-2 lg:py-4",
-            href ? "hover:bg-[color:var(--surface-subtle)]" : "cursor-not-allowed opacity-70",
-            searchFocusRing,
-          );
-          const rowContent = (
-            <>
-              <Icon className="h-5 w-5 text-[color:var(--clinical-accent)] lg:h-6 lg:w-6" />
-              <span>
-                <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">{title}</span>
-                <span className="mt-0.5 block text-xs font-medium text-[color:var(--text-muted)]">{subtitle}</span>
-              </span>
-              <ChevronRight className="h-5 w-5 text-[color:var(--text-heading)]" />
-            </>
-          );
-          return href ? (
-            <Link key={title} href={href} className={rowClassName}>
-              {rowContent}
-            </Link>
-          ) : (
-            <button key={title} type="button" disabled title="Coming soon" className={rowClassName}>
-              {rowContent}
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function SourceSnapshot() {
-  const rows = [
-    ["Source snippets", String(sourceSnippetCount)],
-    ["Source", "Official source"],
-    ["Act sections", "29, 63, 67, 92, 112, 129, 133, 148, 154"],
-    ["Review due", "01 May 2026"],
-  ];
-  return (
-    <section className={cn(searchResultsSection, "p-5")}>
-      <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Source snapshot</h2>
-      <div className="mt-3">
-        {rows.map(([label, value], index) => {
-          const Icon = index === 3 ? Clock3 : index === 1 ? ShieldCheck : FileText;
-          return (
-            <div
-              key={label}
-              className="grid grid-cols-[28px_1fr_1fr] gap-3 border-b border-[color:var(--border)] py-4 text-sm last:border-b-0"
-            >
-              <Icon className="h-5 w-5 text-[color:var(--clinical-accent)]" />
-              <span className="font-extrabold text-[color:var(--text-heading)]">{label}</span>
-              <span className="text-right font-medium text-[color:var(--text-muted)]">{value}</span>
-            </div>
-          );
-        })}
       </div>
     </section>
   );
@@ -437,48 +429,50 @@ function VerifiedFooter() {
 
 function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: string }) {
   return (
-    <section
-      data-testid="form-search-mobile-results"
-      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1.5 shadow-[var(--shadow-tight)]"
-    >
-      <h2 className="px-1 pb-1 text-sm font-extrabold text-[color:var(--text-heading)]">Top forms</h2>
-      <div className="grid gap-1">
+    <section data-testid="form-search-mobile-results" className={cn(searchResultsSection, "p-3")}>
+      <div className="flex items-baseline justify-between gap-2 px-1">
+        <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Best matches</h2>
+        <span className="text-xs font-bold text-[color:var(--text-muted)]">
+          {matches.length} {matches.length === 1 ? "form" : "forms"}
+        </span>
+      </div>
+      <div className="mt-2 grid gap-2">
         {matches.map((match, index) => {
           const form = match.service;
           return (
             <article
               key={form.slug}
               data-testid={`form-search-mobile-result-${form.slug}`}
-              className="grid grid-cols-[38px_minmax(0,1fr)] gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[0_1px_2px_rgb(12_24_34_/_5%)]"
+              className="grid grid-cols-[44px_minmax(0,1fr)] gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[0_1px_2px_rgb(12_24_34_/_5%)]"
             >
-              <div className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-lg font-extrabold leading-none text-[color:var(--clinical-accent)]">
+              <div className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-xl font-extrabold leading-none text-[color:var(--clinical-accent)]">
                 {resultCode(match, index)}
               </div>
               <div className="min-w-0">
                 <div className="flex min-w-0 items-start justify-between gap-2">
-                  <h3 className="min-w-0 text-xs font-extrabold leading-[1.15] text-[color:var(--text-heading)]">
+                  <h3 className="min-w-0 text-sm-minus font-extrabold leading-snug text-[color:var(--text-heading)]">
                     {form.title}
                   </h3>
                   <Link
                     href={`/forms/${form.slug}`}
                     aria-label={`Open ${form.title}`}
                     className={cn(
-                      "relative inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-[color:var(--border)] px-2 text-3xs font-extrabold text-[color:var(--clinical-accent)] transition before:absolute before:-inset-2 before:rounded-lg before:content-[''] hover:bg-[color:var(--clinical-accent-soft)]",
+                      "relative inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-[color:var(--border)] px-2.5 text-2xs font-extrabold text-[color:var(--clinical-accent)] transition before:absolute before:-inset-2 before:rounded-lg before:content-[''] hover:bg-[color:var(--clinical-accent-soft)]",
                       searchFocusRing,
                     )}
                   >
                     Open
-                    <ExternalLink className="h-3 w-3" />
+                    <ExternalLink className="h-3 w-3" aria-hidden />
                   </Link>
                 </div>
-                <div className="mt-0.5 flex flex-wrap gap-1">
+                <div className="mt-1 flex flex-wrap gap-1">
                   {(form.statusChips ?? []).slice(0, 2).map((chip, chipIndex) => {
                     const chipLabel = chip.label?.trim() || "Form";
                     return (
                       <span
                         key={`${chipLabel}-${chipIndex}`}
                         className={cn(
-                          "rounded-full px-1.5 py-0.5 text-4xs font-extrabold uppercase leading-none",
+                          "rounded-full px-2 py-0.5 text-4xs font-extrabold uppercase leading-none",
                           tagToneClass(chipLabel),
                         )}
                       >
@@ -487,7 +481,7 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
                     );
                   })}
                 </div>
-                <p className="mt-0.5 truncate text-3xs font-medium leading-3 text-[color:var(--text-muted)]">
+                <p className="mt-1 text-xs font-medium leading-snug text-[color:var(--text-muted)]">
                   {compactMatchReason(match, query)}
                 </p>
               </div>
@@ -498,12 +492,12 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
       <Link
         href="/forms"
         className={cn(
-          "mx-auto mt-1.5 flex min-h-8 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+          "mx-auto mt-2 flex min-h-9 w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
           searchFocusRing,
         )}
       >
         View all forms ({matches.length})
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight className="h-4 w-4" aria-hidden />
       </Link>
     </section>
   );
@@ -511,11 +505,11 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
 
 function MobilePathway() {
   return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-tight)]">
+    <section className={cn(searchResultsSection, "p-3")}>
       <h2 className="text-sm-minus font-extrabold text-[color:var(--text-heading)]">
         Related pathway <span className="font-medium text-[color:var(--text-muted)]">( PSOLIS Transport )</span>
       </h2>
-      <div className="mt-1.5 flex items-center gap-1 overflow-x-auto pb-0.5">
+      <div className="mt-2 flex items-center gap-1 overflow-x-auto pb-0.5">
         {[
           ["1A", "Referral"],
           ["4A", "Transport order"],
@@ -525,7 +519,7 @@ function MobilePathway() {
           <div key={`${code}-${label}`} className="flex items-center gap-1">
             <div
               className={cn(
-                "min-w-[55px] rounded-md border p-1 text-center",
+                "min-w-[64px] rounded-md border p-1.5 text-center",
                 index === 1
                   ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
                   : "border-[color:var(--border)] bg-[color:var(--surface)]",
@@ -543,7 +537,7 @@ function MobilePathway() {
                 </p>
               ) : null}
             </div>
-            {index < 3 ? <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-muted)]" /> : null}
+            {index < 3 ? <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" /> : null}
           </div>
         ))}
       </div>
@@ -618,6 +612,8 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const command = useSearchCommand();
   const registry = useRegistryRecords("form");
   const registryReady = registry.status === "ready";
+  const [refineOpen, setRefineOpen] = useState(false);
+  const refinePanelId = useId();
   const matches = useMemo(
     () => (registryReady ? rankFormRecords(registry.records, query) : []),
     [registryReady, registry.records, query],
@@ -630,71 +626,54 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
 
   return (
     <div className={cn("overflow-x-hidden", searchPageCanvas)}>
-      <main className="mx-auto grid w-full max-w-7xl gap-3 px-4 pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6">
-        <div className="grid gap-3 lg:gap-5">
-          <RegistryStatusNotice status={registry.status} />
-          {registryReady ? (
-            <>
-              <div className="hidden lg:block">
-                <SearchResultsHeaderBand modeId="forms" query={query} matchCount={scopedMatches.length} />
-              </div>
-              {query.trim() && scopedMatches.length === 0 ? (
-                <SearchResultsEmptyState
-                  modeId="forms"
-                  query={query}
-                  onClearScopes={command?.onClearScopes}
-                  onTryExample={(example) =>
-                    router.push(appModeHomeHref("forms", { query: example, focus: true, run: true }))
-                  }
-                />
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
+      <main className="mx-auto grid w-full max-w-7xl gap-3 px-4 pt-3 sm:px-6 lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6">
+        <RegistryStatusNotice status={registry.status} />
+        {registryReady ? (
+          <>
+            <div className="hidden md:block">
+              <SearchResultsHeaderBand modeId="forms" query={query} matchCount={scopedMatches.length} />
+            </div>
+            {query.trim() && scopedMatches.length === 0 ? (
+              <SearchResultsEmptyState
+                modeId="forms"
+                query={query}
+                onClearScopes={command?.onClearScopes}
+                onTryExample={(example) =>
+                  router.push(appModeHomeHref("forms", { query: example, focus: true, run: true }))
+                }
+              />
+            ) : (
+              <>
+                <div className="flex min-w-0 items-end gap-3 border-b border-[color:var(--border)]">
+                  <div className="min-w-0 flex-1 overflow-x-auto">
                     <ResultTabs formsCount={scopedMatches.length} />
                   </div>
-                  <div className="hidden lg:block">
-                    <ResultsTable matches={scopedMatches} query={query} />
+                  <div className="pb-1.5">
+                    <RefineBar
+                      open={refineOpen}
+                      onToggle={() => setRefineOpen((open) => !open)}
+                      panelId={refinePanelId}
+                    />
                   </div>
-                  <div className="lg:hidden">
-                    <MobileCards matches={scopedMatches} query={query} />
-                  </div>
-                </>
-              )}
-            </>
-          ) : null}
-          <div className="hidden lg:block">
-            <PathwayPanel />
-          </div>
-          <div className="lg:hidden">
-            <MobilePathway />
-          </div>
-          <div className="hidden lg:block">
-            <VerifiedFooter />
-          </div>
-        </div>
-
-        <aside className="hidden gap-5 lg:grid">
-          <RefineRail />
-          <NextSteps />
-          <SourceSnapshot />
-        </aside>
-
-        <div className="grid gap-3 lg:hidden">
-          <NextSteps />
-          <button
-            type="button"
-            disabled
-            title="Coming soon"
-            className={cn(
-              "mx-auto inline-flex h-10 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-8 text-sm font-extrabold text-[color:var(--clinical-accent)] opacity-70 shadow-[var(--shadow-inset)]",
-              searchFocusRing,
+                </div>
+                <RefinePanel open={refineOpen} panelId={refinePanelId} />
+                <div className="hidden md:block">
+                  <ResultsTable matches={scopedMatches} query={query} />
+                </div>
+                <div className="md:hidden">
+                  <MobileCards matches={scopedMatches} query={query} />
+                </div>
+              </>
             )}
-          >
-            <SlidersHorizontal className="h-5 w-5" />
-            Filters
-          </button>
-          <VerifiedFooter />
+          </>
+        ) : null}
+        <div className="hidden lg:block">
+          <PathwayPanel />
         </div>
+        <div className="lg:hidden">
+          <MobilePathway />
+        </div>
+        {registryReady ? <VerifiedFooter /> : null}
       </main>
     </div>
   );

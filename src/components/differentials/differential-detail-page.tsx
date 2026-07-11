@@ -160,7 +160,7 @@ function SectionItems({
               {slug ? (
                 <Link
                   href={`/differentials/diagnoses/${slug}`}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]/70"
+                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]"
                 >
                   {item}
                   <ChevronRight className="h-3.5 w-3.5" aria-hidden />
@@ -183,7 +183,7 @@ function SectionItems({
       className={cn(
         "grid gap-2",
         section.tone === "warning" &&
-          "rounded-lg border border-[color:var(--danger-border)]/50 bg-[color:var(--danger-soft)]/40 p-3",
+          "rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-3",
       )}
     >
       {items.map((item) => (
@@ -263,7 +263,7 @@ function SectionRow({
         if (next !== open) onOpenChange(section.id, next);
       }}
     >
-      <summary className="grid min-h-[4.25rem] cursor-pointer list-none grid-cols-[2.25rem_minmax(0,1fr)_auto_1rem] items-center gap-3 px-3 py-2.5 hover:bg-[color:var(--surface-subtle)]/60 sm:min-h-[4.75rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_9rem_5.5rem_2rem] sm:px-4 sm:py-3">
+      <summary className="grid min-h-[4.25rem] cursor-pointer list-none grid-cols-[2.25rem_minmax(0,1fr)_auto_1rem] items-center gap-3 px-3 py-2.5 hover:bg-[color:var(--surface-subtle)] sm:min-h-[4.75rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_9rem_5.5rem_2rem] sm:px-4 sm:py-3">
         {iconTile}
         <div className="min-w-0">
           <h2 className="text-sm font-extrabold text-[color:var(--text-heading)] sm:text-base">{section.title}</h2>
@@ -318,7 +318,10 @@ type SnapshotTheme = {
 const snapshotThemes: Record<DifferentialRecord["status"], SnapshotTheme> = {
   emergent: {
     Icon: ShieldAlert,
-    container: "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/50",
+    // Full-opacity soft tokens: an /NN modifier compiles to a color-mix toward
+    // transparent, which renders near-invisible on the near-white soft values
+    // in light mode (see PR #468).
+    container: "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]",
     iconTile: "border-[color:var(--danger)]/20 bg-[color:var(--surface)] text-[color:var(--danger)]",
     heading: "text-[color:var(--danger)]",
     divider: "border-[color:var(--danger)]/14",
@@ -327,7 +330,7 @@ const snapshotThemes: Record<DifferentialRecord["status"], SnapshotTheme> = {
   },
   urgent: {
     Icon: AlertTriangle,
-    container: "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50",
+    container: "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]",
     iconTile: "border-[color:var(--warning)]/25 bg-[color:var(--surface)] text-[color:var(--warning)]",
     heading: "text-[color:var(--warning)]",
     divider: "border-[color:var(--warning)]/20",
@@ -336,7 +339,7 @@ const snapshotThemes: Record<DifferentialRecord["status"], SnapshotTheme> = {
   },
   routine: {
     Icon: Info,
-    container: "border-[color:var(--border)] bg-[color:var(--surface-subtle)]/60",
+    container: "border-[color:var(--border)] bg-[color:var(--surface-subtle)]",
     iconTile: "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
     heading: "text-[color:var(--text-heading)]",
     divider: "border-[color:var(--border)]",
@@ -520,7 +523,7 @@ function CurrentPresentation({ record }: { record: DifferentialRecord }) {
           {view.groups.map((group, index) => (
             <div
               key={`${group.title}-${index}`}
-              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)]/50 p-3"
+              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
             >
               <p className="text-sm font-bold text-[color:var(--text-heading)]">{group.title}</p>
               <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">{group.candidates}</p>
@@ -572,7 +575,7 @@ function ComparePanel({
         <li
           className={cn(
             rowClassName,
-            "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/40",
+            "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]",
           )}
         >
           <span className="inline-flex min-w-0 items-center gap-2">
@@ -1004,7 +1007,7 @@ export function DifferentialDetailPage({
             <>
               <SafetySnapshot record={record} onReviewMustNotMiss={reviewMustNotMiss} />
               <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
-                <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)]/60 px-3 sm:px-4">
+                <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
                   <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                     Clinical review
                   </p>
