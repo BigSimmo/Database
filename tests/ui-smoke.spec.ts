@@ -1497,7 +1497,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
     const rail = strip.getByTestId("cross-mode-links-rail");
     await expect(rail).toBeVisible();
-    await expect(rail).toHaveClass(/overflow-x-auto/);
+    await expect(rail).toHaveClass(/md:flex-wrap/);
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
     await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();

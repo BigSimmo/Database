@@ -521,9 +521,6 @@ function PriorAnswerTurnSurface({
     [turn.answer, turn.sources],
   );
   const safeText = useMemo(() => sanitizeAnswerDisplayText(turn.answer.answer), [turn.answer.answer]);
-  const weakEvidence = renderModel.trust === "unsupported" || renderModel.trust === "low";
-  const grounded =
-    turn.answer.grounded === true && turn.answer.confidence !== "unsupported" && renderModel.trust !== "unsupported";
   const sourceCount =
     renderModel.primarySources.length ||
     turn.sources.length ||
@@ -558,8 +555,6 @@ function PriorAnswerTurnSurface({
           <NaturalLanguageAnswer
             text={previewText}
             sourceCount={sourceCount}
-            weakEvidence={weakEvidence}
-            grounded={grounded}
             sourceOnly={turn.answer.answerQualityTier === "source_only"}
             bestSource={renderModel.bestSource}
             sources={renderModel.reviewSources}
