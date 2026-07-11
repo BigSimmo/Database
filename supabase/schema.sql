@@ -4945,8 +4945,9 @@ create table if not exists public.clinical_registry_record_sources (
 
 create index if not exists clinical_registry_records_owner_kind_idx
   on public.clinical_registry_records(owner_id, kind, title);
-create index if not exists clinical_registry_record_sources_record_idx
-  on public.clinical_registry_record_sources(record_id);
+-- No standalone record_id index: the unique (record_id, document_id) index's
+-- leading column serves record_id lookups (20260711000000 dropped the redundant
+-- clinical_registry_record_sources_record_idx).
 create index if not exists clinical_registry_record_sources_document_idx
   on public.clinical_registry_record_sources(document_id);
 
