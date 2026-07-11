@@ -358,7 +358,7 @@ export function PanelHeading({
   return (
     <div className="flex items-start gap-3">
       <span className={iconTile}>
-        <Icon className="h-4 w-4" />
+        <Icon className="size-icon-md sm:size-icon-lg" />
       </span>
       <div className="min-w-0">
         <h2 className="text-base font-semibold text-[color:var(--text-heading)]">{title}</h2>
@@ -415,7 +415,7 @@ export function EmptyState({ icon: Icon, title, body }: { icon: IconComponent; t
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-          <Icon className="size-icon-lg" />
+          <Icon className="size-icon-md sm:size-icon-lg" />
         </span>
         <div className="min-w-0">
           <p className="font-semibold text-[color:var(--text)]">{title}</p>
