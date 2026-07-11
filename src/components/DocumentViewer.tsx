@@ -2328,17 +2328,25 @@ export function DocumentViewer({
   const usefulPageCount = usefulDocumentPages(initialPage, pages).length || 1;
   useEffect(() => {
     if (!chunkId || loadingDocument) return;
-    const desktopPanelVisible = window.matchMedia("(min-width: 1024px)").matches;
-    if (!desktopPanelVisible) {
-      const mobileDetails = window.document.getElementById("source-text-mobile");
-      if (mobileDetails instanceof HTMLDetailsElement) mobileDetails.open = true;
+    // Both the mobile and desktop IndexedTextPanel render the pinned chunk, so a
+    // plain querySelector returns the first match in DOM order — the mobile one,
+    // which is display:none on lg+ and lives in a collapsed <details> on phones.
+    // Scroll the copy the user can actually see: skip display:none matches and
+    // expand the mobile <details> when the pinned chunk only exists inside it.
+    const matches = Array.from(
+      window.document.querySelectorAll<HTMLElement>(`[data-source-chunk-id="${CSS.escape(chunkId)}"]`),
+    );
+    const isDisplayed = (element: HTMLElement) => element.offsetParent !== null || element.getClientRects().length > 0;
+    const inClosedDetails = (element: HTMLElement) => Boolean(element.closest("details:not([open])"));
+    let target = matches.find((element) => isDisplayed(element) && !inClosedDetails(element));
+    if (!target) {
+      const collapsed = matches
+        .map((element) => element.closest("details"))
+        .find((node): node is HTMLDetailsElement => node instanceof HTMLDetailsElement && !node.open);
+      if (collapsed) collapsed.open = true;
+      target = matches.find((element) => isDisplayed(element) && !inClosedDetails(element)) ?? matches[0];
     }
-
-    const idPrefix = desktopPanelVisible ? "desktop-chunk" : "mobile-chunk";
-    const frame = window.requestAnimationFrame(() => {
-      window.document.getElementById(`${idPrefix}-${chunkId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
-    });
-    return () => window.cancelAnimationFrame(frame);
+    target?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [chunkId, loadingDocument, chunks.length]);
   const retryPreview = () => {
     setViewerError(null);
