@@ -3421,6 +3421,22 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const minSimilarity = args.minSimilarity ?? 0.15;
   let embeddingStartedAt = 0;
 
+  // Speculative embedding (round-2 phase 5): on the cold hybrid path the
+  // embedding round trip started only after every lexical layer had run, so it
+  // was fully additive. Kick it off here to overlap the lexical RPCs. The
+  // lexical layers may ENRICH expandedQuery with candidate metadata before the
+  // real embed site — the speculation is only consumed when the query is still
+  // byte-identical there, so retrieval results cannot change; an enriched query
+  // falls back to the serial embed exactly as before (the speculative call is
+  // then one wasted cached/coalesced embedding). Never speculates for
+  // lexical-only (typeahead) or source-only retrieval, which skip embedding.
+  const speculativeEmbeddingQuery = expandedQuery;
+  const speculativeEmbedding =
+    sourceOnlyRetrieval || args.lexicalOnly ? null : embedTextWithTelemetry(speculativeEmbeddingQuery);
+  // Defers rejection handling to the await site below (auto-degrade semantics
+  // unchanged); without this a fast-path return would leave an unhandled rejection.
+  if (speculativeEmbedding) void speculativeEmbedding.catch(() => undefined);
+
   let textFastResults: SearchResult[] = [];
   const textRpcStartedAt = Date.now();
   const textData = await searchTextChunkCandidates({
@@ -3672,7 +3688,13 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   embeddingStartedAt = Date.now();
   let embeddingResult: Awaited<ReturnType<typeof embedTextWithTelemetry>> | null = null;
   try {
-    embeddingResult = await embedTextWithTelemetry(expandedQuery);
+    // embedding_latency_ms now measures the residual wait at this point: near
+    // zero when the speculative call overlapped the lexical layers, the full
+    // round trip when metadata enrichment changed the query (serial fallback).
+    embeddingResult =
+      speculativeEmbedding && expandedQuery === speculativeEmbeddingQuery
+        ? await speculativeEmbedding
+        : await embedTextWithTelemetry(expandedQuery);
   } catch (error) {
     // In auto mode a failed embedding call (e.g. quota exhausted) degrades to the lexical
     // results already gathered rather than failing the whole search. "openai" mode rethrows.
@@ -4696,7 +4718,12 @@ ${qualityRetryInstruction}`
         schemaName: "clinical_rag_answer",
         instructions: answerInstructions,
         promptCacheKey: "clinical-rag-answer-v18",
-        timeoutMs: env.OPENAI_ANSWER_TIMEOUT_MS,
+        // The fast tier may carry a tighter deadline (OPENAI_FAST_ANSWER_TIMEOUT_MS)
+        // so a hung generation falls back / escalates before the full answer
+        // timeout; unset it falls back to the shared timeout (no behavior change).
+        timeoutMs: useStrongReasoning
+          ? env.OPENAI_ANSWER_TIMEOUT_MS
+          : (env.OPENAI_FAST_ANSWER_TIMEOUT_MS ?? env.OPENAI_ANSWER_TIMEOUT_MS),
         maxRetries: 0,
         reasoningEffort: useStrongReasoning
           ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)

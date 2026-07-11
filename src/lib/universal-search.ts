@@ -170,10 +170,35 @@ function formItem(record: FormRecord, score: number): UniversalSearchItem {
   };
 }
 
+// Per-owner registry catalogs are small seeded sets that change rarely, but
+// signed-in typeahead re-read all three (medications/services/forms) from
+// Supabase on every debounced keystroke. Cache the mapped records per owner for
+// a short TTL — ranking still runs per keystroke, so within the TTL the ranked
+// output is identical to an uncached read. Single-process, like the module's
+// alias cache.
+const ownerCatalogTtlMs = 60_000;
+const ownerCatalogCacheMax = 128;
+const ownerCatalogCache = new Map<string, { records: unknown[]; expiresAtMs: number }>();
+
+async function cachedOwnerCatalog<T>(cacheKey: string, load: () => Promise<T[]>): Promise<T[]> {
+  const cached = ownerCatalogCache.get(cacheKey);
+  if (cached && cached.expiresAtMs > Date.now()) return cached.records as T[];
+  const records = await load();
+  ownerCatalogCache.set(cacheKey, { records, expiresAtMs: Date.now() + ownerCatalogTtlMs });
+  while (ownerCatalogCache.size > ownerCatalogCacheMax) {
+    const oldestKey = ownerCatalogCache.keys().next().value;
+    if (!oldestKey) break;
+    ownerCatalogCache.delete(oldestKey);
+  }
+  return records;
+}
+
 async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
     !args.demo && args.supabase && args.ownerId
-      ? (await fetchOwnerMedicationRowsWithSeed(args.supabase, args.ownerId)).map(rowToMedicationRecord)
+      ? await cachedOwnerCatalog(`medications:${args.ownerId}`, async () =>
+          (await fetchOwnerMedicationRowsWithSeed(args.supabase!, args.ownerId!)).map(rowToMedicationRecord),
+        )
       : defaultMedicationRecords();
   return rankMedicationRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     medicationItem(match.medication, match.score),
@@ -183,7 +208,9 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
 async function searchServicesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
     !args.demo && args.supabase && args.ownerId
-      ? (await fetchOwnerRegistryRowsWithSeed(args.supabase, args.ownerId, "service")).map(rowToServiceRecord)
+      ? await cachedOwnerCatalog(`services:${args.ownerId}`, async () =>
+          (await fetchOwnerRegistryRowsWithSeed(args.supabase!, args.ownerId!, "service")).map(rowToServiceRecord),
+        )
       : serviceRecords;
   return rankServiceRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     serviceItem(match.service, match.score),
@@ -193,7 +220,9 @@ async function searchServicesDomain(args: ResolvedSearchArgs): Promise<Universal
 async function searchFormsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
     !args.demo && args.supabase && args.ownerId
-      ? (await fetchOwnerRegistryRowsWithSeed(args.supabase, args.ownerId, "form")).map(rowToServiceRecord)
+      ? await cachedOwnerCatalog(`forms:${args.ownerId}`, async () =>
+          (await fetchOwnerRegistryRowsWithSeed(args.supabase!, args.ownerId!, "form")).map(rowToServiceRecord),
+        )
       : formRecords;
   return rankFormRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     formItem(match.service, match.score),

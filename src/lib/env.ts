@@ -55,6 +55,12 @@ const envSchema = z.object({
   // than fail-closed; strong reasoning effort is also query-class-capped to keep the
   // tail latency in budget (see strongReasoningEffortForQueryClass).
   OPENAI_ANSWER_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+  // Optional tighter deadline for the FAST answer tier only (SLO <=10s): a hung
+  // fast generation otherwise burns the full OPENAI_ANSWER_TIMEOUT_MS before it
+  // falls back or escalates. Unset = fast tier keeps OPENAI_ANSWER_TIMEOUT_MS
+  // (behavior unchanged); tune in production against real generation-latency
+  // telemetry before tightening. The strong tier always keeps the full timeout.
+  OPENAI_FAST_ANSWER_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
   OPENAI_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
   OPENAI_GENERATION_MAX_RETRIES: z.coerce.number().int().nonnegative().default(0),
   OPENAI_PROMPT_CACHE_RETENTION: z.enum(["off", "in_memory", "24h"]).default("24h"),
