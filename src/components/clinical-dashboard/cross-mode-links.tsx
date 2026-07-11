@@ -106,10 +106,11 @@ function CrossModeLinkChip({ link, Icon, query, onModeSearch }: CrossModeLinkCar
       </Link>
       <button
         type="button"
-        onClick={() => {
-          logCrossModeLinkOpen(query, link);
-          onModeSearch(link.modeId, link.modeSearchQuery);
-        }}
+        // Matches the card variant: the search button re-runs the query in the
+        // target mode, so it must not emit a cross_mode_link_open (a detail-page
+        // open) — only the title link above does. Otherwise every "Search in …"
+        // click would corrupt retrieval-quality/click telemetry.
+        onClick={() => onModeSearch(link.modeId, link.modeSearchQuery)}
         aria-label={`Search ${link.title} in ${link.modeLabel}`}
         className="grid min-h-11 w-11 shrink-0 place-items-center border-l border-[color:var(--border)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9 md:w-9"
       >
