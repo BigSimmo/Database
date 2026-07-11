@@ -713,12 +713,19 @@ export function MasterSearchHeader({
 
   useEffect(() => {
     if (!desktopHomeComposerSlotId) {
-      const frame = window.requestAnimationFrame(() => {
+      // No hero slot at this route: reset the portal state. Deferred to a
+      // microtask (not requestAnimationFrame) so it stays off the synchronous
+      // effect body without being frame-gated — headless CI can starve rAF.
+      let cancelled = false;
+      queueMicrotask(() => {
+        if (cancelled) return;
         setDesktopHomeComposerActive(false);
         setDesktopHomeComposerFallback(false);
         setDesktopHomeComposerHost(null);
       });
-      return () => window.cancelAnimationFrame(frame);
+      return () => {
+        cancelled = true;
+      };
     }
 
     // The composer is portaled into a stable host we own, and we move that host
