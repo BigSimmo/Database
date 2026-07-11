@@ -2214,7 +2214,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("document viewer puts pinned evidence before the PDF preview on mobile", async ({ page }) => {
+  test("document viewer puts the PDF preview first with pinned evidence after it on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 720 });
     await mockDemoApi(page);
     await gotoApp(
@@ -2256,9 +2256,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(previewBox).not.toBeNull();
     expect(indexedTextBox).not.toBeNull();
     expect(imagesBox).not.toBeNull();
-    expect(evidenceBox!.y).toBeLessThan(previewBox!.y);
+    expect(previewBox!.y).toBeLessThan(evidenceBox!.y);
     expect(evidenceBox!.height).toBeLessThan(640);
-    expect(indexedTextBox!.y).toBeLessThan(previewBox!.y);
+    expect(previewBox!.y).toBeLessThan(indexedTextBox!.y);
     expect(indexedTextBox!.y).toBeLessThan(imagesBox!.y);
 
     const passageToggle = page.getByTestId("toggle-full-passage").first();
