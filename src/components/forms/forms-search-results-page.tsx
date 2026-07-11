@@ -168,7 +168,6 @@ function RefineFilterItem({
 }
 
 function RefineBar({ open, onToggle, panelId }: { open: boolean; onToggle: () => void; panelId: string }) {
-  const activeCount = refineFilters.filter((filter) => filter.enabled).length;
   return (
     <button
       type="button"
@@ -185,9 +184,6 @@ function RefineBar({ open, onToggle, panelId }: { open: boolean; onToggle: () =>
     >
       <SlidersHorizontal className="h-4 w-4" aria-hidden />
       Refine
-      <span className="rounded-full bg-[color:var(--clinical-accent-soft)] px-2 py-0.5 text-xs leading-none text-[color:var(--clinical-accent)]">
-        {activeCount}
-      </span>
       <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} aria-hidden />
     </button>
   );
@@ -677,7 +673,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
         <div className="lg:hidden">
           <MobilePathway />
         </div>
-        <VerifiedFooter />
+        {registryReady ? <VerifiedFooter /> : null}
       </main>
     </div>
   );
