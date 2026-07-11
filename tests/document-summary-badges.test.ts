@@ -66,6 +66,23 @@ describe("buildDocumentSummaryBadges", () => {
     expect(badges[0]).toBe(contraindication);
   });
 
+  it("does not emit a danger badge for negated contraindication text", () => {
+    // A red Contraindications badge on negated text is a false clinical stop signal.
+    for (const summaryText of [
+      "There are no contraindications to this therapy.",
+      "Lithium is not contraindicated in mild renal impairment.",
+      "No known contraindications have been reported.",
+    ]) {
+      const badges = buildDocumentSummaryBadges({ summaryText });
+      expect(badges.find((badge) => badge.label === "Contraindications")).toBeUndefined();
+    }
+    // Still fires when a genuine (non-negated) contraindication is described.
+    const positive = buildDocumentSummaryBadges({
+      summaryText: "No dose adjustment needed, but it is contraindicated in severe hepatic failure.",
+    });
+    expect(positive.find((badge) => badge.label === "Contraindications")?.tone).toBe("danger");
+  });
+
   it("deduplicates equivalent label- and phrase-derived badges by display label", () => {
     const badges = buildDocumentSummaryBadges({
       labels: [label({ label: "high-risk medication", label_type: "risk", confidence: 0.9 })],

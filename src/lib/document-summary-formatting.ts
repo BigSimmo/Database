@@ -271,6 +271,13 @@ function splitIntoRawSections(text: string): RawSection[] {
 export function formatDocumentSummary(raw: string | null | undefined): FormattedDocumentSummary {
   if (!raw || !raw.trim()) return EMPTY_SUMMARY;
 
+  // The stored-summary truncation signal is a trailing ellipsis on the RAW text
+  // (the pre-fix retrieval_synopsis cut, e.g. "where poss..."). The sanitizer
+  // below normalizes that ellipsis into ". ", so capture it first — a complete
+  // final sentence that merely lacks punctuation has no raw ellipsis and must
+  // never be treated as truncated.
+  const rawEndedTruncated = /(?:\.{3}|…)\s*$/.test(raw.trim());
+
   // Reuse the house sanitizer first (glyph repair, protective markings, source
   // codes, label noise), then flatten to a single line for sentence work.
   const cleaned = cleanClinicalSummaryText(raw).replace(/\s+/g, " ").trim();
@@ -327,22 +334,26 @@ export function formatDocumentSummary(raw: string | null | undefined): Formatted
     if (headingKey) seenHeadings.set(headingKey, section);
   }
 
-  // Repair or drop a mid-word truncated tail on the very last item.
-  for (let index = orderedSections.length - 1; index >= 0; index -= 1) {
-    const items = orderedSections[index].items;
-    if (!items.length) continue;
-    const last = items[items.length - 1];
-    const endsWithEllipsis = /(?:\.{3}|…)\s*$/.test(last);
-    const endsCleanly = /[.!?:;)\]"']$/.test(last.trim());
-    if (endsCleanly && !endsWithEllipsis) break;
-    const repaired = repairTruncatedCompactTail(endsWithEllipsis ? last : `${last} ...`);
-    truncatedTail = true;
-    if (repaired && repaired.split(/\s+/).length >= 5) {
-      items[items.length - 1] = repaired;
-    } else {
-      items.pop();
+  // Repair or drop a tail that was cut mid-thought at indexing. Only acted on
+  // when the RAW stored summary actually ended with a truncation ellipsis, so a
+  // complete final sentence lacking punctuation is never dropped or mis-flagged.
+  if (rawEndedTruncated) {
+    for (let index = orderedSections.length - 1; index >= 0; index -= 1) {
+      const items = orderedSections[index].items;
+      if (!items.length) continue;
+      const last = items[items.length - 1];
+      // The sanitizer already turned the raw "…" into a plain period; restore an
+      // ellipsis so repairTruncatedCompactTail can drop the partial final token.
+      const base = last.replace(/[.\s]+$/, "");
+      const repaired = repairTruncatedCompactTail(`${base} ...`);
+      truncatedTail = true;
+      if (repaired && repaired.split(/\s+/).length >= 5) {
+        items[items.length - 1] = repaired;
+      } else {
+        items.pop();
+      }
+      break;
     }
-    break;
   }
 
   const sections = orderedSections.filter((section) => section.items.length > 0);

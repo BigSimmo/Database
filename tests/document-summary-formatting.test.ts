@@ -20,7 +20,7 @@ const messyLithiumSummary =
   "The therapeutic effect occurs gradually and may take up to three weeks. Lithium is a narrow therapeutic " +
   "index drug. It is handled by the body in a similar way to sodium; most risk factors for toxicity relate to " +
   "changes in sodium levels and fluid status. therapeutic effect occurs gradually and may take up to three " +
-  "weeks. Lithium is a narro";
+  "weeks. Lithium is a narro...";
 
 describe("stripSummaryBoilerplate", () => {
   it("removes the glued document-header run while keeping the first clinical sentence", () => {
@@ -136,5 +136,17 @@ describe("formatDocumentSummary", () => {
       "Doses are titrated based on serum lithium levels (refer to section 1.9. Therapeutic Drug Monitoring), tolerability and clinical response.",
     );
     expect(formatted.sections.every((section) => section.heading === null)).toBe(true);
+  });
+
+  it("keeps a complete final sentence that merely lacks terminal punctuation", () => {
+    // Regression: an unpunctuated but complete final sentence must not be
+    // fabricated into an ellipsis, truncated, or flagged as trimmed.
+    const formatted = formatDocumentSummary(
+      "This guideline covers clozapine initiation. Weekly monitoring continues for 18 weeks",
+    );
+    const allText = [formatted.lead, ...formatted.sections.flatMap((s) => s.items)].filter(Boolean).join(" ");
+    expect(allText).toContain("Weekly monitoring continues for 18 weeks");
+    expect(allText).not.toMatch(/…$/);
+    expect(formatted.truncatedTail).toBe(false);
   });
 });
