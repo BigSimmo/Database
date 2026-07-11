@@ -10,23 +10,14 @@ import type { RagAnswer, SearchResult } from "@/lib/types";
 // the final SSE/JSON event the user waits on after the prose has streamed.
 //
 // Ordering contract: sourceGovernanceWarnings and logAnswerDiagnostics consume
-// the FULL answer and must run before this trim (both routes do).
-
-// Longest snippet the source cards can usefully show; the render policy falls
-// back to `content` only when `retrieval_synopsis` is absent.
-const clientSourceContentMaxChars = 700;
-
-function truncateAtWordBoundary(text: string, maxChars: number) {
-  if (text.length <= maxChars) return text;
-  const slice = text.slice(0, maxChars);
-  const lastSpace = slice.lastIndexOf(" ");
-  return `${slice.slice(0, lastSpace > maxChars * 0.6 ? lastSpace : maxChars).trimEnd()}…`;
-}
+// the FULL answer and must run before this trim (both routes do). Full source
+// content remains client-visible because the safety panel scans it for clinical
+// warnings that may occur beyond the display synopsis.
 
 function trimSourceForClient(source: SearchResult): SearchResult {
   const trimmed: SearchResult = {
     ...source,
-    content: truncateAtWordBoundary(source.content ?? "", clientSourceContentMaxChars),
+    content: source.content ?? "",
   };
   delete trimmed.adjacent_context;
   delete trimmed.memory_cards;

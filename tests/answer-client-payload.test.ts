@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { toClientAnswerPayload } from "@/lib/answer-client-payload";
+import { extractSafetyFindings } from "@/lib/clinical-safety";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
 function fullSource(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -50,12 +51,18 @@ describe("toClientAnswerPayload", () => {
     expect(trimmed.page_number).toBe(4);
   });
 
-  it("truncates long chunk content at a word boundary", () => {
-    const trimmed = toClientAnswerPayload(answerWith([fullSource()])).sources![0];
-    expect(trimmed.content.length).toBeLessThanOrEqual(701);
-    expect(trimmed.content.endsWith("…")).toBe(true);
-    // Word-boundary cut: no partial trailing token before the ellipsis.
-    expect(trimmed.content.at(-2)).not.toBe(" ");
+  it("preserves full source content so client-side safety scanning cannot miss later warnings", () => {
+    const source = fullSource({ content: `${"Routine context. ".repeat(60)}Contraindicated in severe disease.` });
+    const payload = toClientAnswerPayload({
+      answer: "Review the source.",
+      grounded: true,
+      confidence: "medium",
+      citations: [],
+      sources: [source],
+    } as RagAnswer);
+
+    expect(payload.sources![0].content).toBe(source.content);
+    expect(extractSafetyFindings(payload)).toHaveLength(1);
   });
 
   it("leaves short content untouched", () => {
@@ -80,6 +87,6 @@ describe("toClientAnswerPayload", () => {
     const answer = answerWith(Array.from({ length: 8 }, (_, index) => fullSource({ id: `chunk-${index}` })));
     const fullBytes = JSON.stringify(answer).length;
     const trimmedBytes = JSON.stringify(toClientAnswerPayload(answer)).length;
-    expect(trimmedBytes).toBeLessThan(fullBytes * 0.5);
+    expect(trimmedBytes).toBeLessThan(fullBytes * 0.8);
   });
 });

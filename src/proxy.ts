@@ -19,9 +19,9 @@ import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-
 //   2. Session refresh. Keep the user's @supabase/ssr session cookie fresh on
 //      page navigations so persistent logins survive refreshes. It is a no-op
 //      unless the public Supabase env is configured AND an `sb-` auth cookie is
-//      present, so demo / local-no-auth traffic is untouched. API routes are
-//      excluded: their handlers validate the caller themselves, so refreshing
-//      here only added a serial auth round trip to every authenticated call.
+//      present, so demo / local-no-auth traffic is untouched. Cookie-authenticated
+//      API requests still pass through this refresh path because route handlers
+//      cannot write rotated SSR cookies back to the browser themselves.
 
 const documentFlowRedirects: Record<string, string> = {
   "/mockups/document-search-command": "/documents/search",
@@ -72,15 +72,7 @@ export async function proxy(request: NextRequest) {
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
   const key = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const hasAuthCookie = request.cookies.getAll().some((cookie) => cookie.name.startsWith("sb-"));
-  // API routes skip the session-refresh getUser: every /api handler validates
-  // the caller itself (bearer token and/or ssr cookie via getOptionalAuthenticatedUser),
-  // and nothing here consumed the result — the call existed only to keep
-  // cookies fresh, which page navigations still do on every non-API request.
-  // This removes one auth-server round trip from every authenticated API call;
-  // the CSP header above still applies to API responses. The browser client
-  // refreshes its own token (autoRefreshToken) for bearer-based API calls.
-  const isApiRoute = pathname.startsWith("/api/");
-  if (!url || !key || !hasAuthCookie || isApiRoute) {
+  if (!url || !key || !hasAuthCookie) {
     return withCsp(NextResponse.next({ request: { headers: requestHeadersWithNonce() } }));
   }
 
@@ -107,7 +99,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Run on everything except static assets and image files. API routes stay in
-  // the matcher so their responses carry the CSP header; they skip only the
-  // session-refresh getUser (see above).
+  // the matcher so cookie-authenticated requests can return rotated cookies and
+  // every response carries the CSP header.
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 // The proxy's second job (session-cookie refresh via supabase.auth.getUser)
-// must run on page navigations but NOT on /api routes: API handlers validate
-// the caller themselves, so the proxy call added a serial auth-server round
-// trip to every authenticated API request without gating anything.
+// must run on page navigations and cookie-authenticated API routes. Route
+// handlers can validate an SSR cookie, but their read-only adapter cannot return
+// rotated Set-Cookie headers to the browser.
 
 const getUser = vi.fn(async () => ({ data: { user: null }, error: null }));
 
@@ -12,7 +12,20 @@ vi.mock("@supabase/ssr", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@supabase/ssr")>();
   return {
     ...actual,
-    createServerClient: vi.fn(() => ({ auth: { getUser } })),
+    createServerClient: vi.fn((_url, _key, options: { cookies: { setAll: (cookies: never[]) => void } }) => ({
+      auth: {
+        getUser: async () => {
+          options.cookies.setAll([
+            {
+              name: "sb-unit-test-auth-token",
+              value: "rotated-session",
+              options: { path: "/", httpOnly: true },
+            },
+          ] as never[]);
+          return getUser();
+        },
+      },
+    })),
   };
 });
 
@@ -39,11 +52,12 @@ beforeEach(() => {
 });
 
 describe("proxy session refresh scoping", () => {
-  it("skips the session-refresh getUser for API routes but still stamps the CSP", async () => {
+  it("refreshes SSR cookies for cookie-authenticated API routes and stamps the CSP", async () => {
     const { proxy } = await import("../src/proxy");
     const response = await proxy(requestWithSessionCookie("/api/answer"));
 
-    expect(getUser).not.toHaveBeenCalled();
+    expect(getUser).toHaveBeenCalledTimes(1);
+    expect(response.cookies.get("sb-unit-test-auth-token")?.value).toBe("rotated-session");
     expect(response.headers.get("content-security-policy")).toBeTruthy();
   });
 
