@@ -127,8 +127,11 @@ export function getDifferentialDetailContext(
 ): DifferentialDetailContext {
   const catalogRecords = catalog.records ?? differentialRecords;
   const catalogPresentations = catalog.presentations ?? differentialPresentations();
-  const catalogSlugs = new Set(catalogRecords.map((entry) => entry.slug));
-  const knownRelatedSlugs = [...new Set(record.related.map((node) => node.id).filter((id) => catalogSlugs.has(id)))];
+  const routableDiagnosisSlugs = new Set(differentialRecords.map((entry) => entry.slug));
+  const routablePresentationSlugs = new Set(differentialPresentations().map((entry) => entry.id));
+  const knownRelatedSlugs = [
+    ...new Set(record.related.map((node) => node.id).filter((id) => routableDiagnosisSlugs.has(id))),
+  ];
 
   const overlapLinks: Record<string, string> = {};
   const titleMap = diagnosisTitleSlugMap(catalogRecords);
@@ -137,13 +140,16 @@ export function getDifferentialDetailContext(
     for (const item of section.items) {
       const cleaned = cleanDifferentialItem(item);
       const slug = titleMap.get(cleaned.toLowerCase());
-      if (slug && slug !== record.slug) overlapLinks[cleaned] = slug;
+      if (slug && slug !== record.slug && routableDiagnosisSlugs.has(slug)) overlapLinks[cleaned] = slug;
     }
   }
 
   const presentation =
-    catalogPresentations.find((workflow) => workflow.candidates.some((candidate) => candidate.slug === record.slug)) ??
-    null;
+    catalogPresentations.find(
+      (workflow) =>
+        routablePresentationSlugs.has(workflow.id) &&
+        workflow.candidates.some((candidate) => candidate.slug === record.slug),
+    ) ?? null;
 
   const snapshot = loadDifferentialSnapshot();
   const governance = deriveGovernanceFromSnapshot(snapshot);

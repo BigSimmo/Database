@@ -166,9 +166,9 @@ describe("differentials API routes", () => {
     };
 
     expect(response.status).toBe(200);
-    expect(payload.detailContext?.knownRelatedSlugs).toEqual(["owner-related"]);
-    expect(payload.detailContext?.overlapLinks).toEqual({ "Owner related": "owner-related" });
-    expect(payload.detailContext?.comparePresentation?.slug).toBe("owner-presentation");
+    expect(payload.detailContext?.knownRelatedSlugs).toEqual([]);
+    expect(payload.detailContext?.overlapLinks).toEqual({});
+    expect(payload.detailContext?.comparePresentation).toBeNull();
   });
 
   it("serves delirium from snapshot in demo mode", async () => {
