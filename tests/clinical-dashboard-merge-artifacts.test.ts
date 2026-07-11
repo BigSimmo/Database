@@ -21,6 +21,13 @@ const scannedFiles = [
   };
 });
 
+const globalSearchShellSource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/global-mockup-search-shell.tsx"),
+  "utf8",
+);
+const clinicalDashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+const globalStylesSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
+
 type FoundDeclaration = { node: ts.FunctionDeclaration; ast: ts.SourceFile };
 
 function findFunctionDeclaration(name: string): FoundDeclaration | null {
@@ -55,6 +62,21 @@ function descendantIdentifiers(node: ts.Node) {
 }
 
 describe("ClinicalDashboard merge-artifact guards", () => {
+  it("keeps the mode-home composer continuous across the desktop breakpoint", () => {
+    expect(globalStylesSource.match(/clamp\(28rem, 50vw, 48rem\)/g)).toHaveLength(2);
+    expect(globalStylesSource).not.toContain("clamp(34rem, 50vw, 48rem)");
+  });
+
+  it("keeps a mobile height floor for centered mode homes", () => {
+    expect(clinicalDashboardSource).toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
+    expect(clinicalDashboardSource).not.toContain("max-sm:min-h-0 max-sm:flex-1");
+  });
+
+  it("reserves phone space for the fixed mode-home composer", () => {
+    expect(globalSearchShellSource).toContain("const mobileComposerReserve = !shouldShowSearchComposer");
+    expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = !reservesFloatingComposer");
+  });
+
   it("does not reintroduce the obsolete output-mode copy helper", () => {
     expect(findFunctionDeclaration("clinicalOutputModeCopy")).toBeNull();
   });

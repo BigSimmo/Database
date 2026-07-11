@@ -1,6 +1,10 @@
 const config = {
   test: {
-    testTimeout: 15000,
+    // Route and RAG tests cold-import large Next.js module graphs inside the test
+    // body. Give those transforms headroom on slower worktree filesystems while
+    // retaining a finite timeout that still catches genuine hangs.
+    testTimeout: 30_000,
+    maxWorkers: 2,
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
@@ -27,6 +31,7 @@ const config = {
   resolve: {
     alias: {
       "@": new URL("./src", import.meta.url).pathname,
+      "server-only": new URL("./tests/stubs/server-only.ts", import.meta.url).pathname,
     },
   },
 };

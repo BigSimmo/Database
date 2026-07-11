@@ -213,8 +213,6 @@ function StagedAnswerResultSurfaceImpl({
             <NaturalLanguageAnswer
               text={safeAnswerText || answer.answer}
               sourceCount={sourceCount}
-              weakEvidence={weakEvidence}
-              grounded={answerGrounded}
               sourceOnly={answer.answerQualityTier === "source_only"}
               bestSource={bestSource}
               sources={sources}

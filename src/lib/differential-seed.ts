@@ -1,5 +1,6 @@
 import { buildDefaultDifferentialRows } from "@/lib/differential-fixtures";
 import { type DifferentialRecordInsert, type DifferentialRecordRow } from "@/lib/differential-records";
+import { safeErrorLogDetails } from "@/lib/privacy";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
 
@@ -20,11 +21,42 @@ export async function ensureDifferentialsSeeded(
     .select("*");
   if (error) throw new Error(`Differential seed failed: ${error.message}`);
   const seededRows = (data ?? []) as DifferentialRecordRow[];
-  const { embedDifferentialRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
-  if (registryCorpusEmbeddingEnabled()) {
-    await embedDifferentialRows(supabase, seededRows);
-  }
+  const { bestEffortSyncDifferentialRows } = await loadRegistryCorpus();
+  await bestEffortSyncDifferentialRows(supabase, seededRows);
   return seededRows;
+}
+
+export async function fetchOwnerDifferentialRowsWithSeed(
+  supabase: AdminClient,
+  ownerId: string,
+  kind: DifferentialRecordRow["kind"],
+  maxRecords = 500,
+): Promise<DifferentialRecordRow[]> {
+  const fetchRecords = async () => {
+    const { data, error } = await supabase
+      .from("differential_records")
+      .select("*")
+      .eq("owner_id", ownerId)
+      .eq("kind", kind)
+      .order("title")
+      .limit(maxRecords);
+    if (error) throw new Error(error.message);
+    return (data ?? []) as DifferentialRecordRow[];
+  };
+
+  let rows = await fetchRecords();
+  if (rows.length === 0) {
+    let seedError: unknown = null;
+    try {
+      await ensureDifferentialsSeeded(supabase, ownerId);
+    } catch (error) {
+      seedError = error;
+      console.error("[differentials] auto-seed failed", safeErrorLogDetails(error));
+    }
+    rows = await fetchRecords();
+    if (rows.length === 0 && seedError) throw seedError;
+  }
+  return rows;
 }
 
 export function buildDifferentialSeedRows(ownerId: string): DifferentialRecordInsert[] {

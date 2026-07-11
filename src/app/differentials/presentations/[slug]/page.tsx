@@ -6,7 +6,7 @@ import { getPresentationWorkflow, presentationStaticParams } from "@/lib/differe
 
 type DifferentialPresentationRouteProps = {
   params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ query?: string | string[]; q?: string | string[] }>;
+  searchParams?: Promise<{ query?: string | string[]; q?: string | string[]; ids?: string | string[] }>;
 };
 
 function firstSearchParam(value?: string | string[]) {
@@ -36,6 +36,10 @@ export default async function DifferentialPresentationRoute({
 
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const query = firstSearchParam(resolvedSearchParams.query ?? resolvedSearchParams.q)?.trim() ?? "";
+  const selectedIds = (firstSearchParam(resolvedSearchParams.ids) ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
 
-  return <DifferentialPresentationWorkflowPage query={query} presentationSlug={slug} />;
+  return <DifferentialPresentationWorkflowPage query={query} presentationSlug={slug} selectedIds={selectedIds} />;
 }
