@@ -65,6 +65,20 @@ alone is ~3 × 6.75 s of parallel DB CPU.**
 
 ### F1 — `match_document_table_facts_text` is slow, but the cause is a generic query plan, not the predicate — CORRECTED 2026-07-08 (CRITICAL, live today)
 
+> **STATUS 2026-07-11: mitigation APPLIED to live.** `plan_cache_mode =
+force_custom_plan` set on `match_document_table_facts_text`,
+> `match_document_memory_cards_hybrid`, `match_document_index_units_hybrid`,
+> and `match_document_embedding_fields_hybrid`; verified in `proconfig` with
+> identical row counts and unchanged steady-state timings before/after
+> (in-session steady state: ~1132 ms / ~10 ms / ~494 ms / ~13 ms). Codified in
+> `supabase/migrations/20260711120000_retrieval_fn_plan_cache_mode.sql`. The
+> "full fix" below (plpgsql + dynamic EXECUTE, ~70 ms) remains open and still
+> requires the schema.sql body-drift reconciliation first. The
+> `statement_timeout` idea from the round-2 perf plan was rejected: a
+> function-level SET cannot re-arm a running statement's timer, and a
+> role-level timeout would endanger long ingestion RPCs on the same role —
+> client-disconnect cancellation is handled app-side via `.abortSignal()`.
+
 **The original diagnosis in this section was wrong**, and the fix it proposed
 (rewrite the fuzzy disjunct to the `%` operator) **has already been applied to
 live** and did not help. Re-profiling on live (read-only) established the real
