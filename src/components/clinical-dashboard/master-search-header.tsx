@@ -71,9 +71,10 @@ import { tagSearchText } from "@/lib/document-tags";
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
-// Standalone mode-home shells move the composer into the hero from the tablet
-// breakpoint up (see heroComposerFromTablet), so it sits in the middle of the
-// hero exactly like desktop instead of floating over the heading.
+// Mode-home shells centre the composer in the hero at every width (see
+// heroComposerFromTablet): phones share the hero-centred landing design that
+// tests/ui-tools.spec.ts "mode home routes center the shared search on mobile"
+// encodes, so the query intentionally always matches.
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 
@@ -287,6 +288,12 @@ export function MasterSearchHeader({
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
+  // True once the hero portal is conclusively unavailable — the media query
+  // does not match, or the slot never appeared after the retry budget. While a
+  // slot id is present and this is false the inline composer stays suppressed
+  // (no flash while the portal mounts); once it flips true the inline composer
+  // renders, so the search can never vanish from the page at any width.
+  const [desktopHomeComposerFallback, setDesktopHomeComposerFallback] = useState(false);
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
@@ -692,6 +699,7 @@ export function MasterSearchHeader({
     if (!desktopHomeComposerSlotId) {
       const frame = window.requestAnimationFrame(() => {
         setDesktopHomeComposerActive(false);
+        setDesktopHomeComposerFallback(false);
         setDesktopHomeComposerHost(null);
       });
       return () => window.cancelAnimationFrame(frame);
@@ -724,12 +732,19 @@ export function MasterSearchHeader({
         if (host.parentNode !== slot) slot.appendChild(host);
         setDesktopHomeComposerHost(host);
         setDesktopHomeComposerActive(true);
+        setDesktopHomeComposerFallback(false);
       } else {
         host.parentNode?.removeChild(host);
         setDesktopHomeComposerActive(false);
         if (mediaQuery.matches && portalRetryCount < 24) {
           portalRetryCount += 1;
           retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
+        } else {
+          // The composer belongs inline at this width, or the slot never
+          // appeared within the retry budget: release the inline fallback so
+          // the search cannot vanish. The MutationObserver keeps watching, so
+          // a slot that shows up later still reclaims the portal.
+          setDesktopHomeComposerFallback(true);
         }
       }
     };
@@ -749,6 +764,7 @@ export function MasterSearchHeader({
       mediaQuery.removeEventListener("change", scheduleSync);
       host.parentNode?.removeChild(host);
       setDesktopHomeComposerActive(false);
+      setDesktopHomeComposerFallback(false);
       setDesktopHomeComposerHost(null);
     };
   }, [desktopHomeComposerSlotId, heroComposerFromTablet]);
@@ -795,7 +811,7 @@ export function MasterSearchHeader({
               value={filterText(scopeFilters[field.key])}
               onChange={(event) => updateTextScopeFilter(field.key, event.target.value)}
               placeholder={field.placeholder}
-              className="h-10 min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
             />
           </label>
         ))}
@@ -956,7 +972,7 @@ export function MasterSearchHeader({
                 value={queryMode}
                 onChange={(event) => onQueryModeChange(event.target.value as ClinicalQueryMode)}
                 aria-label="Clinical query mode"
-                className="h-10 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                className="h-tap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
               >
                 {queryModeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -981,7 +997,7 @@ export function MasterSearchHeader({
                         : [],
                     })
                   }
-                  className="h-10 min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                  className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
                 >
                   <option value="">Any status</option>
                   <option value="current">Current</option>
@@ -1003,7 +1019,7 @@ export function MasterSearchHeader({
                       locality: event.target.value ? (event.target.value as SearchScopeFilters["locality"]) : undefined,
                     })
                   }
-                  className="h-10 min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+                  className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
                 >
                   <option value="">Any locality</option>
                   <option value="local">Local only</option>
@@ -1027,7 +1043,7 @@ export function MasterSearchHeader({
               <button
                 type="button"
                 onClick={() => onScopeFiltersChange({})}
-                className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+                className={cn(floatingControl, "px-3 text-xs lg:min-h-9")}
               >
                 Clear refine filters
               </button>
@@ -1035,7 +1051,7 @@ export function MasterSearchHeader({
           </div>
         </details>
         <details className="group hidden min-w-0 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5 sm:block">
-          <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 px-0.5">
+          <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-0.5 lg:min-h-8">
             <span className={eyebrowText}>Label filters</span>
             <span className="flex items-center gap-2 text-2xs font-semibold text-[color:var(--text-soft)]">
               {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, action, intent"}
@@ -1047,7 +1063,7 @@ export function MasterSearchHeader({
             <button
               type="button"
               onClick={() => onScopeFiltersChange({})}
-              className={cn(floatingControl, "min-h-9 w-fit px-3 text-xs")}
+              className={cn(floatingControl, "w-fit px-3 text-xs lg:min-h-9")}
             >
               Clear refine filters
             </button>
@@ -1538,11 +1554,10 @@ export function MasterSearchHeader({
 
       {searchComposerVisible ? (
         <>
-          {desktopHomeComposerActive && desktopHomeComposerHost
+          {(desktopHomeComposerActive && desktopHomeComposerHost) ||
+          (desktopHomeComposerSlotId && !desktopHomeComposerFallback)
             ? null
-            : desktopHomeComposerSlotId
-              ? null
-              : renderSearchComposer("default")}
+            : renderSearchComposer("default")}
           {desktopHomeComposerActive && desktopHomeComposerHost
             ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
             : null}

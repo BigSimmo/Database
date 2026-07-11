@@ -4,6 +4,21 @@ export { keywordQueryFromNaturalLanguage } from "@/lib/keyword-query";
 
 export type AnswerPayload = RagAnswer & { demoMode?: boolean };
 
+const answerConfidenceValues = new Set<AnswerPayload["confidence"]>(["high", "medium", "low", "unsupported"]);
+
+export function isAnswerPayload(value: unknown): value is AnswerPayload {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const payload = value as Record<string, unknown>;
+  return (
+    typeof payload.answer === "string" &&
+    typeof payload.grounded === "boolean" &&
+    answerConfidenceValues.has(payload.confidence as AnswerPayload["confidence"]) &&
+    Array.isArray(payload.citations) &&
+    Array.isArray(payload.sources) &&
+    (payload.demoMode === undefined || typeof payload.demoMode === "boolean")
+  );
+}
+
 export type SearchError = Error & {
   status?: number;
   retryable?: boolean;
