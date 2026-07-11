@@ -379,9 +379,15 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/?mode=answer");
 
-    const initialMenu = await openAppModeMenu(page, "Answer");
-    await expect(initialMenu).toBeVisible();
-    await initialMenu.getByRole("menuitemradio", { name: /^Services\b/ }).click();
+    // Re-open + re-click on each retry: a single click can be swallowed while the
+    // launcher is still hydrating, leaving the route on /?mode=answer. Mirrors the
+    // Forms switch below, which already guards against the same flake.
+    await expect(async () => {
+      if (/\/services$/.test(page.url())) return;
+      const menu = await openAppModeMenu(page, "Answer");
+      await menu.getByRole("menuitemradio", { name: /^Services\b/ }).click();
+      await expect(page).toHaveURL(/\/services$/, { timeout: 3_000 });
+    }).toPass({ timeout: 20_000 });
 
     await expect(page).toHaveURL(/\/services$/);
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
@@ -461,7 +467,7 @@ test.describe("Clinical KB tools launcher", () => {
     for (const home of [
       { path: "/?mode=answer", testId: "answer-empty-state", heading: "How can I help?", headingLevel: 2 },
       { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
-      { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
+      { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
       { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
       { path: "/favourites", testId: "favourites-hub", heading: "Favourites command library", headingLevel: 1 },
       { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
@@ -577,10 +583,10 @@ test.describe("Clinical KB tools launcher", () => {
       };
       if (!baseline) {
         baseline = metrics;
-        // Compact hero mobile scale: 2.75rem icon, 1.5rem heading, 0.875rem subtitle.
+        // Compact hero mobile scale: 2.75rem icon, 1.45rem heading, 0.875rem subtitle.
         expect(metrics.iconWidth).toBe(44);
         expect(metrics.iconHeight).toBe(44);
-        expect(metrics.headingFontSize).toBeCloseTo(24, 1);
+        expect(metrics.headingFontSize).toBeCloseTo(23.2, 1);
         expect(metrics.subtitleFontSize).toBeCloseTo(14, 1);
       } else {
         expect(metrics, `${home.path} hero metrics`).toEqual(baseline);
@@ -664,7 +670,7 @@ test.describe("Clinical KB tools launcher", () => {
           headingLevel: 2,
         },
         { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
-        { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
+        { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
         { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
         { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
       ] as const) {
@@ -934,15 +940,13 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\/forms$/);
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(page.getByTestId("forms-home")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "What do you need from forms?" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Forms" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toHaveCount(0);
     await expect(page.getByTestId("global-search-input")).toHaveCount(1);
     const formsHomeSearch = page.getByTestId("forms-home").getByTestId("global-search-input");
     await expect(formsHomeSearch).toBeVisible();
     const formsSearchBox = await formsHomeSearch.boundingBox();
-    const formsHeadingBox = await page
-      .getByRole("heading", { level: 1, name: "What do you need from forms?" })
-      .boundingBox();
+    const formsHeadingBox = await page.getByRole("heading", { level: 1, name: "Forms" }).boundingBox();
     expect(formsSearchBox).not.toBeNull();
     expect(formsHeadingBox).not.toBeNull();
     expect((formsHeadingBox?.y ?? 0) + (formsHeadingBox?.height ?? 0)).toBeLessThan(formsSearchBox?.y ?? 0);

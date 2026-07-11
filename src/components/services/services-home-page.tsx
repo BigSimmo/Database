@@ -18,13 +18,13 @@ import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-regi
 const taskCards: ModeHomeAction[] = [
   {
     title: "Search services",
-    description: "Search by need, catchment, provider, or keyword.",
+    description: "Need, catchment, provider, keyword.",
     icon: FileSearch,
     href: appModeHomeHref("services", { focus: true }),
   },
   {
     title: "Check catchment",
-    description: "Confirm region, public/private, and eligibility.",
+    description: "Region, public/private, eligibility.",
     icon: MapPinned,
     href: `/services/${defaultServiceSlug() ?? ""}`,
   },
