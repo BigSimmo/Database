@@ -451,6 +451,16 @@ describe("normalizeInlineBulletGlyphs", () => {
     expect(normalizeInlineBulletGlyphs("Cell value:\no RhD negative")).toBe("Cell value:\no RhD negative");
   });
 
+  it("keeps a line-start blood value when a blood or red-cell noun follows", () => {
+    expect(normalizeInlineBulletGlyphs("o Negative blood should be used")).toBe("o Negative blood should be used");
+    expect(normalizeInlineBulletGlyphs("o RhD negative red cells are required")).toBe(
+      "o RhD negative red cells are required",
+    );
+    expect(normalizeInlineBulletGlyphs("o Positive red cell units are available")).toBe(
+      "o Positive red cell units are available",
+    );
+  });
+
   it("converts non-blood positive/negative list items at line starts", () => {
     expect(normalizeInlineBulletGlyphs("o Positive symptoms require urgent review")).toBe(
       "Positive symptoms require urgent review",

@@ -561,6 +561,8 @@ const posNegValueHeadPattern = /^\s+(?:pos(?:itive)?|neg(?:ative)?)\b/i;
 // "o Rh positive") — the strongest signal that the "o" is the group itself.
 const standaloneBloodValueLinePattern =
   /^o\s+(?:rh(?:d)?(?:\s+(?:pos(?:itive)?|neg(?:ative)?))?|pos(?:itive)?|neg(?:ative)?)$/i;
+const bloodValueWithNounTailLinePattern =
+  /^o\s+(?:rh(?:d)?\s+)?(?:pos(?:itive)?|neg(?:ative)?)\s+(?:blood|red\s+cells?)\b/i;
 
 function replaceSubBulletOGlyphs(text: string, joiner: string) {
   return text.replace(subBulletOGlyphPattern, (match, offset: number) => {
@@ -575,7 +577,9 @@ function replaceSubBulletOGlyphs(text: string, joiner: string) {
     if (atItemStart) {
       const lineEnd = text.indexOf("\n", offset);
       const lineTail = text.slice(offset, lineEnd === -1 ? text.length : lineEnd).trim();
-      if (standaloneBloodValueLinePattern.test(lineTail)) return match;
+      if (standaloneBloodValueLinePattern.test(lineTail) || bloodValueWithNounTailLinePattern.test(lineTail)) {
+        return match;
+      }
     }
     if (groupTypeLabelTailPattern.test(before)) {
       // "o Rh…" is a strong blood signal under any group/type label;
