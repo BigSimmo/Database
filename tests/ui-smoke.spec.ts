@@ -1891,9 +1891,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
     const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
-    await expect(sourceStatus).toContainText("Not yet checked");
+    await expect(sourceStatus).toContainText("1 source");
     await page.waitForTimeout(600);
-    await expect(sourceStatus).toContainText("Not yet checked");
+    await expect(sourceStatus).toContainText("1 source");
     await expect(sourceStatus).not.toContainText("2 sources");
   });
 
