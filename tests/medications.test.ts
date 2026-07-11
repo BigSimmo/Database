@@ -166,6 +166,40 @@ describe("medication action tone", () => {
     expect(medicationActionDetail(record as MedicationRecord).tone).not.toBe("danger");
   });
 
+  it("downgrades caution-only avoid guidance to warning", () => {
+    const pregnancyCategory = buildRecord({
+      quick: [{ label: "Avoid if", value: "Pregnancy Category B2." }],
+    });
+    expect(medicationActionDetail(pregnancyCategory).tone).toBe("warning");
+
+    const doseReview = buildRecord({
+      quick: [
+        { label: "Avoid if", value: "Liver disease requires pharmacist/doctor review and possible dose reduction." },
+      ],
+    });
+    expect(medicationActionDetail(doseReview).tone).toBe("warning");
+  });
+
+  it("keeps condition-list and setting-based hard stops on danger", () => {
+    const conditionList = buildRecord({
+      quick: [{ label: "Avoid if", value: "Severe respiratory depression, paralytic ileus." }],
+    });
+    expect(medicationActionDetail(conditionList).tone).toBe("danger");
+
+    const unmonitoredSetting = buildRecord({
+      quick: [{ label: "Avoid if", value: "Unmonitored environments without airway equipment." }],
+    });
+    expect(medicationActionDetail(unmonitoredSetting).tone).toBe("danger");
+  });
+
+  it("keeps fexofenadine and loratadine caution rows off the danger tone from the snapshot", () => {
+    for (const slug of ["fexofenadine", "loratadine"]) {
+      const record = getMedicationRecord(slug);
+      expect(record).toBeTruthy();
+      expect(medicationActionDetail(record as MedicationRecord).tone).not.toBe("danger");
+    }
+  });
+
   it("does not cut action text at abbreviations or decimals", () => {
     expect(firstClinicalSentence("Any hepatic impairment (e.g. cirrhosis). Review LFTs.")).toBe(
       "Any hepatic impairment (e.g. cirrhosis)",

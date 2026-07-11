@@ -192,15 +192,28 @@ export function medicationActionDetail(record: MedicationRecord): { text: string
     tone: "neutral" as const,
   };
   const text = firstClinicalSentence(picked.raw.replace(/\*\*/g, "")) || "Review full prescribing reference";
-  // Avoid/contraindication fields sometimes explicitly say there is NO
-  // contraindication ("NONE — ...", "No absolute contraindication in ...").
-  // Those must not carry the danger icon / "Do not use" prefix: downgrade to
-  // warning when the displayed sentence still carries a caution, else neutral.
-  let tone = picked.tone;
-  if (tone === "danger" && /^(?:none\b|no\s+(?:absolute\s+)?contraindication)/i.test(text)) {
-    tone = /caution/i.test(text) ? "warning" : "neutral";
+  return { text, tone: picked.tone === "danger" ? avoidTextTone(text) : picked.tone };
+}
+
+// Avoid/contraindication fields are heterogeneous: hard stops ("Contraindicated
+// in ...", "Severe respiratory depression, paralytic ileus"), explicit
+// no-contraindication statements ("NONE — ...") and caution-only guidance
+// ("Pregnancy Category B2", "requires pharmacist review and dose reduction").
+// Only hard stops may carry the danger icon / "Do not use" prefix. Condition
+// lists without any keyword stay danger — under-warning is the failure mode to
+// avoid — so downgrades are keyed to explicit none/caution phrasing only.
+const HARD_STOP_PATTERN = /contraindicat|do not\b|avoid\b|hypersensitiv|anaphylax|never\b|must not/i;
+const CAUTION_ONLY_PATTERN =
+  /pregnancy category|\bcategory [ab]\d?\b|pharmacist|dose reduction|reduce dose|requires?\b[^.]*\breview|generally (?:considered )?safe/i;
+
+function avoidTextTone(text: string): MedicationActionTone {
+  if (/^(?:none\b|no\s+(?:absolute\s+)?contraindication)/i.test(text)) {
+    return /caution/i.test(text) ? "warning" : "neutral";
   }
-  return { text, tone };
+  if (!HARD_STOP_PATTERN.test(text) && CAUTION_ONLY_PATTERN.test(text)) {
+    return "warning";
+  }
+  return "danger";
 }
 
 export function medicationAction(record: MedicationRecord) {
