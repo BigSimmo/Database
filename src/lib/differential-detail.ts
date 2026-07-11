@@ -51,12 +51,7 @@ function comparableItemText(value: string) {
  *  record-level arrays (so prefer those), and many items duplicate the row
  *  summary or the record's clinical hinge. */
 export function visibleSectionItems(section: DifferentialSection, record: DifferentialRecord): string[] {
-  const source =
-    section.tone === "action" && record.immediateActions.length > 0
-      ? record.immediateActions
-      : section.tone === "test" && record.investigations.length > 0
-        ? record.investigations
-        : section.items;
+  const source = section.tone === "test" && record.investigations.length > 0 ? record.investigations : section.items;
   const excluded = new Set([section.summary, record.clinicalHinge].map(comparableItemText).filter(Boolean));
   const seen = new Set<string>();
   const items: string[] = [];

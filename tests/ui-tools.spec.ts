@@ -1469,6 +1469,8 @@ test.describe("Clinical KB differential diagnosis detail page", () => {
     await expect(detailPage.getByRole("button", { name: "Remove saved diagnosis" })).toBeVisible();
     await gotoDetailPage(page, "/differentials/diagnoses/delirium");
     await expect(detailPage.getByRole("button", { name: "Remove saved diagnosis" })).toBeVisible();
+    await page.goto("/favourites", { waitUntil: "domcontentloaded" });
+    await expect(page.getByText("Delirium", { exact: true }).first()).toBeVisible();
 
     await expectNoPageHorizontalOverflow(page);
   });

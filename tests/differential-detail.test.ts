@@ -71,10 +71,10 @@ describe("visibleSectionItems", () => {
     expect(visibleSectionItems(section, record)).toEqual(["Unique item"]);
   });
 
-  it("sources action sections from record.immediateActions", () => {
-    const section = buildSection({ id: "immediate-action", tone: "action", items: ["Truncated copy"] });
+  it("keeps action sections diagnosis-scoped", () => {
+    const section = buildSection({ id: "immediate-action", tone: "action", items: ["Diagnosis-specific step"] });
     const record = buildRecord({ sections: [section], immediateActions: ["Step one", "Step two", "Step one"] });
-    expect(visibleSectionItems(section, record)).toEqual(["Step one", "Step two"]);
+    expect(visibleSectionItems(section, record)).toEqual(["Diagnosis-specific step"]);
   });
 
   it("sources test sections from record.investigations with fallback to section items", () => {
