@@ -362,6 +362,11 @@ function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id:
   );
 }
 
+/**
+ * Renders a menu of actions for a favourite item.
+ *
+ * @param item - The favourite item associated with the available actions
+ */
 function RowActionsMenu({ item }: { item: FavouriteItem }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
