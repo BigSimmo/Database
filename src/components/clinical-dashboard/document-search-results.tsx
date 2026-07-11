@@ -12,6 +12,7 @@ import {
   FolderOpen,
   ListChecks,
   Loader2,
+  Pill,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -19,6 +20,7 @@ import {
   Sparkles,
   Tag,
   Target,
+  Users,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -115,13 +117,13 @@ const searchRecordConfig: Record<
 
 const documentFacetIcons: Record<SmartDocumentTagGroup, LucideIcon> = {
   Site: FileText,
-  Medication: Target,
+  Medication: Pill,
   Risk: ShieldAlert,
   Workflow: ListChecks,
   Topic: Tag,
-  Population: FileText,
+  Population: Users,
   Setting: FileText,
-  Service: Sparkles,
+  Service: ShieldCheck,
   "Document type": FileText,
   "Clinical action": ListChecks,
   "Care phase": Clock3,

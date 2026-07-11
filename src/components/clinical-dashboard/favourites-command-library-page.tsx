@@ -127,7 +127,7 @@ const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
   documents: FileText,
   sources: Quote,
   services: appModeIcons.services,
-  forms: FileText,
+  forms: appModeIcons.forms,
   differentials: appModeIcons.differentials,
 };
 
