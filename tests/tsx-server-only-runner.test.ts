@@ -22,10 +22,13 @@ describe("standalone TSX server-only compatibility", () => {
     expect(cmdLine, "Dockerfile.worker must define a CMD").toBeDefined();
     // worker/index.ts imports src/lib/env, which is `import "server-only"`.
     // Bare tsx throws on that import at boot; the entrypoint must route through
-    // scripts/run-tsx.mjs, which registers the server-only stub hook.
-    expect(cmdLine).toContain("scripts/run-tsx.mjs");
-    expect(cmdLine).toContain("worker/index.ts");
-    expect(cmdLine).not.toContain("tsx/dist/cli.mjs");
+    // scripts/run-tsx.mjs, which registers the server-only stub hook. Assert the
+    // exact exec-form vector so no bare-tsx variant (["tsx", …], ["npx","tsx", …],
+    // tsx/dist/cli.mjs, or a reordered command) can slip through.
+    const bracket = cmdLine!.indexOf("[");
+    expect(bracket, "worker CMD must use JSON exec form").toBeGreaterThan(-1);
+    const execVector = JSON.parse(cmdLine!.slice(bracket)) as string[];
+    expect(execVector).toEqual(["node", "scripts/run-tsx.mjs", "worker/index.ts"]);
   });
 
   it("keeps the Next server-only marker while stubbing it only for standalone runners", () => {
