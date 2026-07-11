@@ -70,9 +70,11 @@ const extractiveLabelPattern =
   /\b(?:Medication point|Table evidence|Threshold\/action|Risk\/escalation|Workflow step|Section summary|Source point|Dose detail|Monitoring)\s*:\s*/gi;
 
 // Structural labels that are pure boilerplate — never merged into a
-// following fragment and never rewritten into "For <label>, …".
+// following fragment and never rewritten into "For <label>, …". "Source
+// control" is exempt: it is a clinical heading (infection-source
+// management), not a provenance label.
 const structuralHeadingStoplistPattern =
-  /\b(?:source|section|table|figure|page|summary|example|appendix|reference|contents)\b/i;
+  /\b(?:source(?!\s+control\b)|section|table|figure|page|summary|example|appendix|reference|contents)\b/i;
 
 // Advisory labels ("Caution:", "Warning:") classify the fact that follows as
 // a caveat — they merge with their bullet items like directive headings do,

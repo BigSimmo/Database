@@ -76,6 +76,14 @@ describe("extractive evidence splitting", () => {
     expect(anc).toMatch(/^ANC <0\.5:/);
   });
 
+  it("keeps the clinical source-control heading attached to its action item", () => {
+    const sourceControl = splitClinicalEvidenceSentences(
+      "Source control: o Review antibiotics and arrange drainage within six hours.",
+    ).find((sentence) => /review antibiotics/i.test(sentence));
+    expect(sourceControl).toBeDefined();
+    expect(sourceControl).toMatch(/source control/i);
+  });
+
   it("keeps plus-bearing electrolyte thresholds attached to their action items", () => {
     const potassium = splitClinicalEvidenceSentences(
       "K+ >5.5 mmol/L: o Withhold the next dose and recheck electrolytes.",
