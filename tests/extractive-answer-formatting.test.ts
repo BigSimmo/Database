@@ -53,11 +53,13 @@ describe("extractive evidence splitting", () => {
     const dayDose = daySentences.find((sentence) => sentence.includes("25 mg"));
     expect(dayDose).toBeDefined();
     expect(dayDose).toMatch(/^Day 1\b/);
+    expect(dayDose).not.toMatch(/\bo\s+\d/);
 
     const stepSentences = splitClinicalEvidenceSentences("Step 2: o Increase to 50 mg nightly if tolerated.");
     const stepDose = stepSentences.find((sentence) => sentence.includes("50 mg"));
     expect(stepDose).toBeDefined();
     expect(stepDose).toMatch(/^Step 2\b/);
+    expect(stepDose).not.toMatch(/\bo\s+[A-Z0-9]/);
   });
 
   it("keeps an advisory heading attached to its bullet item in colon form", () => {

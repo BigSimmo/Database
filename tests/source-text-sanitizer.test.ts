@@ -420,6 +420,12 @@ describe("normalizeInlineBulletGlyphs", () => {
     expect(normalizeInlineBulletGlyphs("BLOOD GROUP: o Rh positive")).toBe("BLOOD GROUP: o Rh positive");
   });
 
+  it("converts an OCR bullet before a numeric dose while keeping the temperature guard", () => {
+    expect(normalizeInlineBulletGlyphs("Day 1: o 25 mg nightly")).toBe("Day 1: 25 mg nightly");
+    expect(normalizeInlineBulletGlyphs("dosing o 12.5 mg twice daily")).toBe("dosing; 12.5 mg twice daily");
+    expect(normalizeInlineBulletGlyphs("Store below 37 o C at all times")).toBe("Store below 37 o C at all times");
+  });
+
   it("still converts an OCR bullet after non-blood group/type labels", () => {
     expect(normalizeInlineBulletGlyphs("patient group o Adults should be offered CBT")).toBe(
       "patient group; Adults should be offered CBT",
