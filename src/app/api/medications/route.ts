@@ -7,7 +7,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, seededContentCacheHeaders } from "@/lib/http";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
 import {
   medicationSourceStatus,
@@ -62,7 +62,8 @@ function toIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
 }
 
 function medicationResponse(payload: Record<string, unknown>) {
-  return NextResponse.json(payload, { headers: { "Cache-Control": "private, no-store" } });
+  // Seeded catalog content — cacheable per user (see seededContentCacheHeaders).
+  return NextResponse.json(payload, { headers: seededContentCacheHeaders });
 }
 
 function matchesPayload(matches: MedicationSearchMatch[]) {

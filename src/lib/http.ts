@@ -19,6 +19,17 @@ export class PublicApiError extends Error {
   }
 }
 
+// Cache headers for seeded, rarely-changing catalog content (registry records,
+// medications, differentials). `private` keeps owner-scoped payloads out of
+// shared caches; `Vary: Authorization` keys entries per user within one browser
+// profile (requests carry a bearer header); stale-while-revalidate lets repeat
+// navigations render the last copy while the browser refreshes it. Apply to
+// 200 responses only — errors and 404s must never be cached.
+export const seededContentCacheHeaders = {
+  "Cache-Control": "private, max-age=300, stale-while-revalidate=600",
+  Vary: "Authorization",
+} as const;
+
 function publicErrorMessage(error: unknown, status: number) {
   if (error instanceof PublicApiError) return error.message;
   if (error instanceof ZodError) return "Invalid request.";

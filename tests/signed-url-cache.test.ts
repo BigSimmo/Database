@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   clearCachedSignedUrl,
   clearSignedUrlCache,
+  fetchImageSignedUrl,
   getCachedSignedUrl,
+  imageSignedUrlEndpoint,
   setCachedSignedUrl,
 } from "../src/lib/signed-url-cache";
 
@@ -81,5 +83,104 @@ describe("signed URL cache", () => {
     expect(getCachedSignedUrl("/api/images/0/signed-url")).not.toBeNull();
     expect(getCachedSignedUrl("/api/images/1/signed-url")).toBeNull();
     expect(getCachedSignedUrl("/api/images/overflow/signed-url")).not.toBeNull();
+  });
+});
+
+describe("batched image signed-url fetch", () => {
+  const imageA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const imageB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  function batchFetchMock(items?: Record<string, unknown>) {
+    return vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { ids: string[] };
+      const resolved =
+        items ?? Object.fromEntries(body.ids.map((id) => [id, { url: `/signed/${id}.png`, caption: null }]));
+      return new Response(JSON.stringify({ items: resolved }), { status: 200 });
+    });
+  }
+
+  it("coalesces concurrent requests into one batch POST and populates the cache", async () => {
+    clearSignedUrlCache();
+    vi.useFakeTimers();
+    const fetchMock = batchFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const first = fetchImageSignedUrl(imageA);
+      const second = fetchImageSignedUrl(imageB);
+      const duplicate = fetchImageSignedUrl(imageA);
+      await vi.advanceTimersByTimeAsync(30);
+      const [a, b, aDuplicate] = await Promise.all([first, second, duplicate]);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [, init] = fetchMock.mock.calls[0] as [unknown, RequestInit];
+      expect(JSON.parse(String(init.body)).ids).toEqual([imageA, imageB]);
+      expect(a?.url).toBe(`/signed/${imageA}.png`);
+      expect(aDuplicate?.url).toBe(`/signed/${imageA}.png`);
+      expect(b?.url).toBe(`/signed/${imageB}.png`);
+      expect(getCachedSignedUrl(imageSignedUrlEndpoint(imageA))?.url).toBe(`/signed/${imageA}.png`);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it("resolves null for ids the server withheld and does not cache them", async () => {
+    clearSignedUrlCache();
+    vi.useFakeTimers();
+    const fetchMock = batchFetchMock({ [imageA]: { url: `/signed/${imageA}.png` }, [imageB]: null });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const first = fetchImageSignedUrl(imageA);
+      const second = fetchImageSignedUrl(imageB);
+      await vi.advanceTimersByTimeAsync(30);
+
+      expect(await first).not.toBeNull();
+      expect(await second).toBeNull();
+      expect(getCachedSignedUrl(imageSignedUrlEndpoint(imageB))).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it("never mixes requests carrying different authorization headers into one batch", async () => {
+    clearSignedUrlCache();
+    vi.useFakeTimers();
+    const fetchMock = batchFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const first = fetchImageSignedUrl(imageA, { authorizationHeader: { Authorization: "Bearer user-1" } });
+      const second = fetchImageSignedUrl(imageB, { authorizationHeader: { Authorization: "Bearer user-2" } });
+      await vi.advanceTimersByTimeAsync(30);
+      await Promise.all([first, second]);
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const sentAuth = fetchMock.mock.calls.map(
+        ([, init]) => (init as RequestInit & { headers: Record<string, string> }).headers.Authorization,
+      );
+      expect(sentAuth.sort()).toEqual(["Bearer user-1", "Bearer user-2"]);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports 401 batches through onUnauthorized and resolves waiters null", async () => {
+    clearSignedUrlCache();
+    vi.useFakeTimers();
+    const onUnauthorized = vi.fn();
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const pending = fetchImageSignedUrl(imageA, { onUnauthorized });
+      await vi.advanceTimersByTimeAsync(30);
+
+      expect(await pending).toBeNull();
+      expect(onUnauthorized).toHaveBeenCalledTimes(1);
+      expect(getCachedSignedUrl(imageSignedUrlEndpoint(imageA))).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
   });
 });

@@ -67,12 +67,23 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .createSignedUrl(image.storage_path, signedUrlTtlSeconds);
 
     if (signed.error) throw new Error(signed.error.message);
-    return NextResponse.json({
-      url: signed.data.signedUrl,
-      mimeType: image.mime_type,
-      caption: image.caption,
-      expiresAt: new Date(Date.now() + signedUrlTtlSeconds * 1000).toISOString(),
-    });
+    return NextResponse.json(
+      {
+        url: signed.data.signedUrl,
+        mimeType: image.mime_type,
+        caption: image.caption,
+        expiresAt: new Date(Date.now() + signedUrlTtlSeconds * 1000).toISOString(),
+      },
+      {
+        headers: {
+          // The signed URL lives 600s; letting the browser reuse this response for
+          // 540s spares a refetch on remount/reload while never serving a URL past
+          // its life. private + Vary keeps it per-user in shared browser profiles.
+          "Cache-Control": "private, max-age=540",
+          Vary: "Authorization",
+        },
+      },
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

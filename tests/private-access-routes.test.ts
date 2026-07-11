@@ -204,6 +204,10 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
     data: { signedUrl: `https://signed.local/${path}` },
     error: null,
   }));
+  const createSignedUrls = vi.fn(async (paths: string[]) => ({
+    data: paths.map((path) => ({ path, signedUrl: `https://signed.local/${path}`, error: null })),
+    error: null,
+  }));
   const remove = vi.fn(
     async (
       ...args: [string[]]
@@ -215,7 +219,7 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
       return { data: [], error: null };
     },
   );
-  const storageFrom = vi.fn(() => ({ upload, createSignedUrl, remove }));
+  const storageFrom = vi.fn(() => ({ upload, createSignedUrl, createSignedUrls, remove }));
   const getUser = vi.fn(async (receivedToken?: string) =>
     receivedToken === token
       ? { data: { user: { id: userId } }, error: null }
@@ -267,7 +271,7 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
     }),
     rpc,
     storage: { from: storageFrom },
-    storageMocks: { upload, createSignedUrl, remove, storageFrom },
+    storageMocks: { upload, createSignedUrl, createSignedUrls, remove, storageFrom },
   };
 
   return client;
@@ -859,6 +863,155 @@ describe("private document API access", () => {
     expect(response.status).toBe(404);
     expect(await payload(response)).toEqual({ error: "Image not found." });
     expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("batch image signed URLs fail closed per item across mixed ownership", async () => {
+    const ownedImageId = "44444444-4444-4444-8444-444444444444";
+    const foreignImageId = "55555555-5555-4555-8555-555555555555";
+    const unknownImageId = "66666666-6666-4666-8666-666666666666";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        // The route queries .in("id", ids); return only the rows that exist.
+        return ok([
+          {
+            id: ownedImageId,
+            document_id: documentId,
+            storage_path: `${userId}/images/${ownedImageId}.png`,
+            mime_type: "image/png",
+            caption: "Owned image",
+            metadata: { index_generation_id: "generation-a" },
+          },
+          {
+            id: foreignImageId,
+            document_id: otherDocumentId,
+            storage_path: `${otherUserId}/images/${foreignImageId}.png`,
+            mime_type: "image/png",
+            caption: "Other user's image",
+            metadata: { index_generation_id: "generation-a" },
+          },
+        ]);
+      }
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
+        // Owner-scoped read only surfaces the caller's document.
+        return ok([{ id: documentId, metadata: { index_generation_id: "generation-a" } }]);
+      }
+      return ok(null);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/images/signed-urls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [ownedImageId, foreignImageId, unknownImageId] }),
+      }),
+    );
+    const body = (await payload(response)) as { items: Record<string, { url: string } | null> };
+
+    expect(response.status).toBe(200);
+    expect(body.items[ownedImageId]?.url).toContain(`${userId}/images/${ownedImageId}.png`);
+    expect(body.items[foreignImageId]).toBeNull();
+    expect(body.items[unknownImageId]).toBeNull();
+    // Only the authorized path is ever signed.
+    expect(client.storageMocks.createSignedUrls).toHaveBeenCalledWith([`${userId}/images/${ownedImageId}.png`], 600);
+  });
+
+  it("batch image signed URLs reject uncommitted replacement generations per item", async () => {
+    const committedImageId = "44444444-4444-4444-8444-444444444444";
+    const uncommittedImageId = "55555555-5555-4555-8555-555555555555";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok([
+          {
+            id: committedImageId,
+            document_id: documentId,
+            storage_path: `${userId}/images/${committedImageId}.png`,
+            mime_type: "image/png",
+            caption: "Committed image",
+            metadata: { index_generation_id: "generation-a" },
+          },
+          {
+            id: uncommittedImageId,
+            document_id: documentId,
+            storage_path: `${userId}/images/${uncommittedImageId}.png`,
+            mime_type: "image/png",
+            caption: "Replacement image",
+            metadata: { index_generation_id: "generation-new" },
+          },
+        ]);
+      }
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
+        return ok([{ id: documentId, metadata: { index_generation_id: "generation-a" } }]);
+      }
+      return ok(null);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/images/signed-urls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [committedImageId, uncommittedImageId] }),
+      }),
+    );
+    const body = (await payload(response)) as { items: Record<string, { url: string } | null> };
+
+    expect(response.status).toBe(200);
+    expect(body.items[committedImageId]?.url).toContain(committedImageId);
+    expect(body.items[uncommittedImageId]).toBeNull();
+    expect(client.storageMocks.createSignedUrls).toHaveBeenCalledWith(
+      [`${userId}/images/${committedImageId}.png`],
+      600,
+    );
+  });
+
+  it("anonymous batch image signed URLs resolve only public documents", async () => {
+    const publicImageId = "44444444-4444-4444-8444-444444444444";
+    const privateImageId = "55555555-5555-4555-8555-555555555555";
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok([
+          {
+            id: publicImageId,
+            document_id: documentId,
+            storage_path: `public/images/${publicImageId}.png`,
+            mime_type: "image/png",
+            caption: "Public image",
+            metadata: { index_generation_id: "generation-a" },
+          },
+          {
+            id: privateImageId,
+            document_id: otherDocumentId,
+            storage_path: `${otherUserId}/images/${privateImageId}.png`,
+            mime_type: "image/png",
+            caption: "Private image",
+            metadata: { index_generation_id: "generation-a" },
+          },
+        ]);
+      }
+      if (call.table === "documents" && call.filters.some((f) => f.column === "owner_id" && f.value === null)) {
+        // Anonymous scope only surfaces the public document.
+        return ok([{ id: documentId, metadata: { index_generation_id: "generation-a" } }]);
+      }
+      return ok(null);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(
+      request("/api/images/signed-urls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [publicImageId, privateImageId] }),
+      }),
+    );
+    const body = (await payload(response)) as { items: Record<string, { url: string } | null> };
+
+    expect(response.status).toBe(200);
+    expect(body.items[publicImageId]?.url).toContain(`public/images/${publicImageId}.png`);
+    expect(body.items[privateImageId]).toBeNull();
   });
 
   it("rejects anonymous upload with setup guidance when public uploads are not configured", async () => {

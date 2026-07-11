@@ -23,7 +23,7 @@ import {
   type DifferentialRecordMatch,
 } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, seededContentCacheHeaders } from "@/lib/http";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -46,7 +46,8 @@ const differentialListQuerySchema = z.object({
 });
 
 function differentialResponse(payload: Record<string, unknown>) {
-  return NextResponse.json(payload, { headers: { "Cache-Control": "private, no-store" } });
+  // Seeded catalog content — cacheable per user (see seededContentCacheHeaders).
+  return NextResponse.json(payload, { headers: seededContentCacheHeaders });
 }
 
 function recordMatchesPayload(matches: DifferentialRecordMatch[]) {

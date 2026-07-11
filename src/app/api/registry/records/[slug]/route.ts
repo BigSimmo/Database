@@ -7,7 +7,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, seededContentCacheHeaders } from "@/lib/http";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { getFormRecord } from "@/lib/forms";
 import {
@@ -31,9 +31,11 @@ const registryDetailQuerySchema = z.object({
 });
 
 function registryResponse(payload: Record<string, unknown>, init?: { status?: number }) {
+  const status = init?.status ?? 200;
   return NextResponse.json(payload, {
-    status: init?.status ?? 200,
-    headers: { "Cache-Control": "private, no-store" },
+    status,
+    // Seeded catalog content: only 200s are cacheable; 404s/errors stay no-store.
+    headers: status === 200 ? seededContentCacheHeaders : { "Cache-Control": "private, no-store" },
   });
 }
 

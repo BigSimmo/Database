@@ -7,7 +7,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, seededContentCacheHeaders } from "@/lib/http";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
 import {
@@ -47,7 +47,8 @@ function rankRecords(kind: RegistryRecordKind, records: ServiceRecord[], query: 
 }
 
 function registryResponse(payload: Record<string, unknown>) {
-  return NextResponse.json(payload, { headers: { "Cache-Control": "private, no-store" } });
+  // Seeded catalog content — cacheable per user (see seededContentCacheHeaders).
+  return NextResponse.json(payload, { headers: seededContentCacheHeaders });
 }
 
 function matchesPayload(matches: ServiceSearchMatch[]) {

@@ -64,7 +64,12 @@ import {
   textMuted,
   toolbarButton,
 } from "@/components/ui-primitives";
-import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import {
+  clearCachedSignedUrl,
+  fetchImageSignedUrl,
+  getCachedSignedUrl,
+  setCachedSignedUrl,
+} from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { formatClinicalDate } from "@/lib/source-metadata";
 import { partitionViewerImages } from "@/lib/image-filtering";
@@ -317,15 +322,12 @@ function DocumentImage({ image }: { image: ImageRow }) {
     }
 
     let active = true;
-    fetch(endpoint, { headers: authorizationHeader })
-      .then((response) => {
-        if (response.status === 401) markSessionExpired();
-        return response.ok ? response.json() : null;
-      })
-      .then((data) => {
-        if (active && data?.url) {
-          setCachedSignedUrl(endpoint, data);
-          setUrl(data.url);
+    // Coalesces with other images resolving in the same window into one batch
+    // request (and populates the shared signed-url cache).
+    fetchImageSignedUrl(image.id, { authorizationHeader, onUnauthorized: markSessionExpired })
+      .then((payload) => {
+        if (active && payload?.url) {
+          setUrl(payload.url);
           setFailed(false);
         } else if (active) {
           setFailed(true);
@@ -337,7 +339,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
     return () => {
       active = false;
     };
-  }, [attempt, authorizationHeader, endpoint, markSessionExpired, shouldLoad]);
+  }, [attempt, authorizationHeader, endpoint, image.id, markSessionExpired, shouldLoad]);
 
   function retryImage() {
     clearCachedSignedUrl(endpoint);

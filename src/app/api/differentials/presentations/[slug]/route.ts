@@ -16,7 +16,7 @@ import {
 import { ensureDifferentialsSeeded, loadDifferentialSnapshot } from "@/lib/differential-seed";
 import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, seededContentCacheHeaders } from "@/lib/http";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
 import { registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -25,9 +25,11 @@ import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 export const runtime = "nodejs";
 
 function differentialResponse(payload: Record<string, unknown>, init?: { status?: number }) {
+  const status = init?.status ?? 200;
   return NextResponse.json(payload, {
-    status: init?.status ?? 200,
-    headers: { "Cache-Control": "private, no-store" },
+    status,
+    // Seeded catalog content: only 200s are cacheable; 404s/errors stay no-store.
+    headers: status === 200 ? seededContentCacheHeaders : { "Cache-Control": "private, no-store" },
   });
 }
 

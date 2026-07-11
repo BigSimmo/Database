@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { fetchJsonCached } from "@/lib/client-fetch-cache";
 import type { MedicationRecord, MedicationSearchResult } from "@/lib/medications";
 import { useAuthSession } from "@/lib/supabase/client";
 
@@ -34,12 +35,14 @@ type AsyncState<T> = {
   error: string | null;
 };
 
-async function fetchJson<T>(url: string, headers?: HeadersInit): Promise<T> {
-  const response = await fetch(url, { cache: "no-store", headers });
-  if (!response.ok) {
-    throw new Error(`Request failed (${response.status})`);
+// Cached + deduped (short TTL): the prescribing workspace, cross-mode links,
+// and detail pages request the same catalog concurrently on mount.
+async function fetchJson<T>(url: string, headers?: Record<string, string>): Promise<T> {
+  const result = await fetchJsonCached(url, { headers });
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`Request failed (${result.status})`);
   }
-  return (await response.json()) as T;
+  return result.payload as T;
 }
 
 export function useMedicationCatalog(

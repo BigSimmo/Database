@@ -39,7 +39,12 @@ import {
 } from "@/components/clinical-dashboard/display-text";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
 import { SourcePreviewPopover } from "@/components/clinical-dashboard/source-preview-popover";
-import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import {
+  clearCachedSignedUrl,
+  fetchImageSignedUrl,
+  getCachedSignedUrl,
+  setCachedSignedUrl,
+} from "@/lib/signed-url-cache";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
 import {
@@ -57,6 +62,14 @@ import type {
   SearchScopeSummary,
   VisualEvidenceCard,
 } from "@/lib/types";
+
+// Endpoints are built exclusively by evidence.ts as /api/images/{id}/signed-url;
+// extracting the id lets SourceImage share the batched signed-url fetch. The
+// null fallback keeps any unexpected endpoint shape on the original per-URL GET.
+function imageIdFromSignedUrlEndpoint(endpoint: string) {
+  const match = /^\/api\/images\/([0-9a-fA-F-]{36})\/signed-url$/.exec(endpoint);
+  return match ? match[1] : null;
+}
 
 export const SourceImage = memo(function SourceImage({
   endpoint,
@@ -78,15 +91,22 @@ export const SourceImage = memo(function SourceImage({
     if (cached) return () => undefined;
 
     let active = true;
-    fetch(endpoint, { headers: authorizationHeader })
-      .then((response) => {
-        if (response.status === 401) markSessionExpired();
-        return response.ok ? response.json() : null;
-      })
-      .then((data) => {
-        if (active && data?.url) {
-          setCachedSignedUrl(endpoint, data);
-          setUrl(data.url);
+    const imageId = imageIdFromSignedUrlEndpoint(endpoint);
+    const load = imageId
+      ? fetchImageSignedUrl(imageId, { authorizationHeader, onUnauthorized: markSessionExpired })
+      : fetch(endpoint, { headers: authorizationHeader })
+          .then((response) => {
+            if (response.status === 401) markSessionExpired();
+            return response.ok ? response.json() : null;
+          })
+          .then((data: { url?: string } | null) => {
+            if (data?.url) setCachedSignedUrl(endpoint, data as Parameters<typeof setCachedSignedUrl>[1]);
+            return data;
+          });
+    load
+      .then((payload) => {
+        if (active && payload?.url) {
+          setUrl(payload.url);
           setFailed(false);
         } else if (active) {
           setFailed(true);

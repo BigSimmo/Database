@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { fetchJsonCached } from "@/lib/client-fetch-cache";
 import type { RegistryRecordKind, RegistrySourceStatus, RegistryValidationStatus } from "@/lib/registry-records";
 import type { ServiceRecord } from "@/lib/services";
 import { useAuthSession } from "@/lib/supabase/client";
@@ -73,8 +74,10 @@ export function useRegistryRecords(
   useEffect(() => {
     if (!enabled) return undefined;
     let active = true;
-    fetch(`/api/registry/records?kind=${kind}`, { headers: authorizationHeader })
-      .then(async (response) => {
+    // Cached + deduped: several surfaces mount this hook for the same kind
+    // concurrently (dashboard cross-mode links, mode homes, favourites).
+    fetchJsonCached(`/api/registry/records?kind=${kind}`, { headers: authorizationHeader })
+      .then((response) => {
         if (!active) return;
         if (response.status === 401) {
           // In real auth deployments the first request can race AuthProvider's
@@ -90,11 +93,11 @@ export function useRegistryRecords(
           setState(recordsState("error", kind));
           return;
         }
-        if (!response.ok) {
+        if (response.status < 200 || response.status >= 300) {
           setState(recordsState("error", kind));
           return;
         }
-        const payload = (await response.json()) as {
+        const payload = (response.payload ?? {}) as {
           records?: ServiceRecord[];
           total?: number;
           demoMode?: boolean;
@@ -139,8 +142,10 @@ export function useRegistryRecord(kind: RegistryRecordKind, slug: string): Regis
 
   useEffect(() => {
     let active = true;
-    fetch(`/api/registry/records/${encodeURIComponent(slug)}?kind=${kind}`, { headers: authorizationHeader })
-      .then(async (response) => {
+    fetchJsonCached(`/api/registry/records/${encodeURIComponent(slug)}?kind=${kind}`, {
+      headers: authorizationHeader,
+    })
+      .then((response) => {
         if (!active) return;
         if (response.status === 401) {
           if (authStatus === "loading") return;
@@ -156,11 +161,11 @@ export function useRegistryRecord(kind: RegistryRecordKind, slug: string): Regis
           setState({ status: "not_found", record: null, linkedDocuments: [], demoMode: false, governance: null });
           return;
         }
-        if (!response.ok) {
+        if (response.status < 200 || response.status >= 300) {
           setState({ status: "error", record: null, linkedDocuments: [], demoMode: false, governance: null });
           return;
         }
-        const payload = (await response.json()) as {
+        const payload = (response.payload ?? {}) as {
           record?: ServiceRecord;
           linkedDocuments?: Array<{ id: string; title: string; file_name: string; status: string }>;
           demoMode?: boolean;
