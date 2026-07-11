@@ -20,8 +20,11 @@ export async function copyTextToClipboard(value: string): Promise<void> {
   document.body.appendChild(textArea);
   textArea.select();
   try {
-    const copied = document.execCommand?.("copy");
-    if (copied === false) throw new Error("copy command rejected");
+    // execCommand may be absent entirely (an optional call would return
+    // undefined and read as success); only an explicit true means the
+    // fallback actually copied.
+    const copied = typeof document.execCommand === "function" && document.execCommand("copy");
+    if (!copied) throw new Error("copy command rejected");
   } finally {
     document.body.removeChild(textArea);
   }
