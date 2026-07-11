@@ -3298,7 +3298,10 @@ export function ClinicalDashboard({
           <SearchCommandProvider value={searchCommandContextValue}>
             <div
               className={cn(
-                "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+                // overflow-x-CLIP, not -hidden: hidden makes this wrapper a scroll
+                // container (overflow-y computes to auto), which clips the composer's
+                // command dropdown mid-panel and shows a phantom inner scrollbar.
+                "mx-auto max-w-7xl space-y-4 overflow-x-clip px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
                 compactMobileModeHome && "max-sm:px-0",
                 // Centred mode homes carry little content, so drop the large
                 // mobile bottom padding (the fixed composer already has its own
@@ -3329,7 +3332,10 @@ export function ClinicalDashboard({
                 className={cn(
                   compactMobileModeHome
                     ? cn(
-                        "max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col",
+                        // Every breakpoint keeps a viewport-height floor so
+                        // justify/place-items-center has free space to centre the
+                        // home block instead of hugging the header.
+                        "max-sm:flex max-sm:min-h-[calc(100dvh-12.5rem)] max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
                         centeredModeHome && "max-sm:justify-center",
                       )
                     : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
