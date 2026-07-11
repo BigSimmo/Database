@@ -224,6 +224,12 @@ function SidebarRow({ entry }: { entry: SidebarEntry }) {
   );
 }
 
+/**
+ * Renders the favourites library navigation sidebar in expanded or compact mode.
+ *
+ * @param collapsed - Whether to display the compact sidebar layout.
+ * @param onCollapsedChange - Called when the user requests a different sidebar layout.
+ */
 export function FavouritesSidebar({
   collapsed,
   onCollapsedChange,

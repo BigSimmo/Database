@@ -126,6 +126,14 @@ const sectionItemIconClass: Partial<Record<DifferentialSection["tone"], string>>
   test: "text-[color:var(--info)]",
 };
 
+/**
+ * Renders section items according to the section tone.
+ *
+ * @param section - The section whose tone determines the item layout and styling
+ * @param items - The items to display
+ * @param overlapLinks - Maps overlap item labels to diagnosis slugs for linked items
+ * @returns The rendered section item list
+ */
 function SectionItems({
   section,
   items,
@@ -702,6 +710,14 @@ function FooterStatus({
   );
 }
 
+/**
+ * Renders desktop actions for comparing, copying, and saving a diagnosis.
+ *
+ * @param record - The diagnosis record whose content is copied.
+ * @param saved - Whether the diagnosis is currently saved.
+ * @param onToggleSaved - Called when the saved state is toggled.
+ * @param onCompare - Called when comparison is requested.
+ */
 function TopActions({
   record,
   saved,
@@ -833,6 +849,12 @@ const detailTabs: Array<{ id: DifferentialDetailTabId; label: string }> = [
   { id: "source", label: "Source" },
 ];
 
+/**
+ * Renders keyboard-navigable tabs for the diagnosis detail sections.
+ *
+ * @param active - The currently selected tab.
+ * @param onChange - Called when the selected tab changes.
+ */
 function Tabs({
   active,
   onChange,
