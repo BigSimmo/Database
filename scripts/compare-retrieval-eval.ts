@@ -12,8 +12,8 @@ type MetricKind = "number" | "array" | "layer";
 
 type MetricSpec = {
   name: string;
-  // Summary key to read, or the layer name when kind is "layer".
-  key: string;
+  // Summary field to read, or the layer name when kind is "layer".
+  field: string;
   kind: MetricKind;
   // Required metrics feed the re-index gate; a missing value must fail closed rather than read
   // as 0. Optional/context metrics are mode-dependent (latency, force-embedding, layer coverage)
@@ -23,27 +23,27 @@ type MetricSpec = {
 };
 
 const METRIC_SPECS: MetricSpec[] = [
-  { name: "case_count", key: "case_count", kind: "number", required: true, digits: 0 },
-  { name: "document_recall_at_5", key: "document_recall_at_5", kind: "number", required: true, digits: 4 },
-  { name: "content_recall_at_5", key: "content_recall_at_5", kind: "number", required: true, digits: 4 },
-  { name: "top_k_hit_rate", key: "top_k_hit_rate", kind: "number", required: true, digits: 4 },
+  { name: "case_count", field: "case_count", kind: "number", required: true, digits: 0 },
+  { name: "document_recall_at_5", field: "document_recall_at_5", kind: "number", required: true, digits: 4 },
+  { name: "content_recall_at_5", field: "content_recall_at_5", kind: "number", required: true, digits: 4 },
+  { name: "top_k_hit_rate", field: "top_k_hit_rate", kind: "number", required: true, digits: 4 },
   // Passage rank is the decisive retrieval metric; its case count guards the population it is
   // averaged over. Both are required so a missing value is surfaced, not silently zeroed.
-  { name: "content_mrr_at_10", key: "content_mrr_at_10", kind: "number", required: true, digits: 4 },
-  { name: "content_mrr_case_count", key: "content_mrr_case_count", kind: "number", required: true, digits: 0 },
-  { name: "failed_cases", key: "failed_cases", kind: "array", required: true, digits: 0 },
-  { name: "mrr_at_10", key: "mrr_at_10", kind: "number", required: false, digits: 4 },
-  { name: "median_latency_ms", key: "median_latency_ms", kind: "number", required: false, digits: 0 },
-  { name: "p90_latency_ms", key: "p90_latency_ms", kind: "number", required: false, digits: 0 },
+  { name: "content_mrr_at_10", field: "content_mrr_at_10", kind: "number", required: true, digits: 4 },
+  { name: "content_mrr_case_count", field: "content_mrr_case_count", kind: "number", required: true, digits: 0 },
+  { name: "failed_cases", field: "failed_cases", kind: "array", required: true, digits: 0 },
+  { name: "mrr_at_10", field: "mrr_at_10", kind: "number", required: false, digits: 4 },
+  { name: "median_latency_ms", field: "median_latency_ms", kind: "number", required: false, digits: 0 },
+  { name: "p90_latency_ms", field: "p90_latency_ms", kind: "number", required: false, digits: 0 },
   {
     name: "force_embedding_failure_count",
-    key: "force_embedding_failure_count",
+    field: "force_embedding_failure_count",
     kind: "number",
     required: false,
     digits: 0,
   },
-  { name: "latency_failed_cases", key: "latency_failed_cases", kind: "array", required: false, digits: 0 },
-  { name: "index_units_layer_count", key: "index_units", kind: "layer", required: false, digits: 0 },
+  { name: "latency_failed_cases", field: "latency_failed_cases", kind: "array", required: false, digits: 0 },
+  { name: "index_units_layer_count", field: "index_units", kind: "layer", required: false, digits: 0 },
 ];
 
 type MetricValue = { present: boolean; value: number };
@@ -68,11 +68,11 @@ function readLayer(summary: EvalSummary, layer: string): MetricValue {
 function readMetric(summary: EvalSummary, spec: MetricSpec): MetricValue {
   switch (spec.kind) {
     case "array":
-      return readArrayLength(summary, spec.key);
+      return readArrayLength(summary, spec.field);
     case "layer":
-      return readLayer(summary, spec.key);
+      return readLayer(summary, spec.field);
     default:
-      return readNumber(summary, spec.key);
+      return readNumber(summary, spec.field);
   }
 }
 
