@@ -25,6 +25,16 @@ Options:
 npm run reindex -- --yes --max-rounds 5
 ```
 
+> **This is queue recovery, not a controlled cutover.** `npm run reindex` drains and recovers the
+> ingestion queue against the current live index — it re-runs the worker until the queue is clear.
+> It does **not** generate a shadow index, evaluate a baseline vs. candidate, gate on
+> `content_mrr_at_10`, atomically promote, or roll back. That eval-gated shadow-generation →
+> baseline/candidate → atomic-promotion cutover is designed-only in
+> [reindex-shadow-harness-design.md](reindex-shadow-harness-design.md); its driver
+> (`scripts/reindex-shadow.ts`) is not built. A chunking change (e.g. `CHUNK_STRATEGY=document`)
+> must clear the passage-rank gate (`content_mrr_at_10` above baseline, per
+> `src/lib/reindex-eval-gate.ts`) through that harness before any promotion — never via this command.
+
 ## Manual safe sequence
 
 If you prefer to run each step by hand (or need to apply a migration in between):

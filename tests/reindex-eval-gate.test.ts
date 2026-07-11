@@ -8,6 +8,8 @@ function retrieval(overrides: Partial<RetrievalGateSummary> = {}): RetrievalGate
     document_recall_at_5: 0.9,
     content_recall_at_5: 0.9,
     top_k_hit_rate: 0.95,
+    content_mrr_at_10: 0.9,
+    content_mrr_case_count: 3,
     mrr_at_10: 0.8,
     p90_latency_ms: 8000,
     ...overrides,
@@ -91,6 +93,8 @@ describe("decideReindexGate — retrieval", () => {
       document_recall_at_5: 0.9,
       content_recall_at_5: 0.9,
       top_k_hit_rate: 0.9,
+      content_mrr_at_10: 0.9,
+      content_mrr_case_count: 3,
     } as Partial<RetrievalGateSummary> as RetrievalGateSummary;
     const decision = decideReindexGate({
       baselineRetrieval: baselineWithoutFailedCaseCount,
@@ -100,6 +104,8 @@ describe("decideReindexGate — retrieval", () => {
         document_recall_at_5: 0.9,
         content_recall_at_5: 0.9,
         top_k_hit_rate: 0.9,
+        content_mrr_at_10: 0.9,
+        content_mrr_case_count: 3,
       },
       qualityMode: "retrieval_only",
     });
@@ -115,6 +121,8 @@ describe("decideReindexGate — retrieval", () => {
         document_recall_at_5: 0.9,
         content_recall_at_5: 0.9,
         top_k_hit_rate: 0.9,
+        content_mrr_at_10: 0.9,
+        content_mrr_case_count: 3,
       },
       candidateRetrieval: {
         case_count: 4,
@@ -122,12 +130,78 @@ describe("decideReindexGate — retrieval", () => {
         document_recall_at_5: 0.9,
         content_recall_at_5: 0.9,
         top_k_hit_rate: 0.9,
+        content_mrr_at_10: 0.9,
+        content_mrr_case_count: 3,
       },
       qualityMode: "retrieval_only",
     });
     expect(decision.decision).toBe("GO");
     expect(decision.checks.some((check) => check.metric === "mrr_at_10")).toBe(false);
     expect(decision.checks.some((check) => check.metric === "p90_latency_ms")).toBe(false);
+  });
+
+  it("returns NO_GO when passage MRR regresses even if the doc-level MRR improves", () => {
+    // Doc-level mrr_at_10 is blind to intra-document passage order, so a chunking/OCR change can
+    // lift it while the answer passage sinks below distractors. content_mrr_at_10 must catch that.
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval({ mrr_at_10: 0.8, content_mrr_at_10: 0.9 }),
+      candidateRetrieval: retrieval({ mrr_at_10: 0.9, content_mrr_at_10: 0.7 }),
+      qualityMode: "retrieval_only",
+    });
+    expect(decision.decision).toBe("NO_GO");
+    expect(decision.failures.join(" ")).toMatch(/content_mrr_at_10 regressed/);
+  });
+
+  it("fails closed when the passage MRR metric is missing", () => {
+    const candidateWithoutContentMrr = {
+      case_count: 4,
+      failed_case_count: 0,
+      document_recall_at_5: 0.9,
+      content_recall_at_5: 0.9,
+      top_k_hit_rate: 0.9,
+      content_mrr_case_count: 3,
+    } as Partial<RetrievalGateSummary> as RetrievalGateSummary;
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval(),
+      candidateRetrieval: candidateWithoutContentMrr,
+      qualityMode: "retrieval_only",
+    });
+    expect(decision.decision).toBe("NO_GO");
+    expect(decision.failures.join(" ")).toMatch(/candidateRetrieval\.content_mrr_at_10/);
+  });
+
+  it("fails closed when the passage-MRR case population differs", () => {
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval({ content_mrr_case_count: 3 }),
+      candidateRetrieval: retrieval({ content_mrr_case_count: 5 }),
+      qualityMode: "retrieval_only",
+    });
+    expect(decision.decision).toBe("NO_GO");
+    expect(decision.failures.join(" ")).toMatch(/content_mrr_case_count mismatch/);
+  });
+
+  it("treats equal passage MRR as neutral for a standard re-index but insufficient for chunking", () => {
+    const equalPassageMrr = {
+      baselineRetrieval: retrieval({ content_mrr_at_10: 0.9 }),
+      candidateRetrieval: retrieval({ content_mrr_at_10: 0.9 }),
+      qualityMode: "retrieval_only" as const,
+    };
+    // Standard re-index: holding passage rank is fine.
+    expect(decideReindexGate(equalPassageMrr).decision).toBe("GO");
+    // Chunking experiment: a neutral result cannot justify the re-index spend.
+    const chunkingDecision = decideReindexGate({ ...equalPassageMrr, chunkingExperiment: true });
+    expect(chunkingDecision.decision).toBe("NO_GO");
+    expect(chunkingDecision.failures.join(" ")).toMatch(/content_mrr_at_10 0.9 below absolute floor/);
+  });
+
+  it("returns GO for a chunking experiment only when passage rank clears the noise band", () => {
+    const decision = decideReindexGate({
+      baselineRetrieval: retrieval({ content_mrr_at_10: 0.9 }),
+      candidateRetrieval: retrieval({ content_mrr_at_10: 0.95 }),
+      qualityMode: "retrieval_only",
+      chunkingExperiment: true,
+    });
+    expect(decision.decision).toBe("GO");
   });
 
   it("fails closed when retrieval eval reports failed cases", () => {
