@@ -117,7 +117,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
               <BrandMark className="mx-auto h-8 w-8" />
               <h2
                 id="account-setup-title"
-                className="mt-3.5 text-[1.35rem] font-semibold leading-7 text-[color:var(--text-heading)] sm:mt-4 sm:text-2xl sm:leading-8"
+                className="mt-3.5 text-2xl-minus font-semibold leading-7 text-[color:var(--text-heading)] sm:mt-4 sm:text-2xl sm:leading-8"
               >
                 Set up your workspace
               </h2>

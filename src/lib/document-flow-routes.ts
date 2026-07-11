@@ -1,3 +1,9 @@
+import {
+  appendSearchNavigationContext,
+  readSearchNavigationContext,
+  type SearchNavigationOptions,
+} from "@/lib/search-navigation-context";
+
 export const DOCUMENTS_MODE_HOME_ROUTE = "/?mode=documents";
 export const DOCUMENT_SEARCH_ROUTE = "/documents/search";
 export const DOCUMENT_READER_ROUTE = "/documents/source";
@@ -9,13 +15,27 @@ export const DEFAULT_DOCUMENT_FLOW_PAGE = 12;
 export const DEFAULT_DOCUMENT_FLOW_CHUNK = "monitoring-table";
 export const DEFAULT_DOCUMENT_FLOW_EVIDENCE = "monitoring-table";
 
-export function documentsSearchHref(options: { query?: string; focus?: boolean; run?: boolean } = {}) {
+export function documentsSearchHref(options: SearchNavigationOptions = {}) {
   const params = new URLSearchParams({ mode: "documents" });
   const query = options.query?.trim();
   if (query) params.set("q", query);
   if (options.focus) params.set("focus", "1");
   if (options.run && query) params.set("run", "1");
+  appendSearchNavigationContext(params, options);
   return `${DOCUMENT_SEARCH_ROUTE}?${params.toString()}`;
+}
+
+export function documentSearchRequestBody(params: Pick<URLSearchParams, "get" | "getAll">, query: string) {
+  const { queryMode, scopeFilters } = readSearchNavigationContext(params);
+  return {
+    query,
+    mode: "documents" as const,
+    filters: scopeFilters,
+    queryMode,
+    documentLimit: 24,
+    topK: 20,
+    includeRelatedDocuments: true,
+  };
 }
 
 export function documentReaderHref(

@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
-import { appName, localProjectId, stableProjectPort } from "./local-server-utils.mjs";
+import { appName, localProjectId, stableProjectPort } from "../src/lib/local-server-utils.mjs";
 
 const projectRoot = path.resolve(__dirname, "..");
 const ensureScript = path.join(projectRoot, "scripts", "ensure-local-server.mjs");

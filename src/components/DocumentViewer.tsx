@@ -68,7 +68,7 @@ import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { formatClinicalDate } from "@/lib/source-metadata";
 import { partitionViewerImages } from "@/lib/image-filtering";
-import { isLocalNoAuthMode } from "@/lib/env";
+import { isLocalNoAuthMode } from "@/lib/client-env";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { DocumentManagementActions } from "@/components/DocumentManagementActions";
