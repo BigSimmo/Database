@@ -393,7 +393,7 @@ export const demoDocumentSummaries: DocumentSummary[] = [
       "levels every 3 months, renal and thyroid tests every 6 months, and calcium annually. The therapeutic " +
       "effect occurs gradually and may take up to three weeks. Escalate review for vomiting, diarrhoea, " +
       "dehydration, acute kidney injury, new NSAID/ACE inhibitor/diuretic exposure, tremor, confusion, or " +
-      "ataxia. therapeutic effect occurs gradually and may take up to three weeks. Lithium is a narro...",
+      "ataxia. therapeutic effect occurs gradually and may take up to three weeks. Careful patient selection and monitori",
     clinical_specifics: {},
     source_chunk_ids: [],
     source_image_ids: [],
