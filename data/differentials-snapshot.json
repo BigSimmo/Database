@@ -1,6 +1,6 @@
 {
   "version": "v10",
-  "exportedAt": "2026-07-05",
+  "exportedAt": "2026-07-11",
   "presentations": [
     {
       "id": "acute-confusion-encephalopathy",
@@ -4910,8 +4910,8 @@
       }
     },
     {
-      "id": "urgency-urgent",
-      "title": "Urgency: urgent",
+      "id": "focused-diagnostic-trap-tables",
+      "title": "Focused Diagnostic Trap Tables",
       "status": "urgent",
       "subtitle": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.",
       "selectedCount": 4,
@@ -14658,7 +14658,7 @@
           "note": "Desire/plan/willingness to harm, ego-syntonic, grievance-based, with preparation"
         }
       ],
-      "currentPresentation": ["Urgency: urgent"],
+      "currentPresentation": ["Focused Diagnostic Trap Tables"],
       "investigations": [],
       "immediateActions": []
     },
@@ -15095,7 +15095,7 @@
           "note": "Severe postpartum depression with guilt, nihilism, deserved-punishment ideas. Mood-congruent psychosis"
         }
       ],
-      "currentPresentation": ["Urgency: urgent", "Focused comparator (perinatal)"],
+      "currentPresentation": ["Focused Diagnostic Trap Tables", "Focused comparator (perinatal)"],
       "investigations": [],
       "immediateActions": []
     },
@@ -18958,7 +18958,7 @@
         }
       ],
       "currentPresentation": [
-        "Urgency: urgent",
+        "Focused Diagnostic Trap Tables",
         "Anxiety / Panic / Obsessions / Health Anxiety",
         "Panic disorder, Generalised anxiety disorder, OCD",
         "CLINICAL HINGE: Abrupt peak over minutes, recurrent unexpected attacks, anticipatory anxiety or avoidance."
@@ -19600,7 +19600,7 @@
           "note": "Desire/plan/willingness to harm, ego-syntonic, grievance-based, with preparation"
         }
       ],
-      "currentPresentation": ["Urgency: urgent"],
+      "currentPresentation": ["Focused Diagnostic Trap Tables"],
       "investigations": [],
       "immediateActions": []
     },
@@ -20257,7 +20257,7 @@
         "Postpartum psychosis, Postnatal depression, Perinatal OCD / intrusive infant-harm thoughts",
         "CLINICAL HINGE: Psychotic or manic syndrome with abrupt change from baseline in the postpartum period.",
         "Focused comparator (perinatal)",
-        "Urgency: urgent"
+        "Focused Diagnostic Trap Tables"
       ],
       "investigations": [],
       "immediateActions": []
@@ -21453,7 +21453,7 @@
           "note": "Desire/plan/willingness to harm, ego-syntonic, grievance-based, with preparation"
         }
       ],
-      "currentPresentation": ["Urgency: urgent"],
+      "currentPresentation": ["Focused Diagnostic Trap Tables"],
       "investigations": [],
       "immediateActions": []
     },
@@ -22930,7 +22930,7 @@
           "note": "Desire/plan/willingness to harm, ego-syntonic, grievance-based, with preparation"
         }
       ],
-      "currentPresentation": ["Urgency: urgent"],
+      "currentPresentation": ["Focused Diagnostic Trap Tables"],
       "investigations": [],
       "immediateActions": []
     },

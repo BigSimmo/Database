@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { parseEntryFile, parseScenarioPresets, parseSearchAliases } from "../scripts/lib/parse-differentials-export";
+import {
+  buildDifferentialSnapshot,
+  parseEntryFile,
+  parseScenarioPresets,
+  parseSearchAliases,
+} from "../scripts/lib/parse-differentials-export";
+import { staleSeededPresentations } from "@/lib/differential-seed";
+import { isDifferentialMetadataArtifactTitle } from "@/lib/differential-snapshot";
 import {
   composeDifferentialSearchResults,
   differentialDiagnosesCards,
@@ -128,6 +135,42 @@ OPTIONS:
     expect(aliases.tags).toBeUndefined();
     expect(aliases.delirium).toEqual(["confusion", "fluctuation"]);
   });
+
+  it("titles a titleless entry from its header instead of surfacing a metadata row", () => {
+    // The trap-tables appendix has no title line, so the first line after the
+    // header is a metadata row ("Urgency: urgent"). The parser must fall back
+    // to the header text rather than use the metadata row as the title.
+    const trapEntry = `=== FOCUSED DIAGNOSTIC TRAP TABLES ===
+
+Urgency: urgent
+Axis: mixed
+Population: general
+
+PURPOSE: Distinguishes intrusive/obsessional phenomena from psychotic or violent intent.
+
+OPTIONS:
+1. OCD — Repetitive intrusive thoughts with rituals. Red flags: Functional collapse.
+
+SOURCE: v10`;
+    const snapshot = buildDifferentialSnapshot({
+      entryFiles: [
+        { name: "01_Delirium.txt", content: deliriumEntry },
+        { name: "T_Focused_Diagnostic_Trap_Tables.txt", content: trapEntry },
+      ],
+      presetsMarkdown: "",
+      flowsMarkdown: "",
+      aliasesMarkdown: "",
+      governanceMarkdown: "",
+    });
+    const trap = snapshot.presentations.find((presentation) => presentation.id === "focused-diagnostic-trap-tables");
+    expect(trap?.title).toBe("Focused Diagnostic Trap Tables");
+    // No presentation may carry a metadata-row title.
+    expect(
+      snapshot.presentations.filter((presentation) => isDifferentialMetadataArtifactTitle(presentation.title)),
+    ).toEqual([]);
+    // The appendix keeps its options as diagnoses, parented by the retitled entry.
+    expect(snapshot.diagnoses.find((diagnosis) => diagnosis.slug === "ocd")).toBeDefined();
+  });
 });
 
 describe("differential records", () => {
@@ -136,6 +179,27 @@ describe("differential records", () => {
     expect(snapshot.presentations).toHaveLength(31);
     expect(snapshot.diagnoses.length).toBeGreaterThan(100);
     expect(differentialRecords.length).toBe(snapshot.diagnoses.length);
+    // No presentation may ship with a metadata-row title (e.g. "Urgency: urgent"),
+    // and the mis-titled trap-tables appendix now carries its header title.
+    expect(
+      snapshot.presentations.filter((presentation) => isDifferentialMetadataArtifactTitle(presentation.title)),
+    ).toEqual([]);
+    expect(snapshot.presentations.some((presentation) => presentation.id === "urgency-urgent")).toBe(false);
+    expect(
+      snapshot.presentations.find((presentation) => presentation.id === "focused-diagnostic-trap-tables")?.title,
+    ).toBe("Focused Diagnostic Trap Tables");
+  });
+
+  it("flags a retired presentation slug for pruning, leaving diagnoses alone", () => {
+    // Retitling changed the appendix slug, so the old "urgency-urgent" row is no
+    // longer produced by the snapshot and must be pruned from seeded owners.
+    const rows = [
+      { kind: "presentation", slug: "urgency-urgent" },
+      { kind: "presentation", slug: "focused-diagnostic-trap-tables" },
+      { kind: "diagnosis", slug: "urgency-urgent" },
+    ];
+    const stale = staleSeededPresentations(rows);
+    expect(stale).toEqual([{ kind: "presentation", slug: "urgency-urgent" }]);
   });
 
   it("links cards to routes", () => {

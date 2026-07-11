@@ -89,6 +89,15 @@ export type DifferentialSnapshotGovernance = {
   sourceTitle: string;
 };
 
+/** Entry files in the differentials export open with metadata rows ("Urgency:
+ *  urgent", "Axis: mixed", "Population: general"). When a file has no title
+ *  line, the first line after the header is one of these rows rather than a
+ *  real title; the parser detects that with this predicate and falls back to
+ *  the header text so the entry gets an honest title (never a metadata row). */
+export function isDifferentialMetadataArtifactTitle(title: string) {
+  return /^(urgency|axis|population)\s*:/i.test(title.trim());
+}
+
 export type DifferentialSnapshot = {
   version: string;
   exportedAt: string;

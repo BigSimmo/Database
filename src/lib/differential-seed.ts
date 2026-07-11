@@ -1,4 +1,4 @@
-import { buildDefaultDifferentialRows } from "@/lib/differential-fixtures";
+import { buildDefaultDifferentialRows, loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import { type DifferentialRecordInsert, type DifferentialRecordRow } from "@/lib/differential-records";
 import { safeErrorLogDetails } from "@/lib/privacy";
 
@@ -61,4 +61,15 @@ export async function fetchOwnerDifferentialRowsWithSeed(
 
 export function buildDifferentialSeedRows(ownerId: string): DifferentialRecordInsert[] {
   return buildDefaultDifferentialRows(ownerId);
+}
+
+/** Seeded presentation rows whose slug the current snapshot no longer produces.
+ *  Retitling the trap-tables appendix changed its slug ("urgency-urgent" ->
+ *  "focused-diagnostic-trap-tables"); seeding upserts by slug and never
+ *  deletes, so the old slug lingers for already-seeded owners until pruned.
+ *  Diagnoses are deliberately not pruned: their slugs merge and churn across
+ *  snapshot versions, so set-difference pruning would be unsafe there. */
+export function staleSeededPresentations<Row extends { kind: string; slug: string }>(rows: Row[]): Row[] {
+  const validSlugs = new Set(loadDifferentialSnapshot().presentations.map((presentation) => presentation.id));
+  return rows.filter((row) => row.kind === "presentation" && !validSlugs.has(row.slug));
 }

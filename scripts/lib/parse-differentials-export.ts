@@ -1,3 +1,4 @@
+import { isDifferentialMetadataArtifactTitle } from "@/lib/differential-snapshot";
 import type {
   DifferentialComparisonCandidate,
   DifferentialComparisonCriterion,
@@ -144,14 +145,25 @@ function parseEntryHeader(content: string) {
   return header ? slugify(header) : "unknown";
 }
 
+// ALL-CAPS "=== HEADER ===" text to a human title, e.g.
+// "FOCUSED DIAGNOSTIC TRAP TABLES" -> "Focused Diagnostic Trap Tables".
+function titleFromHeader(header: string) {
+  return header.toLowerCase().replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 function parseEntryTitle(content: string) {
+  const header = content.match(/^===\s*(.+?)\s*===\s*\n/m)?.[1]?.trim() ?? "";
   const afterHeader = content.replace(/^===\s*.+?\s*===\s*\n/m, "");
-  return (
-    afterHeader
-      .split("\n")
-      .find((line) => line.trim())
-      ?.trim() ?? "Untitled presentation"
-  );
+  const firstLine = afterHeader
+    .split("\n")
+    .find((line) => line.trim())
+    ?.trim();
+  // Most entries put a title on the line after the header. The focused
+  // diagnostic trap-tables appendix has none, so the first line is actually a
+  // metadata row ("Urgency: urgent") — fall back to the header text so the
+  // entry gets an honest title instead of surfacing the metadata as its title.
+  if (firstLine && !isDifferentialMetadataArtifactTitle(firstLine)) return firstLine;
+  return header ? titleFromHeader(header) : (firstLine ?? "Untitled presentation");
 }
 
 function parseOptionsSection(content: string): ParsedOption[] {
