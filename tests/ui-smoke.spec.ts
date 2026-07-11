@@ -1859,6 +1859,44 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("differentials-home")).toHaveCount(0);
   });
 
+  test("newer routed differential context wins over an older response", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    let requestCount = 0;
+    await page.route(/\/api\/search$/, async (route) => {
+      requestCount += 1;
+      const currentRequest = requestCount;
+      if (currentRequest === 1) await new Promise((resolve) => setTimeout(resolve, 500));
+      const sourceCount = currentRequest === 1 ? 2 : 1;
+      await route
+        .fulfill({
+          json: {
+            documentMatches: Array.from({ length: sourceCount }, (_, index) => ({
+              document_id: `00000000-0000-4000-8000-00000000000${index}`,
+              title: `${currentRequest === 1 ? "Older" : "Current"} source ${index + 1}`,
+              file_name: `source-${index + 1}.pdf`,
+              score: 0.9 - index * 0.1,
+            })),
+          },
+        })
+        .catch(() => undefined);
+    });
+
+    await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
+    await expect.poll(() => requestCount).toBeGreaterThanOrEqual(1);
+    const baselineRequestCount = requestCount;
+    await page.evaluate(() => {
+      window.history.pushState(null, "", "/differentials?q=acute+confusion&run=1&scope.sourceStatuses=outdated");
+    });
+
+    await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
+    const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
+    await expect(sourceStatus).toContainText("1 source");
+    await page.waitForTimeout(600);
+    await expect(sourceStatus).toContainText("1 source");
+    await expect(sourceStatus).not.toContainText("2 sources");
+  });
+
   test("submitted favourites searches stay on the command library route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
