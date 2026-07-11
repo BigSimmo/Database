@@ -96,8 +96,11 @@ export const fallbackSetupChecks: SetupCheck[] = [
   },
 ];
 
-const publicSearchSetupCheckIds = new Set<SetupCheck["id"]>(["env", "project", "schema", "search", "openai"]);
-const requiredPublicSearchConfigCheckIds = new Set<SetupCheck["id"]>(["env", "project", "schema", "openai"]);
+// OpenAI is intentionally excluded from both gates: browse/search only needs Supabase.
+// The answer path validates OPENAI_API_KEY at request time (requireOpenAIEnv), so a
+// missing key surfaces as a real API error there rather than blocking every mode here.
+const publicSearchSetupCheckIds = new Set<SetupCheck["id"]>(["env", "project", "schema", "search"]);
+const requiredPublicSearchConfigCheckIds = new Set<SetupCheck["id"]>(["env", "project", "schema"]);
 
 export function hasReadyPublicSearchSetup(checks: SetupCheck[]) {
   return Array.from(publicSearchSetupCheckIds).every(

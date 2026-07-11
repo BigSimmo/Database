@@ -255,6 +255,7 @@ function GlobalMockupStandaloneSearchShellClient({
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
+  const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
   // Standalone mode homes portal the composer into the hero (in-flow at every
   // width), so phones need no bottom-dock clearance there.
   const mobileComposerReserve = !shouldShowSearchComposer
@@ -541,8 +542,12 @@ function GlobalMockupStandaloneSearchShellClient({
           tabIndex={-1}
           onScroll={handleMainScroll}
           className={cn(
-            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)]",
-            !shouldShowSearchComposer
+            // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
+            // auto, which turns #main-content into the sticky scrollport while the
+            // window does the actual scrolling — silently disabling every
+            // position:sticky descendant (e.g. the document viewer rail).
+            "min-w-0 focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
+            !reservesFloatingComposer
               ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
               : bottomSearchScrollHidden
                 ? "max-sm:pb-8 sm:pb-8"

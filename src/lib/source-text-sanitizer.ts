@@ -526,30 +526,109 @@ export function polishStoredSynopsis(value: string) {
   return repairTruncatedCompactTail(segments.join(" | "));
 }
 
+// Bullet glyphs (•◦▪‣●) and the PDF/Word sub-bullet rendered as a bare
+// lowercase "o" between words become the joiner. A leading bullet is dropped
+// outright. Hyphen bullets are left alone — indistinguishable from compound
+// hyphens and ranges. The "o" sub-bullet only converts when whitespace-
+// delimited, not after a digit ("37 o C" stays), and followed by a
+// capitalized token of 2+ chars ("o C" and "blood group o positive" stay).
+// A "\n" joiner turns each list item into its own line (extractive-answer
+// splitting treats those as fact boundaries); separator joiners get the
+// punctuation tidy-up passes, including "Label:; item" → "Label: item".
+const inlineBulletGlyphPattern = /\s*[•◦▪‣●]+\s*/g;
+// The follower may be a capitalized token or a numeric dose start ("o 25 mg
+// nightly"); "37 o C" stays protected by the not-after-a-digit lookbehind
+// and by the 2+ char follower requirement (a bare "o C" never matches). A
+// chunk or line can also BEGIN with the sub-bullet ("o 12.5 mg twice daily",
+// "Dose:\no Start 750 mg"), hence the start/newline alternatives. Lowercase
+// followers ("o pregnancy") are deliberately NOT converted: the risk of
+// deleting a genuine clinical "o" value outweighs the cosmetic artifact.
+const subBulletOGlyphPattern = /(?<=^|[\r\n]|[^\d\s]\s)o(?=\s+(?:\d|[A-Z][a-z0-9]|[A-Z]{2,}))/g;
+// Blood-group exemptions: "blood group o RhD negative" / "Blood Type: o
+// Negative" (any casing, optional colon), or a bare "group/type o" directly
+// followed by an Rh/positive/negative value, keep their lowercase "o" — it
+// is the clinical value itself, not a bullet glyph. A non-blood label such
+// as "patient group o Adults" or "risk group: o Pregnant patients" still
+// converts, so an OCR bullet cannot hide behind an unrelated group/type word.
+const bloodLabelTailPattern = /\b(?:blood|abo|rh(?:d)?)\s+(?:group|type):?\s$/i;
+const groupTypeLabelTailPattern = /\b(?:group|type):?\s$/i;
+// A word qualifying group/type ("risk group:", "test type:") marks a list
+// label, not a blood label — its positive/negative items are list content.
+const qualifiedGroupTypeTailPattern = /\b[A-Za-z][\w-]*\s+(?:group|type):?\s$/i;
+const rhValueHeadPattern = /^\s+rh(?:d)?\b/i;
+const posNegValueHeadPattern = /^\s+(?:pos(?:itive)?|neg(?:ative)?)\b/i;
+// An entire line that is just the ABO value ("o RhD negative", "o Negative",
+// "o Rh positive") — the strongest signal that the "o" is the group itself.
+const standaloneBloodValueLinePattern =
+  /^o\s+(?:rh(?:d)?(?:\s+(?:pos(?:itive)?|neg(?:ative)?))?|pos(?:itive)?|neg(?:ative)?)$/i;
+const bloodValueWithNounTailLinePattern =
+  /^o\s+(?:rh(?:d)?\s+)?(?:pos(?:itive)?|neg(?:ative)?)\s+(?:blood(?!\s+(?:cultures?|tests?|screens?|samples?|results?)\b)|red\s+cells?)\b/i;
+
+function replaceSubBulletOGlyphs(text: string, joiner: string) {
+  return text.replace(subBulletOGlyphPattern, (match, offset: number) => {
+    const before = text.slice(0, offset);
+    const after = text.slice(offset + match.length);
+    if (bloodLabelTailPattern.test(before)) return match;
+    if (bloodValueWithNounTailLinePattern.test(text.slice(offset))) return match;
+    // A chunk/cell that IS the blood value ("o RhD negative", "o Negative")
+    // has no label context at all — but only when the whole line is the
+    // value. A positive/negative list ITEM ("o Positive symptoms require
+    // urgent review") is a bullet and converts.
+    const atItemStart = offset === 0 || text[offset - 1] === "\n" || text[offset - 1] === "\r";
+    if (atItemStart) {
+      const lineEnd = text.indexOf("\n", offset);
+      const lineTail = text.slice(offset, lineEnd === -1 ? text.length : lineEnd).trim();
+      if (standaloneBloodValueLinePattern.test(lineTail)) {
+        return match;
+      }
+    }
+    if (groupTypeLabelTailPattern.test(before)) {
+      // "o Rh…" is a strong blood signal under any group/type label;
+      // "o Positive/Negative" counts as a blood value only when the label is
+      // an unqualified (or blood-qualified) group/type.
+      if (rhValueHeadPattern.test(after)) return match;
+      if (posNegValueHeadPattern.test(after) && !qualifiedGroupTypeTailPattern.test(before)) return match;
+    }
+    return joiner;
+  });
+}
+
+export function normalizeInlineBulletGlyphs(text: string, options: { joiner?: string } = {}): string {
+  const joiner = options.joiner ?? "; ";
+  const replaced = replaceSubBulletOGlyphs(
+    text.replace(/^\s*[•◦▪‣●]+\s*/, "").replace(inlineBulletGlyphPattern, joiner),
+    joiner,
+  );
+  if (joiner.includes("\n")) {
+    return replaced
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join("\n");
+  }
+  return replaced
+    .replace(/^[;\s]+/, "")
+    .replace(/\n[ \t]*;[ \t]*/g, "\n")
+    .replace(/[ \t]+([,.;:])/g, "$1")
+    .replace(/;(?:\s*;)+/g, ";")
+    .replace(/:\s*;/g, ":")
+    .replace(/[ \t]{2,}/g, " ");
+}
+
 export function sourceTextForCompactDisplay(text: string) {
   return repairTruncatedCompactTail(
     readableWhitespace(
-      sourceTextForDisplayPreservingBreaks(text)
-        .replace(
-          /(?:^|\n)\s*(?:source|sources|citation|citations|document|file|filename|chunk|page|image|provenance|retrieved|indexed)\s*(?:id|ids|index|number|path)?\s*[:#=-]\s*[^\n]+/gi,
-          " ",
-        )
-        .replace(/\b(?:clinical table|table text|accessible table|image caption|caption|excerpt)\s*[:=-]\s*/gi, " ")
-        .replace(/\b(?:source|chunk|document|image)\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]{8,}\b/gi, " ")
-        .replace(/\bpage\s*(?:number)?\s*[:#=-]?\s*(?:n\/a|\d+(?:\s*[-,]\s*\d+)*)\b/gi, " ")
-        .replace(/\bchunk\s*(?:index)?\s*[:#=-]?\s*\d+\b/gi, " ")
-        // Bullet glyphs in a compact one-line preview become "; " separators
-        // (the same joiner readableTableRows uses); a leading bullet is
-        // dropped outright. Hyphen bullets are left alone — indistinguishable
-        // from compound hyphens and ranges.
-        .replace(/^\s*[•◦▪‣●]+\s*/, "")
-        .replace(/\s*[•◦▪‣●]+\s*/g, "; ")
-        // PDF sub-bullet glyph rendered as a bare lowercase "o" between words:
-        // only when whitespace-delimited, not after a digit ("37 o C" stays),
-        // and followed by a capitalized token of 2+ chars ("o C" stays).
-        .replace(/(?<=[^\d\s]\s)o(?=\s+(?:[A-Z][a-z0-9]|[A-Z]{2,}))/g, ";")
-        .replace(/\s+([,.;:])/g, "$1")
-        .replace(/;(?:\s*;)+/g, ";"),
+      normalizeInlineBulletGlyphs(
+        sourceTextForDisplayPreservingBreaks(text)
+          .replace(
+            /(?:^|\n)\s*(?:source|sources|citation|citations|document|file|filename|chunk|page|image|provenance|retrieved|indexed)\s*(?:id|ids|index|number|path)?\s*[:#=-]\s*[^\n]+/gi,
+            " ",
+          )
+          .replace(/\b(?:clinical table|table text|accessible table|image caption|caption|excerpt)\s*[:=-]\s*/gi, " ")
+          .replace(/\b(?:source|chunk|document|image)\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]{8,}\b/gi, " ")
+          .replace(/\bpage\s*(?:number)?\s*[:#=-]?\s*(?:n\/a|\d+(?:\s*[-,]\s*\d+)*)\b/gi, " ")
+          .replace(/\bchunk\s*(?:index)?\s*[:#=-]?\s*\d+\b/gi, " "),
+      ),
     ),
   );
 }

@@ -49,6 +49,7 @@ type MedicationPrescribingWorkspaceProps = {
 type Capability = {
   label: string;
   description: string;
+  query: string;
   icon: LucideIcon;
 };
 
@@ -83,29 +84,45 @@ const medicationCapabilities: Capability[] = [
   {
     label: "Dose",
     description: "Dosing and adjustment",
+    query: "medication dose adjustment",
     icon: CalendarDays,
   },
   {
     label: "Safety",
-    description: "Avoid and cautions",
+    description: "Contraindications and cautions",
+    query: "medication contraindications and cautions",
     icon: ShieldCheck,
   },
   {
     label: "Monitoring",
     description: "Baseline and follow-up",
+    query: "medication baseline and follow-up monitoring",
     icon: Activity,
   },
   {
     label: "Access",
     description: "PBS and brand",
+    query: "medication PBS access and brand availability",
     icon: Lock,
   },
 ];
 
 const medicationPrompts = [
-  { label: "acamprosate renal dose", icon: Pill },
-  { label: "naltrexone opioid use", icon: UserRound },
-  { label: "sertraline max dose", icon: ShieldCheck },
+  {
+    label: "acamprosate renal dose",
+    description: "Check renal dosing and contraindications.",
+    icon: Pill,
+  },
+  {
+    label: "naltrexone opioid use",
+    description: "Review opioid-use precautions before prescribing.",
+    icon: UserRound,
+  },
+  {
+    label: "sertraline max dose",
+    description: "Check maximum dose and titration guidance.",
+    icon: ShieldCheck,
+  },
 ];
 
 function IconTile({
@@ -163,7 +180,7 @@ function StatusNotice({
 
 function QueryChip({ query }: { query: string }) {
   return (
-    <span className="inline-flex min-h-8 max-w-full items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+    <span className="inline-flex min-h-tap max-w-full items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
       <Pill className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden="true" />
       <span className="min-w-0 truncate">{query}</span>
     </span>
@@ -190,7 +207,7 @@ function MedicationHome({
       actionsLabel="Medication prompts"
       actions={medicationPrompts.map((prompt) => ({
         title: prompt.label,
-        description: "Open a prescribing-focused search.",
+        description: prompt.description,
         icon: prompt.icon,
         onClick: () => onSuggestedSearch(prompt.label),
         disabled: loading,
@@ -200,6 +217,7 @@ function MedicationHome({
       pills={medicationCapabilities.map((item) => ({
         label: item.label,
         icon: item.icon,
+        onClick: () => onSuggestedSearch(item.query),
       }))}
       footer={
         <div className="grid gap-3">
@@ -243,7 +261,7 @@ function FilterStrip({
 }) {
   return (
     <div
-      className="flex gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]"
+      className="answer-suggestion-row-scroll flex gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]"
       aria-label="Medication result filters"
     >
       {medicationResultFilters.map((filter) => {
@@ -256,7 +274,7 @@ function FilterStrip({
             aria-pressed={active}
             onClick={() => onFilterChange(filter.id)}
             className={cn(
-              "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-2xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-xs",
+              "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-2xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-xs",
               active
                 ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                 : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]",

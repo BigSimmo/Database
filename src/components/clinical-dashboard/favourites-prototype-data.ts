@@ -1,7 +1,7 @@
-import { ClipboardList, FileText, Folder, LayoutList, Pill, Quote, Search } from "lucide-react";
+import { BrainCircuit, ClipboardList, FileText, Folder, LayoutList, Pill, Quote, Search } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
 
-export type FavouriteType = "medications" | "documents" | "sources" | "services" | "forms" | "sets";
+export type FavouriteType = "medications" | "documents" | "sources" | "services" | "forms" | "differentials" | "sets";
 export type FavouriteTabId = "all" | FavouriteType;
 
 export type FavouriteItem = {
@@ -33,6 +33,7 @@ export const favouriteTabs: Array<{
 }> = [
   { id: "all", label: "All", shortLabel: "All", icon: LayoutList },
   { id: "medications", label: "Medications", shortLabel: "Meds", icon: Pill },
+  { id: "differentials", label: "Differentials", shortLabel: "Diffs", icon: BrainCircuit },
   { id: "documents", label: "Documents", shortLabel: "Docs", icon: FileText },
   { id: "sources", label: "Sources", shortLabel: "Sources", icon: Quote },
   { id: "services", label: "Services", shortLabel: "Services", icon: appModeIcons.services },
