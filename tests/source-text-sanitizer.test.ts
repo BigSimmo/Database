@@ -439,6 +439,12 @@ describe("normalizeInlineBulletGlyphs", () => {
     );
   });
 
+  it("keeps ABO-qualified blood group values intact", () => {
+    expect(normalizeInlineBulletGlyphs("ABO group: o Negative")).toBe("ABO group: o Negative");
+    expect(normalizeInlineBulletGlyphs("ABO type: o Positive")).toBe("ABO type: o Positive");
+    expect(normalizeInlineBulletGlyphs("Rh group: o Positive")).toBe("Rh group: o Positive");
+  });
+
   it("keeps a standalone blood-value cell that begins with 'o'", () => {
     expect(normalizeInlineBulletGlyphs("o RhD negative")).toBe("o RhD negative");
     expect(normalizeInlineBulletGlyphs("o Negative")).toBe("o Negative");

@@ -550,7 +550,7 @@ const subBulletOGlyphPattern = /(?<=^|[\r\n]|[^\d\s]\s)o(?=\s+(?:\d|[A-Z][a-z0-9
 // is the clinical value itself, not a bullet glyph. A non-blood label such
 // as "patient group o Adults" or "risk group: o Pregnant patients" still
 // converts, so an OCR bullet cannot hide behind an unrelated group/type word.
-const bloodLabelTailPattern = /\bblood\s+(?:group|type):?\s$/i;
+const bloodLabelTailPattern = /\b(?:blood|abo|rh(?:d)?)\s+(?:group|type):?\s$/i;
 const groupTypeLabelTailPattern = /\b(?:group|type):?\s$/i;
 // A word qualifying group/type ("risk group:", "test type:") marks a list
 // label, not a blood label — its positive/negative items are list content.

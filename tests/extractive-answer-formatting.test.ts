@@ -76,6 +76,14 @@ describe("extractive evidence splitting", () => {
     expect(anc).toMatch(/^ANC <0\.5:/);
   });
 
+  it("keeps reference-range headings attached to their numeric items", () => {
+    const range = splitClinicalEvidenceSentences(
+      "Reference range: o 0.6-1.0 mmol/L for maintenance lithium therapy.",
+    ).find((sentence) => sentence.includes("0.6-1.0 mmol/L"));
+    expect(range).toBeDefined();
+    expect(range).toMatch(/reference range/i);
+  });
+
   it("keeps the clinical source-control heading attached to its action item", () => {
     const sourceControl = splitClinicalEvidenceSentences(
       "Source control: o Review antibiotics and arrange drainage within six hours.",
