@@ -432,6 +432,13 @@ describe("normalizeInlineBulletGlyphs", () => {
     expect(normalizeInlineBulletGlyphs("o 12.5 mg twice daily", { joiner: "\n" })).toBe("12.5 mg twice daily");
   });
 
+  it("converts a sub-bullet at the start of a preserved line", () => {
+    expect(normalizeInlineBulletGlyphs("Dose:\no Start 750 mg nightly")).toBe("Dose:\nStart 750 mg nightly");
+    expect(normalizeInlineBulletGlyphs("Dose:\no Start 750 mg nightly", { joiner: "\n" })).toBe(
+      "Dose:\nStart 750 mg nightly",
+    );
+  });
+
   it("still converts an OCR bullet after non-blood group/type labels", () => {
     expect(normalizeInlineBulletGlyphs("patient group o Adults should be offered CBT")).toBe(
       "patient group; Adults should be offered CBT",

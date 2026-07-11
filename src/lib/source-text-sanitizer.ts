@@ -537,10 +537,13 @@ export function polishStoredSynopsis(value: string) {
 // punctuation tidy-up passes, including "Label:; item" → "Label: item".
 const inlineBulletGlyphPattern = /\s*[•◦▪‣●]+\s*/g;
 // The follower may be a capitalized token or a numeric dose start ("o 25 mg
-// nightly"); "37 o C" stays protected by the not-after-a-digit lookbehind.
-// A chunk can also BEGIN with the sub-bullet ("o 12.5 mg twice daily"),
-// hence the string-start alternative in the lookbehind.
-const subBulletOGlyphPattern = /(?<=^|[^\d\s]\s)o(?=\s+(?:\d|[A-Z][a-z0-9]|[A-Z]{2,}))/g;
+// nightly"); "37 o C" stays protected by the not-after-a-digit lookbehind
+// and by the 2+ char follower requirement (a bare "o C" never matches). A
+// chunk or line can also BEGIN with the sub-bullet ("o 12.5 mg twice daily",
+// "Dose:\no Start 750 mg"), hence the start/newline alternatives. Lowercase
+// followers ("o pregnancy") are deliberately NOT converted: the risk of
+// deleting a genuine clinical "o" value outweighs the cosmetic artifact.
+const subBulletOGlyphPattern = /(?<=^|[\r\n]|[^\d\s]\s)o(?=\s+(?:\d|[A-Z][a-z0-9]|[A-Z]{2,}))/g;
 // Blood-group exemptions: "blood group o RhD negative" / "Blood Type: o
 // Negative" (any casing, optional colon), or a bare "group/type o" directly
 // followed by an Rh/positive/negative value, keep their lowercase "o" — it
@@ -576,6 +579,7 @@ export function normalizeInlineBulletGlyphs(text: string, options: { joiner?: st
   }
   return replaced
     .replace(/^[;\s]+/, "")
+    .replace(/\n[ \t]*;[ \t]*/g, "\n")
     .replace(/[ \t]+([,.;:])/g, "$1")
     .replace(/;(?:\s*;)+/g, ";")
     .replace(/:\s*;/g, ":")
