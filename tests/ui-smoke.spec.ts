@@ -2161,7 +2161,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Synthetic lithium monitoring protocol");
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("Tables 1");
-    await expect(documentResults.getByRole("link", { name: "Open document" }).first()).toBeVisible();
+    const openDocumentLink = documentResults.getByRole("link", { name: "Open document" }).first();
+    await expect(openDocumentLink).toBeVisible();
+    // Exact viewer target built from mockDemoApi's lithium result (document_id / bestPages[0] /
+    // bestChunkIds[0]): a link to the wrong document, page, or chunk must fail this assertion.
+    await expect(openDocumentLink).toHaveAttribute(
+      "href",
+      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+    );
     await expect(page.getByRole("complementary").filter({ hasText: "Selected source" })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
