@@ -76,6 +76,15 @@ describe("extractive evidence splitting", () => {
     expect(anc).toMatch(/^ANC <0\.5:/);
   });
 
+  it("keeps numeric time-window headings attached to their restart items", () => {
+    const restart = splitClinicalEvidenceSentences("48-72 hours: o Restart clozapine at 12.5 mg and review.").find(
+      (sentence) => sentence.includes("12.5 mg"),
+    );
+    expect(restart).toBeDefined();
+    expect(restart).toMatch(/^48-72 hours:/i);
+    expect(restart).not.toMatch(/\bo\s+[A-Z0-9]/);
+  });
+
   it("merges lowercase headings with their bullet items", () => {
     const contraindication = splitClinicalEvidenceSentences(
       "do not use: o Pregnancy or breastfeeding without specialist advice.",
