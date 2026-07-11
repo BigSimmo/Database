@@ -62,6 +62,20 @@ describe("extractive evidence splitting", () => {
     expect(stepDose).not.toMatch(/\bo\s+[A-Z0-9]/);
   });
 
+  it("keeps comparator threshold headings attached to their action items", () => {
+    const renal = splitClinicalEvidenceSentences("eGFR <30: o Reduce the maintenance dose to 500 mg daily.").find(
+      (sentence) => sentence.includes("500 mg"),
+    );
+    expect(renal).toBeDefined();
+    expect(renal).toMatch(/^eGFR <30:/);
+
+    const anc = splitClinicalEvidenceSentences("ANC <0.5: o Withhold clozapine and repeat FBC tomorrow.").find(
+      (sentence) => /withhold clozapine/i.test(sentence),
+    );
+    expect(anc).toBeDefined();
+    expect(anc).toMatch(/^ANC <0\.5:/);
+  });
+
   it("merges lowercase headings with their bullet items", () => {
     const contraindication = splitClinicalEvidenceSentences(
       "do not use: o Pregnancy or breastfeeding without specialist advice.",

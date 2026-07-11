@@ -552,13 +552,15 @@ function isLowValueExtractiveCaption(clause: string) {
   return !extractiveClinicalDirectivePattern.test(clause);
 }
 
-// A short section heading ("Acute Mania:", "Day 1:", "do not use:") left
-// standing alone by the bullet split. Merged into the fragment that follows
-// it so the indication or schedule context survives the minimum-length
-// filter instead of being dropped — a dose without its day/step is unsafe.
-// OCR headings are often lowercase, so any letter casing is accepted;
-// structural labels ("Page 4:", "Table 2:") stay excluded by the stoplist.
-const shortHeadingFragmentPattern = /^[A-Za-z][A-Za-z][A-Za-z0-9 /()-]{0,38}:$/;
+// A short section heading ("Acute Mania:", "Day 1:", "do not use:",
+// "eGFR <30:", "ANC <0.5:") left standing alone by the bullet split. Merged
+// into the fragment that follows it so the indication, schedule, or
+// threshold context survives the minimum-length filter instead of being
+// dropped — a dose or action without its day/step/threshold is unsafe.
+// OCR headings are often lowercase, so any letter casing is accepted, and
+// comparator/decimal threshold labels are allowed; structural labels
+// ("Page 4:", "Table 2:") stay excluded by the stoplist.
+const shortHeadingFragmentPattern = /^[A-Za-z][A-Za-z0-9][A-Za-z0-9 /()<>≤≥.,%-]{0,38}:$/;
 
 function isShortHeadingFragment(fragment: string) {
   return (
@@ -580,8 +582,11 @@ export function splitClinicalEvidenceSentences(value: string) {
     if (isShortHeadingFragment(fragment)) {
       // Sentence-case an OCR-lowercased heading ("day 1:" → "Day 1:") so the
       // merged fact reads as a sentence start rather than being discarded as
-      // a mid-sentence fragment by the lowercase-start quality gate.
-      pendingHeading = pendingHeading ? `${pendingHeading} ${fragment}` : upperFirst(fragment);
+      // a mid-sentence fragment by the lowercase-start quality gate. Mixed-
+      // case clinical tokens ("eGFR <30:") keep their casing — they already
+      // pass that gate, and "EGFR" would corrupt the abbreviation.
+      const cased = /^[a-z][a-z]/.test(fragment) ? upperFirst(fragment) : fragment;
+      pendingHeading = pendingHeading ? `${pendingHeading} ${cased}` : cased;
       continue;
     }
     merged.push(pendingHeading ? `${pendingHeading} ${fragment}` : fragment);
