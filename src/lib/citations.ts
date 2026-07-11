@@ -1,4 +1,5 @@
 import { normalizeExtractedGlyphs, stripClassificationBanner } from "@/lib/source-text-sanitizer";
+import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import type { Citation, SearchResult } from "@/lib/types";
 
 // Citation titles come straight from document extraction, so repair glyph
@@ -83,17 +84,11 @@ function registryCitationHref(citation: Citation) {
   const slug = metadata.registry_record_slug;
   if (!slug) return null;
 
-  const encodedSlug = encodeURIComponent(slug);
-  if (metadata.registry_record_kind === "service") return `/services/${encodedSlug}`;
-  if (metadata.registry_record_kind === "form") return `/forms/${encodedSlug}`;
-  if (metadata.registry_record_kind === "medication") return `/medications/${encodedSlug}`;
-  if (metadata.registry_record_kind === "differential") {
-    return metadata.registry_record_subkind === "presentation"
-      ? `/differentials/presentations/${encodedSlug}`
-      : `/differentials/diagnoses/${encodedSlug}`;
-  }
-
-  return null;
+  return registryCorpusDetailHref({
+    kind: metadata.registry_record_kind,
+    slug: encodeURIComponent(slug),
+    subkind: metadata.registry_record_subkind,
+  });
 }
 
 export function documentCitationHref(citation: Citation) {

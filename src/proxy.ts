@@ -17,9 +17,11 @@ import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-
 //      opts pages into dynamic rendering (app/layout.tsx reads the nonce), which
 //      is inherent to nonce-based CSP.
 //   2. Session refresh. Keep the user's @supabase/ssr session cookie fresh on
-//      navigation and API calls so persistent logins survive refreshes. It is a
-//      no-op unless the public Supabase env is configured AND an `sb-` auth
-//      cookie is present, so demo / local-no-auth traffic is untouched.
+//      page navigations so persistent logins survive refreshes. It is a no-op
+//      unless the public Supabase env is configured AND an `sb-` auth cookie is
+//      present, so demo / local-no-auth traffic is untouched. Cookie-authenticated
+//      API requests still pass through this refresh path because route handlers
+//      cannot write rotated SSR cookies back to the browser themselves.
 
 const documentFlowRedirects: Record<string, string> = {
   "/mockups/document-search-command": "/documents/search",
@@ -96,7 +98,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except static assets and image files. API routes are
-  // intentionally included so cookie-based sessions refresh for them too.
+  // Run on everything except static assets and image files. API routes stay in
+  // the matcher so cookie-authenticated requests can return rotated cookies and
+  // every response carries the CSP header.
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

@@ -153,6 +153,22 @@ describe("app mode search contract", () => {
     );
   });
 
+  it("keeps active search context while routing from the shared composer", () => {
+    const href = new URL(
+      appModeHomeHref("answer", {
+        query: "clozapine monitoring",
+        run: true,
+        queryMode: "monitoring_schedule",
+        scopeFilters: { medications: ["clozapine"], sourceStatuses: ["current"] },
+      }),
+      "https://clinical.test",
+    );
+
+    expect(href.searchParams.get("queryMode")).toBe("monitoring_schedule");
+    expect(href.searchParams.getAll("scope.medications")).toEqual(["clozapine"]);
+    expect(href.searchParams.getAll("scope.sourceStatuses")).toEqual(["current"]);
+  });
+
   it("keeps active production modes and excludes removed prototype modes from app routing", () => {
     expect(isAppModeId("profile")).toBe(false);
     expect(appModeDefinitions.map((mode) => mode.id)).not.toContain("profile");

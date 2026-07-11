@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-import { execSync, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const repoNeedle = `${projectRoot.toLowerCase()}\\`;
+const vitestBin = path.join(projectRoot, "node_modules", "vitest", "vitest.mjs");
+const vitestNeedle = vitestBin.toLowerCase();
 const powershell = [
   "Get-CimInstance Win32_Process",
   "| Where-Object {",
   "  $_.CommandLine -and",
-  `  $_.CommandLine.ToLower().Contains('${repoNeedle.replaceAll("\\", "\\\\")}') -and`,
-  "  $_.CommandLine -match 'vitest\\\\.mjs' -and",
+  `  $_.CommandLine.ToLower().Contains('${vitestNeedle}') -and`,
   "  $_.CommandLine -notlike '*run-vitest.mjs*' -and",
   "  $_.CommandLine -notlike '*Get-CimInstance*'",
   "}",
@@ -19,7 +19,11 @@ const powershell = [
 
 let runningPids = [];
 try {
-  const output = execSync(`powershell -NoProfile -Command "${powershell}"`, { encoding: "utf8" }).trim();
+  const probe = spawnSync("powershell.exe", ["-NoProfile", "-Command", powershell], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  const output = probe.status === 0 ? probe.stdout.trim() : "";
   runningPids = output
     .split(/\r?\n/)
     .map((line) => Number.parseInt(line.trim(), 10))
@@ -36,7 +40,6 @@ for (const pid of runningPids) {
   }
 }
 
-const vitestBin = path.join(projectRoot, "node_modules", "vitest", "vitest.mjs");
 const args = process.argv.slice(2);
 const result = spawnSync(process.execPath, [vitestBin, ...args], {
   stdio: "inherit",

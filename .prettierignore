@@ -4,6 +4,7 @@ out/
 build/
 coverage/
 test-results/
+test-results-codex-remediation/
 playwright-report/
 sample-documents/
 dev-server*.log

@@ -733,7 +733,9 @@ export function ApplicationsLauncherWorkspace({
       aria-labelledby="tools-home-title"
       className={cn(
         "mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-8 text-[color:var(--text)] sm:px-6 lg:px-8",
-        "pb-[calc(12rem+env(safe-area-inset-bottom))] sm:pb-8",
+        // The composer sits in the hero at every width, so phones only need a
+        // small safe-area cushion rather than bottom-dock clearance.
+        "pb-[calc(2rem+env(safe-area-inset-bottom))] sm:pb-8",
         "pt-7 sm:pt-10 lg:pt-14",
         className,
       )}
@@ -782,13 +784,13 @@ export function ApplicationsLauncherWorkspace({
         data-testid="tools-all-tools"
         className="mx-auto mt-8 grid max-w-[86rem] gap-4 sm:mt-10"
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="text-left">
             <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{copy.allSectionLabel}</h2>
           </div>
           <div className="flex items-center gap-3">
             <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
-            <div className="hidden min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] sm:inline-flex">
+            <div className="hidden min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] lg:inline-flex">
               Sort by
               <span className="text-[color:var(--text-heading)]">A to Z</span>
               <ChevronDown className="h-3.5 w-3.5" aria-hidden />

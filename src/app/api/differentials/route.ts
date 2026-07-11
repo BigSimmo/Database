@@ -12,9 +12,8 @@ import {
   rowToDifferentialRecord,
   rowToPresentationWorkflow,
   type DifferentialRecordKind,
-  type DifferentialRecordRow,
 } from "@/lib/differential-records";
-import { ensureDifferentialsSeeded, loadDifferentialSnapshot } from "@/lib/differential-seed";
+import { fetchOwnerDifferentialRowsWithSeed, loadDifferentialSnapshot } from "@/lib/differential-seed";
 import {
   differentialPresentations,
   differentialRecords,
@@ -26,7 +25,6 @@ import {
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
-import { registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
@@ -121,28 +119,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const fetchRecords = async (recordKind: DifferentialRecordKind) => {
-      const { data, error } = await supabase
-        .from("differential_records")
-        .select("*")
-        .eq("owner_id", access.ownerId)
-        .eq("kind", recordKind)
-        .order("title")
-        .limit(DIFFERENTIAL_MAX_RECORDS);
-      if (error) throw new Error(error.message);
-      return (data ?? []) as DifferentialRecordRow[];
-    };
-
-    let rows = await fetchRecords(kind);
-    if (rows.length === 0) {
-      try {
-        await ensureDifferentialsSeeded(supabase, access.ownerId);
-      } catch (seedError) {
-        console.error(`[differentials] auto-seed failed for owner ${access.ownerId}`, seedError);
-        if (registryCorpusEmbeddingEnabled()) throw seedError;
-      }
-      rows = await fetchRecords(kind);
-    }
+    const rows = await fetchOwnerDifferentialRowsWithSeed(supabase, access.ownerId, kind, DIFFERENTIAL_MAX_RECORDS);
 
     if (kind === "presentation") {
       const presentations = rows.map(rowToPresentationWorkflow);
