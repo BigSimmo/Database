@@ -39,6 +39,23 @@ const universalPayload = {
         },
       ],
     },
+    {
+      kind: "presentations",
+      total: 1,
+      latencyMs: 3,
+      items: [
+        {
+          id: "acute-confusion-encephalopathy",
+          kind: "presentations",
+          title: "Delirium / Acute Confusion / Encephalopathy",
+          subtitle: "Delirium and its encephalopathic mimics are acute medical emergencies",
+          href: "/differentials/presentations/acute-confusion-encephalopathy",
+          score: 18,
+          badge: "Emergent",
+          meta: "7 differentials",
+        },
+      ],
+    },
   ],
 };
 
@@ -65,6 +82,21 @@ test.describe("universal search typeahead", () => {
     await expect(page.getByRole("option", { name: /Acamprosate/ })).toBeVisible();
     await expect(page.getByText("Forms · 1")).toBeVisible();
     await expect(page.getByRole("option", { name: /View all in Medication/ })).toBeVisible();
+    // Presentations render as their own group borrowing the differentials mode target.
+    await expect(page.getByText("Presentations · 1")).toBeVisible();
+    await expect(page.getByRole("option", { name: /Acute Confusion/ })).toBeVisible();
+    await expect(page.getByRole("option", { name: /View all in Differentials/ })).toBeVisible();
+  });
+
+  test("selecting a presentation result navigates to the workflow page", async ({ page }) => {
+    await mockUniversalSearch(page);
+    const input = await openComposer(page);
+    await input.fill("acute confusion");
+
+    const option = page.getByRole("option", { name: /Acute Confusion/ });
+    await expect(option).toBeVisible();
+    await option.click();
+    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/);
   });
 
   test("selecting a grouped result navigates to the record", async ({ page }) => {

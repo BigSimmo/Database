@@ -22,15 +22,17 @@ import {
 } from "@/lib/search-command-surface";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 
-// Reverse of modeIdByDomain for chip counts: the domain whose live result total a
-// cross-mode chip should show. Answer/favourites chips have no countable domain.
-const domainByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain>> = {
-  documents: "documents",
-  prescribing: "medications",
-  services: "services",
-  forms: "forms",
-  differentials: "differentials",
-  tools: "tools",
+// Reverse of modeIdByDomain for chip counts: the domains whose live result totals a
+// cross-mode chip should sum. Answer/favourites chips have no countable domain; the
+// differentials chip counts both of its domains because the mode home search composes
+// presentations and diagnoses into one result list.
+const domainsByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain[]>> = {
+  documents: ["documents"],
+  prescribing: ["medications"],
+  services: ["services"],
+  forms: ["forms"],
+  differentials: ["differentials", "presentations"],
+  tools: ["tools"],
 };
 
 const modeIdByDomain: Record<UniversalSearchDomain, AppModeId> = {
@@ -39,6 +41,9 @@ const modeIdByDomain: Record<UniversalSearchDomain, AppModeId> = {
   services: "services",
   forms: "forms",
   differentials: "differentials",
+  // Presentations are the differentials mode's umbrella pages — no app mode of their own,
+  // so the group borrows the differentials icon and "View all in Differentials" target.
+  presentations: "differentials",
   tools: "tools",
 };
 
@@ -48,6 +53,7 @@ const domainHeadings: Record<UniversalSearchDomain, string> = {
   services: "Services",
   forms: "Forms",
   differentials: "Differentials",
+  presentations: "Presentations",
   tools: "Tools",
 };
 
@@ -666,11 +672,15 @@ export function UniversalSearchCommandSurface({
           const TargetIcon = appModeIcons[target];
           // Live count from the universal typeahead response ("Forms (2)") — only shown when
           // fresh results for this exact query exist, so the chip never shows a stale number.
-          const targetDomain = domainByTargetMode[target];
-          const targetCount =
-            targetDomain && universalQuery === trimmedQuery
-              ? universalGroups.find((group) => group.kind === targetDomain)?.total
-              : undefined;
+          // A mode spanning several domains (differentials) sums its present groups' totals.
+          const targetDomains = domainsByTargetMode[target];
+          const countableGroups =
+            targetDomains && universalQuery === trimmedQuery
+              ? universalGroups.filter((group) => targetDomains.includes(group.kind))
+              : [];
+          const targetCount = countableGroups.length
+            ? countableGroups.reduce((sum, group) => sum + group.total, 0)
+            : undefined;
           return {
             id: nextId(),
             label: targetMode.label,
