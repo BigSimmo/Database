@@ -157,7 +157,9 @@ function CommandDropdown({
         // template, so without it the section headings inherit text-center.
         "universal-command-dropdown absolute left-0 right-0 z-30 overflow-hidden rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--surface)] text-left shadow-[0_8px_20px_rgb(16_24_40_/_9%),0_24px_56px_rgb(16_24_40_/_14%)]",
         opensUpward ? "bottom-[calc(100%+0.5rem)] top-auto" : "top-[calc(100%+0.5rem)]",
-        placement === "bottom-dock" ? "block" : "hidden lg:block",
+        // Phones never get the typeahead popup — it crowds the small screen —
+        // so both placements stay hidden below their smallest useful width.
+        placement === "bottom-dock" ? "hidden sm:block" : "hidden lg:block",
       )}
       role="presentation"
     >
@@ -314,11 +316,33 @@ export function UniversalSearchCommandSurface({
   const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
   const mode = appModeDefinition(modeId);
+  // The dropdown is CSS-hidden below sm (bottom-dock) / lg (inline), so skip the
+  // typeahead fetches at widths where nothing could display the results.
+  const dropdownMediaQuery = placement === "bottom-dock" ? "(min-width: 640px)" : "(min-width: 1024px)";
+  // Initialise from the real viewport. The mode-home composer can be moved into
+  // its portal while the input is receiving focus; starting every fresh mount
+  // at false loses that focus event and leaves the desktop popup closed.
+  const [dropdownDisplayable, setDropdownDisplayable] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(dropdownMediaQuery).matches,
+  );
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(dropdownMediaQuery);
+    const sync = () => {
+      setDropdownDisplayable(mediaQuery.matches);
+      if (!mediaQuery.matches) {
+        onDropdownOpenChange(false);
+        setActiveIndex(-1);
+      }
+    };
+    sync();
+    mediaQuery.addEventListener("change", sync);
+    return () => mediaQuery.removeEventListener("change", sync);
+  }, [dropdownMediaQuery, onDropdownOpenChange]);
   // A true "everything" view: the active mode's own domain is included (no excludeDomain) so
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
     query: trimmedQuery,
-    enabled: dropdownOpen && Boolean(config),
+    enabled: dropdownOpen && dropdownDisplayable && Boolean(config),
   });
 
   const showSafetyBanner =
@@ -700,6 +724,14 @@ export function UniversalSearchCommandSurface({
   const activeItemId = activeIndex >= 0 && activeIndex < flatItems.length ? flatItems[activeIndex].id : null;
 
   function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (!dropdownDisplayable) {
+      if (event.key === "Escape") {
+        onDropdownOpenChange(false);
+        setActiveIndex(-1);
+      }
+      onInputKeyDown?.(event);
+      return;
+    }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       onDropdownOpenChange(true);
@@ -778,7 +810,9 @@ export function UniversalSearchCommandSurface({
             handleComposerKeyDown(event as unknown as ReactKeyboardEvent<HTMLInputElement>);
           }
         }}
-        onFocusCapture={() => onDropdownOpenChange(true)}
+        onFocusCapture={() => {
+          if (dropdownDisplayable) onDropdownOpenChange(true);
+        }}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
             onDropdownOpenChange(false);
@@ -787,7 +821,7 @@ export function UniversalSearchCommandSurface({
         }}
       >
         {children}
-        {dropdownOpen ? (
+        {dropdownOpen && dropdownDisplayable ? (
           <CommandDropdown
             modeId={modeId}
             query={trimmedQuery}
@@ -809,7 +843,7 @@ export function UniversalSearchCommandSurface({
         examples={config.examples}
         onPickExample={(example) => {
           onQueryChange(example);
-          onDropdownOpenChange(true);
+          if (dropdownDisplayable) onDropdownOpenChange(true);
           onFocusSearchInput?.();
         }}
       />

@@ -46,7 +46,8 @@ import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
-type FavouriteType = "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form";
+type FavouriteType =
+  "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form" | "Differential";
 type ViewMode = FavouritesViewMode;
 type SortMode = "last-used" | "title" | "type";
 
@@ -98,6 +99,8 @@ const typeStyles: Record<FavouriteType, string> = {
   Service:
     "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
   Form: "border-[color:var(--type-form-border)] bg-[color:var(--type-form-soft)] text-[color:var(--type-form)]",
+  Differential:
+    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
 };
 
 const lastUsedByItemId: Record<string, string> = {
@@ -116,6 +119,7 @@ const typeByPrototypeType: Record<PrototypeFavouriteItem["type"], FavouriteType>
   sources: "Source",
   services: "Service",
   forms: "Form",
+  differentials: "Differential",
 };
 
 const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
@@ -124,6 +128,7 @@ const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
   sources: Quote,
   services: appModeIcons.services,
   forms: FileText,
+  differentials: appModeIcons.differentials,
 };
 
 function lastUsedScore(lastUsed: string): number {

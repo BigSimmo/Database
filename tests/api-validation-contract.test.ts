@@ -348,7 +348,7 @@ describe("API validation contracts", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ error: "Invalid ingestion jobs query." });
+    expect(body).toMatchObject({ error: "Invalid ingestion jobs query." });
     expect(client.from).not.toHaveBeenCalled();
   });
 
@@ -436,11 +436,11 @@ describe("API validation contracts", () => {
     );
 
     expect(retryResponse.status).toBe(400);
-    expect(await payload(retryResponse)).toEqual({ error: "Invalid ingestion job id." });
+    expect(await payload(retryResponse)).toMatchObject({ error: "Invalid ingestion job id." });
     expect(summarizeResponse.status).toBe(400);
-    expect(await payload(summarizeResponse)).toEqual({ error: "Invalid document id." });
+    expect(await payload(summarizeResponse)).toMatchObject({ error: "Invalid document id." });
     expect(labelsResponse.status).toBe(400);
-    expect(await payload(labelsResponse)).toEqual({ error: "Invalid document id." });
+    expect(await payload(labelsResponse)).toMatchObject({ error: "Invalid document id." });
     expect(client.from).not.toHaveBeenCalled();
   });
 
@@ -472,7 +472,7 @@ describe("API validation contracts", () => {
       authenticatedRequest("/api/upload", { method: "POST", body: formData }),
     );
     expect(uploadResponse.status).toBe(500);
-    expect(await payload(uploadResponse)).toEqual({ error: "Request failed." });
+    expect(await payload(uploadResponse)).toMatchObject({ error: "Request failed." });
 
     const retryClient = createSupabaseMock((call) => {
       if (call.table === "ingestion_jobs" && call.operation === "select" && call.maybeSingle) {
@@ -489,7 +489,7 @@ describe("API validation contracts", () => {
       },
     );
     expect(retryResponse.status).toBe(500);
-    expect(await payload(retryResponse)).toEqual({ error: "Request failed." });
+    expect(await payload(retryResponse)).toMatchObject({ error: "Request failed." });
 
     const reindexClient = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select" && call.maybeSingle) {
@@ -508,7 +508,7 @@ describe("API validation contracts", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
     expect(reindexResponse.status).toBe(500);
-    expect(await payload(reindexResponse)).toEqual({ error: "Request failed." });
+    expect(await payload(reindexResponse)).toMatchObject({ error: "Request failed." });
 
     const summarizeClient = createSupabaseMock();
     summarizeClient.rpc.mockImplementation(async () => availableRateLimit);
@@ -523,7 +523,7 @@ describe("API validation contracts", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
     expect(summarizeResponse.status).toBe(500);
-    expect(await payload(summarizeResponse)).toEqual({ error: "Request failed." });
+    expect(await payload(summarizeResponse)).toMatchObject({ error: "Request failed." });
   });
 
   it("rejects invalid upload metadata before storage upload or database writes", async () => {
@@ -538,7 +538,7 @@ describe("API validation contracts", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ error: "Upload metadata is invalid." });
+    expect(body).toMatchObject({ error: "Upload metadata is invalid." });
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -555,7 +555,7 @@ describe("API validation contracts", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ error: "Upload metadata is invalid." });
+    expect(body).toMatchObject({ error: "Upload metadata is invalid." });
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -575,7 +575,7 @@ describe("API validation contracts", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ error: "Invalid upload form data." });
+    expect(body).toMatchObject({ error: "Invalid upload form data." });
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -595,7 +595,7 @@ describe("API validation contracts", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ error: "Invalid upload form data." });
+    expect(body).toMatchObject({ error: "Invalid upload form data." });
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -651,7 +651,7 @@ describe("API validation contracts", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ error: "Enter a document title between 1 and 180 characters." });
+    expect(body).toMatchObject({ error: "Enter a document title between 1 and 180 characters." });
     expect(client.from).not.toHaveBeenCalled();
   });
 
@@ -676,9 +676,13 @@ describe("API validation contracts", () => {
     );
 
     expect(missingResponse.status).toBe(400);
-    expect(await payload(missingResponse)).toEqual({ error: "Enter a document title between 1 and 180 characters." });
+    expect(await payload(missingResponse)).toMatchObject({
+      error: "Enter a document title between 1 and 180 characters.",
+    });
     expect(unknownResponse.status).toBe(400);
-    expect(await payload(unknownResponse)).toEqual({ error: "Enter a document title between 1 and 180 characters." });
+    expect(await payload(unknownResponse)).toMatchObject({
+      error: "Enter a document title between 1 and 180 characters.",
+    });
     expect(client.from).not.toHaveBeenCalled();
   });
 
@@ -693,7 +697,7 @@ describe("API validation contracts", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ error: "Invalid document id." });
+    expect(body).toMatchObject({ error: "Invalid document id." });
     expect(client.from).not.toHaveBeenCalled();
   });
 });

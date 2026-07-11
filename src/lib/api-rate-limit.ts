@@ -10,6 +10,10 @@ export function allowRateLimitInMemoryFallbackOnUnavailable() {
 }
 
 function allowAnonymousRateLimitFallback(bucket: ApiRateLimitBucket, allowInMemoryFallbackOnUnavailable?: boolean) {
+  // Paid answer generation must not fall back to a per-instance limiter in a
+  // distributed production runtime. If the durable limiter is unavailable,
+  // fail closed before retrieval or provider generation can start.
+  if (bucket === "answer" && !isLocalNoAuthMode()) return false;
   if (allowInMemoryFallbackOnUnavailable) return true;
 
   // Anonymous public read/search paths must stay reachable if the durable limiter
@@ -145,6 +149,9 @@ export async function consumeSubjectApiRateLimit(args: {
   windowSeconds?: number;
   allowInMemoryFallbackOnUnavailable?: boolean;
 }): Promise<ApiRateLimitResult> {
+  const allowInMemoryFallbackOnUnavailable =
+    args.bucket === "answer" && !isLocalNoAuthMode() ? false : args.allowInMemoryFallbackOnUnavailable;
+
   if (args.subject.kind === "owner") {
     return consumeApiRateLimit({
       supabase: args.supabase,
@@ -152,56 +159,79 @@ export async function consumeSubjectApiRateLimit(args: {
       bucket: args.bucket,
       limit: args.limit,
       windowSeconds: args.windowSeconds,
-      allowInMemoryFallbackOnUnavailable: args.allowInMemoryFallbackOnUnavailable,
+      allowInMemoryFallbackOnUnavailable,
     });
   }
 
   const defaults = anonymousApiRateLimitDefaults[args.bucket] ?? apiRateLimitDefaults[args.bucket];
   const limit = args.limit ?? defaults.limit;
   const windowSeconds = args.windowSeconds ?? defaults.windowSeconds;
-  const { data, error } = await args.supabase.rpc("consume_api_subject_rate_limit", {
-    p_subject_key: args.subject.subjectKey,
-    p_bucket: args.bucket,
-    p_limit: limit,
-    p_window_seconds: windowSeconds,
-  });
+  const consumeAnonymousLimit = async (subjectKey: string, requestedLimit: number, requestedWindowSeconds: number) => {
+    const { data, error } = await args.supabase.rpc("consume_api_subject_rate_limit", {
+      p_subject_key: subjectKey,
+      p_bucket: args.bucket,
+      p_limit: requestedLimit,
+      p_window_seconds: requestedWindowSeconds,
+    });
 
-  if (error) {
-    if (allowAnonymousRateLimitFallback(args.bucket, args.allowInMemoryFallbackOnUnavailable)) {
-      console.warn("Durable anonymous API rate limit check unavailable; using local in-memory fallback.", {
-        bucket: args.bucket,
-        code: error.code,
-        message: error.message,
-      });
-      return consumeInMemoryApiRateLimit({
-        ownerId: args.subject.subjectKey,
-        bucket: args.bucket,
-        limit,
-        windowSeconds,
-      });
+    if (error) {
+      if (allowAnonymousRateLimitFallback(args.bucket, allowInMemoryFallbackOnUnavailable)) {
+        console.warn("Durable anonymous API rate limit check unavailable; using local in-memory fallback.", {
+          bucket: args.bucket,
+          code: error.code,
+          message: error.message,
+        });
+        return consumeInMemoryApiRateLimit({
+          ownerId: subjectKey,
+          bucket: args.bucket,
+          limit: requestedLimit,
+          windowSeconds: requestedWindowSeconds,
+        });
+      }
+      throw new ApiRateLimitUnavailableError();
     }
-    throw new ApiRateLimitUnavailableError();
+
+    const row = parseRateLimitRow(data);
+    if (!row || typeof row.limited !== "boolean") {
+      if (allowAnonymousRateLimitFallback(args.bucket, allowInMemoryFallbackOnUnavailable)) {
+        return consumeInMemoryApiRateLimit({
+          ownerId: subjectKey,
+          bucket: args.bucket,
+          limit: requestedLimit,
+          windowSeconds: requestedWindowSeconds,
+        });
+      }
+      throw new ApiRateLimitUnavailableError();
+    }
+
+    return {
+      limited: row.limited,
+      limit: Number(row.limit_value ?? requestedLimit),
+      remaining: Number(row.remaining ?? 0),
+      retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? requestedWindowSeconds)),
+      resetAt: String(row.reset_at ?? new Date(Date.now() + requestedWindowSeconds * 1000).toISOString()),
+    } satisfies ApiRateLimitResult;
+  };
+
+  if (args.bucket !== "answer") {
+    return consumeAnonymousLimit(args.subject.subjectKey, limit, windowSeconds);
   }
 
-  const row = parseRateLimitRow(data);
-  if (!row || typeof row.limited !== "boolean") {
-    if (allowAnonymousRateLimitFallback(args.bucket, args.allowInMemoryFallbackOnUnavailable)) {
-      return consumeInMemoryApiRateLimit({
-        ownerId: args.subject.subjectKey,
-        bucket: args.bucket,
-        limit,
-        windowSeconds,
-      });
-    }
-    throw new ApiRateLimitUnavailableError();
-  }
-
+  // A stable global ceiling prevents rotated/spoofed network identities from
+  // multiplying paid provider capacity. Use the existing authenticated answer
+  // allowance as the aggregate anonymous ceiling to avoid a new magic budget.
+  const globalDefaults = apiRateLimitDefaults.answer;
+  const subjectResult = await consumeAnonymousLimit(args.subject.subjectKey, limit, windowSeconds);
+  if (subjectResult.limited) return subjectResult;
+  const globalResult = await consumeAnonymousLimit(
+    "anon:answer:global",
+    globalDefaults.limit,
+    globalDefaults.windowSeconds,
+  );
+  if (globalResult.limited) return globalResult;
   return {
-    limited: row.limited,
-    limit: Number(row.limit_value ?? limit),
-    remaining: Number(row.remaining ?? 0),
-    retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? windowSeconds)),
-    resetAt: String(row.reset_at ?? new Date(Date.now() + windowSeconds * 1000).toISOString()),
+    ...subjectResult,
+    remaining: Math.min(subjectResult.remaining, globalResult.remaining),
   };
 }
 

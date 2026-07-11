@@ -1,7 +1,9 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page } from "playwright/test";
 import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
+import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
+import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -31,7 +33,22 @@ async function fulfillAnswerResponse(route: Route, payload: unknown) {
   await route.fulfill({ json: payload });
 }
 
+async function blockExternalRequests(page: Page) {
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    if (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      !["localhost", "127.0.0.1", "::1"].includes(url.hostname)
+    ) {
+      await route.abort("blockedbyclient");
+      return;
+    }
+    await route.fallback();
+  });
+}
+
 async function mockAnswerDashboardApi(page: Page) {
+  await blockExternalRequests(page);
   await page.route(/\/api\/local-project-id$/, async (route) => {
     await route.fulfill({
       json: {
@@ -66,6 +83,27 @@ async function mockAnswerDashboardApi(page: Page) {
           nextOffset: demoDocuments.length,
           hasMore: false,
         },
+      },
+    });
+  });
+  await page.route(/\/api\/medications(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const query = url.searchParams.get("q")?.trim() || undefined;
+    const limit = Number(url.searchParams.get("limit") ?? "50");
+    const records = loadMedicationSnapshot();
+    const matches = query ? rankMedicationRecords(records, query, limit) : undefined;
+    await route.fulfill({
+      json: {
+        records,
+        matches: matches?.map((match) => ({
+          medication: match.medication,
+          result: medicationToSearchResult(match),
+          score: match.score,
+          reasons: match.reasons,
+        })),
+        total: records.length,
+        governance: {},
+        demoMode: true,
       },
     });
   });
@@ -156,6 +194,14 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   });
 
   expect(overflow).toBeLessThanOrEqual(2);
+}
+
+async function expectMinTouchTarget(locator: Locator, minSize = 44) {
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  const measurementTolerance = 2;
+  expect(box!.height + measurementTolerance).toBeGreaterThanOrEqual(minSize);
+  expect(box!.width + measurementTolerance).toBeGreaterThanOrEqual(minSize);
 }
 
 function visibleGlobalSearchInput(page: Page) {
@@ -544,14 +590,45 @@ test.describe("Clinical KB tools launcher", () => {
     }
   });
 
-  test("phone bottom-dock search opens the command surface above the pill", async ({ page }) => {
+  test("phone bottom-dock search keeps the command popup hidden", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
-    await expect(visibleGlobalSearchInput(page).first()).toBeVisible();
+    const input = visibleGlobalSearchInput(page).first();
+    await expect(input).toBeVisible();
     await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
-    await commandSurfaceOpensAbovePill(page);
+
+    // Phones never show the universal command popup — it crowds the small
+    // screen — so focusing/typing must not surface the dropdown or its scrim.
+    await input.click();
+    await input.press("ArrowDown");
+    await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+    await expect(page.locator("form.answer-footer-search-dock")).not.toHaveAttribute("data-command-open", "true");
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone mode homes keep the shared search in the hero, not the bottom dock", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    for (const home of ["/services", "/forms", "/differentials", "/applications"]) {
+      await gotoLauncher(page, home);
+      const heroInput = page.locator(".mode-home-composer-slot").getByTestId("global-search-input");
+      await expect(heroInput).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
+
+      // The pill sits in the flow of the hero, not fixed to the viewport bottom.
+      const geometry = await heroInput.evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight };
+      });
+      expect(geometry.top).toBeGreaterThan(0);
+      expect(geometry.bottom).toBeLessThan(geometry.viewportHeight - 40);
+
+      // Focusing the hero composer must not surface the universal popup on phones.
+      await heroInput.click();
+      await heroInput.press("ArrowDown");
+      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+      await expectNoPageHorizontalOverflow(page);
+    }
   });
 
   test("desktop answer footer opens the command surface above the pill", async ({ page }) => {
@@ -1220,6 +1297,7 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials/presentations");
 
+    await expect(page.getByTestId("differential-presentation-page")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("link", { name: "Back to differentials" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Compare", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
@@ -1396,5 +1474,82 @@ test.describe("Responsive layout guards", () => {
     expect(tablet).not.toBeNull();
     const balance = Math.abs((tablet?.topGap ?? 0) - (tablet?.bottomGap ?? 0));
     expect(balance).toBeLessThan(Math.max(tablet?.topGap ?? 0, tablet?.bottomGap ?? 0) * 1.45);
+  });
+
+  test("prescribing mobile shortcuts and checks are distinct, actionable, and scrollable", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 760 });
+    await mockAnswerDashboardApi(page);
+    await gotoLauncher(page, "/?mode=prescribing");
+
+    const home = page.getByTestId("medication-home");
+    await expect(home).toBeVisible();
+    await expect(home).toContainText("Check renal dosing and contraindications.");
+    await expect(home).toContainText("Review opioid-use precautions before prescribing.");
+    await expect(home).toContainText("Check maximum dose and titration guidance.");
+
+    const checksRegion = home.getByRole("region", { name: "Medication checks" });
+    const checkButtons = checksRegion.getByRole("button");
+    await expect(checkButtons).toHaveCount(4);
+    for (const button of await checkButtons.all()) await expectMinTouchTarget(button);
+
+    const rowMetrics = await checksRegion.locator(".answer-suggestion-row-scroll").evaluate((row) => {
+      const style = getComputedStyle(row);
+      return {
+        overflows: row.scrollWidth > row.clientWidth + 1,
+        maskImage: style.maskImage || style.webkitMaskImage,
+      };
+    });
+    expect(rowMetrics.overflows).toBe(true);
+    expect(rowMetrics.maskImage).not.toBe("none");
+    await expectNoPageHorizontalOverflow(page);
+
+    const capabilitySearches = [
+      ["Dose", "medication dose adjustment"],
+      ["Safety", "medication contraindications and cautions"],
+      ["Monitoring", "medication baseline and follow-up monitoring"],
+      ["Access", "medication PBS access and brand availability"],
+    ] as const;
+
+    for (const [label, query] of capabilitySearches) {
+      await gotoLauncher(page, "/?mode=prescribing");
+      await page.getByTestId("medication-home").getByRole("button", { name: label, exact: true }).click();
+      await expect(visibleGlobalSearchInput(page).first()).toHaveValue(query);
+      await expect(page.getByTestId("medication-home")).toHaveCount(0);
+    }
+
+    await gotoLauncher(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
+    const resultCard = page.getByTestId("medication-result-acamprosate-phone");
+    const bottomDock = page.locator("form.answer-footer-search-dock");
+    await expect(resultCard).toBeVisible();
+    await expect(bottomDock).toBeVisible();
+    await page.locator("main#main-content").evaluate((main) => main.scrollTo({ top: main.scrollHeight }));
+    const resultBox = await resultCard.boundingBox();
+    const dockBox = await bottomDock.boundingBox();
+    expect(resultBox).not.toBeNull();
+    expect(dockBox).not.toBeNull();
+    expect(resultBox!.y + resultBox!.height).toBeLessThanOrEqual(dockBox!.y + 2);
+  });
+
+  test("differentials recent work remains touch-sized inside its mobile scroll row", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 760 });
+    await mockAnswerDashboardApi(page);
+    await gotoLauncher(page, "/?mode=differentials");
+
+    const recentWork = page.getByTestId("differentials-home-template").getByRole("region", { name: "Recent work" });
+    await expect(recentWork).toBeVisible();
+    const recentButtons = recentWork.locator(".answer-suggestion-row-scroll").getByRole("button");
+    expect(await recentButtons.count()).toBeGreaterThan(1);
+    for (const button of await recentButtons.all()) await expectMinTouchTarget(button);
+
+    const rowMetrics = await recentWork.locator(".answer-suggestion-row-scroll").evaluate((row) => {
+      const style = getComputedStyle(row);
+      return {
+        overflows: row.scrollWidth > row.clientWidth + 1,
+        maskImage: style.maskImage || style.webkitMaskImage,
+      };
+    });
+    expect(rowMetrics.overflows).toBe(true);
+    expect(rowMetrics.maskImage).not.toBe("none");
+    await expectNoPageHorizontalOverflow(page);
   });
 });

@@ -15,11 +15,11 @@ import {
   type DifferentialRecordRow,
 } from "@/lib/differential-records";
 import { ensureDifferentialsSeeded, loadDifferentialSnapshot } from "@/lib/differential-seed";
-import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
+import { getDifferentialDetailContext, getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+import { safeErrorLogDetails } from "@/lib/privacy";
 import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
-import { registryCorpusEmbeddingEnabled } from "@/lib/registry-corpus";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery } from "@/lib/validation/query";
@@ -63,6 +63,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       if (!record) return notFoundResponse(normalizedSlug);
       return differentialResponse({
         record,
+        detailContext: getDifferentialDetailContext(record),
         governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
         demoMode: true,
       });
@@ -84,6 +85,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       if (!record) return notFoundResponse(normalizedSlug);
       return differentialResponse({
         record,
+        detailContext: getDifferentialDetailContext(record),
         governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
         publicAccess: true,
       });
@@ -118,6 +120,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       if (!record) return notFoundResponse(normalizedSlug);
       return differentialResponse({
         record,
+        detailContext: getDifferentialDetailContext(record),
         governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
         publicAccess: true,
       });
@@ -143,13 +146,15 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
         .eq("owner_id", access.ownerId);
       if (countError) throw new Error(countError.message);
       if ((count ?? 0) === 0) {
+        let seedError: unknown = null;
         try {
           await ensureDifferentialsSeeded(supabase, access.ownerId);
-        } catch (seedError) {
-          console.error(`[differentials] auto-seed failed for owner ${access.ownerId}`, seedError);
-          if (registryCorpusEmbeddingEnabled()) throw seedError;
+        } catch (error) {
+          seedError = error;
+          console.error("[differentials] auto-seed failed", safeErrorLogDetails(error));
         }
         row = await fetchRecord();
+        if (!row && seedError) throw seedError;
       }
     }
     if (!row) return notFoundResponse(normalizedSlug);
@@ -158,7 +163,27 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       return differentialResponse({ workflow: rowToPresentationWorkflow(row), governance: rowGovernance(row) });
     }
 
-    return differentialResponse({ record: rowToDifferentialRecord(row), governance: rowGovernance(row) });
+    // Owner rows can drift from the bundled snapshot, so the catalog-derived
+    // context ships with the record the client will actually render.
+    const record = rowToDifferentialRecord(row);
+    const { data: ownerRowsData, error: ownerRowsError } = await supabase
+      .from("differential_records")
+      .select("*")
+      .eq("owner_id", access.ownerId);
+    if (ownerRowsError) throw new Error(ownerRowsError.message);
+    const ownerRows = (ownerRowsData as DifferentialRecordRow[] | null) ?? [];
+    const ownerRecords = ownerRows.filter((entry) => entry.kind === "diagnosis").map(rowToDifferentialRecord);
+    const ownerPresentations = ownerRows
+      .filter((entry) => entry.kind === "presentation")
+      .map(rowToPresentationWorkflow);
+    return differentialResponse({
+      record,
+      detailContext: getDifferentialDetailContext(record, {
+        records: ownerRecords,
+        presentations: ownerPresentations,
+      }),
+      governance: rowGovernance(row),
+    });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

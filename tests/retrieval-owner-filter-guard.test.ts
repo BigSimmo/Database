@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 // Guard for the retrieval owner-scope boundary (48h-review finding #3).
 //
 // The SQL `retrieval_owner_matches(owner_filter, row_owner_id)` now fails CLOSED when
-// `owner_filter IS NULL` (migration 20260708160000_retrieval_owner_matches_fail_closed), and
+// `owner_filter IS NULL` (migration 20260708160001_retrieval_owner_matches_fail_closed), and
 // src/lib/owner-scope.ts no longer emits null — so the database has a real tenant floor. This
 // test remains as defense-in-depth on the app side: no `.rpc(...)` call in `src/` may pass a
 // *literal* null/undefined `owner_filter`, and every owner_filter value must come from the

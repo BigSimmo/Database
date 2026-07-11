@@ -24,6 +24,8 @@ import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
+import { safeErrorLogDetails } from "@/lib/privacy";
+import { startSseHeartbeat } from "@/lib/sse-heartbeat";
 import { parseJsonBody } from "@/lib/validation/body";
 import type { RagAnswer } from "@/lib/types";
 
@@ -107,11 +109,7 @@ function streamErrorPayload(error: unknown) {
 }
 
 function logStreamError(error: unknown) {
-  logger.error("Search stream failed", {
-    name: error instanceof Error ? error.name : typeof error,
-    message: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined,
-  });
+  logger.error("Search stream failed", safeErrorLogDetails(error));
 }
 
 function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
@@ -144,8 +142,17 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
     new ReadableStream({
       async start(controller) {
         const send = (event: string, data: unknown) => {
-          controller.enqueue(encoder.encode(encodeSse(event, data)));
+          try {
+            controller.enqueue(encoder.encode(encodeSse(event, data)));
+          } catch {
+            // The client may cancel between generation callbacks. Once the
+            // stream is closed there is no remaining consumer for this frame.
+          }
         };
+        // Generation can go silent for long stretches (strong-route reasoning
+        // before the first output token); heartbeat comments keep the
+        // connection visibly alive for proxies and the client's stall watchdog.
+        const stopHeartbeat = startSseHeartbeat((frame) => controller.enqueue(encoder.encode(frame)));
         const onProgress = (event: AnswerProgressEvent) => send("progress", event);
         // Stream the answer prose as it generates (content-preserving) and signal a reset when a
         // provisional answer is being revised by the quality gates.
@@ -242,7 +249,14 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
           const streamError = streamErrorPayload(error);
           send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
         } finally {
-          controller.close();
+          stopHeartbeat();
+          // The client may have already cancelled the stream (Stop button /
+          // watchdog abort), in which case close() throws on a closed stream.
+          try {
+            controller.close();
+          } catch {
+            // Stream already closed or cancelled — nothing left to release.
+          }
         }
       },
     }),
