@@ -738,9 +738,14 @@ export function MasterSearchHeader({
       desktopHomeComposerSlotId ? modeHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
     );
 
-    let frame: number | null = null;
     let retryTimeout: number | null = null;
     let portalRetryCount = 0;
+    // Runs synchronously off the MutationObserver (which already coalesces
+    // records into a microtask) rather than behind requestAnimationFrame.
+    // Headless CI throttles/pauses rAF whenever the page is not actively
+    // compositing, which stalled portal activation for seconds and made the
+    // hero composer flake out of the mode-home slot. A microtask-driven sync
+    // settles the portal on the same tick the slot mounts, no frame required.
     const syncTarget = () => {
       if (retryTimeout !== null) {
         window.clearTimeout(retryTimeout);
@@ -768,20 +773,15 @@ export function MasterSearchHeader({
         }
       }
     };
-    const scheduleSync = () => {
-      if (frame !== null) window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(syncTarget);
-    };
 
-    const observer = new MutationObserver(scheduleSync);
+    const observer = new MutationObserver(syncTarget);
     observer.observe(document.body, { childList: true, subtree: true });
-    scheduleSync();
-    mediaQuery.addEventListener("change", scheduleSync);
+    syncTarget();
+    mediaQuery.addEventListener("change", syncTarget);
     return () => {
-      if (frame !== null) window.cancelAnimationFrame(frame);
       if (retryTimeout !== null) window.clearTimeout(retryTimeout);
       observer.disconnect();
-      mediaQuery.removeEventListener("change", scheduleSync);
+      mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
       setDesktopHomeComposerActive(false);
       setDesktopHomeComposerFallback(false);
