@@ -15,7 +15,7 @@ import {
 import { createPortal } from "react-dom";
 import {
   Activity,
-  AlertTriangle,
+  TriangleAlert,
   CalendarDays,
   Check,
   ChevronDown,
@@ -235,7 +235,7 @@ const modeActionSets = {
       id: "medication-escalation",
       label: "Escalation criteria",
       description: "Red flags and urgent review",
-      icon: AlertTriangle,
+      icon: TriangleAlert,
     },
     { id: "medication-access", label: "Documentation", description: "Required forms and eligibility", icon: Lock },
   ],

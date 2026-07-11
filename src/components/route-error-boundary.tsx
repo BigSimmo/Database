@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { TriangleAlert, RefreshCw } from "lucide-react";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
 
@@ -51,7 +51,7 @@ export function RouteErrorBoundary({
     >
       <div className="w-full max-w-md rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-6 text-center shadow-[var(--shadow-elevated)]">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--danger-soft)] text-[color:var(--danger)]">
-          <AlertTriangle className="h-6 w-6" />
+          <TriangleAlert className="h-6 w-6" />
         </div>
 
         <h1 className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)]">{title}</h1>

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, Loader2, Pencil, Trash2 } from "lucide-react";
+import { TriangleAlert, Check, Loader2, Pencil, Trash2 } from "lucide-react";
 import { FormEvent, useRef, useState } from "react";
 import {
   cn,
@@ -174,7 +174,7 @@ export function DocumentManagementActions({
           <form onSubmit={submitDelete} className="space-y-4">
             <div className={cn("rounded-lg border p-3 text-sm", toneDanger)}>
               <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                 <p className="font-semibold">This action cannot be undone.</p>
               </div>
             </div>

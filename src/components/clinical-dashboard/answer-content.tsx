@@ -5,8 +5,8 @@
 import Link from "next/link";
 import { memo, useEffect, useRef, useState } from "react";
 import {
-  AlertCircle,
-  CheckCircle2,
+  CircleAlert,
+  CircleCheck,
   ChevronDown,
   Copy,
   ExternalLink,
@@ -123,7 +123,7 @@ export const SourceImage = memo(function SourceImage({
         )}
       >
         <div>
-          <AlertCircle className="mx-auto mb-2 h-5 w-5" />
+          <CircleAlert className="mx-auto mb-2 h-5 w-5" />
           Image preview could not load.
           <button
             type="button"
@@ -514,7 +514,7 @@ function SourcePreviewContent({
             reviewDueSource ? "text-[color:var(--warning)]" : "text-[color:var(--success)]",
           )}
         >
-          {reviewDueSource ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+          {reviewDueSource ? <CircleAlert className="h-4 w-4" /> : <CircleCheck className="h-4 w-4" />}
           {reviewDueSource
             ? `${sourceBadgeLabel(previewSources.indexOf(reviewDueSource))} review due`
             : "Sources current"}
@@ -641,7 +641,7 @@ export function NaturalLanguageAnswer({
                 aria-expanded={sourceOnlyNoticeOpen}
                 aria-controls="source-only-disclosure-detail"
               >
-                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                <CircleAlert className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
                 <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
                 <span className="shrink-0 text-2xs text-[color:var(--text-muted)]">· verify passages</span>
                 <ChevronDown

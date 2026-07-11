@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Clock, CornerDownLeft, Loader2, Search, Sparkles } from "lucide-react";
+import { TriangleAlert, Clock, CornerDownLeft, Loader2, Search, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 
@@ -171,7 +171,7 @@ function CommandDropdown({
     >
       {showSafetyBanner ? (
         <div className="flex items-start gap-2.5 border-b border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-4 py-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--danger)]" aria-hidden />
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--danger)]" aria-hidden />
           <div className="min-w-0 text-xs font-semibold leading-5 text-[color:var(--text)]">
             <span className="font-extrabold uppercase tracking-wide text-[color:var(--danger)]">Safety first · </span>
             Stabilise ABCs, check BGL, sats, attention test, collateral, review meds/substances.

@@ -6,7 +6,7 @@ import {
   Bookmark,
   BookmarkCheck,
   CalendarDays,
-  CheckCircle2,
+  CircleCheck,
   ChevronRight,
   Clipboard,
   ClipboardList,
@@ -24,7 +24,7 @@ import {
   Tag,
   UserRound,
   X,
-  XCircle,
+  CircleX,
   type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
@@ -314,9 +314,9 @@ function PathwayContextCard({
                   )}
                 >
                   {criterion.tone === "reject" ? (
-                    <XCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                    <CircleX className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                   ) : (
-                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                    <CircleCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                   )}
                   {criterion.label}
                 </span>
@@ -686,7 +686,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                         ? FileText
                         : label.includes("pathway")
                           ? Navigation
-                          : CheckCircle2;
+                          : CircleCheck;
                 return <InfoRow key={row.label} label={row.label} value={row.value} icon={Icon} />;
               })}
             </section>
@@ -760,7 +760,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                         key={note}
                         className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
                       >
-                        <CheckCircle2
+                        <CircleCheck
                           className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]"
                           aria-hidden
                         />

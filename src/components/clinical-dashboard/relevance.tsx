@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { CircleAlert, CircleCheck } from "lucide-react";
 
 import { cn, metadataPill } from "@/components/ui-primitives";
 import type { EvidenceRelevance, SourceEvidenceRelevance } from "@/lib/types";
@@ -61,7 +61,7 @@ export function RelevanceBadge({
       aria-label={label}
       title={relevance?.supportReason ?? label}
     >
-      {showStrongIcon ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+      {showStrongIcon ? <CircleCheck className="h-3.5 w-3.5" /> : <CircleAlert className="h-3.5 w-3.5" />}
       <span>{label}</span>
     </span>
   );

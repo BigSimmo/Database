@@ -4,8 +4,8 @@ import Link from "next/link";
 import { type RefObject, useId, useState } from "react";
 import {
   Activity,
-  AlertCircle,
-  CheckCircle2,
+  CircleAlert,
+  CircleCheck,
   ChevronDown,
   ClipboardCheck,
   Copy,
@@ -199,7 +199,7 @@ export function AnswerSupportSummaryCard({
               className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
               aria-hidden="true"
             >
-              <AlertCircle className="h-5 w-5" />
+              <CircleAlert className="h-5 w-5" />
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</span>
@@ -226,7 +226,7 @@ export function AnswerSupportSummaryCard({
               )}
               aria-hidden="true"
             >
-              {priority.tone === "caution" ? <AlertCircle className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+              {priority.tone === "caution" ? <CircleAlert className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
             </span>
             <div className="min-w-0 sm:flex sm:min-w-0 sm:items-center sm:gap-3">
               <p className="shrink-0 text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</p>
@@ -706,7 +706,7 @@ export function ClinicalNotesChecklistPanel({
       >
         {rows.map((row) => {
           const hasDistinctDetail = clinicalNoteHasDistinctDetail(row);
-          const RowIcon = row.tone === "warn" ? AlertCircle : activeTab === "actions" ? Activity : CheckCircle2;
+          const RowIcon = row.tone === "warn" ? CircleAlert : activeTab === "actions" ? Activity : CircleCheck;
           const isWarnRow = row.tone === "warn";
           const rowContent = (
             <>
@@ -773,7 +773,7 @@ export function ClinicalNotesChecklistPanel({
           onClick={() => setRequestedTab("safety")}
           className="mt-3 grid min-h-[58px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-3 py-2 text-left text-[color:var(--warning)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
-          <AlertCircle className="h-5 w-5" />
+          <CircleAlert className="h-5 w-5" />
           <span className="min-w-0">
             <span className="block text-xs font-bold uppercase tracking-[0.06em]">Safety preview ({warningCount})</span>
             <span className="block truncate text-xs font-semibold">Review toxicity symptoms</span>
@@ -828,7 +828,7 @@ function SafetyFindingRowIcon({ kind }: { kind: SafetyFindingKind }) {
   if (kind === "contraindication" || kind === "red_flag") {
     return <ShieldAlert className="h-5 w-5" />;
   }
-  return <AlertCircle className="h-5 w-5" />;
+  return <CircleAlert className="h-5 w-5" />;
 }
 
 export function SafetyFindingsListContent({ findings }: { findings: SafetyFinding[] }) {
@@ -984,11 +984,11 @@ export function primaryVisualTable(answer: RagAnswer) {
 const answerFeedbackOptions: Array<{
   type: AnswerFeedbackType;
   label: string;
-  icon: typeof CheckCircle2;
+  icon: typeof CircleCheck;
   tone: "success" | "warning" | "danger" | "neutral";
 }> = [
-  { type: "verified", label: "Verified", icon: CheckCircle2, tone: "success" },
-  { type: "needs_correction", label: "Needs correction", icon: AlertCircle, tone: "warning" },
+  { type: "verified", label: "Verified", icon: CircleCheck, tone: "success" },
+  { type: "needs_correction", label: "Needs correction", icon: CircleAlert, tone: "warning" },
   { type: "source_insufficient", label: "Source insufficient", icon: ShieldAlert, tone: "warning" },
   { type: "wrong_source", label: "Wrong source", icon: FileText, tone: "danger" },
   { type: "missing_source", label: "Missing source", icon: Search, tone: "warning" },

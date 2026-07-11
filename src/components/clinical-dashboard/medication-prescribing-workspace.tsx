@@ -4,7 +4,7 @@ import {
   Activity,
   Ban,
   CalendarDays,
-  CheckCircle2,
+  CircleCheck,
   ChevronRight,
   Lock,
   Pill,
@@ -306,7 +306,7 @@ const matchBadgeTone: Record<MedicationResult["tone"], ClinicalBadgeTone> = {
 };
 
 function ResultMatchBadge({ result }: { result: MedicationResult }) {
-  return <ClinicalBadge label={result.match} tone={matchBadgeTone[result.tone]} icon={CheckCircle2} />;
+  return <ClinicalBadge label={result.match} tone={matchBadgeTone[result.tone]} icon={CircleCheck} />;
 }
 
 // Small leading icon for the prescribing-action text: contraindication content is

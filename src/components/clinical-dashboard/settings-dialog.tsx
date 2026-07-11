@@ -8,7 +8,7 @@ import {
   ChevronRight,
   CircleUserRound,
   Globe2,
-  HelpCircle,
+  CircleHelp,
   Keyboard,
   Loader2,
   LockKeyhole,
@@ -122,7 +122,7 @@ export function SettingsDialog({
     { icon: CircleUserRound, label: "Account", active: true },
     { icon: Keyboard, label: "Keyboard" },
     {
-      icon: HelpCircle,
+      icon: CircleHelp,
       label: "Help & About",
       onClick: () => {
         onClose();

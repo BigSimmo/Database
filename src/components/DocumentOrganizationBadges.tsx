@@ -1,4 +1,4 @@
-import { AlertTriangle, Building2, FileText, Tag } from "lucide-react";
+import { TriangleAlert, Building2, FileText, Tag } from "lucide-react";
 
 import { cn, metadataPill, toneInfo, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { canonicalDocumentDisplayTitle } from "@/lib/document-organization";
@@ -74,7 +74,7 @@ export function DocumentOrganizationBadges({
         </span>
       ) : needsReview && candidateCount > 0 ? (
         <span className={cn(metadataPill, toneWarning, sizeClass)} title="Site candidate needs review">
-          <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+          <TriangleAlert className="mr-1 h-3.5 w-3.5" />
           Ambiguous site
         </span>
       ) : null}
@@ -86,7 +86,7 @@ export function DocumentOrganizationBadges({
       ) : null}
       {needsReview ? (
         <span className={cn(metadataPill, toneWarning, sizeClass)} title="Organisation profile needs review">
-          <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+          <TriangleAlert className="mr-1 h-3.5 w-3.5" />
           Needs review
         </span>
       ) : null}

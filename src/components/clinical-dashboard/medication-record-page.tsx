@@ -2,7 +2,7 @@
 
 import {
   Activity,
-  AlertTriangle,
+  TriangleAlert,
   ArrowLeft,
   BadgeCheck,
   CalendarDays,
@@ -325,7 +325,7 @@ export function MedicationRecordPage({ slug }: { slug: string }) {
         ) : error || !data?.record ? (
           <div className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] p-4 text-sm text-[color:var(--danger-text)]">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <p>{error ?? "Medication not found."}</p>
             </div>
           </div>

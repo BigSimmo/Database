@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  AlertCircle,
+  CircleAlert,
   BookOpen,
-  CheckCircle2,
+  CircleCheck,
   ChevronDown,
   Copy,
   ExternalLink,
@@ -265,11 +265,11 @@ export function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
 }
 
 const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
-  Claims: CheckCircle2,
+  Claims: CircleCheck,
   Quotes: Quote,
   Tables: ListChecks,
   Images: FileImage,
-  Gaps: AlertCircle,
+  Gaps: CircleAlert,
 };
 
 function supportDotClass(supportLevel: string) {
@@ -371,7 +371,7 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
 function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
   if (!warnings.length) {
     return (
-      <EmptyState icon={CheckCircle2} title="No evidence gaps" body="No source gaps were attached to this answer." />
+      <EmptyState icon={CircleCheck} title="No evidence gaps" body="No source gaps were attached to this answer." />
     );
   }
 

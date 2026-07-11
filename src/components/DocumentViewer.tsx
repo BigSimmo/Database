@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  AlertCircle,
+  CircleAlert,
   ArrowLeft,
   Check,
   ChevronLeft,
@@ -461,7 +461,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
         {failed ? (
           <div className="grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-3 text-center text-xs font-semibold text-[color:var(--warning)]">
             <div>
-              <AlertCircle className="mx-auto mb-2 h-4 w-4" />
+              <CircleAlert className="mx-auto mb-2 h-4 w-4" />
               Image preview failed.
               <button
                 type="button"
@@ -2666,7 +2666,7 @@ export function DocumentViewer({
             )}
             {summaryError && (
               <section className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-4 text-sm font-medium text-[color:var(--danger)]">
-                <AlertCircle className="mr-2 inline h-4 w-4" />
+                <CircleAlert className="mr-2 inline h-4 w-4" />
                 {summaryError}
               </section>
             )}
@@ -2737,7 +2737,7 @@ export function DocumentViewer({
               ) : effectiveViewerError || previewError ? (
                 <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--danger-soft)_62%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--danger)] sm:min-h-72">
                   <div>
-                    <AlertCircle className="mx-auto mb-2 h-8 w-8" />
+                    <CircleAlert className="mx-auto mb-2 h-8 w-8" />
                     <p className="font-semibold">{effectiveViewerError ?? previewError}</p>
                     <div className="mt-3 flex flex-wrap justify-center gap-2">
                       <button type="button" onClick={retryPreview} className={secondaryButton}>

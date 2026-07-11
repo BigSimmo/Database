@@ -15,7 +15,7 @@ import { createPortal } from "react-dom";
 
 import {
   Check,
-  CheckCircle2,
+  CircleCheck,
   ChevronDown,
   FileText,
   Filter,
@@ -933,7 +933,7 @@ export function MasterSearchHeader({
                       )}
                       aria-hidden
                     >
-                      {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+                      {selected ? <CircleCheck className="h-3.5 w-3.5" /> : null}
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>

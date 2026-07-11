@@ -4,11 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent a
 import Link from "next/link";
 import {
   Activity,
-  AlertTriangle,
+  TriangleAlert,
   Bookmark,
   BookmarkCheck,
   BrainCircuit,
-  CheckCircle2,
+  CircleCheck,
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
@@ -54,8 +54,8 @@ import {
 } from "@/lib/saved-registry-storage";
 
 const sectionIcons: Record<DifferentialSection["tone"], LucideIcon> = {
-  fit: CheckCircle2,
-  warning: AlertTriangle,
+  fit: CircleCheck,
+  warning: TriangleAlert,
   question: CircleHelp,
   action: Activity,
   test: FlaskConical,
@@ -113,8 +113,8 @@ function likelihoodTag(likelihood: DifferentialRecord["related"][number]["likeli
 }
 
 const sectionItemIcons: Partial<Record<DifferentialSection["tone"], LucideIcon>> = {
-  fit: CheckCircle2,
-  warning: AlertTriangle,
+  fit: CircleCheck,
+  warning: TriangleAlert,
   question: CircleHelp,
   test: FlaskConical,
 };
@@ -177,7 +177,7 @@ function SectionItems({
     );
   }
 
-  const Icon = sectionItemIcons[section.tone] ?? CheckCircle2;
+  const Icon = sectionItemIcons[section.tone] ?? CircleCheck;
   return (
     <ul
       className={cn(
@@ -329,7 +329,7 @@ const snapshotThemes: Record<DifferentialRecord["status"], SnapshotTheme> = {
     accentText: "text-[color:var(--danger)]",
   },
   urgent: {
-    Icon: AlertTriangle,
+    Icon: TriangleAlert,
     container: "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]",
     iconTile: "border-[color:var(--warning)]/25 bg-[color:var(--surface)] text-[color:var(--warning)]",
     heading: "text-[color:var(--warning)]",
@@ -353,7 +353,7 @@ const factIcons: Record<DifferentialSafetyFact["id"], LucideIcon> = {
   onset: Clock3,
   course: Activity,
   treatable: Plus,
-  causes: AlertTriangle,
+  causes: TriangleAlert,
   tests: FlaskConical,
   actions: Activity,
   related: GitBranch,
@@ -434,7 +434,7 @@ function SafetySnapshot({
               onClick={onReviewMustNotMiss}
               className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
             >
-              <AlertTriangle className={cn("h-4 w-4", theme.accentText)} aria-hidden />
+              <TriangleAlert className={cn("h-4 w-4", theme.accentText)} aria-hidden />
               Review must-not-miss causes
             </button>
           ) : null}
@@ -538,7 +538,7 @@ function CurrentPresentation({ record }: { record: DifferentialRecord }) {
               <li key={`${item.text}-${index}`}>{hingeCallout(item.text)}</li>
             ) : (
               <li key={`${item.text}-${index}`} className="flex gap-2">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+                <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
                 {item.text}
               </li>
             ),

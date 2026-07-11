@@ -4,7 +4,7 @@ import { type FormEvent, useRef, useState } from "react";
 import {
   Apple,
   BookOpen,
-  CheckCircle2,
+  CircleCheck,
   Circle,
   ClipboardList,
   Clock3,
@@ -186,7 +186,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                   </p>
                 </div>
                 <span className="inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-2 text-2xs font-bold text-[color:var(--success)]">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <CircleCheck className="h-3.5 w-3.5" />
                   Saved
                 </span>
               </div>
@@ -219,7 +219,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                         )}
                         aria-hidden
                       >
-                        {selected ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-2.5 w-2.5" />}
+                        {selected ? <CircleCheck className="h-3 w-3" /> : <Circle className="h-2.5 w-2.5" />}
                       </span>
                     </button>
                   );
@@ -239,7 +239,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                   </h3>
                 </div>
                 <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-[color:var(--success-soft)] px-2 text-2xs font-bold text-[color:var(--success)]">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <CircleCheck className="h-3.5 w-3.5" />
                   Verified
                 </span>
               </div>
@@ -261,7 +261,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                           {item.detail}
                         </span>
                       </span>
-                      <CheckCircle2 className="mt-1 h-4 w-4 text-[color:var(--success)]" aria-hidden />
+                      <CircleCheck className="mt-1 h-4 w-4 text-[color:var(--success)]" aria-hidden />
                     </div>
                   );
                 })}

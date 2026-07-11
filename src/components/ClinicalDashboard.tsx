@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
-  AlertCircle,
+  CircleAlert,
   BookOpen,
   ChevronDown,
   Clock3,
@@ -573,7 +573,7 @@ function PriorAnswerTurnSurface({
                 data-testid="prior-answer-source-review"
                 className="mt-2 flex items-start gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-xs text-[color:var(--text-muted)]"
               >
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" aria-hidden />
                 <span>
                   <strong className="text-[color:var(--text-heading)]">Review source match.</strong> Verify cited
                   passages before relying on this previous answer.
@@ -2982,7 +2982,7 @@ export function ClinicalDashboard({
   ] as const;
   const renderSystemNotice = (className?: string) => (
     <UtilityDrawer
-      icon={AlertCircle}
+      icon={CircleAlert}
       title={demoMode ? "Demo mode" : "Setup required"}
       summary={
         demoMode ? "Synthetic data only; not clinical guidance." : "Configuration is needed before real uploads."
@@ -3036,7 +3036,7 @@ export function ClinicalDashboard({
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
   const renderDegradedNotice = () => (
     <UtilityDrawer
-      icon={!isOnline ? WifiOff : AlertCircle}
+      icon={!isOnline ? WifiOff : CircleAlert}
       title={!isOnline ? "Offline" : "Service unavailable"}
       summary={
         !isOnline
@@ -3398,7 +3398,7 @@ export function ClinicalDashboard({
                     className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
                   >
                     <div className="flex items-start gap-2">
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                       <span className="min-w-0">{error}</span>
                     </div>
                     {activeModeResultKind === "answer" && lastFailedQuery && (
