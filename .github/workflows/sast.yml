@@ -15,15 +15,16 @@ permissions:
   contents: read
 
 jobs:
-  # Static application security testing. Semgrep is used instead of CodeQL
+  # Advisory static application security testing. Semgrep is used instead of CodeQL
   # because this repository is private without GitHub Advanced Security, so the
-  # code-scanning SARIF upload CodeQL relies on is unavailable; a build-failing
-  # scan mirrors the existing `npm audit` gate in ci.yml. The document parsers
+  # code-scanning SARIF upload CodeQL relies on is unavailable. The document parsers
   # (pdf-parse, pdfjs-dist, mammoth, exceljs, jszip) and the answer/ingestion
-  # paths process untrusted uploaded documents, so ERROR-severity findings block
-  # the merge. Runs OSS-engine only — no Semgrep account or token required.
+  # paths process untrusted uploaded documents, so ERROR-severity findings remain
+  # visible without making mutable registry rules a required merge dependency.
+  # Runs OSS-engine only — no Semgrep account or token required.
   semgrep:
     name: Semgrep
+    continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     container:
@@ -36,9 +37,9 @@ jobs:
 
       - name: Semgrep scan
         # --error fails the job on any ERROR-severity finding; --oss-only keeps
-        # it token-free; --metrics off sends no telemetry. Rulesets are pinned by
-        # name (no network `auto` inference). Secrets are covered by Gitleaks in
-        # secret-scan.yml, so no p/secrets here. Scope is source only.
+        # it token-free; --metrics off sends no telemetry. Named registry rules
+        # remain advisory because they can change independently of this repository.
+        # Secrets are covered by Gitleaks in secret-scan.yml, so no p/secrets here.
         run: >
           semgrep scan
           --error
@@ -49,4 +50,4 @@ jobs:
           --config p/javascript
           --config p/react
           --config p/nodejs
-          src worker scripts
+          src worker scripts supabase/functions

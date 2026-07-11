@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Star,
   Stethoscope,
   X,
   type LucideIcon,
@@ -821,28 +822,30 @@ function CommandCenterMockup() {
           </div>
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
-          <section className="grid content-start gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Start here</h2>
-                <p className="text-sm font-medium text-[color:var(--text-muted)]">
-                  Most-used tools stay one click away.
-                </p>
+        {!filter.isFiltering && (
+          <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
+            <section className="grid content-start gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Start here</h2>
+                  <p className="text-sm font-medium text-[color:var(--text-muted)]">
+                    Most-used tools stay one click away.
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
-              {pinned.map((tool) => (
-                <ToolCard key={tool.id} tool={tool} suggested={tool.id === suggestedId} />
-              ))}
-            </div>
-          </section>
+              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
+                {pinned.map((tool) => (
+                  <ToolCard key={tool.id} tool={tool} suggested={tool.id === suggestedId} />
+                ))}
+              </div>
+            </section>
 
-          <PhoneBrowserPreview
-            title="Direct launch layout"
-            toolIds={[suggestedId, "documents", "medication-prescribing", "services", "favourites"]}
-          />
-        </section>
+            <PhoneBrowserPreview
+              title="Direct launch layout"
+              toolIds={[suggestedId, "documents", "medication-prescribing", "services", "favourites"]}
+            />
+          </section>
+        )}
 
         <WideAllToolsSection
           visibleTools={filter.filtered}
@@ -852,7 +855,7 @@ function CommandCenterMockup() {
           suggestedId={suggestedId}
         />
 
-        <RecentWorkList />
+        {!filter.isFiltering && <RecentWorkList />}
       </main>
     </>
   );
@@ -903,99 +906,109 @@ function WorkflowBoardMockup() {
         </div>
       </ShellHeader>
       <main className="mx-auto grid max-w-7xl gap-5 px-4 py-5 pb-28 text-[color:var(--text)] sm:px-6 lg:px-8">
-        <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
-          <div className="grid min-w-0 gap-4 md:grid-cols-2">
-            <WorkflowLane
-              title="Assess"
-              body="Start or refine a clinical view before acting."
-              icon={Stethoscope}
-              toolIds={["differentials", "clinical-kb-search"]}
-            />
-            <WorkflowLane
-              title="Reference"
-              body="Find the source, page, table, or answer."
-              icon={BookOpen}
-              toolIds={["documents", "clinical-kb-search"]}
-            />
-            <WorkflowLane
-              title="Treat"
-              body="Move from evidence to prescribing support."
-              icon={HeartPulse}
-              toolIds={["medication-prescribing", "documents"]}
-            />
-            <WorkflowLane
-              title="Coordinate"
-              body="Connect the next referral, service, or form."
-              icon={ClipboardList}
-              toolIds={["services", "forms"]}
-            />
-          </div>
+        {!filter.isFiltering && (
+          <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
+              <WorkflowLane
+                title="Assess"
+                body="Start or refine a clinical view before acting."
+                icon={Stethoscope}
+                toolIds={["differentials", "clinical-kb-search"]}
+              />
+              <WorkflowLane
+                title="Reference"
+                body="Find the source, page, table, or answer."
+                icon={BookOpen}
+                toolIds={["documents", "clinical-kb-search"]}
+              />
+              <WorkflowLane
+                title="Treat"
+                body="Move from evidence to prescribing support."
+                icon={HeartPulse}
+                toolIds={["medication-prescribing", "documents"]}
+              />
+              <WorkflowLane
+                title="Coordinate"
+                body="Connect the next referral, service, or form."
+                icon={ClipboardList}
+                toolIds={["services", "forms"]}
+              />
+              <WorkflowLane
+                title="Resume"
+                body="Return to saved work, pins, and recent sources."
+                icon={Star}
+                toolIds={["favourites"]}
+              />
+            </div>
 
-          <aside className="min-w-0 space-y-4">
-            <PhoneBrowserPreview
-              title="Workflow picker"
-              toolIds={["differentials", "clinical-kb-search", "documents", "medication-prescribing"]}
-              mode="workflow"
-            />
+            <aside className="min-w-0 space-y-4">
+              <PhoneBrowserPreview
+                title="Workflow picker"
+                toolIds={["differentials", "clinical-kb-search", "documents", "medication-prescribing"]}
+                mode="workflow"
+              />
 
-            <section className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-inset)]">
-              <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Review queue</h2>
-              <div className="mt-3 grid gap-2">
-                {tools
-                  .filter((tool) => tool.status === "review_due")
-                  .map((tool) => {
+              <section className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-inset)]">
+                <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Review queue</h2>
+                <div className="mt-3 grid gap-2">
+                  {tools
+                    .filter((tool) => tool.status === "review_due")
+                    .map((tool) => {
+                      const Icon = tool.icon;
+
+                      return (
+                        <Link
+                          key={tool.id}
+                          href={tool.href}
+                          className={cn(
+                            "grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3",
+                            focusRing,
+                          )}
+                        >
+                          <Icon className="h-4 w-4 text-[color:var(--warning)]" aria-hidden="true" />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">
+                              {tool.title}
+                            </span>
+                            <span className="block truncate text-xs font-semibold text-[color:var(--warning)]">
+                              {tool.lastUsed}
+                            </span>
+                          </span>
+                          <ArrowRight className="h-4 w-4 text-[color:var(--warning)]" aria-hidden="true" />
+                        </Link>
+                      );
+                    })}
+                </div>
+              </section>
+
+              <section className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-inset)]">
+                <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Daily pins</h2>
+                <div className="mt-3 grid gap-2">
+                  {["clinical-kb-search", "differentials", "favourites"].map((id) => {
+                    const tool = toolById(id);
                     const Icon = tool.icon;
-
                     return (
                       <Link
                         key={tool.id}
                         href={tool.href}
                         className={cn(
-                          "grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3",
+                          "grid min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3",
                           focusRing,
                         )}
                       >
-                        <Icon className="h-4 w-4 text-[color:var(--warning)]" aria-hidden="true" />
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">
-                            {tool.title}
-                          </span>
-                          <span className="block truncate text-xs font-semibold text-[color:var(--warning)]">
-                            {tool.lastUsed}
-                          </span>
+                        <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                        <span className="truncate text-sm font-bold text-[color:var(--text-heading)]">
+                          {tool.title}
                         </span>
-                        <ArrowRight className="h-4 w-4 text-[color:var(--warning)]" aria-hidden="true" />
+                        <Pin className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden="true" />
                       </Link>
                     );
                   })}
-              </div>
-            </section>
-
-            <section className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-inset)]">
-              <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Daily pins</h2>
-              <div className="mt-3 grid gap-2">
-                {["clinical-kb-search", "differentials", "favourites"].map((id) => {
-                  const tool = toolById(id);
-                  const Icon = tool.icon;
-                  return (
-                    <Link
-                      key={tool.id}
-                      href={tool.href}
-                      className={cn(
-                        "grid min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3",
-                        focusRing,
-                      )}
-                    >
-                      <Icon className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-                      <span className="truncate text-sm font-bold text-[color:var(--text-heading)]">{tool.title}</span>
-                      <Pin className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden="true" />
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          </aside>
-        </section>
+                </div>
+              </section>
+            </aside>
+          </section>
+        )}
 
         <WideAllToolsSection
           visibleTools={filter.filtered}
@@ -1007,7 +1020,7 @@ function WorkflowBoardMockup() {
           body="A spacious launch surface below the workflow board, so every tool remains visible without a cramped side rail."
         />
 
-        <RecentWorkList />
+        {!filter.isFiltering && <RecentWorkList />}
       </main>
     </>
   );
@@ -1073,19 +1086,47 @@ function SplitPaneMockup() {
             </aside>
 
             <section className="grid min-w-0 content-start gap-3 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-inset)]">
-              <div className="flex items-center gap-2">
-                <LayoutDashboard className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-                <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Launcher overview</h2>
-              </div>
-              <p className="max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                Filters sit beside the overview, while the full-width All tools view below carries the main browsing
-                weight.
-              </p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {["clinical-kb-search", suggestedId, "medication-prescribing", "favourites"].map((id) => (
-                  <ToolCard key={id} tool={toolById(id)} suggested={id === suggestedId} />
-                ))}
-              </div>
+              {filter.isFiltering ? (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <LayoutDashboard className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                      <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Results</h2>
+                    </div>
+                    <p
+                      aria-live="polite"
+                      className="nums inline-flex min-h-8 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-bold text-[color:var(--text-muted)]"
+                    >
+                      Showing {filter.filtered.length} of {tools.length}
+                    </p>
+                  </div>
+                  {filter.filtered.length > 0 ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {filter.filtered.map((tool) => (
+                        <ToolCard key={tool.id} tool={tool} suggested={tool.id === suggestedId} />
+                      ))}
+                    </div>
+                  ) : (
+                    <AllToolsEmptyState query={filter.query} onClear={filter.reset} />
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <LayoutDashboard className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                    <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Launcher overview</h2>
+                  </div>
+                  <p className="max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                    Filters sit beside the overview, while the full-width All tools view below carries the main browsing
+                    weight.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {["clinical-kb-search", suggestedId, "medication-prescribing", "favourites"].map((id) => (
+                      <ToolCard key={id} tool={toolById(id)} suggested={id === suggestedId} />
+                    ))}
+                  </div>
+                </>
+              )}
             </section>
           </div>
 
@@ -1099,20 +1140,22 @@ function SplitPaneMockup() {
           />
         </section>
 
-        <WideAllToolsSection
-          visibleTools={filter.filtered}
-          totalCount={tools.length}
-          query={filter.query}
-          onClearFilters={filter.reset}
-          suggestedId={suggestedId}
-          title="All tools"
-          body="Click any tool to preview it in the phone frame, then open the actual tool from the phone action."
-          compact
-          selectedToolId={selectedToolId}
-          onSelectTool={(tool) => setSelectedToolId(tool.id)}
-        />
+        {!filter.isFiltering && (
+          <WideAllToolsSection
+            visibleTools={filter.filtered}
+            totalCount={tools.length}
+            query={filter.query}
+            onClearFilters={filter.reset}
+            suggestedId={suggestedId}
+            title="All tools"
+            body="Click any tool to preview it in the phone frame, then open the actual tool from the phone action."
+            compact
+            selectedToolId={selectedToolId}
+            onSelectTool={(tool) => setSelectedToolId(tool.id)}
+          />
+        )}
 
-        <RecentWorkList />
+        {!filter.isFiltering && <RecentWorkList />}
       </main>
     </>
   );

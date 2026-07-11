@@ -634,8 +634,12 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               )}
             </section>
 
-            <div className="lg:hidden">
-              <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-mobile" />
+            <div className="hidden lg:block">
+              <ActionPanel
+                onUse={useInNavigator}
+                onCopy={() => copyValue(primaryContact?.value ?? form.title, "Form detail copied")}
+                hrefForCall={hrefForCall}
+              />
             </div>
 
             <section aria-label="Priority facts" className="space-y-2.5 sm:space-y-3">
@@ -695,16 +699,15 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 hrefForCall={hrefForCall}
               />
             </div>
+
+            <div className="lg:hidden">
+              <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-mobile" />
+            </div>
           </div>
 
           <aside className="polished-scroll hidden min-w-0 space-y-3 lg:sticky lg:top-[5.75rem] lg:block lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
             <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-desktop" />
             <SourceSnapshotCard form={form} />
-            <ActionPanel
-              onUse={useInNavigator}
-              onCopy={() => copyValue(primaryContact?.value ?? form.title, "Form detail copied")}
-              hrefForCall={hrefForCall}
-            />
 
             <RailCard icon={FileText} title="Source status">
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">

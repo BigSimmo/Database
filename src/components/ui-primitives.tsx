@@ -75,9 +75,9 @@ export const chatActionRow =
 export const chatMicroAction =
   "inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
 export const sourceCapsule =
-  "source-capsule-hover focus-ring-premium inline-flex min-h-tap items-center gap-1 rounded-md border border-[color:var(--border)] bg-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))] px-2 text-2xs font-medium text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent-border)] sm:px-2.5";
+  "source-capsule-hover focus-ring-premium inline-flex min-h-tap items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))] px-3 text-xs font-medium text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent-border)]";
 export const sourceCapsuleCountBadge =
-  "nums inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-raised)] px-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
+  "nums inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-raised)] px-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
 export const evidenceRow =
   "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 export const clinicalNotesRow =
@@ -204,7 +204,7 @@ export function InlineNotice({
           type="button"
           onClick={onDismiss}
           aria-label={dismissLabel}
-          className="-m-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="-m-2.5 grid h-tap w-tap shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
           <X className="h-4 w-4" />
         </button>

@@ -20,6 +20,7 @@ import {
   ImageIcon,
   Layers3,
   List,
+  Loader2,
   MessageSquareText,
   MoreVertical,
   PanelRight,
@@ -31,11 +32,19 @@ import {
   Table2,
   type LucideIcon,
 } from "lucide-react";
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
+import { documentRelevancePercent } from "@/components/clinical-dashboard/relevance-score";
 import { cn } from "@/components/ui-primitives";
-import { documentEvidenceHref, documentReaderHref, documentsSearchHref } from "@/lib/document-flow-routes";
+import {
+  documentEvidenceHref,
+  documentReaderHref,
+  documentSearchRequestBody,
+  documentsSearchHref,
+} from "@/lib/document-flow-routes";
+import { useAuthSession } from "@/lib/supabase/client";
+import type { DocumentMatch } from "@/lib/types";
 
 type EvidenceType = "table" | "quote" | "image" | "related";
 
@@ -284,17 +293,6 @@ function searchHref(query = defaultQuery) {
   return documentsSearchHref({ query });
 }
 
-function evidenceForType(document: DocumentFixture, type: "all" | EvidenceType) {
-  if (type !== "all") return document.evidence.find((evidence) => evidence.type === type);
-  return document.evidence[0];
-}
-
-function evidenceLabel(evidence: EvidenceFixture) {
-  if (evidence.type === "quote") return "Quote";
-  if (evidence.type === "related") return "Related";
-  return evidence.label;
-}
-
 function evidenceCountLabel(document: DocumentFixture, type: EvidenceType, label: string) {
   return `${label} ${document.evidence.filter((evidence) => evidence.type === type).length}`;
 }
@@ -304,13 +302,6 @@ function evidenceTypeIconFor(type: EvidenceType): LucideIcon {
   if (type === "quote") return Quote;
   if (type === "image") return FileImage;
   return Layers3;
-}
-
-function evidenceTypeLabel(type: EvidenceType) {
-  if (type === "table") return "Table evidence";
-  if (type === "quote") return "Quote evidence";
-  if (type === "image") return "Image evidence";
-  return "Related evidence";
 }
 
 function Pill({
@@ -448,18 +439,19 @@ function DocumentSearchCategoryRail() {
   );
 }
 
-function SearchResultMobileCard({
-  document,
-  query,
-  selected,
-  activeType = "all",
-}: {
-  document: DocumentFixture;
-  query: string;
-  selected: boolean;
-  activeType?: "all" | EvidenceType;
-}) {
-  const evidence = evidenceForType(document, activeType);
+function DocumentEvidencePills({ row }: { row: DocumentSearchRow }) {
+  const hasEvidence = row.tableCount > 0 || row.imageCount > 0;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {row.tableCount > 0 ? <Pill icon={Table2}>{`Tables ${row.tableCount}`}</Pill> : null}
+      {row.imageCount > 0 ? <Pill icon={FileImage}>{`Images ${row.imageCount}`}</Pill> : null}
+      {!hasEvidence ? <Pill icon={FileText}>Text match</Pill> : null}
+      {row.page ? <Pill>p.{row.page}</Pill> : null}
+    </div>
+  );
+}
+
+function SearchResultMobileCard({ row, selected }: { row: DocumentSearchRow; selected: boolean }) {
   return (
     <article
       className={cn(
@@ -470,28 +462,17 @@ function SearchResultMobileCard({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-[color:var(--clinical-accent)]">
-            {evidence ? (
-              <>
-                <EvidenceTypeIcon type={evidence.type} className="h-4 w-4 shrink-0" />
-                <span className="truncate">{evidenceTypeLabel(evidence.type)}</span>
-                <span className="text-[color:var(--text-soft)]">·</span>
-                <span className="shrink-0">p.{evidence.page}</span>
-                <span className="text-[color:var(--text-soft)]">·</span>
-                <span className="shrink-0">{evidence.relevance}%</span>
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="truncate">Document match</span>
-                <span className="text-[color:var(--text-soft)]">·</span>
-                <span className="shrink-0">p.{document.page}</span>
-                <span className="text-[color:var(--text-soft)]">·</span>
-                <span className="shrink-0">{document.relevance}%</span>
-              </>
-            )}
-          </div>
+        <div className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-[color:var(--clinical-accent)]">
+          <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="truncate">Document match</span>
+          {row.page ? (
+            <>
+              <span className="text-[color:var(--text-soft)]">·</span>
+              <span className="shrink-0">p.{row.page}</span>
+            </>
+          ) : null}
+          <span className="text-[color:var(--text-soft)]">·</span>
+          <span className="shrink-0">{row.relevance}%</span>
         </div>
         {selected ? <Pill active>Best match</Pill> : <IconButton label="More result actions" icon={MoreVertical} />}
       </div>
@@ -501,56 +482,40 @@ function SearchResultMobileCard({
         </div>
         <div className="min-w-0 flex-1">
           <Link
-            href={documentHref(document, query)}
+            href={row.href}
             className={cn(
               "block line-clamp-2 text-base font-extrabold leading-5 text-[color:var(--text-heading)]",
               focusRing,
             )}
           >
-            {document.title}
+            {row.title}
           </Link>
           <p className="mt-1 line-clamp-1 text-xs font-semibold text-[color:var(--text-muted)]">
-            {document.kind} · {document.version}
+            {row.metaLine}
+            {row.version ? ` · ${row.version}` : ""}
           </p>
-          {evidence ? (
-            <h2 className="mt-2 line-clamp-1 text-sm font-extrabold text-[color:var(--clinical-accent)]">
-              {evidence.title}
-            </h2>
-          ) : null}
         </div>
       </div>
-      <p className="mt-3 line-clamp-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-        {evidence ? evidence.body : document.snippet}
-      </p>
+      <p className="mt-3 line-clamp-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">{row.snippet}</p>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <Pill tone={document.status === "Current" ? "green" : "amber"} icon={CheckCircle2}>
-          {document.status}
-        </Pill>
-        <Pill>{evidence ? evidenceLabel(evidence) : "No extracted evidence"}</Pill>
+        {row.statusLabel ? (
+          <Pill tone={row.statusIsCurrent ? "green" : "amber"} icon={CheckCircle2}>
+            {row.statusLabel}
+          </Pill>
+        ) : null}
+        <DocumentEvidencePills row={row} />
       </div>
-      <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
+      <div className="mt-3">
         <Link
-          href={documentHref(document, query, evidence)}
+          href={row.href}
           className={cn(
-            "inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)]",
+            "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)]",
             focusRing,
-            !evidence && "col-span-2",
           )}
         >
           Open document
           <ExternalLink className="h-4 w-4" aria-hidden="true" />
         </Link>
-        {evidence ? (
-          <Link
-            href={evidenceHref(document, evidence, query)}
-            className={cn(
-              "inline-flex min-h-11 min-w-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]",
-              focusRing,
-            )}
-          >
-            Open evidence
-          </Link>
-        ) : null}
       </div>
     </article>
   );
@@ -590,13 +555,6 @@ function evidenceTone(type: EvidenceType): "teal" | "amber" | "blue" | "violet" 
   return "violet";
 }
 
-function EvidenceTypeIcon({ type, className }: { type: EvidenceType; className?: string }) {
-  if (type === "table") return <Table2 className={className} aria-hidden="true" />;
-  if (type === "quote") return <Quote className={className} aria-hidden="true" />;
-  if (type === "image") return <FileImage className={className} aria-hidden="true" />;
-  return <Layers3 className={className} aria-hidden="true" />;
-}
-
 function MonitoringRowCards({ compact = false }: { compact?: boolean }) {
   return (
     <div className="grid gap-2">
@@ -628,22 +586,199 @@ function MonitoringRowCards({ compact = false }: { compact?: boolean }) {
   );
 }
 
+// --- Live document search wiring -------------------------------------------------
+// The command centre queries the real retrieval pipeline via POST /api/search
+// (mode: "documents") rather than filtering the in-file fixtures above. Only the
+// results table + mobile cards are data-bound; the reader/evidence views below still
+// render fixtures.
+
+type SearchResultChunk = {
+  document_id: string;
+  section_heading?: string | null;
+  page_number?: number | null;
+  content?: string | null;
+  source_metadata?: {
+    source_title?: string | null;
+    publisher?: string | null;
+    version?: string | null;
+    review_date?: string | null;
+    publication_date?: string | null;
+    document_status?: string | null;
+    indexed_at?: string | null;
+  } | null;
+};
+
+type SearchApiResponse = {
+  documentMatches?: DocumentMatch[];
+  results?: SearchResultChunk[];
+};
+
+type DocumentSearchRow = {
+  documentId: string;
+  title: string;
+  metaLine: string;
+  version: string | null;
+  statusLabel: string | null;
+  statusIsCurrent: boolean;
+  reviewLine: string | null;
+  updatedLine: string | null;
+  relevance: number;
+  page: number | null;
+  snippet: string;
+  imageCount: number;
+  tableCount: number;
+  href: string;
+};
+
+// document_status enum -> display label. Unknown/absent statuses render no pill rather
+// than a misleading one.
+const documentStatusLabels: Record<string, string> = {
+  current: "Current",
+  active: "Current",
+  published: "Current",
+  approved: "Current",
+  under_review: "Review due",
+  review_due: "Review due",
+  in_review: "Review due",
+  draft: "Draft",
+  superseded: "Superseded",
+  archived: "Archived",
+  expired: "Expired",
+  retired: "Retired",
+  unknown: "",
+};
+
+function humanizeStatus(status: string) {
+  return status
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+// Exported for unit testing. Formats in UTC on purpose: a date-only ISO value like
+// "2026-07-10" parses to UTC midnight, so formatting in local time would roll back to
+// the previous calendar day in negative-offset zones (e.g. America/New_York). en-GB
+// day-month-year matches this Australian clinical KB's existing date style.
+export function formatDateish(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  // Bare year or free text (e.g. "2026"): render verbatim.
+  if (!/\d{4}-\d{2}/.test(trimmed)) return trimmed;
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return trimmed;
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+function documentViewerHref(documentId: string, page: number | null, chunkId: string | null): string {
+  const params = new URLSearchParams();
+  if (page && page >= 1) params.set("page", String(page));
+  if (chunkId) params.set("chunk", chunkId);
+  const suffix = params.toString();
+  return suffix ? `/documents/${documentId}?${suffix}` : `/documents/${documentId}`;
+}
+
+function toDocumentSearchRow(
+  match: DocumentMatch,
+  metadataByDocument: Map<string, SearchResultChunk>,
+): DocumentSearchRow {
+  const chunk = metadataByDocument.get(match.document_id);
+  const metadata = chunk?.source_metadata ?? null;
+  const rawStatus = metadata?.document_status?.trim().toLowerCase() ?? "";
+  const mappedStatus = rawStatus ? (documentStatusLabels[rawStatus] ?? humanizeStatus(rawStatus)) : "";
+  const statusLabel = mappedStatus || null;
+  const page = match.bestPages.find((value) => Number.isFinite(value) && value >= 1) ?? null;
+  const chunkId = match.bestChunkIds[0] ?? null;
+  const snippet =
+    match.summarySnippet?.trim() || chunk?.content?.trim() || match.matchReason?.trim() || "Matched indexed content.";
+  const source = metadata?.publisher?.trim() || metadata?.source_title?.trim() || null;
+  const metaLine = [source, match.file_name]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .join(" · ");
+  const review = formatDateish(metadata?.review_date);
+  return {
+    documentId: match.document_id,
+    title: match.title,
+    metaLine: metaLine || match.file_name,
+    version: metadata?.version?.trim() || null,
+    statusLabel,
+    statusIsCurrent: statusLabel === "Current",
+    reviewLine: review ? `Review ${review}` : null,
+    updatedLine: formatDateish(metadata?.indexed_at) ?? formatDateish(metadata?.publication_date),
+    relevance: documentRelevancePercent({ relevance: match.relevance, score: match.score }),
+    page,
+    snippet,
+    imageCount: match.imageCount,
+    tableCount: match.tableCount,
+    href: documentViewerHref(match.document_id, page, chunkId),
+  };
+}
+
+// Sources/Tables/Images filter the real evidence signals we have; the API doesn't tag
+// quote/related evidence per document, so those lenses show the full match list.
+function rowMatchesEvidenceType(row: DocumentSearchRow, type: "all" | EvidenceType): boolean {
+  if (type === "table") return row.tableCount > 0;
+  if (type === "image") return row.imageCount > 0;
+  return true;
+}
+
 export function MasterDocumentSearch() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q")?.trim() || defaultQuery;
+  const searchParamString = searchParams.toString();
+  const requestBody = useMemo(
+    () => documentSearchRequestBody(new URLSearchParams(searchParamString), query),
+    [query, searchParamString],
+  );
+  const { authorizationHeader } = useAuthSession();
   const [type, setType] = useState<"all" | EvidenceType>("all");
+  const [rows, setRows] = useState<DocumentSearchRow[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
-  const filtered = useMemo(() => {
-    const lowered = query.toLowerCase();
-    return documents.filter((document) => {
-      const matchesQuery =
-        document.title.toLowerCase().includes(lowered) ||
-        document.snippet.toLowerCase().includes(lowered) ||
-        document.terms.some((term) => lowered.includes(term.toLowerCase()) || term.toLowerCase().includes(lowered));
-      const matchesType = type === "all" || document.evidence.some((item) => item.type === type);
-      return matchesQuery && matchesType;
-    });
-  }, [query, type]);
+  useEffect(() => {
+    const controller = new AbortController();
+    // Defer all state writes out of the synchronous effect body (React would otherwise
+    // cascade an extra render); a 0ms timer also coalesces rapid query changes.
+    const timer = window.setTimeout(() => {
+      if (query.length < 2) {
+        setRows([]);
+        setStatus("ready");
+        return;
+      }
+      setStatus("loading");
+      fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authorizationHeader },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) throw new Error(`Search failed (${response.status})`);
+          return (await response.json()) as SearchApiResponse;
+        })
+        .then((payload) => {
+          const metadataByDocument = new Map<string, SearchResultChunk>();
+          for (const chunk of payload.results ?? []) {
+            if (!metadataByDocument.has(chunk.document_id)) metadataByDocument.set(chunk.document_id, chunk);
+          }
+          setRows((payload.documentMatches ?? []).map((match) => toDocumentSearchRow(match, metadataByDocument)));
+          setStatus("ready");
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          setRows([]);
+          setStatus("error");
+        });
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, requestBody, authorizationHeader]);
+
+  const filtered = useMemo(() => rows.filter((row) => rowMatchesEvidenceType(row, type)), [rows, type]);
+  const loading = status === "loading";
+  const errored = status === "error";
 
   return (
     <DocumentShell>
@@ -741,7 +876,9 @@ export function MasterDocumentSearch() {
               </div>
             </div>
             <div className="flex items-center justify-between md:hidden">
-              <p className="text-lg font-extrabold text-[color:var(--text-heading)]">{filtered.length} results</p>
+              <p className="text-lg font-extrabold text-[color:var(--text-heading)]">
+                {loading ? "Searching…" : `${filtered.length} results`}
+              </p>
               <button
                 type="button"
                 disabled
@@ -769,7 +906,19 @@ export function MasterDocumentSearch() {
               <span>Actions</span>
             </div>
             <div className="overflow-x-auto">
-              {filtered.length === 0 ? (
+              {loading ? (
+                <div className="flex items-center justify-center gap-2 px-4 py-10 text-sm font-bold text-[color:var(--text-muted)]">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Searching &ldquo;{query}&rdquo;…
+                </div>
+              ) : errored ? (
+                <div className="px-4 py-10 text-center">
+                  <p className="text-base font-extrabold text-[color:var(--text-heading)]">
+                    Search is unavailable right now
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">Retry in a moment.</p>
+                </div>
+              ) : filtered.length === 0 ? (
                 <div className="px-4 py-10 text-center">
                   <p className="text-base font-extrabold text-[color:var(--text-heading)]">
                     No documents match &ldquo;{query}&rdquo;
@@ -790,12 +939,10 @@ export function MasterDocumentSearch() {
                     </button>
                   ) : null}
                 </div>
-              ) : null}
-              {filtered.map((document, index) => {
-                const rowEvidence = evidenceForType(document, type);
-                return (
+              ) : (
+                filtered.map((row, index) => (
                   <article
-                    key={document.slug}
+                    key={row.documentId}
                     className={cn(
                       "grid min-w-[58rem] grid-cols-[minmax(20rem,1.7fr)_minmax(17rem,1.25fr)_9rem_8rem_5rem] items-center gap-3 border-b border-[color:var(--border)] px-4 py-3",
                       index === 0 &&
@@ -809,57 +956,56 @@ export function MasterDocumentSearch() {
                           {index === 0 ? <Pill active>Best match</Pill> : <Pill>Relevant</Pill>}
                         </div>
                         <Link
-                          href={documentHref(document, query, rowEvidence)}
+                          href={row.href}
                           className={cn(
                             "mt-1 block line-clamp-2 text-sm font-extrabold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)]",
                             focusRing,
                           )}
                         >
-                          {document.title}
+                          {row.title}
                         </Link>
                         <p className="mt-1 truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                          {document.kind} · {document.version} · {document.source}
+                          {row.metaLine}
+                          {row.version ? ` · ${row.version}` : ""}
                         </p>
                       </div>
                     </div>
                     <div className="min-w-0">
-                      <div className="flex flex-wrap gap-1.5">
-                        {rowEvidence ? (
-                          <Pill icon={evidenceTypeIconFor(rowEvidence.type)}>{evidenceLabel(rowEvidence)}</Pill>
-                        ) : (
-                          <Pill>No extracted evidence</Pill>
-                        )}
-                        <Pill>p.{rowEvidence?.page ?? document.page}</Pill>
-                        <Pill>{document.chunk}</Pill>
-                      </div>
-                      <p className="mt-1 truncate text-xs font-medium text-[color:var(--text-muted)]">
-                        {rowEvidence ? rowEvidence.body : document.snippet}
-                      </p>
+                      <DocumentEvidencePills row={row} />
+                      <p className="mt-1 truncate text-xs font-medium text-[color:var(--text-muted)]">{row.snippet}</p>
                     </div>
                     <div className="space-y-1">
-                      <Pill tone={document.status === "Current" ? "green" : "amber"}>{document.status}</Pill>
-                      <p className="text-xs font-semibold text-[color:var(--text-muted)]">{document.review}</p>
-                      <p className="text-xs font-semibold text-[color:var(--text-soft)]">{document.updated}</p>
+                      {row.statusLabel ? (
+                        <Pill tone={row.statusIsCurrent ? "green" : "amber"}>{row.statusLabel}</Pill>
+                      ) : (
+                        <span className="text-xs font-semibold text-[color:var(--text-soft)]">—</span>
+                      )}
+                      {row.reviewLine ? (
+                        <p className="text-xs font-semibold text-[color:var(--text-muted)]">{row.reviewLine}</p>
+                      ) : null}
+                      {row.updatedLine ? (
+                        <p className="text-xs font-semibold text-[color:var(--text-soft)]">{row.updatedLine}</p>
+                      ) : null}
                     </div>
                     <div>
                       <p className="nums text-sm font-extrabold text-[color:var(--clinical-accent)]">
-                        {document.relevance}%
+                        {row.relevance}%
                       </p>
                       <div className="mt-2 h-1.5 rounded-full bg-[color:var(--border)]">
                         <div
                           className="h-full rounded-full bg-[color:var(--clinical-accent)]"
-                          style={{ width: `${document.relevance}%` }}
+                          style={{ width: `${row.relevance}%` }}
                         />
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <Link
-                        href={documentHref(document, query, rowEvidence)}
+                        href={row.href}
                         className={cn(
                           "grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text-heading)]",
                           focusRing,
                         )}
-                        aria-label={`Open ${document.title}`}
+                        aria-label={`Open ${row.title}`}
                       >
                         <ExternalLink className="h-4 w-4" />
                       </Link>
@@ -871,13 +1017,25 @@ export function MasterDocumentSearch() {
                       </button>
                     </div>
                   </article>
-                );
-              })}
+                ))
+              )}
             </div>
           </section>
 
           <section className="mt-4 grid gap-3 md:hidden" aria-label="Document results">
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 py-8 text-sm font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Searching &ldquo;{query}&rdquo;…
+              </div>
+            ) : errored ? (
+              <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 py-8 text-center shadow-[var(--shadow-inset)]">
+                <p className="text-base font-extrabold text-[color:var(--text-heading)]">
+                  Search is unavailable right now
+                </p>
+                <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">Retry in a moment.</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 py-8 text-center shadow-[var(--shadow-inset)]">
                 <p className="text-base font-extrabold text-[color:var(--text-heading)]">
                   No documents match &ldquo;{query}&rdquo;
@@ -898,16 +1056,11 @@ export function MasterDocumentSearch() {
                   </button>
                 ) : null}
               </div>
-            ) : null}
-            {filtered.map((document, index) => (
-              <SearchResultMobileCard
-                key={document.slug}
-                document={document}
-                query={query}
-                selected={index === 0}
-                activeType={type}
-              />
-            ))}
+            ) : (
+              filtered.map((row, index) => (
+                <SearchResultMobileCard key={row.documentId} row={row} selected={index === 0} />
+              ))
+            )}
           </section>
         </div>
       </div>

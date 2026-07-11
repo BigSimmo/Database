@@ -175,7 +175,7 @@ export function AnswerSupportSummaryCard({
 }) {
   const supportRowCount = Number(clinicalAvailable) + Number(evidenceAvailable);
   const supportButtonClass =
-    "grid min-h-[60px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2.5 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+    "grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
   const safetyInteractive = Boolean(onOpenSafetyFindings && safetyFindingsCount > 0);
 
   return (
@@ -221,7 +221,7 @@ export function AnswerSupportSummaryCard({
           >
             <span
               className={cn(
-                "grid h-8 w-8 shrink-0 place-items-center rounded-md",
+                "grid h-7 w-7 shrink-0 place-items-center rounded-md",
                 priority.tone === "caution" ? "text-[color:var(--warning)]" : "text-[color:var(--clinical-accent)]",
               )}
               aria-hidden="true"
@@ -233,7 +233,9 @@ export function AnswerSupportSummaryCard({
               <p className={cn("mt-0.5 line-clamp-1 text-xs leading-5 sm:mt-0", textMuted)}>{priority.detail}</p>
             </div>
             {priority.sourceLabel ? (
-              <span className={cn(subtleStatusPill, "nums min-h-7 px-2 text-2xs")}>{priority.sourceLabel}</span>
+              <span className="nums inline-flex min-h-7 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)]">
+                {priority.sourceLabel}
+              </span>
             ) : null}
           </div>
         )
@@ -685,7 +687,7 @@ export function ClinicalNotesChecklistPanel({
           <button
             type="button"
             onClick={onOpenTables}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9"
           >
             <Table2 className="h-3.5 w-3.5" />
             Tables
@@ -863,7 +865,7 @@ export function SafetyFindingsListContent({ findings }: { findings: SafetyFindin
               </span>
               <Link
                 href={finding.href}
-                className="inline-flex min-h-8 min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="inline-flex min-h-tap min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-8"
                 aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
                 <span className="truncate">{formatCompactCitationLabel(finding.citation)}</span>
@@ -1039,7 +1041,7 @@ export function AnswerFeedbackPanel({
               disabled={Boolean(pending)}
               onClick={() => onSubmit(item.type)}
               className={cn(
-                "inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                "inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-10",
                 feedbackToneClass(item.tone),
               )}
             >
