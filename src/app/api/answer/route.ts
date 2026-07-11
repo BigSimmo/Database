@@ -20,6 +20,7 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { parseJsonBody } from "@/lib/validation/body";
+import { toClientAnswerPayload } from "@/lib/answer-client-payload";
 import { answerServerTimingEntries, buildServerTimingHeader } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
@@ -166,7 +167,9 @@ export async function POST(request: Request) {
     );
     return NextResponse.json(
       {
-        ...answer,
+        // Boundary trim only — governance warnings and diagnostics above
+        // consumed the full answer (see answer-client-payload.ts).
+        ...toClientAnswerPayload(answer),
         degradedMode: answerDegradedModeSignal(answer),
         scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: warnings,
