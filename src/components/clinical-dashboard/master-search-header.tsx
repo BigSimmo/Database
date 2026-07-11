@@ -70,15 +70,6 @@ import { tagSearchText } from "@/lib/document-tags";
 
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
-<<<<<<< HEAD
-=======
-const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
-// Mode-home shells centre the composer in the hero at every width (see
-// heroComposerFromTablet): phones share the hero-centred landing design that
-// tests/ui-tools.spec.ts "mode home routes center the shared search on mobile"
-// encodes, so the query intentionally always matches.
-const modeHomeComposerMediaQuery = "(min-width: 0px)";
->>>>>>> origin/main
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 
 function splitFilterText(value: string) {
