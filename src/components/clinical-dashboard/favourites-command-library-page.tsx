@@ -386,7 +386,7 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
         aria-label={`More actions for ${item.title}`}
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          "grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+          "grid h-11 w-11 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
           focusRing,
         )}
       >
