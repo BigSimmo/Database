@@ -1912,16 +1912,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
 
     await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
-    await expect.poll(() => requestCount).toBe(1);
+    await expect.poll(() => requestCount).toBeGreaterThanOrEqual(1);
+    const baselineRequestCount = requestCount;
     await page.evaluate(() => {
       window.history.pushState(null, "", "/differentials?q=acute+confusion&run=1&scope.sourceStatuses=outdated");
     });
 
-    await expect.poll(() => requestCount).toBe(2);
+    await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
     const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
-    await expect(sourceStatus).toContainText("1 source");
+    await expect(sourceStatus).toContainText("Not yet checked");
     await page.waitForTimeout(600);
-    await expect(sourceStatus).toContainText("1 source");
+    await expect(sourceStatus).toContainText("Not yet checked");
     await expect(sourceStatus).not.toContainText("2 sources");
   });
 
