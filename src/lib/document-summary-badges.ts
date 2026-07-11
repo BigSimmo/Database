@@ -50,13 +50,37 @@ type SummaryPhraseRule = {
   label: string;
   tone: SemanticTone;
   iconKey?: SemanticIconKey;
+  // Optional second gate applied after `pattern` matches. Used where a raw
+  // keyword match would be clinically misleading (e.g. negated contraindications).
+  guard?: (text: string) => boolean;
 };
+
+// A negation cue close before a "contraindicat*" mention ("no contraindications",
+// "not contraindicated in pregnancy") inverts its meaning — it must never emit a
+// red danger badge, which would read as a false clinical stop signal.
+const contraindicationNegationBefore = /\b(?:no|not|non|without|nil|free of|absence of|no known)\b[\s\w,'’-]{0,16}$/i;
+
+function hasPositiveContraindication(text: string): boolean {
+  const pattern = /contraindicat/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    const before = text.slice(Math.max(0, match.index - 40), match.index);
+    if (!contraindicationNegationBefore.test(before)) return true;
+  }
+  return false;
+}
 
 // Phrase catalogue over the stored summary text. Every rule here is also
 // registered in SEMANTIC_FLAG_CATALOGUE (document domain) so the
 // /reference/colour-coding legend stays complete.
 const summaryPhraseRules: SummaryPhraseRule[] = [
-  { id: "summary-contraindication", pattern: /contraindicat/i, label: "Contraindications", tone: "danger" },
+  {
+    id: "summary-contraindication",
+    pattern: /contraindicat/i,
+    label: "Contraindications",
+    tone: "danger",
+    guard: hasPositiveContraindication,
+  },
   {
     id: "summary-narrow-therapeutic-index",
     pattern: /narrow therapeutic (?:index|window|range)/i,
@@ -126,6 +150,7 @@ export function buildDocumentSummaryBadges({
   if (summaryText) {
     for (const rule of summaryPhraseRules) {
       if (!rule.pattern.test(summaryText)) continue;
+      if (rule.guard && !rule.guard(summaryText)) continue;
       push({ id: rule.id, label: rule.label, tone: rule.tone, iconKey: rule.iconKey });
     }
   }
