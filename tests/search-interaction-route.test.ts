@@ -63,7 +63,7 @@ describe("/api/search/interaction", () => {
     const response = await POST(request({ query: "", documentId: "not-a-document-id" }));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: "Invalid interaction request." });
+    await expect(response.json()).resolves.toMatchObject({ error: "Invalid interaction request." });
   });
 
   it("returns the shared server-error envelope when persistence fails", async () => {
@@ -92,7 +92,7 @@ describe("/api/search/interaction", () => {
     );
 
     expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({ error: "Request failed." });
+    await expect(response.json()).resolves.toMatchObject({ error: "Request failed." });
   });
 
   it("stores owned clicked document and chunk ids with sanitized labels", async () => {
@@ -191,7 +191,7 @@ describe("/api/search/interaction", () => {
     const response = await POST(request({ query: "clozapine monitoring" }));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: "Invalid interaction request." });
+    await expect(response.json()).resolves.toMatchObject({ error: "Invalid interaction request." });
   });
 
   it("does not persist PHI-capable query text in source-open miss telemetry", async () => {

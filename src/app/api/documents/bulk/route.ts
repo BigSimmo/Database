@@ -31,8 +31,10 @@ const bulkMetadataSchema = z.object({
     .default({}),
   titleEdit: z
     .object({
-      prefix: z.string().trim().max(40).optional(),
-      suffix: z.string().trim().max(40).optional(),
+      // Preserve intentional spacing at the title boundary. `editTitle` trims the
+      // completed title, so outer whitespace is still discarded safely.
+      prefix: z.string().max(40).optional(),
+      suffix: z.string().max(40).optional(),
       find: z.string().trim().max(80).optional(),
       replace: z.string().trim().max(80).optional(),
     })

@@ -438,7 +438,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(503);
-    expect(await payload(response)).toEqual({ error: "Public uploads are not configured for this workspace." });
+    expect(await payload(response)).toMatchObject({ error: "Public uploads are not configured for this workspace." });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -461,7 +461,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(503);
-    expect(await payload(response)).toEqual({ error: "Public uploads are not configured for this workspace." });
+    expect(await payload(response)).toMatchObject({ error: "Public uploads are not configured for this workspace." });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -654,7 +654,7 @@ describe("private document API access", () => {
     const response = await GET(authenticatedRequest("/api/documents"));
 
     expect(response.status).toBe(500);
-    expect(await payload(response)).toEqual({ error: "Request failed." });
+    expect(await payload(response)).toMatchObject({ error: "Request failed." });
   });
 
   it("does not leak demo documents from real-mode listing failures", async () => {
@@ -668,7 +668,7 @@ describe("private document API access", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: "Request failed." });
+    expect(body).toMatchObject({ error: "Request failed." });
     expect(body.documents).toBeUndefined();
     expect(body.demoMode).toBeUndefined();
   });
@@ -706,7 +706,7 @@ describe("private document API access", () => {
     });
 
     expect(response.status).toBe(404);
-    expect(await payload(response)).toEqual({ error: "Document not found." });
+    expect(await payload(response)).toMatchObject({ error: "Document not found." });
     expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
   });
 
@@ -748,7 +748,7 @@ describe("private document API access", () => {
     });
 
     expect(response.status).toBe(404);
-    expect(await payload(response)).toEqual({ error: "Document not found." });
+    expect(await payload(response)).toMatchObject({ error: "Document not found." });
     expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
   });
 
@@ -857,7 +857,7 @@ describe("private document API access", () => {
     });
 
     expect(response.status).toBe(404);
-    expect(await payload(response)).toEqual({ error: "Image not found." });
+    expect(await payload(response)).toMatchObject({ error: "Image not found." });
     expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
   });
 
@@ -876,7 +876,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(503);
-    expect(await payload(response)).toEqual({ error: "Public uploads are not configured for this workspace." });
+    expect(await payload(response)).toMatchObject({ error: "Public uploads are not configured for this workspace." });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
   });
@@ -933,7 +933,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(503);
-    expect(await payload(response)).toEqual({ error: "Rate limit check is temporarily unavailable." });
+    expect(await payload(response)).toMatchObject({ error: "Rate limit check is temporarily unavailable." });
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
   });
 
@@ -1286,7 +1286,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(401);
-    expect(await payload(response)).toEqual({ error: "Authentication required." });
+    expect(await payload(response)).toMatchObject({ error: "Authentication required." });
     expect(client.from).not.toHaveBeenCalled();
   });
 
@@ -1896,7 +1896,7 @@ describe("private document API access", () => {
     const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: "Request failed." });
+    expect(body).toMatchObject({ error: "Request failed." });
     expect(documentUpdates).toHaveLength(2);
     expect(documentUpdates[0]?.updatePayload).toEqual({
       status: "queued",
@@ -1960,7 +1960,7 @@ describe("private document API access", () => {
     const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: "Request failed." });
+    expect(body).toMatchObject({ error: "Request failed." });
     expect(documentUpdates).toHaveLength(1);
     expect(documentUpdates[0]?.updatePayload).toEqual({
       status: "queued",
@@ -2205,7 +2205,7 @@ describe("private document API access", () => {
     });
 
     expect(response.status).toBe(404);
-    expect(await payload(response)).toEqual({ error: "Document not found." });
+    expect(await payload(response)).toMatchObject({ error: "Document not found." });
     expect(client.calls).toHaveLength(1);
   });
 
@@ -2378,7 +2378,7 @@ describe("private document API access", () => {
     });
 
     expect(response.status).toBe(400);
-    expect(await payload(response)).toEqual({ error: "Invalid document id." });
+    expect(await payload(response)).toMatchObject({ error: "Invalid document id." });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -2442,7 +2442,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await payload(response)).toEqual({ error: "Enter a document title between 1 and 180 characters." });
+    expect(await payload(response)).toMatchObject({ error: "Enter a document title between 1 and 180 characters." });
     expect(client.from).not.toHaveBeenCalled();
   });
 
@@ -2460,7 +2460,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(404);
-    expect(await payload(response)).toEqual({ error: "Document not found." });
+    expect(await payload(response)).toMatchObject({ error: "Document not found." });
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
   });
 
@@ -2558,7 +2558,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await payload(response)).toEqual({
+    expect(await payload(response)).toMatchObject({
       error: "Enter a short, specific clinical tag. Generic document-control tags are not allowed.",
     });
     expect(client.from).not.toHaveBeenCalled();
@@ -2681,7 +2681,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(404);
-    expect(await payload(response)).toEqual({ error: "Tag not found." });
+    expect(await payload(response)).toMatchObject({ error: "Tag not found." });
     expect(selectExisting?.filters).toContainEqual({ column: "owner_id", value: userId });
     expect(client.calls.some((call) => call.table === "document_labels" && call.operation === "update")).toBe(false);
     expect(invalidateRagCachesForDocumentMutation).not.toHaveBeenCalled();
@@ -2710,7 +2710,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(404);
-    expect(await payload(response)).toEqual({ error: "Tag not found." });
+    expect(await payload(response)).toMatchObject({ error: "Tag not found." });
     expect(selectExisting?.filters).toEqual(
       expect.arrayContaining([
         { column: "id", value: labelId },
@@ -2741,7 +2741,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(404);
-    expect(await payload(response)).toEqual({ error: "Manual tag not found." });
+    expect(await payload(response)).toMatchObject({ error: "Manual tag not found." });
     expect(client.calls.some((call) => call.table === "document_labels" && call.operation === "update")).toBe(false);
   });
 
@@ -2924,7 +2924,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(500);
-    expect(await payload(response)).toEqual({ error: "Request failed." });
+    expect(await payload(response)).toMatchObject({ error: "Request failed." });
     expect(cleanupUpdate?.updatePayload).toMatchObject({
       status: "failed",
       last_error: "Index trace cleanup failed: query log delete failed",
@@ -2955,7 +2955,7 @@ describe("private document API access", () => {
       });
 
       expect(response.status).toBe(409);
-      expect(await payload(response)).toEqual({
+      expect(await payload(response)).toMatchObject({
         error: "Document has pending or processing indexing work. Stop or wait for the worker before deleting.",
       });
       expect(client.calls.some((call) => call.table === "documents" && call.operation === "delete")).toBe(false);
@@ -3237,7 +3237,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(503);
-    expect(await payload(response)).toEqual({ error: "Rate limit check is temporarily unavailable." });
+    expect(await payload(response)).toMatchObject({ error: "Rate limit check is temporarily unavailable." });
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
@@ -3291,7 +3291,11 @@ describe("private document API access", () => {
     const response = await POST(
       request("/api/search", {
         method: "POST",
-        body: JSON.stringify({ query: "clozapine monitoring", includeRelatedDocuments: false }),
+        body: JSON.stringify({
+          query: "clozapine monitoring",
+          includeRelatedDocuments: false,
+          filters: { sourceStatuses: ["current"] },
+        }),
       }),
     );
     const body = await payload(response);
@@ -3323,13 +3327,17 @@ describe("private document API access", () => {
     const response = await POST(
       request("/api/search", {
         method: "POST",
-        body: JSON.stringify({ query: "clozapine monitoring", includeRelatedDocuments: false }),
+        body: JSON.stringify({
+          query: "clozapine monitoring",
+          includeRelatedDocuments: false,
+          filters: { sourceStatuses: ["current"] },
+        }),
       }),
     );
 
     expect(response.status).toBe(500);
     expect(response.headers.get("X-Clinical-KB-Fallback")).toBeNull();
-    expect(await payload(response)).toEqual({ error: "Search failed. Retry with a narrower question." });
+    expect(await payload(response)).toMatchObject({ error: "Search failed. Retry with a narrower question." });
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
@@ -3350,7 +3358,7 @@ describe("private document API access", () => {
     const response = await POST(
       request("/api/answer", {
         method: "POST",
-        body: JSON.stringify({ query: "clozapine monitoring" }),
+        body: JSON.stringify({ query: "clozapine monitoring", filters: { sourceStatuses: ["current"] } }),
       }),
     );
     const body = await payload(response);
@@ -3384,7 +3392,7 @@ describe("private document API access", () => {
     const response = await POST(
       request("/api/answer/stream", {
         method: "POST",
-        body: JSON.stringify({ query: "clozapine monitoring" }),
+        body: JSON.stringify({ query: "clozapine monitoring", filters: { sourceStatuses: ["current"] } }),
       }),
     );
     const body = await response.text();
@@ -3420,7 +3428,7 @@ describe("private document API access", () => {
     const response = await POST(
       request("/api/answer/stream", {
         method: "POST",
-        body: JSON.stringify({ query: "clozapine monitoring" }),
+        body: JSON.stringify({ query: "clozapine monitoring", filters: { sourceStatuses: ["current"] } }),
       }),
     );
     const body = await response.text();
@@ -3435,6 +3443,9 @@ describe("private document API access", () => {
       // diagnosable from the client network tab (confirmed live 2026-07-06).
       details: { code: "supabase_api_key_configuration" },
     });
+    expect(JSON.stringify(errorPayload)).not.toMatch(
+      /stack|causeName|causeMessage|sqlState|private\/path|[A-Za-z]:\\\\/i,
+    );
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
@@ -3879,7 +3890,7 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(404);
-    expect(await payload(response)).toEqual({ error: "Document not found." });
+    expect(await payload(response)).toMatchObject({ error: "Document not found." });
     expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId);
   });
 

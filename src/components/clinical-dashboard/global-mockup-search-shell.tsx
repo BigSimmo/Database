@@ -1,20 +1,21 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Suspense,
   type CSSProperties,
   type ReactNode,
   type UIEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-import { ClinicalDashboard } from "@/components/clinical-dashboard";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { recentQueryStorageKey } from "@/components/ClinicalDashboard";
+import { recentQueryStorageKey } from "@/components/clinical-dashboard/dashboard-contracts";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import {
@@ -39,9 +40,15 @@ import {
 } from "@/lib/app-modes";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
+
+const ClinicalDashboard = dynamic(
+  () => import("@/components/ClinicalDashboard").then((module) => module.ClinicalDashboard),
+  { ssr: false, loading: () => <ModeHomeRouteLoading /> },
+);
 
 const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
   { value: "auto", label: "Auto" },
@@ -91,7 +98,53 @@ export function GlobalMockupSearchShell(props: GlobalMockupSearchShellProps) {
   );
 }
 
-function GlobalMockupSearchShellClient({
+function GlobalMockupSearchShellClient(props: GlobalMockupSearchShellProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const initialMode = props.initialMode ?? "answer";
+  const visibleShellModes = visibleAppModeDefinitions().filter(
+    (mode) => !props.availableModeIds?.length || props.availableModeIds.includes(mode.id),
+  );
+  const fallbackMode = visibleShellModes[0]?.id ?? initialMode;
+  const initialSearchMode =
+    props.availableModeIds?.length && !props.availableModeIds.includes(initialMode) ? fallbackMode : initialMode;
+  const requestedMode = searchParams.get("mode");
+  const resolvedSearchMode =
+    isAppModeId(requestedMode) &&
+    isAppModeVisible(requestedMode) &&
+    (!props.availableModeIds?.length || props.availableModeIds.includes(requestedMode))
+      ? requestedMode
+      : initialSearchMode;
+  const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
+  const hasSubmittedModeSearch = searchParams.get("run") === "1" && requestedQuery.length > 0;
+  const isHomeRoute = pathname === "/";
+  const isDocumentFlowRoute = pathname === "/documents/search" || pathname.startsWith("/documents/source");
+  const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search") || isDocumentFlowRoute;
+  const shouldRenderDashboardSearch =
+    hasSubmittedModeSearch &&
+    resolvedSearchMode !== "services" &&
+    resolvedSearchMode !== "forms" &&
+    resolvedSearchMode !== "favourites" &&
+    resolvedSearchMode !== "differentials" &&
+    !isDocumentSearchMockupRoute;
+  const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
+  const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
+
+  if (shouldRenderClinicalDashboard) {
+    return (
+      <ClinicalDashboard
+        initialSearchMode={resolvedSearchMode}
+        initialQuery={requestedQuery}
+        focusSearch={searchParams.get("focus") === "1"}
+        autoRunSearch={isHomeRoute ? hasSubmittedModeSearch : true}
+      />
+    );
+  }
+
+  return <GlobalMockupStandaloneSearchShellClient {...props} />;
+}
+
+function GlobalMockupStandaloneSearchShellClient({
   children,
   initialMode = "answer",
   availableModeIds,
@@ -141,8 +194,12 @@ function GlobalMockupSearchShellClient({
   // mount is a no-op — the state above is already derived from the URL.
   const lastSyncedSearchParamsRef = useRef(searchParamString);
   const [searchMode, setSearchMode] = useState<AppModeId>(resolvedSearchMode);
-  const [queryMode, setQueryMode] = useState<ClinicalQueryMode>("auto");
-  const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>({});
+  const [queryMode, setQueryMode] = useState<ClinicalQueryMode>(
+    () => readSearchNavigationContext(searchParams).queryMode,
+  );
+  const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>(
+    () => readSearchNavigationContext(searchParams).scopeFilters,
+  );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [guideOpen, setGuideOpen] = useState(false);
@@ -150,12 +207,26 @@ function GlobalMockupSearchShellClient({
   const [accountSetupOpen, setAccountSetupOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
+  const removeCommandScope = useCallback(
+    (scopeId: string) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
+    [],
+  );
+  const clearCommandScopes = useCallback(() => setCommandScopes([]), []);
+  const searchCommandContextValue = useMemo(
+    () => ({
+      query,
+      modeId: searchMode,
+      commandScopes,
+      onRemoveScope: removeCommandScope,
+      onClearScopes: clearCommandScopes,
+    }),
+    [query, searchMode, commandScopes, removeCommandScope, clearCommandScopes],
+  );
   const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
-  const isHomeRoute = pathname === "/";
   const isDocumentFlowRoute = pathname === "/documents/search" || pathname.startsWith("/documents/source");
   const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search") || isDocumentFlowRoute;
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
@@ -184,13 +255,18 @@ function GlobalMockupSearchShellClient({
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
+  const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
+  // Standalone mode homes portal the composer into the hero (in-flow at every
+  // width), so phones need no bottom-dock clearance there.
   const mobileComposerReserve = !shouldShowSearchComposer
     ? "2rem"
-    : searchMode === "answer"
-      ? "calc(9rem + env(safe-area-inset-bottom))"
-      : useCompactBottomSearch
-        ? "calc(5.5rem + env(safe-area-inset-bottom))"
-        : "calc(9rem + env(safe-area-inset-bottom))";
+    : isStandaloneModeHome
+      ? "2rem"
+      : searchMode === "answer"
+        ? "calc(9rem + env(safe-area-inset-bottom))"
+        : useCompactBottomSearch
+          ? "calc(5.5rem + env(safe-area-inset-bottom))"
+          : "calc(9rem + env(safe-area-inset-bottom))";
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -205,6 +281,9 @@ function GlobalMockupSearchShellClient({
     lastSyncedSearchParamsRef.current = searchParamString;
     setSearchMode(resolvedSearchMode);
     setQuery(currentUrlHasQuery ? requestedQuery : "");
+    const nextSearchContext = readSearchNavigationContext(new URLSearchParams(searchParamString));
+    setQueryMode(nextSearchContext.queryMode);
+    setScopeFilters(nextSearchContext.scopeFilters);
   }, [currentUrlHasQuery, requestedQuery, resolvedSearchMode, searchParamString]);
 
   useEffect(() => {
@@ -272,12 +351,13 @@ function GlobalMockupSearchShellClient({
     setAccountSetupOpen(true);
   }
 
-  function navigateToMode(mode: AppModeId, options: { query?: string; run?: boolean; focus?: boolean } = {}) {
+  function navigateToMode(mode: AppModeId, options: SearchNavigationOptions = {}) {
+    const nextOptions = { queryMode, scopeFilters, ...options };
     if (mode === "documents" && options.query?.trim()) {
-      router.push(documentsSearchHref(options));
+      router.push(documentsSearchHref(nextOptions));
       return;
     }
-    router.push(appModeHomeHref(mode, options));
+    router.push(appModeHomeHref(mode, nextOptions));
   }
 
   function submitSearch() {
@@ -301,7 +381,9 @@ function GlobalMockupSearchShellClient({
     setQuery("");
     setMobileMenuOpen(false);
     setSearchMode("answer");
-    navigateToMode("answer", { focus: true });
+    setQueryMode("auto");
+    setScopeFilters({});
+    router.push(appModeHomeHref("answer", { focus: true }));
   }
 
   function pickRecentQuery(recentQuery: string) {
@@ -325,9 +407,6 @@ function GlobalMockupSearchShellClient({
     setMainElement(node);
   };
 
-  const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
-  const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
-
   // Page canvases can become nested scrollers when `overflow-x-hidden` pairs with
   // a flex height cap (overflow-y becomes auto per CSS). Capture descendant scroll
   // so the phone dock/header still hide while users scroll results.
@@ -344,18 +423,7 @@ function GlobalMockupSearchShellClient({
 
     main.addEventListener("scroll", onScrollCapture, { capture: true, passive: true });
     return () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
-  }, [mainElement, shouldRenderClinicalDashboard, chromeVisible]);
-
-  if (shouldRenderClinicalDashboard) {
-    return (
-      <ClinicalDashboard
-        initialSearchMode={resolvedSearchMode}
-        initialQuery={requestedQuery}
-        focusSearch={searchParams.get("focus") === "1"}
-        autoRunSearch={isHomeRoute ? hasSubmittedModeSearch : true}
-      />
-    );
-  }
+  }, [mainElement, chromeVisible]);
 
   if (!chromeVisible) {
     return (
@@ -431,7 +499,9 @@ function GlobalMockupSearchShellClient({
             onQueryModeChange={setQueryMode}
             onScopeFiltersChange={setScopeFilters}
             onToggleScope={() => undefined}
-            onOpenUpload={() => router.push(`${appModeHomeHref("documents", { focus: true })}#sources`)}
+            onOpenUpload={() =>
+              router.push(`${appModeHomeHref("documents", { focus: true, queryMode, scopeFilters })}#sources`)
+            }
             onOpenEvidence={() => navigateToMode("answer", { focus: true })}
             onNewChat={startNewAnswerChat}
             onOpenMobileSidebar={() => setMobileMenuOpen(true)}
@@ -458,7 +528,6 @@ function GlobalMockupSearchShellClient({
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-            heroComposerFromTablet={isStandaloneModeHome}
             // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the header/composer to hand space back to content.
             hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
@@ -473,8 +542,12 @@ function GlobalMockupSearchShellClient({
           tabIndex={-1}
           onScroll={handleMainScroll}
           className={cn(
-            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)]",
-            !shouldShowSearchComposer
+            // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
+            // auto, which turns #main-content into the sticky scrollport while the
+            // window does the actual scrolling — silently disabling every
+            // position:sticky descendant (e.g. the document viewer rail).
+            "min-w-0 focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
+            !reservesFloatingComposer
               ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
               : bottomSearchScrollHidden
                 ? "max-sm:pb-8 sm:pb-8"
@@ -489,18 +562,7 @@ function GlobalMockupSearchShellClient({
             <ClientHydrationBoundary
               fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
             >
-              <SearchCommandProvider
-                value={{
-                  query,
-                  modeId: searchMode,
-                  commandScopes,
-                  onRemoveScope: (scopeId) =>
-                    setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
-                  onClearScopes: () => setCommandScopes([]),
-                }}
-              >
-                {children}
-              </SearchCommandProvider>
+              <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
             </ClientHydrationBoundary>
           </div>
         </div>

@@ -5,7 +5,13 @@ import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appName, localProjectId, projectPortEnd, stableProjectPort } from "./local-server-utils.mjs";
+import {
+  appName,
+  isReservedDevPort,
+  localProjectId,
+  projectPortEnd,
+  stableProjectPort,
+} from "../src/lib/local-server-utils.mjs";
 
 if (Number(process.versions.node.split(".")[0]) !== 24) {
   console.error(`Clinical KB local server requires Node 24.x. Current runtime: ${process.versions.node}.`);
@@ -147,6 +153,7 @@ async function findExistingProjectServer(startPort) {
 
 async function findStartPort(startPort) {
   for (let port = startPort; port <= maxPort; port += 1) {
+    if (isReservedDevPort(port)) continue;
     if (await isThisProject(port, 1)) return { port, alreadyRunning: true };
     if (!(await isPortBusy(port))) return { port, alreadyRunning: false };
   }

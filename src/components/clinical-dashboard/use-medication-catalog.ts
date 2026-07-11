@@ -16,6 +16,7 @@ type MedicationCatalogResponse = {
   records: MedicationRecord[];
   matches?: MedicationCatalogMatch[];
   total: number;
+  governance?: Record<string, { sourceStatus: string; validationStatus: string }>;
   demoMode?: boolean;
 };
 

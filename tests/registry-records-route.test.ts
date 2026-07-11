@@ -139,7 +139,10 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { li
   };
 }
 
-function mockRuntime(client: ReturnType<typeof createSupabaseMock>, options: { demoMode?: boolean } = {}) {
+function mockRuntime(
+  client: ReturnType<typeof createSupabaseMock>,
+  options: { demoMode?: boolean; registryEmbeddingError?: Error } = {},
+) {
   vi.resetModules();
   vi.doMock("@/lib/env", () => ({
     env: {},
@@ -147,6 +150,19 @@ function mockRuntime(client: ReturnType<typeof createSupabaseMock>, options: { d
     isLocalNoAuthMode: () => false,
     requireOpenAIEnv: () => undefined,
     requireServerEnv: () => undefined,
+  }));
+  vi.doMock("@/lib/registry-corpus", () => ({
+    registryCorpusEmbeddingEnabled: () => Boolean(options.registryEmbeddingError),
+    bestEffortSyncClinicalRegistryRows: vi.fn(async () => {
+      if (options.registryEmbeddingError) {
+        console.error("[registry] registry corpus sync failed", {
+          name: options.registryEmbeddingError.name,
+          message: options.registryEmbeddingError.message,
+        });
+        return { documentCount: 0, chunkCount: 0, skipped: true, reason: "failed" };
+      }
+      return { documentCount: 0, chunkCount: 0 };
+    }),
   }));
   vi.doMock("@/lib/supabase/admin", () => ({
     createAdminClient: () => client,
@@ -370,6 +386,59 @@ describe("registry records API", () => {
     ).toBe(true);
     expect(payload.records).toHaveLength(serviceRecords.length);
     expect(payload.total).toBe(serviceRecords.length);
+  });
+
+  it("serves seeded records when registry corpus embedding fails after the row upsert", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let stored: Array<Record<string, unknown>> = [];
+    const client = createSupabaseMock((call) => {
+      if (call.table !== "clinical_registry_records") return ok([]);
+      if (call.upsert) {
+        stored = (call.upsertRows ?? []) as Array<Record<string, unknown>>;
+        return ok(stored);
+      }
+      return ok(stored);
+    });
+    mockRuntime(client, { registryEmbeddingError: new Error("embedding unavailable") });
+    const { GET } = await import("../src/app/api/registry/records/route");
+    const { serviceRecords } = await import("../src/lib/services");
+
+    const response = await GET(authedRequest("/api/registry/records?kind=service"));
+    const payload = (await response.json()) as { records: Array<{ slug: string }>; total: number };
+
+    expect(response.status).toBe(200);
+    expect(payload.records).toHaveLength(serviceRecords.length);
+    expect(payload.total).toBe(serviceRecords.length);
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("[registry] registry corpus sync failed"),
+      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
+    );
+  });
+
+  it("returns 404 for an unknown registry slug during a corpus embedding outage", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let stored: Array<Record<string, unknown>> = [];
+    const client = createSupabaseMock((call) => {
+      if (call.table !== "clinical_registry_records") return ok([]);
+      if (call.upsert) {
+        stored = (call.upsertRows ?? []) as Array<Record<string, unknown>>;
+        return ok(stored);
+      }
+      if (call.maybeSingle) return ok(stored.find((row) => row.slug === "unknown-service") ?? null);
+      return ok(stored);
+    });
+    mockRuntime(client, { registryEmbeddingError: new Error("embedding unavailable") });
+    const { GET } = await import("../src/app/api/registry/records/[slug]/route");
+
+    const response = await GET(authedRequest("/api/registry/records/unknown-service?kind=service"), {
+      params: Promise.resolve({ slug: "unknown-service" }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("[registry] registry corpus sync failed"),
+      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
+    );
   });
 
   it("does not seed when the owner already has registry records", async () => {

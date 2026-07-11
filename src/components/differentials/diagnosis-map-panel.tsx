@@ -285,13 +285,21 @@ function NodeDetails({
   selected,
   added,
   onAdd,
+  knownRelatedSlugs,
 }: {
   record: DifferentialRecord;
   selected: SelectedNode;
   added: boolean;
   onAdd: () => void;
+  knownRelatedSlugs?: string[];
 }) {
   const selectedIsDiagnosis = selected === "diagnosis";
+  // Open the selected related node's own page when it resolves to a real
+  // diagnosis; otherwise fall back to (re)opening the current record.
+  const openHref =
+    !selectedIsDiagnosis && knownRelatedSlugs?.includes(selected.id)
+      ? `/differentials/diagnoses/${selected.id}`
+      : `/differentials/diagnoses/${record.slug}`;
   const title = nodeLabel(selected, record);
   const likelihood = selectedIsDiagnosis ? "Most likely" : likelihoodLabels[selected.likelihood];
   const details = selectedIsDiagnosis ? record.clinicalHinge : selected.note;
@@ -341,7 +349,7 @@ function NodeDetails({
           <GitCompareArrows className="h-4 w-4" aria-hidden />
           {added ? "In compare" : "Add to compare"}
         </button>
-        <Link href={`/differentials/diagnoses/${record.slug}`} className={cn(primaryControl, "w-full px-3")}>
+        <Link href={openHref} className={cn(primaryControl, "w-full px-3")}>
           Open diagnosis
         </Link>
       </div>
@@ -349,7 +357,13 @@ function NodeDetails({
   );
 }
 
-export function DiagnosisMapPanel({ record }: { record: DifferentialRecord }) {
+export function DiagnosisMapPanel({
+  record,
+  knownRelatedSlugs,
+}: {
+  record: DifferentialRecord;
+  knownRelatedSlugs?: string[];
+}) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<SelectedNode>("diagnosis");
   const [scale, setScale] = useState(1);
@@ -645,6 +659,7 @@ export function DiagnosisMapPanel({ record }: { record: DifferentialRecord }) {
                   selected={selected}
                   added={addedIds.includes(selectedId)}
                   onAdd={toggleCompare}
+                  knownRelatedSlugs={knownRelatedSlugs}
                 />
                 {filtered ? (
                   <p className="mx-4 mb-4 mt-3 rounded-lg border border-[color:var(--danger)]/20 bg-[color:var(--danger-soft)]/50 p-3 text-xs font-semibold leading-5 text-[color:var(--text-muted)]">
@@ -664,6 +679,7 @@ export function DiagnosisMapPanel({ record }: { record: DifferentialRecord }) {
                   selected={selected}
                   added={addedIds.includes(selectedId)}
                   onAdd={toggleCompare}
+                  knownRelatedSlugs={knownRelatedSlugs}
                 />
                 {filtered ? (
                   <p className="mt-3 rounded-lg border border-[color:var(--danger)]/20 bg-[color:var(--danger-soft)]/50 p-3 text-xs font-semibold leading-5 text-[color:var(--text-muted)]">

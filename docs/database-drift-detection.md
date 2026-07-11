@@ -1,6 +1,6 @@
 # Database drift detection (`npm run check:drift`)
 
-Last updated: 2026-07-07
+Last updated: 2026-07-10
 
 This repo's worst operational incidents were live-vs-repo schema drift: hybrid
 retrieval RPCs silently broken on live for an unknown period, and migrations
@@ -99,6 +99,13 @@ live project need explicit operator approval.
 > found live had diverged _forward_ from its retrieval bodies (item 0, new).
 > Live is under active concurrent multi-session editing, so the allowlist is a
 > point-in-time snapshot needing periodic regeneration.
+>
+> **2026-07-10 update:** local `check:drift` surfaced five repo-ahead live debts
+> for the July 8 hardening batch: fail-closed `retrieval_owner_matches`, R17's
+> one-open-ingestion-job index, and R5's document metadata deep-merge helpers /
+> `commit_document_index_generation` body. These are now allowlisted as known
+> pending live-apply work. Applying them to live remains an explicit
+> operator-approved migration action.
 
 0. **NEW — forward-codify the live-ahead retrieval RPCs** (was the "apply
    20260705210000" item, inverted). Live carries newer raw-SQL retrieval bodies
@@ -124,6 +131,13 @@ live project need explicit operator approval.
 2. ✅ **DONE 2026-07-08** — `20260703030000`'s effects (recorded-but-absent on
    live) re-applied via `20260708000000_reapply_storage_cleanup_jobs_indexes`;
    live storage_cleanup_jobs indexes now match schema.sql.
+   2a. **Apply the remaining July 8 hardening batch to live**: run the approved
+   migration workflow for `20260708160001_retrieval_owner_matches_fail_closed`,
+   `20260708170000_ingestion_jobs_one_open_per_document`, and
+   `20260708310000_r5_document_metadata_merge`. Remove the matching allowlist
+   entries for `retrieval_owner_matches`, `ingestion_jobs_one_open_per_document_uidx`,
+   `jsonb_merge_deep`, `apply_document_metadata_patch`, and
+   `commit_document_index_generation` after `check:drift` verifies live parity.
 3. **Codify the remaining live-only functions**: `get_visual_evidence_cards`,
    `repair_enrichment_quality_batch`, `run_all_visual_eval_cases`,
    `run_visual_eval_case` (same pattern as `20260707000000`).
