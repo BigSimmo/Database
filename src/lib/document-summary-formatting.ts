@@ -344,7 +344,8 @@ export function formatDocumentSummary(raw: string | null | undefined): Formatted
       const last = items[items.length - 1];
       // The sanitizer already turned the raw "…" into a plain period; restore an
       // ellipsis so repairTruncatedCompactTail can drop the partial final token.
-      const base = last.replace(/[.\s]+$/, "");
+      // Strip any trailing periods, Unicode ellipsis characters, and whitespace.
+      const base = last.replace(/[.\s…]+$/, "");
       const repaired = repairTruncatedCompactTail(`${base} ...`);
       truncatedTail = true;
       if (repaired && repaired.split(/\s+/).length >= 5) {
