@@ -316,9 +316,15 @@ export function UniversalSearchCommandSurface({
   const mode = appModeDefinition(modeId);
   // The dropdown is CSS-hidden below sm (bottom-dock) / lg (inline), so skip the
   // typeahead fetches at widths where nothing could display the results.
-  const [dropdownDisplayable, setDropdownDisplayable] = useState(false);
+  const dropdownMediaQuery = placement === "bottom-dock" ? "(min-width: 640px)" : "(min-width: 1024px)";
+  // Initialise from the real viewport. The mode-home composer can be moved into
+  // its portal while the input is receiving focus; starting every fresh mount
+  // at false loses that focus event and leaves the desktop popup closed.
+  const [dropdownDisplayable, setDropdownDisplayable] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(dropdownMediaQuery).matches,
+  );
   useEffect(() => {
-    const mediaQuery = window.matchMedia(placement === "bottom-dock" ? "(min-width: 640px)" : "(min-width: 1024px)");
+    const mediaQuery = window.matchMedia(dropdownMediaQuery);
     const sync = () => {
       setDropdownDisplayable(mediaQuery.matches);
       if (!mediaQuery.matches) {
@@ -329,7 +335,7 @@ export function UniversalSearchCommandSurface({
     sync();
     mediaQuery.addEventListener("change", sync);
     return () => mediaQuery.removeEventListener("change", sync);
-  }, [onDropdownOpenChange, placement]);
+  }, [dropdownMediaQuery, onDropdownOpenChange]);
   // A true "everything" view: the active mode's own domain is included (no excludeDomain) so
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
