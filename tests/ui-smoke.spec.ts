@@ -2152,9 +2152,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Tables 1");
     const openDocumentLink = documentResults.getByRole("link", { name: "Open document" }).first();
     await expect(openDocumentLink).toBeVisible();
-    // The viewer link must target the mocked document with page + chunk params, so a regression
-    // that opens the wrong location can't slip through on link presence alone.
-    await expect(openDocumentLink).toHaveAttribute("href", /\/documents\/[^?]+\?page=\d+(&chunk=[^&]+)?$/);
+    // Exact viewer target built from mockDemoApi's lithium result (document_id / bestPages[0] /
+    // bestChunkIds[0]): a link to the wrong document, page, or chunk must fail this assertion.
+    await expect(openDocumentLink).toHaveAttribute(
+      "href",
+      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+    );
     await expect(page.getByRole("complementary").filter({ hasText: "Selected source" })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
