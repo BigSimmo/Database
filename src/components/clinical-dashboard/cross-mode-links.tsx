@@ -5,17 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Search, type LucideIcon } from "lucide-react";
 
-import {
-  cn,
-  eyebrowText,
-  floatingControl,
-  iconTile,
-  semanticChipTone,
-  sourceCard,
-  subtleStatusPill,
-  textMuted,
-  type SemanticChipTone,
-} from "@/components/ui-primitives";
+import { cn, eyebrowText, semanticChipTone, sourceCard, type SemanticChipTone } from "@/components/ui-primitives";
 import { logCrossModeLinkOpen } from "@/components/clinical-dashboard/source-actions";
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -42,95 +32,49 @@ type CrossModeLinkCardProps = {
   onModeSearch: (mode: AppModeId, query: string) => void;
 };
 
-function CrossModeLinkBadges({ badges }: { badges: CrossModeLinkBadge[] }) {
-  if (badges.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap items-center gap-1">
-      {badges.map((badge) => (
-        <span
-          key={badge.label}
-          className={cn(
-            "inline-flex items-center rounded-md border px-1.5 py-0.5 text-2xs font-semibold",
-            semanticChipTone(badgeChipTone(badge.tone)),
-          )}
-        >
-          {badge.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function CrossModeLinkActions({
-  link,
-  query,
-  onModeSearch,
-}: {
-  link: CrossModeLink;
-  query: string;
-  onModeSearch: (mode: AppModeId, query: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 pt-1">
-      <Link
-        href={link.detailHref}
-        onClick={() => logCrossModeLinkOpen(query, link)}
-        className="inline-flex min-h-11 items-center text-xs font-semibold text-[color:var(--clinical-accent)] underline-offset-2 transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-      >
-        Open reference
-      </Link>
-      <span className="text-[color:var(--text-soft)]" aria-hidden>
-        ·
-      </span>
-      <button
-        type="button"
-        onClick={() => {
-          logCrossModeLinkOpen(query, link);
-          onModeSearch(link.modeId, link.modeSearchQuery);
-        }}
-        aria-label={`Search ${link.title} in ${link.modeLabel}`}
-        className={cn(floatingControl, "inline-flex min-h-11 items-center gap-1.5 px-2.5 text-xs")}
-      >
-        <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
-        Search in {link.modeLabel}
-      </button>
-    </div>
-  );
-}
-
 function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCardProps) {
+  const extraBadge = link.badges[0] ?? null;
+
   return (
     <article
       role="listitem"
-      className={cn(
-        sourceCard,
-        "flex shrink-0 flex-col gap-2 p-3",
-        "w-full md:w-[16.5rem] md:min-w-[15rem] md:max-w-[18rem]",
-      )}
+      className={cn(sourceCard, "flex min-h-12 min-w-0 items-center gap-2.5 px-2.5 py-1.5", "md:max-w-full")}
     >
-      <div className="flex items-start gap-2.5 md:gap-3">
-        <span className={iconTile}>
-          <Icon className="h-4 w-4" aria-hidden />
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+        <Icon className="h-3.5 w-3.5" aria-hidden />
+      </span>
+      <Link
+        href={link.detailHref}
+        onClick={() => logCrossModeLinkOpen(query, link)}
+        className="inline-flex min-h-11 min-w-0 items-center text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+      >
+        <span className="truncate">{link.title}</span>
+      </Link>
+      <span className="inline-flex min-h-6 shrink-0 items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2 text-2xs font-semibold text-[color:var(--text-muted)]">
+        {link.modeLabel}
+      </span>
+      {extraBadge ? (
+        // Decorative on narrow screens — hidden below sm so the title keeps room.
+        <span
+          className={cn(
+            "hidden shrink-0 items-center rounded-full border px-1.5 py-0.5 text-2xs font-semibold sm:inline-flex",
+            semanticChipTone(badgeChipTone(extraBadge.tone)),
+          )}
+        >
+          {extraBadge.label}
         </span>
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <div className="flex items-start justify-between gap-2">
-            <Link
-              href={link.detailHref}
-              onClick={() => logCrossModeLinkOpen(query, link)}
-              className="inline-flex min-h-11 items-center text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9"
-            >
-              <span className="line-clamp-2 md:line-clamp-1">{link.title}</span>
-            </Link>
-            <span className={cn(subtleStatusPill, "shrink-0")}>{link.modeLabel}</span>
-          </div>
-          {link.subtitle ? (
-            <p className={cn("text-xs leading-5 line-clamp-2 md:line-clamp-1", textMuted)}>{link.subtitle}</p>
-          ) : null}
-          <CrossModeLinkBadges badges={link.badges} />
-        </div>
-      </div>
-      <CrossModeLinkActions link={link} query={query} onModeSearch={onModeSearch} />
+      ) : null}
+      <button
+        type="button"
+        onClick={() => {
+          onModeSearch(link.modeId, link.modeSearchQuery);
+        }}
+        aria-label={`Search ${link.title} in ${link.modeLabel}`}
+        title={`Search in ${link.modeLabel}`}
+        className="ml-auto grid h-11 w-11 shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+      >
+        <Search className="h-4 w-4 shrink-0" aria-hidden />
+      </button>
     </article>
   );
 }
@@ -255,12 +199,12 @@ export function CrossModeLinksStrip({
     <section
       aria-label="Related pages in other modes"
       className={cn(
-        "border-t border-[color:var(--border)] pt-3",
+        "border-t border-[color:var(--border)] pt-2.5",
         compact ? "md:flex md:items-center md:gap-3" : "max-w-[68ch]",
       )}
       data-testid="cross-mode-links"
     >
-      <p className={cn(eyebrowText, compact ? "mb-2.5 shrink-0 md:mb-0" : "mb-2.5")}>
+      <p className={cn(eyebrowText, compact ? "mb-2 shrink-0 md:mb-0" : "mb-2")}>
         Also in your library
         {links.length > 1 ? (
           <span className="font-medium normal-case tracking-normal text-[color:var(--text-muted)]">
@@ -272,11 +216,13 @@ export function CrossModeLinksStrip({
 
       <div
         role="list"
-        tabIndex={links.length > 1 ? 0 : undefined}
-        aria-label={links.length > 1 ? "Related library matches; scroll horizontally for more" : undefined}
+        tabIndex={compact && links.length > 1 ? 0 : undefined}
+        aria-label={compact && links.length > 1 ? "Related library matches; scroll horizontally for more" : undefined}
         className={cn(
-          "cross-mode-links-rail polished-scroll overflow-x-auto overscroll-x-contain pb-1",
-          compact ? "flex min-w-0 items-center gap-2 md:pb-0" : "grid gap-2 md:flex md:w-max md:max-w-full md:gap-2.5",
+          "cross-mode-links-rail",
+          compact
+            ? "polished-scroll flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 md:pb-0"
+            : "grid min-w-0 gap-1.5 md:flex md:max-w-full md:flex-wrap md:gap-2",
         )}
         data-testid="cross-mode-links-rail"
       >

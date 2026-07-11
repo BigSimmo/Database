@@ -20,6 +20,7 @@ permissions:
 env:
   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+  SUPABASE_CLI_VERSION: 2.108.0
 
 jobs:
   changes:
@@ -305,15 +306,16 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: ${{ env.SUPABASE_CLI_VERSION }}
 
       - name: Restore Supabase Docker image cache
+        id: supabase-docker-cache
         uses: actions/cache@v6
         with:
           path: /tmp/supabase-docker-cache
-          key: supabase-docker-${{ runner.os }}-${{ hashFiles('supabase/config.toml') }}
+          key: supabase-docker-${{ runner.os }}-cli-${{ env.SUPABASE_CLI_VERSION }}-${{ hashFiles('supabase/config.toml') }}
           restore-keys: |
-            supabase-docker-${{ runner.os }}-
+            supabase-docker-${{ runner.os }}-cli-${{ env.SUPABASE_CLI_VERSION }}-
 
       - name: Load cached Supabase Docker images
         run: |
@@ -328,7 +330,7 @@ jobs:
         run: supabase db reset
 
       - name: Save Supabase Docker images
-        if: always()
+        if: success() && steps.supabase-docker-cache.outputs.cache-hit != 'true'
         continue-on-error: true
         run: |
           mkdir -p /tmp/supabase-docker-cache

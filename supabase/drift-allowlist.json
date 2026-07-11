@@ -38,6 +38,20 @@
     },
     {
       "category": "functions",
+      "key": "public.apply_document_metadata_patch(uuid,jsonb)",
+      "kind": "missing_live",
+      "reason": "Repo schema is ahead of live for R5 document metadata deep-merge. Apply migration 20260708310000_r5_document_metadata_merge.sql through the approved live migration workflow, then remove this entry.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.commit_document_index_generation(uuid,uuid,text,integer,integer,integer,jsonb,jsonb,jsonb)",
+      "kind": "mismatch",
+      "reason": "Repo schema is ahead of live for R5 metadata merge inside commit_document_index_generation. Apply migration 20260708310000_r5_document_metadata_merge.sql through the approved live migration workflow, then remove this entry.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
       "key": "public.get_related_document_metadata(uuid[],uuid)",
       "kind": "mismatch",
       "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
@@ -94,6 +108,13 @@
     },
     {
       "category": "functions",
+      "key": "public.jsonb_merge_deep(jsonb,jsonb)",
+      "kind": "missing_live",
+      "reason": "Repo schema is ahead of live for R5 document metadata deep-merge. Apply migration 20260708310000_r5_document_metadata_merge.sql through the approved live migration workflow, then remove this entry.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
       "key": "public.repair_enrichment_quality_batch(integer)",
       "kind": "unexpected_live",
       "reason": "Live-only function (raw-SQL era) not yet codified into schema.sql/migrations; codification wave follow-up (same pattern as 20260705230000 and 20260707000000).",
@@ -104,6 +125,13 @@
       "key": "public.repair_strict_enrichment_gate_batch(integer)",
       "kind": "mismatch",
       "reason": "LIVE IS AHEAD of the repo: live carries newer raw-SQL retrieval bodies (e.g. match_document_chunks has an hnsw.ef_search=100 wrapper; chunks_text/table_facts_text carry richer multi-strategy implementations). Migration 20260705210000 (which had OLDER bodies) was NEUTRALIZED 2026-07-08 so a db push can never regress live. DO NOT apply it. Resolution is forward-codification of the live bodies into schema.sql + a migration (drift backlog); until then these are allowlisted. Note: live retrieval RPCs are under active concurrent multi-session edits.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "functions",
+      "key": "public.retrieval_owner_matches(uuid,uuid)",
+      "kind": "mismatch",
+      "reason": "Repo schema is ahead of live for the fail-closed retrieval owner predicate. Apply migration 20260708160001_retrieval_owner_matches_fail_closed.sql through the approved live migration workflow, then remove this entry.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
 
@@ -577,6 +605,13 @@
       "key": "ingestion_jobs_document_idx",
       "kind": "missing_live",
       "reason": "Declared in schema.sql (and migration chain) but absent on live - likely raw-SQL cleanup or never applied. Decide per index: recreate via migration or remove from schema.sql.",
+      "ref": "docs/database-drift-detection.md#reconciliation-backlog"
+    },
+    {
+      "category": "indexes",
+      "key": "ingestion_jobs_one_open_per_document_uidx",
+      "kind": "missing_live",
+      "reason": "Repo schema is ahead of live for the R17 one-open-job partial unique index. Apply migration 20260708170000_ingestion_jobs_one_open_per_document.sql through the approved live migration workflow, then remove this entry.",
       "ref": "docs/database-drift-detection.md#reconciliation-backlog"
     },
     {

@@ -6,6 +6,10 @@ import { registryCorpusDetailHref } from "../src/lib/registry-corpus-links";
 import type { MedicationRecordRow } from "../src/lib/medication-records";
 import type { RegistryRecordRow } from "../src/lib/registry-records";
 
+const { embedTextsMock } = vi.hoisted(() => ({ embedTextsMock: vi.fn() }));
+
+vi.mock("@/lib/openai", () => ({ embedTexts: embedTextsMock }));
+
 function registryRow(overrides: Partial<RegistryRecordRow> = {}): RegistryRecordRow {
   return {
     id: "11111111-1111-4111-8111-111111111111",
@@ -43,7 +47,109 @@ function registryRow(overrides: Partial<RegistryRecordRow> = {}): RegistryRecord
   };
 }
 
+function corpusHarness() {
+  const documents = new Map<string, Record<string, unknown>>();
+  const chunks = new Map<string, Record<string, unknown>>();
+  const tableState = { documents, document_chunks: chunks };
+  const supabase = {
+    from: vi.fn((table: keyof typeof tableState) => {
+      let selectedIds: string[] = [];
+      const query = {
+        select: vi.fn(() => query),
+        in: vi.fn((_column: string, ids: string[]) => {
+          selectedIds = ids;
+          return query;
+        }),
+        upsert: vi.fn(async (rows: Array<Record<string, unknown>>) => {
+          for (const row of rows) tableState[table].set(String(row.id), row);
+          return { data: rows, error: null };
+        }),
+        delete: vi.fn(() => query),
+        then: (
+          resolve: (value: { data: Array<Record<string, unknown>>; error: null }) => unknown,
+          reject?: (reason: unknown) => unknown,
+        ) =>
+          Promise.resolve({
+            data: selectedIds.flatMap((id) => {
+              const row = tableState[table].get(id);
+              return row ? [row] : [];
+            }),
+            error: null,
+          }).then(resolve, reject),
+      };
+      return query;
+    }),
+  };
+  return { supabase, documents, chunks };
+}
+
 describe("registry corpus", () => {
+  it("retries a failed embed and stops calling OpenAI once corpus hashes are current", async () => {
+    const { supabase, documents, chunks } = corpusHarness();
+    embedTextsMock
+      .mockReset()
+      .mockRejectedValueOnce(new Error("embedding unavailable"))
+      .mockResolvedValue([[0.1]]);
+
+    await expect(
+      (async () => {
+        const { embedClinicalRegistryRows } = await import("../src/lib/registry-corpus");
+        return embedClinicalRegistryRows(supabase as never, [registryRow()]);
+      })(),
+    ).rejects.toThrow("embedding unavailable");
+    expect(documents.size).toBe(0);
+    expect(chunks.size).toBe(0);
+
+    const { embedClinicalRegistryRows } = await import("../src/lib/registry-corpus");
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
+      documentCount: 1,
+      chunkCount: 1,
+    });
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
+      documentCount: 0,
+      chunkCount: 0,
+    });
+    expect(embedTextsMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes stored rows without re-embedding when derived metadata drifts", async () => {
+    const { supabase, documents, chunks } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const { embedClinicalRegistryRows } = await import("../src/lib/registry-corpus");
+
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
+      documentCount: 1,
+      chunkCount: 1,
+    });
+    expect(embedTextsMock).toHaveBeenCalledTimes(1);
+
+    // Simulate a row written by an older derivation: same content hash, stale
+    // derived metadata that content_hash cannot see.
+    const [documentId] = [...documents.keys()];
+    const stored = documents.get(documentId!)!;
+    documents.set(documentId!, {
+      ...stored,
+      metadata: { ...(stored.metadata as Record<string, unknown>), registry_detail_href: "/legacy/crisis-service" },
+    });
+
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
+      documentCount: 1,
+      chunkCount: 1,
+    });
+    // The refresh rewrites the rows but reuses the stored embedding.
+    expect(embedTextsMock).toHaveBeenCalledTimes(1);
+    const refreshed = documents.get(documentId!) as { metadata: Record<string, unknown> };
+    expect(refreshed.metadata.registry_detail_href).toBe("/services/crisis-service");
+    const [chunk] = [...chunks.values()];
+    expect(chunk?.embedding).toEqual([0.1]);
+
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
+      documentCount: 0,
+      chunkCount: 0,
+    });
+    expect(embedTextsMock).toHaveBeenCalledTimes(1);
+  });
+
   it("converts registry rows into source-governed corpus entries", () => {
     const [entry] = clinicalRegistryRowsToCorpusEntries([registryRow()]);
 

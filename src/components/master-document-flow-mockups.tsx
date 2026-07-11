@@ -19,6 +19,7 @@ import {
   ImageIcon,
   Layers3,
   List,
+  Loader2,
   MessageSquareText,
   MoreVertical,
   PanelRight,
@@ -30,12 +31,20 @@ import {
   Table2,
   type LucideIcon,
 } from "lucide-react";
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
-import { DocumentBadge, DocumentFileTile, DocumentMetaRow } from "@/components/clinical-dashboard/document-ui";
+import { DocumentFileTile, DocumentMetaRow } from "@/components/clinical-dashboard/document-ui";
+import { documentRelevancePercent } from "@/components/clinical-dashboard/relevance-score";
 import { cn } from "@/components/ui-primitives";
-import { documentEvidenceHref, documentReaderHref, documentsSearchHref } from "@/lib/document-flow-routes";
+import {
+  documentEvidenceHref,
+  documentReaderHref,
+  documentSearchRequestBody,
+  documentsSearchHref,
+} from "@/lib/document-flow-routes";
+import { useAuthSession } from "@/lib/supabase/client";
+import type { DocumentMatch } from "@/lib/types";
 
 type EvidenceType = "table" | "quote" | "image" | "related";
 
@@ -231,21 +240,6 @@ const documents: DocumentFixture[] = [
 
 const defaultDocument = documents[0];
 const defaultQuery = "clozapine monitoring table";
-type SourceCategory = "All sources" | "Guidelines" | "Procedures" | "Reference";
-
-const sourceCategories: readonly SourceCategory[] = ["All sources", "Guidelines", "Procedures", "Reference"];
-
-const sourceCategoryMap: Record<string, Exclude<SourceCategory, "All sources">> = {
-  "Clinical Guidelines": "Guidelines",
-  "Guideline Summary": "Guidelines",
-  Procedure: "Procedures",
-  Reference: "Reference",
-  "Clinical Review": "Reference",
-};
-
-function documentMatchesCategory(document: DocumentFixture, category: SourceCategory) {
-  return category === "All sources" || sourceCategoryMap[document.source] === category;
-}
 const monitoringTableHeadings = ["Treatment duration", "Frequency", "Test", "Action threshold"] as const;
 const monitoringTableRows = [
   ["0 - 18 weeks", "Weekly", "Full Blood Count (ANC)", "ANC < 1.5 x10^9/L"],
@@ -286,17 +280,6 @@ function searchHref(query = defaultQuery) {
   return documentsSearchHref({ query });
 }
 
-function evidenceForType(document: DocumentFixture, type: "all" | EvidenceType) {
-  if (type !== "all") return document.evidence.find((evidence) => evidence.type === type);
-  return document.evidence[0];
-}
-
-function evidenceLabel(evidence: EvidenceFixture) {
-  if (evidence.type === "quote") return "Quote";
-  if (evidence.type === "related") return "Related";
-  return evidence.label;
-}
-
 function evidenceCountLabel(document: DocumentFixture, type: EvidenceType, label: string) {
   return `${label} ${document.evidence.filter((evidence) => evidence.type === type).length}`;
 }
@@ -306,13 +289,6 @@ function evidenceTypeIconFor(type: EvidenceType): LucideIcon {
   if (type === "quote") return Quote;
   if (type === "image") return FileImage;
   return Layers3;
-}
-
-function evidenceTypeLabel(type: EvidenceType) {
-  if (type === "table") return "Table evidence";
-  if (type === "quote") return "Quote evidence";
-  if (type === "image") return "Image evidence";
-  return "Related evidence";
 }
 
 function Pill({
@@ -386,61 +362,19 @@ function FileTile({ label = "PDF" }: { label?: string }) {
   );
 }
 
-function DocumentSearchCategoryRail({
-  category,
-  counts,
-  onSelect,
-}: {
-  category: SourceCategory;
-  counts: Record<SourceCategory, number>;
-  onSelect: (category: SourceCategory) => void;
-}) {
+function DocumentEvidencePills({ row }: { row: DocumentSearchRow }) {
+  const hasEvidence = row.tableCount > 0 || row.imageCount > 0;
   return (
-    <aside className="hidden border-r border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-5 max-xl:!hidden xl:block">
-      <div className="sticky top-4">
-        <section className="space-y-1">
-          <h2 className="px-3 pb-1 text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
-            Documents
-          </h2>
-          {sourceCategories.map((label) => {
-            const active = label === category;
-            return (
-              <button
-                key={label}
-                type="button"
-                onClick={() => onSelect(label)}
-                aria-pressed={active}
-                className={cn(
-                  "grid min-h-9 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold transition",
-                  focusRing,
-                  active
-                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-raised)] hover:text-[color:var(--text-heading)]",
-                )}
-              >
-                <span className="truncate">{label}</span>
-                <span className="nums text-xs font-bold text-[color:var(--text-soft)]">{counts[label]}</span>
-              </button>
-            );
-          })}
-        </section>
-      </div>
-    </aside>
+    <div className="flex flex-wrap gap-1.5">
+      {row.tableCount > 0 ? <Pill icon={Table2}>{`Tables ${row.tableCount}`}</Pill> : null}
+      {row.imageCount > 0 ? <Pill icon={FileImage}>{`Images ${row.imageCount}`}</Pill> : null}
+      {!hasEvidence ? <Pill icon={FileText}>Text match</Pill> : null}
+      {row.page ? <Pill>p.{row.page}</Pill> : null}
+    </div>
   );
 }
 
-function SearchResultMobileCard({
-  document,
-  query,
-  selected,
-  activeType = "all",
-}: {
-  document: DocumentFixture;
-  query: string;
-  selected: boolean;
-  activeType?: "all" | EvidenceType;
-}) {
-  const evidence = evidenceForType(document, activeType);
+function SearchResultMobileCard({ row, selected }: { row: DocumentSearchRow; selected: boolean }) {
   return (
     <article
       className={cn(
@@ -451,28 +385,17 @@ function SearchResultMobileCard({
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-[color:var(--clinical-accent)]">
-            {evidence ? (
-              <>
-                <EvidenceTypeIcon type={evidence.type} className="h-4 w-4 shrink-0" />
-                <span className="truncate">{evidenceTypeLabel(evidence.type)}</span>
-                <span className="text-[color:var(--text-soft)]">·</span>
-                <span className="shrink-0">p.{evidence.page}</span>
-                <span className="text-[color:var(--text-soft)]">·</span>
-                <span className="shrink-0">{evidence.relevance}%</span>
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="truncate">Document match</span>
-                <span className="text-[color:var(--text-soft)]">·</span>
-                <span className="shrink-0">p.{document.page}</span>
-                <span className="text-[color:var(--text-soft)]">·</span>
-                <span className="shrink-0">{document.relevance}%</span>
-              </>
-            )}
-          </div>
+        <div className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-[color:var(--clinical-accent)]">
+          <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="truncate">Document match</span>
+          {row.page ? (
+            <>
+              <span className="text-[color:var(--text-soft)]">·</span>
+              <span className="shrink-0">p.{row.page}</span>
+            </>
+          ) : null}
+          <span className="text-[color:var(--text-soft)]">·</span>
+          <span className="shrink-0">{row.relevance}%</span>
         </div>
         {selected ? <BestMatchBadge /> : null}
       </div>
@@ -482,55 +405,40 @@ function SearchResultMobileCard({
         </div>
         <div className="min-w-0 flex-1">
           <Link
-            href={documentHref(document, query)}
+            href={row.href}
             className={cn(
               "block line-clamp-2 text-base font-extrabold leading-5 text-[color:var(--text-heading)]",
               focusRing,
             )}
           >
-            {document.title}
+            {row.title}
           </Link>
           <p className="mt-1 line-clamp-1 text-xs font-semibold text-[color:var(--text-muted)]">
-            {document.kind} · {document.version}
+            {row.metaLine}
+            {row.version ? ` · ${row.version}` : ""}
           </p>
-          {evidence ? (
-            <h2 className="mt-2 line-clamp-1 text-sm font-extrabold text-[color:var(--clinical-accent)]">
-              {evidence.title}
-            </h2>
-          ) : null}
         </div>
       </div>
-      <p className="mt-3 line-clamp-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-        {evidence ? evidence.body : document.snippet}
-      </p>
+      <p className="mt-3 line-clamp-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">{row.snippet}</p>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <Pill tone={document.status === "Current" ? "green" : "amber"} icon={CheckCircle2}>
-          {document.status}
-        </Pill>
+        {row.statusLabel ? (
+          <Pill tone={row.statusIsCurrent ? "green" : "amber"} icon={CheckCircle2}>
+            {row.statusLabel}
+          </Pill>
+        ) : null}
+        <DocumentEvidencePills row={row} />
       </div>
-      <div className="mt-3 grid min-w-0 grid-cols-2 gap-2">
+      <div className="mt-3">
         <Link
-          href={documentHref(document, query, evidence)}
+          href={row.href}
           className={cn(
-            "inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)]",
+            "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)]",
             focusRing,
-            !evidence && "col-span-2",
           )}
         >
           Open document
           <ExternalLink className="h-4 w-4" aria-hidden="true" />
         </Link>
-        {evidence ? (
-          <Link
-            href={evidenceHref(document, evidence, query)}
-            className={cn(
-              "inline-flex min-h-11 min-w-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]",
-              focusRing,
-            )}
-          >
-            Open evidence
-          </Link>
-        ) : null}
       </div>
     </article>
   );
@@ -556,13 +464,6 @@ function evidenceTone(type: EvidenceType): "teal" | "amber" | "blue" | "violet" 
   if (type === "quote") return "amber";
   if (type === "image") return "blue";
   return "violet";
-}
-
-function EvidenceTypeIcon({ type, className }: { type: EvidenceType; className?: string }) {
-  if (type === "table") return <Table2 className={className} aria-hidden="true" />;
-  if (type === "quote") return <Quote className={className} aria-hidden="true" />;
-  if (type === "image") return <FileImage className={className} aria-hidden="true" />;
-  return <Layers3 className={className} aria-hidden="true" />;
 }
 
 function MonitoringRowCards({ compact = false }: { compact?: boolean }) {
@@ -596,53 +497,203 @@ function MonitoringRowCards({ compact = false }: { compact?: boolean }) {
   );
 }
 
+// --- Live document search wiring -------------------------------------------------
+// The command centre queries the real retrieval pipeline via POST /api/search
+// (mode: "documents") rather than filtering the in-file fixtures above. Only the
+// results table + mobile cards are data-bound; the reader/evidence views below still
+// render fixtures.
+
+type SearchResultChunk = {
+  document_id: string;
+  section_heading?: string | null;
+  page_number?: number | null;
+  content?: string | null;
+  source_metadata?: {
+    source_title?: string | null;
+    publisher?: string | null;
+    version?: string | null;
+    review_date?: string | null;
+    publication_date?: string | null;
+    document_status?: string | null;
+    indexed_at?: string | null;
+  } | null;
+};
+
+type SearchApiResponse = {
+  documentMatches?: DocumentMatch[];
+  results?: SearchResultChunk[];
+};
+
+type DocumentSearchRow = {
+  documentId: string;
+  title: string;
+  metaLine: string;
+  version: string | null;
+  statusLabel: string | null;
+  statusIsCurrent: boolean;
+  reviewLine: string | null;
+  updatedLine: string | null;
+  relevance: number;
+  page: number | null;
+  snippet: string;
+  imageCount: number;
+  tableCount: number;
+  href: string;
+};
+
+// document_status enum -> display label. Unknown/absent statuses render no pill rather
+// than a misleading one.
+const documentStatusLabels: Record<string, string> = {
+  current: "Current",
+  active: "Current",
+  published: "Current",
+  approved: "Current",
+  under_review: "Review due",
+  review_due: "Review due",
+  in_review: "Review due",
+  draft: "Draft",
+  superseded: "Superseded",
+  archived: "Archived",
+  expired: "Expired",
+  retired: "Retired",
+  unknown: "",
+};
+
+function humanizeStatus(status: string) {
+  return status
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+// Exported for unit testing. Formats in UTC on purpose: a date-only ISO value like
+// "2026-07-10" parses to UTC midnight, so formatting in local time would roll back to
+// the previous calendar day in negative-offset zones (e.g. America/New_York). en-GB
+// day-month-year matches this Australian clinical KB's existing date style.
+export function formatDateish(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  // Bare year or free text (e.g. "2026"): render verbatim.
+  if (!/\d{4}-\d{2}/.test(trimmed)) return trimmed;
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return trimmed;
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+function documentViewerHref(documentId: string, page: number | null, chunkId: string | null): string {
+  const params = new URLSearchParams();
+  if (page && page >= 1) params.set("page", String(page));
+  if (chunkId) params.set("chunk", chunkId);
+  const suffix = params.toString();
+  return suffix ? `/documents/${documentId}?${suffix}` : `/documents/${documentId}`;
+}
+
+function toDocumentSearchRow(
+  match: DocumentMatch,
+  metadataByDocument: Map<string, SearchResultChunk>,
+): DocumentSearchRow {
+  const chunk = metadataByDocument.get(match.document_id);
+  const metadata = chunk?.source_metadata ?? null;
+  const rawStatus = metadata?.document_status?.trim().toLowerCase() ?? "";
+  const mappedStatus = rawStatus ? (documentStatusLabels[rawStatus] ?? humanizeStatus(rawStatus)) : "";
+  const statusLabel = mappedStatus || null;
+  const page = match.bestPages.find((value) => Number.isFinite(value) && value >= 1) ?? null;
+  const chunkId = match.bestChunkIds[0] ?? null;
+  const snippet =
+    match.summarySnippet?.trim() || chunk?.content?.trim() || match.matchReason?.trim() || "Matched indexed content.";
+  const source = metadata?.publisher?.trim() || metadata?.source_title?.trim() || null;
+  const metaLine = [source, match.file_name]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .join(" · ");
+  const review = formatDateish(metadata?.review_date);
+  return {
+    documentId: match.document_id,
+    title: match.title,
+    metaLine: metaLine || match.file_name,
+    version: metadata?.version?.trim() || null,
+    statusLabel,
+    statusIsCurrent: statusLabel === "Current",
+    reviewLine: review ? `Review ${review}` : null,
+    updatedLine: formatDateish(metadata?.indexed_at) ?? formatDateish(metadata?.publication_date),
+    relevance: documentRelevancePercent({ relevance: match.relevance, score: match.score }),
+    page,
+    snippet,
+    imageCount: match.imageCount,
+    tableCount: match.tableCount,
+    href: documentViewerHref(match.document_id, page, chunkId),
+  };
+}
+
+// Sources/Tables/Images filter the real evidence signals we have; the API doesn't tag
+// quote/related evidence per document, so those lenses show the full match list.
+function rowMatchesEvidenceType(row: DocumentSearchRow, type: "all" | EvidenceType): boolean {
+  if (type === "table") return row.tableCount > 0;
+  if (type === "image") return row.imageCount > 0;
+  return true;
+}
+
 export function MasterDocumentSearch() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q")?.trim() || defaultQuery;
-  const [type, setType] = useState<"all" | EvidenceType>("all");
-  const [category, setCategory] = useState<SourceCategory>("All sources");
-
-  // Query + evidence-type matches, before the category filter: category
-  // counts come from this list so they stay honest while a category is active.
-  const queryTypeFiltered = useMemo(() => {
-    const lowered = query.toLowerCase();
-    return documents.filter((document) => {
-      const matchesQuery =
-        document.title.toLowerCase().includes(lowered) ||
-        document.snippet.toLowerCase().includes(lowered) ||
-        document.terms.some((term) => lowered.includes(term.toLowerCase()) || term.toLowerCase().includes(lowered));
-      const matchesType = type === "all" || document.evidence.some((item) => item.type === type);
-      return matchesQuery && matchesType;
-    });
-  }, [query, type]);
-
-  const categoryCounts = useMemo(() => {
-    const counts = { "All sources": queryTypeFiltered.length, Guidelines: 0, Procedures: 0, Reference: 0 } as Record<
-      SourceCategory,
-      number
-    >;
-    for (const document of queryTypeFiltered) {
-      const mapped = sourceCategoryMap[document.source];
-      if (mapped) counts[mapped] += 1;
-    }
-    return counts;
-  }, [queryTypeFiltered]);
-
-  const filtered = useMemo(
-    () => queryTypeFiltered.filter((document) => documentMatchesCategory(document, category)),
-    [queryTypeFiltered, category],
+  const searchParamString = searchParams.toString();
+  const requestBody = useMemo(
+    () => documentSearchRequestBody(new URLSearchParams(searchParamString), query),
+    [query, searchParamString],
   );
+  const { authorizationHeader } = useAuthSession();
+  const [type, setType] = useState<"all" | EvidenceType>("all");
+  const [rows, setRows] = useState<DocumentSearchRow[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
-  const filtersActive = type !== "all" || category !== "All sources";
-  const resetFilters = () => {
-    setType("all");
-    setCategory("All sources");
-  };
+  useEffect(() => {
+    const controller = new AbortController();
+    // Defer all state writes out of the synchronous effect body (React would otherwise
+    // cascade an extra render); a 0ms timer also coalesces rapid query changes.
+    const timer = window.setTimeout(() => {
+      if (query.length < 2) {
+        setRows([]);
+        setStatus("ready");
+        return;
+      }
+      setStatus("loading");
+      fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authorizationHeader },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) throw new Error(`Search failed (${response.status})`);
+          return (await response.json()) as SearchApiResponse;
+        })
+        .then((payload) => {
+          const metadataByDocument = new Map<string, SearchResultChunk>();
+          for (const chunk of payload.results ?? []) {
+            if (!metadataByDocument.has(chunk.document_id)) metadataByDocument.set(chunk.document_id, chunk);
+          }
+          setRows((payload.documentMatches ?? []).map((match) => toDocumentSearchRow(match, metadataByDocument)));
+          setStatus("ready");
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          setRows([]);
+          setStatus("error");
+        });
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, requestBody, authorizationHeader]);
+
+  const filtered = useMemo(() => rows.filter((row) => rowMatchesEvidenceType(row, type)), [rows, type]);
+  const loading = status === "loading";
+  const errored = status === "error";
 
   return (
     <DocumentShell>
-      <div className="grid min-h-[calc(100dvh-4rem)] xl:grid-cols-[12rem_minmax(0,1fr)]">
-        <DocumentSearchCategoryRail category={category} counts={categoryCounts} onSelect={setCategory} />
+      <div className="min-h-[calc(100dvh-4rem)]">
         <div className="mx-auto flex min-h-[calc(100dvh-4rem)] min-w-0 w-full max-w-[104rem] flex-col px-3 py-4 pb-24 sm:px-5 md:pb-12 lg:px-6">
           <header className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
@@ -688,28 +739,16 @@ export function MasterDocumentSearch() {
                   {label}
                 </button>
               ))}
-              <span className="h-5 w-px shrink-0 bg-[color:var(--border)] xl:hidden" aria-hidden="true" />
-              {sourceCategories.map((label) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setCategory(label)}
-                  aria-pressed={category === label}
-                  className={cn(
-                    "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg border px-3 text-xs font-bold shadow-[var(--shadow-inset)] transition sm:min-h-9 xl:hidden",
-                    focusRing,
-                    category === label
-                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                      : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
             </div>
             <p className="text-sm font-bold text-[color:var(--text-muted)]">
-              <span className="nums text-[color:var(--text-heading)]">{filtered.length}</span>{" "}
-              {filtered.length === 1 ? "result" : "results"}
+              {loading ? (
+                "Searching…"
+              ) : (
+                <>
+                  <span className="nums text-[color:var(--text-heading)]">{filtered.length}</span>{" "}
+                  {filtered.length === 1 ? "result" : "results"}
+                </>
+              )}
             </p>
           </header>
 
@@ -727,18 +766,30 @@ export function MasterDocumentSearch() {
                   <span>Relevance</span>
                   <span>Action</span>
                 </div>
-                {filtered.length === 0 ? (
+                {loading ? (
+                  <div className="flex items-center justify-center gap-2 px-4 py-10 text-sm font-bold text-[color:var(--text-muted)]">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    Searching &ldquo;{query}&rdquo;…
+                  </div>
+                ) : errored ? (
+                  <div className="px-4 py-10 text-center">
+                    <p className="text-base font-extrabold text-[color:var(--text-heading)]">
+                      Search is unavailable right now
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">Retry in a moment.</p>
+                  </div>
+                ) : filtered.length === 0 ? (
                   <div className="px-4 py-10 text-center">
                     <p className="text-base font-extrabold text-[color:var(--text-heading)]">
                       No documents match &ldquo;{query}&rdquo;
                     </p>
                     <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">
-                      Try a broader search term{filtersActive ? " or reset the filters" : ""}.
+                      Try a broader search term{type !== "all" ? " or reset the evidence filter" : ""}.
                     </p>
-                    {filtersActive ? (
+                    {type !== "all" ? (
                       <button
                         type="button"
-                        onClick={resetFilters}
+                        onClick={() => setType("all")}
                         className={cn(
                           "mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 text-sm font-bold text-[color:var(--clinical-accent)]",
                           focusRing,
@@ -748,99 +799,109 @@ export function MasterDocumentSearch() {
                       </button>
                     ) : null}
                   </div>
-                ) : null}
-                {filtered.map((document, index) => {
-                  const rowEvidence = evidenceForType(document, type);
-                  const featured = index === 0;
-                  return (
-                    <article
-                      key={document.slug}
-                      className={cn(
-                        "grid grid-cols-[minmax(19rem,1.8fr)_minmax(16rem,1.3fr)_9.5rem_7.5rem_6.5rem] items-center gap-3 border-b border-[color:var(--border)] px-4 py-3.5 transition-colors",
-                        featured
-                          ? "bg-gradient-to-r from-[color:var(--clinical-accent-soft)]/50 via-[color:var(--clinical-accent-soft)]/15 to-transparent shadow-[inset_3px_0_0_var(--clinical-accent)]"
-                          : "hover:bg-[color:var(--surface-subtle)]/60",
-                      )}
-                    >
-                      <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3">
-                        <DocumentFileTile kind="PDF" />
+                ) : (
+                  filtered.map((row, index) => {
+                    const featured = index === 0;
+                    return (
+                      <article
+                        key={row.documentId}
+                        className={cn(
+                          "grid grid-cols-[minmax(19rem,1.8fr)_minmax(16rem,1.3fr)_9.5rem_7.5rem_6.5rem] items-center gap-3 border-b border-[color:var(--border)] px-4 py-3.5 transition-colors",
+                          featured
+                            ? "bg-gradient-to-r from-[color:var(--clinical-accent-soft)]/50 via-[color:var(--clinical-accent-soft)]/15 to-transparent shadow-[inset_3px_0_0_var(--clinical-accent)]"
+                            : "hover:bg-[color:var(--surface-subtle)]/60",
+                        )}
+                      >
+                        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3">
+                          <DocumentFileTile kind="PDF" />
+                          <div className="min-w-0">
+                            {featured ? <BestMatchBadge /> : null}
+                            <Link
+                              href={row.href}
+                              className={cn(
+                                "block line-clamp-2 text-sm font-extrabold leading-5 text-[color:var(--text-heading)] transition-colors hover:text-[color:var(--clinical-accent)]",
+                                featured && "mt-1",
+                                focusRing,
+                              )}
+                            >
+                              {row.title}
+                            </Link>
+                            <DocumentMetaRow items={[row.metaLine, row.version]} className="mt-1" />
+                          </div>
+                        </div>
                         <div className="min-w-0">
-                          {featured ? <BestMatchBadge /> : null}
+                          <DocumentEvidencePills row={row} />
+                          <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+                            {row.snippet}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          {row.statusLabel ? (
+                            <Pill tone={row.statusIsCurrent ? "green" : "amber"}>{row.statusLabel}</Pill>
+                          ) : (
+                            <span className="text-xs font-semibold text-[color:var(--text-soft)]">—</span>
+                          )}
+                          {row.reviewLine ? (
+                            <p className="text-xs font-semibold text-[color:var(--text-muted)]">{row.reviewLine}</p>
+                          ) : null}
+                        </div>
+                        <div>
+                          <p className="nums text-sm font-extrabold text-[color:var(--clinical-accent)]">
+                            {row.relevance}%
+                          </p>
+                          <div className="mt-2 h-1.5 rounded-full bg-[color:var(--border)]" aria-hidden="true">
+                            <div
+                              className="h-full rounded-full bg-[color:var(--clinical-accent)]"
+                              style={{ width: `${row.relevance}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div>
                           <Link
-                            href={documentHref(document, query, rowEvidence)}
+                            href={row.href}
                             className={cn(
-                              "block line-clamp-2 text-sm font-extrabold leading-5 text-[color:var(--text-heading)] transition-colors hover:text-[color:var(--clinical-accent)]",
-                              featured && "mt-1",
+                              "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-contrast)]",
                               focusRing,
                             )}
+                            aria-label={`Open ${row.title}`}
                           >
-                            {document.title}
+                            Open
+                            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                           </Link>
-                          <DocumentMetaRow items={[document.kind, document.version]} className="mt-1" />
                         </div>
-                      </div>
-                      <div className="min-w-0">
-                        {rowEvidence ? (
-                          <DocumentBadge variant="high" icon={evidenceTypeIconFor(rowEvidence.type)}>
-                            {evidenceLabel(rowEvidence)} · p.{rowEvidence.page}
-                          </DocumentBadge>
-                        ) : (
-                          <p className="text-xs font-semibold text-[color:var(--text-soft)]">
-                            Document match · p.{document.page}
-                          </p>
-                        )}
-                        <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                          {rowEvidence ? rowEvidence.body : document.snippet}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <Pill tone={document.status === "Current" ? "green" : "amber"}>{document.status}</Pill>
-                        <p className="text-xs font-semibold text-[color:var(--text-muted)]">{document.review}</p>
-                      </div>
-                      <div>
-                        <p className="nums text-sm font-extrabold text-[color:var(--clinical-accent)]">
-                          {document.relevance}%
-                        </p>
-                        <div className="mt-2 h-1.5 rounded-full bg-[color:var(--border)]" aria-hidden="true">
-                          <div
-                            className="h-full rounded-full bg-[color:var(--clinical-accent)]"
-                            style={{ width: `${document.relevance}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Link
-                          href={documentHref(document, query, rowEvidence)}
-                          className={cn(
-                            "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-contrast)]",
-                            focusRing,
-                          )}
-                          aria-label={`Open ${document.title}`}
-                        >
-                          Open
-                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                        </Link>
-                      </div>
-                    </article>
-                  );
-                })}
+                      </article>
+                    );
+                  })
+                )}
               </div>
             </div>
           </section>
 
           <section className="mt-4 grid gap-3 md:hidden" aria-label="Document results">
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 py-8 text-sm font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Searching &ldquo;{query}&rdquo;…
+              </div>
+            ) : errored ? (
+              <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 py-8 text-center shadow-[var(--shadow-inset)]">
+                <p className="text-base font-extrabold text-[color:var(--text-heading)]">
+                  Search is unavailable right now
+                </p>
+                <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">Retry in a moment.</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 py-8 text-center shadow-[var(--shadow-inset)]">
                 <p className="text-base font-extrabold text-[color:var(--text-heading)]">
                   No documents match &ldquo;{query}&rdquo;
                 </p>
                 <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">
-                  Try a broader search term{filtersActive ? " or reset the filters" : ""}.
+                  Try a broader search term{type !== "all" ? " or reset the evidence filter" : ""}.
                 </p>
-                {filtersActive ? (
+                {type !== "all" ? (
                   <button
                     type="button"
-                    onClick={resetFilters}
+                    onClick={() => setType("all")}
                     className={cn(
                       "mt-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 text-sm font-bold text-[color:var(--clinical-accent)]",
                       focusRing,
@@ -850,16 +911,11 @@ export function MasterDocumentSearch() {
                   </button>
                 ) : null}
               </div>
-            ) : null}
-            {filtered.map((document, index) => (
-              <SearchResultMobileCard
-                key={document.slug}
-                document={document}
-                query={query}
-                selected={index === 0}
-                activeType={type}
-              />
-            ))}
+            ) : (
+              filtered.map((row, index) => (
+                <SearchResultMobileCard key={row.documentId} row={row} selected={index === 0} />
+              ))
+            )}
           </section>
         </div>
       </div>

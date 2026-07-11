@@ -6,7 +6,38 @@ import ExcelJS from "exceljs";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import JSZip from "jszip";
+import { safeBufferFrom } from "@/lib/safe-buffer";
+import { z } from "zod";
 import type { ExtractedDocument, ExtractedPage } from "@/lib/types";
+
+const extractedPageSchema = z.object({
+  pageNumber: z.number().int().positive(),
+  text: z.string(),
+  ocrUsed: z.boolean().optional(),
+  needsOcr: z.boolean().optional(),
+});
+
+const extractedImageSchema = z.object({
+  pageNumber: z.number().int().positive().nullable(),
+  path: z.string().min(1),
+  mimeType: z.string().min(1),
+  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]).nullable().optional(),
+  width: z.number().int().positive().nullable().optional(),
+  height: z.number().int().positive().nullable().optional(),
+  sourceKind: z.enum(["embedded", "table_crop", "diagram_crop", "page_region", "fallback", "cover_page"]).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+const extractedDocumentSchema = z.object({
+  pages: z.array(extractedPageSchema),
+  images: z.array(extractedImageSchema),
+  warnings: z.array(z.string()).optional(),
+  temporaryPaths: z.array(z.string()).optional(),
+});
+
+export function parseExtractedDocumentPayload(raw: string): ExtractedDocument {
+  return extractedDocumentSchema.parse(JSON.parse(raw));
+}
 
 function runPythonPdfExtractor(filePath: string, outputDir: string) {
   const scriptPath = path.join(process.cwd(), "worker", "python", "extract_pdf_assets.py");
@@ -34,7 +65,7 @@ function runPythonPdfExtractor(filePath: string, outputDir: string) {
 
       try {
         const jsonPayload = await readFile(outputJsonPath, "utf8").catch(() => extractJsonFromStdout(stdout));
-        resolve(JSON.parse(jsonPayload) as ExtractedDocument);
+        resolve(parseExtractedDocumentPayload(jsonPayload));
       } catch (error) {
         reject(error);
       }
@@ -78,7 +109,8 @@ async function extractPdf(buffer: Buffer) {
           const mimeType = dataUrlMatch?.[1] ?? "image/png";
           const extension = mimeType.includes("jpeg") ? "jpg" : "png";
           const outputPath = path.join(imageDir, `fallback-page-${page.pageNumber}-image-${index + 1}.${extension}`);
-          const bytes = dataUrlMatch ? Buffer.from(dataUrlMatch[2], "base64") : Buffer.from(image.data);
+          const bytes = dataUrlMatch ? safeBufferFrom(dataUrlMatch[2], "base64") : Buffer.from(image.data);
+          if (!bytes) continue;
           await writeFile(outputPath, bytes);
           images.push({
             pageNumber: page.pageNumber,

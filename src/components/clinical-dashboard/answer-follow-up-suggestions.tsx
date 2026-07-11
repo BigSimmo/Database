@@ -23,6 +23,7 @@ export function AnswerFollowUpSuggestions({
       onPick={onPick}
       disabled={disabled}
       label="Try next"
+      labelPlacement={layout === "wrap" ? "above" : "inline"}
       testId={testId}
       layout={layout}
       className={className}

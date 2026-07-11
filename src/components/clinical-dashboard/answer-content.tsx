@@ -258,18 +258,14 @@ function primaryAnswerDisplayText(value: string) {
     .replace(/[;,:-]\s*$/, "")}...`;
 }
 
-function sourceCapsuleDisplay({
-  sourceCount,
-  weakEvidence,
-  grounded,
-}: {
-  sourceCount: number;
-  weakEvidence: boolean;
-  grounded: boolean;
-}): { label: string; showCountBadge: boolean } {
+// One compact "Sources" pill in every state: the amber Source-only pill and the
+// "Review source match" banner already carry the verify-first caveat, so the
+// capsule label no longer restates grounding strength.
+function sourceCapsuleDisplay({ sourceCount }: { sourceCount: number }): {
+  label: string;
+  showCountBadge: boolean;
+} {
   if (sourceCount <= 0) return { label: "No direct source found", showCountBadge: false };
-  if (!grounded) return { label: "Review nearby sources", showCountBadge: false };
-  if (weakEvidence) return { label: "Review sources", showCountBadge: false };
   return { label: "Sources", showCountBadge: true };
 }
 
@@ -540,8 +536,6 @@ function SourcePreviewContent({
 export function NaturalLanguageAnswer({
   text,
   sourceCount,
-  weakEvidence,
-  grounded,
   sourceOnly,
   bestSource,
   sources,
@@ -551,8 +545,6 @@ export function NaturalLanguageAnswer({
 }: {
   text: string;
   sourceCount: number;
-  weakEvidence: boolean;
-  grounded: boolean;
   sourceOnly: boolean;
   bestSource: BestSourceRecommendation | null;
   sources: SearchResult[];
@@ -573,7 +565,7 @@ export function NaturalLanguageAnswer({
   }, []);
   const cleaned = primaryAnswerDisplayText(text);
   if (!cleaned) return null;
-  const capsuleDisplay = sourceCapsuleDisplay({ sourceCount, weakEvidence, grounded });
+  const capsuleDisplay = sourceCapsuleDisplay({ sourceCount });
   const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);
   const quoteText = sourceLinks.find((source) => source.snippet)?.snippet || bestSource?.quote || bestSource?.snippet;
   const canOpenSourcePreview = previewSources.length > 0;
@@ -637,14 +629,15 @@ export function NaturalLanguageAnswer({
               data-testid="source-only-disclosure"
               role="note"
               className={cn(
-                "w-fit max-w-full overflow-hidden rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 text-xs",
+                "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-xs transition-[border-radius] duration-150",
+                sourceOnlyNoticeOpen ? "rounded-lg" : "rounded-full",
                 textMuted,
               )}
             >
               <button
                 type="button"
                 onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-                className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+                className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2.5 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
                 aria-expanded={sourceOnlyNoticeOpen}
                 aria-controls="source-only-disclosure-detail"
               >
@@ -662,7 +655,7 @@ export function NaturalLanguageAnswer({
               {sourceOnlyNoticeOpen ? (
                 <div
                   id="source-only-disclosure-detail"
-                  className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-2xs leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+                  className="border-t border-[color:var(--warning)]/15 px-3 py-2 text-2xs leading-5 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
                 >
                   <p>
                     This answer was assembled from your documents without the AI model, so it may be less complete.

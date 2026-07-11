@@ -12,6 +12,7 @@ export function AnswerSuggestionChips({
   onPick,
   disabled = false,
   label,
+  labelPlacement = "inline",
   testId,
   layout = "wrap",
   className,
@@ -21,6 +22,9 @@ export function AnswerSuggestionChips({
   onPick: (suggestion: string) => void;
   disabled?: boolean;
   label?: string;
+  // "above" stacks the label as an eyebrow over the chips (answer-thread
+  // follow-ups); "inline" keeps it beside them (composer rows, empty state).
+  labelPlacement?: "inline" | "above";
   testId?: string;
   layout?: "wrap" | "scroll";
   className?: string;
@@ -29,13 +33,23 @@ export function AnswerSuggestionChips({
   icon?: LucideIcon;
 }) {
   if (!suggestions.length) return null;
+  const stacked = Boolean(label) && labelPlacement === "above";
 
   return (
     <div
       data-testid={testId}
-      className={cn("answer-suggestion-row", layout === "scroll" && "answer-suggestion-row-scroll", className)}
+      className={cn(
+        "answer-suggestion-row",
+        layout === "scroll" && "answer-suggestion-row-scroll",
+        stacked && "answer-suggestion-row-stacked",
+        className,
+      )}
     >
-      {label ? <span className="answer-suggestion-label shrink-0">{label}</span> : null}
+      {label ? (
+        <span className={cn("answer-suggestion-label shrink-0", stacked && "answer-suggestion-label-eyebrow")}>
+          {label}
+        </span>
+      ) : null}
       <div
         className={cn(
           "answer-suggestion-chips",
