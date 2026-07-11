@@ -84,6 +84,14 @@ describe("extractive evidence splitting", () => {
     expect(potassium).toMatch(/^K\+ >5\.5 mmol\/L:/);
   });
 
+  it("keeps degree and micro threshold headings attached to their action items", () => {
+    const temperature = splitClinicalEvidenceSentences(
+      "Temp ≥38°C: o Contact the treating team and repeat observations.",
+    ).find((sentence) => /contact the treating team/i.test(sentence));
+    expect(temperature).toBeDefined();
+    expect(temperature).toMatch(/^Temp ≥38°C:/);
+  });
+
   it("keeps numeric time-window headings attached to their restart items", () => {
     const restart = splitClinicalEvidenceSentences("48-72 hours: o Restart clozapine at 12.5 mg and review.").find(
       (sentence) => sentence.includes("12.5 mg"),

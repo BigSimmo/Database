@@ -553,19 +553,22 @@ function isLowValueExtractiveCaption(clause: string) {
 }
 
 // A short section heading ("Acute Mania:", "Day 1:", "do not use:",
-// "eGFR <30:", "ANC <0.5:", "48-72 hours:") left standing alone by the
+// "eGFR <30:", "K+ >5.5 mmol/L:", "48-72 hours:") left standing alone by the
 // bullet split. Merged into the fragment that follows it so the indication,
 // schedule, or threshold context survives the minimum-length filter instead
 // of being dropped — a dose or action without its day/step/threshold/time
-// window is unsafe. OCR headings are often lowercase, so any letter casing
-// is accepted, and comparator/decimal/numeric-leading threshold labels are
-// allowed; structural labels ("Page 4:", "Table 2:") stay excluded by the
-// stoplist.
-const shortHeadingFragmentPattern = /^[A-Za-z0-9<>≤≥][A-Za-z0-9<>≤≥+-][A-Za-z0-9 /()<>≤≥.,%+-]{0,38}:$/;
+// window is unsafe. Clinical threshold notation is too varied to enumerate
+// character-by-character (comparators, electrolyte "+", degrees, micro
+// signs), so any short colon-terminated fragment with alphanumeric content
+// and no sentence punctuation qualifies (internal periods are decimals —
+// the sentence split has already happened); structural labels ("Page 4:",
+// "Table 2:") stay excluded by the stoplist and the word cap bounds it.
+const shortHeadingFragmentPattern = /^[^!?;:]{2,40}:$/;
 
 function isShortHeadingFragment(fragment: string) {
   return (
     shortHeadingFragmentPattern.test(fragment) &&
+    /[A-Za-z0-9]/.test(fragment) &&
     fragment.split(/\s+/).length <= 4 &&
     !structuralHeadingStoplistPattern.test(fragment)
   );
