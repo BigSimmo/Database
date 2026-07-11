@@ -204,4 +204,22 @@ describe("smart RAG API plan", () => {
       requiredSignalsSatisfied: true,
     });
   });
+
+  it("strips bullet glyphs and the sub-bullet 'o' artifact from source snippets", () => {
+    const plan = buildSmartRagApiPlan({
+      query: "lithium dosing",
+      queryClass: "medication_dose_risk",
+      results: [
+        source({
+          section_heading: "",
+          content: "Dosing guidance • Acute mania o Start at 750 mg daily in divided doses",
+        }),
+      ],
+    });
+
+    const snippet = plan.coreSourceLinks[0]?.snippet ?? "";
+    expect(snippet).toContain("750 mg daily");
+    expect(snippet).not.toContain("•");
+    expect(snippet).not.toMatch(/\bo\s+[A-Z]/);
+  });
 });
