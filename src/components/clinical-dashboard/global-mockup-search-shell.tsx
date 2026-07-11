@@ -257,8 +257,9 @@ function GlobalMockupStandaloneSearchShellClient({
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
   // Standalone mode homes portal the composer into the hero (in-flow at every
   // width), so phones need no bottom-dock clearance there.
-  const mobileComposerReserve =
-    !shouldShowSearchComposer || isStandaloneModeHome
+  const mobileComposerReserve = !shouldShowSearchComposer
+    ? "2rem"
+    : isStandaloneModeHome
       ? "2rem"
       : searchMode === "answer"
         ? "calc(9rem + env(safe-area-inset-bottom))"
