@@ -99,8 +99,7 @@ const launcherApps: LauncherApp[] = toolCatalogRecords.map((record) => ({
 
 const toolsLauncherCopy = {
   heading: "Tools",
-  description:
-    "Open the clinical tools and connected workflows you use for assessment, prescribing, documents, and saved work.",
+  description: "Assessment, prescribing, documents, and saved work.",
   allSectionLabel: "All tools",
   countNoun: "tools",
   emptyTitle: "No tools match",
@@ -734,14 +733,14 @@ export function ApplicationsLauncherWorkspace({
       className={cn(
         "mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-8 text-[color:var(--text)] sm:px-6 lg:px-8",
         "pb-[calc(12rem+env(safe-area-inset-bottom))] sm:pb-8",
-        "pt-7 sm:pt-10 lg:pt-14",
+        "pt-5 sm:pt-8 lg:pt-10",
         className,
       )}
     >
       <section
         aria-label="Tools home"
         data-testid="tools-home"
-        className="mx-auto grid max-w-5xl justify-items-center gap-3.5 text-center sm:gap-6"
+        className="mx-auto grid max-w-5xl justify-items-center gap-3 text-center sm:gap-4"
       >
         <ModeHomeHero
           testId="tools-home"

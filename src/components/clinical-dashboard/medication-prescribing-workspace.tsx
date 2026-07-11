@@ -170,7 +170,7 @@ function MedicationHome({
       actionsLabel="Medication prompts"
       actions={medicationPrompts.map((prompt) => ({
         title: prompt.label,
-        description: "Open a prescribing-focused search.",
+        description: "Prescribing-focused search.",
         icon: prompt.icon,
         onClick: () => onSuggestedSearch(prompt.label),
         disabled: loading,

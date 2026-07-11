@@ -72,21 +72,21 @@ type DifferentialEvidenceState = "source-backed" | "guided";
 const primaryActions: DifferentialAction[] = [
   {
     label: "Search presentations",
-    description: "Explore by symptoms or scenario",
+    description: "By symptom or scenario.",
     query: "acute confusion differential diagnosis",
     icon: Search,
     target: "presentations",
   },
   {
     label: "Compare differentials",
-    description: "Compare likely causes side by side",
+    description: "Likely causes, side by side.",
     query: "delirium vs dementia differential diagnosis",
     icon: GitCompareArrows,
     target: "diagnoses",
   },
   {
     label: "Recent work",
-    description: "Continue where you left off",
+    description: "Pick up where you left off.",
     query: "recent differential diagnosis work",
     icon: Clock3,
     target: "search",
@@ -1100,7 +1100,7 @@ export function DifferentialsHome({
       <ModeHomeTemplate
         testId="differentials-home-template"
         title="Differentials"
-        subtitle="Search your imported differentials catalogue against matches from your indexed library."
+        subtitle="Match your catalogue against your indexed library."
         icon={BrainCircuit}
         headingLevel={1}
         desktopComposerSlotId={desktopComposerSlotId}

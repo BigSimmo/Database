@@ -310,19 +310,19 @@ function DocumentSearchHome({
   const startItems = [
     {
       label: "Recent documents",
-      description: "Continue reading where you left off",
+      description: "Pick up where you left off.",
       icon: Clock3,
       action: onOpenRecentDocuments,
     },
     {
       label: "Browse library",
-      description: "Search all indexed sources",
+      description: "All indexed sources.",
       icon: FolderOpen,
       action: onOpenLibrary,
     },
     {
       label: "Open a source PDF",
-      description: "View original source files",
+      description: "Original source files.",
       icon: ExternalLink,
       action: onOpenSourcePdf,
     },
