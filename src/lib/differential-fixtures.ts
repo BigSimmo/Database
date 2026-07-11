@@ -1,11 +1,7 @@
 import differentialSnapshot from "../../data/differentials-snapshot.json";
 
 import { diagnosisToRow, presentationToRow, type DifferentialRecordInsert } from "@/lib/differential-records";
-import {
-  isDifferentialMetadataArtifactTitle,
-  type DifferentialPresentationWorkflow,
-  type DifferentialSnapshot,
-} from "@/lib/differential-snapshot";
+import type { DifferentialSnapshot } from "@/lib/differential-snapshot";
 
 let cachedSnapshot: DifferentialSnapshot | null = null;
 
@@ -25,17 +21,9 @@ export function loadDifferentialSnapshot(): DifferentialSnapshot {
   return cachedSnapshot;
 }
 
-/** The presentations that ship to the app and the seed: excludes export
- *  artifacts where a titleless entry file surfaced a metadata row (e.g.
- *  "Urgency: urgent") as its title. Single source of truth for the runtime
- *  catalogue, the seed rows, and stale-row pruning. */
-export function usableDifferentialPresentations(snapshot: DifferentialSnapshot): DifferentialPresentationWorkflow[] {
-  return snapshot.presentations.filter((presentation) => !isDifferentialMetadataArtifactTitle(presentation.title));
-}
-
 export function buildDefaultDifferentialRows(ownerId: string): DifferentialRecordInsert[] {
   const snapshot = loadDifferentialSnapshot();
-  const presentationRows = usableDifferentialPresentations(snapshot).map((presentation) =>
+  const presentationRows = snapshot.presentations.map((presentation) =>
     presentationToRow(presentation, ownerId, snapshot),
   );
   const diagnosisRows = snapshot.diagnoses.map((diagnosis) => diagnosisToRow(diagnosis, ownerId, snapshot));

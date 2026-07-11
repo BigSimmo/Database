@@ -145,14 +145,25 @@ function parseEntryHeader(content: string) {
   return header ? slugify(header) : "unknown";
 }
 
+// ALL-CAPS "=== HEADER ===" text to a human title, e.g.
+// "FOCUSED DIAGNOSTIC TRAP TABLES" -> "Focused Diagnostic Trap Tables".
+function titleFromHeader(header: string) {
+  return header.toLowerCase().replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 function parseEntryTitle(content: string) {
+  const header = content.match(/^===\s*(.+?)\s*===\s*\n/m)?.[1]?.trim() ?? "";
   const afterHeader = content.replace(/^===\s*.+?\s*===\s*\n/m, "");
-  return (
-    afterHeader
-      .split("\n")
-      .find((line) => line.trim())
-      ?.trim() ?? "Untitled presentation"
-  );
+  const firstLine = afterHeader
+    .split("\n")
+    .find((line) => line.trim())
+    ?.trim();
+  // Most entries put a title on the line after the header. The focused
+  // diagnostic trap-tables appendix has none, so the first line is actually a
+  // metadata row ("Urgency: urgent") — fall back to the header text so the
+  // entry gets an honest title instead of surfacing the metadata as its title.
+  if (firstLine && !isDifferentialMetadataArtifactTitle(firstLine)) return firstLine;
+  return header ? titleFromHeader(header) : (firstLine ?? "Untitled presentation");
 }
 
 function parseOptionsSection(content: string): ParsedOption[] {
@@ -348,10 +359,7 @@ function buildDiagnosisRecord(option: ParsedOption, presentation: ParsedPresenta
         likelihood: "possible" as const,
         note: candidate.summary,
       })),
-    currentPresentation: [
-      ...(isDifferentialMetadataArtifactTitle(presentation.title) ? [] : [presentation.title]),
-      ...presentation.mustNotMiss.slice(0, 2),
-    ],
+    currentPresentation: [presentation.title, ...presentation.mustNotMiss.slice(0, 2)],
     investigations: presentation.investigations,
     immediateActions: presentation.immediateActions,
   };
@@ -499,12 +507,7 @@ export function buildDifferentialSnapshot(input: {
   governanceMarkdown: string;
 }): DifferentialSnapshot {
   const parsedPresentations = input.entryFiles.map(({ name, content }) => parseEntryFile(content, pathBasename(name)));
-  // Titleless entry files (e.g. the focused diagnostic trap tables appendix)
-  // surface a metadata row as their title; they are not presentations, but
-  // their options are still real diagnoses — several exist in no other entry.
-  const presentations = parsedPresentations
-    .filter((parsed) => !isDifferentialMetadataArtifactTitle(parsed.title))
-    .map(buildPresentationWorkflow);
+  const presentations = parsedPresentations.map(buildPresentationWorkflow);
 
   const diagnosisMap = new Map<string, DifferentialRecord>();
   for (const parsed of parsedPresentations) {

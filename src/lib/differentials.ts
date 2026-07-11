@@ -1,6 +1,6 @@
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 import { cleanDifferentialItem, type DifferentialDetailContext } from "@/lib/differential-detail";
-import { loadDifferentialSnapshot, usableDifferentialPresentations } from "@/lib/differential-fixtures";
+import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import { deriveGovernanceFromSnapshot } from "@/lib/differential-records";
 import type {
   DifferentialComparisonCandidate,
@@ -45,10 +45,7 @@ export { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 export const differentialRecords: DifferentialRecord[] = catalog().diagnoses;
 
 export function differentialPresentations(): DifferentialPresentationWorkflow[] {
-  // The generated snapshot can carry export artifacts where a titleless entry
-  // file surfaced a metadata row (e.g. "Urgency: urgent") as its title; they
-  // are not presentations and must not get cards, routes, or search results.
-  return usableDifferentialPresentations(catalog());
+  return catalog().presentations;
 }
 
 export function differentialScenarioPresets(): DifferentialScenarioPreset[] {

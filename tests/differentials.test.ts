@@ -136,9 +136,10 @@ OPTIONS:
     expect(aliases.delirium).toEqual(["confusion", "fluctuation"]);
   });
 
-  it("excludes titleless metadata-row entries from presentations but keeps their diagnoses", () => {
-    // Mirrors the trap-tables appendix: no title line, so the first metadata
-    // row ("Urgency: urgent") would otherwise become the presentation title.
+  it("titles a titleless entry from its header instead of surfacing a metadata row", () => {
+    // The trap-tables appendix has no title line, so the first line after the
+    // header is a metadata row ("Urgency: urgent"). The parser must fall back
+    // to the header text rather than use the metadata row as the title.
     const trapEntry = `=== FOCUSED DIAGNOSTIC TRAP TABLES ===
 
 Urgency: urgent
@@ -161,31 +162,40 @@ SOURCE: v10`;
       aliasesMarkdown: "",
       governanceMarkdown: "",
     });
-    expect(snapshot.presentations.map((presentation) => presentation.id)).toEqual(["acute-confusion-encephalopathy"]);
-    const ocd = snapshot.diagnoses.find((diagnosis) => diagnosis.slug === "ocd");
-    expect(ocd).toBeDefined();
-    // The artifact title must not leak into the kept diagnosis text either.
-    expect(ocd?.currentPresentation).not.toContain("Urgency: urgent");
+    const trap = snapshot.presentations.find((presentation) => presentation.id === "focused-diagnostic-trap-tables");
+    expect(trap?.title).toBe("Focused Diagnostic Trap Tables");
+    // No presentation may carry a metadata-row title.
+    expect(
+      snapshot.presentations.filter((presentation) => isDifferentialMetadataArtifactTitle(presentation.title)),
+    ).toEqual([]);
+    // The appendix keeps its options as diagnoses, parented by the retitled entry.
+    expect(snapshot.diagnoses.find((diagnosis) => diagnosis.slug === "ocd")).toBeDefined();
   });
 });
 
 describe("differential records", () => {
   it("loads v10 snapshot with presentations and diagnoses", () => {
     const snapshot = loadDifferentialSnapshot();
-    expect(snapshot.presentations).toHaveLength(30);
+    expect(snapshot.presentations).toHaveLength(31);
     expect(snapshot.diagnoses.length).toBeGreaterThan(100);
     expect(differentialRecords.length).toBe(snapshot.diagnoses.length);
-    // Export artifacts (metadata rows parsed as titles, e.g. "Urgency: urgent")
-    // must not ship as presentations.
+    // No presentation may ship with a metadata-row title (e.g. "Urgency: urgent"),
+    // and the mis-titled trap-tables appendix now carries its header title.
     expect(
       snapshot.presentations.filter((presentation) => isDifferentialMetadataArtifactTitle(presentation.title)),
     ).toEqual([]);
+    expect(snapshot.presentations.some((presentation) => presentation.id === "urgency-urgent")).toBe(false);
+    expect(
+      snapshot.presentations.find((presentation) => presentation.id === "focused-diagnostic-trap-tables")?.title,
+    ).toBe("Focused Diagnostic Trap Tables");
   });
 
-  it("flags stale seeded presentation rows for pruning, leaving diagnoses alone", () => {
+  it("flags a retired presentation slug for pruning, leaving diagnoses alone", () => {
+    // Retitling changed the appendix slug, so the old "urgency-urgent" row is no
+    // longer produced by the snapshot and must be pruned from seeded owners.
     const rows = [
       { kind: "presentation", slug: "urgency-urgent" },
-      { kind: "presentation", slug: "acute-confusion-encephalopathy" },
+      { kind: "presentation", slug: "focused-diagnostic-trap-tables" },
       { kind: "diagnosis", slug: "urgency-urgent" },
     ];
     const stale = staleSeededPresentations(rows);
