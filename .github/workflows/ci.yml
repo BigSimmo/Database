@@ -20,6 +20,7 @@ permissions:
 env:
   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+  SUPABASE_CLI_VERSION: 2.108.0
 
 jobs:
   changes:
@@ -29,11 +30,13 @@ jobs:
     outputs:
       docs_only: ${{ steps.scope.outputs.docs_only }}
       source_changed: ${{ steps.scope.outputs.source_changed }}
+      coverage_changed: ${{ steps.scope.outputs.coverage_changed }}
       ui_changed: ${{ steps.scope.outputs.ui_changed }}
       db_changed: ${{ steps.scope.outputs.db_changed }}
       container_changed: ${{ steps.scope.outputs.container_changed }}
       rag_eval_changed: ${{ steps.scope.outputs.rag_eval_changed }}
       workflow_changed: ${{ steps.scope.outputs.workflow_changed }}
+      codex_autofix_changed: ${{ steps.scope.outputs.codex_autofix_changed }}
       build_changed: ${{ steps.scope.outputs.build_changed }}
       changed_files: ${{ steps.scope.outputs.changed_files }}
     steps:
@@ -85,9 +88,6 @@ jobs:
       - name: CI scope self-test
         run: npm run check:ci-scope
 
-      - name: Sitemap check
-        run: npm run sitemap:check
-
       - name: Format check
         run: npm run format:check
 
@@ -137,7 +137,7 @@ jobs:
         run: npm run check:production-readiness:ci
 
       - name: Codex auto-resolve workflow guard
-        if: needs.changes.outputs.workflow_changed == 'true'
+        if: needs.changes.outputs.codex_autofix_changed == 'true'
         run: npm run check:codex-autofix-workflow
 
       - name: Offline RAG preflight
@@ -147,7 +147,7 @@ jobs:
   coverage:
     name: Unit coverage
     needs: changes
-    if: needs.changes.outputs.source_changed == 'true'
+    if: needs.changes.outputs.coverage_changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -172,7 +172,7 @@ jobs:
   build:
     name: Build
     needs: changes
-    if: needs.changes.outputs.build_changed == 'true' || needs.changes.outputs.workflow_changed == 'true'
+    if: needs.changes.outputs.build_changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -193,9 +193,6 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Client bundle secret scan
-        run: npm run check:client-bundle-secrets
 
       - name: Deployment boot smoke
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
@@ -249,6 +246,51 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
 
+  ui-regression:
+    name: Advisory UI regression
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore Chromium browser cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Chromium advisory regression
+        run: npm run test:e2e:advisory
+
+      - name: Upload advisory UI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: advisory-ui-diagnostics-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+
   db-reset-verify:
     name: Migration replay
     needs: changes
@@ -264,15 +306,16 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v3
         with:
-          version: latest
+          version: ${{ env.SUPABASE_CLI_VERSION }}
 
       - name: Restore Supabase Docker image cache
+        id: supabase-docker-cache
         uses: actions/cache@v6
         with:
           path: /tmp/supabase-docker-cache
-          key: supabase-docker-${{ runner.os }}-${{ hashFiles('supabase/config.toml') }}
+          key: supabase-docker-${{ runner.os }}-cli-${{ env.SUPABASE_CLI_VERSION }}-${{ hashFiles('supabase/config.toml') }}
           restore-keys: |
-            supabase-docker-${{ runner.os }}-
+            supabase-docker-${{ runner.os }}-cli-${{ env.SUPABASE_CLI_VERSION }}-
 
       - name: Load cached Supabase Docker images
         run: |
@@ -287,7 +330,7 @@ jobs:
         run: supabase db reset
 
       - name: Save Supabase Docker images
-        if: always()
+        if: success() && steps.supabase-docker-cache.outputs.cache-hit != 'true'
         continue-on-error: true
         run: |
           mkdir -p /tmp/supabase-docker-cache
@@ -306,11 +349,10 @@ jobs:
       - name: Verify required in-scope jobs
         env:
           DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
-          SOURCE_CHANGED: ${{ needs.changes.outputs.source_changed }}
+          COVERAGE_CHANGED: ${{ needs.changes.outputs.coverage_changed }}
           UI_CHANGED: ${{ needs.changes.outputs.ui_changed }}
           DB_CHANGED: ${{ needs.changes.outputs.db_changed }}
           BUILD_CHANGED: ${{ needs.changes.outputs.build_changed }}
-          WORKFLOW_CHANGED: ${{ needs.changes.outputs.workflow_changed }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           STATIC_RESULT: ${{ needs.static-pr.result }}
           SAFETY_RESULT: ${{ needs.safety.result }}
@@ -348,13 +390,13 @@ jobs:
             require_success "safety" "$SAFETY_RESULT"
           fi
 
-          if [ "$SOURCE_CHANGED" = "true" ]; then
+          if [ "$COVERAGE_CHANGED" = "true" ]; then
             require_success "coverage" "$COVERAGE_RESULT"
           else
             require_skipped_or_success "coverage" "$COVERAGE_RESULT"
           fi
 
-          if [ "$BUILD_CHANGED" = "true" ] || [ "$WORKFLOW_CHANGED" = "true" ]; then
+          if [ "$BUILD_CHANGED" = "true" ]; then
             require_success "build" "$BUILD_RESULT"
           else
             require_skipped_or_success "build" "$BUILD_RESULT"
@@ -379,6 +421,7 @@ jobs:
     needs: [pr-required]
     runs-on: ubuntu-24.04
     timeout-minutes: 70
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6

@@ -68,7 +68,7 @@ import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { formatClinicalDate } from "@/lib/source-metadata";
 import { partitionViewerImages } from "@/lib/image-filtering";
-import { isPublicLocalNoAuthMode } from "@/lib/public-env";
+import { isLocalNoAuthMode } from "@/lib/client-env";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { DocumentManagementActions } from "@/components/DocumentManagementActions";
@@ -1966,7 +1966,7 @@ export function DocumentViewer({
   const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
   const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
-  const localNoAuthMode = isPublicLocalNoAuthMode();
+  const localNoAuthMode = isLocalNoAuthMode();
   const clientDemoMode = localNoAuthMode || serverDemoMode;
   const canViewSourceDocuments = localProjectReady;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");

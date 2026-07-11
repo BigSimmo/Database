@@ -185,7 +185,7 @@ function MedicationRecordDetail({
                 <Pill className="h-[54%] w-[54%]" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-[2rem]">
+                <h1 className="text-2xl font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-3xl">
                   {record.name}
                 </h1>
                 <p className="mt-1 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">

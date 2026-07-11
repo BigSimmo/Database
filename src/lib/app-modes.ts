@@ -1,5 +1,6 @@
 import type { ClinicalQueryMode } from "@/lib/types";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
+import { appendSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 
 export type AppModeId =
   "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "prescribing" | "tools";
@@ -245,7 +246,7 @@ export function appModeSearchConfig(modeId: AppModeId) {
 
 const namespaceIsolatedModes = new Set<AppModeId>(["services", "forms", "favourites", "differentials"]);
 
-export function appModeHomeHref(modeId: AppModeId, options: { query?: string; focus?: boolean; run?: boolean } = {}) {
+export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
   const mode = appModeDefinition(modeId);
   const query = options.query?.trim();
 
@@ -258,6 +259,7 @@ export function appModeHomeHref(modeId: AppModeId, options: { query?: string; fo
     if (query) namespacedParams.set("q", query);
     if (options.focus) namespacedParams.set("focus", "1");
     if (options.run && query) namespacedParams.set("run", "1");
+    appendSearchNavigationContext(namespacedParams, options);
 
     const suffix = namespacedParams.toString();
     return suffix ? `${mode.href}?${suffix}` : mode.href;
@@ -266,6 +268,7 @@ export function appModeHomeHref(modeId: AppModeId, options: { query?: string; fo
   if ("href" in mode && mode.href && !query && !options.run) {
     const homeParams = new URLSearchParams();
     if (options.focus) homeParams.set("focus", "1");
+    appendSearchNavigationContext(homeParams, options);
     const suffix = homeParams.toString();
     const separator = mode.href.includes("?") ? "&" : "?";
     return suffix ? `${mode.href}${separator}${suffix}` : mode.href;
@@ -275,6 +278,7 @@ export function appModeHomeHref(modeId: AppModeId, options: { query?: string; fo
   if (query) params.set("q", query);
   if (options.focus) params.set("focus", "1");
   if (options.run && query) params.set("run", "1");
+  appendSearchNavigationContext(params, options);
   return `/?${params.toString()}`;
 }
 
