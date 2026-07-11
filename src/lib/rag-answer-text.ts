@@ -205,8 +205,9 @@ function separateSettingRunOns(value: string): string {
 }
 
 export function polishClinicalAnswerProse(value: string) {
-  const cleaned = normalizeInlineBulletGlyphs(normalizeSectionText(value))
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
+  // Bold markers come off before bullet normalization so an emphasized item
+  // ("o **Reduce dose**") still reads as a sub-bullet to the "o" matcher.
+  const cleaned = normalizeInlineBulletGlyphs(normalizeSectionText(value).replace(/\*\*([^*]+)\*\*/g, "$1"))
     .replace(productCatalogueFragmentPattern, " ")
     .replace(brandOrFormularyFragmentPattern, " ")
     .replace(imprestLocationPattern, " ")

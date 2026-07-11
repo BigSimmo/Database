@@ -135,7 +135,11 @@ function cleanExtractivePointText(value: string) {
     .replace(/\s+([,.;:])/g, "$1")
     .replace(/(?:\.\s*){2,}/g, ". ")
     .trim();
-  return rewriteLeadingHeadingContext(rewritten).replace(doseLabelColonPattern, "$1 is ");
+  // Directive/advisory labels keep their colon — "Avoid: 12.5 mg…" must not
+  // become the noun-label sentence "Avoid is 12.5 mg…".
+  return rewriteLeadingHeadingContext(rewritten).replace(doseLabelColonPattern, (match, label: string) =>
+    directiveHeadingPattern.test(label) || advisoryHeadingPattern.test(label) ? match : `${label} is `,
+  );
 }
 
 const extractiveClinicalDirectivePattern =

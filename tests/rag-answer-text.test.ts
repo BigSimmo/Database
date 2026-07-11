@@ -118,4 +118,10 @@ describe("RAG answer text helpers", () => {
   it("keeps a temperature-style ' o ' glyph untouched in answer prose", () => {
     expect(sanitizeAnswerText("Store the solution below 37 o C at all times")).toContain("37 o C");
   });
+
+  it("converts a sub-bullet whose item is bold-emphasized", () => {
+    expect(sanitizeAnswerText("Check levels weekly o **Reduce dose in renal impairment**")).toBe(
+      "Check levels weekly; Reduce dose in renal impairment",
+    );
+  });
 });

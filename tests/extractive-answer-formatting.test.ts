@@ -125,6 +125,15 @@ describe("extractive evidence splitting", () => {
     expect(caveat).toMatch(/^Caution:/i);
   });
 
+  it("keeps a directive dose heading in colon form instead of a copula rewrite", () => {
+    const avoidance = splitClinicalEvidenceSentences(
+      "Avoid: o 12.5 mg after a treatment interruption of two days.",
+    ).find((sentence) => sentence.includes("12.5 mg"));
+    expect(avoidance).toBeDefined();
+    expect(avoidance).toMatch(/^Avoid: 12\.5 mg/);
+    expect(avoidance).not.toMatch(/Avoid is/);
+  });
+
   it("keeps a directive heading's colon form instead of rewriting it as noun context", () => {
     const sentences = splitClinicalEvidenceSentences("Avoid: o Pregnancy in the first trimester of treatment.");
     const avoidance = sentences.find((sentence) => /pregnancy/i.test(sentence));
