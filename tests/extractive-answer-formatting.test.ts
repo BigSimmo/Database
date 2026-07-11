@@ -62,6 +62,12 @@ describe("extractive evidence splitting", () => {
     expect(stepDose).not.toMatch(/\bo\s+[A-Z0-9]/);
   });
 
+  it("preserves a newline boundary before bare sub-bullets after numeric headings", () => {
+    const sentences = splitClinicalEvidenceSentences("Step 1\no Start at 12.5 mg nightly and review tomorrow.");
+    expect(sentences.some((sentence) => sentence.includes("Start at 12.5 mg"))).toBe(true);
+    expect(sentences.join(" ")).not.toMatch(/\bo\s+Start\b/);
+  });
+
   it("keeps comparator threshold headings attached to their action items", () => {
     const renal = splitClinicalEvidenceSentences("eGFR <30: o Reduce the maintenance dose to 500 mg daily.").find(
       (sentence) => sentence.includes("500 mg"),

@@ -28,6 +28,7 @@ import {
   isLowYieldClinicalText,
   normalizeInlineBulletGlyphs,
   sourceTextForClinicalProse,
+  sourceTextForClinicalProsePreservingBreaks,
 } from "@/lib/source-text-sanitizer";
 import type {
   AnswerSection,
@@ -585,7 +586,7 @@ function isShortHeadingFragment(fragment: string) {
 
 /** Split clinical evidence sentences. */
 export function splitClinicalEvidenceSentences(value: string) {
-  const fragments = normalizeInlineBulletGlyphs(sourceTextForClinicalProse(value), { joiner: "\n" })
+  const fragments = normalizeInlineBulletGlyphs(sourceTextForClinicalProsePreservingBreaks(value), { joiner: "\n" })
     .split(/\r?\n+|(?<=[.!?])\s+|\s+[•]\s+|\s+\|\s+/)
     .map((fragment) => fragment.trim())
     .filter(Boolean);

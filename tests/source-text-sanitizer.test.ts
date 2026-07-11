@@ -480,6 +480,12 @@ describe("normalizeInlineBulletGlyphs", () => {
     expect(normalizeInlineBulletGlyphs("o Negative screen requires repeat testing")).toBe(
       "Negative screen requires repeat testing",
     );
+    expect(normalizeInlineBulletGlyphs("o Positive blood cultures require review")).toBe(
+      "Positive blood cultures require review",
+    );
+    expect(normalizeInlineBulletGlyphs("Cultures: o Negative blood cultures do not exclude sepsis")).toBe(
+      "Cultures: Negative blood cultures do not exclude sepsis",
+    );
   });
 
   it("still converts an OCR bullet after non-blood group/type labels", () => {

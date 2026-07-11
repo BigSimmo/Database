@@ -562,7 +562,7 @@ const posNegValueHeadPattern = /^\s+(?:pos(?:itive)?|neg(?:ative)?)\b/i;
 const standaloneBloodValueLinePattern =
   /^o\s+(?:rh(?:d)?(?:\s+(?:pos(?:itive)?|neg(?:ative)?))?|pos(?:itive)?|neg(?:ative)?)$/i;
 const bloodValueWithNounTailLinePattern =
-  /^o\s+(?:rh(?:d)?\s+)?(?:pos(?:itive)?|neg(?:ative)?)\s+(?:blood|red\s+cells?)\b/i;
+  /^o\s+(?:rh(?:d)?\s+)?(?:pos(?:itive)?|neg(?:ative)?)\s+(?:blood(?!\s+(?:cultures?|tests?|screens?|samples?|results?)\b)|red\s+cells?)\b/i;
 
 function replaceSubBulletOGlyphs(text: string, joiner: string) {
   return text.replace(subBulletOGlyphPattern, (match, offset: number) => {
