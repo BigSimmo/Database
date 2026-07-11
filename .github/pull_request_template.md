@@ -4,10 +4,15 @@
 
 ## Verification
 
-- [ ] `npm run verify:cheap`
+- [ ] `npm run verify:pr-local`
+
+During development, use `npm run verify:cheap` as the faster iteration gate before the final PR-local preflight.
+
 - [ ] `npm run verify:ui` when UI, routing, styling, browser behavior, reduced-motion, or forced-colors behavior changed
 - [ ] `npm run verify:release` before release or handoff confidence claims
-- [ ] `npm run format:check`
+
+For retrieval, ranking, selection, chunking, source/citation rendering, or answer-contract changes, `verify:pr-local` runs `eval:rag:offline` automatically. Run the offline command directly during iteration before spending a live eval.
+
 - [ ] **`npm run eval:retrieval:quality` (must stay 36/36) when retrieval, ranking, selection, chunking, or scoring behavior changed** — CI cannot run it (needs live keys), so run it locally and paste the summary. A metadata/governance-weighting change once buried correct docs (recall 1.0→0.76) and only this eval caught it.
 - [ ] `npm run eval:rag -- --limit 15` + `npm run eval:quality -- --rag-only` when answer generation, the synthesis prompt, or answer post-processing changed (grounded-supported must not drop; citation-failure 0)
 - [ ] `npm run check:production-readiness` when clinical workflow, privacy, environment, Supabase, source governance, or deployment behavior changed

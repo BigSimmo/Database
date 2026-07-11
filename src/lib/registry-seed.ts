@@ -1,4 +1,5 @@
 import { formRecords } from "@/lib/forms";
+import { safeErrorLogDetails } from "@/lib/privacy";
 import { buildDefaultFormRows, buildDefaultServiceRows, defaultServiceRecords } from "@/lib/registry-fixtures";
 import { type RegistryRecordInsert, type RegistryRecordKind, type RegistryRecordRow } from "@/lib/registry-records";
 
@@ -47,10 +48,8 @@ export async function ensureRegistrySeeded(
     .select("*");
   if (error) throw new Error(`Registry seed failed: ${error.message}`);
   const seededRows = (data ?? []) as RegistryRecordRow[];
-  const { embedClinicalRegistryRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
-  if (registryCorpusEmbeddingEnabled()) {
-    await embedClinicalRegistryRows(supabase, seededRows);
-  }
+  const { bestEffortSyncClinicalRegistryRows } = await loadRegistryCorpus();
+  await bestEffortSyncClinicalRegistryRows(supabase, seededRows);
   return seededRows;
 }
 
@@ -81,14 +80,15 @@ export async function fetchOwnerRegistryRowsWithSeed(
 
   let rows = await fetchRecords();
   if (rows.length === 0) {
+    let seedError: unknown = null;
     try {
       await ensureRegistrySeeded(supabase, ownerId, kind);
-    } catch (seedError) {
-      console.error(`[registry] auto-seed failed for owner ${ownerId} (${kind})`, seedError);
-      const { registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
-      if (registryCorpusEmbeddingEnabled()) throw seedError;
+    } catch (error) {
+      seedError = error;
+      console.error("[registry] auto-seed failed", { kind, ...safeErrorLogDetails(error) });
     }
     rows = await fetchRecords();
+    if (rows.length === 0 && seedError) throw seedError;
   }
   return rows;
 }

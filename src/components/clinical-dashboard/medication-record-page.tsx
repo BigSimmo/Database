@@ -185,7 +185,7 @@ function MedicationRecordDetail({
                 <Pill className="h-[54%] w-[54%]" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-[2rem]">
+                <h1 className="text-2xl font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-3xl">
                   {record.name}
                 </h1>
                 <p className="mt-1 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
@@ -229,7 +229,7 @@ function MedicationRecordDetail({
                 aria-pressed={activeTab === id}
                 onClick={() => setActiveTab(id)}
                 className={cn(
-                  "min-h-8 rounded-lg border px-2.5 text-2xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-xs",
+                  "min-h-tap rounded-lg border px-2.5 text-2xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-xs",
                   activeTab === id
                     ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                     : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]",
@@ -312,11 +312,11 @@ export function MedicationRecordPage({ slug }: { slug: string }) {
       <div className="mx-auto max-w-7xl px-3 pt-3 sm:px-6 lg:px-8">
         <Link
           href={`/?mode=prescribing&q=${encodeURIComponent(slug)}`}
-          className="inline-flex min-h-9 w-fit items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="inline-flex min-h-tap w-fit items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Medication search</span>
-          <span className="sm:hidden">Search</span>
+          <span className="hidden sm:inline">Back to medication search</span>
+          <span className="sm:hidden">Back</span>
         </Link>
       </div>
       <div className="px-3 py-3 sm:px-6 lg:px-8">

@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appName, stableProjectPort } from "./local-server-utils.mjs";
+import { appName, isReservedDevPort, stableProjectPort } from "../src/lib/local-server-utils.mjs";
 
 if (Number(process.versions.node.split(".")[0]) !== 24) {
   console.error(`Clinical KB local server requires Node 24.x. Current runtime: ${process.versions.node}.`);
@@ -104,6 +104,7 @@ async function canListen(port) {
 
 async function findFreePort(preferredPort) {
   for (let port = preferredPort; port <= maxPort; port += 1) {
+    if (isReservedDevPort(port)) continue;
     if (await canListen(port)) return port;
   }
   throw new Error(`No free development port found from ${preferredPort} to ${maxPort}.`);

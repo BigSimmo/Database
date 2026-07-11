@@ -143,7 +143,7 @@ function Pill({
     <span
       className={cn(
         "inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border font-bold leading-none shadow-[var(--shadow-inset)]",
-        small ? "min-h-6 px-2 text-[10px]" : "min-h-8 px-2.5 text-xs",
+        small ? "min-h-6 px-2 text-3xs" : "min-h-8 px-2.5 text-xs",
         active
           ? toneClass(tone).soft
           : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
@@ -208,7 +208,7 @@ function SearchField({ placeholder, compact = false }: { placeholder: string; co
 function SelectField({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
   return (
     <label className="grid gap-1">
-      <span className="truncate text-[10px] font-extrabold uppercase text-[color:var(--text-soft)]">{label}</span>
+      <span className="truncate text-3xs font-extrabold uppercase text-[color:var(--text-soft)]">{label}</span>
       <span
         className={cn(
           "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] shadow-[var(--shadow-inset)]",
@@ -280,9 +280,7 @@ function SourceRow({ row, compact = false }: { row: (typeof sourceRows)[number];
         >
           {row.title}
         </span>
-        <span className="mt-0.5 block truncate text-[11px] font-semibold text-[color:var(--text-soft)]">
-          {row.meta}
-        </span>
+        <span className="mt-0.5 block truncate text-2xs font-semibold text-[color:var(--text-soft)]">{row.meta}</span>
       </span>
       <Pill small tone={row.tone === "accent" ? "scope" : row.tone === "warning" ? "graphite" : "library"} active>
         {row.status}
@@ -385,7 +383,7 @@ function MockupPair({
           <h2 className="text-xl font-extrabold text-[color:var(--text-heading)]">{label}</h2>
           <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">{intent}</p>
         </div>
-        <span className="w-fit rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-[11px] font-extrabold uppercase text-[color:var(--text-soft)]">
+        <span className="w-fit rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-extrabold uppercase text-[color:var(--text-soft)]">
           Desktop + phone
         </span>
       </div>

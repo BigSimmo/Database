@@ -303,12 +303,13 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     answer-confidence label — "high" requires a genuine-cosine citation; synthetic-origin
     evidence caps at "medium" (strictly tightening, ordering/routing untouched, unit-tested in
     tests/rag-score.test.ts).
-22. 🔶 **Registry-to-corpus embedding (universal search Phase 5) — implementation restored and live
-    owner embedded (2026-07-09).** Medications/services/forms/differentials are federated into
+22. ✅ **Registry-to-corpus embedding (universal search Phase 5) — implemented behind the
+    default-off flag, live owner embedded, and blocking gates clean (2026-07-09).** Medications/services/forms/differentials are federated into
     `/api/search/universal` but were not retrieval-corpus entities, so Answer mode could not cite them.
     Implemented pieces: `RAG_REGISTRY_CORPUS_EMBEDDING` default-off flag,
     `scripts/embed-registry-records.ts` dry-run/write/list-owner tool, synthetic document/chunk mapping
     with `metadata.source_kind = 'registry_record'`, source-governance labelling, comparator tooling,
+    seed/reseed embedding paths, `reembedRegistryRecordAfterEdit` / `bestEffortReembedRegistryRecordAfterEdit`,
     and registry corpus tests. The sentinel-owner dry-run
     (`00000000-0000-0000-0000-000000000000`) correctly found zero rows. `--list-owners` found the real
     registry owner `4f1b3c19-3c39-4597-b9df-168c8e6007ff` with 739 eligible rows; guarded write with
@@ -316,12 +317,14 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     chunks. Post-write retrieval eval passed with `document_recall_at_5=1`, `content_recall_at_5=1`,
     `top_k_hit_rate=1`, `force_embedding_failure_count=0`, `failed_cases=[]`. Post-write
     `eval:quality -- --rag-only` completed under budget; invented-term controls still refused and
-    numeric grounding failure rate was `0`. Remaining blockers are not registry regressions:
-    citation failure rate `0.0227` and RAG latency thresholds (`p95=44847ms`; route p95 extractive
-    `46745ms`, fast `27131ms`, strong `63613ms`). Remaining implementation before treating this as
-    fully productized: re-embed-on-edit hooks for registry updates and a dedicated answer-mode UX check
-    that registry-backed citations are labelled as curated registry records rather than primary source
-    documents.
+    numeric grounding failure rate was `0`. The post-routing RAG-only rerun then cleared the former
+    blocker metrics: `citation_failure_rate=0`, `numeric_grounding_failure_rate=0`, no blocking threshold
+    failures, and `p95_latency_ms=20385`. Two individual cases still exceeded the 20-second latency target;
+    that non-blocking performance debt remains tracked in item 25. Current productization boundary: there are no mutating registry
+    edit routes today, so the re-embed-on-edit helper is present but not wired to a route; any future
+    registry `POST`/`PATCH`/`PUT` path must call `bestEffortReembedRegistryRecordAfterEdit` after the
+    write commits. Remaining non-blocking UX follow-up: an answer-mode check that registry-backed
+    citations render as curated registry records rather than primary source documents.
 23. ⏳ **Finding #11 full fix (RAG optimisation Phase 2)** — the classifier-verdict memo (shipped
     2026-07-06) makes zero-result behaviour deterministic per query but does not close the gap:
     the deterministic analyzer still cannot tell in-corpus topics from out-of-corpus ones.
@@ -333,9 +336,15 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     (compare table-cell tokens against the document's own clean chunk text — "p ycho ocial"
     aligns to "psychosocial" within the same page's raw text) rather than heuristic detection at
     query time. Scope to `worker/` table extraction; requires the Python OCR stack to test.
-25. ⏳ **Retrieval latency p90 ~8.6s (local)** — remaining sequential layers after the 2026-07-01
-    parallelisation. Cheapest next step (measure first): overlap `embedTextWithTelemetry` with
-    the text fast path unconditionally (today preload only fires when `shouldPreloadEmbedding`),
-    and collapse the repeated `attachDocumentRankingMetadata` calls to one batched fetch per
-    request. Both are perf-only; gate with the golden eval unchanged + p90 from
-    `rag_retrieval_logs` before/after.
+25. ⏳ **Retrieval/RAG latency remains a performance backlog, not a current gate blocker.**
+    Post-registry retrieval stayed quality-clean (`top_k_hit_rate=1`, `document_recall_at_5=1`,
+    `content_recall_at_5=1`, `force_embedding_failure_count=0`) with local `p90_latency_ms=13145`.
+    Post-routing RAG-only passed with `p95_latency_ms=20385` and no blocking threshold failures, but
+    local-machine→remote-DB latency and remaining sequential layers still justify a dedicated perf pass.
+    Next step (measure first): instrument the existing per-request `documentRankingMetadataCache` to
+    quantify incremental cache misses/fetches before changing enrichment, then test starting
+    `embedTextWithTelemetry` concurrently only when `forceEmbedding` is set or routing has already ruled
+    out an accepted lexical/document fast path. Do not preload embeddings unconditionally: preserve
+    source-only and lexical-only behavior, and record provider-call count plus whether each embedding
+    result was consumed so any p90 gain is weighed against cost. Gate with the golden eval unchanged,
+    provider usage unchanged or explicitly accepted, and p90 from `rag_retrieval_logs` before/after.

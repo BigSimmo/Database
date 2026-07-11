@@ -40,6 +40,7 @@ import {
   toneWarning,
 } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
   serviceNavigatorQuery,
   type ServiceContact,
@@ -133,31 +134,6 @@ function contactHref(contact: ServiceContact | null | undefined) {
 
 function hrefIsExternal(href: string | undefined) {
   return Boolean(href && /^https?:\/\//i.test(href));
-}
-
-async function copyText(value: string) {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return;
-    } catch {
-      // Fall through to the legacy selection path for restricted browser contexts.
-    }
-  }
-
-  const textArea = document.createElement("textarea");
-  textArea.value = value;
-  textArea.setAttribute("readonly", "");
-  textArea.style.position = "fixed";
-  textArea.style.opacity = "0";
-  document.body.appendChild(textArea);
-  textArea.select();
-  try {
-    const copied = document.execCommand?.("copy");
-    if (copied === false) throw new Error("copy command rejected");
-  } finally {
-    document.body.removeChild(textArea);
-  }
 }
 
 function summaryCardsFor(service: ServiceRecord): ServiceSummaryCard[] {
@@ -494,7 +470,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     }
 
     try {
-      await copyText(value.trim());
+      await copyTextToClipboard(value.trim());
       setNotice(label);
     } catch {
       setNotice("Copy failed");

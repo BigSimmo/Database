@@ -69,9 +69,12 @@ them only after the shared `rag_response_cache` hit rate is confirmed healthy.
 - `node:24-bookworm-slim` in all stages — respects `engines`/`engine-strict`
   and the `preinstall` engine guard.
 - The build stage runs the repo's own `npm run build`
-  (`guard-next-build.mjs` + `next build --webpack`) — **the image build fails
-  exactly where a local build would**. The build allocates an 8 GiB heap; give
-  the Docker builder ≥ 10 GiB memory.
+  (`guard-next-build.mjs` + `next build --webpack` + the client-bundle secret
+  scan) — **the image build fails exactly where a local build would**. The
+  `--webpack` flag is deliberate: `next.config.ts` carries a webpack-specific
+  WasmHash workaround and the CSP-nonce work was validated against webpack
+  prod chunks, so switching bundlers needs its own verified change. The build
+  allocates an 8 GiB heap; give the Docker builder ≥ 10 GiB memory.
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are
   build args (they inline into the client bundle). The publishable key is
   public by design; the placeholder default exists so CI can build without
@@ -213,18 +216,19 @@ Rules:
   clinical production documents into staging.
 - One staging app container + one staging worker container from the _same_
   images, different env. `RAG_PROVIDER_MODE=auto` with staging OpenAI key.
-- **Known change required:** `src/lib/supabase/project.ts` pins the expected
-  project to production, so `check:supabase-project` will (correctly) fail on
-  staging until the expected-project table is made environment-aware. Do this
-  when the staging project is provisioned — a deliberate speed bump so staging
-  cannot silently be pointed at production.
+- `src/lib/supabase/project.ts` is staging-aware only when both
+  `SUPABASE_STAGING_PROJECT_REF` and `SUPABASE_STAGING_PROJECT_NAME` are set.
+  The declared staging ref must differ from production and every stale project;
+  otherwise `check:supabase-project` fails closed. See `docs/staging-setup.md`.
 - The soak test (`scripts/soak-test.ts`) targets staging **only** — see
   `docs/capacity-review.md`.
 
 ## 6. Rollout and rollback
 
-- Images are built from `main` (CI job to be added once a host account
-  exists), tagged with the git SHA, and deployed after the standard gates
+- `.github/workflows/docker-image.yml` validates both container builds on
+  `main`, release branches, a weekly schedule, and container-affecting pull
+  requests. It deliberately does not push to a registry; registry publication
+  and deployment remain host-specific release steps after the standard gates
   (`verify` + `ui-smoke` + the clinical governance preflight where relevant).
 - Rollback = redeploy the previous image tag. Database migrations follow the
   existing rule: committed migrations + `schema.sql` reconciliation only, never

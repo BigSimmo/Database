@@ -5,7 +5,7 @@ const token = "valid-token";
 const recordId = "11111111-1111-4111-8111-111111111111";
 
 type QueryError = { message: string };
-type QueryResult = { data: unknown; error: QueryError | null };
+type QueryResult = { data: unknown; error: QueryError | null; count?: number | null };
 type QueryFilter = { column: string; value: unknown };
 type QueryCall = {
   table: string;
@@ -14,6 +14,8 @@ type QueryCall = {
   maybeSingle: boolean;
   head?: boolean;
   count?: string;
+  upsert?: boolean;
+  upsertRows?: unknown[];
 };
 type QueryResolver = (call: QueryCall) => QueryResult;
 
@@ -74,6 +76,12 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  upsert(rows: unknown) {
+    this.call.upsert = true;
+    this.call.upsertRows = Array.isArray(rows) ? rows : [rows];
+    return this;
+  }
+
   maybeSingle() {
     this.call.maybeSingle = true;
     return Promise.resolve(this.resolver(this.call));
@@ -122,7 +130,10 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { li
   };
 }
 
-function mockRuntime(client: ReturnType<typeof createSupabaseMock>, options: { demoMode?: boolean } = {}) {
+function mockRuntime(
+  client: ReturnType<typeof createSupabaseMock>,
+  options: { demoMode?: boolean; registryEmbeddingError?: Error } = {},
+) {
   vi.resetModules();
   vi.doUnmock("@/lib/supabase/auth");
   vi.doUnmock("@/lib/supabase/admin");
@@ -132,6 +143,19 @@ function mockRuntime(client: ReturnType<typeof createSupabaseMock>, options: { d
     isLocalNoAuthMode: () => false,
     requireOpenAIEnv: () => undefined,
     requireServerEnv: () => undefined,
+  }));
+  vi.doMock("@/lib/registry-corpus", () => ({
+    registryCorpusEmbeddingEnabled: () => Boolean(options.registryEmbeddingError),
+    bestEffortSyncMedicationRows: vi.fn(async () => {
+      if (options.registryEmbeddingError) {
+        console.error("[medications] registry corpus sync failed", {
+          name: options.registryEmbeddingError.name,
+          message: options.registryEmbeddingError.message,
+        });
+        return { documentCount: 0, chunkCount: 0, skipped: true, reason: "failed" };
+      }
+      return { documentCount: 0, chunkCount: 0 };
+    }),
   }));
   vi.doMock("@/lib/supabase/admin", () => ({
     createAdminClient: () => client,
@@ -243,5 +267,64 @@ describe("medications API", () => {
     expect(payload.record.slug).toBe("acamprosate");
     expect(payload.record.name).toBe("Acamprosate");
     expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("serves a seeded medication detail when registry corpus embedding fails after the row upsert", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let stored: Array<Record<string, unknown>> = [];
+    const client = createSupabaseMock((call) => {
+      if (call.table !== "medication_records") return ok([]);
+      if (call.head) return { data: null, error: null, count: stored.length };
+      if (call.upsert) {
+        stored = (call.upsertRows ?? []) as Array<Record<string, unknown>>;
+        return ok(stored);
+      }
+      if (call.maybeSingle) {
+        return ok(stored.find((row) => row.slug === "acamprosate") ?? null);
+      }
+      return ok(stored);
+    });
+    mockRuntime(client, { registryEmbeddingError: new Error("embedding unavailable") });
+    const { GET } = await import("../src/app/api/medications/[slug]/route");
+
+    const response = await GET(authedRequest("/api/medications/acamprosate"), {
+      params: Promise.resolve({ slug: "acamprosate" }),
+    });
+    const payload = (await response.json()) as { record: { slug: string; name: string } };
+
+    expect(response.status).toBe(200);
+    expect(payload.record.slug).toBe("acamprosate");
+    expect(payload.record.name).toBe("Acamprosate");
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("[medications] registry corpus sync failed"),
+      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
+    );
+  });
+
+  it("returns 404 for an unknown medication slug during a corpus embedding outage", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let stored: Array<Record<string, unknown>> = [];
+    const client = createSupabaseMock((call) => {
+      if (call.table !== "medication_records") return ok([]);
+      if (call.head) return { data: null, error: null, count: stored.length };
+      if (call.upsert) {
+        stored = (call.upsertRows ?? []) as Array<Record<string, unknown>>;
+        return ok(stored);
+      }
+      if (call.maybeSingle) return ok(stored.find((row) => row.slug === "unknown-medication") ?? null);
+      return ok(stored);
+    });
+    mockRuntime(client, { registryEmbeddingError: new Error("embedding unavailable") });
+    const { GET } = await import("../src/app/api/medications/[slug]/route");
+
+    const response = await GET(authedRequest("/api/medications/unknown-medication"), {
+      params: Promise.resolve({ slug: "unknown-medication" }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("[medications] registry corpus sync failed"),
+      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
+    );
   });
 });

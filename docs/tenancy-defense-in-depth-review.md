@@ -24,7 +24,7 @@ That said, this is a **single-layer** design with one structural weakness that *
 
 > **The database had no independent tenancy floor for NULL `owner_filter`.** Before #409, the shared
 > `retrieval_owner_matches` helper returned _every_ row when `owner_filter IS NULL` (fail-open). PR
-> #409 (`20260708160000_retrieval_owner_matches_fail_closed.sql`) makes `NULL` match **no rows**; the
+> #409 (`20260708160001_retrieval_owner_matches_fail_closed.sql`) makes `NULL` match **no rows**; the
 > app routes demo/test/local-no-auth through the public sentinel (`00000000-…`) instead of `NULL`
 > ([owner-scope.ts](src/lib/owner-scope.ts)). Production paths that lack an owner still throw before
 > any RPC is called.
@@ -80,7 +80,7 @@ Every retrieval RPC gates rows through `retrieval_owner_matches`. **As of PR #40
 fail-closed on `NULL`:
 
 ```sql
--- migration 20260708160000_retrieval_owner_matches_fail_closed.sql
+-- migration 20260708160001_retrieval_owner_matches_fail_closed.sql
 create function public.retrieval_owner_matches(owner_filter uuid, row_owner_id uuid) returns boolean as $$
   select case
     when owner_filter is null then false                                  -- fail-closed (was fail-open pre-#409)
