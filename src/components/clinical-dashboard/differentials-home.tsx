@@ -6,18 +6,17 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Activity,
+  ArrowUpDown,
   BrainCircuit,
   Check,
   ChevronRight,
   CircleHelp,
   Clock3,
   ExternalLink,
-  Filter,
   FlaskConical,
   GitCompareArrows,
   HeartPulse,
   Info,
-  ListFilter,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -112,15 +111,32 @@ const candidateIconBySlug: Array<[string, LucideIcon]> = [
   ["delirium", BrainCircuit],
 ];
 
-function routeWithQuery(path: string, query: string) {
+function routeWithQuery(path: string, query: string, selectedIds?: Set<string>) {
   const params = new URLSearchParams();
   const trimmedQuery = query.trim();
   if (trimmedQuery) params.set("q", trimmedQuery);
+  if (selectedIds && selectedIds.size > 0) {
+    params.set("ids", Array.from(selectedIds).join(","));
+  }
   const suffix = params.toString();
   return suffix ? `${path}?${suffix}` : path;
 }
 
-function DifferentialsMobileCompareAddon({ selectedCount, query }: { selectedCount: number; query: string }) {
+/**
+ * Phone-only floating compare action. Portals into the bottom search dock's
+ * addon slot so it stays anchored just above the composer pill (and hides
+ * with it on scroll), but renders as a self-contained floating pill so it
+ * reads as a batch-selection action rather than composer chrome.
+ */
+function DifferentialsMobileCompareBar({
+  selectedCount,
+  selectedIds,
+  query,
+}: {
+  selectedCount: number;
+  selectedIds: Set<string>;
+  query: string;
+}) {
   const [host, setHost] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -140,16 +156,35 @@ function DifferentialsMobileCompareAddon({ selectedCount, query }: { selectedCou
 
   if (!host) return null;
 
+  const hasSelection = selectedCount > 0;
+
   return createPortal(
-    <Link
-      href={routeWithQuery("/differentials/presentations", query)}
-      data-testid="differentials-compare-selected-mobile"
-      className="mx-auto flex min-h-12 w-full max-w-[26rem] items-center justify-center gap-3 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] active:bg-[color:var(--clinical-accent-hover)]"
-    >
-      <GitCompareArrows className="h-5 w-5 shrink-0" aria-hidden />
-      Compare selected ({selectedCount})
-      <ChevronRight className="ml-auto h-5 w-5 shrink-0" aria-hidden />
-    </Link>,
+    <div aria-live="polite" className="flex w-full justify-center">
+      {hasSelection ? (
+        <Link
+          href={routeWithQuery("/differentials/presentations", query, selectedIds)}
+          data-testid="differentials-compare-selected-mobile"
+          className="inline-flex min-h-12 max-w-full items-center gap-2.5 rounded-full border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] py-1 pl-4 pr-2.5 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition active:bg-[color:var(--clinical-accent-hover)]"
+        >
+          <GitCompareArrows className="h-5 w-5 shrink-0" aria-hidden />
+          <span className="truncate">Compare selected</span>
+          <span className="nums grid h-7 min-w-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-contrast)]/20 px-1.5 text-xs font-extrabold">
+            {selectedCount}
+          </span>
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-contrast)]/15">
+            <ChevronRight className="h-5 w-5" aria-hidden />
+          </span>
+        </Link>
+      ) : (
+        <p
+          data-testid="differentials-compare-selected-mobile"
+          className="inline-flex min-h-12 max-w-full items-center gap-2.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-elevated)]"
+        >
+          <GitCompareArrows className="h-5 w-5 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+          <span className="truncate">Tick results to compare</span>
+        </p>
+      )}
+    </div>,
     host,
   );
 }
@@ -278,29 +313,71 @@ function ResultTypeTabs({
           </button>
         );
       })}
-      <button
-        type="button"
-        aria-label="Filters"
-        className={cn(
-          "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-heading)] min-[390px]:text-sm",
-          resultTypeTabFocusRing,
-        )}
-      >
-        <ListFilter className="h-4 w-4 shrink-0" aria-hidden />
-        <span className="hidden min-[430px]:inline">Filters</span>
-      </button>
     </div>
   );
 }
 
+type SortMode = "relevance" | "urgency" | "alpha";
+
+const statusSortPriority: Record<DifferentialRecord["status"], number> = {
+  emergent: 0,
+  urgent: 1,
+  routine: 2,
+};
+
+function sortResults(items: DifferentialResult[], mode: SortMode) {
+  if (mode === "relevance") return items;
+  // Array.prototype.sort is stable, so ties keep their relevance order.
+  return [...items].sort((a, b) =>
+    mode === "alpha" ? a.title.localeCompare(b.title) : statusSortPriority[a.status] - statusSortPriority[b.status],
+  );
+}
+
+function SortSelect({
+  value,
+  onChange,
+  className,
+}: {
+  value: SortMode;
+  onChange: (value: SortMode) => void;
+  className?: string;
+}) {
+  return (
+    <label
+      className={cn(
+        "inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]",
+        className,
+      )}
+    >
+      <ArrowUpDown className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      Sort
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as SortMode)}
+        aria-label="Sort results"
+        className="bg-transparent text-xs font-bold text-[color:var(--text)] outline-none"
+      >
+        <option value="relevance">Relevance</option>
+        <option value="urgency">Urgency first</option>
+        <option value="alpha">A–Z</option>
+      </select>
+    </label>
+  );
+}
+
 function MatchBadge({ label }: { label: string }) {
+  // Match quality is a relevance signal, not a safety one — keep it in the
+  // accent family so red stays reserved for the emergent status badges.
   const tone =
-    label === "Best match"
-      ? "text-[color:var(--danger)]"
-      : label === "High match"
-        ? "text-[color:var(--clinical-accent)]"
-        : "text-[color:var(--warning)]";
-  return <span className={cn("text-2xs font-extrabold", tone)}>{label}</span>;
+    label === "Best match" || label === "High match"
+      ? "text-[color:var(--clinical-accent)]"
+      : "text-[color:var(--text-muted)]";
+  return (
+    <span className={cn("inline-flex items-center gap-1 text-2xs font-extrabold", tone)}>
+      {label === "Best match" ? <Check className="h-3 w-3 shrink-0" aria-hidden /> : null}
+      {label}
+    </span>
+  );
 }
 
 function Chip({ children }: { children: string }) {
@@ -319,7 +396,7 @@ function SelectionToggle({ selected, onClick, label }: { selected: boolean; onCl
       aria-label={`${selected ? "Remove" : "Add"} ${label} ${selected ? "from" : "to"} comparison`}
       onClick={onClick}
       className={cn(
-        "grid h-10 w-10 shrink-0 place-items-center rounded-md border text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        "grid h-11 w-11 shrink-0 place-items-center rounded-md border text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         selected
           ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
           : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-transparent hover:text-[color:var(--text-soft)]",
@@ -341,14 +418,14 @@ function DesktopResultRow({
   index: number;
   isBest: boolean;
   selected: boolean;
-  onToggle: () => void;
+  onToggle?: () => void;
 }) {
   const Icon = result.icon;
 
   return (
     <article
       className={cn(
-        "group grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_9.75rem_2.5rem] items-center gap-3 rounded-lg border bg-[color:var(--surface)] px-3.5 py-3 shadow-[var(--shadow-inset)] transition",
+        "group grid min-h-[5.75rem] grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_9.75rem_2.75rem] items-center gap-3 rounded-lg border bg-[color:var(--surface)] px-3.5 py-3 shadow-[var(--shadow-inset)] transition",
         isBest
           ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/40 shadow-[var(--shadow-tight)]"
           : "border-[color:var(--border)] hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
@@ -405,16 +482,18 @@ function DesktopResultRow({
           <ExternalLink className="h-4 w-4" aria-hidden />
           Open page
         </Link>
-        <button
-          type="button"
-          onClick={onToggle}
-          className="inline-flex min-h-10 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
-        >
-          <GitCompareArrows className="h-4 w-4" aria-hidden />
-          {selected ? "Compared" : "Compare"}
-        </button>
+        {onToggle ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="inline-flex min-h-10 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
+          >
+            <GitCompareArrows className="h-4 w-4" aria-hidden />
+            {selected ? "Compared" : "Compare"}
+          </button>
+        ) : null}
       </div>
-      <SelectionToggle selected={selected} onClick={onToggle} label={result.title} />
+      {onToggle ? <SelectionToggle selected={selected} onClick={onToggle} label={result.title} /> : <span />}
     </article>
   );
 }
@@ -422,34 +501,20 @@ function DesktopResultRow({
 function MobileResultCard({
   result,
   index,
-  isBest,
   selected,
   onToggle,
 }: {
   result: DifferentialResult;
   index: number;
-  isBest: boolean;
   selected: boolean;
-  onToggle: () => void;
+  onToggle?: () => void;
 }) {
   const Icon = result.icon;
 
   return (
-    <article
-      className={cn(
-        "grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]",
-        isBest && "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/55",
-      )}
-    >
-      <div className="grid grid-cols-[2rem_2.5rem_minmax(0,1fr)_2.5rem] items-start gap-2">
-        <span
-          className={cn(
-            "grid h-8 w-8 place-items-center rounded-md border text-sm font-extrabold",
-            isBest
-              ? "border-[color:var(--danger-border)] bg-[color:var(--surface)] text-[color:var(--danger)]"
-              : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-          )}
-        >
+    <article className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+      <div className="grid grid-cols-[2rem_2.5rem_minmax(0,1fr)_2.75rem] items-start gap-2">
+        <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-extrabold text-[color:var(--text-muted)]">
           {index + 1}
         </span>
         <Link
@@ -473,16 +538,13 @@ function MobileResultCard({
             <MatchBadge label={result.matchLabel} />
           </div>
         </div>
-        <SelectionToggle selected={selected} onClick={onToggle} label={result.title} />
+        {onToggle ? <SelectionToggle selected={selected} onClick={onToggle} label={result.title} /> : <span />}
       </div>
-      {isBest ? (
-        <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">{result.subtitle}</p>
-      ) : null}
       <div className="flex max-w-full flex-wrap gap-1.5">
-        {result.tags.slice(0, isBest ? 4 : 2).map((tag) => (
+        {result.tags.slice(0, 2).map((tag) => (
           <Chip key={`${result.id}-${tag}`}>{tag}</Chip>
         ))}
-        {result.tags.length > (isBest ? 4 : 2) ? <Chip>{`+${result.tags.length - (isBest ? 4 : 2)}`}</Chip> : null}
+        {result.tags.length > 2 ? <Chip>{`+${result.tags.length - 2}`}</Chip> : null}
       </div>
     </article>
   );
@@ -492,35 +554,79 @@ function BestAnswerCard({
   best,
   selected,
   onToggle,
+  compact = false,
 }: {
   best: DifferentialResult;
   selected?: boolean;
   onToggle?: () => void;
+  compact?: boolean;
 }) {
   const Icon = best.icon;
+  const tagLimit = compact ? 3 : best.tags.length;
+  const visibleTags = best.tags.slice(0, tagLimit);
+  const hiddenTagCount = best.tags.length - visibleTags.length;
+
+  // Use danger styling for emergent, accent styling for routine results
+  const isEmergent = best.status === "emergent";
+  const cardBorderColor = isEmergent ? "var(--danger-border)" : "var(--clinical-accent-border)";
+  const cardBgColor = isEmergent ? "var(--danger-soft)" : "var(--clinical-accent-soft)";
+  const iconBorderColor = isEmergent ? "var(--danger-border)" : "var(--clinical-accent-border)";
+  const iconColor = isEmergent ? "var(--danger)" : "var(--clinical-accent)";
 
   return (
-    <section className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/55 p-4 shadow-[var(--shadow-inset)]">
+    <section
+      className={cn("rounded-lg border shadow-[var(--shadow-inset)]", compact ? "p-3.5" : "p-4")}
+      style={{
+        borderColor: `color-mix(in srgb, ${cardBorderColor}, transparent)`,
+        backgroundColor: `color-mix(in srgb, ${cardBgColor}, transparent 45%)`,
+      }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--surface)] text-[color:var(--danger)]">
-            <Icon className="h-8 w-8 stroke-[1.8]" aria-hidden />
+          <span
+            className={cn(
+              "grid shrink-0 place-items-center rounded-lg border bg-[color:var(--surface)]",
+              compact ? "h-12 w-12" : "h-14 w-14",
+            )}
+            style={{
+              borderColor: `color-mix(in srgb, ${iconBorderColor}, transparent)`,
+              color: `color-mix(in srgb, ${iconColor}, transparent)`,
+            }}
+          >
+            <Icon className={cn("stroke-[1.8]", compact ? "h-7 w-7" : "h-8 w-8")} aria-hidden />
           </span>
           <div className="min-w-0">
             <p className="text-2xs font-extrabold uppercase text-[color:var(--text-muted)]">Best answer</p>
-            <h2 className="mt-1 text-lg font-extrabold leading-6 text-[color:var(--text-heading)]">{best.title}</h2>
-            <div className="mt-2">
+            <h2 className="mt-1 text-lg font-extrabold leading-6">
+              <Link
+                href={best.href}
+                className="text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)]"
+              >
+                {best.title}
+              </Link>
+            </h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge status={best.status} />
+              <Link
+                href={best.href}
+                className="inline-flex min-h-6 items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
+              >
+                Open page
+                <ExternalLink className="h-3 w-3" aria-hidden />
+              </Link>
             </div>
           </div>
         </div>
         {onToggle ? <SelectionToggle selected={Boolean(selected)} onClick={onToggle} label={best.title} /> : null}
       </div>
-      <p className="mt-3 text-sm font-medium leading-6 text-[color:var(--text-muted)]">{best.subtitle}</p>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {best.tags.map((tag) => (
+      <p className={cn("text-sm font-medium leading-6 text-[color:var(--text-muted)]", compact ? "mt-2.5" : "mt-3")}>
+        {best.subtitle}
+      </p>
+      <div className={cn("flex flex-wrap gap-1.5", compact ? "mt-2.5" : "mt-3")}>
+        {visibleTags.map((tag) => (
           <Chip key={tag}>{tag}</Chip>
         ))}
+        {hiddenTagCount > 0 ? <Chip>{`+${hiddenTagCount}`}</Chip> : null}
       </div>
     </section>
   );
@@ -582,13 +688,13 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
         Highest urgency
       </h2>
       <div className="mt-3 grid gap-2">
-        {urgentResults.map((result, index) => (
+        {urgentResults.map((result) => (
           <Link
             key={result.id}
             href={result.href}
-            className="grid min-h-10 grid-cols-[5.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] px-2 text-sm font-bold text-[color:var(--text-heading)]"
+            className="grid min-h-10 grid-cols-[5.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] px-2 text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
           >
-            <StatusBadge status={index === 0 ? "emergent" : result.status} />
+            <StatusBadge status={result.status} />
             <span className="truncate">{result.title}</span>
             <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
           </Link>
@@ -602,11 +708,13 @@ function SourceStatusCard({
   sourceCount,
   evidenceState,
   loading,
+  sourcesChecked,
   onRunSourceSearch,
 }: {
   sourceCount: number;
   evidenceState: DifferentialEvidenceState;
   loading: boolean;
+  sourcesChecked: boolean;
   onRunSourceSearch: () => void;
 }) {
   const hasSourceEvidence = evidenceState === "source-backed";
@@ -623,27 +731,35 @@ function SourceStatusCard({
             {hasSourceEvidence ? "Source-backed" : "Guided local differential"}
           </span>
           <span className="text-[color:var(--text-muted)]">
-            {hasSourceEvidence ? `${sourceCount.toLocaleString()} sources` : "Evidence pending"}
+            {hasSourceEvidence
+              ? `${sourceCount.toLocaleString()} sources`
+              : sourcesChecked
+                ? "0 matches"
+                : "Evidence pending"}
           </span>
         </p>
         <p className="flex items-center justify-between gap-3 text-[color:var(--warning)]">
           <span className="inline-flex items-center gap-2">
             <CircleHelp className="h-4 w-4" aria-hidden />
-            {hasSourceEvidence ? "Imported catalogue" : "Run source search"}
+            {hasSourceEvidence ? "Imported catalogue" : sourcesChecked ? "Sources checked" : "Run source search"}
           </span>
           <span className="text-[color:var(--text-muted)]">
             {hasSourceEvidence
               ? `${sourceCount.toLocaleString()} source${sourceCount === 1 ? "" : "s"}`
-              : "Not yet checked"}
+              : sourcesChecked
+                ? "No matches"
+                : "Not yet checked"}
           </span>
         </p>
       </div>
       <p className="mt-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
         {hasSourceEvidence
           ? "Catalogue matches are ranked from the imported, locally reviewed differentials library."
-          : "Showing reviewed local differential records. Run source search to validate against indexed documents."}
+          : sourcesChecked
+            ? "No indexed documents matched this query. Showing catalogue-only results."
+            : "Showing reviewed local differential records. Run source search to validate against indexed documents."}
       </p>
-      {!hasSourceEvidence ? (
+      {!hasSourceEvidence && !sourcesChecked ? (
         <button
           type="button"
           onClick={onRunSourceSearch}
@@ -665,6 +781,7 @@ function InterpretationRail({
   sourceCount,
   evidenceState,
   loading,
+  sourcesChecked,
   onRunSourceSearch,
 }: {
   best: DifferentialResult;
@@ -673,6 +790,7 @@ function InterpretationRail({
   sourceCount: number;
   evidenceState: DifferentialEvidenceState;
   loading: boolean;
+  sourcesChecked: boolean;
   onRunSourceSearch: () => void;
 }) {
   const safetyLead = results.find((result) => result.status === "emergent") ?? best;
@@ -691,6 +809,7 @@ function InterpretationRail({
         sourceCount={sourceCount}
         evidenceState={evidenceState}
         loading={loading}
+        sourcesChecked={sourcesChecked}
         onRunSourceSearch={onRunSourceSearch}
       />
       <p className="px-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
@@ -722,29 +841,54 @@ function SearchResultsView({
     [catalog.matches],
   );
   const [kindFilter, setKindFilter] = useState<"all" | "presentation" | "diagnosis">("all");
+  const [sortMode, setSortMode] = useState<SortMode>("relevance");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
-  // Selection and filter follow the ranked result set: seed the top two for
-  // comparison and drop stale ids whenever a new query changes the results
+  // Selection, filter, and sort follow the ranked result set: seed the top two
+  // for comparison and drop stale ids whenever a new query changes the results
   // (render-time sync, matching the repo's set-state-in-render pattern).
   const resultSignature = results.map((result) => result.id).join("|");
   const [lastResultSignature, setLastResultSignature] = useState(resultSignature);
   if (lastResultSignature !== resultSignature) {
     setLastResultSignature(resultSignature);
     setKindFilter("all");
-    setSelectedIds(new Set(results.slice(0, 2).map((result) => result.id)));
+    setSortMode("relevance");
+    setSelectedIds(
+      new Set(
+        results
+          .filter((result) => result.kind === "diagnosis")
+          .slice(0, 2)
+          .map((result) => result.id),
+      ),
+    );
   }
 
   const presentationCount = results.filter((result) => result.kind === "presentation").length;
   const diagnosisCount = results.length - presentationCount;
-  const visibleResults = kindFilter === "all" ? results : results.filter((result) => result.kind === kindFilter);
+  const visibleResults = sortResults(
+    kindFilter === "all" ? results : results.filter((result) => result.kind === kindFilter),
+    sortMode,
+  );
   const best = results[0] ?? null;
-  const selectedCount = selectedIds.size;
+  // Same lead the desktop interpretation rail uses for its safety card.
+  const safetyLead = results.find((result) => result.status === "emergent") ?? best;
+  const comparisonIds = useMemo(
+    () =>
+      new Set(
+        results
+          .filter((result) => result.kind === "diagnosis" && selectedIds.has(result.id))
+          .map((result) => result.id),
+      ),
+    [results, selectedIds],
+  );
+  const selectedCount = comparisonIds.size;
   // Catalogue results follow composer edits live, but document evidence only
   // updates on an executed source search — treat evidence fetched for a
   // different query as pending so the two panels never claim to be in sync.
   const evidenceIsCurrent = (evidenceQuery ?? "").trim().toLowerCase() === query.trim().toLowerCase();
   const currentDocumentMatches = evidenceIsCurrent ? documentMatches : undefined;
   const hasSourceEvidence = Boolean(currentDocumentMatches?.length);
+  // Distinguish between "not searched yet" (undefined) and "searched with zero results" (defined but empty)
+  const sourcesChecked = evidenceIsCurrent && documentMatches !== undefined;
   const evidenceState: DifferentialEvidenceState = hasSourceEvidence ? "source-backed" : "guided";
   // Count the sources that actually matched this search, never the whole
   // indexed library - the surrounding copy states these reflect real matches.
@@ -771,17 +915,17 @@ function SearchResultsView({
       data-testid="differentials-search-results"
       className="mx-auto grid w-full max-w-[86rem] gap-4 overflow-x-hidden px-3 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:px-4 lg:px-0 lg:pb-0"
     >
-      <div className="hidden lg:block">
-        <SearchResultsHeaderBand
-          modeId="differentials"
-          query={query}
-          matchCount={results.length}
-          loading={loading || catalogLoading}
-        />
-      </div>
+      {/* Query context lives here on every breakpoint — on phones this is the
+          only place the submitted query is visible above the fold. */}
+      <SearchResultsHeaderBand
+        modeId="differentials"
+        query={query}
+        matchCount={results.length}
+        loading={loading || catalogLoading}
+      />
       <p
         data-testid="differentials-catalogue-notice"
-        className="flex items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/50 px-3 py-2 text-xs font-semibold leading-5 text-[color:var(--info)] sm:text-sm"
+        className="flex items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/50 px-3 py-1.5 text-xs font-semibold leading-5 text-[color:var(--info)] sm:py-2 sm:text-sm"
       >
         <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <span>
@@ -870,35 +1014,42 @@ function SearchResultsView({
                 </h2>
               </div>
               <div className="hidden items-center gap-2 sm:flex">
-                <button
-                  type="button"
-                  onClick={rerunSearch}
-                  disabled={loading}
-                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
-                >
-                  {hasSourceEvidence ? (
-                    <GitCompareArrows className="h-4 w-4" aria-hidden />
-                  ) : (
+                {!hasSourceEvidence && !sourcesChecked ? (
+                  <button
+                    type="button"
+                    onClick={rerunSearch}
+                    disabled={loading}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)] disabled:cursor-wait disabled:opacity-60"
+                  >
                     <Search className="h-4 w-4" aria-hidden />
-                  )}
-                  {hasSourceEvidence ? "Compare top 3" : "Run source search"}
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
-                >
-                  <Filter className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
-                  Filters
-                </button>
+                    {loading ? "Searching sources" : "Run source search"}
+                  </button>
+                ) : sourcesChecked && !hasSourceEvidence ? (
+                  <p className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 text-sm font-semibold text-[color:var(--text-heading)]">
+                    <Info className="h-4 w-4 text-[color:var(--warning)]" aria-hidden />
+                    No source matches found
+                  </p>
+                ) : null}
+                <SortSelect value={sortMode} onChange={setSortMode} className="min-h-10" />
               </div>
             </div>
 
             <div className="grid gap-2 lg:hidden">
               <BestAnswerCard
                 best={best}
+                compact
                 selected={selectedIds.has(best.id)}
-                onToggle={() => toggleSelected(best.id)}
+                onToggle={best.kind === "diagnosis" ? () => toggleSelected(best.id) : undefined}
               />
+              {safetyLead?.safety ? (
+                <p className="flex items-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/40 px-3 py-2 text-xs font-semibold leading-5 text-[color:var(--text-heading)]">
+                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--danger)]" aria-hidden />
+                  <span>
+                    <span className="font-extrabold text-[color:var(--danger)]">Safety first: </span>
+                    {safetyLead.safety}
+                  </span>
+                </p>
+              ) : null}
               <ResultTypeTabs
                 activeFilter={kindFilter}
                 onFilterChange={setKindFilter}
@@ -907,37 +1058,41 @@ function SearchResultsView({
                 diagnosisCount={diagnosisCount}
               />
               <div className="flex items-center justify-between gap-2 text-sm font-medium text-[color:var(--text-muted)]">
-                <span>
+                <span className="min-w-0 truncate">
                   <strong className="text-[color:var(--text-heading)]">
                     {visibleResults.length} result{visibleResults.length === 1 ? "" : "s"}
                   </strong>{" "}
-                  · {hasSourceEvidence ? "Ranked by relevance" : "Catalogue ranking"}
+                  · {hasSourceEvidence ? "Source-backed" : "Catalogue ranking"}
                 </span>
-                <button
-                  type="button"
-                  className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]"
-                >
-                  Sort
-                  <ChevronRight className="h-3.5 w-3.5 rotate-90" aria-hidden />
-                </button>
+                <SortSelect value={sortMode} onChange={setSortMode} />
               </div>
-              {!hasSourceEvidence ? (
+              {!hasSourceEvidence && !sourcesChecked ? (
                 <section
                   aria-label="Source status"
-                  className="grid gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 p-3 text-sm"
+                  className="flex items-center justify-between gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 py-1.5 pl-3 pr-1.5 text-xs"
                 >
-                  <p className="font-semibold leading-5 text-[color:var(--text-heading)]">
-                    Showing ranked catalogue records. Source-library evidence has not been checked for this query yet.
+                  <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
+                    Sources not checked for this query yet.
                   </p>
                   <button
                     type="button"
                     onClick={rerunSearch}
                     disabled={loading}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
+                    className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
                   >
-                    <Search className="h-4 w-4" aria-hidden />
-                    {loading ? "Searching sources" : "Run source search"}
+                    <Search className="h-3.5 w-3.5" aria-hidden />
+                    {loading ? "Searching…" : "Run source search"}
                   </button>
+                </section>
+              ) : sourcesChecked && !hasSourceEvidence ? (
+                <section
+                  aria-label="Source status"
+                  className="flex items-center gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/40 py-2 pl-3 pr-3 text-xs"
+                >
+                  <Info className="h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden />
+                  <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
+                    No source matches found for this query.
+                  </p>
                 </section>
               ) : null}
             </div>
@@ -950,25 +1105,29 @@ function SearchResultsView({
                 const globalIndex = results.findIndex((entry) => entry.kind === result.kind && entry.id === result.id);
                 const isBest = result.kind === best.kind && result.id === best.id;
                 return (
-                  <div key={`${result.kind}-${result.id}`}>
+                  // The best answer is already featured above the phone list,
+                  // so its ranked duplicate only renders from the desktop
+                  // breakpoint (hiding the wrapper keeps the grid gap clean).
+                  <div key={`${result.kind}-${result.id}`} className={cn(isBest && "max-lg:hidden")}>
                     <div className="hidden lg:block">
                       <DesktopResultRow
                         result={result}
                         index={globalIndex}
                         isBest={isBest}
                         selected={selectedIds.has(result.id)}
-                        onToggle={() => toggleSelected(result.id)}
+                        onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
                       />
                     </div>
-                    <div className="lg:hidden">
-                      <MobileResultCard
-                        result={result}
-                        index={globalIndex}
-                        isBest={isBest}
-                        selected={selectedIds.has(result.id)}
-                        onToggle={() => toggleSelected(result.id)}
-                      />
-                    </div>
+                    {!isBest ? (
+                      <div className="lg:hidden">
+                        <MobileResultCard
+                          result={result}
+                          index={globalIndex}
+                          selected={selectedIds.has(result.id)}
+                          onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -976,20 +1135,30 @@ function SearchResultsView({
 
             <Link
               href={routeWithQuery("/differentials/diagnoses", query)}
-              className="hidden min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] lg:inline-flex"
+              className="hidden min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] lg:inline-flex"
             >
               View all catalogue matches ({results.length})
-              <ChevronRight className="h-4 w-4 rotate-90" aria-hidden />
+              <ChevronRight className="h-4 w-4" aria-hidden />
             </Link>
 
-            <Link
-              href={routeWithQuery("/differentials/presentations", query)}
-              className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-base font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] lg:inline-flex"
-            >
-              <GitCompareArrows className="h-5 w-5" aria-hidden />
-              Compare selected ({selectedCount})
-              <ChevronRight className="ml-auto h-5 w-5" aria-hidden />
-            </Link>
+            {selectedCount > 0 ? (
+              <Link
+                href={routeWithQuery("/differentials/presentations", query, comparisonIds)}
+                className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-base font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition hover:bg-[color:var(--clinical-accent-hover)] lg:inline-flex"
+              >
+                <GitCompareArrows className="h-5 w-5" aria-hidden />
+                Compare selected
+                <span className="nums grid h-7 min-w-7 place-items-center rounded-full bg-[color:var(--clinical-accent-contrast)]/20 px-1.5 text-sm">
+                  {selectedCount}
+                </span>
+                <ChevronRight className="ml-auto h-5 w-5" aria-hidden />
+              </Link>
+            ) : (
+              <p className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] lg:inline-flex">
+                <GitCompareArrows className="h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
+                Tick results to compare them side by side
+              </p>
+            )}
           </section>
 
           <InterpretationRail
@@ -999,12 +1168,15 @@ function SearchResultsView({
             sourceCount={reviewedSourceCount}
             evidenceState={evidenceState}
             loading={loading}
+            sourcesChecked={sourcesChecked}
             onRunSourceSearch={rerunSearch}
           />
         </div>
       )}
 
-      {best ? <DifferentialsMobileCompareAddon selectedCount={selectedCount} query={query} /> : null}
+      {best ? (
+        <DifferentialsMobileCompareBar selectedCount={selectedCount} selectedIds={comparisonIds} query={query} />
+      ) : null}
 
       <p className="pb-3 text-center text-xs font-medium text-[color:var(--text-muted)] lg:hidden">
         Clinical decision support only. Review before use.

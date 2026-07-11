@@ -1294,6 +1294,12 @@ test.describe("Clinical KB tools launcher", () => {
     expect(desktopTableBox?.width ?? 0).toBeGreaterThan(900);
     await expectNoPageHorizontalOverflow(page);
 
+    await gotoLauncher(page, "/differentials/presentations?ids=wernicke-encephalopathy");
+    await expect(page).toHaveURL(/ids=wernicke-encephalopathy/);
+    await expect(
+      page.getByRole("heading", { name: `Selected differentials (1 of ${workflow.totalCount})` }).first(),
+    ).toBeVisible();
+
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials/presentations");
 

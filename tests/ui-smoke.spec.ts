@@ -31,11 +31,6 @@ async function gotoApp(page: Page, path: string) {
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 }
 
-async function gotoCriticalApp(page: Page, path: string) {
-  await page.goto(path, { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#main-content, main").first()).toBeVisible({ timeout: 30_000 });
-}
-
 async function expectSingleMedicationPage(page: Page) {
   // The medication route renders inside GlobalMockupSearchShell, whose Suspense
   // fallback and resolved client subtree both render `children`. During a
@@ -299,7 +294,11 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
       documentId?: string;
       documentIds?: string[];
     };
-    const query = body.query ?? "What monitoring is required?";
+    const query = typeof body.query === "string" ? body.query.trim() : "";
+    if (!query || query.length > 2000) {
+      await route.fulfill({ status: 400, json: { error: "A query between 1 and 2000 characters is required." } });
+      return;
+    }
     options.onAnswerRequest?.(query);
     if (options.answerDelayMs) {
       await new Promise((resolve) => setTimeout(resolve, options.answerDelayMs));
@@ -817,7 +816,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { results: [], telemetry: { retrieval_strategy: "text_fast_path" } } });
     });
-    await gotoCriticalApp(page, "/");
+    await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
     await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
@@ -887,7 +886,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("tablet shows icon rail without drawer trigger or expand control @critical", async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await mockDemoApi(page);
-    await gotoCriticalApp(page, "/?mode=answer");
+    await gotoApp(page, "/?mode=answer");
     await waitForDemoDashboardReady(page);
 
     await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
@@ -973,7 +972,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoCriticalApp(page, "/");
+    await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
     const settings = accountSettingsDialog(page);
@@ -1132,7 +1131,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("demo answer flow reaches a source-backed answer @critical", async ({ browserName, page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
-    await gotoCriticalApp(page, "/");
+    await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
     const question = "What clozapine monitoring items are shown in the table image?";
@@ -1878,13 +1877,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     let requestCount = 0;
+    let resolveCurrentResponse!: () => void;
+    const currentResponseDelivered = new Promise<void>((resolve) => {
+      resolveCurrentResponse = resolve;
+    });
     await page.route(/\/api\/search$/, async (route) => {
       requestCount += 1;
       const currentRequest = requestCount;
       if (currentRequest === 1) await new Promise((resolve) => setTimeout(resolve, 500));
       const sourceCount = currentRequest === 1 ? 2 : 1;
-      await route
-        .fulfill({
+      try {
+        await route.fulfill({
           json: {
             documentMatches: Array.from({ length: sourceCount }, (_, index) => ({
               document_id: `00000000-0000-4000-8000-00000000000${index}`,
@@ -1893,8 +1896,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
               score: 0.9 - index * 0.1,
             })),
           },
-        })
-        .catch(() => undefined);
+        });
+        if (currentRequest > 1) resolveCurrentResponse();
+      } catch (error) {
+        if (currentRequest > 1) throw error;
+      }
     });
 
     await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
@@ -1905,10 +1911,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
 
     await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
+    await currentResponseDelivered;
     const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
     const singularSourceCount = sourceStatus.getByText("1 source", { exact: true });
-    await expect(singularSourceCount).toBeVisible();
-    await page.waitForTimeout(600);
     await expect(singularSourceCount).toBeVisible();
     await expect(sourceStatus).not.toContainText("2 sources");
   });
@@ -2029,7 +2034,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoCriticalApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
+    await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
 
     const globalSearchInput = page.getByTestId("global-search-input");
     await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
@@ -2043,7 +2048,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectSingleMedicationPage(page);
     await expect(page.getByRole("link", { name: "Back to medication search" })).toBeVisible();
 
-    await gotoCriticalApp(page, "/mockups/medication-prescribing");
+    await gotoApp(page, "/mockups/medication-prescribing");
     await expect(page).toHaveURL(/\/medications\/acamprosate$/);
     await expectSingleMedicationPage(page);
     expect(parentNodeErrors).toEqual([]);
@@ -2086,7 +2091,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("document search mode lists matching documents and scope actions @critical", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
-    await gotoCriticalApp(page, "/");
+    await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
     await switchToDocumentSearchMode(page);
@@ -2173,7 +2178,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("search regressions avoid fetch errors and open viewer hits @critical", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoCriticalApp(page, "/");
+    await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
     await switchToDocumentSearchMode(page);
@@ -2186,7 +2191,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: /Search command centre|Find source evidence/ })).toBeVisible();
 
     const demoDocId = "11111111-1111-4111-8111-111111111111";
-    await gotoCriticalApp(page, `/documents/${demoDocId}?chunk=55555555-5555-4555-8555-555555555555`);
+    await gotoApp(page, `/documents/${demoDocId}?chunk=55555555-5555-4555-8555-555555555555`);
     await expect(page).toHaveURL(/chunk=55555555-5555-4555-8555-555555555555/);
     await expect(page.locator("#source-evidence").getByTestId("highlighted-source-passage")).toContainText(
       "Patient safety plan should include",

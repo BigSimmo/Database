@@ -593,11 +593,25 @@ function MobileTabs({ workflow }: { workflow: DifferentialPresentationWorkflow }
 export function DifferentialPresentationWorkflowPage({
   query = "",
   presentationSlug = "acute-confusion-encephalopathy",
+  selectedIds = [],
 }: {
   query?: string;
   presentationSlug?: string;
+  selectedIds?: string[];
 }) {
-  const workflow = getPresentationWorkflow(presentationSlug) ?? acuteConfusionPresentationWorkflow;
+  const baseWorkflow = getPresentationWorkflow(presentationSlug) ?? acuteConfusionPresentationWorkflow;
+  const requestedIds = new Set(selectedIds);
+  const workflow = requestedIds.size
+    ? (() => {
+        let selectedCount = 0;
+        const candidates = baseWorkflow.candidates.map((candidate) => {
+          const selected = requestedIds.has(candidate.slug);
+          if (selected) selectedCount += 1;
+          return { ...candidate, selected };
+        });
+        return { ...baseWorkflow, candidates, selectedCount };
+      })()
+    : baseWorkflow;
   const candidates = getCandidates(workflow);
 
   return (
