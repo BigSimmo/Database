@@ -294,7 +294,11 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
       documentId?: string;
       documentIds?: string[];
     };
-    const query = body.query ?? "What monitoring is required?";
+    const query = typeof body.query === "string" ? body.query.trim() : "";
+    if (!query || query.length > 2000) {
+      await route.fulfill({ status: 400, json: { error: "A query between 1 and 2000 characters is required." } });
+      return;
+    }
     options.onAnswerRequest?.(query);
     if (options.answerDelayMs) {
       await new Promise((resolve) => setTimeout(resolve, options.answerDelayMs));
@@ -806,7 +810,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
   }
 
-  test("anonymous user can see enabled live search without a forced sign-in gate", async ({ page }) => {
+  test("anonymous user can see enabled live search without a forced sign-in gate @critical", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockPrivateUnauthenticatedApi(page);
     await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
@@ -1873,13 +1877,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     let requestCount = 0;
+    let resolveCurrentResponse!: () => void;
+    const currentResponseDelivered = new Promise<void>((resolve) => {
+      resolveCurrentResponse = resolve;
+    });
     await page.route(/\/api\/search$/, async (route) => {
       requestCount += 1;
       const currentRequest = requestCount;
       if (currentRequest === 1) await new Promise((resolve) => setTimeout(resolve, 500));
       const sourceCount = currentRequest === 1 ? 2 : 1;
-      await route
-        .fulfill({
+      try {
+        await route.fulfill({
           json: {
             documentMatches: Array.from({ length: sourceCount }, (_, index) => ({
               document_id: `00000000-0000-4000-8000-00000000000${index}`,
@@ -1888,8 +1896,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
               score: 0.9 - index * 0.1,
             })),
           },
-        })
-        .catch(() => undefined);
+        });
+        if (currentRequest > 1) resolveCurrentResponse();
+      } catch (error) {
+        if (currentRequest > 1) throw error;
+      }
     });
 
     await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
@@ -1900,10 +1911,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
 
     await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
+    await currentResponseDelivered;
     const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
     const singularSourceCount = sourceStatus.getByText("1 source", { exact: true });
-    await expect(singularSourceCount).toBeVisible();
-    await page.waitForTimeout(600);
     await expect(singularSourceCount).toBeVisible();
     await expect(sourceStatus).not.toContainText("2 sources");
   });

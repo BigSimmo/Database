@@ -418,7 +418,7 @@ function DesktopResultRow({
   index: number;
   isBest: boolean;
   selected: boolean;
-  onToggle: () => void;
+  onToggle?: () => void;
 }) {
   const Icon = result.icon;
 
@@ -482,16 +482,18 @@ function DesktopResultRow({
           <ExternalLink className="h-4 w-4" aria-hidden />
           Open page
         </Link>
-        <button
-          type="button"
-          onClick={onToggle}
-          className="inline-flex min-h-10 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
-        >
-          <GitCompareArrows className="h-4 w-4" aria-hidden />
-          {selected ? "Compared" : "Compare"}
-        </button>
+        {onToggle ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="inline-flex min-h-10 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
+          >
+            <GitCompareArrows className="h-4 w-4" aria-hidden />
+            {selected ? "Compared" : "Compare"}
+          </button>
+        ) : null}
       </div>
-      <SelectionToggle selected={selected} onClick={onToggle} label={result.title} />
+      {onToggle ? <SelectionToggle selected={selected} onClick={onToggle} label={result.title} /> : <span />}
     </article>
   );
 }
@@ -505,7 +507,7 @@ function MobileResultCard({
   result: DifferentialResult;
   index: number;
   selected: boolean;
-  onToggle: () => void;
+  onToggle?: () => void;
 }) {
   const Icon = result.icon;
 
@@ -536,7 +538,7 @@ function MobileResultCard({
             <MatchBadge label={result.matchLabel} />
           </div>
         </div>
-        <SelectionToggle selected={selected} onClick={onToggle} label={result.title} />
+        {onToggle ? <SelectionToggle selected={selected} onClick={onToggle} label={result.title} /> : <span />}
       </div>
       <div className="flex max-w-full flex-wrap gap-1.5">
         {result.tags.slice(0, 2).map((tag) => (
@@ -850,7 +852,14 @@ function SearchResultsView({
     setLastResultSignature(resultSignature);
     setKindFilter("all");
     setSortMode("relevance");
-    setSelectedIds(new Set(results.slice(0, 2).map((result) => result.id)));
+    setSelectedIds(
+      new Set(
+        results
+          .filter((result) => result.kind === "diagnosis")
+          .slice(0, 2)
+          .map((result) => result.id),
+      ),
+    );
   }
 
   const presentationCount = results.filter((result) => result.kind === "presentation").length;
@@ -1030,7 +1039,7 @@ function SearchResultsView({
                 best={best}
                 compact
                 selected={selectedIds.has(best.id)}
-                onToggle={() => toggleSelected(best.id)}
+                onToggle={best.kind === "diagnosis" ? () => toggleSelected(best.id) : undefined}
               />
               {safetyLead?.safety ? (
                 <p className="flex items-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/40 px-3 py-2 text-xs font-semibold leading-5 text-[color:var(--text-heading)]">
@@ -1106,7 +1115,7 @@ function SearchResultsView({
                         index={globalIndex}
                         isBest={isBest}
                         selected={selectedIds.has(result.id)}
-                        onToggle={() => toggleSelected(result.id)}
+                        onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
                       />
                     </div>
                     {!isBest ? (
@@ -1115,7 +1124,7 @@ function SearchResultsView({
                           result={result}
                           index={globalIndex}
                           selected={selectedIds.has(result.id)}
-                          onToggle={() => toggleSelected(result.id)}
+                          onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
                         />
                       </div>
                     ) : null}

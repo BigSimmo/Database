@@ -602,14 +602,15 @@ export function DifferentialPresentationWorkflowPage({
   const baseWorkflow = getPresentationWorkflow(presentationSlug) ?? acuteConfusionPresentationWorkflow;
   const requestedIds = new Set(selectedIds);
   const workflow = requestedIds.size
-    ? {
-        ...baseWorkflow,
-        candidates: baseWorkflow.candidates.map((candidate) => ({
-          ...candidate,
-          selected: requestedIds.has(candidate.slug),
-        })),
-        selectedCount: baseWorkflow.candidates.filter((candidate) => requestedIds.has(candidate.slug)).length,
-      }
+    ? (() => {
+        let selectedCount = 0;
+        const candidates = baseWorkflow.candidates.map((candidate) => {
+          const selected = requestedIds.has(candidate.slug);
+          if (selected) selectedCount += 1;
+          return { ...candidate, selected };
+        });
+        return { ...baseWorkflow, candidates, selectedCount };
+      })()
     : baseWorkflow;
   const candidates = getCandidates(workflow);
 

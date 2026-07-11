@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
+import { getPresentationWorkflowForDiagnosisIds } from "@/lib/differentials";
+
 type DifferentialPresentationsRouteProps = {
   searchParams?: Promise<{ query?: string | string[]; q?: string | string[]; ids?: string | string[] }>;
 };
@@ -12,9 +14,14 @@ export default async function DifferentialPresentationsRoute({ searchParams }: D
   const params = searchParams ? await searchParams : {};
   const query = firstSearchParam(params.query ?? params.q)?.trim();
   const ids = firstSearchParam(params.ids)?.trim();
+  const selectedIds = (ids ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const presentation = getPresentationWorkflowForDiagnosisIds(selectedIds);
   const destinationParams = new URLSearchParams();
   if (query) destinationParams.set("q", query);
   if (ids) destinationParams.set("ids", ids);
   const suffix = destinationParams.size ? `?${destinationParams.toString()}` : "";
-  redirect(`/differentials/presentations/acute-confusion-encephalopathy${suffix}`);
+  redirect(`/differentials/presentations/${presentation?.id ?? "acute-confusion-encephalopathy"}${suffix}`);
 }

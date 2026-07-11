@@ -10,6 +10,7 @@ import {
   differentialStaticParams,
   getDifferentialRecord,
   getPresentationWorkflow,
+  getPresentationWorkflowForDiagnosisIds,
   loadDifferentialSnapshot,
   rankDifferentialRecords,
   rankPresentationWorkflows,
@@ -19,6 +20,15 @@ import {
   type DifferentialRecord,
   type DifferentialRecordMatch,
 } from "@/lib/differentials";
+
+describe("presentation workflow routing", () => {
+  it("routes selected diagnoses to a workflow that contains them", () => {
+    expect(getPresentationWorkflowForDiagnosisIds(["bipolar-depression-mixed-state"])?.id).toBe(
+      "suicidal-ideation-suicide-attempt-self-harm",
+    );
+    expect(getPresentationWorkflowForDiagnosisIds([])).toBeNull();
+  });
+});
 
 const deliriumEntry = `=== ENTRY 1 ===
 Delirium / Acute Confusion / Encephalopathy
