@@ -523,6 +523,11 @@ function PriorAnswerTurnSurface({
     turn.answer.sources?.length ||
     turn.answer.citations.length;
   const previewText = safeText || turn.answer.answer;
+  const needsSourceReview =
+    turn.answer.answerQualityTier === "source_only" ||
+    turn.answer.grounded === false ||
+    renderModel.trust === "low" ||
+    renderModel.trust === "unsupported";
 
   return (
     <div
@@ -548,16 +553,31 @@ function PriorAnswerTurnSurface({
         {collapsed ? (
           <p className={cn("line-clamp-2 text-sm leading-6", textMuted)}>{previewText}</p>
         ) : (
-          <NaturalLanguageAnswer
-            text={previewText}
-            sourceCount={sourceCount}
-            sourceOnly={turn.answer.answerQualityTier === "source_only"}
-            bestSource={renderModel.bestSource}
-            sources={renderModel.reviewSources}
-            sourceLinks={renderModel.primarySources}
-            copied={copied}
-            onCopy={() => onCopy(renderModel.copyText || previewText)}
-          />
+          <>
+            <NaturalLanguageAnswer
+              text={previewText}
+              sourceCount={sourceCount}
+              sourceOnly={turn.answer.answerQualityTier === "source_only"}
+              bestSource={renderModel.bestSource}
+              sources={renderModel.reviewSources}
+              sourceLinks={renderModel.primarySources}
+              copied={copied}
+              onCopy={() => onCopy(renderModel.copyText || previewText)}
+            />
+            {needsSourceReview ? (
+              <div
+                role="note"
+                data-testid="prior-answer-source-review"
+                className="mt-2 flex items-start gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-xs text-[color:var(--text-muted)]"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                <span>
+                  <strong className="text-[color:var(--text-heading)]">Review source match.</strong> Verify cited
+                  passages before relying on this previous answer.
+                </span>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </div>

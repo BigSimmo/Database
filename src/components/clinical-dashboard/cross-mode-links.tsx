@@ -65,7 +65,6 @@ function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCar
       <button
         type="button"
         onClick={() => {
-          logCrossModeLinkOpen(query, link);
           onModeSearch(link.modeId, link.modeSearchQuery);
         }}
         aria-label={`Search ${link.title} in ${link.modeLabel}`}
