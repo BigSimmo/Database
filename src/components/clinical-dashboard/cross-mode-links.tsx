@@ -23,6 +23,8 @@ function badgeChipTone(tone: CrossModeLinkBadge["tone"]): SemanticChipTone | nul
   return tone === "clinical" ? "info" : tone;
 }
 
+type CrossModeLinksVariant = "card" | "compact";
+
 type CrossModeLinkCardProps = {
   link: CrossModeLink;
   Icon: LucideIcon;
@@ -77,6 +79,47 @@ function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCar
   );
 }
 
+// Compact one-line variant of the card: a small rectangle with the entity
+// name and mode label linking to the reference, plus a square trailing
+// button that re-runs the search inside that mode. Used where vertical
+// space matters (e.g. the documents search page).
+function CrossModeLinkChip({ link, Icon, query, onModeSearch }: CrossModeLinkCardProps) {
+  return (
+    <article
+      role="listitem"
+      className="flex shrink-0 items-stretch overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-tight)]"
+    >
+      <Link
+        href={link.detailHref}
+        onClick={() => logCrossModeLinkOpen(query, link)}
+        className="inline-flex min-h-11 min-w-0 items-center gap-2 px-2.5 transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9"
+      >
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+          <Icon className="h-3.5 w-3.5" aria-hidden />
+        </span>
+        <span className="max-w-[13rem] truncate text-xs font-semibold text-[color:var(--text-heading)]">
+          {link.title}
+        </span>
+        <span className="shrink-0 text-2xs font-semibold uppercase tracking-[0.04em] text-[color:var(--text-soft)]">
+          {link.modeLabel}
+        </span>
+      </Link>
+      <button
+        type="button"
+        // Matches the card variant: the search button re-runs the query in the
+        // target mode, so it must not emit a cross_mode_link_open (a detail-page
+        // open) — only the title link above does. Otherwise every "Search in …"
+        // click would corrupt retrieval-quality/click telemetry.
+        onClick={() => onModeSearch(link.modeId, link.modeSearchQuery)}
+        aria-label={`Search ${link.title} in ${link.modeLabel}`}
+        className="grid min-h-11 w-11 shrink-0 place-items-center border-l border-[color:var(--border)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9 md:w-9"
+      >
+        <Search className="h-3.5 w-3.5" aria-hidden />
+      </button>
+    </article>
+  );
+}
+
 // Self-contained cross-mode links surface: owns the catalog fetching (same
 // owner-scoped APIs the modes use; fixtures in demo mode), entity matching,
 // and the strip. Mount it under any search-results surface and pass the
@@ -85,11 +128,13 @@ export function CrossModeLinksSection({
   queries,
   enabled = true,
   onModeSearch,
+  variant = "card",
 }: {
   queries: Array<string | null | undefined>;
   enabled?: boolean;
   // Defaults to navigating to the target mode with the search pre-run.
   onModeSearch?: (mode: AppModeId, query: string) => void;
+  variant?: CrossModeLinksVariant;
 }) {
   const router = useRouter();
   const services = useRegistryRecords("service", { enabled });
@@ -131,28 +176,36 @@ export function CrossModeLinksSection({
       router.push(appModeHomeHref(mode, { query, focus: true, run: true }));
     });
 
-  return <CrossModeLinksStrip links={links} onModeSearch={handleModeSearch} query={telemetryQuery} />;
+  return <CrossModeLinksStrip links={links} onModeSearch={handleModeSearch} query={telemetryQuery} variant={variant} />;
 }
 
 export function CrossModeLinksStrip({
   links,
   onModeSearch,
   query = "",
+  variant = "card",
 }: {
   links: CrossModeLink[];
   onModeSearch: (mode: AppModeId, query: string) => void;
   // The search text that produced the links; used only for click telemetry.
   query?: string;
+  variant?: CrossModeLinksVariant;
 }) {
   if (links.length === 0) return null;
+
+  const compact = variant === "compact";
+  const LinkItem = compact ? CrossModeLinkChip : CrossModeLinkCard;
 
   return (
     <section
       aria-label="Related pages in other modes"
-      className="max-w-[68ch] border-t border-[color:var(--border)] pt-2.5"
+      className={cn(
+        "border-t border-[color:var(--border)] pt-2.5",
+        compact ? "md:flex md:items-center md:gap-3" : "max-w-[68ch]",
+      )}
       data-testid="cross-mode-links"
     >
-      <p className={cn(eyebrowText, "mb-2")}>
+      <p className={cn(eyebrowText, compact ? "mb-2 shrink-0 md:mb-0" : "mb-2")}>
         Also in your library
         {links.length > 1 ? (
           <span className="font-medium normal-case tracking-normal text-[color:var(--text-muted)]">
@@ -164,13 +217,20 @@ export function CrossModeLinksStrip({
 
       <div
         role="list"
-        className="grid min-w-0 gap-1.5 md:flex md:max-w-full md:flex-wrap md:gap-2"
+        tabIndex={compact && links.length > 1 ? 0 : undefined}
+        aria-label={compact && links.length > 1 ? "Related library matches; scroll horizontally for more" : undefined}
+        className={cn(
+          "cross-mode-links-rail",
+          compact
+            ? "polished-scroll flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 md:pb-0"
+            : "grid min-w-0 gap-1.5 md:flex md:max-w-full md:flex-wrap md:gap-2",
+        )}
         data-testid="cross-mode-links-rail"
       >
         {links.map((link) => {
           const Icon = appModeIcons[link.modeId];
           return (
-            <CrossModeLinkCard
+            <LinkItem
               key={`${link.modeId}:${link.slug}`}
               link={link}
               Icon={Icon}
