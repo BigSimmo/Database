@@ -114,15 +114,42 @@ import {
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
 import { applyMemoryCardBoosts, fetchMemoryCardsForQuery, ragDeepMemoryVersion } from "@/lib/deep-memory";
-import { cleanClinicalSummaryText, isLowYieldClinicalText, sourceTextForDisplay } from "@/lib/source-text-sanitizer";
+import {
+  buildAnswerScoreExplanations,
+  buildIndexingQuality,
+  collectMemoryCards,
+  deriveConfidence,
+  evidenceTextForGate,
+  fallbackReasonFromRouting,
+  machineReadableFallbackAnswer,
+  scoreValue,
+} from "@/lib/rag-answer-support";
+export {
+  buildAnswerScoreExplanations,
+  buildIndexingQuality,
+  collectMemoryCards,
+  deriveConfidence,
+  evidenceTextForGate,
+  fallbackReasonFromRouting,
+  machineReadableFallbackAnswer,
+  rankMemoryCardsForAnswer,
+  scoreValue,
+} from "@/lib/rag-answer-support";
+import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag-contracts";
+export { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag-contracts";
+import {
+  clearlyOutsideCorpusMedicalPattern,
+  isUnsupportedSoftTailAnalysis,
+  unavailableDocumentNoisePattern,
+} from "@/lib/rag-query-guard";
+export { shouldShortCircuitUnsupportedSearch } from "@/lib/rag-query-guard";
+import { cleanClinicalSummaryText, isLowYieldClinicalText } from "@/lib/source-text-sanitizer";
 import {
   hasClinicalAnswerQualityIssue,
   isUsableAnswerSectionText,
   looksLikeJsonArtifact,
-  normalizeSectionText,
   sanitizeAnswerText,
   sanitizeStructuredText,
-  splitBalancedWords,
   metadataText,
   safeRecord,
 } from "@/lib/rag-answer-text";
@@ -157,8 +184,6 @@ import type {
   ClinicalImageUseClass,
   Citation,
   ClinicalQueryAnalysis,
-  CorpusGroundingVerdict,
-  DocumentIndexQuality,
   DocumentIndexUnitMatch,
   DocumentMemoryCard,
   EvidenceRelevance,
@@ -172,7 +197,6 @@ import type {
   RagAnswer,
   SearchResult,
   SmartRagApiPlan,
-  ClinicalQueryMode,
 } from "@/lib/types";
 
 const answerSectionKinds = [
@@ -342,40 +366,12 @@ const confidenceOrder = {
   high: 3,
 } as const;
 
-export const machineReadableFallbackAnswer =
-  "The indexed sources were not machine-readable enough to produce a formatted answer.";
-
 /** Throw if aborted. */
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
     throw signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
   }
 }
-
-export type SearchChunksArgs = {
-  query: string;
-  topK?: number;
-  minSimilarity?: number;
-  documentId?: string;
-  documentIds?: string[];
-  ownerId?: string;
-  allowGlobalSearch?: boolean;
-  skipCache?: boolean;
-  queryMode?: ClinicalQueryMode;
-  signal?: AbortSignal;
-  // Internal: set when this call is a re-run on a trigram-corrected query, to prevent the
-  // unsupported-short-circuit typo-correction path from recursing more than once.
-  typoCorrected?: boolean;
-  // Diagnostic/eval-only: bypass every lexical text-fast-path so retrieval always exercises
-  // the embedding/vector stage. Lets the golden eval measure the vector index directly for a
-  // re-index, instead of being masked by lexical shortcuts. Never set on production paths.
-  forceEmbedding?: boolean;
-  // Lightweight-preview only: never call the OpenAI embedding API — return the lexical/trigram
-  // candidates gathered before the vector stage. Used by the cross-entity typeahead, where a
-  // small document preview does not justify an embedding round-trip per keystroke. The Answer
-  // and Documents full-search paths never set this, so their retrieval is unchanged.
-  lexicalOnly?: boolean;
-};
 
 export type AnswerProgressEvent = {
   stage: "retrieved" | "routing" | "generating" | "retrying" | "finalizing" | "cached";
@@ -404,93 +400,6 @@ type AnswerQuestionWithScopeArgs = SearchChunksArgs & {
   onRevising?: (reason: string) => void;
   signal?: AbortSignal;
 };
-
-export type SearchTelemetry = {
-  search_cache_hit: boolean;
-  shared_cache_hit?: boolean;
-  shared_cache_status?: "hit" | "miss";
-  shared_cache_miss_reason?: string | null;
-  query_class?: RagQueryClass;
-  vector_candidate_count?: number;
-  text_candidate_count?: number;
-  embedding_field_count?: number;
-  retrieval_query_variant_count?: number;
-  rag_alias_count?: number;
-  rag_alias_expansion_count?: number;
-  text_fast_path_latency_ms: number;
-  text_candidate_budget?: number;
-  text_fast_path_reason?: string | null;
-  // P8b extension: how OR-relaxation participated in the text layer. "empty_fallback" is the
-  // long-standing relax-on-zero path; "weak_augment" appends OR recall behind weak-but-nonzero
-  // strict matches (issue: strict-AND could bury the right chunk without ever relaxing).
-  text_or_relaxation_used?: "none" | "empty_fallback" | "weak_augment";
-  // Finding #11: corpus-grounding verdict for unsupported-soft-tail queries (absent when the
-  // query never entered the soft tail). See src/lib/corpus-grounding.ts.
-  corpus_grounding?: CorpusGroundingVerdict;
-  // RC9 observability: how many final results carry a fabricated (non-cosine) similarity.
-  synthetic_similarity_count?: number;
-  embedding_skipped: boolean;
-  embedding_skip_reason?: string | null;
-  embedding_latency_ms: number;
-  embedding_cache_hit: boolean;
-  supabase_rpc_latency_ms: number;
-  rerank_latency_ms: number;
-  memory_card_count?: number;
-  memory_top_score?: number;
-  index_unit_count?: number;
-  index_unit_top_score?: number;
-  retrieval_layer_counts?: Record<string, number>;
-  retrieval_layer_top_scores?: Record<string, number>;
-  retrieval_layer_latencies_ms?: Record<string, number>;
-  // P0.1: per-RPC failure codes for the hybrid retrieval layers. A non-empty map means a hybrid
-  // layer errored (not merely returned zero matches) and the app silently degraded — the exact
-  // failure mode that hid the schema drift. Surfaced in telemetry + logged via logger.error.
-  hybrid_rpc_errors?: Record<string, string>;
-  retrieval_provenance_counts?: Record<string, number>;
-  retrieval_plan?: string;
-  retrieval_intent?: RetrievalIntent;
-  retrieval_selection?: RetrievalSelectionSummary;
-  coverage_gate_decision?: "accepted" | "rejected" | "not_applicable";
-  coverage_gate_reason?: string | null;
-  vector_skipped_reason?: string | null;
-  source_image_required?: boolean;
-  source_image_satisfied?: boolean;
-  second_stage_rerank_used?: boolean;
-  second_stage_rerank_latency_ms?: number;
-  visual_direct_image_count?: number;
-  weighted_top_score?: number;
-  rrf_top_score?: number;
-  top_score?: number;
-  second_top_score?: number;
-  score_spread?: number;
-  score_distinct_documents?: number;
-  retrieval_candidate_count?: number;
-  retrieval_strategy?:
-    | "search_cache"
-    | "text_fast_path"
-    | "document_lookup_fast_path"
-    | "hybrid"
-    | "vector_fallback"
-    | "unsupported_short_circuit";
-};
-
-/** Retrieval plan for query class. */
-export function retrievalPlanForQueryClass(queryClass?: RagQueryClass) {
-  switch (queryClass) {
-    case "document_lookup":
-      return "document_lookup:title_label_section_then_chunks";
-    case "table_threshold":
-      return "table_threshold:table_facts_visual_units_then_chunks";
-    case "medication_dose_risk":
-      return "medication_dose_risk:medication_rows_thresholds_monitoring_then_chunks";
-    case "comparison":
-      return "comparison:diverse_documents_sections_memory_then_chunks";
-    case "broad_summary":
-      return "broad_summary:document_summaries_sections_memory_then_chunks";
-    default:
-      return "balanced_hybrid:chunks_fields_units_memory";
-  }
-}
 
 const visualEvidenceUnitTypes = new Set([
   "visual_summary",
@@ -798,48 +707,6 @@ const answerJsonSchema = z.object({
     .default([]),
 });
 
-// Audit M1: confidence must reflect the strength of the evidence the answer
-// actually CITES. Taking the max similarity over ALL retrieved results let an
-// uncited high-similarity chunk grant "high" confidence to an answer built on
-// weak citations, so the strongest-score scan is scoped to the cited subset.
-// A citation that maps to no known chunk contributes nothing (fail low).
-//
-// RC9: results tagged `similarity_origin: "synthetic_text"` carry a similarity FABRICATED from
-// lexical/structural signals (0.58-floor formulas in the document-lookup fast path, memory-card
-// chunk loader, and table-fact signal matches), not a real cosine. Those fabrications routinely
-// clear the 0.82 bar (memory-card hybrid reaches 0.89, document-lookup 0.94), which let a
-// lexical-only citation mint "high" confidence. Synthetic-origin evidence is therefore capped at
-// "medium": "high" requires at least one cited result whose score is NOT a fabricated synthetic
-// similarity. (`strongestNonSynthetic` below excludes `synthetic_text` origins but is still the
-// hybrid score via scoreValue, not a pure cosine — a stricter pure-`similarity` gate would change
-// behaviour and needs eval validation.) Ordering, routing, and coverage gates are untouched — this
-// only stops the fabricated scale from masquerading as strong semantic evidence in the label.
-/** Derive confidence. */
-export function deriveConfidence(
-  results: SearchResult[],
-  acceptedCitations: Array<Pick<Citation, "chunk_id">>,
-): RagAnswer["confidence"] {
-  if (acceptedCitations.length === 0 || results.length === 0) return "unsupported";
-  const citedIds = new Set(acceptedCitations.map((citation) => citation.chunk_id));
-  const citedResults = results.filter((result) => citedIds.has(result.id));
-  const strongest = citedResults.reduce((max, result) => Math.max(max, scoreValue(result)), 0);
-  const strongestNonSynthetic = citedResults.reduce(
-    (max, result) => (result.similarity_origin === "synthetic_text" ? max : Math.max(max, scoreValue(result))),
-    0,
-  );
-  if (strongestNonSynthetic >= 0.82 && acceptedCitations.length >= 2) return "high";
-  if (strongest >= 0.64) return "medium";
-  return "low";
-}
-
-/** Score value. */
-export function scoreValue(result: SearchResult) {
-  const similarity = result.similarity ?? 0;
-  const hybrid = result.hybrid_score ?? similarity;
-  if (similarity > 0 && hybrid > similarity + 0.12) return similarity;
-  return Math.min(1, hybrid);
-}
-
 /** Build retrieval diagnostics. */
 function buildRetrievalDiagnostics(args: {
   queryClass: RagQueryClass;
@@ -1107,28 +974,6 @@ function hasOpenAIUsage(usage: OpenAITokenUsage) {
   return Object.values(usage).some((value) => typeof value === "number" && value > 0);
 }
 
-/** Fallback reason from routing. */
-export function fallbackReasonFromRouting(reason?: string | null) {
-  if (!reason) return null;
-  return (
-    reason
-      .split(";")
-      .map((part) => part.trim())
-      .find((part) =>
-        /source_only_[a-z_]+|fallback|unsupported|no_|limited_retrieval|gap|conflict|failed|confidence_gate|low_signal/i.test(
-          part,
-        ),
-      ) ?? null
-  );
-}
-
-const clearlyNonClinicalConsumerPattern =
-  /\b(coffee\s*machine|espresso|kitchen|recipe|holiday|hotel|restaurant|car|mortgage|insurance|gaming|laptop|phone|television|tv|washing\s*machine|air\s*fryer|vacuum|flight|airline)\b/i;
-const clearlyOutsideCorpusMedicalPattern =
-  /\b(?:diabetic ketoacidosis|dka|community acquired pneumonia|pneumonia|antibiotic|ssri|adolescent depression|hyperkalaemia|hyperkalemia)\b/i;
-const unavailableDocumentNoisePattern =
-  /\b(?:newly uploaded|future synthetic|not been uploaded|not uploaded|2027 revised|airport travel policy|gardening equipment checklist)\b/i;
-
 const queryClassifierOutputSchema = {
   type: "object",
   description: "Low-cost query classification fallback for clinical RAG retrieval only.",
@@ -1383,38 +1228,6 @@ export async function analyzeQueryWithClassifierFallback(
     // analysis for this request only, and let the next request retry the classifier.
     return analysis;
   }
-}
-
-// Shared eligibility gate for the unsupported soft tail: a low-signal unsupported_or_general
-// analysis with no title/medication/threshold intent and no non-default reasons.
-/** Unsupported soft tail eligible. */
-function unsupportedSoftTailEligible(analysis: ClinicalQueryAnalysis) {
-  if (analysis.queryClass !== "unsupported_or_general") return false;
-  if (analysis.documentTitleIntent || analysis.medications.length || analysis.thresholdTerms.length) return false;
-  if (analysis.reasons.some((reason) => reason !== "no_specific_rag_class_terms")) return false;
-  return true;
-}
-
-/** Should short circuit unsupported search. */
-export function shouldShortCircuitUnsupportedSearch(query: string, analysis: ClinicalQueryAnalysis) {
-  if (unavailableDocumentNoisePattern.test(query)) return true;
-  if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return true;
-  if (!unsupportedSoftTailEligible(analysis)) return false;
-  if (clearlyNonClinicalConsumerPattern.test(query)) return true;
-  return analysis.confidence <= 0.42 && analysis.expandedTerms.length <= 5;
-}
-
-// True only for queries that would short-circuit via the soft tail itself — NOT via the
-// pattern guards (out-of-corpus medical list, consumer-noise, unavailable-document noise).
-// Corpus grounding is scoped to exactly this branch: the pattern-guarded refusals and every
-// higher-confidence class keep their existing behaviour untouched.
-/** Is unsupported soft tail analysis. */
-function isUnsupportedSoftTailAnalysis(query: string, analysis: ClinicalQueryAnalysis) {
-  if (unavailableDocumentNoisePattern.test(query)) return false;
-  if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return false;
-  if (!unsupportedSoftTailEligible(analysis)) return false;
-  if (clearlyNonClinicalConsumerPattern.test(query)) return false;
-  return analysis.confidence <= 0.42 && analysis.expandedTerms.length <= 5;
 }
 
 /** Metadata expansion term score. */
@@ -1907,82 +1720,6 @@ async function searchDocumentLookupFastPath(args: {
       (a, b) => (b.hybrid_score ?? b.similarity) - (a.hybrid_score ?? a.similarity) || a.chunk_index - b.chunk_index,
     )
     .slice(0, args.matchCount);
-}
-
-/** Collect memory cards. */
-export function collectMemoryCards(results: SearchResult[], limit = 8) {
-  const seen = new Set<string>();
-  const cards: DocumentMemoryCard[] = [];
-  for (const result of results) {
-    for (const card of result.memory_cards ?? []) {
-      const key = card.id ?? `${card.document_id}:${card.card_type}:${card.title}:${card.content}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      cards.push(card);
-      if (cards.length >= limit) return cards;
-    }
-  }
-  return cards;
-}
-
-/** Build indexing quality. */
-export function buildIndexingQuality(results: SearchResult[], memoryCards: DocumentMemoryCard[]): DocumentIndexQuality {
-  const sourceMetadata = results.map((result) => normalizeSourceMetadata(result.source_metadata));
-  const indexedQualityRows = results
-    .map((result) => result.indexing_quality)
-    .filter((quality): quality is NonNullable<SearchResult["indexing_quality"]> => Boolean(quality));
-  const lowestQualityScore = indexedQualityRows.reduce(
-    (lowest, quality) => Math.min(lowest, Number(quality.quality_score ?? 1)),
-    1,
-  );
-  const indexedExtractionQuality = indexedQualityRows.some((quality) => quality.extraction_quality === "poor")
-    ? "poor"
-    : indexedQualityRows.some((quality) => quality.extraction_quality === "partial")
-      ? "partial"
-      : indexedQualityRows.some((quality) => quality.extraction_quality === "good")
-        ? "good"
-        : null;
-  const extractionQuality = sourceMetadata.some((metadata) => metadata.extraction_quality === "poor")
-    ? "poor"
-    : sourceMetadata.some((metadata) => metadata.extraction_quality === "partial")
-      ? "partial"
-      : indexedExtractionQuality
-        ? indexedExtractionQuality
-        : sourceMetadata.length > 0
-          ? "good"
-          : "unknown";
-  return {
-    indexingVersion: ragDeepMemoryVersion,
-    memoryVersion: ragDeepMemoryVersion,
-    extractionQuality,
-    missingEmbeddings: indexedQualityRows.reduce((sum, quality) => {
-      const missing = Number(quality.metrics?.missing_embeddings ?? 0);
-      return sum + (Number.isFinite(missing) ? missing : 0);
-    }, 0),
-    sectionCount: indexedQualityRows.reduce((sum, quality) => {
-      const sectionCount = Number(quality.metrics?.section_count ?? 0);
-      return Math.max(sum, Number.isFinite(sectionCount) ? sectionCount : 0);
-    }, 0),
-    qualityScore: indexedQualityRows.length > 0 ? Number(lowestQualityScore.toFixed(3)) : undefined,
-    qualityIssues: Array.from(new Set(indexedQualityRows.flatMap((quality) => quality.issues ?? []))).slice(0, 8),
-    memoryCardCount: memoryCards.length,
-    stale: sourceMetadata.some((metadata) => metadata.document_status === "outdated"),
-  };
-}
-
-/** Build answer score explanations. */
-export function buildAnswerScoreExplanations(
-  results: SearchResult[],
-  limit = 8,
-): NonNullable<RagAnswer["scoreExplanations"]> {
-  return results.slice(0, limit).map((result) => ({
-    chunk_id: result.id,
-    document_id: result.document_id,
-    finalScore: Number(
-      (result.score_explanation?.finalScore ?? result.hybrid_score ?? result.similarity ?? 0).toFixed(4),
-    ),
-    score_explanation: result.score_explanation,
-  }));
 }
 
 /** Score explanation log metadata. */
@@ -2756,40 +2493,6 @@ function shouldReturnBeforeMemory(
   return !shouldUseMemoryBeforeFastPath(queryClass);
 }
 
-/** Evidence text for gate. */
-export function evidenceTextForGate(result: SearchResult) {
-  const tableText = (result.table_facts ?? [])
-    .map((fact) =>
-      [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action].join(" "),
-    )
-    .join(" ");
-  const imageText = (result.images ?? [])
-    .map((image) =>
-      [image.caption, image.tableTitle, image.tableLabel, image.tableTextSnippet, image.clinicalUseReason]
-        .filter(Boolean)
-        .join(" "),
-    )
-    .join(" ");
-  const unitText = result.index_unit
-    ? [result.index_unit.unit_type, result.index_unit.title, result.index_unit.content].join(" ")
-    : "";
-  return normalizeSectionText(
-    [
-      result.title,
-      result.file_name,
-      result.section_heading,
-      result.section_path?.join(" "),
-      result.retrieval_synopsis,
-      result.content,
-      tableText,
-      imageText,
-      unitText,
-    ]
-      .filter(Boolean)
-      .join(" "),
-  ).toLowerCase();
-}
-
 /** Top evidence text. */
 function topEvidenceText(results: SearchResult[], limit = 5) {
   return results.slice(0, limit).map(evidenceTextForGate).join(" ");
@@ -3171,63 +2874,6 @@ function shouldAttemptDocumentLookupFastPath(queryClass: RagQueryClass) {
 /** Should use memory before fast path. */
 function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
   return queryClass === "table_threshold" || queryClass === "medication_dose_risk" || queryClass === "comparison";
-}
-
-/** Memory card answer score. */
-function memoryCardAnswerScore(card: DocumentMemoryCard, query: string, queryClass: RagQueryClass) {
-  const content = sourceTextForDisplay(card.content);
-  if (!content) return -1;
-  const hasSpecificDoseEvidence =
-    /\b(?:mg|mcg|microgram|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|repeat(?:ing)? doses?|dose may be repeated|maximum \d|administer|titration|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
-      content,
-    );
-  if (
-    queryClass === "medication_dose_risk" &&
-    /\b(?:supporting information|relevant standards|references|document owner|authorisation|authorised by|published date|effective from|amendment|polypharmacy and high dose antipsychotic prescribing procedure)\b/i.test(
-      content,
-    ) &&
-    !hasSpecificDoseEvidence
-  ) {
-    return -1;
-  }
-  const normalizedContentTokens = new Set(splitBalancedWords(`${card.title} ${content}`));
-  const queryTokens = splitBalancedWords(query).filter((token) => token.length > 3);
-  const tokenHits = queryTokens.filter((token) => normalizedContentTokens.has(token)).length;
-  const typeBoost =
-    queryClass === "medication_dose_risk" &&
-    ["medication", "threshold", "table_row", "risk", "workflow"].includes(card.card_type)
-      ? 0.38
-      : queryClass === "table_threshold" && ["table_row", "threshold"].includes(card.card_type)
-        ? 0.32
-        : card.card_type === "section_summary"
-          ? 0.02
-          : 0.12;
-  const doseBoost =
-    queryClass === "medication_dose_risk" &&
-    /\b(?:dose|dosage|dosing|mg|mcg|microgram|oral|intramuscular|\bim\b|\bpo\b|\bprn\b|route|titration|administer|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
-      content,
-    )
-      ? 0.42
-      : 0;
-  const lowValueTitlePenalty =
-    queryClass === "medication_dose_risk" && card.card_type === "section_summary" && !hasSpecificDoseEvidence
-      ? -0.35
-      : 0;
-
-  return tokenHits * 0.08 + typeBoost + doseBoost + (card.confidence ?? 0) * 0.08 + lowValueTitlePenalty;
-}
-
-/** Rank memory cards for answer. */
-export function rankMemoryCardsForAnswer(cards: DocumentMemoryCard[], query: string, queryClass: RagQueryClass) {
-  return [...cards]
-    .map((card, index) => ({
-      card,
-      index,
-      score: memoryCardAnswerScore(card, query, queryClass),
-    }))
-    .filter((item) => item.score >= 0)
-    .sort((a, b) => b.score - a.score || a.index - b.index)
-    .map((item) => item.card);
 }
 
 /** Search chunks with telemetry. */

@@ -311,7 +311,7 @@ function MedicationResults({
       <div className="min-w-0 space-y-2 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-semibold uppercase text-[color:var(--text-soft)]">Medication search</p>
-          <h3 className="text-2xl font-semibold leading-tight text-[color:var(--text-heading)] sm:text-[1.65rem]">
+          <h3 className="text-2xl font-semibold leading-tight text-[color:var(--text-heading)] sm:text-3xl-minus">
             {resultCount} prescribing matches
           </h3>
         </div>

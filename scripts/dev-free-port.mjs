@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appName, stableProjectPort } from "./local-server-utils.mjs";
+import { appName, stableProjectPort } from "../src/lib/local-server-utils.mjs";
 
 if (Number(process.versions.node.split(".")[0]) !== 24) {
   console.error(`Clinical KB local server requires Node 24.x. Current runtime: ${process.versions.node}.`);

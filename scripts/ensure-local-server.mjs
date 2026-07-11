@@ -5,7 +5,7 @@ import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appName, localProjectId, projectPortEnd, stableProjectPort } from "./local-server-utils.mjs";
+import { appName, localProjectId, projectPortEnd, stableProjectPort } from "../src/lib/local-server-utils.mjs";
 
 if (Number(process.versions.node.split(".")[0]) !== 24) {
   console.error(`Clinical KB local server requires Node 24.x. Current runtime: ${process.versions.node}.`);
