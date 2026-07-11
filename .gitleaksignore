@@ -10,3 +10,7 @@
 27121756b10df6d93841ebf48b0f1991e0144a1f:data/medications-snapshot.json:generic-api-key:47690
 b65acddaa13e69e0ad2a49783116056b3a1a3639:data/medications-snapshot.json:generic-api-key:21520
 b65acddaa13e69e0ad2a49783116056b3a1a3639:data/medications-snapshot.json:generic-api-key:46330
+# A retrieval-eval metric-spec field named "key" ("key": "p90_latency_ms") tripped
+# generic-api-key. No secret — plain summary field names; GitGuardian + Semgrep passed.
+# Renamed to "field" at the tip (9f3d0defe), but this historical commit is still scanned.
+d7cfc5559f0d7a5db74eb49808f237c989b4136a:scripts/compare-retrieval-eval.ts:generic-api-key:37
