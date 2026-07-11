@@ -461,6 +461,18 @@ describe("normalizeInlineBulletGlyphs", () => {
     );
   });
 
+  it("keeps a label-prefixed blood value when a blood or red-cell noun follows", () => {
+    expect(normalizeInlineBulletGlyphs("Emergency transfusion: o Negative blood should be used")).toBe(
+      "Emergency transfusion: o Negative blood should be used",
+    );
+    expect(normalizeInlineBulletGlyphs("Donor: o RhD negative red cells are required")).toBe(
+      "Donor: o RhD negative red cells are required",
+    );
+    expect(normalizeInlineBulletGlyphs("Risk: o Negative screen requires repeat testing")).toBe(
+      "Risk: Negative screen requires repeat testing",
+    );
+  });
+
   it("converts non-blood positive/negative list items at line starts", () => {
     expect(normalizeInlineBulletGlyphs("o Positive symptoms require urgent review")).toBe(
       "Positive symptoms require urgent review",

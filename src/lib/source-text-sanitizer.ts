@@ -569,6 +569,7 @@ function replaceSubBulletOGlyphs(text: string, joiner: string) {
     const before = text.slice(0, offset);
     const after = text.slice(offset + match.length);
     if (bloodLabelTailPattern.test(before)) return match;
+    if (bloodValueWithNounTailLinePattern.test(text.slice(offset))) return match;
     // A chunk/cell that IS the blood value ("o RhD negative", "o Negative")
     // has no label context at all — but only when the whole line is the
     // value. A positive/negative list ITEM ("o Positive symptoms require
@@ -577,7 +578,7 @@ function replaceSubBulletOGlyphs(text: string, joiner: string) {
     if (atItemStart) {
       const lineEnd = text.indexOf("\n", offset);
       const lineTail = text.slice(offset, lineEnd === -1 ? text.length : lineEnd).trim();
-      if (standaloneBloodValueLinePattern.test(lineTail) || bloodValueWithNounTailLinePattern.test(lineTail)) {
+      if (standaloneBloodValueLinePattern.test(lineTail)) {
         return match;
       }
     }
