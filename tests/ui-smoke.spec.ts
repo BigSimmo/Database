@@ -1546,7 +1546,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
     const rail = strip.getByTestId("cross-mode-links-rail");
     await expect(rail).toBeVisible();
-    await expect(rail).toHaveClass(/overflow-x-auto/);
+    await expect(rail).toHaveClass(/md:flex-wrap/);
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
     await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
@@ -1569,11 +1569,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
   test("answer mode keeps prior turns visible for follow-up questions", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
-    await mockDemoApi(page);
+    const firstQuestion = "lithium dosing";
+    await mockDemoApi(page, {
+      answerOverride: (query, documentId, documentIds) => {
+        const answer = demoAnswer(query, documentId, documentIds);
+        return query === firstQuestion ? { ...answer, grounded: false, confidence: "unsupported" as const } : answer;
+      },
+    });
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    const firstQuestion = "lithium dosing";
     await fillVisibleQuestionInput(page, firstQuestion);
     await visibleAnswerSubmitButton(page).click();
 
@@ -1597,6 +1602,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
     await expect(composer).toHaveValue("");
     await expect(page).toHaveURL(/\?mode=answer&q=what\+about\+renal\+impairment\%3F&run=1/);
+    await page.getByRole("button", { name: "Show previous answer" }).click();
+    await expect(page.getByTestId("prior-answer-source-review")).toContainText("Review source match");
     await expectNoPageHorizontalOverflow(page);
 
     await waitForPersistedAnswerThread(page, 1);
