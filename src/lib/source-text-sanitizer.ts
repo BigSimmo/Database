@@ -537,10 +537,13 @@ export function polishStoredSynopsis(value: string) {
 // punctuation tidy-up passes, including "Label:; item" → "Label: item".
 const inlineBulletGlyphPattern = /\s*[•◦▪‣●]+\s*/g;
 // The blood-group lookbehind keeps "blood group o RhD negative" /
-// "type o Negative" / "blood type: o Rh positive" intact — there the
+// "Blood Type: o Negative" / "blood type: o Rh positive" intact — there the
 // lowercase "o" is the clinical value itself, not a bullet glyph, even when
-// a capitalized token follows. The label may carry a colon.
-const subBulletOGlyphPattern = /(?<=[^\d\s]\s)(?<!\b(?:group|type):?\s)o(?=\s+(?:[A-Z][a-z0-9]|[A-Z]{2,}))/g;
+// a capitalized token follows. The label may carry a colon and any casing
+// (explicit case classes: an `i` flag would make the bullet `o` itself match
+// a clinical capital "O").
+const subBulletOGlyphPattern =
+  /(?<=[^\d\s]\s)(?<!\b(?:[Gg]roup|GROUP|[Tt]ype|TYPE):?\s)o(?=\s+(?:[A-Z][a-z0-9]|[A-Z]{2,}))/g;
 
 export function normalizeInlineBulletGlyphs(text: string, options: { joiner?: string } = {}): string {
   const joiner = options.joiner ?? "; ";
