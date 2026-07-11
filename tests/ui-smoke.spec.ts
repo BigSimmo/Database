@@ -1891,9 +1891,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
     const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
-    await expect(sourceStatus).toContainText("1 source");
+    await expect(sourceStatus).toContainText("Not yet checked");
     await page.waitForTimeout(600);
-    await expect(sourceStatus).toContainText("1 source");
+    await expect(sourceStatus).toContainText("Not yet checked");
     await expect(sourceStatus).not.toContainText("2 sources");
   });
 
@@ -2166,6 +2166,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("#source-evidence").getByTestId("highlighted-source-passage")).toContainText(
       "Patient safety plan should include",
     );
+    await expect(
+      page.getByTestId("desktop-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
+    ).toBeVisible();
 
     const sourceSearch = page.getByLabel("Search within indexed source text").last();
     await sourceSearch.fill("safety plan include");
@@ -2183,7 +2186,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("document viewer puts pinned evidence before the PDF preview on mobile", async ({ page }) => {
+  test("document viewer puts the PDF preview first with pinned evidence after it on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 720 });
     await mockDemoApi(page);
     await gotoApp(
@@ -2199,6 +2202,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(evidence).toBeVisible();
     await expect(evidence.getByText("Highlighted source passage")).toBeVisible();
+    await expect(page.locator("#source-text-mobile")).toHaveJSProperty("open", true);
+    await expect(
+      page.getByTestId("mobile-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
+    ).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "Evidence" })).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "PDF" })).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "Text" })).toBeVisible();
@@ -2225,9 +2232,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(previewBox).not.toBeNull();
     expect(indexedTextBox).not.toBeNull();
     expect(imagesBox).not.toBeNull();
-    expect(evidenceBox!.y).toBeLessThan(previewBox!.y);
+    expect(previewBox!.y).toBeLessThan(evidenceBox!.y);
     expect(evidenceBox!.height).toBeLessThan(640);
-    expect(indexedTextBox!.y).toBeLessThan(previewBox!.y);
+    expect(previewBox!.y).toBeLessThan(indexedTextBox!.y);
     expect(indexedTextBox!.y).toBeLessThan(imagesBox!.y);
 
     const passageToggle = page.getByTestId("toggle-full-passage").first();
@@ -2319,6 +2326,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
     const composer = page.locator("form.document-viewer-composer");
     await expect(composer).toBeVisible();
+    // The chunk deep link intentionally scrolls the highlighted passage into
+    // view, which can initially hide the phone composer. Returning to the top
+    // must restore it before the explicit hide-on-scroll checks below.
+    await scrollPrimarySurface(page, 0);
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
 
     await page.evaluate(() => {
