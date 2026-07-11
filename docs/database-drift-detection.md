@@ -1,6 +1,6 @@
 # Database drift detection (`npm run check:drift`)
 
-Last updated: 2026-07-07
+Last updated: 2026-07-10
 
 This repo's worst operational incidents were live-vs-repo schema drift: hybrid
 retrieval RPCs silently broken on live for an unknown period, and migrations

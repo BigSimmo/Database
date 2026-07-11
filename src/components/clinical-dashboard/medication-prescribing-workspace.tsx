@@ -89,7 +89,7 @@ const medicationCapabilities: Capability[] = [
   },
   {
     label: "Safety",
-    description: "Avoid and cautions",
+    description: "Contraindications and cautions",
     query: "medication contraindications and cautions",
     icon: ShieldCheck,
   },

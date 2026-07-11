@@ -23,7 +23,7 @@ is live — `worker/main.ts` already passes `p_worker_id` to completion RPCs.
 
 All steps below are safe through a single `supabase db push` when the ingestion
 queue is quiet. R17 uses its **own migration version** (`20260708170000`, not
-`20260708160000`) so history/repair cannot collide with the fail-closed tenancy
+`20260708160001`) so history/repair cannot collide with the fail-closed tenancy
 migration at `20260708160001`.
 
 | Step | Migration                                                 | What                                         | How                                            |
@@ -48,7 +48,7 @@ create unique index concurrently if not exists ingestion_jobs_one_open_per_docum
   where status in ('pending', 'processing');
 ```
 
-Then mark only the R17 version as applied (never `20260708160000`):
+Then mark only the R17 version as applied (never `20260708160001`):
 
 ```bash
 supabase migration repair --linked --status applied 20260708170000
