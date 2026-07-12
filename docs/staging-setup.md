@@ -51,9 +51,9 @@ those vars are unset.
 
 ## B. Staging app host (compute tier)
 
-Recommended host: **Fly.io `syd`** (Sydney region; no MCP available here, so
-this is an operator step). Google Cloud Run `australia-southeast2` is the
-equivalent. Railway is unsuitable — no Sydney region.
+Recommended host: any OCI-image host. Production runs on **Railway**; Google
+Cloud Run `australia-southeast2` is a Sydney-region alternative if lower
+answer latency matters. No MCP is available here, so this is an operator step.
 
 1. **Build the image** from the committed `Dockerfile`, passing the _staging_
    publishable key (it inlines into the client bundle):
@@ -110,6 +110,6 @@ equivalent. Railway is unsuitable — no Sydney region.
 ## What is operator-only (cannot be scripted here)
 
 - Creating the Supabase project (billable) and its DB password.
-- Opening the Fly.io/host account and setting the runtime secrets.
+- Opening the host account (e.g. Railway) and setting the runtime secrets.
 - Any change to the **production** project's settings (e.g. auth
   percentage-based connection allocation — see `docs/capacity-review.md` §3).

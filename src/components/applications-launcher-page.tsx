@@ -176,7 +176,7 @@ function ToolIcon({ app, size = "md" }: { app: LauncherApp; size?: "sm" | "md" |
         size === "lg" && "h-14 w-14",
       )}
     >
-      <Icon className={cn(size === "sm" ? "h-4.5 w-4.5" : size === "md" ? "h-6 w-6" : "h-7 w-7")} aria-hidden />
+      <Icon className={cn(size === "sm" ? "size-icon-lg" : size === "md" ? "h-6 w-6" : "h-7 w-7")} aria-hidden />
     </span>
   );
 }
@@ -226,7 +226,7 @@ function ToolSearch({
       )}
     >
       <span className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--clinical-accent)]">
-        <Plus className="h-4.5 w-4.5" aria-hidden />
+        <Plus className="size-icon-lg" aria-hidden />
       </span>
       <label className="min-w-0">
         <span className="sr-only">{copy.searchAriaLabel}</span>
@@ -246,7 +246,7 @@ function ToolSearch({
           focusRing,
         )}
       >
-        <Search className="h-4.5 w-4.5" aria-hidden />
+        <Search className="size-icon-lg" aria-hidden />
       </button>
     </form>
   );
@@ -321,6 +321,12 @@ function QuickActions({ onSelect, mobile }: { onSelect: (id: string) => void; mo
   );
 }
 
+/**
+ * Renders responsive tabs for selecting a tool category.
+ *
+ * @param activeFilter - The currently selected tool category.
+ * @param onFilterChange - Called with the selected category when a tab is activated.
+ */
 function FilterTabs({
   activeFilter,
   onFilterChange,
@@ -343,7 +349,7 @@ function FilterTabs({
               aria-controls="launcher-results-panel"
               onClick={() => onFilterChange(filter.id)}
               className={cn(
-                "inline-flex min-h-9 items-center justify-center rounded-lg border px-4 text-xs font-bold transition",
+                "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg border px-4 text-xs font-bold transition",
                 active
                   ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
                   : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
@@ -368,7 +374,7 @@ function FilterTabs({
               aria-controls="launcher-results-panel"
               onClick={() => onFilterChange(filter.id)}
               className={cn(
-                "inline-flex min-h-7 shrink-0 items-center justify-center gap-0.5 rounded-lg border px-2 text-4xs font-bold transition",
+                "inline-flex min-h-11 shrink-0 items-center justify-center gap-0.5 whitespace-nowrap rounded-lg border px-2 text-4xs font-bold transition",
                 active
                   ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
                   : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
@@ -498,7 +504,7 @@ function DetailSection({
       )}
     >
       <div className="flex items-center gap-2 text-sm font-extrabold text-[color:var(--text-heading)]">
-        <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden />
+        <Icon className="size-icon-lg text-[color:var(--clinical-accent)]" aria-hidden />
         {title}
       </div>
       <div className={cn("mt-2 text-sm leading-6 text-[color:var(--text-muted)]", compact && "text-xs leading-5")}>
@@ -575,7 +581,7 @@ function MobileDetailSections({ app }: { app: LauncherApp }) {
                 focusRing,
               )}
             >
-              <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden />
+              <Icon className="size-icon-lg text-[color:var(--clinical-accent)]" aria-hidden />
               <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{label}</span>
               <ChevronRight
                 className={cn(
@@ -748,7 +754,6 @@ export function ApplicationsLauncherWorkspace({
           subtitle={copy.description}
           icon={Grid2X2}
           headingLevel={1}
-          compact
         />
 
         {desktopComposerSlotId ? (

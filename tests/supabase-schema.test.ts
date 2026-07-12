@@ -116,6 +116,10 @@ const ragRetrievalLogsRetentionMigration = readFileSync(
   new URL("../supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const ragQueryMissesRetentionMigration = readFileSync(
+  new URL("../supabase/migrations/20260708120000_rag_query_misses_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const liveDatabaseDriftMigration = readFileSync(
   new URL("../supabase/migrations/20260705230000_reconcile_live_database_drift.sql", import.meta.url),
   "utf8",
@@ -891,7 +895,11 @@ describe("Supabase Preview replay guards", () => {
   });
 
   it("guards pg_cron retention schedules for preview branches without cron.job", () => {
-    for (const sql of [ragQueriesRetentionMigration, ragRetrievalLogsRetentionMigration]) {
+    for (const sql of [
+      ragQueriesRetentionMigration,
+      ragRetrievalLogsRetentionMigration,
+      ragQueryMissesRetentionMigration,
+    ]) {
       expect(sql).toContain("to_regnamespace('cron')");
       expect(sql).not.toMatch(/select cron\.unschedule\(jobid\) from cron\.job/);
       expect(sql).not.toMatch(/select cron\.schedule\(/);

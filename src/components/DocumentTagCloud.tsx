@@ -53,6 +53,15 @@ function confidenceTitle(tag: SmartDocumentTag) {
   return `${tag.group}: ${tag.source} tag, ${Math.round(tag.confidence * 100)}% confidence`;
 }
 
+/**
+ * Renders a document tag with group-specific styling and optional search interaction.
+ *
+ * @param tag - The document tag to display.
+ * @param compact - Whether to use compact sizing.
+ * @param selected - Whether to indicate the tag as selected.
+ * @param onTagClick - Optional callback invoked when the tag is clicked.
+ * @returns The rendered document tag chip.
+ */
 function DocumentTagChip({
   tag,
   compact,
@@ -71,8 +80,7 @@ function DocumentTagChip({
     groupToneClass(tag.group),
     tag.queryMatched && "ring-2 ring-[color:var(--focus)]/25",
     selected && "ring-2 ring-[color:var(--primary)]/35",
-    onTagClick &&
-      "cursor-pointer transition hover:-translate-y-0.5 hover:border-[color:var(--border-strong)] focus:outline-none focus:ring-2 focus:ring-[color:var(--focus)]/40",
+    onTagClick && "cursor-pointer transition hover:-translate-y-0.5 hover:border-[color:var(--border-strong)]",
   );
   const content = (
     <>

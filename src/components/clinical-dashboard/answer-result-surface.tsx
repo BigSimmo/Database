@@ -269,7 +269,7 @@ function StagedAnswerResultSurfaceImpl({
             closeLabel="Close clinical notes"
             headerLeading={
               <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--clinical-accent)]")}>
-                <ClipboardCheck className="h-3.5 w-3.5" />
+                <ClipboardCheck aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
             }
             titleAccessory={
@@ -284,7 +284,7 @@ function StagedAnswerResultSurfaceImpl({
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label="Open clinical notes source"
                 >
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
                 </Link>
               ) : null
             }
@@ -320,7 +320,7 @@ function StagedAnswerResultSurfaceImpl({
             closeLabel="Close evidence"
             headerLeading={
               <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--clinical-accent)]")}>
-                <Layers className="h-3.5 w-3.5" />
+                <Layers aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
             }
             contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(88dvh,44rem)] sm:max-w-3xl"
@@ -357,7 +357,7 @@ function StagedAnswerResultSurfaceImpl({
             closeLabel="Close safety findings"
             headerLeading={
               <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--warning)]")}>
-                <ShieldAlert className="h-3.5 w-3.5" />
+                <ShieldAlert aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
             }
             titleAccessory={

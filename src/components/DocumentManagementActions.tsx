@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, Loader2, Pencil, Trash2 } from "lucide-react";
+import { TriangleAlert, Check, Loader2, Pencil, Trash2 } from "lucide-react";
 import { FormEvent, useRef, useState } from "react";
 import {
   cn,
@@ -156,7 +156,7 @@ export function DocumentManagementActions({
           title="Rename document"
           aria-label={`Rename ${document.title}`}
         >
-          <Pencil className="h-4 w-4" />
+          <Pencil aria-hidden="true" className="h-4 w-4" />
         </button>
         <button
           type="button"
@@ -166,7 +166,7 @@ export function DocumentManagementActions({
           title="Permanently delete document"
           aria-label={`Permanently delete ${document.title}`}
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
 
@@ -192,7 +192,7 @@ export function DocumentManagementActions({
           <form onSubmit={submitDelete} className="space-y-4">
             <div className={cn("rounded-lg border p-3 text-sm", toneDanger)}>
               <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <TriangleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                 <p className="font-semibold">This action cannot be undone.</p>
               </div>
             </div>
@@ -218,7 +218,11 @@ export function DocumentManagementActions({
                 className={cn(primaryControl, "bg-[color:var(--danger)] hover:bg-[color:var(--danger)]")}
                 disabled={pending || deleteConfirmation !== document.title}
               >
-                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {pending ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 aria-hidden="true" className="h-4 w-4" />
+                )}
                 Delete permanently
               </button>
             </div>
@@ -242,7 +246,11 @@ export function DocumentManagementActions({
                 Cancel
               </button>
               <button type="submit" className={primaryControl} disabled={pending || !title.trim()}>
-                {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {pending ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check aria-hidden="true" className="h-4 w-4" />
+                )}
                 Save title
               </button>
             </div>

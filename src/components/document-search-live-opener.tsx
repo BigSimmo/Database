@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  AlertCircle,
+  CircleAlert,
   ArrowLeft,
   BadgeCheck,
   BookOpen,
@@ -94,7 +94,7 @@ const mockSources: MockSourceDocument[] = [
     evidence: [
       { label: "Table evidence", value: "8 rows", icon: Table2, tone: "success" },
       { label: "PDF page", value: "p.12", icon: FileText, tone: "info" },
-      { label: "Review note", value: "2026", icon: AlertCircle, tone: "warning" },
+      { label: "Review note", value: "2026", icon: CircleAlert, tone: "warning" },
     ],
     passage: [
       "Monitoring requirements are grouped by treatment stage and missed-dose interval.",
@@ -124,7 +124,7 @@ const mockSources: MockSourceDocument[] = [
     evidence: [
       { label: "Image evidence", value: "flowchart", icon: FileImage, tone: "info" },
       { label: "PDF page", value: "p.4", icon: FileText, tone: "success" },
-      { label: "Risk pathway", value: "visible", icon: AlertCircle, tone: "warning" },
+      { label: "Risk pathway", value: "visible", icon: CircleAlert, tone: "warning" },
     ],
     passage: [
       "The pathway separates immediate safety steps from medication and senior review prompts.",
@@ -154,7 +154,7 @@ const mockSources: MockSourceDocument[] = [
     evidence: [
       { label: "Checklist", value: "forms", icon: BadgeCheck, tone: "success" },
       { label: "PDF page", value: "p.2", icon: FileText, tone: "info" },
-      { label: "Workflow", value: "legal", icon: AlertCircle, tone: "warning" },
+      { label: "Workflow", value: "legal", icon: CircleAlert, tone: "warning" },
     ],
     passage: [
       "The quick reference groups forms by use case and required documentation step.",

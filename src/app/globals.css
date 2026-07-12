@@ -39,6 +39,19 @@
      deep in sheets stay on min-h-12 (48px) — do not downgrade those to the token. */
   --spacing-tap: 2.75rem;
 
+  /* Icon glyph size scale. Named spacing tokens so icon sizing is a documented
+     scale (size-icon-md is the 16px default) instead of raw `h-4 w-4` literals,
+     and so a step can carry a responsive variant: `size-icon-md sm:size-icon-lg`.
+     Generates size-icon-*, h-icon-*, w-icon-* exactly like --spacing-tap generates
+     size-tap. The `4.5` (18px) half-step these retire snaps to sm/md/lg per site.
+     NB: container tiles (iconTile h-9, empty-state tile h-10) are NOT glyphs and
+     stay on the integer spacing scale — this token is for the icon glyph itself. */
+  --spacing-icon-xs: 0.75rem; /* 12px — inline markers, dense metadata */
+  --spacing-icon-sm: 0.875rem; /* 14px — badge / chip / metadata icons */
+  --spacing-icon-md: 1rem; /* 16px — default: buttons, nav, fields */
+  --spacing-icon-lg: 1.25rem; /* 20px — header / primary controls */
+  --spacing-icon-xl: 1.5rem; /* 24px — hero / composer emphasis */
+
   /* Type scale — sub-`xs` micro steps plus the 13–22px "between" steps the
      dense clinical UI reaches for. These are intentionally SIZE-ONLY: unlike
      Tailwind's default text-* tokens they carry no `--line-height` /
@@ -68,6 +81,14 @@
   --text-lg-minus: 1.0625rem;
   --text-2xl-minus: 1.375rem;
   --text-3xl-minus: 1.625rem;
+
+  /* Fluid display heading for the hero / mode-home titles (hybrid-fluid type:
+     the large display heading scales continuously; body / UI text stays on the
+     stepped scale above). The floor is deliberately 1.45rem so the phone
+     baseline (23.2px at ≤~393px) is unchanged, then it ramps to the 2.15rem cap
+     by ~1033px — no breakpoint jumps. Generates the `text-hero` utility.
+     clamp() font sizes are not flagged by scripts/check-type-scale.mjs. */
+  --text-hero: clamp(1.45rem, 1.02rem + 1.75vw, 2.15rem);
 
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for
@@ -1797,6 +1818,17 @@ summary::-webkit-details-marker {
     outline: 2px solid var(--focus) !important;
     outline-offset: 2px !important;
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 25%, transparent) !important;
+  }
+
+  /* Underline-tab focus: an inset rounded ring that hugs the label instead of the
+     default full-height box, which collides with the tablist border. */
+  .focus-ring-tab {
+    border-radius: var(--radius-md);
+  }
+  .focus-ring-tab:focus-visible {
+    outline: 2px solid var(--focus) !important;
+    outline-offset: -4px !important;
+    box-shadow: none !important;
   }
 
   /* Premium hover transitions for source capsules */

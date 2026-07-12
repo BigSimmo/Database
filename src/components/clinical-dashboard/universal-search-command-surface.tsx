@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Clock, CornerDownLeft, Loader2, Search, Sparkles } from "lucide-react";
+import { TriangleAlert, Clock, CornerDownLeft, Loader2, Search, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 
@@ -83,7 +83,7 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
         aria-hidden
       >
         {hint}
-        <CornerDownLeft className="h-3 w-3" />
+        <CornerDownLeft aria-hidden="true" className="h-3 w-3" />
       </span>
     </div>
   );
@@ -171,7 +171,7 @@ function CommandDropdown({
     >
       {showSafetyBanner ? (
         <div className="flex items-start gap-2.5 border-b border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-4 py-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--danger)]" aria-hidden />
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--danger)]" aria-hidden />
           <div className="min-w-0 text-xs font-semibold leading-5 text-[color:var(--text)]">
             <span className="font-extrabold uppercase tracking-wide text-[color:var(--danger)]">Safety first · </span>
             Stabilise ABCs, check BGL, sats, attention test, collateral, review meds/substances.
@@ -482,7 +482,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Search">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-                  <Clock className="h-4 w-4" />
+                  <Clock aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="truncate text-sm font-semibold text-[color:var(--text)]">{recent}</span>
               </OptionShell>
@@ -507,7 +507,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Search">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-                  <Search className="h-4 w-4" />
+                  <Search aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">
                   {suggestion.text}
@@ -539,7 +539,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Answer">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <Sparkles className="h-4 w-4" />
+                  <Sparkles aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{action.label}</span>
@@ -606,7 +606,7 @@ export function UniversalSearchCommandSurface({
               render: (active: boolean) => (
                 <OptionShell active={active} hint="Search">
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-                    <Search className="h-4 w-4" />
+                    <Search aria-hidden="true" className="h-4 w-4" />
                   </span>
                   <span className="truncate text-sm font-semibold text-[color:var(--text-muted)]">
                     View all in {targetMode.label}

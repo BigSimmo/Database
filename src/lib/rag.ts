@@ -69,6 +69,7 @@ import {
   cacheIndexingVersion,
   cloneAnswer,
   getCachedAnswer,
+  attachAdjacentContext,
   getCachedSearch,
   getSharedCachedAnswer,
   getSharedCachedSearch,
@@ -101,7 +102,12 @@ import {
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
+import {
+  answerPrivacyMetadata,
+  answerTextForStorage,
+  queryPrivacyMetadata,
+  queryTextForStorage,
+} from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
@@ -1298,11 +1304,18 @@ async function insertRagQuery(row: RagQueryInsert) {
   const supabase = createAdminClient();
   // Redact potential-PHI raw query text centrally so every logRagQuery caller is
   // covered, and fold a stable hash + retention flag into metadata (RET-H4).
+  // The generated answer can restate patient specifics, so it is dropped at rest
+  // unless answer retention is explicitly enabled (PIA-3, default off).
   const rawQuery = typeof row.query === "string" ? row.query : "";
   const safeRow = {
     ...row,
     query: queryTextForStorage(rawQuery),
-    metadata: { ...(row.metadata ?? {}), ...queryPrivacyMetadata(rawQuery) } as Json,
+    answer: answerTextForStorage(row.answer),
+    metadata: {
+      ...(row.metadata ?? {}),
+      ...queryPrivacyMetadata(rawQuery),
+      ...answerPrivacyMetadata(),
+    } as Json,
   };
   await supabase.from("rag_queries").insert(safeRow);
 }
@@ -3611,15 +3624,22 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
       message: "Waiting for an identical cited answer request already in progress.",
       reason: "answer_inflight_coalesced",
     });
-    const answer = cloneAnswer(await existing);
-    answer.routingReason = answer.routingReason
-      ? `${answer.routingReason}; answer_inflight_coalesced`
-      : "answer_inflight_coalesced";
-    answer.latencyTimings = {
-      ...answer.latencyTimings,
-      total_latency_ms: Date.now() - startedAt,
-    };
-    return answer;
+    try {
+      const answer = cloneAnswer(await existing);
+      answer.routingReason = answer.routingReason
+        ? `${answer.routingReason}; answer_inflight_coalesced`
+        : "answer_inflight_coalesced";
+      answer.latencyTimings = {
+        ...answer.latencyTimings,
+        total_latency_ms: Date.now() - startedAt,
+      };
+      return answer;
+    } catch {
+      // The in-flight request we coalesced onto failed — most often because the ORIGINATING
+      // caller aborted mid-flight (its AbortSignal is not ours) or its search phase threw. Do
+      // not propagate another caller's failure to this still-connected request: fall through to
+      // an independent, uncoalesced run so this request is decided only by its own inputs.
+    }
   }
 
   const pending = answerQuestionWithScopeUncoalesced(args, startedAt).finally(() => {
@@ -3990,6 +4010,7 @@ async function answerQuestionWithScopeUncoalesced(
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           retrieval_strategy: search.telemetry.retrieval_strategy,
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
@@ -4095,6 +4116,7 @@ async function answerQuestionWithScopeUncoalesced(
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           retrieval_strategy: search.telemetry.retrieval_strategy,
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
@@ -4640,6 +4662,11 @@ ${qualityRetryInstruction}`
     // citations from the retrieved results, so trigger recovery whenever the
     // generated answer is unusable and we have retrieved results to extract from.
     const canRecoverExtractively = !usedStrongModel && (answer.citations.length > 0 || answerInputResults.length > 0);
+    // Numeric faithfulness at finalize time must verify against the packed context the model
+    // actually generated from, not the unpacked answer.sources — otherwise a figure copied from
+    // a neighbour chunk's adjacent_context reads as unverified and blanks a correct dose/threshold
+    // answer. Only the model path needs this; the extractive branch verifies against its own sources.
+    let numericVerificationSources: SearchResult[] | undefined;
     if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
       answer = buildExtractiveAnswer({
         query: args.query,
@@ -4661,6 +4688,7 @@ ${qualityRetryInstruction}`
     } else {
       answer = boldRagAnswerHighYieldText(answer, args.query);
       answer.sources = answerInputResults;
+      numericVerificationSources = attachAdjacentContext(answerInputResults, packedContextResults);
       answer.quoteCards = reconcileQuoteCards(answer.quoteCards, answerInputResults, args.query);
       answer.documentBreakdown = documentBreakdown;
       answer.evidenceSummary = evidenceSummary;
@@ -4692,7 +4720,7 @@ ${qualityRetryInstruction}`
       ...retrievalDiagnostics,
       routeMode: answer.routingMode ?? retrievalDiagnostics.routeMode,
     });
-    answer = finalizeRagAnswerQuality(answer, args.query, queryClass);
+    answer = finalizeRagAnswerQuality(answer, args.query, queryClass, numericVerificationSources);
 
     if (args.logQuery !== false)
       await logRagQuery({
@@ -4736,6 +4764,7 @@ ${qualityRetryInstruction}`
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           context_pack_latency_ms: contextPackLatencyMs,
           context_pack_cache_hits: contextPackCacheHits,
           answer_retry_count: answerRetryCount,
@@ -4888,6 +4917,7 @@ ${qualityRetryInstruction}`
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           context_pack_latency_ms: contextPackLatencyMs,
           retrieval_strategy: "generation_fallback",
           weighted_top_score: search.telemetry.weighted_top_score,

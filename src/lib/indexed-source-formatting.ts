@@ -15,8 +15,10 @@ function isPageFooter(line: string) {
 function isNumberedHeading(line: string) {
   // Supports multi-level numbering ("2.7. Dosage", "3.1.2 Monitoring") as well
   // as top-level "9. Polypharmacy". A bare number ("12 hours") is not a
-  // heading — top-level numbering must carry its dot.
-  return /^\d{1,2}(?:(?:\.\d{1,2})+\.?|\.)\s+\S/.test(line.trim()) && line.trim().length <= 96;
+  // heading — top-level numbering must carry its dot. The (?![a-z]) guard
+  // rejects decimal measurements ("12.5 mg", "2.5 mmol/L") whose unit token is
+  // lowercase, while still accepting Title-Case and digit-led heading text.
+  return /^\d{1,2}(?:(?:\.\d{1,2})+\.?|\.)\s+(?![a-z])\S/.test(line.trim()) && line.trim().length <= 96;
 }
 
 function isLikelyTitle(rawLine: string, line: string, index: number) {
@@ -191,21 +193,26 @@ export function mergeContinuationBlocks(blocks: IndexedTextBlock[]): IndexedText
 // paragraph breaks unless they sit mid-sentence (next line starts lowercase),
 // which is how extraction separates soft-wrapped continuations.
 export function flowIndexedText(text: string): string {
-  return text
-    .replace(/\r/g, "\n")
-    .replace(/[ \t]+\n[ \t]*/g, "\n")
-    .replace(/\n+/g, (run: string, offset: number, full: string) => {
-      if (run.length === 1) return " ";
-      const next = full.charAt(offset + run.length);
-      return /[a-z(]/.test(next) ? " " : "\n\n";
-    })
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
+  return (
+    text
+      // Normalize CRLF/CR atomically so a Windows line ending becomes ONE newline,
+      // not two (a lone `\r → \n` would turn `\r\n` into a spurious blank line).
+      .replace(/\r\n?/g, "\n")
+      .replace(/[ \t]+\n[ \t]*/g, "\n")
+      .replace(/\n+/g, (run: string, offset: number, full: string) => {
+        if (run.length === 1) return " ";
+        const next = full.charAt(offset + run.length);
+        return /[a-z(]/.test(next) ? " " : "\n\n";
+      })
+      .replace(/[ \t]{2,}/g, " ")
+      .trim()
+  );
 }
 
 export function parseIndexedSourceText(text: string): IndexedTextBlock[] {
   const rawLines = text
-    .replace(/\r/g, "\n")
+    // CRLF/CR → single newline atomically (avoids spurious blank lines from `\r\n`).
+    .replace(/\r\n?/g, "\n")
     .split("\n")
     .map((line) => line.replace(/\s+$/g, ""));
   const blocks: IndexedTextBlock[] = [];

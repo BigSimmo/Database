@@ -57,38 +57,32 @@ export function ModeHomeHero({
   subtitle,
   icon: Icon,
   headingLevel = 1,
-  compact = false,
 }: {
   testId?: string;
   title: string;
   subtitle: string;
   icon: LucideIcon;
   headingLevel?: 1 | 2;
-  /**
-   * Mobile-only tightening used by ModeHomeTemplate so short mode homes fit a
-   * phone viewport without scrolling. All sm+/lg values are identical to the
-   * default treatment, so tablet and desktop render exactly the same.
-   */
-  compact?: boolean;
 }) {
   const Heading = headingLevel === 1 ? "h1" : "h2";
 
+  // Sizing is a single mobile-first system: the icon and gaps step up sm→lg,
+  // and the display heading scales continuously via the fluid `text-hero` token
+  // (globals.css) so it never jumps at a breakpoint. The compact-only mobile
+  // tightening that short mode homes relied on is now the base treatment, so the
+  // hero still fits a phone viewport without scrolling.
   return (
     <section
-      className={cn("grid justify-items-center px-4 sm:gap-3 sm:px-0", compact ? "gap-1.5" : "gap-3")}
+      className="grid justify-items-center gap-1.5 px-4 sm:gap-3 sm:px-0"
       aria-labelledby={`${testId ?? "mode-home"}-title`}
     >
-      <span
-        className={cn(
-          "mode-home-icon grid place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12 lg:h-14 lg:w-14 lg:rounded-[1.15rem]",
-          compact ? "h-11 w-11" : "h-14 w-14",
-        )}
-      >
-        <Icon className={cn("sm:h-6 sm:w-6 lg:h-7 lg:w-7", compact ? "h-5 w-5" : "h-7 w-7")} aria-hidden="true" />
+      <span className="mode-home-icon grid h-11 w-11 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12 lg:h-14 lg:w-14 lg:rounded-[1.15rem]">
+        <Icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7" aria-hidden="true" />
       </span>
-      <div className={cn("grid", compact ? "gap-1 sm:gap-1.5" : "gap-2")}>
+      <div className="grid gap-1 sm:gap-1.5">
         <Heading
           id={`${testId ?? "mode-home"}-title`}
+<<<<<<< HEAD
           className={cn(
             "text-balance font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)] sm:text-3xl lg:text-4xl",
             compact ? "text-2xl" : "text-3xl",
@@ -102,6 +96,13 @@ export function ModeHomeHero({
             compact ? "leading-5" : "leading-6",
           )}
         >
+=======
+          className="text-balance text-hero font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)]"
+        >
+          {title}
+        </Heading>
+        <p className="mx-auto max-w-2xl text-pretty text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-5 lg:text-base lg:leading-6">
+>>>>>>> origin/main
           {subtitle}
         </p>
       </div>
@@ -223,7 +224,7 @@ export function ModeHomeTemplate({
         className,
       )}
     >
-      <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} compact />
+      <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
 
       {desktopComposerSlotId ? (
         <div
@@ -245,7 +246,11 @@ export function ModeHomeTemplate({
                   <ActionIcon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
+<<<<<<< HEAD
                   <span className="block text-balance text-base font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] sm:text-base-minus">
+=======
+                  <span className="block text-balance text-base-minus font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere]">
+>>>>>>> origin/main
                     {action.title}
                   </span>
                   <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm-minus sm:leading-[1.3]">
