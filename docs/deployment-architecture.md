@@ -113,6 +113,11 @@ always-on worker instance** co-located in Sydney. The `indexing-v3-agent` Edge
 Function **stays** in its current role as the cron-triggered completion/repair
 gate — the two are complementary, not alternatives.
 
+> **Operator run recipe:** the copy-pasteable build/run/verify steps, the
+> required env + secrets, and the pre-deploy migration gate live in
+> [`worker-deploy-runbook.md`](worker-deploy-runbook.md). This section is the
+> decision record; that runbook is how to ship it.
+
 Reasoning:
 
 1. **The OCR stack cannot run at the edge.** PyMuPDF and Tesseract are native

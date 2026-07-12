@@ -145,6 +145,8 @@ no scale-to-zero, health `/api/health`. I'll prep the Railway service config via
 
 - **Worker** 🧑 — build `Dockerfile.worker`, run **one** always-on instance in the same region with prod
   secrets. **Only after migration `20260708130000` is live.** Confirms via `npm run reindex:health`.
+  Full build/run/verify recipe + the required env and secrets:
+  [worker-deploy-runbook.md](worker-deploy-runbook.md).
 - **Registry seed (prod)** 🧑 — `npm run registry:seed -- --owner-id <prod-owner-uuid> --write --confirm`
   (+ `differentials:seed` for the slug-retitle prune). Until seeded, Services/Forms show empty.
 - **Auth connection cap** 🧑 — before the first vertical scale-up, switch Supabase auth from the 10-absolute
