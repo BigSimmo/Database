@@ -218,6 +218,12 @@ const actionableNumericSectionKinds = new Set<AnswerSectionKind>([
   "required_actions",
 ]);
 
+/**
+ * Determines whether an answer contains actionable numeric content that requires numeric verification.
+ *
+ * @param answer - The answer to evaluate
+ * @returns `true` if the answer contains actionable numeric context and is eligible for verification gating, `false` otherwise.
+ */
 function hasActionableNumericContext(answer: RagAnswer) {
   if (!answer.grounded || answer.confidence === "unsupported") return false;
   if (answer.queryClass === "medication_dose_risk" || answer.queryClass === "table_threshold") return true;
@@ -239,7 +245,13 @@ function hasActionableNumericContext(answer: RagAnswer) {
 // `verificationSources` overrides the corpus numbers are checked against. The model path
 // passes the packed context it actually generated from (answer.sources stays the unpacked
 // answer-input set for the client/eval boundary); other callers omit it and verify against
-// answer.sources as before.
+/**
+ * Verifies numeric figures in an answer against its cited source content and annotates unsupported figures.
+ *
+ * @param answer - The answer whose numeric content is verified and updated.
+ * @param verificationSources - Optional source corpus to use instead of `answer.sources`.
+ * @returns The updated answer with faithfulness warnings and evidence-gap handling when figures are unsupported.
+ */
 export function applyNumericVerification(answer: RagAnswer, verificationSources?: SearchResult[]): RagAnswer {
   const sources = verificationSources ?? answer.sources ?? [];
   const unverified = new Set<string>();

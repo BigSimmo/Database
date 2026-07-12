@@ -4,7 +4,11 @@ import { PublicApiError } from "@/lib/http";
 import type { RateLimitSubject } from "@/lib/public-api-access";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
-/** Prefer durable RPC rate limits; fall back to per-instance memory when the DB function is unavailable. */
+/**
+ * Determines whether in-memory rate limiting may be used when durable rate limiting is unavailable.
+ *
+ * @returns `true` in local no-auth mode or production, `false` otherwise.
+ */
 export function allowRateLimitInMemoryFallbackOnUnavailable() {
   return isLocalNoAuthMode() || process.env.NODE_ENV === "production";
 }
@@ -13,11 +17,23 @@ export function allowRateLimitInMemoryFallbackOnUnavailable() {
 // when the durable limiter is unavailable. A per-process Map gives N× the intended limit across N
 // horizontally-scaled instances during a limiter outage — unacceptable for expensive/abusable
 // paths: `answer` (paid provider generation) and `document_upload` (storage writes + ingestion
-// cost). Local-no-auth dev keeps the in-memory fallback for single-instance usability.
+/**
+ * Identifies rate-limit buckets that must fail closed when the limiter is unavailable.
+ *
+ * @param bucket - The rate-limit bucket to evaluate
+ * @returns `true` for the `answer` and `document_upload` buckets, `false` otherwise
+ */
 function failsClosedOnLimiterUnavailable(bucket: ApiRateLimitBucket) {
   return bucket === "answer" || bucket === "document_upload";
 }
 
+/**
+ * Determines whether anonymous requests may use an in-memory rate limiter when the durable limiter is unavailable.
+ *
+ * @param bucket - The rate-limit bucket being evaluated.
+ * @param allowInMemoryFallbackOnUnavailable - Whether to allow in-memory fallback when the durable limiter is unavailable.
+ * @returns `true` if in-memory fallback is allowed, `false` otherwise.
+ */
 function allowAnonymousRateLimitFallback(bucket: ApiRateLimitBucket, allowInMemoryFallbackOnUnavailable?: boolean) {
   // Fail-closed buckets must not fall back to a per-instance limiter in a distributed production
   // runtime. If the durable limiter is unavailable, fail closed before any expensive work starts.
@@ -149,6 +165,16 @@ export async function consumeApiRateLimit(args: {
   };
 }
 
+/**
+ * Applies a durable rate limit to an owner or anonymous subject.
+ *
+ * Anonymous `answer` requests are constrained by both subject-specific and global
+ * limits. In-memory fallback is disabled for fail-closed buckets unless local
+ * no-auth mode is enabled.
+ *
+ * @param args - Rate-limiting configuration and subject identity.
+ * @returns The rate-limit decision and window metadata.
+ */
 export async function consumeSubjectApiRateLimit(args: {
   supabase: SupabaseAdmin;
   subject: RateLimitSubject;

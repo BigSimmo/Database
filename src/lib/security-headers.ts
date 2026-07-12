@@ -39,6 +39,14 @@ export type ContentSecurityPolicyOptions = SecurityHeaderFlags & {
   nonce: string;
 };
 
+/**
+ * Builds a Content Security Policy for the current runtime.
+ *
+ * @param isDevelopment - Whether development script permissions should be used.
+ * @param isLocalHttpRuntime - Whether insecure-request upgrades should be omitted.
+ * @param nonce - The nonce used to authorize production scripts.
+ * @returns The Content Security Policy header value.
+ */
 export function buildContentSecurityPolicy({
   isDevelopment,
   isLocalHttpRuntime,

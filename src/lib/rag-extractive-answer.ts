@@ -1729,7 +1729,15 @@ function applyProviderLabels(answer: RagAnswer): RagAnswer {
 
 // Public wrapper: runs quality finalization, then stamps provider/quality labels so the UI can
 // disclose source-only (lower-quality) answers and verify-against-sources guidance.
-/** Finalize rag answer quality. */
+/**
+ * Finalizes an extractive RAG answer's quality and provider metadata.
+ *
+ * @param answer - The answer to finalize
+ * @param query - The query the answer addresses
+ * @param queryClass - The classified query type
+ * @param verificationSources - Optional sources used to verify numeric claims
+ * @returns The finalized RAG answer
+ */
 export function finalizeRagAnswerQuality(
   answer: RagAnswer,
   query: string,
@@ -1739,7 +1747,15 @@ export function finalizeRagAnswerQuality(
   return applyProviderLabels(finalizeRagAnswerQualityCore(answer, query, queryClass, verificationSources));
 }
 
-/** Finalize rag answer quality core. */
+/**
+ * Finalizes an answer by applying quality checks, gap handling, section cleanup, and numeric verification.
+ *
+ * @param answer - The answer to finalize.
+ * @param query - The user query used to evaluate answer relevance and clinical intent.
+ * @param queryClass - The classified query type used for quality and fallback decisions.
+ * @param verificationSources - Optional sources used to verify numeric claims.
+ * @returns The quality-checked and finalized answer.
+ */
 function finalizeRagAnswerQualityCore(
   answer: RagAnswer,
   query: string,

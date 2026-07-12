@@ -5,6 +5,16 @@ import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Reports application configuration and health status.
+ *
+ * The `deep=1` query parameter enables an authorized Supabase connectivity
+ * check. Deep checks are skipped in demo mode or when Supabase is not
+ * configured.
+ *
+ * @param request - The incoming request, including query parameters and deep-check authorization credentials
+ * @returns A JSON health report with an HTTP 200 status when ready, or 503 when a required check fails
+ */
 export async function GET(request: Request) {
   const deep = new URL(request.url).searchParams.get("deep") === "1";
   const supabaseConfigured = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);

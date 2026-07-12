@@ -612,6 +612,15 @@ export function packedContextCacheKey(
   ].join("|");
 }
 
+/**
+ * Adds compact context from adjacent document chunks to the leading search results.
+ *
+ * @param supabase - The Supabase client used to retrieve adjacent document chunks
+ * @param results - Search results to enrich with adjacent context
+ * @param queryClass - Query classification used to determine how many results to enrich
+ * @param options - Controls whether cross-document context packing is enabled
+ * @returns Search results with adjacent context added when matching chunks are available
+ */
 export async function packAdjacentSourceContext(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
@@ -696,7 +705,13 @@ export async function packAdjacentSourceContext(
 // flagged unverified, blanking a correct answer. Overlay the packed adjacent_context onto
 // the answer-input results (by chunk id) to rebuild the exact verification corpus, WITHOUT
 // mutating answer.sources itself (the route-boundary client trim and eval byte-identity
-// both depend on answer.sources staying unpacked — see answer-client-payload.ts).
+/**
+ * Aligns adjacent source context with packed search results.
+ *
+ * @param results - The search results to update.
+ * @param packed - Search results containing the desired adjacent context.
+ * @returns Results with matching adjacent context values copied from `packed`.
+ */
 export function attachAdjacentContext(results: SearchResult[], packed: SearchResult[]): SearchResult[] {
   const adjacentById = new Map<string, string>();
   for (const source of packed) {

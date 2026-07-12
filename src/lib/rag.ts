@@ -3599,7 +3599,12 @@ export async function answerQuestion(query: string, documentId?: string) {
   return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
 }
 
-/** Answer question with scope. */
+/**
+ * Answers a question within the requested search scope, coalescing identical in-flight requests when caching is enabled.
+ *
+ * @param args - The question, scope, cache, progress, and request options.
+ * @returns The generated answer.
+ */
 export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs): Promise<RagAnswer> {
   const startedAt = Date.now();
   const coalescingEnabled = !args.skipCache && env.RAG_ANSWER_CACHE_TTL_MS > 0 && env.RAG_ANSWER_CACHE_SIZE > 0;
@@ -3637,7 +3642,17 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
   return pending;
 }
 
-/** Answer question with scope uncoalesced. */
+/**
+ * Generates a clinically grounded answer within the requested document scope.
+ *
+ * Uses cached or shared answers when available, retrieves supporting evidence, selects an
+ * answer route, and falls back to extractive or unsupported responses when generation is
+ * unavailable or fails.
+ *
+ * @param args - Query, document scope, routing options, callbacks, and request controls.
+ * @param startedAt - Timestamp used to calculate total request latency.
+ * @returns The finalized answer with citations, retrieval diagnostics, and response metadata.
+ */
 async function answerQuestionWithScopeUncoalesced(
   args: AnswerQuestionWithScopeArgs,
   startedAt: number,

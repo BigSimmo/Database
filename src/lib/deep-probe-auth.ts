@@ -6,7 +6,12 @@ import { env } from "@/lib/env";
 // `x-health-deep-token` header. Used by /api/health (deep Supabase probe) and
 // /api/setup-status (detailed setup checks) so both surfaces gate internal error text and
 // project posture behind the same secret. Constant-time compare; fails closed when the secret
-// is unset or the token length/value differs.
+/**
+ * Determines whether a request is authorized for deep health probe access.
+ *
+ * @param request - The request containing the deep probe authorization token
+ * @returns `true` if the request token matches the configured secret, `false` otherwise.
+ */
 export function allowDeepHealthProbe(request: Request): boolean {
   const secret = env.HEALTH_DEEP_PROBE_SECRET;
   if (!secret) return false;

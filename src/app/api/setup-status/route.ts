@@ -276,6 +276,12 @@ function setupStatusCacheTtl(payload: SetupStatusPayload) {
   return payload.indexingActive ? SETUP_STATUS_ACTIVE_CACHE_MS : SETUP_STATUS_IDLE_CACHE_MS;
 }
 
+/**
+ * Creates an HTTP response containing the setup status payload and polling metadata.
+ *
+ * @param payload - The setup status information to include in the response
+ * @returns A JSON response with caching and polling headers
+ */
 function setupStatusResponse(payload: SetupStatusPayload) {
   return NextResponse.json(payload, {
     headers: {
@@ -296,6 +302,12 @@ const COARSE_SETUP_DETAIL: Record<SetupCheckStatus, string> = {
   unknown: "Status unavailable. Operators can see specifics via the health deep probe or server logs.",
 };
 
+/**
+ * Replaces setup check details with generic status-based messages.
+ *
+ * @param payload - The setup status payload whose check details should be coarsened
+ * @returns A setup status payload with sanitized check details
+ */
 function coarseSetupStatusPayload(payload: SetupStatusPayload): SetupStatusPayload {
   return {
     ...payload,
@@ -303,6 +315,11 @@ function coarseSetupStatusPayload(payload: SetupStatusPayload): SetupStatusPaylo
   };
 }
 
+/**
+ * Builds the current setup and indexing status payload.
+ *
+ * @returns The setup checks, indexing activity state, polling interval, and generation timestamp.
+ */
 async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
   const supabase = supabaseProjectCanBeQueried ? createAdminClient() : null;
   const unavailable = await readSupabaseAvailability(supabase);
@@ -431,6 +448,15 @@ async function readSetupStatusPayload() {
   }
 }
 
+/**
+ * Serves setup and health status for the current project request.
+ *
+ * Local requests receive detailed check information. Internet-reachable requests
+ * receive detailed information only when authorized for deep health probes;
+ * otherwise, per-check details are generalized.
+ *
+ * @returns An HTTP response containing setup status or an unsafe-origin response.
+ */
 export async function GET(request: Request) {
   const identity = localProjectRequestIdentityPayload(request);
   if (!identity.localServer.safeLocalOrigin) {
