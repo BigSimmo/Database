@@ -287,7 +287,10 @@ export function rateLimitJsonResponse(message: string, rateLimit: ApiRateLimitRe
   return NextResponse.json(
     {
       error: message,
+      message,
+      code: "rate_limited",
       retryAfterSeconds: rateLimit.retryAfterSeconds,
+      details: { retryAfterSeconds: rateLimit.retryAfterSeconds, resetAt: rateLimit.resetAt },
     },
     {
       status: 429,

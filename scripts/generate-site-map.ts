@@ -4,12 +4,7 @@ import { pathToFileURL } from "node:url";
 import { format } from "prettier";
 
 import { appModeDefinitions, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
-import {
-  documentEvidenceHref,
-  documentReaderHref,
-  documentsSearchHref,
-  DOCUMENTS_MODE_HOME_ROUTE,
-} from "@/lib/document-flow-routes";
+import { documentsSearchHref, DOCUMENTS_MODE_HOME_ROUTE } from "@/lib/document-flow-routes";
 import { differentialRecords } from "@/lib/differentials";
 import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
@@ -46,8 +41,8 @@ const routeDescriptions: Record<string, string> = {
   "/differentials/presentations": "Presentation workflow stream.",
   "/documents/[id]": "Document viewer/detail page.",
   "/documents/search": "Documents search command centre.",
-  "/documents/source": "Master document reader with demo PDF content and evidence navigation.",
-  "/documents/source/evidence": "Evidence detail page for document flow.",
+  "/documents/source": "Compatibility redirect to the canonical live document viewer when a valid id is supplied.",
+  "/documents/source/evidence": "Compatibility redirect sharing the canonical live document viewer handoff.",
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
@@ -242,7 +237,7 @@ function renderModePageIndex() {
       home: DOCUMENTS_MODE_HOME_ROUTE,
       search: documentsSearchHref({ query: "lithium monitoring", focus: true, run: true }),
       detail:
-        "`/documents/source` master reader, `/documents/source/evidence` evidence detail, `/documents/search` results, and `/documents/[id]` live viewer.",
+        "`/documents/search` live results and `/documents/[id]` canonical viewer; `/documents/source*` are compatibility redirects.",
     },
     {
       mode: "Services",
@@ -291,23 +286,12 @@ function renderDocumentFlowIndex() {
       "Documents search command centre used after submitting a search in Documents mode.",
     ),
     bullet(
-      documentReaderHref({
-        document: "clozapine-monitoring",
-        query: "clozapine monitoring table",
-        page: 12,
-        chunk: "monitoring-table",
-      }),
-      "Standalone master document reader for a selected result, with bundled demo PDF content and evidence navigation.",
+      "/documents/source?id=11111111-1111-4111-8111-111111111111&page=12&chunk=monitoring-table",
+      "Legacy source handoff; valid document IDs redirect to the canonical live viewer and invalid IDs return to Documents search.",
     ),
     bullet(
-      documentEvidenceHref({
-        document: "clozapine-monitoring",
-        evidence: "monitoring-table",
-        query: "clozapine monitoring table",
-        page: 12,
-        chunk: "monitoring-table",
-      }),
-      "Reusable evidence detail page opened from the search tray or document reader evidence cards.",
+      "/documents/source/evidence?id=11111111-1111-4111-8111-111111111111&page=12&chunk=monitoring-table",
+      "Legacy evidence handoff redirected to the canonical live document viewer.",
     ),
     bullet("/documents/[id]", "Live document viewer route remains available for real document records."),
   ];
