@@ -39,6 +39,22 @@ export function normalizedQueryTextForStorage(query: string): string {
   return env.RAG_PERSIST_RAW_QUERY_TEXT ? normalizeQueryText(query) : queryHashStorageText(query);
 }
 
+// PIA-3: the generated answer is stored verbatim in rag_queries.answer (and in
+// promoted-eval-case metadata), so it can restate patient specifics echoed from
+// the query. Unless answer retention is explicitly enabled, drop the answer text
+// at rest and keep only the row's non-PHI telemetry (source chunk ids, model,
+// hash metadata). The column is nullable, so null is the valid "not retained"
+// marker. This is the single chokepoint governing answer-text persistence.
+export function answerTextForStorage(answer: string | null | undefined): string | null {
+  return env.RAG_PERSIST_ANSWER_TEXT ? (answer ?? null) : null;
+}
+
+// Privacy metadata to fold into a persisted row that carries an answer: records
+// whether the generated answer text was retained, mirroring raw_query_retained.
+export function answerPrivacyMetadata() {
+  return { answer_retained: env.RAG_PERSIST_ANSWER_TEXT };
+}
+
 export function queryCacheKeyForStorage(cacheKey: string): string {
   return env.RAG_PERSIST_RAW_QUERY_TEXT ? cacheKey : `redacted-cache:${hashQueryText(cacheKey)}`;
 }
