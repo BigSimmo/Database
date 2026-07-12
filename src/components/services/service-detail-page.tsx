@@ -554,11 +554,11 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                         <span
                           key={chip.label ?? `status-chip-${index}`}
                           className={cn(
-                            "inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2.5 text-2xs font-bold",
+                            "inline-flex min-h-6 items-center gap-1.5 rounded-2xl border px-2.5 py-0.5 text-2xs font-bold",
                             chipToneClass(chip.tone),
                           )}
                         >
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden />
                           {displayText(chip.label, "Status")}
                         </span>
                       ))}
