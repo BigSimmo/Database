@@ -536,7 +536,9 @@ describe("normalizeInlineBulletGlyphs", () => {
     );
 
     // Blood-value + noun forms with bold markers.
-    expect(normalizeInlineBulletGlyphs("o **Negative** blood should be used")).toBe("o **Negative** blood should be used");
+    expect(normalizeInlineBulletGlyphs("o **Negative** blood should be used")).toBe(
+      "o **Negative** blood should be used",
+    );
     expect(normalizeInlineBulletGlyphs("o **RhD negative** red cells are required")).toBe(
       "o **RhD negative** red cells are required",
     );
