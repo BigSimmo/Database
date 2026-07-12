@@ -60,6 +60,9 @@ answer latency matters. The image is host-agnostic.
 Scale-out plan: stay at 1 instance (vertical scaling first) until sustained
 load demands more; replicas are safe but dilute in-memory coalescing, so add
 them only after the shared `rag_response_cache` hit rate is confirmed healthy.
+**Before the first vertical scale-up**, clear the auth 10-connection cap so the
+auth pool scales with compute instead of staying pinned — operator runbook:
+`docs/auth-connection-cap-runbook.md` (`docs/capacity-review.md` §2–§3).
 
 ### Image contract (`Dockerfile`)
 
