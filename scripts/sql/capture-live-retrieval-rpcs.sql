@@ -9,6 +9,15 @@
 -- concurrent multi-session editing — so only a verbatim capture is correct. A
 -- hand-written body is exactly what got migration 20260705210000 neutralized.
 --
+-- SCOPE: this covers ONLY the allowlist "LIVE IS AHEAD" retrieval subset — the
+-- guard-tested set (tests/forward-codify-retrieval-targets.test.ts). It is NOT
+-- the complete codification set. The runbook also codifies live-only
+-- (unexpected_live) and "verify" functions — get_visual_evidence_cards,
+-- run_visual_eval_case, run_all_visual_eval_cases, repair_enrichment_quality_batch,
+-- match_document_index_units_hybrid, match_document_memory_cards_hybrid[_v2].
+-- Capture those from the fingerprint table in
+-- docs/forward-codify-retrieval-rpcs-workorder.md, not here.
+--
 -- Full procedure: docs/forward-codify-retrieval-rpcs-workorder.md
 -- Backlog item 0: docs/database-drift-detection.md#reconciliation-backlog
 --
@@ -18,10 +27,11 @@
 -- pg_proc. Run it via the Supabase Dashboard SQL editor, an approved
 -- service-role SQL path, or the Supabase MCP execute_sql tool.
 --
--- Expect EXACTLY 7 rows back (one per target). Fewer rows means a target
--- signature no longer resolves on live (renamed, dropped, or already
--- reconciled) — see the "missing signatures" snippet in the work-order and
--- reconcile the target set + allowlist before continuing.
+-- Expect EXACTLY 7 rows back (one per target). A target that no longer resolves
+-- on live (renamed, dropped, or already reconciled) is filtered out and simply
+-- yields FEWER rows — the query does not error. If you get fewer than 7, find
+-- which with the "missing signatures" snippet in the work-order and reconcile
+-- the target set + allowlist before continuing.
 --
 -- search_path is pinned to '' so oid::regprocedure renders fully-qualified and
 -- matches the allowlist keys / schema_drift_snapshot() signatures exactly, and
@@ -33,21 +43,25 @@
 
 set search_path = '';
 
--- >>> forward-codify targets >>> (kept in lockstep with the "LIVE IS AHEAD"
--- retrieval entries in supabase/drift-allowlist.json — see
--- tests/forward-codify-retrieval-targets.test.ts)
 select
-  t.signature,
-  pg_get_functiondef(t.signature::regprocedure) as definition
+  r.signature,
+  pg_get_functiondef(r.proc) as definition
 from (
-  values
-    ('public.get_related_document_metadata(uuid[],uuid)'),
-    ('public.match_document_chunks(extensions.vector,integer,double precision,uuid,uuid)'),
-    ('public.match_document_chunks_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)'),
-    ('public.match_document_chunks_text(text,integer,uuid[],uuid)'),
-    ('public.match_document_table_facts_text(text,integer,uuid[],uuid)'),
-    ('public.match_documents_for_query(text,integer,uuid)'),
-    ('public.repair_strict_enrichment_gate_batch(integer)')
-) as t(signature)
-order by t.signature;
--- <<< forward-codify targets <<<
+  select t.signature, to_regprocedure(t.signature) as proc
+  from (
+    -- >>> forward-codify targets >>> (kept in lockstep with the "LIVE IS AHEAD"
+    -- retrieval entries in supabase/drift-allowlist.json — see
+    -- tests/forward-codify-retrieval-targets.test.ts)
+    values
+      ('public.get_related_document_metadata(uuid[],uuid)'),
+      ('public.match_document_chunks(extensions.vector,integer,double precision,uuid,uuid)'),
+      ('public.match_document_chunks_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)'),
+      ('public.match_document_chunks_text(text,integer,uuid[],uuid)'),
+      ('public.match_document_table_facts_text(text,integer,uuid[],uuid)'),
+      ('public.match_documents_for_query(text,integer,uuid)'),
+      ('public.repair_strict_enrichment_gate_batch(integer)')
+    -- <<< forward-codify targets <<<
+  ) as t(signature)
+) as r
+where r.proc is not null
+order by r.signature;

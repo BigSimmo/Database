@@ -99,8 +99,15 @@ target set cannot silently drift from the machine-checked source of truth:
   `LIVE IS AHEAD` retrieval entries, so reconciling a sibling (removing its
   allowlist entry) forces a matching edit to the capture query and this file.
 
-The fingerprint table above remains the point-in-time reference snapshot; the
-committed query is the maintained, always-in-sync-with-the-allowlist capture.
+The committed query covers **only** the `LIVE IS AHEAD` retrieval subset (its
+guard invariant). It is **not** the full codification set: the live-only
+(`unexpected_live`) and `(verify)` functions in the fingerprint table above —
+`get_visual_evidence_cards`, `run_visual_eval_case`, `run_all_visual_eval_cases`,
+`repair_enrichment_quality_batch`, `match_document_index_units_hybrid`,
+`match_document_memory_cards_hybrid[_v2]` — are captured from that table per
+Step 1, not from this query. The fingerprint table remains the point-in-time
+reference snapshot; the committed query is the maintained,
+always-in-sync-with-the-allowlist capture of its subset.
 
 ## Not in this work-order (separate allowlist backlog)
 
