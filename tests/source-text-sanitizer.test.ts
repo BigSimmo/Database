@@ -522,6 +522,32 @@ describe("normalizeInlineBulletGlyphs", () => {
     expect(normalizeInlineBulletGlyphs("donor group o RhD negative")).toBe("donor group o RhD negative");
   });
 
+  it("keeps blood-group values with bold markers intact", () => {
+    // Line-start forms: "o **RhD negative**" is a blood value, not a bullet.
+    expect(normalizeInlineBulletGlyphs("o **RhD negative**")).toBe("o **RhD negative**");
+    expect(normalizeInlineBulletGlyphs("o **Negative**")).toBe("o **Negative**");
+    expect(normalizeInlineBulletGlyphs("o **Rh positive**")).toBe("o **Rh positive**");
+
+    // Label-prefixed forms: "group/type: o **Negative**" is a blood value.
+    expect(normalizeInlineBulletGlyphs("blood group: o **RhD negative**")).toBe("blood group: o **RhD negative**");
+    expect(normalizeInlineBulletGlyphs("Blood Type: o **Negative**")).toBe("Blood Type: o **Negative**");
+    expect(normalizeInlineBulletGlyphs("group o **Negative** units available")).toBe(
+      "group o **Negative** units available",
+    );
+
+    // Blood-value + noun forms with bold markers.
+    expect(normalizeInlineBulletGlyphs("o **Negative** blood should be used")).toBe("o **Negative** blood should be used");
+    expect(normalizeInlineBulletGlyphs("o **RhD negative** red cells are required")).toBe(
+      "o **RhD negative** red cells are required",
+    );
+
+    // Non-blood bullets with bold content should still convert.
+    expect(normalizeInlineBulletGlyphs("o **Reduce dose** if ANC falls")).toBe("**Reduce dose** if ANC falls");
+    expect(normalizeInlineBulletGlyphs("Risk: o **Positive symptoms** require urgent review")).toBe(
+      "Risk: **Positive symptoms** require urgent review",
+    );
+  });
+
   it("repairs a label colon followed by a converted sub-bullet ('Label:; item' → 'Label: item')", () => {
     expect(normalizeInlineBulletGlyphs("Acute Mania: o IR product: 750 to 1000mg daily")).toBe(
       "Acute Mania: IR product: 750 to 1000mg daily",

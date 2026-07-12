@@ -299,8 +299,11 @@ export function sourceTextForClinicalProsePreservingBreaks(text: string) {
 // prose sanitizer must NOT run on them (it would delete the document names and
 // leave garble). Apply only glyph repair + whitespace collapse, matching the
 // server's own `finalizeRagAnswerQuality` exemption for `preformatted && grounded`.
-export function normalizePreformattedDisplayText(text: string) {
-  return readableWhitespace(text);
+// When preserveBold is false, strip **bold** markers so literal Markdown markers
+// never leak through to the display.
+export function normalizePreformattedDisplayText(text: string, options: { preserveBold?: boolean } = {}) {
+  const normalized = readableWhitespace(text);
+  return options.preserveBold ? normalized : normalized.replace(/\*\*([^*]+)\*\*/g, "$1");
 }
 
 export function isLowYieldClinicalText(text: string) {
@@ -580,14 +583,17 @@ const groupTypeLabelTailPattern = /\b(?:group|type):?\s$/i;
 // A word qualifying group/type ("risk group:", "test type:") marks a list
 // label, not a blood label — its positive/negative items are list content.
 const qualifiedGroupTypeTailPattern = /\b[A-Za-z][\w-]*\s+(?:group|type):?\s$/i;
-const rhValueHeadPattern = /^\s+rh(?:d)?\b/i;
-const posNegValueHeadPattern = /^\s+(?:pos(?:itive)?|neg(?:ative)?)\b/i;
+const rhValueHeadPattern = /^\s+(?:\*\*)?rh(?:d)?\b/i;
+const posNegValueHeadPattern = /^\s+(?:\*\*)?(?:pos(?:itive)?|neg(?:ative)?)\b/i;
 // An entire line that is just the ABO value ("o RhD negative", "o Negative",
-// "o Rh positive") — the strongest signal that the "o" is the group itself.
+// "o Rh positive", "o **RhD negative**", "o **Negative**") — the strongest
+// signal that the "o" is the group itself. Bold markers around the value are
+// allowed so high-yield emphasis from the server never causes a blood value to
+// be misclassified as a bullet.
 const standaloneBloodValueLinePattern =
-  /^o\s+(?:rh(?:d)?(?:\s+(?:pos(?:itive)?|neg(?:ative)?))?|pos(?:itive)?|neg(?:ative)?)$/i;
+  /^o\s+(?:\*\*)?(?:rh(?:d)?(?:\s+(?:pos(?:itive)?|neg(?:ative)?))?|pos(?:itive)?|neg(?:ative)?)(?:\*\*)?$/i;
 const bloodValueWithNounTailLinePattern =
-  /^o\s+(?:rh(?:d)?\s+)?(?:pos(?:itive)?|neg(?:ative)?)\s+(?:blood(?!\s+(?:cultures?|tests?|screens?|samples?|results?)\b)|red\s+cells?)\b/i;
+  /^o\s+(?:\*\*)?(?:rh(?:d)?\s+)?(?:pos(?:itive)?|neg(?:ative)?)(?:\*\*)?\s+(?:blood(?!\s+(?:cultures?|tests?|screens?|samples?|results?)\b)|red\s+cells?)\b/i;
 
 function replaceSubBulletOGlyphs(text: string, joiner: string) {
   return text.replace(subBulletOGlyphPattern, (match, offset: number) => {

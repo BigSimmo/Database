@@ -211,7 +211,9 @@ export function compactTableFact(fact: NonNullable<SearchResult["table_facts"]>[
 export function sanitizeAnswerDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
   const normalized = (
     options.preformatted
-      ? normalizePreformattedDisplayText(value)
+      ? normalizePreformattedDisplayText(value, {
+          preserveBold: options.preserveBold,
+        })
       : polishClinicalAnswerProse(sourceTextForClinicalProsePreservingBreaks(value), {
           preserveBold: options.preserveBold,
         })

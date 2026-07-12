@@ -54,14 +54,13 @@
 --     the EXACT live bodies to this file:
 --
 --       psql "$SUPABASE_DB_URL" -X -q -At -o /tmp/rpc_bodies.sql -c "
---         select string_agg(pg_get_functiondef(p.oid) || E';\n', E'\n')
+--         select string_agg(pg_get_functiondef(p.oid) || E';\n', E'\n' order by p.proname, p.oid)
 --         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 --         where n.nspname = 'public' and p.proname in (
 --           'match_document_chunks_hybrid','match_document_chunks_text',
 --           'match_document_lookup_chunks_text','match_document_table_facts_text',
 --           'match_document_embedding_fields_hybrid','match_document_index_units_hybrid',
---           'match_documents_for_query','match_document_chunks')
---         order by p.proname;"
+--           'match_documents_for_query','match_document_chunks');"
 --       cat /tmp/rpc_bodies.sql >> supabase/migrations/20260712000000_forward_codify_retrieval_owner_matches.sql
 --
 --     (`create or replace function` is idempotent; applying on live is a no-op

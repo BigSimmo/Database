@@ -32,6 +32,31 @@ describe("clinical dashboard display text", () => {
     expect(stripped).toContain("below 1.5");
   });
 
+  it("handles bold markers correctly in preformatted answers", () => {
+    const preformattedWithBold =
+      "The following documents are relevant: **LITHIUM THERAPY GUIDELINE MP-0123**; Clozapine Monitoring Protocol.";
+
+    // When preserveBold is true, keep the markers for SafeBoldText rendering.
+    const withBold = sanitizeAnswerDisplayText(preformattedWithBold, {
+      preformatted: true,
+      preserveBold: true,
+    });
+    expect(withBold).toContain("**LITHIUM THERAPY GUIDELINE MP-0123**");
+
+    // When preserveBold is false or omitted, strip the markers so literal Markdown
+    // markers never leak through when PriorAnswerTurnSurface renders collapsed text.
+    const withoutBold = sanitizeAnswerDisplayText(preformattedWithBold, {
+      preformatted: true,
+      preserveBold: false,
+    });
+    expect(withoutBold).not.toContain("**");
+    expect(withoutBold).toContain("LITHIUM THERAPY GUIDELINE MP-0123");
+
+    const defaultBehavior = sanitizeAnswerDisplayText(preformattedWithBold, { preformatted: true });
+    expect(defaultBehavior).not.toContain("**");
+    expect(defaultBehavior).toContain("LITHIUM THERAPY GUIDELINE MP-0123");
+  });
+
   it("polishes cached generated answer prose before rendering", () => {
     const noisy =
       "Lithium Carbonate 250 mg Tablet – Lithicarb®. Imprest location: Formulary One DOSAGE & DOSAGE ADJUSTMENTS Therapy with lithium should always begin with conventional tablets (Lithium Carbonate 250 mg) to stabilise the do. Lithium MONITORING Baseline Tests1.";
