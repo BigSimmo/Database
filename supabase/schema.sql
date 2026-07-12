@@ -820,6 +820,24 @@ create index if not exists rag_response_cache_expiry_idx
   on public.rag_response_cache(expires_at);
 create index if not exists rag_response_cache_owner_kind_idx
   on public.rag_response_cache(owner_id, cache_kind, updated_at desc);
+
+create or replace function public.purge_expired_rag_response_cache()
+returns integer
+language plpgsql
+security definer
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_deleted integer;
+begin
+  delete from public.rag_response_cache where expires_at <= now();
+  get diagnostics v_deleted = row_count;
+  return v_deleted;
+end;
+$$;
+
+revoke execute on function public.purge_expired_rag_response_cache() from public, anon, authenticated;
+grant execute on function public.purge_expired_rag_response_cache() to service_role;
 create unique index if not exists rag_response_cache_key_idx
   on public.rag_response_cache(
     coalesce(owner_id, '00000000-0000-0000-0000-000000000000'::uuid),
@@ -1194,6 +1212,10 @@ begin
     '{}'::jsonb, coalesce(d.created_at, now()), now()
   from public.documents d
   where d.status = 'indexed'
+    and not exists (
+      select 1 from public.ingestion_jobs i
+      where i.document_id = d.id and i.status in ('pending', 'processing')
+    )
     and d.metadata ? 'indexing_v3_agent_status'
     and coalesce(d.metadata->>'indexing_v3_agent_status', 'pending')
           not in ('completed', 'needs_enrichment_artifacts')
@@ -1205,6 +1227,10 @@ begin
     from public.indexing_v3_agent_jobs j
     join public.documents d on d.id = j.document_id and d.status = 'indexed'
     where j.status not in ('completed', 'needs_enrichment_artifacts')
+      and not exists (
+        select 1 from public.ingestion_jobs i
+        where i.document_id = j.document_id and i.status in ('pending', 'processing')
+      )
       and j.enrichment_status in ('pending', 'failed', 'processing')
       and j.attempt_count < j.max_attempts
       and coalesce(j.next_run_at, now()) <= now()
@@ -1537,6 +1563,58 @@ begin
   );
 end;
 $$;
+
+create or replace function public.commit_document_index_generation(
+  p_job_id uuid,
+  p_worker_id text,
+  p_document_id uuid,
+  p_index_generation_id uuid,
+  p_status text default 'indexed',
+  p_page_count integer default 0,
+  p_chunk_count integer default 0,
+  p_image_count integer default 0,
+  p_metadata jsonb default '{}'::jsonb,
+  p_pages jsonb default null,
+  p_quality jsonb default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_job public.ingestion_jobs%rowtype;
+begin
+  select * into v_job
+  from public.ingestion_jobs
+  where id = p_job_id
+  for update;
+
+  if not found
+    or v_job.document_id is distinct from p_document_id
+    or v_job.status is distinct from 'processing'
+    or v_job.locked_by is distinct from p_worker_id
+  then
+    raise exception using errcode = 'P0001', message = 'ingestion_lease_lost';
+  end if;
+
+  return public.commit_document_index_generation(
+    p_document_id, p_index_generation_id, p_status, p_page_count, p_chunk_count,
+    p_image_count, p_metadata, p_pages, p_quality
+  );
+end;
+$$;
+
+revoke execute on function public.commit_document_index_generation(
+  uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb
+) from public, anon, authenticated, service_role;
+revoke execute on function public.commit_document_index_generation(
+  uuid, text, uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb
+) from public, anon, authenticated;
+grant execute on function public.commit_document_index_generation(
+  uuid, text, uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb
+) to service_role;
+
 
 create or replace function public.cleanup_abandoned_document_index_generations(
   p_document_id uuid default null,
@@ -4851,6 +4929,81 @@ comment on index public.documents_indexing_v3_agent_claim_idx is
 
 comment on table public.indexing_v3_agent_jobs is
   'Dedicated worker-state table for the v3 indexing / enrichment agent. Replaces JSONB state in documents.metadata. claim_indexing_v3_agent_jobs uses SKIP LOCKED here; update_indexing_v3_agent_job_status completes/fails a job. See migration 20260702190000 for transition notes.';
+
+create or replace function public.request_indexing_v3_enrichment(
+  p_document_id uuid,
+  p_owner_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_job_id uuid;
+begin
+  perform 1
+  from public.documents
+  where id = p_document_id and owner_id = p_owner_id and status = 'indexed'
+  for update;
+  if not found then
+    raise exception using errcode = 'P0001', message = 'document_not_available_for_enrichment';
+  end if;
+
+  if exists (
+    select 1 from public.ingestion_jobs
+    where document_id = p_document_id and status in ('pending', 'processing')
+  ) then
+    raise exception using errcode = 'P0001', message = 'ingestion_active';
+  end if;
+
+  update public.indexing_v3_agent_jobs
+  set status = 'pending',
+      enrichment_status = 'pending',
+      attempt_count = 0,
+      locked_by = null,
+      locked_at = null,
+      next_run_at = null,
+      last_error = null,
+      updated_at = now()
+  where document_id = p_document_id
+    and status <> 'processing'
+  returning id into v_job_id;
+
+  if v_job_id is null then
+    if exists (
+      select 1 from public.indexing_v3_agent_jobs
+      where document_id = p_document_id and status = 'processing'
+    ) then
+      raise exception using errcode = 'P0001', message = 'enrichment_active';
+    end if;
+    insert into public.indexing_v3_agent_jobs (
+      document_id, status, enrichment_status, attempt_count, max_attempts, version, metadata
+    ) values (
+      p_document_id, 'pending', 'pending', 0, 3, 'visual-core-v3', '{}'::jsonb
+    )
+    returning id into v_job_id;
+  end if;
+
+  update public.documents
+  set metadata = (coalesce(metadata, '{}'::jsonb)
+      - 'indexing_v3_agent_locked_by' - 'indexing_v3_agent_locked_at'
+      - 'indexing_v3_agent_last_error' - 'indexing_v3_agent_next_run_at')
+      || jsonb_build_object(
+        'enrichment_status', 'pending',
+        'indexing_v3_agent_status', 'pending',
+        'indexing_v3_agent_updated_at', now()
+      ),
+      updated_at = now()
+  where id = p_document_id and owner_id = p_owner_id;
+
+  return jsonb_build_object('ok', true, 'job_id', v_job_id);
+end;
+$$;
+
+revoke execute on function public.request_indexing_v3_enrichment(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.request_indexing_v3_enrichment(uuid, uuid) to service_role;
+
 
 create table if not exists public.rag_visual_eval_cases (
   id uuid primary key default gen_random_uuid(),

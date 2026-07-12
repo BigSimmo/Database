@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { env, isDemoMode } from "@/lib/env";
 import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { AuthenticationError, requireAuthenticatedUser } from "@/lib/supabase/auth";
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
@@ -162,7 +163,7 @@ async function readSearchSchemaStatus(supabase: AdminClient | null) {
     if (!supabase) throw new Error("Supabase admin client is unavailable.");
     const { data, error } = await supabase.rpc("search_schema_health");
     if (error) {
-      return check("search", label, "needs_setup", `Search health RPC is unavailable or failed: ${error.message}`);
+      return check("search", label, "needs_setup", "Search health checks are temporarily unavailable.");
     }
     const health = (data ?? {}) as SearchSchemaHealth;
     const missing = Array.isArray(health.missing) ? health.missing : [];
@@ -416,6 +417,24 @@ export async function GET(request: Request) {
   const identity = localProjectRequestIdentityPayload(request);
   if (!identity.localServer.safeLocalOrigin) {
     return unsafeLocalProjectResponse(identity);
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    try {
+      await requireAuthenticatedUser(request, createAdminClient());
+    } catch (error) {
+      if (!(error instanceof AuthenticationError)) throw error;
+      return NextResponse.json(
+        {
+          demoMode: isDemoMode(),
+          checks: [],
+          indexingActive: false,
+          pollAfterMs: null,
+          generatedAt: new Date().toISOString(),
+        } satisfies SetupStatusPayload,
+        { headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
   }
 
   return setupStatusResponse(await readSetupStatusPayload());

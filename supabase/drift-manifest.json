@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-11T02:45:10.714Z",
+  "generated_at": "2026-07-12T16:32:43.163Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "aa8a419ab55b4637b858df628aa250b714ab1acd715d4f7786bcf6ec71f5e218",
-  "replay_seconds": 22,
+  "schema_sha256": "1175599ddf5f13b5233360216e068ca5f44ae23d5443aefaf7e7ea7ae948abda",
+  "replay_seconds": 19,
   "snapshot": {
     "views": [
       {
@@ -5650,7 +5650,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "fc509a871eb928b94d7a333b345904a0",
+        "def_hash": "55f95e3b799f7716a7fd264d2b3cdd5a",
         "signature": "public.claim_indexing_v3_agent_jobs(text,integer,integer)"
       },
       {
@@ -5668,6 +5668,14 @@
         ],
         "def_hash": "4ee148dcab28d6bbe10cfa542213f0f6",
         "signature": "public.cleanup_abandoned_document_index_generations(uuid,integer,boolean)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "eb9926823dccb2d5d91c01a664f049d7",
+        "signature": "public.commit_document_index_generation(uuid,text,uuid,uuid,text,integer,integer,integer,jsonb,jsonb,jsonb)"
       },
       {
         "acl": [
@@ -5930,6 +5938,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "a6b80c8973f7f5a6eec0d4191a75d1ba",
+        "signature": "public.purge_expired_rag_response_cache()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "843e3e00240d7fcbf6465bdfd3801525",
         "signature": "public.refresh_import_batch_status(uuid)"
       },
@@ -5940,6 +5956,14 @@
         ],
         "def_hash": "bac3b2ee419e9ba7c019808f0f83b3ad",
         "signature": "public.repair_strict_enrichment_gate_batch(integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "9020d937b00df3a36669e870c4aae17b",
+        "signature": "public.request_indexing_v3_enrichment(uuid,uuid)"
       },
       {
         "acl": [

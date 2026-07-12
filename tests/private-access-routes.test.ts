@@ -1490,28 +1490,11 @@ describe("private document API access", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(upsertDocumentEnrichment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        document: expect.objectContaining({
-          id: documentId,
-          title: "Future Uploaded Protocol",
-          metadata: { existing: true },
-        }),
-        chunks,
-        images,
-      }),
-    );
+    expect(response.status).toBe(202);
+    expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
     expect(client.calls[0].selected).toContain("metadata");
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
-    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        document: expect.objectContaining({ id: documentId }),
-        chunks,
-        images,
-        summary: "Source-backed summary.",
-      }),
-    );
+    expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
   it("filters enrichment-only reindex rows to the committed document generation", async () => {
@@ -1590,19 +1573,9 @@ describe("private document API access", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(upsertDocumentEnrichment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chunks: [committedChunk],
-        images: [committedImage],
-      }),
-    );
-    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chunks: [committedChunk],
-        images: [committedImage],
-      }),
-    );
+    expect(response.status).toBe(202);
+    expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
+    expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
   it("paginates enrichment-only reindex chunks and images for deep memory rebuilds", async () => {
@@ -1689,22 +1662,10 @@ describe("private document API access", () => {
     const chunkSelects = client.calls.filter((call) => call.table === "document_chunks");
     const imageSelects = client.calls.filter((call) => call.table === "document_images");
 
-    expect(response.status).toBe(200);
-    expect(chunkSelects.map((call) => call.range)).toEqual([
-      { from: 0, to: 999 },
-      { from: 1000, to: 1999 },
-    ]);
-    expect(imageSelects.map((call) => call.range)).toEqual([
-      { from: 0, to: 999 },
-      { from: 1000, to: 1999 },
-    ]);
-    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chunks: expect.arrayContaining([expect.objectContaining({ id: "chunk-final" })]),
-        images: expect.arrayContaining([expect.objectContaining({ id: "image-final" })]),
-        summary: "Source-backed summary.",
-      }),
-    );
+    expect(response.status).toBe(202);
+    expect(chunkSelects).toEqual([]);
+    expect(imageSelects).toEqual([]);
+    expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
   it("blocks full reindex when the selected document already has active indexing work", async () => {

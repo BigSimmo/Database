@@ -325,9 +325,14 @@ function PathwayContextCard({
           </div>
         ) : null}
       </div>
-      <button type="button" className={cn(floatingControl, "mt-3 min-h-10 w-full rounded-lg px-3 text-xs")}>
+      <button
+        type="button"
+        disabled
+        title="Pathway navigation is not available yet"
+        className={cn(floatingControl, "mt-3 min-h-10 w-full rounded-lg px-3 text-xs opacity-60")}
+      >
         <Navigation className="h-4 w-4" aria-hidden />
-        View full pathway
+        Full pathway unavailable
         <ExternalLink className="h-3.5 w-3.5" aria-hidden />
       </button>
     </section>
@@ -384,11 +389,11 @@ function ActionPanel({
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] gap-2">
         <button type="button" onClick={onUse} className={cn(primaryControl, "min-h-11 w-full px-3")}>
           <ExternalLink className="h-4 w-4" aria-hidden />
-          Open PDF
+          Find this form
         </button>
         <button type="button" onClick={onCopy} className={cn(floatingControl, "min-h-11 w-full px-3")}>
           <Download className="h-4 w-4" aria-hidden />
-          Download
+          Copy details
         </button>
       </div>
       {hrefForCall ? (
@@ -475,7 +480,10 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
     try {
       const current = readSavedRegistrySlugs(savedFormsStorageKey);
       const next = current.includes(form.slug) ? current.filter((item) => item !== form.slug) : [form.slug, ...current];
-      writeSavedRegistrySlugs(savedFormsStorageKey, next);
+      if (!writeSavedRegistrySlugs(savedFormsStorageKey, next)) {
+        setNotice("Save failed");
+        return;
+      }
       const nowSaved = next.includes(form.slug);
       setSaved(nowSaved);
       setNotice(nowSaved ? "Form saved" : "Form removed from saved items");
