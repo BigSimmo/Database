@@ -250,7 +250,14 @@ export function isPreformattedGroundedAnswer(answer: Pick<RagAnswer, "preformatt
 // compact 3-fragment / 85-word cap — a withhold/threshold/escalation caveat
 // hidden from the primary prose is a clinical-safety regression.
 const primaryAnswerSafetySignalPattern =
-  /\b(?:withhold|withheld|stop|cease|hold|held|threshold|escalat\w*|urgent|red\s*zone|amber|immediately|do not|contraindicat\w*|toxic)\b/i;
+  /\b(?:withhold|withheld|stop|cease|hold|held|threshold|escalat\w*|urgent|red\s*zone|amber|immediately|do not|avoid|contraindicat\w*|toxic)\b/i;
+
+// Test against a de-bolded copy so server bold markers inside a phrase
+// ("do **not** administer", "red **zone**") on the preserveBold path can never
+// defeat the safety match and let a caveat be dropped by the compact cap.
+function isPrimaryAnswerSafetyFragment(fragment: string) {
+  return primaryAnswerSafetySignalPattern.test(fragment.replace(/\*\*/g, ""));
+}
 
 // Shared tail of the sanitize path: run the display sanitizer, then strip the
 // synthetic-demo notice both plainAnswerText and primaryAnswerDisplayText need
@@ -314,11 +321,11 @@ export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTe
     // the usefulness/length gate — a short caveat like "Contraindicated in
     // pregnancy" (under the 8-word floor) must still reach the display.
     .map((fragment: string) =>
-      primaryAnswerSafetySignalPattern.test(fragment) ? fragment : clinicalProseUsefulness(fragment).text || fragment,
+      isPrimaryAnswerSafetyFragment(fragment) ? fragment : clinicalProseUsefulness(fragment).text || fragment,
     )
     .filter((fragment: string) => {
       if (!fragment) return false;
-      if (primaryAnswerSafetySignalPattern.test(fragment)) return true;
+      if (isPrimaryAnswerSafetyFragment(fragment)) return true;
       const useful = clinicalProseUsefulness(fragment);
       return useful.useful || fragment.split(/\s+/).length >= 8;
     });
@@ -327,7 +334,7 @@ export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTe
   let nonSafetyKept = 0;
   let wordBudget = 85;
   for (const fragment of uniqueFragments) {
-    if (primaryAnswerSafetySignalPattern.test(fragment)) {
+    if (isPrimaryAnswerSafetyFragment(fragment)) {
       selected.push(fragment);
       continue;
     }

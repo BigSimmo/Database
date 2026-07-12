@@ -36,6 +36,20 @@ describe("primaryAnswerDisplayText", () => {
     expect(primaryAnswerDisplayText(answer)).toContain("should be held");
   });
 
+  it("keeps an avoid directive after normal leading prose", () => {
+    const answer =
+      "Give paracetamol for ongoing pain. Review the observations hourly overnight. Document the management plan clearly in the notes. Avoid lithium in pregnancy.";
+    expect(primaryAnswerDisplayText(answer)).toContain("Avoid lithium in pregnancy");
+  });
+
+  it("keeps a caveat whose safety keyword is server-bolded on the preserveBold path", () => {
+    // "Do **not** administer" — bold markers inside the phrase must not defeat
+    // the safety match, or the compact cap could drop the withhold instruction.
+    const answer =
+      "Give paracetamol for ongoing pain. Review the observations hourly overnight. Document the management plan clearly in the notes. Do **not** administer lithium.";
+    expect(primaryAnswerDisplayText(answer, { preserveBold: true })).toContain("administer lithium");
+  });
+
   it("is unchanged for a short answer with no safety signal", () => {
     const answer = "Offer simple analgesia and reassess in one hour.";
     expect(primaryAnswerDisplayText(answer)).toBe(answer);
