@@ -108,7 +108,13 @@ live project need explicit operator approval.
 > operator-approved migration action.
 
 0. **NEW — forward-codify the live-ahead retrieval RPCs** (was the "apply
-   20260705210000" item, inverted). Live carries newer raw-SQL retrieval bodies
+   20260705210000" item, inverted). **Staged runbook:
+   `docs/forward-codify-retrieval-rpcs-workorder.md`** — the read-only capture
+   query (`scripts/sql/capture-live-retrieval-rpcs.sql`), the fill-in-the-blanks
+   migration skeleton, the byte-faithful validation, and the allowlist cleanup;
+   a guard test (`tests/forward-codify-retrieval-targets.test.ts`) keeps the
+   capture query and this allowlist in lockstep. The capture + apply steps still
+   need a quiescent live DB and operator approval. Live carries newer raw-SQL retrieval bodies
    than the repo: `match_document_chunks` (hnsw.ef_search=100 plpgsql wrapper),
    `match_document_chunks_text` / `match_document_table_facts_text` (richer
    multi-strategy), `match_document_chunks_hybrid` (left-join quality_score),

@@ -87,6 +87,7 @@ const requiredTriggerAndPermissionChecks = [
   "    types: [created]",
   "  contents: read",
   "  issues: write",
+  "  models: read",
   "  pull-requests: read",
   `uses: actions/github-script@${githubScriptPin} # v9.0.0`,
   "github.event.pull_request.state == 'open'",

@@ -102,7 +102,12 @@ import {
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
+import {
+  answerPrivacyMetadata,
+  answerTextForStorage,
+  queryPrivacyMetadata,
+  queryTextForStorage,
+} from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
@@ -1299,11 +1304,18 @@ async function insertRagQuery(row: RagQueryInsert) {
   const supabase = createAdminClient();
   // Redact potential-PHI raw query text centrally so every logRagQuery caller is
   // covered, and fold a stable hash + retention flag into metadata (RET-H4).
+  // The generated answer can restate patient specifics, so it is dropped at rest
+  // unless answer retention is explicitly enabled (PIA-3, default off).
   const rawQuery = typeof row.query === "string" ? row.query : "";
   const safeRow = {
     ...row,
     query: queryTextForStorage(rawQuery),
-    metadata: { ...(row.metadata ?? {}), ...queryPrivacyMetadata(rawQuery) } as Json,
+    answer: answerTextForStorage(row.answer),
+    metadata: {
+      ...(row.metadata ?? {}),
+      ...queryPrivacyMetadata(rawQuery),
+      ...answerPrivacyMetadata(),
+    } as Json,
   };
   await supabase.from("rag_queries").insert(safeRow);
 }
@@ -3998,6 +4010,7 @@ async function answerQuestionWithScopeUncoalesced(
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           retrieval_strategy: search.telemetry.retrieval_strategy,
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
@@ -4103,6 +4116,7 @@ async function answerQuestionWithScopeUncoalesced(
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           retrieval_strategy: search.telemetry.retrieval_strategy,
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
@@ -4750,6 +4764,7 @@ ${qualityRetryInstruction}`
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           context_pack_latency_ms: contextPackLatencyMs,
           context_pack_cache_hits: contextPackCacheHits,
           answer_retry_count: answerRetryCount,
@@ -4902,6 +4917,7 @@ ${qualityRetryInstruction}`
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           context_pack_latency_ms: contextPackLatencyMs,
           retrieval_strategy: "generation_fallback",
           weighted_top_score: search.telemetry.weighted_top_score,
