@@ -201,13 +201,14 @@ header (same operator gate as the Supabase probe) — returns two counter blocks
 "cache": { "lookups": 1873, "hits": 1402, "misses": 471, "hitRate": 0.748 }
 ```
 
-**Neither block flips liveness.** The probe stays `200` even when a rate is bad;
-a Supabase-side RPC fault or a cold cache must not trip the container
-`HEALTHCHECK` into a restart it cannot fix. Degradation is made _visible_, not
-_fatal_ — exactly the failure mode this doc guards against. The `slo` query
-throwing degrades to an absent `slo` block (not a false-healthy zero); the cache
-counter is always present for a token-authorized probe (in-process, works in demo
-mode). Both blocks are wired through `src/lib/health-response.ts` and are
+**The counter _values_ never flip liveness.** A bad SLO rate or a cold cache
+stays visible without changing readiness — degradation is made _visible_, not
+_fatal_, which is the failure mode this doc guards against. Liveness is driven
+only by the reachability `checks`: a failing `probeSupabaseHealth()` still sets
+`checks.supabase = "error"` and returns `503`, whereas an `answerSloSnapshot()`
+query failure merely omits the `slo` block (never a false-healthy zero). The
+cache counter is always present for a token-authorized probe (in-process, works
+in demo mode). Both blocks are wired through `src/lib/health-response.ts` and are
 **withheld from the unauthenticated `/api/health/ready` endpoint** (Railway's
 readiness target, which exposes no diagnostic details). The §2 warn/page
 thresholds map directly onto these fields.

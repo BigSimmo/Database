@@ -45,16 +45,20 @@ export function resetCacheMetrics(): void {
  * Classify the outcome of the two-layer search-cache lookup so the counter
  * reflects real cache effectiveness. Retrieval consults the process-local cache
  * first and the shared (`rag_response_cache`) cache second; a request served by
- * *either* layer is a hit. A miss is only counted when a layer was actually
- * consulted and returned nothing — when caching is disabled/skipped the shared
- * lookup returns `null` and the request is `"skip"` (recorded as neither), so a
- * cold process with a warm shared cache does not read as false degradation.
+ * *either* layer is a hit, so a cold process falling through to a warm shared
+ * cache is not miscounted as a miss. When the search cache is disabled for this
+ * request (`cacheEnabled` false — skipCache, or TTL/size 0) the lookup is
+ * `"skip"` and recorded as neither; this is gated up front because the shared
+ * lookup only short-circuits on skipCache/TTL, so a size-0 deployment would
+ * otherwise record disabled lookups as misses and read as false degradation.
  * Pure, so the orchestration stays trivial and this stays unit-tested.
  */
 export function classifySearchCacheOutcome(
+  cacheEnabled: boolean,
   localHit: boolean,
   sharedResult: { kind: "hit" | "miss" } | null | undefined,
 ): "hit" | "miss" | "skip" {
+  if (!cacheEnabled) return "skip";
   if (localHit || sharedResult?.kind === "hit") return "hit";
   if (sharedResult?.kind === "miss") return "miss";
   return "skip";

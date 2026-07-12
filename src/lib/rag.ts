@@ -73,6 +73,7 @@ import {
   getCachedSearch,
   getSharedCachedAnswer,
   getSharedCachedSearch,
+  isSearchCacheEnabled,
   packAdjacentSourceContext,
   packedContextCacheKey,
   scopedAnswerCacheKey,
@@ -3022,7 +3023,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   // cold process that falls through to a warm shared cache is not miscounted as a
   // miss (deep /api/health cache hit-rate — docs/observability-slos.md §4).
   const sharedCached = cached ? null : await getSharedCachedSearch(args, queryClassification.queryClass, queryVariants);
-  const cacheOutcome = classifySearchCacheOutcome(Boolean(cached), sharedCached);
+  const cacheOutcome = classifySearchCacheOutcome(isSearchCacheEnabled(args), Boolean(cached), sharedCached);
   if (cacheOutcome !== "skip") recordCacheLookup(cacheOutcome === "hit");
 
   if (cached) return cached;
