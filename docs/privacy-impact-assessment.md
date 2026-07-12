@@ -42,15 +42,15 @@ material.
 
 **Top gaps (full register in §10):**
 
-| ID    | Risk     | One-line                                                                                                                                                                                    |
-| ----- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PIA-1 | High     | Cross-border disclosure to OpenAI (US) has no code-visible DPA/ZDR and no user-facing notice/consent (APP 8, APP 5).                                                                        |
-| PIA-2 | High     | Query-hash HMAC downgrades to **unsalted, dictionary-reversible SHA-256** if `RAG_QUERY_HASH_SECRET` is unset — nothing enforces it in production.                                          |
-| PIA-3 | Resolved | Generated answer text is no longer persisted to `rag_queries` by default; answer-text persistence is gated behind `RAG_PERSIST_ANSWER_TEXT` (default off, blocked in production readiness). |
-| PIA-4 | Medium   | `rag_query_misses` has **no retention/purge job** (only `rag_queries` and `rag_retrieval_logs` do).                                                                                         |
-| PIA-5 | Medium   | No privacy policy / collection notice / data-handling documentation shipped (APP 1, APP 5).                                                                                                 |
-| PIA-6 | Low-Med  | OpenAI **prompt-cache retention is forced to 24h** for gpt-5.5 regardless of config — query + retrieved excerpts persist ≤24h at OpenAI.                                                    |
-| PIA-7 | Low      | `RAG_PERSIST_RAW_QUERY_TEXT=true` would store raw PHI query text with no secondary safeguard beyond the 30-day purge.                                                                       |
+| ID    | Risk     | One-line                                                                                                                                                                                            |
+| ----- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PIA-1 | High     | Cross-border disclosure to OpenAI (US) has no code-visible DPA/ZDR and no user-facing notice/consent (APP 8, APP 5).                                                                                |
+| PIA-2 | High     | Query-hash HMAC would downgrade to **unsalted, dictionary-reversible SHA-256** without `RAG_QUERY_HASH_SECRET` — now **enforced**: production fails closed at boot; operator must place the secret. |
+| PIA-3 | Resolved | Generated answer text is no longer persisted to `rag_queries` by default; answer-text persistence is gated behind `RAG_PERSIST_ANSWER_TEXT` (default off, blocked in production readiness).         |
+| PIA-4 | Medium   | `rag_query_misses` has **no retention/purge job** (only `rag_queries` and `rag_retrieval_logs` do).                                                                                                 |
+| PIA-5 | Medium   | No privacy policy / collection notice / data-handling documentation shipped (APP 1, APP 5).                                                                                                         |
+| PIA-6 | Low-Med  | OpenAI **prompt-cache retention is forced to 24h** for gpt-5.5 regardless of config — query + retrieved excerpts persist ≤24h at OpenAI.                                                            |
+| PIA-7 | Low      | `RAG_PERSIST_RAW_QUERY_TEXT=true` would store raw PHI query text with no secondary safeguard beyond the 30-day purge.                                                                               |
 
 ---
 
@@ -185,7 +185,7 @@ service-role for writes). Redaction is applied centrally at every write site.
 | `rag_retrieval_logs` | No (hash placeholder) | same helpers; write at [search/route.ts:556-559](src/app/api/search/route.ts)                                                                                 | retrieval telemetry only                                                                                                 | owner-read, [schema.sql:3938](supabase/schema.sql)        |
 | `audit_logs`         | N/A (no query text)   | action/resource metadata only; error strings pass through `redactLogValue` ([privacy.ts:5-31](src/lib/privacy.ts))                                            | `owner_id`, `action`, `resource_id`                                                                                      | service-role-only, [schema.sql:3959](supabase/schema.sql) |
 
-### 5.1 M15 HMAC query-hash fix — verified present, conditionally active
+### 5.1 M15 HMAC query-hash fix — verified present, enforced in production
 
 The audit's **M15** remediation is in the code
 ([src/lib/query-privacy.ts:17-23](src/lib/query-privacy.ts)):
@@ -208,10 +208,17 @@ export function hashQueryText(query: string) {
   and match rows, and can correlate the same query across rows. This defeats the redaction it is
   meant to provide.
 
-**Nothing in the codebase forces the secret to be present in production.** `RAG_QUERY_HASH_SECRET`
-is `z.string().min(16).optional()` ([src/lib/env.ts:104](src/lib/env.ts)) with no production guard.
-This is gap **PIA-2** — the fix is real but its safety depends on an operator setting that is not
-enforced.
+**Status (PIA-2 — enforcement landed):** production now **fails closed** when the secret is absent.
+`requireQueryHashSecret()` ([src/lib/env.ts](src/lib/env.ts)) throws at server startup
+([src/instrumentation.ts](src/instrumentation.ts)) when `NODE_ENV=production` and
+`RAG_QUERY_HASH_SECRET` is unset, so a misconfigured clinical server refuses to boot rather than
+degrade to the unsalted digest. `npm run check:production-readiness` additionally asserts the boot
+guard is wired into the startup path and that the secret is present, and
+[tests/instrumentation.test.ts](tests/instrumentation.test.ts) /
+[tests/env-query-hash-secret.test.ts](tests/env-query-hash-secret.test.ts) cover the fail-closed
+behaviour. The schema stays `z.string().min(16).optional()` so dev/CI keep the legacy digest for
+stored-row joins. **Remaining operator action:** place the secret in the deploy host's secret store —
+the guard and assertion enforce its presence but cannot supply it.
 
 ### 5.2 Redaction helper coverage
 
@@ -342,15 +349,20 @@ compliance-posture and PHI-minimisation gaps.
   offers **Australia data residency** (storage) — an option that postdates this PIA. The remaining step
   (execute DPA / apply ZDR / counsel sign-off) is operator/legal, not code.
 
-### PIA-2 — Query-hash HMAC silently downgrades without the secret **(High)**
+### PIA-2 — Query-hash HMAC silently downgrades without the secret **(High — enforcement landed)**
 
 - **Risk:** If `RAG_QUERY_HASH_SECRET` is unset in prod, stored query hashes are unsalted SHA-256 →
   dictionary-reversible and cross-row correlatable, defeating the redaction (undoes M15).
-- **Evidence:** [query-privacy.ts:17-23](src/lib/query-privacy.ts); optional with no prod guard
-  ([env.ts:104](src/lib/env.ts)).
-- **Fix:** Make `RAG_QUERY_HASH_SECRET` **mandatory in production** — fail closed at startup (mirror the
-  `requireServerEnv` pattern) when `NODE_ENV=production` and the secret is missing. Set it on the live
-  project now.
+- **Evidence:** [query-privacy.ts:17-23](src/lib/query-privacy.ts); the secret is
+  `z.string().min(16).optional()` in [env.ts](src/lib/env.ts).
+- **Fix (landed):** `requireQueryHashSecret()` now makes the secret **mandatory in production** — it
+  fails closed at startup ([instrumentation.ts](src/instrumentation.ts)) when `NODE_ENV=production` and
+  the secret is missing, mirroring the `requireServerEnv` pattern. `check:production-readiness` asserts
+  the boot guard is wired in and the secret is present; covered by
+  [instrumentation.test.ts](tests/instrumentation.test.ts) and
+  [env-query-hash-secret.test.ts](tests/env-query-hash-secret.test.ts).
+- **Remaining (operator):** place `RAG_QUERY_HASH_SECRET` in the deploy host's secret store on the live
+  project (the code enforces its presence but cannot supply the value).
 
 ### PIA-3 — Generated answers stored un-redacted in `rag_queries` **(Resolved)**
 
@@ -409,8 +421,14 @@ compliance-posture and PHI-minimisation gaps.
 ## 11. Recommendation
 
 Before the app is used with real patients in a WA clinical setting, close **PIA-1** and **PIA-2** as
+<<<<<<< HEAD
 launch-blockers (cross-border contractual basis + user notice; mandatory HMAC secret). **PIA-3** is
 closed (the durable `rag_queries.answer` log is no longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4**
+=======
+launch-blockers (cross-border contractual basis + user notice; the mandatory HMAC secret is now
+enforced in code — the remaining step is placing it in the deploy host's secret store). **PIA-3** is
+closed (answer text is no longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4**
+>>>>>>> origin/main
 remains as a fast follow-up (purge `rag_query_misses`), and ship the **PIA-5** privacy documentation. The data-at-rest security posture (Sydney residency, RLS, private storage,
 query hashing, automated purge) is already strong and should be highlighted in the privacy policy as
 evidence of "reasonable steps" under APP 11.
