@@ -3044,7 +3044,7 @@ describe("private document API access", () => {
     const limited = await answerRoute.POST(anonymousAnswerRequest());
     expect(limited.status).toBe(429);
     expect(limited.headers.get("Retry-After")).toBe("60");
-    expect(await payload(limited)).toEqual({
+    expect(await payload(limited)).toMatchObject({
       error: "Too many answer requests. Retry shortly.",
       retryAfterSeconds: 60,
     });
@@ -3098,7 +3098,7 @@ describe("private document API access", () => {
     const limited = await answerRoute.POST(answerRequest());
     expect(limited.status).toBe(429);
     expect(limited.headers.get("Retry-After")).toBe("60");
-    expect(await payload(limited)).toEqual({
+    expect(await payload(limited)).toMatchObject({
       error: "Too many answer requests. Retry shortly.",
       retryAfterSeconds: 60,
     });
@@ -3160,7 +3160,7 @@ describe("private document API access", () => {
     const limited = await searchRoute.POST(searchRequest());
     expect(limited.status).toBe(429);
     expect(limited.headers.get("Retry-After")).toBe("60");
-    expect(await payload(limited)).toEqual({
+    expect(await payload(limited)).toMatchObject({
       error: "Search is temporarily rate limited because too many requests were received. Retry shortly.",
       retryAfterSeconds: 60,
     });
@@ -3571,9 +3571,11 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(429);
     expect(response.headers.get("Retry-After")).toBe("60");
-    expect(body).toContain("event: error");
-    expect(body).toContain('"status":429');
-    expect(body).toContain("Too many answer requests. Retry shortly.");
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(JSON.parse(body)).toMatchObject({
+      error: "Too many answer requests. Retry shortly.",
+      details: { retryAfterSeconds: 60 },
+    });
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 

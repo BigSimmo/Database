@@ -179,12 +179,20 @@ function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelem
   };
 }
 
+// Single source of truth for whether the process-local search cache is active
+// for a request. Shared with the observability counter so a size-0 (or TTL-0 /
+// skipCache) deployment records the lookup as neither hit nor miss rather than a
+// false miss (the shared-cache lookup does not itself short-circuit on size).
+export function isSearchCacheEnabled(args: Pick<SearchChunksArgs, "skipCache">): boolean {
+  return !args.skipCache && env.RAG_SEARCH_CACHE_TTL_MS > 0 && env.RAG_SEARCH_CACHE_SIZE > 0;
+}
+
 export async function getCachedSearch(
   args: SearchChunksArgs,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
 ): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
-  if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return null;
+  if (!isSearchCacheEnabled(args)) return null;
 
   const key = scopedSearchCacheKey(args, queryClass, queryVariants);
   const cached = searchCache.get(key);

@@ -2056,7 +2056,14 @@ export function DocumentViewer({
   );
   const [viewerModeInitialized] = useState(true);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
-  const { status: authStatus, isConfigured, authorizationHeader, markSessionExpired } = useAuthSession();
+  const {
+    status: authStatus,
+    isConfigured,
+    authorizationHeader,
+    registerAuthRequest,
+    isAuthEpochCurrent,
+    markSessionExpired,
+  } = useAuthSession();
   const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
   const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
   const localNoAuthMode = isLocalNoAuthMode();
@@ -2154,6 +2161,7 @@ export function DocumentViewer({
     }
 
     const controller = new AbortController();
+    const authRequest = registerAuthRequest(controller);
     const reset = window.setTimeout(() => {
       if (!controller.signal.aborted) {
         setLoadingDocument(true);
@@ -2174,6 +2182,9 @@ export function DocumentViewer({
     const downloadSignedUrlEndpoint = `${signedUrlEndpoint}?download=true`;
     readLocalProjectIdentity()
       .then((identity) => {
+        if (!isAuthEpochCurrent(authRequest.epoch)) {
+          throw new DOMException("Stale authentication epoch", "AbortError");
+        }
         if (!identity?.localServer?.safeLocalOrigin) {
           setLocalProjectReady(false);
           throw new Error(unsafeLocalProjectMessage(identity));
@@ -2217,7 +2228,7 @@ export function DocumentViewer({
         return Promise.allSettled([detailRequest, signedUrlRequest, signedDownloadUrlRequest]);
       })
       .then(([detailResult, signedUrlResult, signedDownloadUrlResult]) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
 
         if (detailResult.status === "fulfilled") {
           const detail = detailResult.value;
@@ -2279,7 +2290,7 @@ export function DocumentViewer({
         }
       })
       .catch((error) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
         setViewerError(error instanceof Error ? error.message : "Document could not be loaded.");
       })
       .finally(() => {
@@ -2289,6 +2300,7 @@ export function DocumentViewer({
     return () => {
       window.clearTimeout(reset);
       controller.abort();
+      authRequest.release();
     };
   }, [
     authStatus,
@@ -2301,6 +2313,8 @@ export function DocumentViewer({
     initialPage,
     isConfigured,
     markSessionExpired,
+    registerAuthRequest,
+    isAuthEpochCurrent,
     previewAttempt,
   ]);
 
@@ -2316,6 +2330,7 @@ export function DocumentViewer({
     }
 
     const controller = new AbortController();
+    const authRequest = registerAuthRequest(controller);
     const timeout = window.setTimeout(() => {
       setSearchingDocument(true);
       setDocumentSearchError(null);
@@ -2330,12 +2345,12 @@ export function DocumentViewer({
           return payload;
         })
         .then((payload) => {
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
           setDocumentSearchResults(payload.results ?? []);
           setDocumentSearchError(null);
         })
         .catch((error) => {
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
           setDocumentSearchResults([]);
           setDocumentSearchError(error instanceof Error ? error.message : "Document search could not be loaded.");
         })
@@ -2347,8 +2362,18 @@ export function DocumentViewer({
     return () => {
       window.clearTimeout(timeout);
       controller.abort();
+      authRequest.release();
     };
-  }, [authorizationHeader, canViewSourceDocuments, clientDemoMode, documentId, markSessionExpired, sourceSearch]);
+  }, [
+    authorizationHeader,
+    canViewSourceDocuments,
+    clientDemoMode,
+    documentId,
+    isAuthEpochCurrent,
+    markSessionExpired,
+    registerAuthRequest,
+    sourceSearch,
+  ]);
 
   useEffect(() => {
     const updateOnline = () => setIsOnline(navigator.onLine);

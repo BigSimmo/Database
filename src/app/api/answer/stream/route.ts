@@ -5,6 +5,7 @@ import { PublicApiError, jsonError } from "@/lib/http";
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
   consumeSubjectApiRateLimit,
+  rateLimitJsonResponse,
   type ApiRateLimitResult,
 } from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
@@ -57,21 +58,7 @@ function encodeSse(event: string, data: unknown) {
 }
 
 function rateLimitStream(rateLimit: ApiRateLimitResult) {
-  return new Response(
-    encodeSse("error", {
-      error: "Too many answer requests. Retry shortly.",
-      status: 429,
-      details: { retryAfterSeconds: rateLimit.retryAfterSeconds, resetAt: rateLimit.resetAt },
-    }),
-    {
-      status: 429,
-      headers: {
-        "Content-Type": "text/event-stream; charset=utf-8",
-        "Cache-Control": "no-cache, no-transform",
-        "Retry-After": String(rateLimit.retryAfterSeconds),
-      },
-    },
-  );
+  return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
 }
 
 function streamErrorPayload(error: unknown) {

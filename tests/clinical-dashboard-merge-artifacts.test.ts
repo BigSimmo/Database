@@ -22,7 +22,7 @@ const scannedFiles = [
 });
 
 const globalSearchShellSource = readFileSync(
-  resolve(process.cwd(), "src/components/clinical-dashboard/global-mockup-search-shell.tsx"),
+  resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
   "utf8",
 );
 const clinicalDashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
