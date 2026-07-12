@@ -4,6 +4,10 @@
 //   1. Absolute bars — the candidate must independently clear the release thresholds.
 //   2. No regression — the candidate must be no worse than the live baseline (within a small
 //      tolerance for eval noise), so a re-index can only hold or improve quality.
+// The decisive retrieval signal is passage-rank quality, `content_mrr_at_10` (doc-level
+// `mrr_at_10` is blind to intra-document passage order and cannot substitute for it). It is a
+// required metric — a missing value fails closed — and for a chunking experiment the candidate
+// must actively clear the eval-noise band above baseline, not merely avoid regressing.
 // A cutover proceeds only when EVERY check passes. This module is pure and deterministic so
 // the gate itself is unit-tested; the (live) shadow driver feeds it eval JSON and acts on it.
 
@@ -16,6 +20,10 @@ export type RetrievalGateSummary = {
   document_recall_at_5: number;
   content_recall_at_5: number;
   top_k_hit_rate: number;
+  // Passage-rank quality over the cases that declare answer-bearing content terms. This is the
+  // decisive retrieval metric; both fields are required so a missing value fails closed.
+  content_mrr_at_10: number;
+  content_mrr_case_count: number;
   mrr_at_10?: number;
   p90_latency_ms?: number;
 };
@@ -108,6 +116,8 @@ const requiredRetrievalMetrics = [
   "document_recall_at_5",
   "content_recall_at_5",
   "top_k_hit_rate",
+  "content_mrr_at_10",
+  "content_mrr_case_count",
 ] as const satisfies readonly (keyof RetrievalGateSummary)[];
 
 const requiredQualityMetrics = [
@@ -163,6 +173,7 @@ function retrievalChecks(
   baseline: RetrievalGateSummary,
   candidate: RetrievalGateSummary,
   config: ReindexGateConfig["retrieval"],
+  chunkingExperiment: boolean,
 ): MetricCheck[] {
   const checks: MetricCheck[] = [
     evaluateCheck({
@@ -195,6 +206,18 @@ function retrievalChecks(
       baseline: baseline.top_k_hit_rate,
       candidate: candidate.top_k_hit_rate,
       bound: config.topKHitRateFloor,
+      tolerance: config.rateRegressionTolerance,
+    }),
+    evaluateCheck({
+      metric: "content_mrr_at_10",
+      direction: "higher_better",
+      baseline: baseline.content_mrr_at_10,
+      candidate: candidate.content_mrr_at_10,
+      // A standard re-index (OCR repair, embedding refresh) must only avoid regressing passage
+      // rank, within the eval-noise tolerance. A chunking experiment has to justify the spend:
+      // the candidate must clear baseline + tolerance, i.e. a real improvement above the noise
+      // band — a neutral result is NO_GO. The no-regression leg is subsumed by that floor.
+      bound: chunkingExperiment ? baseline.content_mrr_at_10 + config.rateRegressionTolerance : null,
       tolerance: config.rateRegressionTolerance,
     }),
   ];
@@ -351,6 +374,13 @@ function populationFailures(args: {
       `retrieval case_count mismatch: baseline ${args.baselineRetrieval.case_count} vs candidate ${args.candidateRetrieval.case_count}`,
     );
   }
+  // Passage-rank is averaged only over cases with answer-bearing content terms; a candidate that
+  // scores over a different content-term population is not comparable, so fail closed.
+  if (args.baselineRetrieval.content_mrr_case_count !== args.candidateRetrieval.content_mrr_case_count) {
+    failures.push(
+      `retrieval content_mrr_case_count mismatch: baseline ${args.baselineRetrieval.content_mrr_case_count} vs candidate ${args.candidateRetrieval.content_mrr_case_count}`,
+    );
+  }
   const baselineRetrievalFingerprint = args.baselineRetrieval.case_fingerprint;
   const candidateRetrievalFingerprint = args.candidateRetrieval.case_fingerprint;
   if (baselineRetrievalFingerprint || candidateRetrievalFingerprint) {
@@ -387,6 +417,9 @@ export function decideReindexGate(
     baselineQuality?: QualityGateSummary;
     candidateQuality?: QualityGateSummary;
     qualityMode?: "required" | "retrieval_only";
+    // Set true when the candidate generation was built with a different chunking strategy
+    // (e.g. CHUNK_STRATEGY=document): passage rank must then strictly improve above the noise band.
+    chunkingExperiment?: boolean;
   },
   config: ReindexGateConfig = defaultReindexGateConfig,
 ): ReindexGateDecision {
@@ -402,7 +435,12 @@ export function decideReindexGate(
     };
   }
 
-  const checks = retrievalChecks(input.baselineRetrieval, input.candidateRetrieval, config.retrieval);
+  const checks = retrievalChecks(
+    input.baselineRetrieval,
+    input.candidateRetrieval,
+    config.retrieval,
+    input.chunkingExperiment ?? false,
+  );
   const gateFailures = populationFailures(input);
 
   const hasBaselineQuality = Boolean(input.baselineQuality);

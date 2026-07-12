@@ -264,6 +264,12 @@ function SummaryCard({ card }: { card: ServiceSummaryCard }) {
   );
 }
 
+/**
+ * Displays referral information rows with their values and copy actions.
+ *
+ * @param rows - The referral information rows to display
+ * @param onCopy - Callback invoked with a row value and feedback label when copying is requested
+ */
 function ReferralTable({
   rows,
   onCopy,

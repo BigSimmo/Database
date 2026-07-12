@@ -321,6 +321,12 @@ function QuickActions({ onSelect, mobile }: { onSelect: (id: string) => void; mo
   );
 }
 
+/**
+ * Renders responsive tabs for selecting a tool category.
+ *
+ * @param activeFilter - The currently selected tool category.
+ * @param onFilterChange - Called with the selected category when a tab is activated.
+ */
 function FilterTabs({
   activeFilter,
   onFilterChange,

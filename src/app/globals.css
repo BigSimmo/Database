@@ -72,7 +72,20 @@
        base-minus  15px  one notch under base — comfortable body just under 16
        (lg 18 · xl 20 · 2xl 24 come from Tailwind's default scale)
        lg-minus    17px  one notch under lg — display titles a shade under 18
-       2xl-minus   22px  one notch under 2xl — wide-screen nowrap headings */
+       2xl-minus   22px  one notch under 2xl — wide-screen nowrap headings
+     The mode-home hero/action steps below are the same size-only kind, just
+     bespoke to the compact mode-home scale in mode-home-template.tsx (they
+     retire that file's last `text-[…rem]` arbitrary values at pixel parity).
+     Naming: `-plus`/`-minus` sit just above/below the nearest Tailwind anchor;
+     `-sub` is a second "just under <anchor>" step used where that anchor's
+     `-minus` is already taken above at a different size.
+       xs-plus     12.8px  mode-home action description (≥sm)
+       sm-plus     15.2px  mode-home subtitle + action title (≥sm)
+       base-sub    15.7px  mode-home action title (base)
+       2xl-sub     23.2px  compact mode-home hero heading (base)
+       3xl-sub     29.6px  mode-home hero heading (base)
+       3xl-plus    30.4px  mode-home hero heading (≥sm)
+       4xl-minus   34.4px  mode-home hero heading (≥lg) */
   --text-4xs: 0.5rem;
   --text-3xs: 0.625rem;
   --text-2xs: 0.6875rem;
@@ -81,6 +94,13 @@
   --text-lg-minus: 1.0625rem;
   --text-2xl-minus: 1.375rem;
   --text-3xl-minus: 1.625rem;
+  --text-xs-plus: 0.8rem;
+  --text-sm-plus: 0.95rem;
+  --text-base-sub: 0.98rem;
+  --text-2xl-sub: 1.45rem;
+  --text-3xl-sub: 1.85rem;
+  --text-3xl-plus: 1.9rem;
+  --text-4xl-minus: 2.15rem;
 
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for
