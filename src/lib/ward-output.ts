@@ -635,6 +635,36 @@ function clinicalTableToTextRows(table: ClinicalThresholdTable) {
   ].filter(Boolean);
 }
 
+export function formatDisplayedVisualEvidenceForClipboard(cards: VisualEvidenceCard[]) {
+  return cards.flatMap((card) => {
+    const explicitRows = card.tableRows?.length ? card.tableRows : null;
+    const rawRows = explicitRows ?? parseMarkdownTable(card.accessibleTableMarkdown ?? card.tableTextSnippet);
+    if (!rawRows?.length) return [];
+    const normalized = normalizeAccessibleTable(rawRows, explicitRows ? card.tableColumns : null, {
+      conservativeClinical: true,
+    });
+    if (!normalized) return [];
+    const title = clinicalTableCaption(card.tableTitle || card.caption) || "Clinical table";
+    const source = `Source: ${card.viewer_href}${card.page_number ? ` (page ${card.page_number})` : ""}`;
+    if (normalized.lowConfidence) {
+      return [
+        "",
+        title,
+        "Table structure could not be confidently reconstructed. Review the original source image before use.",
+        source,
+      ];
+    }
+    return [
+      "",
+      title,
+      normalized.header.length ? `| ${normalized.header.join(" | ")} |` : "",
+      normalized.header.length ? `| ${normalized.header.map(() => "---").join(" | ")} |` : "",
+      ...normalized.body.slice(0, 6).map((row) => `| ${row.join(" | ")} |`),
+      source,
+    ].filter(Boolean);
+  });
+}
+
 export function buildClinicalOutputSections(answer: RagAnswer | null | undefined) {
   if (!answer) return [];
 

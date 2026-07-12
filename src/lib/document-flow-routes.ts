@@ -8,6 +8,9 @@ export const DOCUMENTS_MODE_HOME_ROUTE = "/?mode=documents";
 export const DOCUMENT_SEARCH_ROUTE = "/documents/search";
 export const DOCUMENT_READER_ROUTE = "/documents/source";
 export const DOCUMENT_EVIDENCE_ROUTE = "/documents/source/evidence";
+export const MOCK_DOCUMENT_SEARCH_ROUTE = "/mockups/document-search/search";
+export const MOCK_DOCUMENT_READER_ROUTE = "/mockups/document-search/source";
+export const MOCK_DOCUMENT_EVIDENCE_ROUTE = "/mockups/document-search/source/evidence";
 
 export const DEFAULT_DOCUMENT_FLOW_QUERY = "clozapine monitoring table";
 export const DEFAULT_DOCUMENT_FLOW_DOCUMENT = "clozapine-monitoring";
@@ -75,4 +78,16 @@ export function documentEvidenceHref(
     chunk: options.chunk ?? evidence,
   });
   return `${DOCUMENT_EVIDENCE_ROUTE}?${params.toString()}`;
+}
+
+export function mockDocumentsSearchHref(query = DEFAULT_DOCUMENT_FLOW_QUERY) {
+  return `${MOCK_DOCUMENT_SEARCH_ROUTE}?${new URLSearchParams({ q: query }).toString()}`;
+}
+
+export function mockDocumentReaderHref(options: Parameters<typeof documentReaderHref>[0] = {}) {
+  return documentReaderHref(options).replace(DOCUMENT_READER_ROUTE, MOCK_DOCUMENT_READER_ROUTE);
+}
+
+export function mockDocumentEvidenceHref(options: Parameters<typeof documentEvidenceHref>[0] = {}) {
+  return documentEvidenceHref(options).replace(DOCUMENT_EVIDENCE_ROUTE, MOCK_DOCUMENT_EVIDENCE_ROUTE);
 }
