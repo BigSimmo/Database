@@ -36,6 +36,18 @@ const eslintConfig = defineConfig([
       "local/require-lucide-icon-aria": "error",
     },
   },
+  // next/og image routes render <img> through Satori (rasterised server-side,
+  // not DOM); next/image cannot run there. Turn the rule off for these files via
+  // config rather than a per-file disable directive — the Next plugin reports
+  // this rule inconsistently across environments (it fires with a local .next
+  // present but not on a fresh CI checkout), so a disable directive flips
+  // between "used" and "unused" and trips `--max-warnings 0`.
+  {
+    files: ["src/lib/brand-image.tsx", "src/app/opengraph-image.tsx"],
+    rules: {
+      "@next/next/no-img-element": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

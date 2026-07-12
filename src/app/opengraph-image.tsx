@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element -- Satori rasterises this <img> server-side; it is not a DOM element and next/image cannot run inside next/og. */
 import { ImageResponse } from "next/og";
 
 import { brandMarkDataUri } from "@/lib/brand-image";

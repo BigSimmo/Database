@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element -- Satori rasterises these <img>s server-side; they are not DOM elements and next/image cannot run inside next/og. */
 // Server-only helpers for rendering the brand mark inside next/og ImageResponse
 // routes (apple-icon, PWA maskable/any icons, opengraph-image). All derive from
 // the single geometry source in ./brand-mark so raster app icons never drift
