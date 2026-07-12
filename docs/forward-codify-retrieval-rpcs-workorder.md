@@ -67,7 +67,7 @@ order by 1;
    `get_visual_evidence_cards`, `run_visual_eval_case`, `run_all_visual_eval_cases`,
    `repair_enrichment_quality_batch` are **live-only** (`unexpected_live`) — codify as `CREATE OR
 REPLACE` too so schema.sql declares them. These security-definer RPCs require particular ACL
-coverage.
+   coverage.
 3. **Reconcile** `supabase/schema.sql`: replace each function's old body with the captured one (same
    text as the migration). Update `tests/supabase-schema.test.ts` if it pins any of these bodies.
 4. **Validate (the load-bearing gate):** `npm run drift:manifest` (replays schema.sql into Docker from
