@@ -649,11 +649,16 @@ export const answerQualityEvalCases: AnswerQualityEvalCase[] = [
   {
     ...commonQualityCase,
     id: "quality-duress-pathway",
+    // Source-only-acceptable sibling of the `duress-procedure` core case (see its comment): the
+    // corpus has no single authoritative duress-procedure-requirements source, so a grounded
+    // synthesis and a source-only refusal that surfaces the duress docs are both valid.
+    // mustContainAny is intentionally dropped — the source-only text is not assertable — while
+    // expectedFiles keeps the retrieval guard.
     question: "What is the duress procedure pathway?",
     expectedIntent: "pathway_referral",
     expectedQueryClass: "document_lookup",
     expectedFiles: ["MHSP.Duress.pdf"],
-    mustContainAny: ["duress", "procedure"],
+    acceptSourceOnly: true,
   },
   {
     ...commonQualityCase,
@@ -812,9 +817,18 @@ export const ragEvalCases: RagEvalCase[] = [
   },
   {
     id: "duress-procedure",
+    // Diffuse procedural question whose only extractive candidates are off-topic text or the same
+    // tangential RKPG cross-reference boilerplate ("Refer to the RKPG Guidelines … for further
+    // information …") that the discharge case exposes: the pipeline correctly returns a source-only
+    // answer citing the real duress SOPs rather than rescuing that boilerplate to a confident
+    // answer (the fragile source-backed recovery past missing_query_overlap is now guarded off —
+    // see isBareCrossReferenceAnswer). acceptSourceOnly accepts grounded OR source-only *while
+    // still requiring the duress docs to be cited*, so a real retrieval regression still fails. See
+    // discharge-documentation investigation 2026-07-13.
     question: "What does the duress procedure require?",
     category: "routine",
     supported: true,
+    acceptSourceOnly: true,
     expectedFiles: ["MHSP.Duress.pdf"],
     allowedRoutes: ["extractive", "fast"],
     minCitations: 2,
