@@ -197,17 +197,20 @@ function removeBadAnswerFragments(value: string) {
 // immediately followed by a community schedule with no sentence break (e.g. "...monitored daily
 // for inpatients for community patients weekly..."). The synthesis prompt handles most of these,
 // but this is a narrow deterministic safety-net for the clearest recurring pattern. It also
-// consumes the original comma so it cannot produce a double comma.
+/**
+ * Separates flattened inpatient and community patient schedule phrases into distinct sentences.
+ *
+ * @param value - Clinical prose containing a setting-related run-on phrase
+ * @returns The prose with the targeted setting run-on replaced by separate sentences
+ */
 function separateSettingRunOns(value: string): string {
   return value
     .replace(/\bfor inpatients,?\s+for community patients,?/gi, "for inpatients. For community patients,")
     .replace(/\bfor community patients,?\s+for inpatients,?/gi, "for community patients. For inpatients,");
 }
 
-export function polishClinicalAnswerProse(value: string) {
-  // Bold markers come off before bullet normalization so an emphasized item
-  // ("o **Reduce dose**") still reads as a sub-bullet to the "o" matcher.
-  const cleaned = normalizeInlineBulletGlyphs(normalizeSectionText(value).replace(/\*\*([^*]+)\*\*/g, "$1"))
+function stripAnswerArtifactNoise(text: string) {
+  return text
     .replace(productCatalogueFragmentPattern, " ")
     .replace(brandOrFormularyFragmentPattern, " ")
     .replace(imprestLocationPattern, " ")
@@ -224,10 +227,49 @@ export function polishClinicalAnswerProse(value: string) {
     .replace(/(?:\.\s*){2,}/g, ". ")
     .replace(/\s+/g, " ")
     .trim();
+}
 
-  return normalizeGenericMedicationCase(
+function restoreBoldSpans(text: string, boldSpans: string[]) {
+  let restored = text;
+  for (const span of boldSpans) {
+    if (restored.includes(span) && !restored.includes(`**${span}**`)) {
+      restored = restored.replace(span, `**${span}**`);
+    }
+  }
+  return restored;
+}
+
+/**
+ * Cleans clinical answer text by removing artifacts, normalizing formatting, and improving readability.
+ *
+ * @param value - The clinical answer text to polish
+ * @param options - Formatting options
+ * @param options.preserveBold - Whether to preserve inline bold markers
+ * @returns The polished clinical answer text
+ */
+export function polishClinicalAnswerProse(value: string, options: { preserveBold?: boolean } = {}) {
+  // Bold markers normally come off before bullet normalization so an emphasized
+  // item ("o **Reduce dose**") still reads as a sub-bullet to the "o" matcher.
+  // The display path passes preserveBold so <SafeBoldText> can render the
+  // server's high-yield emphasis (and the un-bold unverified-number safety
+  // signal); the sub-bullet matcher tolerates a leading "**" so bolded
+  // sub-bullets still normalize. The server answer-gen path keeps the default
+  // (strip), so its quality gates are unchanged.
+  const normalized = normalizeSectionText(value);
+  const boldSpans = [...normalized.matchAll(/\*\*([^*]+)\*\*/g)].map((match) => match[1]);
+  const bulletNormalized = normalizeInlineBulletGlyphs(
+    options.preserveBold ? normalized : normalized.replace(/\*\*([^*]+)\*\*/g, "$1"),
+  );
+  // Artifact regexes were written for unbolded catalogue/source noise; run
+  // them on a de-bolded copy so preserveBold still strips Lithicarb-style junk.
+  const deBolded = bulletNormalized.replace(/\*\*([^*]+)\*\*/g, "$1");
+  const cleaned = stripAnswerArtifactNoise(deBolded);
+
+  const polished = normalizeGenericMedicationCase(
     separateSettingRunOns(removeOrphanAnswerHeadings(removeBadAnswerFragments(cleaned))),
   );
+
+  return options.preserveBold ? restoreBoldSpans(polished, boldSpans) : polished;
 }
 
 export function sanitizeAnswerText(value: string) {

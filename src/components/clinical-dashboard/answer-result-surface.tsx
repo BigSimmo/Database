@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { memo, type RefObject, useCallback, useEffect, useRef, useState } from "react";
@@ -7,7 +7,11 @@ import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react"
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
-import { NaturalLanguageAnswer, UserQuestionBubble } from "@/components/clinical-dashboard/answer-content";
+import {
+  isPreformattedGroundedAnswer,
+  NaturalLanguageAnswer,
+  UserQuestionBubble,
+} from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerSupportSummaryCard,
   answerHasCentralTable,
@@ -38,10 +42,14 @@ import type {
 } from "@/lib/types";
 import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-output";
 
+/**
+ * Renders a staged answer with inline content and optional clinical notes, evidence, safety findings, and follow-up interfaces.
+ *
+ * @returns The staged answer surface.
+ */
 function StagedAnswerResultSurfaceImpl({
   answer,
   query,
-  safeAnswerText,
   bestSource,
   sourceGovernanceWarnings,
   sourceSummary,
@@ -68,7 +76,6 @@ function StagedAnswerResultSurfaceImpl({
 }: {
   answer: RagAnswer;
   query: string;
-  safeAnswerText: string;
   bestSource: BestSourceRecommendation | null;
   sourceGovernanceWarnings: SourceGovernanceWarning[];
   sourceSummary?: EvidenceSummary;
@@ -211,7 +218,8 @@ function StagedAnswerResultSurfaceImpl({
         >
           <div className="min-w-0 space-y-3">
             <NaturalLanguageAnswer
-              text={safeAnswerText || answer.answer}
+              text={answer.answer}
+              preformatted={isPreformattedGroundedAnswer(answer)}
               sourceCount={sourceCount}
               sourceOnly={answer.answerQualityTier === "source_only"}
               bestSource={bestSource}

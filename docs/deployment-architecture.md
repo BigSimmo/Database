@@ -1,28 +1,35 @@
 # Deployment Architecture
 
-Decision record for the production topology of Clinical KB. Written 2026-07-06.
-Companion documents: `docs/observability-slos.md` (SLOs + eval canary) and
-`docs/capacity-review.md` (load model, first bottleneck, soak test).
+Decision record for the production topology of Clinical KB. Written 2026-07-06,
+revised 2026-07-12 when the app went live on Railway. Companion documents:
+`docs/observability-slos.md` (SLOs + eval canary) and `docs/capacity-review.md`
+(load model, first bottleneck, soak test).
 
-Status of this document: **decided and partially implemented**. The app-tier and
-worker container images ship in this repo (`Dockerfile`, `Dockerfile.worker`).
-Host provisioning, staging setup, and secret placement are operator actions and
-are specified here but not executed by this change.
+Status of this document: **decided and live in production.** The app tier and
+ingestion worker run on Railway (Singapore) from the committed `Dockerfile` and
+`Dockerfile.worker`. The core platform is **Railway** (see §2, "Why Railway").
+Host provisioning, staging setup, and secret placement remain operator actions
+and are specified here.
 
-## 1. Current state (what exists today)
+## 1. Current state (what runs today)
 
-- **No production deployment target.** There is no hosting config; before this
-  change there was no Dockerfile. `npm run check:deployment-readiness` boots
-  `next start` locally and verifies project identity — it proves the build can
-  serve, not that anything is deployed.
+- **Live on Railway.** Project `clinical-kb`, environment `production`, region
+  **Southeast Asia (`asia-southeast1-eqsg3a`, Singapore)** — the closest Railway
+  region to the Supabase project. Two services from this one repo:
+  - **`app`** — the Next.js app tier (`Dockerfile`), reachable at its Railway
+    service domain (e.g. `https://app-production-68ebf.up.railway.app`), one warm
+    replica, `/api/health` healthcheck, restart-on-failure.
+  - **`worker`** — the ingestion worker (`Dockerfile.worker`), one always-on
+    replica, long-polling the ingestion queue.
 - **Database/auth/storage:** live Supabase project `Clinical KB Database`
   (`sjrfecxgysukkwxsowpy`), region **ap-southeast-2 (Sydney)**, Postgres 17,
   ~2,000 indexed documents / ~69k chunks. RLS is service-role-only; the app
-  layer is the ownership boundary.
-- **Ingestion:** a local worker (`npm run worker`) that needs a Python OCR
-  stack (PyMuPDF, Pillow, pytesseract + the Tesseract binary), plus the
-  `indexing-v3-agent` Supabase Edge Function acting as a cron-triggered
-  completion/repair gate — not a full extraction pipeline.
+  layer is the ownership boundary. Supabase is a managed external service — it is
+  **not** on Railway's private network, so the app↔DB path is public internet
+  fronted by Supabase's CDN (see §2.1).
+- **Ingestion:** the containerized `worker` plus the `indexing-v3-agent` Supabase
+  Edge Function acting as a cron-triggered completion/repair gate — not a full
+  extraction pipeline.
 - **Known failure mode:** silent degradation. Hybrid retrieval RPCs once died
   quietly while the app kept serving from fallbacks. Every topology decision
   below biases toward _loud_ failure and standing guards.
@@ -32,12 +39,33 @@ are specified here but not executed by this change.
 ### Decision
 
 Run the Next.js app as a **single long-lived container** (Node 24, image built
-from `Dockerfile`) on a managed container host **in Sydney, co-located with
-the Supabase project's ap-southeast-2 region**.
+from `Dockerfile`) on **Railway**, pinned to the **Southeast Asia (Singapore)**
+region — the closest Railway region to the Supabase project's ap-southeast-2
+(Sydney) home. Keep one warm replica (no scale-to-zero).
 
-Recommended host: any OCI-image host. Production runs on **Railway**; Google
-Cloud Run (`australia-southeast2`) is a Sydney-region alternative if lower
-answer latency matters. The image is host-agnostic.
+### Why Railway
+
+Railway runs plain OCI images with per-service secrets, health checks, rolling
+deploys with rollback to a previous deployment, private networking, and a managed
+multi-service project model that fits the app-plus-worker topology directly. Two
+properties made it the pragmatic core platform:
+
+- **Remote builds.** Railway builds the image on its own infrastructure, so the
+  8 GiB-heap `next build` (see the image contract below) never has to run on a
+  local Docker daemon — the local build reliably OOMs on that heap, which had been
+  the deploy blocker. In production the app image compiled in ~21 s with no OOM on
+  a 1-CPU builder.
+- **Already provisioned.** The account, workspace, and billing were in place, so
+  there was no cold-start account/credentials blocker.
+
+**The trade Railway forces — and why it was accepted:** Railway has **no
+Australian region** (its regions are US West, US East, Amsterdam, Singapore),
+while Supabase is in Sydney. The app therefore pays a cross-region hop to the
+database (quantified in §2.1). The penalty is real but bounded, falls almost
+entirely on _novel_ (cache-miss) answers, is dwarfed by OpenAI generation time,
+and is fully addressable within Railway (a Singapore read replica — §2.1). Given
+that shipping a real environment was the priority, a live-in-Singapore deployment
+beat an indefinitely blocked "optimal" one.
 
 ### Why a long-lived container and not serverless (Vercel et al.)
 
@@ -57,9 +85,69 @@ answer latency matters. The image is host-agnostic.
   PostgREST/auth traffic against a database whose auth server is capped at 10
   absolute connections (see `docs/capacity-review.md`).
 
-Scale-out plan: stay at 1 instance (vertical scaling first) until sustained
-load demands more; replicas are safe but dilute in-memory coalescing, so add
-them only after the shared `rag_response_cache` hit rate is confirmed healthy.
+Scale-out plan: stay at 1 replica (vertical scaling first) until sustained load
+demands more; replicas are safe but dilute in-memory coalescing, so add them only
+after the shared `rag_response_cache` hit rate is confirmed healthy. On Railway,
+prefer a single-region replica bump (`railway scale southeast-asia=N`) over
+spreading replicas across regions, which would multiply the cross-region DB hop.
+**Before the first vertical scale-up**, clear the auth 10-connection cap so the
+auth pool scales with compute instead of staying pinned — operator runbook:
+`docs/auth-connection-cap-runbook.md` (`docs/capacity-review.md` §2–§3).
+
+### 2.1 The Railway↔Supabase connection (Singapore → Sydney)
+
+This is the one place the topology is not co-located, so it is characterized here
+rather than left as a footnote.
+
+**Path.** The app uses `@supabase/supabase-js` (PostgREST over HTTPS) against
+`https://<ref>.supabase.co`. That hostname is anycast/CDN-fronted, so the TCP+TLS
+connection terminates at the nearest edge PoP (~2 ms from Railway Singapore) and
+the CDN forwards the request over its backbone to the Postgres/PostgREST origin in
+Sydney. `@supabase/supabase-js` runs on undici with keep-alive, so warm requests
+reuse the pooled connection and skip the client→edge handshake — but every request
+that reads data still has to reach the Sydney origin, so the edge→origin hop is
+inherent per RPC.
+
+**Measured (Railway Singapore → Supabase Sydney), 2026-07-12:**
+
+| Path                               | What it is                                              | Result                                                |
+| ---------------------------------- | ------------------------------------------------------- | ----------------------------------------------------- |
+| Raw TCP → Sydney Postgres pooler   | Physical Singapore↔Sydney RTT floor                     | **~94 ms**                                            |
+| Authenticated PostgREST round-trip | Real per-RPC cost the app pays                          | **~145 ms best, ~340 ms typical**                     |
+| Production novel answer            | `supabase_rpc_latency_ms` (retrieval, 3 query variants) | **~4.4 s**; total ~25 s incl. ~19 s OpenAI generation |
+
+**What multiplies, what doesn't.** Retrieval fans out _wide_ but the RPCs within
+a stage run in parallel (`Promise.all`), so fan-out width costs ~1×RTT, not N×.
+What multiplies RTT is the sequential **depth** — ~5–8 serial DB round-trips on a
+cache-miss answer (index-version check [5 s TTL], shared-cache lookups, retrieval
+stages, chunk + document hydration). Net penalty vs. full co-location with the
+database region: roughly **+0.6 s to +2 s per novel answer**. Cached/repeat answers are served from
+the in-memory LRU (or coalesced) and are largely spared; answers that fall to the
+shared Postgres cache tier still pay ~one origin round-trip.
+
+**Optimisations in place:**
+
+- Region pinned to Singapore (closest region) rather than a Railway default.
+- One warm replica, no scale-to-zero — keeps the caches and coalescing hot and
+  avoids cold-start connection amplification against the 10-connection auth cap.
+- Single-region scaling policy (above) so replicas never spread the DB hop.
+- keep-alive connection reuse (undici default) removes repeated client→edge
+  handshakes on the hot path.
+
+**Mitigations if the penalty starts to bite (not yet needed):**
+
+1. **Supabase read replica in Singapore** (biggest win). Co-locating a read
+   replica with Railway serves the read-heavy retrieval RPCs locally (~5 ms),
+   collapsing the penalty to near-parity with full co-location. Writes (telemetry,
+   cache) stay on the Sydney primary and are off the answer critical path. Cost:
+   the paid replica add-on **plus** app work to route reads to the replica
+   endpoint. This is the recommended first lever.
+2. **Reduce sequential DB depth** in the answer path (batch the cache-version +
+   shared-cache probes, collapse hydration round-trips). App change; measure
+   `latencyTimings.supabase_rpc_latency_ms` before/after.
+
+The OpenAI leg is region-agnostic: OpenAI is US-hosted, so app→OpenAI RTT is
+comparable (~200 ms) from Singapore or Sydney and does not favour either host.
 
 ### Image contract (`Dockerfile`)
 
@@ -71,36 +159,42 @@ them only after the shared `rag_response_cache` hit rate is confirmed healthy.
   `--webpack` flag is deliberate: `next.config.ts` carries a webpack-specific
   WasmHash workaround and the CSP-nonce work was validated against webpack
   prod chunks, so switching bundlers needs its own verified change. The build
-  allocates an 8 GiB heap; give the Docker builder ≥ 10 GiB memory.
+  allocates an 8 GiB heap; Railway's remote builder handles it (the ceiling is
+  headroom, not a reservation — the real build compiled in ~21 s).
 - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are
-  build args (they inline into the client bundle). The publishable key is
-  public by design; the placeholder default exists so CI can build without
+  build args (they inline into the client bundle). On Railway, service variables
+  are exposed to the Dockerfile build via the matching `ARG` declarations, so
+  setting them as service variables inlines the real values. The publishable key
+  is public by design; the placeholder default exists so CI can build without
   secrets. **Production images must be built with the real publishable key.**
 - Runtime is a non-root `node` user, prod-only `node_modules`, direct
-  `next start -H 0.0.0.0 -p $PORT` (the local port-picker script is
-  deliberately bypassed), and a `HEALTHCHECK` against `/api/health`.
+  `next start -H 0.0.0.0 -p $PORT` (Railway injects `$PORT`; the local
+  port-picker script is deliberately bypassed), and a `HEALTHCHECK` against
+  `/api/health`.
 - No secret is ever baked into a layer. `SUPABASE_SERVICE_ROLE_KEY`,
-  `OPENAI_API_KEY`, etc. are injected at run time by the host's secret store.
+  `OPENAI_API_KEY`, etc. are injected at run time by Railway's variable store.
 
-Minimal Fly config (create at deploy time; not committed until an app is
-provisioned):
+### Config as code (`railway.app.json`)
 
-```toml
-# fly.toml (sketch — values fixed at provisioning time)
-app = "clinical-kb"
-primary_region = "syd"
-[build]
-[env]
-  PORT = "3000"
-[http_service]
-  internal_port = 3000
-  force_https = true
-  min_machines_running = 1     # keep the warm instance: caches + coalescing
-  auto_stop_machines = false   # no scale-to-zero: cold starts defeat the SLOs
-[[http_service.checks]]
-  path = "/api/health"
-  interval = "30s"
-  timeout = "5s"
+The app service's build/deploy config is captured in `railway.app.json` at the
+repo root (Railway schema). It is intentionally **not** named `railway.json`
+because a default-named file is auto-loaded by _every_ service in the project and
+would clash with the worker (which needs a different Dockerfile and no
+healthcheck). To activate it, set the app service's config-as-code path to
+`railway.app.json` (dashboard → service → Settings → Config-as-code, or the
+service-settings API). Until wired, the live service settings are the source of
+truth and the file mirrors them:
+
+```jsonc
+// railway.app.json (mirrors the live app service)
+{
+  "build": { "builder": "DOCKERFILE", "dockerfilePath": "Dockerfile" },
+  "deploy": {
+    "healthcheckPath": "/api/health",
+    "restartPolicyType": "ON_FAILURE",
+    "multiRegionConfig": { "asia-southeast1-eqsg3a": { "numReplicas": 1 } },
+  },
+}
 ```
 
 ## 3. Ingestion tier
@@ -109,9 +203,17 @@ primary_region = "syd"
 
 Ship the existing worker as a container (`Dockerfile.worker`: Node 24 + tsx +
 Tesseract + a Python venv with `worker/python/requirements.txt`) and run **one
-always-on worker instance** co-located in Sydney. The `indexing-v3-agent` Edge
-Function **stays** in its current role as the cron-triggered completion/repair
-gate — the two are complementary, not alternatives.
+always-on worker instance** co-located in Railway Singapore (`worker` service).
+The `indexing-v3-agent` Edge Function **stays** in its current role as the
+cron-triggered completion/repair gate — the two are complementary, not
+alternatives. The worker service selects its Dockerfile via the
+`RAILWAY_DOCKERFILE_PATH=Dockerfile.worker` variable (captured in
+`railway.worker.json`).
+
+> **Operator run recipe:** the copy-pasteable build/run/verify steps, the
+> required env + secrets, and the pre-deploy migration gate live in
+> [`worker-deploy-runbook.md`](worker-deploy-runbook.md). This section is the
+> decision record; that runbook is how to ship it.
 
 Reasoning:
 
@@ -131,8 +233,11 @@ Reasoning:
    only new artifact is the image. The edge path would fork the pipeline into
    two implementations that drift — this repo's defining failure mode.
 
-Scaling: raise `WORKER_BATCH_SIZE` / `WORKER_CONCURRENCY` on the single
-instance first; add replicas only for sustained backlog (safe by construction).
+Scaling: raise `WORKER_BATCH_SIZE` / `WORKER_CONCURRENCY` on the single instance
+first; add replicas (`railway scale --service worker southeast-asia=N`) only for
+sustained backlog (safe by construction). The worker also pays the Singapore→
+Sydney hop on each write, but ingestion is batch/background and off the answer
+critical path, so its latency budget is generous.
 
 ### Queue durability when a worker dies mid-job
 
@@ -167,7 +272,8 @@ Operational rules that follow:
 - **Worker death costs at most one stale window of latency** for the in-flight
   job and zero data loss: all artifact writes are idempotent per
   generation/chunk-key, and completion is gated by the strict completion RPCs
-  plus the edge agent.
+  plus the edge agent. Railway's restart-on-failure brings the worker back and
+  it reclaims stale jobs automatically.
 - **Backlog improvement (not in this change):** a heartbeat that refreshes
   `locked_at` could ride the existing throttled progress updates
   (`WORKER_PROGRESS_UPDATE_MIN_INTERVAL_MS`, 60 s), which would let the stale
@@ -176,26 +282,31 @@ Operational rules that follow:
 
 ## 4. Secrets management
 
-| Variable                                         | Sensitivity      | Build-time or runtime | Where it lives                                                      |
-| ------------------------------------------------ | ---------------- | --------------------- | ------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`                       | public           | build (inlined)       | Dockerfile ARG / repo                                               |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`           | public-by-design | build (inlined)       | Dockerfile ARG; real value passed by the release pipeline           |
-| `SUPABASE_SERVICE_ROLE_KEY`                      | **critical**     | runtime               | host secret store; GitHub repo secret (CI boot smoke + eval canary) |
-| `OPENAI_API_KEY`                                 | **critical**     | runtime               | host secret store; GitHub repo secret                               |
-| `SUPABASE_PROJECT_REF` / `SUPABASE_PROJECT_NAME` | low              | runtime               | plain env (pins `check:supabase-project`)                           |
-| `INDEXING_V3_AGENT_SECRET`                       | high             | runtime               | Supabase Edge Function secrets                                      |
-| `RAG_QUERY_HASH_SECRET`                          | high             | runtime               | host secret store; GitHub repo secret (CI boot smoke)               |
-| `E2E_USER_EMAIL` / `E2E_USER_PASSWORD`           | medium           | CI only               | GitHub repo secrets                                                 |
+| Variable                                         | Sensitivity      | Build-time or runtime     | Where it lives                                                    |
+| ------------------------------------------------ | ---------------- | ------------------------- | ----------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`                       | public           | build (inlined) + runtime | Railway service variable (also the Dockerfile ARG default)        |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`           | public-by-design | build (inlined)           | Railway service variable (exposed to the build via `ARG`)         |
+| `SUPABASE_SERVICE_ROLE_KEY`                      | **critical**     | runtime                   | Railway variable store; GitHub repo secret (CI boot smoke + eval) |
+| `OPENAI_API_KEY`                                 | **critical**     | runtime                   | Railway variable store; GitHub repo secret                        |
+| `SUPABASE_PROJECT_REF` / `SUPABASE_PROJECT_NAME` | low              | runtime                   | plain Railway variable (pins the `check:supabase-project` guard)  |
+| `INDEXING_V3_AGENT_SECRET`                       | high             | runtime                   | Supabase Edge Function secrets                                    |
+| `RAG_QUERY_HASH_SECRET`                          | high             | runtime                   | Railway variable store; GitHub repo secret (CI boot smoke)        |
+| `E2E_USER_EMAIL` / `E2E_USER_PASSWORD`           | medium           | CI only                   | GitHub repo secrets                                               |
 
 Rules:
 
 - Secrets never enter images, the repo, or `NEXT_PUBLIC_*` names. `.env.local`
-  is a local-dev convenience only.
+  is a local-dev convenience only. Set runtime secrets as Railway service
+  variables (e.g. `railway variable set KEY --stdin` so the value is piped, never
+  echoed); Railway injects them at run time.
+- `RAG_QUERY_HASH_SECRET` is **required in production** (`src/lib/env.ts`
+  `requireQueryHashSecret()` throws without it) and is generated fresh per
+  environment (`openssl rand -hex 32`); it is not copied from local dev.
 - Each environment (production, staging, CI) gets **separate** service-role and
   OpenAI keys so rotation and blast radius stay per-environment.
 - Rotation: publishable-key rotation is already an operator runbook item
   (`docs/archive/operator-decisions-2026-07-04.md`); service-role rotation is a
-  Supabase dashboard action + host secret update + redeploy.
+  Supabase dashboard action + Railway variable update + redeploy.
 - `npm run check:supabase-project` runs after any Supabase env change (repo
   rule), and the eval canary runs it before every scheduled eval.
 
@@ -211,12 +322,15 @@ Rules:
   synthetic/public corpus. `public/demo-documents/` plus generated samples
   (`npm run samples`) are sufficient for load-shape realism; do not copy
   clinical production documents into staging.
-- One staging app container + one staging worker container from the _same_
-  images, different env. `RAG_PROVIDER_MODE=auto` with staging OpenAI key.
+- One staging `app` container + one staging `worker` container from the _same_
+  images, different env. On Railway this is naturally a **second environment in
+  the `clinical-kb` project** (e.g. a `staging` environment) or a separate
+  project, with `RAG_PROVIDER_MODE=auto` and the staging OpenAI key. See
+  `docs/staging-setup.md` for the turnkey runbook.
 - `src/lib/supabase/project.ts` is staging-aware only when both
   `SUPABASE_STAGING_PROJECT_REF` and `SUPABASE_STAGING_PROJECT_NAME` are set.
   The declared staging ref must differ from production and every stale project;
-  otherwise `check:supabase-project` fails closed. See `docs/staging-setup.md`.
+  otherwise `check:supabase-project` fails closed.
 - The soak test (`scripts/soak-test.ts`) targets staging **only** — see
   `docs/capacity-review.md`.
 
@@ -224,12 +338,20 @@ Rules:
 
 - `.github/workflows/docker-image.yml` validates both container builds on
   `main`, release branches, a weekly schedule, and container-affecting pull
-  requests. It deliberately does not push to a registry; registry publication
-  and deployment remain host-specific release steps after the standard gates
+  requests. It deliberately does not push to a registry; Railway builds the
+  deployable image itself from the tree on deploy, after the standard gates
   (`verify` + `ui-smoke` + the clinical governance preflight where relevant).
-- Rollback = redeploy the previous image tag. Database migrations follow the
+- **Deploy:** `railway up --service app` / `--service worker` (or a connected
+  GitHub source) builds and releases. Railway does a rolling deploy and marks the
+  release `SUCCESS` only after the `/api/health` check passes.
+- **Rollback = redeploy the previous Railway deployment** (`railway redeploy`, or
+  the dashboard's per-deployment rollback). Database migrations follow the
   existing rule: committed migrations + `schema.sql` reconciliation only, never
   raw SQL against live.
 - The nightly eval canary (`.github/workflows/eval-canary.yml`) is the standing
   guard that retrieval/answer quality did not silently regress after any
   deploy — see `docs/observability-slos.md`.
+- **Observability:** Railway per-service metrics + logs (`railway logs`,
+  `railway metrics`) cover CPU/memory/HTTP; the app additionally emits
+  `Server-Timing` and `latencyTimings` (including `supabase_rpc_latency_ms`,
+  the cross-region signal from §2.1) on the answer path.

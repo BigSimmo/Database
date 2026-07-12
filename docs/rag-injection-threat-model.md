@@ -170,4 +170,35 @@ Three of the deferred items had a low-risk, offline-verifiable "simplest safe" f
 
 ---
 
+## 8. Phase-2 architectural gate check (A3) — 2026-07-13
+
+Task **A3 "RAG optimization Phase 2 (architectural)"** re-examined findings #12–14 against the
+standing rule — **no re-index / retrieval change without a real golden miss proving a gain** — and
+the acceptance bar **`eval:retrieval:quality` must improve, not merely not-regress**. Outcome: **all
+three remain correctly deferred; the gate is not met. No code change was made.**
+
+- **No concrete golden-eval miss exists to explore against.** The retrieval golden set is all-green
+  on record (`document_recall@5=1.0`, `content_recall@5=1.0`, `top_k_hit_rate=1.0`; the reindex gate's
+  `content_mrr@10≈0.93`). Miss promotion from `rag_query_misses` → `rag_aliases` is still
+  privacy-blocked (§7 item 17 in `docs/rag-hybrid-findings-and-todo.md`), so no miss has been promoted
+  that a #12–14 change would fix.
+- **#13 (per-claim prose entailment) and #14 (structural role separation) do not touch retrieval
+  ranking.** `eval:retrieval:quality` (recall/MRR over clean clinical queries) therefore cannot
+  register a gain from them, so the task's verify bar is structurally unmeetable for them. They are
+  answer-path injection mitigations that belong to the seeded-chunk **injection** harness
+  (mitigation #11), which itself requires live model generation — out of scope for a retrieval-gated
+  task.
+- **#12 (source-authority tier) is the only retrieval-touching one, and on an all-green set the
+  realistic outcome is a recall _regression_.** Reintroducing content-authority as a primary sort key
+  is exactly what PR #118 removed. It stays deferred until a promoted miss demonstrates that authority
+  used strictly as a _tie-breaker/caveat trigger_ (not a sort key) lifts `eval:retrieval:quality`.
+
+`eval:retrieval:quality` is provider-backed (`scripts/eval-retrieval.ts` calls `requireServerEnv` +
+`requireOpenAIEnv` → live Supabase + OpenAI). It was **not** run for this disposition: running it
+speculatively to hunt a miss is itself owner-approved spend, and the standing rule forbids
+retrieval work without a miss already in hand. The correct completion of A3 is this recorded
+deferral plus the per-finding unblock conditions above.
+
+---
+
 _Originally prepared as an analysis artifact on branch `claude/safety-analysis`; every BLOCK/MISS verdict was verified against the code at the cited `file:line`. Section 6 records the mitigations subsequently implemented on `claude/llm-pipeline-review`; section 7 records the follow-ups implemented on `claude/deferred-rag-improvements`._

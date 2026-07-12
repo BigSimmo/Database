@@ -32,8 +32,11 @@ the app looks healthy.
 Mitigations, in order:
 
 1. **Switch auth to percentage-based connection allocation** in the Supabase
-   dashboard (a documented follow-up debt; not settable via SQL/MCP — operator
-   action, ask before touching live settings).
+   dashboard so the auth pool scales with compute instead of staying pinned at
+   ~10 — the exact operator path and verification are documented in
+   `docs/auth-connection-cap-runbook.md` (not settable via SQL/MCP — operator
+   action, ask before touching live settings; do this before the first
+   vertical scale-up).
 2. Persistent cookie sessions (`@supabase/ssr`, already shipped) mean sign-in
    is amortized: a returning clinician refreshes a token rather than
    re-authenticating, so the burst is mostly first-day-of-rotation shaped.
@@ -95,8 +98,10 @@ serving instance).
 
 1. **First hard failure: the auth 10-connection cap** during synchronized
    sign-in/token-refresh bursts. Fix: percentage-based allocation in the
-   dashboard (operator action; requires explicit approval before touching live
-   settings), and keep single-instance deploys so refresh storms stay small.
+   dashboard so the auth pool tracks compute rather than staying pinned at ~10
+   — exact operator path + verification in `docs/auth-connection-cap-runbook.md`
+   (operator action; requires explicit approval before touching live settings),
+   and keep single-instance deploys so refresh storms stay small.
 2. **First soft failure: Postgres CPU under hybrid-RPC concurrency** — answer
    p95 inflates well before errors appear. Watch the latency SLOs; the
    remedies in order are: confirm cache/coalescing hit rates, then compute
