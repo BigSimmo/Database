@@ -125,6 +125,18 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
 }
 
 describe("answer render policy", () => {
+  it("strips high-yield bold markers from the copy/paste clinical draft", () => {
+    const model = buildAnswerRenderModel(
+      answer({
+        answer: "For red-range results, **withhold clozapine** and recheck ANC **within 24 hours**.",
+      }),
+    );
+    // The pasted draft is plain text for clinical notes — no literal "**".
+    expect(model.copyText).not.toContain("**");
+    expect(model.copyText).toContain("withhold clozapine");
+    expect(model.copyText).toContain("within 24 hours");
+  });
+
   it("limits unsupported answers to source review and warnings even when raw extras are present", () => {
     const model = buildAnswerRenderModel(
       answer({

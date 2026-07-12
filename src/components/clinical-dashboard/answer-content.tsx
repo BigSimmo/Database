@@ -53,6 +53,7 @@ import type {
   AnswerSection,
   AnswerSectionKind,
   BestSourceRecommendation,
+  RagAnswer,
   SearchResult,
   SearchScopeSummary,
   VisualEvidenceCard,
@@ -172,6 +173,12 @@ export const SourceImage = memo(function SourceImage({
   );
 });
 
+/**
+ * Displays the active search scope and source governance warnings.
+ *
+ * @param scope - The current search scope summary, or `null` when unavailable
+ * @param warnings - Source governance warnings to display
+ */
 export function ScopeAndGovernanceNotice({
   scope,
   warnings,
@@ -219,15 +226,87 @@ export function ScopeAndGovernanceNotice({
   );
 }
 
-export function plainAnswerText(value: string) {
-  const useful = clinicalProseUsefulness(value);
-  return sanitizeAnswerDisplayText(useful.text || value, { minLength: 8, minTokens: 2 })
+export type AnswerDisplayTextOptions = {
+  // Server-`preformatted` answers are display-ready by construction; skip the
+  // noise-stripping prose sanitizer and fragment slicing so their document
+  // names / facility codes survive.
+  preformatted?: boolean;
+  // Keep server high-yield bold (**…**) so <SafeBoldText> can render it.
+  preserveBold?: boolean;
+};
+
+/**
+ * Reports whether an answer is a server-`preformatted`, grounded answer whose
+ * display text should bypass prose sanitization and be shown as-is.
+ *
+ * @param answer - The answer to check, or `null`/`undefined` when unavailable
+ * @returns `true` when the answer is preformatted and grounded
+ */
+export function isPreformattedGroundedAnswer(answer: Pick<RagAnswer, "preformatted" | "grounded"> | null | undefined) {
+  return Boolean(answer?.preformatted && answer?.grounded);
+}
+
+// Fragments carrying a safety-critical signal must never be dropped by the
+// compact 3-fragment / 85-word cap — a withhold/threshold/escalation caveat
+// hidden from the primary prose is a clinical-safety regression.
+// Covers the common withhold / withdrawal / contraindication / negation /
+// escalation directives so a short safety caveat is never dropped from the
+// compact primary answer. Kept deliberately broad (matching a non-safety
+// fragment only preserves it verbatim — the safe direction).
+const primaryAnswerSafetySignalPattern =
+  /\b(?:withhold|withheld|stop|cease|discontinue\w*|suspend\w*|hold|held|threshold|escalat\w*|urgent|immediately|never|avoid|contraindicat\w*|toxic|red\s*zone|amber|(?:do|must|should|will)\s+not|not\s+recommended)\b/i;
+
+// Test against a de-bolded copy so server bold markers inside a phrase
+// ("do **not** administer", "red **zone**") on the preserveBold path can never
+// defeat the safety match and let a caveat be dropped by the compact cap.
+function isPrimaryAnswerSafetyFragment(fragment: string) {
+  return primaryAnswerSafetySignalPattern.test(fragment.replace(/\*\*/g, ""));
+}
+
+// Shared tail of the sanitize path: run the display sanitizer, then strip the
+// synthetic-demo notice both plainAnswerText and primaryAnswerDisplayText need
+// removed before the text reaches the screen.
+function sanitizeAndStripSyntheticNotice(value: string, options: AnswerDisplayTextOptions) {
+  return sanitizeAnswerDisplayText(value, {
+    minLength: 8,
+    minTokens: 2,
+    preformatted: options.preformatted,
+    preserveBold: options.preserveBold,
+  })
     .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
     .trim();
 }
 
-function primaryAnswerDisplayText(value: string) {
-  const cleaned = plainAnswerText(value);
+/**
+ * Produces sanitized, display-ready text for an answer.
+ *
+ * @param value - The answer text to sanitize
+ * @param options - Controls preformatted handling and bold-text preservation
+ * @returns The sanitized answer text
+ */
+export function plainAnswerText(value: string, options: AnswerDisplayTextOptions = {}) {
+  // clinicalProseUsefulness runs the source-noise stripper, so preformatted
+  // answers bypass it and go straight to the lossless display path.
+  const base = options.preformatted ? value : clinicalProseUsefulness(value).text || value;
+  return sanitizeAndStripSyntheticNotice(base, options);
+}
+
+/**
+ * Selects and compacts the primary answer text while preserving safety-critical guidance.
+ *
+ * @param value - The answer text to prepare for display
+ * @param options - Formatting options, including preformatted mode
+ * @returns The display-ready answer text
+ */
+export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTextOptions = {}) {
+  // Deterministic preformatted answers are already concise and display-ready;
+  // the fragment-level usefulness pass below would re-strip the very names/codes
+  // the preformatted path just preserved, so return them as-is.
+  if (options.preformatted) return plainAnswerText(value, options);
+  // Skip whole-text clinicalProseUsefulness: its 3-token floor drops short
+  // safety sentences ("Stop lithium.") before the fragment-level safety
+  // bypass below can rescue them.
+  const cleaned = sanitizeAndStripSyntheticNotice(value, { preformatted: false, preserveBold: options.preserveBold });
   const fragments = cleaned
     .split(/\r?\n+/)
     .flatMap((line: string) =>
@@ -242,20 +321,44 @@ function primaryAnswerDisplayText(value: string) {
         )
         .trim(),
     )
-    .map((fragment: string) => clinicalProseUsefulness(fragment).text || fragment)
+    // Safety-bearing fragments pass through untouched and are never dropped by
+    // the usefulness/length gate — a short caveat like "Contraindicated in
+    // pregnancy" (under the 8-word floor) must still reach the display.
+    .map((fragment: string) =>
+      isPrimaryAnswerSafetyFragment(fragment) ? fragment : clinicalProseUsefulness(fragment).text || fragment,
+    )
     .filter((fragment: string) => {
       if (!fragment) return false;
+      if (isPrimaryAnswerSafetyFragment(fragment)) return true;
       const useful = clinicalProseUsefulness(fragment);
       return useful.useful || fragment.split(/\s+/).length >= 8;
     });
   const uniqueFragments = Array.from(new Set(fragments));
-  const selected = uniqueFragments.slice(0, 3).join(" ");
-  const words = selected.split(/\s+/).filter(Boolean);
-  if (words.length <= 85) return selected || cleaned;
-  return `${words
-    .slice(0, 85)
-    .join(" ")
-    .replace(/[;,:-]\s*$/, "")}...`;
+  const selected: string[] = [];
+  let nonSafetyKept = 0;
+  let wordBudget = 85;
+  for (const fragment of uniqueFragments) {
+    if (isPrimaryAnswerSafetyFragment(fragment)) {
+      selected.push(fragment);
+      continue;
+    }
+    if (nonSafetyKept >= 3 || wordBudget <= 0) continue;
+    nonSafetyKept += 1;
+    const words = fragment.split(/\s+/).filter(Boolean);
+    if (words.length <= wordBudget) {
+      selected.push(fragment);
+      wordBudget -= words.length;
+    } else {
+      selected.push(
+        `${words
+          .slice(0, wordBudget)
+          .join(" ")
+          .replace(/[;,:-]\s*$/, "")}...`,
+      );
+      wordBudget = 0;
+    }
+  }
+  return selected.join(" ") || cleaned;
 }
 
 // One compact "Sources" pill in every state: the amber Source-only pill and the
@@ -537,8 +640,23 @@ function SourcePreviewContent({
   );
 }
 
+/**
+ * Displays a sanitized clinical answer with source status, source previews, and copy actions.
+ *
+ * @param text - The raw answer text to display.
+ * @param preformatted - Whether to preserve the supplied formatting during display processing.
+ * @param sourceCount - The number of direct sources associated with the answer.
+ * @param sourceOnly - Whether to show a notice that the answer was assembled solely from source passages.
+ * @param bestSource - The highest-priority source recommendation, when available.
+ * @param sources - Search results used to build the source preview.
+ * @param sourceLinks - Source links and snippets associated with the answer.
+ * @param copied - Whether the answer has been copied.
+ * @param onCopy - Callback invoked to copy the answer with source status.
+ * @returns The rendered answer section, or `null` when the answer has no displayable text.
+ */
 export function NaturalLanguageAnswer({
   text,
+  preformatted = false,
   sourceCount,
   sourceOnly,
   bestSource,
@@ -547,7 +665,10 @@ export function NaturalLanguageAnswer({
   copied,
   onCopy,
 }: {
+  // Raw answer text (server bold intact); this component owns display
+  // sanitization so <SafeBoldText> can render the high-yield emphasis.
   text: string;
+  preformatted?: boolean;
   sourceCount: number;
   sourceOnly: boolean;
   bestSource: BestSourceRecommendation | null;
@@ -567,7 +688,7 @@ export function NaturalLanguageAnswer({
       if (copySourceQuoteTimerRef.current !== null) window.clearTimeout(copySourceQuoteTimerRef.current);
     };
   }, []);
-  const cleaned = primaryAnswerDisplayText(text);
+  const cleaned = primaryAnswerDisplayText(text, { preformatted, preserveBold: true });
   if (!cleaned) return null;
   const capsuleDisplay = sourceCapsuleDisplay({ sourceCount });
   const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);
