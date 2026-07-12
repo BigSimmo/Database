@@ -82,6 +82,33 @@ REPLACE` too so schema.sql declares them. These security-definer RPCs require pa
 7. **Remove** the now-resolved `functions` entries from `supabase/drift-allowlist.json` (the
    `match_document_*` "live-ahead" set + the codified live-only functions) and regenerate the manifest.
 
+## Committed capture artifact + rot guard
+
+The read-only capture in Step 1 is also committed as a runnable file so the
+target set cannot silently drift from the machine-checked source of truth:
+
+- **`scripts/sql/capture-live-retrieval-rpcs.sql`** — `pg_get_functiondef` for
+  the exact `regprocedure` signatures of the retrieval functions currently
+  flagged `LIVE IS AHEAD` in `supabase/drift-allowlist.json` (7 as of
+  2026-07-13, now including `repair_strict_enrichment_gate_batch`, which post-dates
+  the 2026-07-12 fingerprint table above). Pinned `search_path = ''` so the
+  signatures match the allowlist / `schema_drift_snapshot()` rendering exactly.
+  Re-run it at execution time per Step 1 and reconcile against the fingerprints.
+- **`tests/forward-codify-retrieval-targets.test.ts`** — offline guard (runs in
+  `verify:cheap`) asserting that capture query's target set equals the allowlist
+  `LIVE IS AHEAD` retrieval entries, so reconciling a sibling (removing its
+  allowlist entry) forces a matching edit to the capture query and this file.
+
+The committed query covers **only** the `LIVE IS AHEAD` retrieval subset (its
+guard invariant). It is **not** the full codification set: the live-only
+(`unexpected_live`) and `(verify)` functions in the fingerprint table above —
+`get_visual_evidence_cards`, `run_visual_eval_case`, `run_all_visual_eval_cases`,
+`repair_enrichment_quality_batch`, `match_document_index_units_hybrid`,
+`match_document_memory_cards_hybrid[_v2]` — are captured from that table per
+Step 1, not from this query. The fingerprint table remains the point-in-time
+reference snapshot; the committed query is the maintained,
+always-in-sync-with-the-allowlist capture of its subset.
+
 ## Not in this work-order (separate allowlist backlog)
 
 The allowlist also carries, with the same boilerplate reason, non-retrieval drift that should be triaged
