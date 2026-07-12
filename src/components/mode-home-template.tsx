@@ -90,15 +90,15 @@ export function ModeHomeHero({
         <Heading
           id={`${testId ?? "mode-home"}-title`}
           className={cn(
-            "text-balance font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)] sm:text-[1.9rem] lg:text-[2.15rem]",
-            compact ? "text-[1.45rem]" : "text-[1.85rem]",
+            "text-balance font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)] sm:text-3xl-plus lg:text-4xl-minus",
+            compact ? "text-2xl-sub" : "text-3xl-sub",
           )}
         >
           {title}
         </Heading>
         <p
           className={cn(
-            "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-[0.95rem] sm:leading-5 lg:text-base",
+            "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-sm-plus sm:leading-5 lg:text-base",
             compact ? "leading-5" : "leading-6",
           )}
         >
@@ -245,10 +245,10 @@ export function ModeHomeTemplate({
                   <ActionIcon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-balance text-[0.98rem] font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] sm:text-[0.95rem]">
+                  <span className="block text-balance text-base-sub font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] sm:text-sm-plus">
                     {action.title}
                   </span>
-                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-[0.8rem] sm:leading-[1.3]">
+                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-xs-plus sm:leading-[1.3]">
                     {action.description}
                   </span>
                 </span>
