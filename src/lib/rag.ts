@@ -73,6 +73,7 @@ import {
   getCachedSearch,
   getSharedCachedAnswer,
   getSharedCachedSearch,
+  isSearchCacheEnabled,
   packAdjacentSourceContext,
   packedContextCacheKey,
   scopedAnswerCacheKey,
@@ -85,6 +86,7 @@ export {
   packedContextCacheKey,
   retrievalPlanCacheQuery,
 } from "@/lib/rag-cache";
+import { classifySearchCacheOutcome, recordCacheLookup } from "@/lib/observability/cache-metrics";
 import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag-source-block";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
 import {
@@ -3015,8 +3017,16 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const queryVariants = buildRetrievalQueryVariants(retrievalQuery, queryAnalysis, ragAliases);
   telemetry.retrieval_query_variant_count = queryVariants.length;
   const cached = await getCachedSearch(args, queryClassification.queryClass, queryVariants);
+  // Only consult the shared cache when the process-local cache missed (preserves
+  // the original short-circuit), then record the hit-rate counter ONCE with full
+  // knowledge of both layers: a request served by either cache is a hit, so a
+  // cold process that falls through to a warm shared cache is not miscounted as a
+  // miss (deep /api/health cache hit-rate — docs/observability-slos.md §4).
+  const sharedCached = cached ? null : await getSharedCachedSearch(args, queryClassification.queryClass, queryVariants);
+  const cacheOutcome = classifySearchCacheOutcome(isSearchCacheEnabled(args), Boolean(cached), sharedCached);
+  if (cacheOutcome !== "skip") recordCacheLookup(cacheOutcome === "hit");
+
   if (cached) return cached;
-  const sharedCached = await getSharedCachedSearch(args, queryClassification.queryClass, queryVariants);
   if (sharedCached?.kind === "hit") {
     await setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants);
     return { results: sharedCached.results, telemetry: sharedCached.telemetry };
