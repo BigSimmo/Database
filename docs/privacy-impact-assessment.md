@@ -421,14 +421,9 @@ compliance-posture and PHI-minimisation gaps.
 ## 11. Recommendation
 
 Before the app is used with real patients in a WA clinical setting, close **PIA-1** and **PIA-2** as
-<<<<<<< HEAD
-launch-blockers (cross-border contractual basis + user notice; mandatory HMAC secret). **PIA-3** is
-closed (the durable `rag_queries.answer` log is no longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4**
-=======
 launch-blockers (cross-border contractual basis + user notice; the mandatory HMAC secret is now
 enforced in code — the remaining step is placing it in the deploy host's secret store). **PIA-3** is
-closed (answer text is no longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4**
->>>>>>> origin/main
+closed (the durable `rag_queries.answer` log is no longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4**
 remains as a fast follow-up (purge `rag_query_misses`), and ship the **PIA-5** privacy documentation. The data-at-rest security posture (Sydney residency, RLS, private storage,
 query hashing, automated purge) is already strong and should be highlighted in the privacy policy as
 evidence of "reasonable steps" under APP 11.
