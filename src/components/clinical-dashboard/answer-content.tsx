@@ -242,9 +242,7 @@ export type AnswerDisplayTextOptions = {
  * @param answer - The answer to check, or `null`/`undefined` when unavailable
  * @returns `true` when the answer is preformatted and grounded
  */
-export function isPreformattedGroundedAnswer(
-  answer: Pick<RagAnswer, "preformatted" | "grounded"> | null | undefined,
-) {
+export function isPreformattedGroundedAnswer(answer: Pick<RagAnswer, "preformatted" | "grounded"> | null | undefined) {
   return Boolean(answer?.preformatted && answer?.grounded);
 }
 
