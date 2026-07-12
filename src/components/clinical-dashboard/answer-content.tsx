@@ -232,7 +232,7 @@ export type AnswerDisplayTextOptions = {
 // compact 3-fragment / 85-word cap — a withhold/threshold/escalation caveat
 // hidden from the primary prose is a clinical-safety regression.
 const primaryAnswerSafetySignalPattern =
-  /\b(?:withhold|withheld|stop|cease|hold|threshold|escalat|urgent|red\s*zone|amber|immediately|do not|contraindicat|toxic)\b/i;
+  /\b(?:withhold|withheld|stop|cease|hold|threshold|escalat\w*|urgent|red\s*zone|amber|immediately|do not|contraindicat\w*|toxic)\b/i;
 
 export function plainAnswerText(value: string, options: AnswerDisplayTextOptions = {}) {
   // clinicalProseUsefulness runs the source-noise stripper, so preformatted
@@ -248,7 +248,7 @@ export function plainAnswerText(value: string, options: AnswerDisplayTextOptions
     .trim();
 }
 
-function primaryAnswerDisplayText(value: string, options: AnswerDisplayTextOptions = {}) {
+export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTextOptions = {}) {
   const cleaned = plainAnswerText(value, options);
   // Deterministic preformatted answers are already concise and display-ready;
   // the fragment-level usefulness pass below would re-strip the very names/codes
@@ -275,21 +275,31 @@ function primaryAnswerDisplayText(value: string, options: AnswerDisplayTextOptio
       return useful.useful || fragment.split(/\s+/).length >= 8;
     });
   const uniqueFragments = Array.from(new Set(fragments));
-  // Compact head (unchanged when no later fragment is safety-critical), plus any
-  // safety-signal fragment beyond the head appended in full so the cap can never
-  // hide it. When safetyTail is empty this is byte-identical to the prior cap.
-  const head = uniqueFragments.slice(0, 3);
-  const safetyTail = uniqueFragments.slice(3).filter((fragment) => primaryAnswerSafetySignalPattern.test(fragment));
-  const headWords = head.join(" ").split(/\s+/).filter(Boolean);
-  const headText =
-    headWords.length <= 85
-      ? head.join(" ")
-      : `${headWords
-          .slice(0, 85)
+  const selected: string[] = [];
+  let nonSafetyKept = 0;
+  let wordBudget = 85;
+  for (const fragment of uniqueFragments) {
+    if (primaryAnswerSafetySignalPattern.test(fragment)) {
+      selected.push(fragment);
+      continue;
+    }
+    if (nonSafetyKept >= 3 || wordBudget <= 0) continue;
+    nonSafetyKept += 1;
+    const words = fragment.split(/\s+/).filter(Boolean);
+    if (words.length <= wordBudget) {
+      selected.push(fragment);
+      wordBudget -= words.length;
+    } else {
+      selected.push(
+        `${words
+          .slice(0, wordBudget)
           .join(" ")
-          .replace(/[;,:-]\s*$/, "")}...`;
-  const selected = [headText, ...safetyTail].filter(Boolean).join(" ");
-  return selected || cleaned;
+          .replace(/[;,:-]\s*$/, "")}...`,
+      );
+      wordBudget = 0;
+    }
+  }
+  return selected.join(" ") || cleaned;
 }
 
 // One compact "Sources" pill in every state: the amber Source-only pill and the
