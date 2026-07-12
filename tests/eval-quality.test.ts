@@ -183,6 +183,48 @@ describe("eval quality reporting", () => {
     );
   });
 
+  it("counts an acceptSourceOnly source-only answer as grounded-supported only when expected docs are cited", () => {
+    const acceptedSourceOnly = buildEvalQualityReport({
+      generatedAt: "2026-07-13T00:00:00.000Z",
+      retrievalResults: [retrievalResult()],
+      ragResults: [
+        ragResult({
+          id: "discharge-documentation",
+          supported: true,
+          acceptSourceOnly: true,
+          grounded: false,
+          expectedHit: true,
+          citations: 4,
+        }),
+      ],
+    });
+    expect(acceptedSourceOnly.rag.summary.grounded_supported_rate).toBe(1);
+    expect(acceptedSourceOnly.blocking_threshold_failures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("grounded_supported_rate")]),
+    );
+
+    // A real retrieval regression (source-only but expected docs no longer surfaced)
+    // is NOT accepted: it drags the rate below threshold and hard-fails.
+    const regressed = buildEvalQualityReport({
+      generatedAt: "2026-07-13T00:00:00.000Z",
+      retrievalResults: [retrievalResult()],
+      ragResults: [
+        ragResult({
+          id: "discharge-documentation",
+          supported: true,
+          acceptSourceOnly: true,
+          grounded: false,
+          expectedHit: false,
+          citations: 0,
+        }),
+      ],
+    });
+    expect(regressed.rag.summary.grounded_supported_rate).toBe(0);
+    expect(regressed.blocking_threshold_failures).toEqual(
+      expect.arrayContaining([expect.stringContaining("RAG grounded_supported_rate")]),
+    );
+  });
+
   it("fails forced-embedding retrieval cases that return from cache, coverage, or lexical paths", () => {
     const result = evaluateGoldenRetrievalCase({
       testCase: {
