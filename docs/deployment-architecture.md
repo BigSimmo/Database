@@ -35,12 +35,9 @@ Run the Next.js app as a **single long-lived container** (Node 24, image built
 from `Dockerfile`) on a managed container host **in Sydney, co-located with
 the Supabase project's ap-southeast-2 region**.
 
-Recommended host: **Fly.io (`syd` region)**, because it runs plain OCI images
-with per-app secrets, health checks, and rollback to previous releases, and it
-has a Sydney region. Google Cloud Run (`australia-southeast2`) is an equivalent
-alternative if a GCP account is preferred; the image is host-agnostic either
-way. Railway is _not_ suitable today (no Sydney region — cross-region RPC
-latency would multiply across the per-answer fan-out).
+Recommended host: any OCI-image host. Production runs on **Railway**; Google
+Cloud Run (`australia-southeast2`) is a Sydney-region alternative if lower
+answer latency matters. The image is host-agnostic.
 
 ### Why a long-lived container and not serverless (Vercel et al.)
 
@@ -63,6 +60,9 @@ latency would multiply across the per-answer fan-out).
 Scale-out plan: stay at 1 instance (vertical scaling first) until sustained
 load demands more; replicas are safe but dilute in-memory coalescing, so add
 them only after the shared `rag_response_cache` hit rate is confirmed healthy.
+**Before the first vertical scale-up**, clear the auth 10-connection cap so the
+auth pool scales with compute instead of staying pinned — operator runbook:
+`docs/auth-connection-cap-runbook.md` (`docs/capacity-review.md` §2–§3).
 
 ### Image contract (`Dockerfile`)
 
@@ -115,6 +115,11 @@ Tesseract + a Python venv with `worker/python/requirements.txt`) and run **one
 always-on worker instance** co-located in Sydney. The `indexing-v3-agent` Edge
 Function **stays** in its current role as the cron-triggered completion/repair
 gate — the two are complementary, not alternatives.
+
+> **Operator run recipe:** the copy-pasteable build/run/verify steps, the
+> required env + secrets, and the pre-deploy migration gate live in
+> [`worker-deploy-runbook.md`](worker-deploy-runbook.md). This section is the
+> decision record; that runbook is how to ship it.
 
 Reasoning:
 

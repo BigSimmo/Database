@@ -4,7 +4,7 @@ import { type FormEvent, useRef, useState } from "react";
 import {
   Apple,
   BookOpen,
-  CheckCircle2,
+  CircleCheck,
   Circle,
   ClipboardList,
   Clock3,
@@ -108,7 +108,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
           )}
           aria-label="Close account setup"
         >
-          <X className="h-4 w-4" />
+          <X aria-hidden="true" className="h-4 w-4" />
         </button>
 
         <div className="px-4 pb-4 pt-5 sm:px-7 sm:pb-6 sm:pt-8">
@@ -129,7 +129,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
             <label className="block">
               <span className={fieldLabel}>Email address</span>
               <div className="relative">
-                <Mail className={fieldIcon} />
+                <Mail aria-hidden="true" className={fieldIcon} />
                 <input
                   ref={emailInputRef}
                   type="email"
@@ -148,7 +148,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
               disabled={busy}
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-5 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:shadow-none"
             >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
               Continue
             </button>
 
@@ -186,7 +186,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                   </p>
                 </div>
                 <span className="inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-2 text-2xs font-bold text-[color:var(--success)]">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <CircleCheck aria-hidden="true" className="h-3.5 w-3.5" />
                   Saved
                 </span>
               </div>
@@ -212,14 +212,18 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                       <span className="min-w-0 whitespace-normal break-words text-xs leading-4">{source.label}</span>
                       <span
                         className={cn(
-                          "grid h-4.5 w-4.5 place-items-center rounded-full border sm:absolute sm:right-2 sm:top-2",
+                          "grid h-5 w-5 place-items-center rounded-full border sm:absolute sm:right-2 sm:top-2",
                           selected
                             ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                             : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-transparent",
                         )}
                         aria-hidden
                       >
-                        {selected ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-2.5 w-2.5" />}
+                        {selected ? (
+                          <CircleCheck aria-hidden="true" className="h-3 w-3" />
+                        ) : (
+                          <Circle aria-hidden="true" className="h-2.5 w-2.5" />
+                        )}
                       </span>
                     </button>
                   );
@@ -239,7 +243,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                   </h3>
                 </div>
                 <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-[color:var(--success-soft)] px-2 text-2xs font-bold text-[color:var(--success)]">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <CircleCheck aria-hidden="true" className="h-3.5 w-3.5" />
                   Verified
                 </span>
               </div>
@@ -261,7 +265,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                           {item.detail}
                         </span>
                       </span>
-                      <CheckCircle2 className="mt-1 h-4 w-4 text-[color:var(--success)]" aria-hidden />
+                      <CircleCheck className="mt-1 h-4 w-4 text-[color:var(--success)]" aria-hidden />
                     </div>
                   );
                 })}
@@ -310,7 +314,7 @@ function ProviderButton({ provider, onClick }: { provider: Provider; onClick: ()
 function ProviderMark({ provider }: { provider: Provider }) {
   if (provider === "Microsoft") {
     return (
-      <span className="grid h-4.5 w-4.5 shrink-0 grid-cols-2 gap-0.5" aria-hidden="true">
+      <span className="grid h-5 w-5 shrink-0 grid-cols-2 gap-0.5" aria-hidden="true">
         <span className="bg-[#f25022]" />
         <span className="bg-[#7fba00]" />
         <span className="bg-[#00a4ef]" />
@@ -321,7 +325,7 @@ function ProviderMark({ provider }: { provider: Provider }) {
 
   if (provider === "Apple") {
     return (
-      <Apple className="h-4.5 w-4.5 shrink-0 text-[color:var(--text-heading)]" aria-hidden="true" strokeWidth={2.4} />
+      <Apple className="size-icon-lg shrink-0 text-[color:var(--text-heading)]" aria-hidden="true" strokeWidth={2.4} />
     );
   }
 

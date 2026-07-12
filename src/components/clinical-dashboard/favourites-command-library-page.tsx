@@ -127,7 +127,7 @@ const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
   documents: FileText,
   sources: Quote,
   services: appModeIcons.services,
-  forms: FileText,
+  forms: appModeIcons.forms,
   differentials: appModeIcons.differentials,
 };
 
@@ -362,6 +362,11 @@ function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id:
   );
 }
 
+/**
+ * Renders a menu of actions for a favourite item.
+ *
+ * @param item - The favourite item associated with the available actions
+ */
 function RowActionsMenu({ item }: { item: FavouriteItem }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -570,7 +575,10 @@ function FavouritesTable({
               <option value="title">Sort: Title</option>
               <option value="type">Sort: Type</option>
             </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--text-soft)]" />
+            <ChevronDown
+              aria-hidden="true"
+              className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--text-soft)]"
+            />
           </label>
         </div>
       </div>
@@ -977,7 +985,7 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
             <header>
               <div className="flex min-w-0 items-start gap-3">
                 <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <Heart className="h-4.5 w-4.5" aria-hidden />
+                  <Heart className="size-icon-lg" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">

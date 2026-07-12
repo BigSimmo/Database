@@ -45,7 +45,7 @@ export function SectionHeading({
             compactMobile ? "h-7 w-7 sm:h-9 sm:w-9" : "h-9 w-9",
           )}
         >
-          <Icon className={cn(compactMobile ? "h-4 w-4 sm:h-4.5 sm:w-4.5" : "h-4.5 w-4.5")} />
+          <Icon className={cn(compactMobile ? "size-icon-md sm:size-icon-lg" : "size-icon-lg")} />
         </span>
         <div className="min-w-0">
           <h2 className="text-base-minus font-semibold text-[color:var(--text-heading)] sm:text-base">{title}</h2>
@@ -161,7 +161,10 @@ export function UtilityDrawer({
             )}
           </span>
         </span>
-        <ChevronDown className="h-4 w-4 shrink-0 -rotate-90 text-[color:var(--text-muted)] transition motion-safe:duration-150" />
+        <ChevronDown
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 -rotate-90 text-[color:var(--text-muted)] transition motion-safe:duration-150"
+        />
       </button>
 
       <details
@@ -199,7 +202,10 @@ export function UtilityDrawer({
               ) : null}
             </span>
           </span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition motion-safe:duration-150 group-open:rotate-180" />
+          <ChevronDown
+            aria-hidden="true"
+            className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition motion-safe:duration-150 group-open:rotate-180"
+          />
         </summary>
         {open && (!usesSheet || mobileInline) && <div className={cn(clinicalDivider, "p-4")}>{children}</div>}
       </details>
@@ -299,7 +305,7 @@ export function GuideTrigger({ onOpen }: { onOpen: () => void }) {
         className={cn(navPill, "px-3")}
         aria-label="Open user guide"
       >
-        <BookOpen className="h-4 w-4" />
+        <BookOpen aria-hidden="true" className="h-4 w-4" />
         Guide
       </button>
     </div>
