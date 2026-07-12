@@ -101,6 +101,15 @@ describe("isBareCrossReferenceAnswer", () => {
       false,
     );
   });
+
+  it("does NOT flag passive clinical referral facts that point at a service, not a document", () => {
+    // A directive + redirect that targets a team/person is a valid cited answer, not a document
+    // cross-reference — so it must survive the guard (Codex review PR #538).
+    expect(
+      isBareCrossReferenceAnswer("Patients are referred to the community team for further information and support."),
+    ).toBe(false);
+    expect(isBareCrossReferenceAnswer("The patient should see their GP for further information.")).toBe(false);
+  });
 });
 
 describe("source-backed recovery gate — cross-reference guard", () => {

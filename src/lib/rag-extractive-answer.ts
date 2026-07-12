@@ -1642,20 +1642,28 @@ function finalQualityFailure(answer: RagAnswer, query: string, queryClass: RagQu
 // content — e.g. "Refer to the RKPG Guidelines to Writing for Clinical Policy for further
 // information about Scope of Practice." It answers nothing itself, so it must never be rescued by
 // the source-backed recovery gate on the strength of structured-chunk signals in the *cited*
-// sources. The guard is deliberately narrow — it fires only when the lead sentence is BOTH a
-// pointer to another document AND a "for further information"-style redirect — so it leaves the
-// terse paraphrases the recovery gate legitimately exists for (e.g. "Depot antipsychotic follow-up
-// is covered by the cited local pathway.") untouched, since those carry no redirect clause.
+// sources. The guard is deliberately narrow — it fires only when the lead sentence is a pointer
+// (directive) AND a "for further information"-style redirect AND names a document-style object — so
+// it leaves untouched both the terse paraphrases the recovery gate legitimately exists for (e.g.
+// "Depot antipsychotic follow-up is covered by the cited local pathway.", no redirect clause) and
+// passive clinical referral facts (e.g. "Patients are referred to the community team for further
+// information and support.", which point at a service, not a document).
 const crossReferenceDirectivePattern =
   /\b(?:refer(?:red|s|ring)?\s+to|(?:please\s+)?see|consult|as\s+(?:per|outlined|described|detailed|set\s+out))\b/i;
 const crossReferenceRedirectPattern =
   /\bfor\s+(?:further|more|additional|detailed|complete|full)\s+(?:information|detail|details|guidance|advice|reading|instruction|instructions)\b/i;
+const crossReferenceDocumentObjectPattern =
+  /\b(?:guidance|guidelines?|policy|policies|procedures?|protocols?|appendix|appendices|manuals?|documents?|documentation|frameworks?|standards?|sops?|handbooks?|factsheets?|leaflets?|booklets?|templates?|checklists?|forms?|sections?|chapters?)\b/i;
 
 /** Is bare cross-reference answer. */
 export function isBareCrossReferenceAnswer(text: string) {
   const lead = firstSentence(text).replace(/\*\*/g, "");
   if (!lead) return false;
-  return crossReferenceDirectivePattern.test(lead) && crossReferenceRedirectPattern.test(lead);
+  return (
+    crossReferenceDirectivePattern.test(lead) &&
+    crossReferenceRedirectPattern.test(lead) &&
+    crossReferenceDocumentObjectPattern.test(lead)
+  );
 }
 
 /** Should preserve source backed generated answer. */
