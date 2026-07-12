@@ -5,6 +5,8 @@ import { clinicalQueryModeSchema } from "@/lib/clinical-query-mode";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import {
+  answerPrivacyMetadata,
+  answerTextForStorage,
   normalizedQueryTextForStorage,
   queryDerivedTokensForStorage,
   queryPrivacyMetadata,
@@ -164,7 +166,10 @@ export async function POST(request: Request) {
           rating,
           feedback_type: parsed.feedbackType ?? null,
           note: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.note : null,
-          answer: env.RAG_PERSIST_RAW_QUERY_TEXT ? parsed.answer : null,
+          // PIA-3: the promoted answer is generated clinical text — gate it on the
+          // dedicated answer-retention flag, not the raw-query flag, so one switch
+          // governs answer-text persistence everywhere.
+          answer: answerTextForStorage(parsed.answer),
           query_class: parsed.queryClass ?? null,
           query_mode: parsed.queryMode,
           filters: parsed.filters ?? {},
@@ -174,6 +179,7 @@ export async function POST(request: Request) {
           cited_chunk_ids_rejected: parsed.citedChunkIds.length - citedChunkIds.length,
           captured_at: new Date().toISOString(),
           ...queryPrivacyMetadata(parsed.query),
+          ...answerPrivacyMetadata(),
         },
       })
       .select("id")
