@@ -46,25 +46,34 @@ where n.nspname='public' and p.proname = ANY (ARRAY[
   'match_document_chunks','match_document_chunks_hybrid','match_document_chunks_text',
   'match_document_table_facts_text','match_documents_for_query',
   'match_document_index_units_hybrid','match_document_memory_cards_hybrid',
-  'match_document_memory_cards_hybrid_v2','get_related_document_metadata','get_visual_evidence_cards'])
+  'match_document_memory_cards_hybrid_v2','get_related_document_metadata','get_visual_evidence_cards',
+  'run_visual_eval_case','run_all_visual_eval_cases','repair_enrichment_quality_batch'])
 order by 1;
 ```
 
 ## Procedure (execute with Docker up + quiet live queue)
 
-1. **Re-capture** the full `pg_get_functiondef` text for each function above (read-only). Confirm md5s
-   vs this table; codify whatever live currently is.
+1. **Re-capture** the full `pg_get_functiondef` text for each function above (read-only). Apply
+   identical whitespace normalization (strip leading/trailing whitespace, normalize internal
+   whitespace) to both live-captured definitions and the migration text before computing md5 hashes.
+   Confirm normalized md5s vs this table; codify whatever live currently is.
 2. **Author** `supabase/migrations/<ts>_codify_live_retrieval_rpcs_forward.sql` — one
-   `CREATE OR REPLACE FUNCTION` per function, body = the verbatim captured definition (round-trips
-   byte-identically). Preserve `security definer`/`invoker`, `set search_path`, and grants exactly.
+   `CREATE OR REPLACE FUNCTION` per function, body = the verbatim captured definition. Apply the
+   same whitespace normalization before hashing to ensure normalized comparison (not byte-identical
+   raw text). Preserve `security definer`/`invoker`, `set search_path`, and grants exactly.
+   **Capture and replay ACLs:** alongside `pg_get_functiondef`, capture each function's ACLs using
+   `proacl` or routine privileges query. Include the captured grants in the migration (apply after
+   each `CREATE OR REPLACE`) and verify the resulting ACLs match live during validation.
    `get_visual_evidence_cards`, `run_visual_eval_case`, `run_all_visual_eval_cases`,
    `repair_enrichment_quality_batch` are **live-only** (`unexpected_live`) — codify as `CREATE OR
-REPLACE` too so schema.sql declares them.
+REPLACE` too so schema.sql declares them. These security-definer RPCs require particular ACL
+coverage.
 3. **Reconcile** `supabase/schema.sql`: replace each function's old body with the captured one (same
    text as the migration). Update `tests/supabase-schema.test.ts` if it pins any of these bodies.
 4. **Validate (the load-bearing gate):** `npm run drift:manifest` (replays schema.sql into Docker from
-   scratch — proves replayability) then confirm each codified body's whitespace-stripped
-   `pg_get_functiondef` md5 equals live. `npm run verify:cheap` includes `tests/drift-detection.test.ts`
+   scratch — proves replayability) then confirm each codified body's whitespace-normalized
+   `pg_get_functiondef` md5 equals live. Compare the resulting ACLs against live using the same
+   query from step 2. `npm run verify:cheap` includes `tests/drift-detection.test.ts`
    (migration↔schema.sql parity, allowlist hygiene).
 5. **Golden eval:** `npm run eval:retrieval:quality` must stay **36/36** (retrieval bodies changed —
    though a faithful capture is behavior-neutral by construction).

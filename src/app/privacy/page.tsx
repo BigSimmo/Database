@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 
 import { ClinicalBadge } from "@/components/clinical-dashboard/clinical-badge";
 import {
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
 // docs/privacy-impact-assessment.md. It is not legal advice, and it is not a
 // substitute for a formal privacy policy reviewed by a privacy officer — that
 // review, plus the OpenAI cross-border agreement, is the outstanding PIA-1 step.
-type Section = { heading: string; body: React.ReactNode };
+type Section = { heading: string; body: ReactNode };
 
 const SECTIONS: Section[] = [
   {
