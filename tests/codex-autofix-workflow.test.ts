@@ -229,6 +229,16 @@ describe("Codex auto-resolve workflow guard", () => {
     expect(result.output).toContain("immutable github-script pin");
   });
 
+  it("rejects workflows missing models read permission", () => {
+    const workflow = originalWorkflow.replace("  models: read\n", "");
+    expect(workflow).not.toBe(originalWorkflow);
+
+    const result = runGuard(workflow);
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("models: read");
+  });
+
   it("allows findings to quote marker text without being mistaken for requests", () => {
     const workflow = originalWorkflow.replace(
       `            const sourceBody = (reviewComment.body || "").trimStart();
