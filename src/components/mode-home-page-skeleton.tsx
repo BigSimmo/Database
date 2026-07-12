@@ -12,16 +12,16 @@ function SkeletonBlock({ className }: { className?: string }) {
 export function ModeHomePageSkeleton() {
   return (
     <div
-      className="mx-auto grid w-full max-w-[64rem] justify-items-center gap-3.5 px-4 py-8 sm:gap-6"
+      className="mx-auto grid w-full max-w-[60rem] justify-items-center gap-3.5 px-4 py-8 sm:gap-6"
       role="status"
       aria-label="Loading"
     >
-      <SkeletonBlock className="h-12 w-12 rounded-2xl sm:h-16 sm:w-16 lg:h-[4.75rem] lg:w-[4.75rem]" />
+      <SkeletonBlock className="h-11 w-11 rounded-2xl sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
       <div className="grid w-full justify-items-center gap-2">
-        <SkeletonBlock className="h-[1.7rem] w-2/3 max-w-sm sm:h-[2.6rem]" />
+        <SkeletonBlock className="h-7 w-2/3 max-w-sm sm:h-9 lg:h-10" />
         <SkeletonBlock className="h-5 w-1/2 max-w-xs" />
       </div>
-      <SkeletonBlock className="mt-2 h-[3.25rem] w-full max-w-xl rounded-full sm:h-14" />
+      <SkeletonBlock className="mt-2 h-14 w-full max-w-xl rounded-full" />
       <div className="mt-4 grid w-full max-w-xl gap-3">
         <SkeletonBlock className="h-16 w-full rounded-lg" />
         <SkeletonBlock className="h-16 w-full rounded-lg" />
