@@ -24,6 +24,18 @@ describe("primaryAnswerDisplayText", () => {
     expect(primaryAnswerDisplayText(answer)).toContain("Contraindicated in pregnancy");
   });
 
+  it("keeps a short stop instruction after normal leading prose", () => {
+    const answer =
+      "Give paracetamol for ongoing pain. Review the observations hourly overnight. Document the management plan clearly in the notes. Stop lithium.";
+    expect(primaryAnswerDisplayText(answer)).toContain("Stop lithium.");
+  });
+
+  it("keeps a passive held caveat beyond the compact head", () => {
+    const answer =
+      "Give paracetamol for ongoing pain. Review the observations hourly overnight. Document the management plan clearly in the notes. Clozapine should be held.";
+    expect(primaryAnswerDisplayText(answer)).toContain("should be held");
+  });
+
   it("is unchanged for a short answer with no safety signal", () => {
     const answer = "Offer simple analgesia and reassess in one hour.";
     expect(primaryAnswerDisplayText(answer)).toBe(answer);

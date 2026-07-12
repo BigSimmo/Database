@@ -238,7 +238,7 @@ export type AnswerDisplayTextOptions = {
 // compact 3-fragment / 85-word cap — a withhold/threshold/escalation caveat
 // hidden from the primary prose is a clinical-safety regression.
 const primaryAnswerSafetySignalPattern =
-  /\b(?:withhold|withheld|stop|cease|hold|threshold|escalat\w*|urgent|red\s*zone|amber|immediately|do not|contraindicat\w*|toxic)\b/i;
+  /\b(?:withhold|withheld|stop|cease|hold|held|threshold|escalat\w*|urgent|red\s*zone|amber|immediately|do not|contraindicat\w*|toxic)\b/i;
 
 /**
  * Produces sanitized, display-ready text for an answer.
@@ -269,11 +269,21 @@ export function plainAnswerText(value: string, options: AnswerDisplayTextOptions
  * @returns The display-ready answer text
  */
 export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTextOptions = {}) {
-  const cleaned = plainAnswerText(value, options);
   // Deterministic preformatted answers are already concise and display-ready;
   // the fragment-level usefulness pass below would re-strip the very names/codes
   // the preformatted path just preserved, so return them as-is.
-  if (options.preformatted) return cleaned;
+  if (options.preformatted) return plainAnswerText(value, options);
+  // Skip whole-text clinicalProseUsefulness: its 3-token floor drops short
+  // safety sentences ("Stop lithium.") before the fragment-level safety
+  // bypass below can rescue them.
+  const cleaned = sanitizeAnswerDisplayText(value, {
+    minLength: 8,
+    minTokens: 2,
+    preformatted: false,
+    preserveBold: options.preserveBold,
+  })
+    .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
+    .trim();
   const fragments = cleaned
     .split(/\r?\n+/)
     .flatMap((line: string) =>

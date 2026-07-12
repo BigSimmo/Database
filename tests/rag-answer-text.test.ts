@@ -88,6 +88,17 @@ describe("RAG answer text helpers", () => {
     expect(cleaned).not.toMatch(/Lithicarb|Quilonum|Imprest|DOSAGE|Dose evidence|Tests1/i);
   });
 
+  it("strips bolded catalogue noise when preserveBold keeps clinical emphasis", () => {
+    const noisy =
+      "Dose evidence: **Lithium** Carbonate **250 mg** Tablet - Lithicarb®. Therapy with **lithium** should always begin with conventional tablets (**lithium** carbonate **250 mg**).";
+
+    const cleaned = polishClinicalAnswerProse(noisy, { preserveBold: true });
+
+    expect(cleaned).toContain("Therapy with **lithium**");
+    expect(cleaned).toContain("**250 mg**");
+    expect(cleaned).not.toMatch(/Lithicarb|Dose evidence/i);
+  });
+
   it("flags source-inventory wording and truncated clinical fragments as answer quality issues", () => {
     expect(
       hasClinicalAnswerQualityIssue(

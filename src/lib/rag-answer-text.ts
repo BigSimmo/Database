@@ -217,18 +217,8 @@ function separateSettingRunOns(value: string): string {
  * @param options.preserveBold - Whether to preserve inline bold markers
  * @returns The polished clinical answer text
  */
-export function polishClinicalAnswerProse(value: string, options: { preserveBold?: boolean } = {}) {
-  // Bold markers normally come off before bullet normalization so an emphasized
-  // item ("o **Reduce dose**") still reads as a sub-bullet to the "o" matcher.
-  // The display path passes preserveBold so <SafeBoldText> can render the
-  // server's high-yield emphasis (and the un-bold unverified-number safety
-  // signal); the sub-bullet matcher tolerates a leading "**" so bolded
-  // sub-bullets still normalize. The server answer-gen path keeps the default
-  // (strip), so its quality gates are unchanged.
-  const normalized = normalizeSectionText(value);
-  const cleaned = normalizeInlineBulletGlyphs(
-    options.preserveBold ? normalized : normalized.replace(/\*\*([^*]+)\*\*/g, "$1"),
-  )
+function stripAnswerArtifactNoise(text: string) {
+  return text
     .replace(productCatalogueFragmentPattern, " ")
     .replace(brandOrFormularyFragmentPattern, " ")
     .replace(imprestLocationPattern, " ")
@@ -245,10 +235,41 @@ export function polishClinicalAnswerProse(value: string, options: { preserveBold
     .replace(/(?:\.\s*){2,}/g, ". ")
     .replace(/\s+/g, " ")
     .trim();
+}
 
-  return normalizeGenericMedicationCase(
+function restoreBoldSpans(text: string, boldSpans: string[]) {
+  let restored = text;
+  for (const span of boldSpans) {
+    if (restored.includes(span) && !restored.includes(`**${span}**`)) {
+      restored = restored.replace(span, `**${span}**`);
+    }
+  }
+  return restored;
+}
+
+export function polishClinicalAnswerProse(value: string, options: { preserveBold?: boolean } = {}) {
+  // Bold markers normally come off before bullet normalization so an emphasized
+  // item ("o **Reduce dose**") still reads as a sub-bullet to the "o" matcher.
+  // The display path passes preserveBold so <SafeBoldText> can render the
+  // server's high-yield emphasis (and the un-bold unverified-number safety
+  // signal); the sub-bullet matcher tolerates a leading "**" so bolded
+  // sub-bullets still normalize. The server answer-gen path keeps the default
+  // (strip), so its quality gates are unchanged.
+  const normalized = normalizeSectionText(value);
+  const boldSpans = [...normalized.matchAll(/\*\*([^*]+)\*\*/g)].map((match) => match[1]);
+  const bulletNormalized = normalizeInlineBulletGlyphs(
+    options.preserveBold ? normalized : normalized.replace(/\*\*([^*]+)\*\*/g, "$1"),
+  );
+  // Artifact regexes were written for unbolded catalogue/source noise; run
+  // them on a de-bolded copy so preserveBold still strips Lithicarb-style junk.
+  const deBolded = bulletNormalized.replace(/\*\*([^*]+)\*\*/g, "$1");
+  const cleaned = stripAnswerArtifactNoise(deBolded);
+
+  const polished = normalizeGenericMedicationCase(
     separateSettingRunOns(removeOrphanAnswerHeadings(removeBadAnswerFragments(cleaned))),
   );
+
+  return options.preserveBold ? restoreBoldSpans(polished, boldSpans) : polished;
 }
 
 export function sanitizeAnswerText(value: string) {
