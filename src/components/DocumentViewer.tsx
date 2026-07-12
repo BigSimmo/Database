@@ -552,9 +552,9 @@ function DocumentImage({ image }: { image: ImageRow }) {
           {figcaptionBlock}
           <details className="group mt-3">
             <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text)]">
-              <FileImage className="h-4 w-4 shrink-0" />
+              <FileImage aria-hidden="true" className="h-4 w-4 shrink-0" />
               Show original table image
-              <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 transition group-open:rotate-180" />
             </summary>
             <div className="mt-2">{imageBlock}</div>
           </details>
@@ -719,7 +719,7 @@ function PinnedSourceEvidence({
         data-testid="pinned-source-evidence"
         className={cn("scroll-mt-24 flex items-center gap-2 text-xs leading-5", textMuted)}
       >
-        <Quote className="h-3.5 w-3.5 shrink-0 opacity-70" />
+        <Quote aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-70" />
         Open a cited answer passage to pin its exact excerpt here.
       </p>
     );
@@ -1354,7 +1354,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           className={cn(iconButton, "shrink-0")}
           aria-label="Previous page"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft aria-hidden="true" className="h-4 w-4" />
         </button>
         {pagesReady ? (
           <label className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-1.5 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:flex-none sm:gap-2 sm:px-3">
@@ -1377,7 +1377,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           </label>
         ) : (
           <div className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:flex-none sm:px-3">
-            <Loader2 className="h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
             <span className="hidden sm:inline">{error ? "Page unavailable" : "Loading pages"}</span>
             <span className="sm:hidden">{error ? "Unavailable" : "Loading"}</span>
           </div>
@@ -1388,7 +1388,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
           className={cn(iconButton, "shrink-0")}
           aria-label="Next page"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight aria-hidden="true" className="h-4 w-4" />
         </button>
         <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1 shadow-[var(--shadow-inset)] sm:ml-auto">
           <button
@@ -1826,7 +1826,7 @@ function DocumentPagePreview({ href, pageNumber }: { href: string; pageNumber: n
       href={href}
       className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/40 hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)]"
     >
-      <FileText className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" />
+      <FileText aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" />
       <span className="nums">Jump to p.{pageNumber ?? "n/a"}</span>
     </a>
   );
@@ -1944,7 +1944,7 @@ function DocumentOverviewLanding({
       <section id="document-overview" className={cn(sourceCard, "scroll-mt-24 p-4")}>
         <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
           <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-            <FileText className="h-6 w-6" />
+            <FileText aria-hidden="true" className="h-6 w-6" />
           </span>
           <div className="min-w-0">
             <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Overview</h3>
@@ -1956,7 +1956,7 @@ function DocumentOverviewLanding({
       <section className={cn(sourceCard, "p-4")}>
         <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
           <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-            <Tag className="h-5 w-5" />
+            <Tag aria-hidden="true" className="h-5 w-5" />
           </span>
           <div className="min-w-0">
             <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Key sections</h3>
@@ -1977,7 +1977,7 @@ function DocumentOverviewLanding({
       <section className={cn(sourceCard, "p-4")}>
         <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-4">
           <span className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-            <FileText className="h-6 w-6" />
+            <FileText aria-hidden="true" className="h-6 w-6" />
           </span>
           <div className="min-w-0">
             <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Useful pages</h3>
@@ -2412,6 +2412,13 @@ export function DocumentViewer({
         ? "auth-required"
         : "error";
   const readyDocument = viewerState === "ready" ? document : null;
+  const headerTitle = readyDocument
+    ? documentDisplayTitle(readyDocument)
+    : viewerState === "auth-required"
+      ? "Sign in required"
+      : viewerState === "loading"
+        ? "Document"
+        : "Source unavailable";
   const headerSubtitle = readyDocument
     ? `page ${initialPage} · ${readyDocument.file_name}`
     : viewerState === "loading"
@@ -2534,9 +2541,14 @@ export function DocumentViewer({
             className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
             aria-label="Back to documents"
           >
-            <ArrowLeft className="h-5 w-5 shrink-0" />
+            <ArrowLeft aria-hidden="true" className="h-5 w-5 shrink-0" />
             <span className="hidden sm:inline">Documents</span>
           </Link>
+
+          <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
+            {headerTitle}
+          </h1>
+
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <Link
               href={scopedDocumentHref}
