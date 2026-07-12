@@ -108,6 +108,15 @@ function recordRawQueryPersistenceProductionCheck() {
   }
 }
 
+function recordAnswerPersistenceProductionCheck() {
+  if (
+    (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production") &&
+    process.env.RAG_PERSIST_ANSWER_TEXT === "true"
+  ) {
+    result.failures.push("RAG_PERSIST_ANSWER_TEXT=true is not allowed in a production-like environment.");
+  }
+}
+
 async function checkFileForServiceRoleExposure() {
   const envFiles = [".env", ".env.production", ".env.development"];
   for (const fileName of envFiles) {
@@ -162,6 +171,7 @@ async function main() {
   recordNoAuthProductionCheck();
   recordDemoModeProductionCheck();
   recordRawQueryPersistenceProductionCheck();
+  recordAnswerPersistenceProductionCheck();
   await checkFileForServiceRoleExposure();
   await checkQueryHashGuardWiring();
 

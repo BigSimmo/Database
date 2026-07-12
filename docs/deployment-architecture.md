@@ -60,6 +60,9 @@ answer latency matters. The image is host-agnostic.
 Scale-out plan: stay at 1 instance (vertical scaling first) until sustained
 load demands more; replicas are safe but dilute in-memory coalescing, so add
 them only after the shared `rag_response_cache` hit rate is confirmed healthy.
+**Before the first vertical scale-up**, clear the auth 10-connection cap so the
+auth pool scales with compute instead of staying pinned — operator runbook:
+`docs/auth-connection-cap-runbook.md` (`docs/capacity-review.md` §2–§3).
 
 ### Image contract (`Dockerfile`)
 
@@ -112,6 +115,11 @@ Tesseract + a Python venv with `worker/python/requirements.txt`) and run **one
 always-on worker instance** co-located in Sydney. The `indexing-v3-agent` Edge
 Function **stays** in its current role as the cron-triggered completion/repair
 gate — the two are complementary, not alternatives.
+
+> **Operator run recipe:** the copy-pasteable build/run/verify steps, the
+> required env + secrets, and the pre-deploy migration gate live in
+> [`worker-deploy-runbook.md`](worker-deploy-runbook.md). This section is the
+> decision record; that runbook is how to ship it.
 
 Reasoning:
 

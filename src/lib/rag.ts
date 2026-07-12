@@ -102,7 +102,12 @@ import {
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
+import {
+  answerPrivacyMetadata,
+  answerTextForStorage,
+  queryPrivacyMetadata,
+  queryTextForStorage,
+} from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
@@ -1299,11 +1304,18 @@ async function insertRagQuery(row: RagQueryInsert) {
   const supabase = createAdminClient();
   // Redact potential-PHI raw query text centrally so every logRagQuery caller is
   // covered, and fold a stable hash + retention flag into metadata (RET-H4).
+  // The generated answer can restate patient specifics, so it is dropped at rest
+  // unless answer retention is explicitly enabled (PIA-3, default off).
   const rawQuery = typeof row.query === "string" ? row.query : "";
   const safeRow = {
     ...row,
     query: queryTextForStorage(rawQuery),
-    metadata: { ...(row.metadata ?? {}), ...queryPrivacyMetadata(rawQuery) } as Json,
+    answer: answerTextForStorage(row.answer),
+    metadata: {
+      ...(row.metadata ?? {}),
+      ...queryPrivacyMetadata(rawQuery),
+      ...answerPrivacyMetadata(),
+    } as Json,
   };
   await supabase.from("rag_queries").insert(safeRow);
 }
