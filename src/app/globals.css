@@ -39,6 +39,19 @@
      deep in sheets stay on min-h-12 (48px) — do not downgrade those to the token. */
   --spacing-tap: 2.75rem;
 
+  /* Icon glyph size scale. Named spacing tokens so icon sizing is a documented
+     scale (size-icon-md is the 16px default) instead of raw `h-4 w-4` literals,
+     and so a step can carry a responsive variant: `size-icon-md sm:size-icon-lg`.
+     Generates size-icon-*, h-icon-*, w-icon-* exactly like --spacing-tap generates
+     size-tap. The `4.5` (18px) half-step these retire snaps to sm/md/lg per site.
+     NB: container tiles (iconTile h-9, empty-state tile h-10) are NOT glyphs and
+     stay on the integer spacing scale — this token is for the icon glyph itself. */
+  --spacing-icon-xs: 0.75rem; /* 12px — inline markers, dense metadata */
+  --spacing-icon-sm: 0.875rem; /* 14px — badge / chip / metadata icons */
+  --spacing-icon-md: 1rem; /* 16px — default: buttons, nav, fields */
+  --spacing-icon-lg: 1.25rem; /* 20px — header / primary controls */
+  --spacing-icon-xl: 1.5rem; /* 24px — hero / composer emphasis */
+
   /* Type scale — sub-`xs` micro steps plus the 13–22px "between" steps the
      dense clinical UI reaches for. These are intentionally SIZE-ONLY: unlike
      Tailwind's default text-* tokens they carry no `--line-height` /

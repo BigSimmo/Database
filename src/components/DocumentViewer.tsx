@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  AlertCircle,
+  CircleAlert,
   ArrowLeft,
   Check,
   ChevronLeft,
@@ -468,7 +468,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
       {failed ? (
         <div className="grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-3 text-center text-xs font-semibold text-[color:var(--warning)]">
           <div>
-            <AlertCircle className="mx-auto mb-2 h-4 w-4" />
+            <CircleAlert aria-hidden="true" className="mx-auto mb-2 h-4 w-4" />
             Image preview failed.
             <button
               type="button"
@@ -501,7 +501,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
             <div className="absolute inset-0 grid place-items-center gap-1 rounded-lg text-center text-xs font-semibold text-[color:var(--text-muted)]">
               {shouldLoad ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                   Loading image
                 </>
               ) : (
@@ -543,7 +543,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
           </figcaption>
           <details className="group mt-3">
             <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold text-[color:var(--clinical-accent)]">
-              <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 transition group-open:rotate-180" />
               Show source image
             </summary>
             <div className="mt-2">{imageBlock}</div>
@@ -632,7 +632,7 @@ function TableReviewPanel({
                     )}
                   >
                     {busyFactId === fact.id && value === reviewClass ? (
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      <Loader2 aria-hidden="true" className="mr-1 h-3 w-3 animate-spin" />
                     ) : null}
                     {label}
                   </button>
@@ -713,7 +713,7 @@ function PinnedSourceEvidence({
     return (
       <section id={sectionId} data-testid="pinned-source-evidence" className={cn(sourceCard, "scroll-mt-24 p-3")}>
         <p className={cn("flex items-center gap-2 text-xs leading-5", textMuted)}>
-          <Quote className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
+          <Quote aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
           Open a cited answer passage to pin its exact indexed excerpt here.
         </p>
       </section>
@@ -736,7 +736,7 @@ function PinnedSourceEvidence({
         >
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
             <p className="inline-flex min-h-6 items-center gap-1.5 rounded-md bg-[color:var(--clinical-accent-soft)] px-2 text-xs font-semibold text-[color:var(--clinical-accent)]">
-              <Target className="h-3.5 w-3.5" />
+              <Target aria-hidden="true" className="h-3.5 w-3.5" />
               Highlighted source passage
             </p>
             {chunkMeta ? <p className={cn("text-2xs text-[color:var(--text-muted)]", codeText)}>{chunkMeta}</p> : null}
@@ -749,7 +749,7 @@ function PinnedSourceEvidence({
           </blockquote>
           <div className="mt-3 flex flex-wrap gap-2">
             <a href="#pdf-preview-section" className={cn(primaryButton, "min-h-9 px-3 text-xs")}>
-              <ExternalLink className="h-4 w-4" />
+              <ExternalLink aria-hidden="true" className="h-4 w-4" />
               Open source
             </a>
             {compact && isLong ? (
@@ -1018,7 +1018,7 @@ function IndexedTextPanel({
                 aria-label="Previous document search hit"
                 title="Previous document search hit"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft aria-hidden="true" className="h-4 w-4" />
               </button>
               <button
                 type="button"
@@ -1027,7 +1027,7 @@ function IndexedTextPanel({
                 aria-label="Next document search hit"
                 title="Next document search hit"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight aria-hidden="true" className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -1350,7 +1350,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             className={iconButton}
             aria-label="Previous page"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft aria-hidden="true" className="h-4 w-4" />
           </button>
           {pagesReady ? (
             <label className="flex min-h-11 items-center gap-1.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:gap-2">
@@ -1371,7 +1371,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             </label>
           ) : (
             <div className="flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md">
-              <Loader2 className="h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
               <span className="hidden sm:inline">{error ? "Page unavailable" : "Loading pages"}</span>
               <span className="sm:hidden">{error ? "Unavailable" : "Loading"}</span>
             </div>
@@ -1382,7 +1382,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             className={iconButton}
             aria-label="Next page"
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
         <div className="ml-auto flex items-center gap-1.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1 shadow-[var(--shadow-inset)]">
@@ -1395,7 +1395,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             className={iconButton}
             aria-label="Zoom out"
           >
-            <Minus className="h-4 w-4" />
+            <Minus aria-hidden="true" className="h-4 w-4" />
           </button>
           <button
             onClick={enterFullscreenFitView}
@@ -1409,7 +1409,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
                 : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
             )}
           >
-            <Maximize2 className="h-4 w-4" />
+            <Maximize2 aria-hidden="true" className="h-4 w-4" />
             <span className="hidden sm:inline">Fit</span>
           </button>
           <button
@@ -1421,7 +1421,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             className={iconButton}
             aria-label="Zoom in"
           >
-            <Plus className="h-4 w-4" />
+            <Plus aria-hidden="true" className="h-4 w-4" />
           </button>
           {fullscreenActive ? (
             <button
@@ -1430,7 +1430,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
               aria-label="Exit fullscreen document view"
               type="button"
             >
-              <Minimize2 className="h-4 w-4" />
+              <Minimize2 aria-hidden="true" className="h-4 w-4" />
               <span className="hidden sm:inline">Exit</span>
             </button>
           ) : null}
@@ -1451,7 +1451,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
         {(loading || rendering) && (
           <div className="absolute left-3 right-3 top-3 z-[1] flex min-h-10 flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-tight)] sm:left-4 sm:right-auto sm:top-4">
             <span className="inline-flex min-h-8 items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
               {loading ? "Loading PDF" : "Rendering page"}
             </span>
             <a
@@ -1460,7 +1460,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
               rel="noreferrer"
               className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-[color:var(--clinical-accent)]"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               Source PDF
             </a>
           </div>
@@ -1468,7 +1468,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
         {error ? (
           <div className="grid min-h-72 place-items-center text-center text-sm text-[color:var(--text-muted)]">
             <div>
-              <FileText className="mx-auto mb-2 h-8 w-8" />
+              <FileText aria-hidden="true" className="mx-auto mb-2 h-8 w-8" />
               <p>{error}</p>
               <div className="mt-3 flex flex-wrap justify-center gap-2">
                 <button
@@ -1476,11 +1476,11 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
                   onClick={() => setLoadAttempt((current) => current + 1)}
                   className={secondaryButton}
                 >
-                  <RefreshCw className="h-4 w-4" />
+                  <RefreshCw aria-hidden="true" className="h-4 w-4" />
                   Retry preview
                 </button>
                 <a href={url} target="_blank" rel="noreferrer" className={secondaryButton}>
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
                   Source PDF
                 </a>
               </div>
@@ -1616,7 +1616,7 @@ function DocumentManualTagEditor({
     <div className={cn(sourceCard, "mt-4 p-3")}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-          <Tag className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
+          <Tag aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
           Manual tags
         </p>
         <span className={cn("text-2xs font-semibold", textMuted)}>
@@ -1655,7 +1655,11 @@ function DocumentManualTagEditor({
           disabled={!canManage || busyAction !== null || !draftLabel.trim()}
           className={cn(primaryButton, "min-h-11 px-3 text-xs")}
         >
-          {busyAction === "add" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          {busyAction === "add" ? (
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus aria-hidden="true" className="h-4 w-4" />
+          )}
           Add
         </button>
       </form>
@@ -1713,9 +1717,9 @@ function DocumentManualTagEditor({
                         aria-label={`Save ${label.label}`}
                       >
                         {busyAction === `edit:${label.id}` ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                         ) : (
-                          <Check className="h-4 w-4" />
+                          <Check aria-hidden="true" className="h-4 w-4" />
                         )}
                       </button>
                       <button
@@ -1725,7 +1729,7 @@ function DocumentManualTagEditor({
                         className={cn(secondaryButton, "min-h-9 px-2 text-xs")}
                         aria-label="Cancel edit"
                       >
-                        <X className="h-4 w-4" />
+                        <X aria-hidden="true" className="h-4 w-4" />
                       </button>
                     </>
                   ) : (
@@ -1741,7 +1745,7 @@ function DocumentManualTagEditor({
                         className={cn(secondaryButton, "min-h-9 px-2 text-xs")}
                         aria-label={`Rename ${label.label}`}
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil aria-hidden="true" className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
@@ -1751,9 +1755,9 @@ function DocumentManualTagEditor({
                         aria-label={`Remove ${label.label}`}
                       >
                         {busyAction === `delete:${label.id}` ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                         ) : (
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 aria-hidden="true" className="h-4 w-4" />
                         )}
                       </button>
                     </>
@@ -1915,7 +1919,7 @@ function DocumentOverviewLanding({
       <section className={cn(sourceCard, "p-4")}>
         <div className="flex items-start gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-            <Tag className="h-5 w-5" />
+            <Tag aria-hidden="true" className="h-5 w-5" />
           </span>
           <div className="min-w-0">
             <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Key sections</h3>
@@ -1936,7 +1940,7 @@ function DocumentOverviewLanding({
       <section className={cn(sourceCard, "p-4")}>
         <div className="flex items-start gap-4">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-            <FileText className="h-5 w-5" />
+            <FileText aria-hidden="true" className="h-5 w-5" />
           </span>
           <div className="min-w-0">
             <h3 className="text-lg font-semibold text-[color:var(--text-heading)]">Useful pages</h3>
@@ -1948,7 +1952,7 @@ function DocumentOverviewLanding({
                   href={`/documents/${document.id}?page=${page}#pdf-preview-section`}
                   className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--surface-subtle)]"
                 >
-                  <FileText className="h-3.5 w-3.5" />
+                  <FileText aria-hidden="true" className="h-3.5 w-3.5" />
                   Page {page}
                 </Link>
               ))}
@@ -2502,7 +2506,7 @@ export function DocumentViewer({
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
             aria-label="Back to documents"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft aria-hidden="true" className="h-5 w-5" />
           </Link>
 
           <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
@@ -2516,7 +2520,7 @@ export function DocumentViewer({
               aria-label="Add this document to scope"
               title={headerSubtitle}
             >
-              <Target className="h-5 w-5" />
+              <Target aria-hidden="true" className="h-5 w-5" />
             </Link>
             <button
               type="button"
@@ -2524,7 +2528,7 @@ export function DocumentViewer({
               className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
               aria-label="Open document actions"
             >
-              <Plus className="h-5 w-5" />
+              <Plus aria-hidden="true" className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -2557,7 +2561,7 @@ export function DocumentViewer({
                 }}
                 className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
               >
-                <Search className="h-4 w-4" />
+                <Search aria-hidden="true" className="h-4 w-4" />
                 Search in document
               </button>
               <button
@@ -2570,7 +2574,11 @@ export function DocumentViewer({
                 title={summarizeTitle}
                 className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
               >
-                {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {loadingSummary ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles aria-hidden="true" className="h-4 w-4" />
+                )}
                 Answer from this
               </button>
               {signedUrl ? (
@@ -2581,7 +2589,7 @@ export function DocumentViewer({
                   onClick={() => setMobileActionsOpen(false)}
                   className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
                 >
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
                   Open original PDF
                 </a>
               ) : (
@@ -2590,7 +2598,7 @@ export function DocumentViewer({
                   onClick={() => setMobileActionsOpen(false)}
                   className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
                 >
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
                   Open original PDF
                 </a>
               )}
@@ -2603,7 +2611,7 @@ export function DocumentViewer({
                   onClick={() => setMobileActionsOpen(false)}
                   className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
                 >
-                  <Download className="h-4 w-4" />
+                  <Download aria-hidden="true" className="h-4 w-4" />
                   Download PDF
                 </a>
               ) : null}
@@ -2615,7 +2623,7 @@ export function DocumentViewer({
                 }}
                 className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
               >
-                <Target className="h-4 w-4" />
+                <Target aria-hidden="true" className="h-4 w-4" />
                 Add to scope
               </button>
             </div>
@@ -2656,7 +2664,7 @@ export function DocumentViewer({
             )}
             {summaryError && (
               <section className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-4 text-sm font-medium text-[color:var(--danger)]">
-                <AlertCircle className="mr-2 inline h-4 w-4" />
+                <CircleAlert aria-hidden="true" className="mr-2 inline h-4 w-4" />
                 {summaryError}
               </section>
             )}
@@ -2682,7 +2690,7 @@ export function DocumentViewer({
           <div className="min-w-0 lg:col-span-2">
             <section className={cn(panel, "p-4")}>
               <button type="button" disabled className={cn(secondaryButton, "min-h-11 text-xs")}>
-                <Sparkles className="h-4 w-4" />
+                <Sparkles aria-hidden="true" className="h-4 w-4" />
                 Answer from this
               </button>
             </section>
@@ -2697,7 +2705,10 @@ export function DocumentViewer({
               {effectiveLoadingDocument ? (
                 <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--clinical-accent-soft)_55%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm font-semibold text-[color:var(--text-muted)] sm:min-h-72">
                   <div className="max-w-sm">
-                    <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-[color:var(--clinical-accent)]" />
+                    <Loader2
+                      aria-hidden="true"
+                      className="mx-auto mb-3 h-5 w-5 animate-spin text-[color:var(--clinical-accent)]"
+                    />
                     <p>Preparing PDF preview</p>
                     <ul className="mt-3 space-y-1 text-left text-xs font-medium text-[color:var(--text-muted)]">
                       <li>Loading source metadata</li>
@@ -2706,7 +2717,7 @@ export function DocumentViewer({
                     </ul>
                     {signedUrl && (
                       <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "mt-3")}>
-                        <ExternalLink className="h-4 w-4" />
+                        <ExternalLink aria-hidden="true" className="h-4 w-4" />
                         Source PDF
                       </a>
                     )}
@@ -2718,7 +2729,7 @@ export function DocumentViewer({
                         download={document?.file_name || "clinical-source.pdf"}
                         className={cn(secondaryButton, "mt-3")}
                       >
-                        <Download className="h-4 w-4" />
+                        <Download aria-hidden="true" className="h-4 w-4" />
                         Download PDF
                       </a>
                     )}
@@ -2727,16 +2738,16 @@ export function DocumentViewer({
               ) : effectiveViewerError || previewError ? (
                 <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--danger-soft)_62%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--danger)] sm:min-h-72">
                   <div>
-                    <AlertCircle className="mx-auto mb-2 h-8 w-8" />
+                    <CircleAlert aria-hidden="true" className="mx-auto mb-2 h-8 w-8" />
                     <p className="font-semibold">{effectiveViewerError ?? previewError}</p>
                     <div className="mt-3 flex flex-wrap justify-center gap-2">
                       <button type="button" onClick={retryPreview} className={secondaryButton}>
-                        <RefreshCw className="h-4 w-4" />
+                        <RefreshCw aria-hidden="true" className="h-4 w-4" />
                         Retry preview
                       </button>
                       {signedUrl && (
                         <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
-                          <ExternalLink className="h-4 w-4" />
+                          <ExternalLink aria-hidden="true" className="h-4 w-4" />
                           Source PDF
                         </a>
                       )}
@@ -2748,7 +2759,7 @@ export function DocumentViewer({
                           download={document?.file_name || "clinical-source.pdf"}
                           className={secondaryButton}
                         >
-                          <Download className="h-4 w-4" />
+                          <Download aria-hidden="true" className="h-4 w-4" />
                           Download PDF
                         </a>
                       )}
@@ -2789,7 +2800,7 @@ export function DocumentViewer({
               ) : (
                 <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--clinical-accent-soft)_40%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--text-muted)] sm:min-h-72">
                   <div>
-                    <FileText className="mx-auto mb-2 h-8 w-8" />
+                    <FileText aria-hidden="true" className="mx-auto mb-2 h-8 w-8" />
                     Source preview is available after a signed URL is generated.
                   </div>
                 </div>
@@ -2808,7 +2819,7 @@ export function DocumentViewer({
               <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                 <span className="inline-flex min-w-0 items-center gap-3">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                    <FileText className="h-4 w-4" />
+                    <FileText aria-hidden="true" className="h-4 w-4" />
                   </span>
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold text-[color:var(--text)]">Indexed page text</span>
@@ -2819,7 +2830,10 @@ export function DocumentViewer({
                     </span>
                   </span>
                 </span>
-                <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
+                <ChevronDown
+                  aria-hidden="true"
+                  className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180"
+                />
               </summary>
               <div className={cn(clinicalDivider, "p-4")}>
                 <IndexedTextPanel
@@ -3054,7 +3068,7 @@ export function DocumentViewer({
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
             aria-label="Open document actions"
           >
-            <Plus className="h-5 w-5" />
+            <Plus aria-hidden="true" className="h-5 w-5" />
           </button>
           <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
             <span className="sr-only">Search or answer from this document</span>
@@ -3071,7 +3085,11 @@ export function DocumentViewer({
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Answer from this document"
           >
-            {loadingSummary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {loadingSummary ? (
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send aria-hidden="true" className="h-4 w-4" />
+            )}
           </button>
         </form>
       ) : null}

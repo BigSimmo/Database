@@ -3,7 +3,7 @@ import {
   Activity,
   ArrowLeft,
   BrainCircuit,
-  CheckCircle2,
+  CircleCheck,
   ChevronDown,
   ChevronRight,
   CircleHelp,
@@ -36,7 +36,7 @@ type CandidateView = {
 };
 
 const criterionIcon: Record<DifferentialSection["tone"], LucideIcon> = {
-  fit: CheckCircle2,
+  fit: CircleCheck,
   warning: ShieldAlert,
   question: CircleHelp,
   action: Activity,
@@ -194,7 +194,7 @@ function DesktopComparisonTable({
             type="button"
             className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
           >
-            <CheckCircle2 className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
+            <CircleCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
             {workflow.selectedCount} of {workflow.totalCount} selected
             <ChevronDown className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
           </button>
@@ -338,7 +338,7 @@ function SelectedDifferentialsPanel({
               href={`/differentials/diagnoses/${candidate.record.slug}`}
               className="inline-flex min-w-0 items-center gap-2"
             >
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+              <CircleCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
               <span className="truncate">{candidate.record.title}</span>
             </Link>
             <MoreHorizontal className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
@@ -381,7 +381,7 @@ function ReviewPanel({ workflow }: { workflow: DifferentialPresentationWorkflow 
       <ul className="mt-3 grid gap-2">
         {workflow.reviewChecklist.map((item) => (
           <li key={item} className="flex gap-2 text-xs font-bold leading-5 text-[color:var(--text-heading)]">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
             {item}
           </li>
         ))}

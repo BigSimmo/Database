@@ -146,7 +146,7 @@ export function ClinicalSidebarContent({
             aria-label="Collapse sidebar"
             title="Collapse sidebar"
           >
-            <PanelLeftClose className="h-4 w-4" />
+            <PanelLeftClose aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
       ) : null}
@@ -159,7 +159,7 @@ export function ClinicalSidebarContent({
         }}
         className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
       >
-        <MessageSquarePlus className="h-4 w-4" />
+        <MessageSquarePlus aria-hidden="true" className="h-4 w-4" />
         New chat
       </button>
 
@@ -168,7 +168,7 @@ export function ClinicalSidebarContent({
           pinned. */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto">
         <label className="relative block shrink-0">
-          <Search className={fieldIcon} />
+          <Search aria-hidden="true" className={fieldIcon} />
           <input
             type="search"
             placeholder="Search chats"
@@ -201,6 +201,7 @@ export function ClinicalSidebarContent({
                   )}
                 >
                   <MessageSquare
+                    aria-hidden="true"
                     className={cn("h-4 w-4 shrink-0", index === 0 && "text-[color:var(--clinical-accent)]")}
                   />
                   <span className="min-w-0 flex-1 truncate text-left">{recent}</span>
@@ -266,7 +267,7 @@ export function ClinicalSidebarContent({
           }}
           className={sidebarItem}
         >
-          <BookOpen className="h-4 w-4 shrink-0" />
+          <BookOpen aria-hidden="true" className="h-4 w-4 shrink-0" />
           <span>Guide & help</span>
         </button>
         <button
@@ -290,7 +291,7 @@ export function ClinicalSidebarContent({
           }}
           className={sidebarItem}
         >
-          <SettingsIcon className="h-4 w-4 shrink-0" />
+          <SettingsIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
           <span>Settings</span>
         </button>
         <button
@@ -388,7 +389,10 @@ function ClinicalCollapsedRail({
               title="Expand sidebar"
             >
               <BrandMark className="h-7 w-7 group-hover:hidden group-focus-visible:hidden" />
-              <PanelLeftOpen className="hidden h-4.5 w-4.5 group-hover:block group-focus-visible:block" />
+              <PanelLeftOpen
+                aria-hidden="true"
+                className="hidden size-icon-lg group-hover:block group-focus-visible:block"
+              />
             </button>
           </>
         )}
@@ -403,7 +407,7 @@ function ClinicalCollapsedRail({
           aria-label="New chat"
           title="New chat"
         >
-          <MessageSquarePlus className="h-4 w-4" />
+          <MessageSquarePlus aria-hidden="true" className="h-4 w-4" />
         </button>
         {sidebarToolItems.map((item) => {
           const Icon = item.icon;
@@ -432,7 +436,7 @@ function ClinicalCollapsedRail({
           aria-label="Guide and help"
           title="Guide"
         >
-          <BookOpen className="h-4 w-4" />
+          <BookOpen aria-hidden="true" className="h-4 w-4" />
         </button>
         <button
           type="button"
@@ -450,7 +454,7 @@ function ClinicalCollapsedRail({
           aria-label="Settings"
           title="Settings"
         >
-          <SettingsIcon className="h-4 w-4" />
+          <SettingsIcon aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
       <button

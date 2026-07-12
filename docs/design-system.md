@@ -49,7 +49,9 @@ When you meet a pre-token hardcode (mockups being promoted, old branches), map i
 | `slate-200` / `slate-500` / `slate-600`       | `var(--border)` / `var(--text-soft)` / `var(--text-muted)`        |
 | ad-hoc `rgba(...)` shadows                    | `var(--shadow-tight/soft/hover/elevated/inset)` or `--glow-*`     |
 
-## 2. Type scale
+## 2. Type & icon scale
+
+### Type
 
 Named steps live in the `@theme` block of `globals.css` and are **size-only** (no baked
 line-height/tracking — set `leading-*`/`tracking-*` at the call site):
@@ -68,6 +70,23 @@ line-height/tracking — set `leading-*`/`tracking-*` at the call site):
 - **Accepted exceptions:** one-off rem display headings (`text-[2rem]`, `text-[2.7rem]`, …)
   on hero/mode-home titles, and `*-mockups` files. Don't add scale steps for one-off display
   sizes.
+
+### Icon size
+
+Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
+`size-icon-xs` 12 · `size-icon-sm` 14 · `size-icon-md` 16 (default) · `size-icon-lg` 20 ·
+`size-icon-xl` 24 (px). These generate `size-icon-*` / `h-icon-*` / `w-icon-*`, exactly like
+`--spacing-tap` → `size-tap`.
+
+- Prefer `size-icon-md` over raw `h-4 w-4` for an icon glyph. `npm run check:icon-scale --strict`
+  (in `verify:cheap`) blocks the retired `4.5` (18px) half-step — icon glyphs resolve to
+  `size-icon-lg`, non-icon 18px boxes to `h-5`. It does **not** touch raw `h-4 w-4` (which also
+  sizes non-icons), so migrating the long tail onto `size-icon-*` is opportunistic, not enforced.
+- **Responsive** icons add a breakpoint variant — `size-icon-md sm:size-icon-lg`. Reserve it for
+  a few roles (nav, composer, hero, panel headings); most icons stay one fixed size.
+- **Not** for container tiles (`iconTile` h-9, empty-state tile h-10) or non-icon boxes (the
+  `ToggleSwitch` knob, status dots) — those keep the integer spacing scale. Icon glyph size is
+  independent of the 44px tap target (§3), which stays on `--spacing-tap`.
 
 ## 3. Spacing & tap targets
 
@@ -165,6 +184,12 @@ image"}` — never a possibly-empty variable alone.
   noindexed (robots.ts + layout metadata), and exempt from token/type-scale rules — but
   **promoting a mockup to production means bringing it onto the token system first** (see the
   legacy-hex table above).
+- **Brand mark** is single-sourced in `src/lib/brand-mark.ts` (geometry + SVG builders).
+  `BrandMark` (`clinical-dashboard/brand.tsx`) renders it token-themed; `app/icon.svg`,
+  `app/apple-icon`, the PWA maskable icons, and `app/opengraph-image` all derive from it. To
+  change the mark, edit `brand-mark.ts` then `npm run brand:update`; `brand:check` (in
+  `verify:cheap`) guards `app/icon.svg` from drift. `app/favicon.ico` is a multi-resolution
+  binary the toolchain can't emit — regenerate it offline from `icon.svg` when the mark changes.
 
 ## 11. What NOT to do
 
