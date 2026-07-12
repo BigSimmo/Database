@@ -332,6 +332,13 @@ compliance-posture and PHI-minimisation gaps.
   `docs/`. (2) Add an APP-5 **collection/OpenAI-disclosure notice** at the query UI and in a privacy
   policy. (3) Consider an **on-query PHI reminder** ("do not enter identifiable patient details").
   (4) Optionally, a lightweight PHI-scrub / entity-strip on the outbound query as defence-in-depth.
+- **Progress (2026-07-13):** fixes (2)+(3) are **live on `main`** via PR #513
+  ([src/app/privacy/page.tsx](src/app/privacy/page.tsx), composer notice) — so APP 5/1 is met. Fix (1),
+  the contractual basis, is captured decision-ready
+  in **[docs/openai-cross-border-basis.md](docs/openai-cross-border-basis.md)**, which also records that
+  the app's egress endpoints (`/v1/responses`, `/v1/embeddings`) are **ZDR-eligible** and that OpenAI now
+  offers **Australia data residency** (storage) — an option that postdates this PIA. The remaining step
+  (execute DPA / apply ZDR / counsel sign-off) is operator/legal, not code.
 
 ### PIA-2 — Query-hash HMAC silently downgrades without the secret **(High)**
 
