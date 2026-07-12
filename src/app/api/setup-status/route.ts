@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { env, isDemoMode } from "@/lib/env";
+import { env, isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
-import { isLocalUrl, localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
+import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
@@ -438,10 +438,12 @@ export async function GET(request: Request) {
   }
 
   const payload = await readSetupStatusPayload();
-  // A non-local (production / internet-reachable) origin only receives the raw per-check detail
-  // when it proves it is an operator via the shared deep-probe secret; otherwise it gets coarse
-  // detail. Local dev origins were already restricted to managed project ports above.
-  const productionOrigin = !isLocalUrl(new URL(request.url));
-  const authorizedForDetail = !productionOrigin || allowDeepHealthProbe(request);
+  // Whether the caller may see raw per-check detail (raw Supabase error text / project posture).
+  // Gate on a TRUSTED server-side runtime signal, never on request.url's host — behind a proxy the
+  // Host header is client-controlled, so a spoofed `localhost:<managed-port>` must not unlock
+  // detail. In a real production runtime, only the operator deep-probe token unlocks it; local dev
+  // and single-instance local-no-auth keep full detail (their `detail` is not an internet leak).
+  const requiresOperatorToken = process.env.NODE_ENV === "production" && !isDemoMode() && !isLocalNoAuthMode();
+  const authorizedForDetail = !requiresOperatorToken || allowDeepHealthProbe(request);
   return setupStatusResponse(authorizedForDetail ? payload : coarseSetupStatusPayload(payload));
 }
