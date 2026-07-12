@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- Satori rasterises this <img> server-side; it is not a DOM element and next/image cannot run inside next/og. */
 import { ImageResponse } from "next/og";
 
 import { brandMarkDataUri } from "@/lib/brand-image";
@@ -21,7 +22,6 @@ export default function OpengraphImage() {
         color: "#ffffff",
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- Satori element, not DOM; next/image N/A */}
       <img src={brandMarkDataUri()} width={192} height={192} alt="" />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
         <div style={{ fontSize: 78, fontWeight: 700, letterSpacing: -1.5 }}>Clinical KB</div>
