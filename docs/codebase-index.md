@@ -284,16 +284,6 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
 ## Related docs
 
-<<<<<<< HEAD
-| Topic                   | Doc                                      |
-| ----------------------- | ---------------------------------------- |
-| Routes and modes        | `docs/site-map.md`                       |
-| Search/RAG roadmap      | `docs/search-rag-master-plan.md`         |
-| Reindex operations      | `docs/reindex-runbook.md`                |
-| Production readiness    | `docs/production-readiness-checklist.md` |
-| Frontend architecture   | `docs/frontend-architecture.md`          |
-| Repo audit (2026-07-01) | `docs/audit/repo-audit-2026-07-01.md`    |
-=======
 | Topic                   | Doc                                                              |
 | ----------------------- | ---------------------------------------------------------------- |
 | Routes and modes        | `docs/site-map.md`                                               |
@@ -301,9 +291,8 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 | Reindex operations      | `docs/reindex-runbook.md`                                        |
 | Production readiness    | `docs/production-readiness-checklist.md`                         |
 | Capacity / scale-up     | `docs/capacity-review.md`, `docs/auth-connection-cap-runbook.md` |
-| Frontend refactor       | `docs/frontend-architecture-refactor-plan.md`                    |
+| Frontend architecture   | `docs/frontend-architecture.md`                                  |
 | Repo audit (2026-07-01) | `docs/audit/repo-audit-2026-07-01.md`                            |
->>>>>>> origin/main
 
 ---
 

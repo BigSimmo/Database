@@ -82,27 +82,11 @@ export function ModeHomeHero({
       <div className="grid gap-1 sm:gap-1.5">
         <Heading
           id={`${testId ?? "mode-home"}-title`}
-<<<<<<< HEAD
-          className={cn(
-            "text-balance font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)] sm:text-3xl lg:text-4xl",
-            compact ? "text-2xl" : "text-3xl",
-          )}
-        >
-          {title}
-        </Heading>
-        <p
-          className={cn(
-            "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-base-minus sm:leading-5 lg:text-base",
-            compact ? "leading-5" : "leading-6",
-          )}
-        >
-=======
           className="text-balance text-hero font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)]"
         >
           {title}
         </Heading>
         <p className="mx-auto max-w-2xl text-pretty text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-5 lg:text-base lg:leading-6">
->>>>>>> origin/main
           {subtitle}
         </p>
       </div>
@@ -246,11 +230,7 @@ export function ModeHomeTemplate({
                   <ActionIcon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
-<<<<<<< HEAD
-                  <span className="block text-balance text-base font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] sm:text-base-minus">
-=======
                   <span className="block text-balance text-base-minus font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere]">
->>>>>>> origin/main
                     {action.title}
                   </span>
                   <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm-minus sm:leading-[1.3]">
