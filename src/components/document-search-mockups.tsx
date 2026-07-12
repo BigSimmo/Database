@@ -25,7 +25,7 @@ import {
 import type { ReactNode } from "react";
 
 import { cn } from "@/components/ui-primitives";
-import { documentReaderHref } from "@/lib/document-flow-routes";
+import { mockDocumentReaderHref } from "@/lib/document-flow-routes";
 
 export type DocumentSearchMockupVariant = "command" | "evidence-lens" | "triage-board";
 
@@ -97,7 +97,7 @@ const documents: DocumentFixture[] = [
 ];
 
 function highlightedDocumentHref(document: DocumentFixture) {
-  return documentReaderHref({
+  return mockDocumentReaderHref({
     document: document.slug,
     query: document.active ? "clozapine monitoring table" : document.title,
     page: document.page.replace("p.", ""),
