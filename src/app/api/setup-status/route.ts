@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { env, isDemoMode } from "@/lib/env";
+import { env, isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
@@ -284,6 +285,24 @@ function setupStatusResponse(payload: SetupStatusPayload) {
   });
 }
 
+// Coarse per-check detail for anonymous production callers. The full `detail` strings can carry
+// raw Supabase error text and project-config specifics (schema/search/worker fan-out errors,
+// formatSupabaseProjectCheck), which must not leak to unauthenticated internet clients. Status
+// and label are preserved so the polled setup UI still renders; operators fetch full detail with
+// the shared deep-probe secret.
+const COARSE_SETUP_DETAIL: Record<SetupCheckStatus, string> = {
+  ready: "Ready.",
+  needs_setup: "Setup incomplete. Operators can see specifics via the health deep probe or server logs.",
+  unknown: "Status unavailable. Operators can see specifics via the health deep probe or server logs.",
+};
+
+function coarseSetupStatusPayload(payload: SetupStatusPayload): SetupStatusPayload {
+  return {
+    ...payload,
+    checks: payload.checks.map((item) => ({ ...item, detail: COARSE_SETUP_DETAIL[item.status] })),
+  };
+}
+
 async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
   const supabase = supabaseProjectCanBeQueried ? createAdminClient() : null;
   const unavailable = await readSupabaseAvailability(supabase);
@@ -418,5 +437,13 @@ export async function GET(request: Request) {
     return unsafeLocalProjectResponse(identity);
   }
 
-  return setupStatusResponse(await readSetupStatusPayload());
+  const payload = await readSetupStatusPayload();
+  // Whether the caller may see raw per-check detail (raw Supabase error text / project posture).
+  // Gate on a TRUSTED server-side runtime signal, never on request.url's host — behind a proxy the
+  // Host header is client-controlled, so a spoofed `localhost:<managed-port>` must not unlock
+  // detail. In a real production runtime, only the operator deep-probe token unlocks it; local dev
+  // and single-instance local-no-auth keep full detail (their `detail` is not an internet leak).
+  const requiresOperatorToken = process.env.NODE_ENV === "production" && !isDemoMode() && !isLocalNoAuthMode();
+  const authorizedForDetail = !requiresOperatorToken || allowDeepHealthProbe(request);
+  return setupStatusResponse(authorizedForDetail ? payload : coarseSetupStatusPayload(payload));
 }
