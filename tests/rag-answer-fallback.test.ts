@@ -828,10 +828,19 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).toContain("strong_quality_retry");
     expect(answer.openAIRequestIds).toEqual(["req_fast_template", "req_strong_template", "req_strong_quality"]);
     expect(insert).toHaveBeenCalledTimes(1);
-    const insertCalls = insert.mock.calls as unknown as Array<[{ metadata?: Record<string, unknown> }]>;
-    const loggedMetadata = insertCalls[0]?.[0]?.metadata ?? {};
+    const insertCalls = insert.mock.calls as unknown as Array<
+      [{ answer?: unknown; metadata?: Record<string, unknown> }]
+    >;
+    const loggedRow = insertCalls[0]?.[0] ?? {};
+    const loggedMetadata = loggedRow.metadata ?? {};
     expect(loggedMetadata.answer_retry_count).toBe(2);
     expect(loggedMetadata.answer_retry_reasons).toEqual(["fast_template_retry_strong", "strong_quality_retry"]);
+    // PIA-3: the generated answer text must not be persisted to rag_queries.answer
+    // unless RAG_PERSIST_ANSWER_TEXT is enabled (default off), and the row records
+    // that the answer was not retained.
+    expect(loggedRow.answer).toBeNull();
+    expect(loggedMetadata.answer_retained).toBe(false);
+    expect(JSON.stringify(loggedRow)).not.toContain("review intervals");
   });
 
   it("filters table-caption metadata from extractive answer points", async () => {
