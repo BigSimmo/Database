@@ -288,9 +288,15 @@ export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTe
         )
         .trim(),
     )
-    .map((fragment: string) => clinicalProseUsefulness(fragment).text || fragment)
+    // Safety-bearing fragments pass through untouched and are never dropped by
+    // the usefulness/length gate — a short caveat like "Contraindicated in
+    // pregnancy" (under the 8-word floor) must still reach the display.
+    .map((fragment: string) =>
+      primaryAnswerSafetySignalPattern.test(fragment) ? fragment : clinicalProseUsefulness(fragment).text || fragment,
+    )
     .filter((fragment: string) => {
       if (!fragment) return false;
+      if (primaryAnswerSafetySignalPattern.test(fragment)) return true;
       const useful = clinicalProseUsefulness(fragment);
       return useful.useful || fragment.split(/\s+/).length >= 8;
     });
