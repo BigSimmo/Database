@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { env, isDemoMode } from "@/lib/env";
+import type { AnswerSloSnapshot } from "@/lib/observability/answer-slo";
 import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 
 export const runtime = "nodejs";
@@ -14,17 +15,29 @@ export async function GET(request: Request) {
     openaiConfig: env.OPENAI_API_KEY ? "ok" : "missing",
   };
 
+  let slo: AnswerSloSnapshot | null = null;
   if (deep) {
     if (!allowDeepHealthProbe(request)) {
       checks.supabase = "unauthorized";
     } else if (supabaseConfigured && !isDemoMode()) {
       try {
-        const [{ createAdminClient }, { probeSupabaseHealth }] = await Promise.all([
+        const [{ createAdminClient }, { probeSupabaseHealth }, { answerSloSnapshot }] = await Promise.all([
           import("@/lib/supabase/admin"),
           import("@/lib/supabase/health"),
+          import("@/lib/observability/answer-slo"),
         ]);
-        const health = await probeSupabaseHealth(createAdminClient());
+        const admin = createAdminClient();
+        const health = await probeSupabaseHealth(admin);
         checks.supabase = health.ok ? "ok" : "error";
+        if (health.ok) {
+          // Reliability telemetry only — a failure here must NOT flip liveness to
+          // 503, so it stays out of `checks` (which gates `ready`).
+          try {
+            slo = await answerSloSnapshot(admin);
+          } catch {
+            slo = null;
+          }
+        }
       } catch {
         checks.supabase = "error";
       }
@@ -44,6 +57,7 @@ export async function GET(request: Request) {
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.round(process.uptime()),
       checks,
+      ...(slo ? { slo } : {}),
     },
     { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );

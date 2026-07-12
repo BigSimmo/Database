@@ -1,11 +1,12 @@
 "use client";
 
 import { Clipboard, ClipboardCheck, History, MessageSquareText, Search, ShieldCheck, Upload } from "lucide-react";
+import Link from "next/link";
 
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
-import { answerEmptyState, answerLoading, copyButton } from "@/lib/ui-copy";
+import { answerEmptyState, answerLoading, copyButton, privacyCopy } from "@/lib/ui-copy";
 
 export function CopyButton({
   label,
@@ -93,6 +94,20 @@ export function AnswerEmptyState({
             </button>
           </div>
           <ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical Guide library" />
+          {/* APP-5 collection notice + on-query PHI reminder, kept to one calm line
+              at the point of collection; full detail on /privacy. See PIA-1/PIA-5. */}
+          <p
+            className="text-center text-2xs leading-4 text-[color:var(--text-muted)]"
+            aria-label={privacyCopy.noticeAriaLabel}
+          >
+            {privacyCopy.composerNotice}{" "}
+            <Link
+              href="/privacy"
+              className="font-medium text-[color:var(--text-soft)] underline underline-offset-2 transition-colors hover:text-[color:var(--text-heading)]"
+            >
+              {privacyCopy.composerLinkLabel}
+            </Link>
+          </p>
         </div>
       }
     />
