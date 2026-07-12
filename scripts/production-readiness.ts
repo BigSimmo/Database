@@ -127,12 +127,43 @@ async function checkFileForServiceRoleExposure() {
   }
 }
 
+// PIA-2: the query-hash HMAC guard only redacts logged clinical queries if it is
+// actually invoked at boot. Assert the fail-closed call is still wired into the
+// startup path (src/instrumentation.ts) so a refactor can't silently drop it and let
+// production start writing unsalted, dictionary-reversible SHA-256 hashes. The
+// behavioural proof lives in tests/instrumentation.test.ts; this is a check-time
+// signal that the guard is active in every environment, including CI where the
+// secret-presence check below is intentionally quiet. The regex matches the call
+// form (`requireQueryHashSecret(`), not the bare import destructuring.
+async function checkQueryHashGuardWiring() {
+  const instrumentationPath = path.join(process.cwd(), "src", "instrumentation.ts");
+  let source: string;
+  try {
+    source = await readFile(instrumentationPath, "utf8");
+  } catch {
+    result.failures.push(
+      "Cannot read src/instrumentation.ts to verify the RAG_QUERY_HASH_SECRET boot guard is active.",
+    );
+    return;
+  }
+  if (/\brequireQueryHashSecret\s*\(/.test(source)) {
+    result.passes.push(
+      "Boot guard invokes requireQueryHashSecret(); the query-hash HMAC fails closed in production (PIA-2).",
+    );
+  } else {
+    result.failures.push(
+      "src/instrumentation.ts no longer invokes requireQueryHashSecret(); the query-hash HMAC boot guard (PIA-2) is not active.",
+    );
+  }
+}
+
 async function main() {
   checkNodeRuntime();
   recordNoAuthProductionCheck();
   recordDemoModeProductionCheck();
   recordRawQueryPersistenceProductionCheck();
   await checkFileForServiceRoleExposure();
+  await checkQueryHashGuardWiring();
 
   if (!(await checkRequiredFile(path.join(process.cwd(), "package-lock.json"), "package-lock.json is required"))) {
     // keep going so we can show all diagnostics
@@ -188,9 +219,21 @@ async function main() {
       }
     }
 
-    const productionLike = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
-    if (productionLike && !envModule.env.RAG_QUERY_HASH_SECRET) {
-      result.failures.push("RAG_QUERY_HASH_SECRET is required in a production-like environment.");
+    // Exercise the real boot guard so this check tracks its behaviour instead of
+    // re-encoding the env rule (mirrors requireServerEnv/requireOpenAIEnv above). A
+    // present secret passes in any environment; a missing one fails closed only in a
+    // production-like environment (dev/CI keep the legacy digest for stored-row joins).
+    try {
+      envModule.requireQueryHashSecret();
+      result.passes.push(
+        "RAG_QUERY_HASH_SECRET is set; logged clinical-query hashes are keyed HMAC pseudonyms (PIA-2).",
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const productionLike = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+      if (productionLike) {
+        result.failures.push(`Query-hash secret issue: ${message}`);
+      }
     }
 
     if (placeholderLooksLikeExample(envModule.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "")) {
