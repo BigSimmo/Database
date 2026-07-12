@@ -544,6 +544,13 @@ export function formatAnswerRenderCopyText(args: {
     .trim();
 }
 
+/**
+ * Builds a trust-gated render model for a clinical answer, including sources, evidence, warnings, and copy-ready text.
+ *
+ * @param answer - The clinical answer and associated evidence to render
+ * @param options - Optional source overrides and diagnostic decision details
+ * @returns The structured answer render model
+ */
 export function buildAnswerRenderModel(
   answer: RagAnswer,
   options: BuildAnswerRenderModelOptions = {},
@@ -575,6 +582,10 @@ export function buildAnswerRenderModel(
   });
   const allowedBlocks = blockOrder.filter((block) => decisions[block].shown);
   const answerText = answer.answer.trim();
+  // The copy/paste draft is plain text for clinical notes — strip the server's
+  // high-yield bold markers so a pasted draft never contains literal "**".
+  // (Preformatted answers carry no bold, so this is a no-op for them.)
+  const copyAnswerText = answerText.replace(/\*\*/g, "");
 
   return {
     answerText,
@@ -588,7 +599,7 @@ export function buildAnswerRenderModel(
     relatedDocuments,
     bestSource,
     warnings,
-    copyText: formatAnswerRenderCopyText({ answerText, trust, primarySources, warnings }),
+    copyText: formatAnswerRenderCopyText({ answerText: copyAnswerText, trust, primarySources, warnings }),
     debugReasons: options.includeDebugReasons ? decisions : undefined,
   };
 }

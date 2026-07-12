@@ -1350,7 +1350,14 @@ function mergeSearchResults(primary: SearchResult[], secondary: SearchResult[]) 
   return Array.from(merged.values());
 }
 
-/** Search text chunk candidates. */
+/**
+ * Retrieves lexical document chunk candidates for the supplied query variants.
+ *
+ * @param queryVariants - Query variants used for strict matching and recall-oriented fallback searches.
+ * @param matchCount - Maximum number of candidates requested for the primary query.
+ * @param telemetry - Optional retrieval telemetry updated with RPC failures and text-relaxation usage.
+ * @returns Matching document chunks, using corrected or relaxed queries when strict matching produces no candidates.
+ */
 async function searchTextChunkCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   queryVariants: string[];
@@ -1367,6 +1374,10 @@ async function searchTextChunkCandidates(args: {
       document_filters: args.documentIds ?? undefined,
       owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
     });
+    // Report the error before returning empty so a schema drift on this
+    // most-terminal lexical layer surfaces in hybrid_rpc_errors telemetry
+    // instead of silently degrading to zero candidates. Return value unchanged.
+    if (error) recordHybridRpcError(args.telemetry, "match_document_chunks_text", error);
     return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
   };
 
@@ -1631,7 +1642,12 @@ async function fetchDocumentTitleAliasRows(args: {
   }));
 }
 
-/** Search document lookup fast path. */
+/**
+ * Retrieves and ranks document chunks for document-focused queries.
+ *
+ * @param args - Search configuration, including the required owner scope and optional document restrictions.
+ * @returns Ranked document lookup results, limited to `matchCount`.
+ */
 async function searchDocumentLookupFastPath(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -1639,6 +1655,7 @@ async function searchDocumentLookupFastPath(args: {
   ownerId?: string;
   documentIds?: string[];
   matchCount: number;
+  telemetry?: SearchTelemetry;
 }): Promise<SearchResult[]> {
   if (!args.ownerId) return [] as SearchResult[];
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
@@ -1652,6 +1669,7 @@ async function searchDocumentLookupFastPath(args: {
         match_count: index === 0 ? 12 : 8,
         owner_filter: requireOwnerScope(args.ownerId),
       });
+      if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
       if (error || !data?.length) return [] as DocumentLookupRow[];
       return data as DocumentLookupRow[];
     }),
@@ -1927,7 +1945,12 @@ async function loadChunksForSignalMatches(args: {
     .filter(Boolean) as SearchResult[];
 }
 
-/** Search table fact candidates. */
+/**
+ * Retrieves document chunks containing table facts relevant to a query.
+ *
+ * @param args - Retrieval options, including query variants, scope filters, result limit, and optional telemetry.
+ * @returns Search results containing the highest-ranked table facts grouped by source chunk.
+ */
 async function searchTableFactCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -1936,6 +1959,7 @@ async function searchTableFactCandidates(args: {
   documentIds?: string[];
   allowGlobalSearch?: boolean;
   matchCount: number;
+  telemetry?: SearchTelemetry;
 }) {
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
     0,
@@ -1949,6 +1973,7 @@ async function searchTableFactCandidates(args: {
         document_filters: args.documentIds ?? undefined,
         owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
       });
+      if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
       if (error || !data?.length) return [] as TableFactRpcRow[];
       return data as TableFactRpcRow[];
     }),
@@ -2890,7 +2915,12 @@ function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
   return queryClass === "table_threshold" || queryClass === "medication_dose_risk" || queryClass === "comparison";
 }
 
-/** Search chunks with telemetry. */
+/**
+ * Retrieves and ranks document chunks using lexical, structured, memory, and embedding-based evidence, while recording retrieval telemetry.
+ *
+ * @param args - Retrieval options, including the query, scope, search mode, and embedding preferences.
+ * @returns The ranked search results and telemetry describing the retrieval process.
+ */
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   assertGlobalSearchAllowed(args);
   throwIfAborted(args.signal);
@@ -3155,6 +3185,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       documentIds: documentFilterList,
       allowGlobalSearch: args.allowGlobalSearch,
       matchCount: Math.min(candidateCount, 48),
+      telemetry,
     });
     const tableFactLatencyMs = Date.now() - tableFactStartedAt;
     telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
@@ -3176,6 +3207,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       ownerId: args.ownerId,
       documentIds: documentFilterList,
       matchCount: candidateCount,
+      telemetry,
     });
     const documentLookupLatencyMs = Date.now() - documentLookupStartedAt;
     telemetry.supabase_rpc_latency_ms += documentLookupLatencyMs;

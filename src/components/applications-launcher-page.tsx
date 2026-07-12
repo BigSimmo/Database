@@ -784,7 +784,7 @@ export function ApplicationsLauncherWorkspace({
       <section
         aria-label={copy.allSectionLabel}
         data-testid="tools-all-tools"
-        className="mx-auto mt-8 grid max-w-[86rem] gap-4 sm:mt-10"
+        className="mx-auto mt-8 grid max-w-[86rem] grid-cols-1 gap-4 sm:mt-10"
       >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="text-left">
@@ -800,7 +800,12 @@ export function ApplicationsLauncherWorkspace({
           </div>
         </div>
 
-        <div id="launcher-results-panel" role="tabpanel" aria-label={resultsPanelLabel} className="grid gap-4">
+        <div
+          id="launcher-results-panel"
+          role="tabpanel"
+          aria-label={resultsPanelLabel}
+          className="grid grid-cols-1 gap-4"
+        >
           {filteredApps.length === 0 ? (
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-10 text-center shadow-[var(--shadow-inset)]">
               <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>
@@ -813,7 +818,7 @@ export function ApplicationsLauncherWorkspace({
                   <ToolCard key={app.id} app={app} selected={effectiveSelectedId === app.id} onSelect={openTool} />
                 ))}
               </div>
-              <div className="grid gap-3 lg:hidden">
+              <div className="grid grid-cols-1 gap-3 lg:hidden">
                 {filteredApps.map((app) => (
                   <MobileToolRow key={app.id} app={app} selected={effectiveSelectedId === app.id} onSelect={openTool} />
                 ))}

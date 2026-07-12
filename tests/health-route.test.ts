@@ -99,3 +99,16 @@ describe("GET /api/health", () => {
     expect(raw).not.toContain("openai-key");
   });
 });
+
+describe("GET /api/health/ready", () => {
+  it("runs the Supabase readiness branch without requiring the diagnostic probe token", async () => {
+    mockEnv({ configured: true, demoMode: true });
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    const response = await GET(new Request("http://localhost/api/health/ready"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.checks).toMatchObject({ supabaseConfig: "ok", openaiConfig: "ok", supabase: "skipped" });
+  });
+});
