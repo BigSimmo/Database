@@ -206,8 +206,11 @@ a Supabase-side RPC fault or a cold cache must not trip the container
 `HEALTHCHECK` into a restart it cannot fix. Degradation is made _visible_, not
 _fatal_ — exactly the failure mode this doc guards against. The `slo` query
 throwing degrades to an absent `slo` block (not a false-healthy zero); the cache
-counter is always present for an authorized probe (in-process, works in demo
-mode). The §2 warn/page thresholds map directly onto these fields.
+counter is always present for a token-authorized probe (in-process, works in demo
+mode). Both blocks are wired through `src/lib/health-response.ts` and are
+**withheld from the unauthenticated `/api/health/ready` endpoint** (Railway's
+readiness target, which exposes no diagnostic details). The §2 warn/page
+thresholds map directly onto these fields.
 
 ## 5. Gaps / next steps
 

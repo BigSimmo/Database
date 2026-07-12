@@ -111,4 +111,17 @@ describe("GET /api/health/ready", () => {
     expect(response.status).toBe(200);
     expect(body.checks).toMatchObject({ supabaseConfig: "ok", openaiConfig: "ok", supabase: "skipped" });
   });
+
+  it("exposes no diagnostic details (slo/cache) even to a token-bearing caller", async () => {
+    mockEnv({ configured: true, demoMode: true, deepSecret: true });
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    const response = await GET(
+      new Request("http://localhost/api/health/ready", { headers: { "x-health-deep-token": DEEP_TOKEN } }),
+    );
+    const body = await payload(response);
+
+    expect(body.slo).toBeUndefined();
+    expect(body.cache).toBeUndefined();
+  });
 });

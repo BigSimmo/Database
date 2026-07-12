@@ -22,12 +22,17 @@ export async function healthResponse(request: Request, options: HealthResponseOp
   let cache: CacheMetricsSnapshot | null = null;
 
   if (deep) {
-    if (!options.allowUnauthenticatedDeep && !allowDeepHealthProbe(request)) {
+    const tokenAuthorized = allowDeepHealthProbe(request);
+    if (!options.allowUnauthenticatedDeep && !tokenAuthorized) {
       checks.supabase = "unauthorized";
     } else {
-      // In-process retrieval cache hit-rate — available to any authorized deep
-      // probe, including in demo mode (reads a cumulative counter, no DB needed).
-      if (options.includeCache !== false) {
+      // Cache hit-rate is operator-gated internal telemetry (the in-process
+      // hot-path half of the silent-degradation counters). Expose it only to a
+      // genuinely token-authorized deep probe — never the unauthenticated
+      // readiness endpoint, which exposes no diagnostic details — and only when
+      // not explicitly suppressed. Reads a cumulative counter (no DB), so it is
+      // available even in demo mode. Like `slo`, it never flips liveness.
+      if (tokenAuthorized && options.includeCache !== false) {
         cache = cacheMetricsSnapshot();
       }
 
