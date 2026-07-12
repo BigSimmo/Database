@@ -474,7 +474,7 @@ function MobileCandidateCard({
         <span className="min-w-0">
           <span className="flex items-center gap-2">
             <CandidateGlyph record={candidate.record} className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-            <span className="line-clamp-2 text-base font-extrabold leading-5 text-[color:var(--text-heading)]">
+            <span className="line-clamp-2 break-words text-base font-extrabold leading-5 text-[color:var(--text-heading)]">
               {candidate.record.title}
             </span>
           </span>

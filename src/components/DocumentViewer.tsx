@@ -1889,7 +1889,7 @@ function DocumentOverviewLanding({
               onClick={onAskFromDocument}
               disabled={!canSummarizeDocument}
               icon={Sparkles}
-              className={cn(secondaryButton, "min-h-12 whitespace-nowrap px-2 text-xs sm:text-sm")}
+              className={cn(secondaryButton, "min-h-12 px-2 text-xs sm:whitespace-nowrap sm:text-sm")}
             >
               Answer from this
             </DocumentActionButton>
