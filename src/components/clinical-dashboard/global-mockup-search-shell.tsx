@@ -255,18 +255,18 @@ function GlobalMockupStandaloneSearchShellClient({
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
   const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
-  const usesInlineModeHomeComposer = shouldShowSearchComposer && isStandaloneModeHome;
-  const reservesFloatingComposer = shouldShowSearchComposer && !usesInlineModeHomeComposer;
-  // Standalone mode homes use an inline hero composer from `sm` upward, but
-  // phones still render the fixed bottom dock. Reserve its full height on the
-  // phone layout even though the wider layouts do not need floating clearance.
+  const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
+  // Standalone mode homes portal the composer into the hero (in-flow at every
+  // width), so phones need no bottom-dock clearance there.
   const mobileComposerReserve = !shouldShowSearchComposer
     ? "2rem"
-    : searchMode === "answer"
-      ? "calc(9rem + env(safe-area-inset-bottom))"
-      : useCompactBottomSearch
-        ? "calc(5.5rem + env(safe-area-inset-bottom))"
-        : "calc(9rem + env(safe-area-inset-bottom))";
+    : isStandaloneModeHome
+      ? "2rem"
+      : searchMode === "answer"
+        ? "calc(9rem + env(safe-area-inset-bottom))"
+        : useCompactBottomSearch
+          ? "calc(5.5rem + env(safe-area-inset-bottom))"
+          : "calc(9rem + env(safe-area-inset-bottom))";
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -528,7 +528,6 @@ function GlobalMockupStandaloneSearchShellClient({
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-            heroComposerFromTablet={isStandaloneModeHome}
             // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the header/composer to hand space back to content.
             hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
@@ -543,7 +542,11 @@ function GlobalMockupStandaloneSearchShellClient({
           tabIndex={-1}
           onScroll={handleMainScroll}
           className={cn(
-            "min-w-0 overflow-x-hidden focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)]",
+            // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
+            // auto, which turns #main-content into the sticky scrollport while the
+            // window does the actual scrolling — silently disabling every
+            // position:sticky descendant (e.g. the document viewer rail).
+            "min-w-0 focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
             !reservesFloatingComposer
               ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
               : bottomSearchScrollHidden
@@ -552,7 +555,7 @@ function GlobalMockupStandaloneSearchShellClient({
                   ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
                   : useCompactBottomSearch
                     ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
-                    : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8",
+                    : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
           <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">

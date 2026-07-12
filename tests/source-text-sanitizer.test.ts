@@ -5,6 +5,7 @@ import {
   isLowYieldClinicalText,
   lowYieldSourceNoiseScore,
   normalizeExtractedGlyphs,
+  normalizeInlineBulletGlyphs,
   polishStoredSynopsis,
   repairTruncatedCompactTail,
   fenceSourceEvidence,
@@ -379,5 +380,151 @@ describe("sourceTextForCompactDisplay snippet polish", () => {
   it("leaves a temperature-style ' o ' glyph and lowercase follow-ons untouched", () => {
     expect(sourceTextForCompactDisplay("Store below 37 o C at all times")).toBe("Store below 37 o C at all times");
     expect(sourceTextForCompactDisplay("blood group o positive result")).toBe("blood group o positive result");
+  });
+});
+
+describe("normalizeInlineBulletGlyphs", () => {
+  it("converts inline bullets and the sub-bullet 'o' glyph into separators with the default joiner", () => {
+    expect(
+      normalizeInlineBulletGlyphs(
+        "combination with lithium may lead to serotonin toxicity • Concurrent antipsychotic medications o Rapid dose increase of lithium and antipsychotics",
+      ),
+    ).toBe(
+      "combination with lithium may lead to serotonin toxicity; Concurrent antipsychotic medications; Rapid dose increase of lithium and antipsychotics",
+    );
+  });
+
+  it("drops a leading bullet outright", () => {
+    expect(normalizeInlineBulletGlyphs("• Monitor sodium levels weekly")).toBe("Monitor sodium levels weekly");
+  });
+
+  it("keeps a temperature-style ' o ' glyph and lowercase follow-ons untouched", () => {
+    expect(normalizeInlineBulletGlyphs("Store below 37 o C at all times")).toBe("Store below 37 o C at all times");
+    expect(normalizeInlineBulletGlyphs("blood group o positive result")).toBe("blood group o positive result");
+  });
+
+  it("keeps a blood-group 'o' intact before capitalized RhD labels", () => {
+    expect(normalizeInlineBulletGlyphs("blood group o RhD negative")).toBe("blood group o RhD negative");
+    expect(normalizeInlineBulletGlyphs("group o Negative units available")).toBe("group o Negative units available");
+    expect(normalizeInlineBulletGlyphs("blood type o Rh positive")).toBe("blood type o Rh positive");
+  });
+
+  it("keeps a blood-group 'o' intact after a colon-labelled group/type", () => {
+    expect(normalizeInlineBulletGlyphs("blood type: o Rh positive")).toBe("blood type: o Rh positive");
+    expect(normalizeInlineBulletGlyphs("blood group: o Negative units")).toBe("blood group: o Negative units");
+  });
+
+  it("keeps a blood-group 'o' intact after title-case and upper-case labels", () => {
+    expect(normalizeInlineBulletGlyphs("Blood Group o RhD negative")).toBe("Blood Group o RhD negative");
+    expect(normalizeInlineBulletGlyphs("Blood Type: o Negative")).toBe("Blood Type: o Negative");
+    expect(normalizeInlineBulletGlyphs("BLOOD GROUP: o Rh positive")).toBe("BLOOD GROUP: o Rh positive");
+  });
+
+  it("converts an OCR bullet before a numeric dose while keeping the temperature guard", () => {
+    expect(normalizeInlineBulletGlyphs("Day 1: o 25 mg nightly")).toBe("Day 1: 25 mg nightly");
+    expect(normalizeInlineBulletGlyphs("dosing o 12.5 mg twice daily")).toBe("dosing; 12.5 mg twice daily");
+    expect(normalizeInlineBulletGlyphs("Store below 37 o C at all times")).toBe("Store below 37 o C at all times");
+  });
+
+  it("converts a bare sub-bullet at the start of a chunk", () => {
+    expect(normalizeInlineBulletGlyphs("o 12.5 mg twice daily")).toBe("12.5 mg twice daily");
+    expect(normalizeInlineBulletGlyphs("o Start at 750 mg nightly")).toBe("Start at 750 mg nightly");
+    expect(normalizeInlineBulletGlyphs("o 12.5 mg twice daily", { joiner: "\n" })).toBe("12.5 mg twice daily");
+  });
+
+  it("converts a sub-bullet at the start of a preserved line", () => {
+    expect(normalizeInlineBulletGlyphs("Dose:\no Start 750 mg nightly")).toBe("Dose:\nStart 750 mg nightly");
+    expect(normalizeInlineBulletGlyphs("Dose:\no Start 750 mg nightly", { joiner: "\n" })).toBe(
+      "Dose:\nStart 750 mg nightly",
+    );
+  });
+
+  it("keeps ABO-qualified blood group values intact", () => {
+    expect(normalizeInlineBulletGlyphs("ABO group: o Negative")).toBe("ABO group: o Negative");
+    expect(normalizeInlineBulletGlyphs("ABO type: o Positive")).toBe("ABO type: o Positive");
+    expect(normalizeInlineBulletGlyphs("Rh group: o Positive")).toBe("Rh group: o Positive");
+  });
+
+  it("keeps a standalone blood-value cell that begins with 'o'", () => {
+    expect(normalizeInlineBulletGlyphs("o RhD negative")).toBe("o RhD negative");
+    expect(normalizeInlineBulletGlyphs("o Negative")).toBe("o Negative");
+    expect(normalizeInlineBulletGlyphs("Cell value:\no RhD negative")).toBe("Cell value:\no RhD negative");
+  });
+
+  it("keeps a line-start blood value when a blood or red-cell noun follows", () => {
+    expect(normalizeInlineBulletGlyphs("o Negative blood should be used")).toBe("o Negative blood should be used");
+    expect(normalizeInlineBulletGlyphs("o RhD negative red cells are required")).toBe(
+      "o RhD negative red cells are required",
+    );
+    expect(normalizeInlineBulletGlyphs("o Positive red cell units are available")).toBe(
+      "o Positive red cell units are available",
+    );
+  });
+
+  it("keeps a label-prefixed blood value when a blood or red-cell noun follows", () => {
+    expect(normalizeInlineBulletGlyphs("Emergency transfusion: o Negative blood should be used")).toBe(
+      "Emergency transfusion: o Negative blood should be used",
+    );
+    expect(normalizeInlineBulletGlyphs("Donor: o RhD negative red cells are required")).toBe(
+      "Donor: o RhD negative red cells are required",
+    );
+    expect(normalizeInlineBulletGlyphs("Risk: o Negative screen requires repeat testing")).toBe(
+      "Risk: Negative screen requires repeat testing",
+    );
+  });
+
+  it("converts non-blood positive/negative list items at line starts", () => {
+    expect(normalizeInlineBulletGlyphs("o Positive symptoms require urgent review")).toBe(
+      "Positive symptoms require urgent review",
+    );
+    expect(normalizeInlineBulletGlyphs("o Negative screen requires repeat testing")).toBe(
+      "Negative screen requires repeat testing",
+    );
+    expect(normalizeInlineBulletGlyphs("o Positive blood cultures require review")).toBe(
+      "Positive blood cultures require review",
+    );
+    expect(normalizeInlineBulletGlyphs("Cultures: o Negative blood cultures do not exclude sepsis")).toBe(
+      "Cultures: Negative blood cultures do not exclude sepsis",
+    );
+  });
+
+  it("still converts an OCR bullet after non-blood group/type labels", () => {
+    expect(normalizeInlineBulletGlyphs("patient group o Adults should be offered CBT")).toBe(
+      "patient group; Adults should be offered CBT",
+    );
+    expect(normalizeInlineBulletGlyphs("risk group: o Pregnant patients need review")).toBe(
+      "risk group: Pregnant patients need review",
+    );
+  });
+
+  it("converts positive/negative bullets under qualified non-blood labels but keeps blood values", () => {
+    expect(normalizeInlineBulletGlyphs("risk group: o Positive patients need review")).toBe(
+      "risk group: Positive patients need review",
+    );
+    expect(normalizeInlineBulletGlyphs("test type: o Negative screen requires repeat testing")).toBe(
+      "test type: Negative screen requires repeat testing",
+    );
+    expect(normalizeInlineBulletGlyphs("group o Negative units available")).toBe("group o Negative units available");
+    expect(normalizeInlineBulletGlyphs("donor group o RhD negative")).toBe("donor group o RhD negative");
+  });
+
+  it("repairs a label colon followed by a converted sub-bullet ('Label:; item' → 'Label: item')", () => {
+    expect(normalizeInlineBulletGlyphs("Acute Mania: o IR product: 750 to 1000mg daily")).toBe(
+      "Acute Mania: IR product: 750 to 1000mg daily",
+    );
+  });
+
+  it("is idempotent for the default joiner", () => {
+    const once = normalizeInlineBulletGlyphs("Dosing • start low o Titrate slowly against response");
+    expect(normalizeInlineBulletGlyphs(once)).toBe(once);
+  });
+
+  it("turns each list item into its own line with the newline joiner", () => {
+    expect(normalizeInlineBulletGlyphs("Acute Mania: o IR product: 750 to 1000mg daily", { joiner: "\n" })).toBe(
+      "Acute Mania:\nIR product: 750 to 1000mg daily",
+    );
+    expect(normalizeInlineBulletGlyphs("first point • Second point o Third point", { joiner: "\n" })).toBe(
+      "first point\nSecond point\nThird point",
+    );
   });
 });

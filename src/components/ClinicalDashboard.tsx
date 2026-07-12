@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
-  AlertCircle,
+  CircleAlert,
   BookOpen,
   ChevronDown,
   Clock3,
@@ -128,6 +128,7 @@ import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
   answerPayloadIsUsable,
   classifyAnswerError,
+  createAnswerRequestWatchdog,
   isAnswerPayload,
   isRetryableError,
   isRetryableMessage,
@@ -348,6 +349,7 @@ async function readAnswerStream(
   onProgress: (message: string) => void,
   onToken?: (delta: string) => void,
   onRevising?: () => void,
+  onActivity?: () => void,
 ): Promise<AnswerPayload> {
   if (!response.body) throw makeSearchError("Answer stream could not be opened.", undefined, true);
 
@@ -416,6 +418,9 @@ async function readAnswerStream(
 
   while (true) {
     const { value, done } = await reader.read();
+    // Any received bytes — progress events, token deltas, or server heartbeat
+    // comments — count as liveness for the caller's stall watchdog.
+    if (value && value.length > 0) onActivity?.();
     buffer += decoder.decode(value, { stream: !done });
 
     let separator = findSseSeparator(buffer);
@@ -482,14 +487,12 @@ type AnswerTurn = {
 
 const maxVisiblePriorTurns = 10;
 
-// Upper bound on a single answer request. The stream sends only progress events
-// then one `final` blob after the full server-side generation, so a hung stream
-// otherwise spins the UI forever with no close event. Generous enough not to
-// abort a legitimately slow generation; a wait past this is treated as a stall.
-const answerRequestTimeoutMs = 60_000;
-
 // Non-retryable so an aborted request does not immediately re-fetch against the
-// already-aborted signal; the user re-submits to try again.
+// already-aborted signal; the user re-submits to try again. Raised by the
+// stall watchdog (see createAnswerRequestWatchdog): a live stream that keeps
+// delivering progress/token/heartbeat bytes is never aborted, no matter how
+// long a fast->strong escalation takes, so this now only appears when the
+// stream genuinely went silent or hit the absolute ceiling.
 function answerTimedOutError() {
   return makeSearchError("Answer generation timed out. Please try again.", 408, false);
 }
@@ -517,15 +520,17 @@ function PriorAnswerTurnSurface({
     [turn.answer, turn.sources],
   );
   const safeText = useMemo(() => sanitizeAnswerDisplayText(turn.answer.answer), [turn.answer.answer]);
-  const weakEvidence = renderModel.trust === "unsupported" || renderModel.trust === "low";
-  const grounded =
-    turn.answer.grounded === true && turn.answer.confidence !== "unsupported" && renderModel.trust !== "unsupported";
   const sourceCount =
     renderModel.primarySources.length ||
     turn.sources.length ||
     turn.answer.sources?.length ||
     turn.answer.citations.length;
   const previewText = safeText || turn.answer.answer;
+  const needsSourceReview =
+    turn.answer.answerQualityTier === "source_only" ||
+    turn.answer.grounded === false ||
+    renderModel.trust === "low" ||
+    renderModel.trust === "unsupported";
 
   return (
     <div
@@ -551,18 +556,31 @@ function PriorAnswerTurnSurface({
         {collapsed ? (
           <p className={cn("line-clamp-2 text-sm leading-6", textMuted)}>{previewText}</p>
         ) : (
-          <NaturalLanguageAnswer
-            text={previewText}
-            sourceCount={sourceCount}
-            weakEvidence={weakEvidence}
-            grounded={grounded}
-            sourceOnly={turn.answer.answerQualityTier === "source_only"}
-            bestSource={renderModel.bestSource}
-            sources={renderModel.reviewSources}
-            sourceLinks={renderModel.primarySources}
-            copied={copied}
-            onCopy={() => onCopy(renderModel.copyText || previewText)}
-          />
+          <>
+            <NaturalLanguageAnswer
+              text={previewText}
+              sourceCount={sourceCount}
+              sourceOnly={turn.answer.answerQualityTier === "source_only"}
+              bestSource={renderModel.bestSource}
+              sources={renderModel.reviewSources}
+              sourceLinks={renderModel.primarySources}
+              copied={copied}
+              onCopy={() => onCopy(renderModel.copyText || previewText)}
+            />
+            {needsSourceReview ? (
+              <div
+                role="note"
+                data-testid="prior-answer-source-review"
+                className="mt-2 flex items-start gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-xs text-[color:var(--text-muted)]"
+              >
+                <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                <span>
+                  <strong className="text-[color:var(--text-heading)]">Review source match.</strong> Verify cited
+                  passages before relying on this previous answer.
+                </span>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </div>
@@ -1780,6 +1798,7 @@ export function ClinicalDashboard({
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
     onProgress: (message: string) => void = setAnswerProgress,
     signal?: AbortSignal,
+    onStreamActivity?: () => void,
   ) {
     setStreamingAnswer(null);
     let response: Response;
@@ -1821,6 +1840,7 @@ export function ClinicalDashboard({
         onProgress,
         (delta) => setStreamingAnswer((prev) => ({ text: (prev?.text ?? "") + delta, revising: false })),
         () => setStreamingAnswer({ text: "", revising: true }),
+        onStreamActivity,
       );
     } catch (error) {
       if (answerTimedOutRef.current) throw answerTimedOutError();
@@ -2041,13 +2061,16 @@ export function ClinicalDashboard({
           ]
         : [{ query: requestQuery, isKeyword: false }];
 
-    // Bound this search with a timeout on the shared abort controller so a
-    // stalled answer stream recovers instead of spinning forever.
+    // Bound this search with a stall watchdog on the shared abort controller so
+    // a hung stream recovers instead of spinning forever. Answer streams reset
+    // the inactivity window on every received chunk, so a slow-but-live
+    // generation (fast -> strong escalation) is not aborted mid-stream; plain
+    // document searches never touch the watchdog and keep the flat window.
     answerTimedOutRef.current = false;
-    const answerTimeout = window.setTimeout(() => {
+    const answerWatchdog = createAnswerRequestWatchdog(() => {
       answerTimedOutRef.current = true;
       abortController.abort();
-    }, answerRequestTimeoutMs);
+    });
 
     try {
       let successfulPayload: SearchResultModePayload | null = null;
@@ -2077,7 +2100,14 @@ export function ClinicalDashboard({
                 )
               : await runWithRetries(
                   () =>
-                    requestAnswer(entry.query, filtersOverride, targetQueryMode, onProgress, abortController.signal),
+                    requestAnswer(
+                      entry.query,
+                      filtersOverride,
+                      targetQueryMode,
+                      onProgress,
+                      abortController.signal,
+                      answerWatchdog.touch,
+                    ),
                   onProgress,
                 );
 
@@ -2154,7 +2184,7 @@ export function ClinicalDashboard({
         setLastFailedQuery(trimmedQuery);
       }
     } finally {
-      window.clearTimeout(answerTimeout);
+      answerWatchdog.cancel();
       answerTimedOutRef.current = false;
       if (searchAbortRef.current === abortController) searchAbortRef.current = null;
       if (requestId === searchRequestSeqRef.current) {
@@ -2952,7 +2982,7 @@ export function ClinicalDashboard({
   ] as const;
   const renderSystemNotice = (className?: string) => (
     <UtilityDrawer
-      icon={AlertCircle}
+      icon={CircleAlert}
       title={demoMode ? "Demo mode" : "Setup required"}
       summary={
         demoMode ? "Synthetic data only; not clinical guidance." : "Configuration is needed before real uploads."
@@ -3006,7 +3036,7 @@ export function ClinicalDashboard({
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
   const renderDegradedNotice = () => (
     <UtilityDrawer
-      icon={!isOnline ? WifiOff : AlertCircle}
+      icon={!isOnline ? WifiOff : CircleAlert}
       title={!isOnline ? "Offline" : "Service unavailable"}
       summary={
         !isOnline
@@ -3223,7 +3253,6 @@ export function ClinicalDashboard({
             differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
-          heroComposerFromTablet={Boolean(desktopHomeComposerSlotId)}
           // Phone-only: the header sits above the internally scrolling <main>,
           // so hiding must collapse its layout space to hand it to content.
           hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
@@ -3257,7 +3286,9 @@ export function ClinicalDashboard({
                     ? differentialsCompareAddonActive
                       ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
                       : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
-                    : compactMobileModeHome
+                    : // Mode homes keep the composer in the hero (in-flow at every
+                      // width), so phones need no bottom-dock clearance on them.
+                      compactMobileModeHome || showDesktopHomeComposer
                       ? "mb-0"
                       : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
                 : "mb-0",
@@ -3267,7 +3298,10 @@ export function ClinicalDashboard({
           <SearchCommandProvider value={searchCommandContextValue}>
             <div
               className={cn(
-                "mx-auto max-w-7xl space-y-4 overflow-x-hidden px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
+                // overflow-x-CLIP, not -hidden: hidden makes this wrapper a scroll
+                // container (overflow-y computes to auto), which clips the composer's
+                // command dropdown mid-panel and shows a phantom inner scrollbar.
+                "mx-auto max-w-7xl space-y-4 overflow-x-clip px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
                 compactMobileModeHome && "max-sm:px-0",
                 // Centred mode homes carry little content, so drop the large
                 // mobile bottom padding (the fixed composer already has its own
@@ -3280,7 +3314,7 @@ export function ClinicalDashboard({
                   : hasMobileBottomSearch
                     ? compactMobileModeHome
                       ? "pb-4 sm:pb-10 lg:pb-12"
-                      : compactMobileBottomSearch
+                      : compactMobileBottomSearch || showDesktopHomeComposer
                         ? "pb-8 sm:pb-10 lg:pb-12"
                         : "pb-32 sm:pb-10 lg:pb-12"
                     : "pb-8 sm:pb-10 lg:pb-12",
@@ -3298,7 +3332,10 @@ export function ClinicalDashboard({
                 className={cn(
                   compactMobileModeHome
                     ? cn(
-                        "max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col",
+                        // Every breakpoint keeps a viewport-height floor so
+                        // justify/place-items-center has free space to centre the
+                        // home block instead of hugging the header.
+                        "max-sm:flex max-sm:min-h-[calc(100dvh-12.5rem)] max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
                         centeredModeHome && "max-sm:justify-center",
                       )
                     : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
@@ -3326,7 +3363,7 @@ export function ClinicalDashboard({
                     className={cn("rounded-lg border p-4 text-sm", toneInfo)}
                   >
                     <div className="flex items-start gap-2">
-                      <Search className="mt-0.5 h-4 w-4 shrink-0" />
+                      <Search aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                       <div className="min-w-0 space-y-1">
                         <p className="font-semibold text-[color:var(--text-heading)]">
                           {answerRecovery.noResults.heading}
@@ -3349,7 +3386,7 @@ export function ClinicalDashboard({
                         onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
                         className={cn(floatingControl, "text-xs")}
                       >
-                        <FileText className="h-4 w-4" />
+                        <FileText aria-hidden="true" className="h-4 w-4" />
                         {answerRecovery.searchDocuments}
                       </button>
                     </div>
@@ -3361,7 +3398,7 @@ export function ClinicalDashboard({
                     className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
                   >
                     <div className="flex items-start gap-2">
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <CircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                       <span className="min-w-0">{error}</span>
                     </div>
                     {activeModeResultKind === "answer" && lastFailedQuery && (
@@ -3376,7 +3413,7 @@ export function ClinicalDashboard({
                           }}
                           className={cn(floatingControl, "text-xs")}
                         >
-                          <RefreshCw className="h-4 w-4" />
+                          <RefreshCw aria-hidden="true" className="h-4 w-4" />
                           {answerRecovery.retry}
                         </button>
                         <button
@@ -3385,7 +3422,7 @@ export function ClinicalDashboard({
                           onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
                           className={cn(floatingControl, "text-xs")}
                         >
-                          <FileText className="h-4 w-4" />
+                          <FileText aria-hidden="true" className="h-4 w-4" />
                           {answerRecovery.searchDocuments}
                         </button>
                       </div>
@@ -3412,7 +3449,10 @@ export function ClinicalDashboard({
                     >
                       {loading && answerProgress ? (
                         <>
-                          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                          <Loader2
+                            aria-hidden="true"
+                            className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]"
+                          />
                           <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
                           <button
                             type="button"
@@ -3420,7 +3460,7 @@ export function ClinicalDashboard({
                             data-testid="stop-answer"
                             className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                           >
-                            <Square className="h-3 w-3 shrink-0 fill-current" />
+                            <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
                             Stop
                           </button>
                         </>
@@ -3431,7 +3471,10 @@ export function ClinicalDashboard({
                       role="status"
                       className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
                     >
-                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                      <Loader2
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]"
+                      />
                       <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
                       <button
                         type="button"
@@ -3439,7 +3482,7 @@ export function ClinicalDashboard({
                         data-testid="stop-answer"
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                       >
-                        <Square className="h-3 w-3 shrink-0 fill-current" />
+                        <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
                         Stop
                       </button>
                     </div>

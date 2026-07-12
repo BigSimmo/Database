@@ -30,7 +30,13 @@ function publicErrorMessage(error: unknown, status: number) {
 }
 
 function publicErrorCode(error: unknown, status: number) {
-  if (error instanceof PublicApiError && error.details?.code) return error.details.code;
+  if (error instanceof PublicApiError && error.details?.code) {
+    // Only return the code if it matches a stable lowercase snake_case identifier
+    const code = error.details.code;
+    if (/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/.test(code)) {
+      return code;
+    }
+  }
   if (error instanceof ZodError) return "invalid_request";
   if (status === 401) return "authentication_required";
   if (status === 404) return "not_found";

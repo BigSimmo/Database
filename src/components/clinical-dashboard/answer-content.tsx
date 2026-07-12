@@ -5,8 +5,8 @@
 import Link from "next/link";
 import { memo, useEffect, useRef, useState } from "react";
 import {
-  AlertCircle,
-  CheckCircle2,
+  CircleAlert,
+  CircleCheck,
   ChevronDown,
   Copy,
   ExternalLink,
@@ -123,7 +123,7 @@ export const SourceImage = memo(function SourceImage({
         )}
       >
         <div>
-          <AlertCircle className="mx-auto mb-2 h-5 w-5" />
+          <CircleAlert aria-hidden="true" className="mx-auto mb-2 h-5 w-5" />
           Image preview could not load.
           <button
             type="button"
@@ -164,7 +164,7 @@ export const SourceImage = memo(function SourceImage({
       ) : null}
       {!url || !loaded ? (
         <div className="absolute inset-0 grid place-items-center gap-1 text-xs font-semibold text-[color:var(--text-muted)]">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
           Loading image
         </div>
       ) : null}
@@ -258,18 +258,14 @@ function primaryAnswerDisplayText(value: string) {
     .replace(/[;,:-]\s*$/, "")}...`;
 }
 
-function sourceCapsuleDisplay({
-  sourceCount,
-  weakEvidence,
-  grounded,
-}: {
-  sourceCount: number;
-  weakEvidence: boolean;
-  grounded: boolean;
-}): { label: string; showCountBadge: boolean } {
+// One compact "Sources" pill in every state: the amber Source-only pill and the
+// "Review source match" banner already carry the verify-first caveat, so the
+// capsule label no longer restates grounding strength.
+function sourceCapsuleDisplay({ sourceCount }: { sourceCount: number }): {
+  label: string;
+  showCountBadge: boolean;
+} {
   if (sourceCount <= 0) return { label: "No direct source found", showCountBadge: false };
-  if (!grounded) return { label: "Review nearby sources", showCountBadge: false };
-  if (weakEvidence) return { label: "Review sources", showCountBadge: false };
   return { label: "Sources", showCountBadge: true };
 }
 
@@ -431,7 +427,7 @@ function SourcePreviewContent({
           >
             {index === 0 ? (
               <p className="mb-2 inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)]">
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
                 Best match
               </p>
             ) : index === 1 ? (
@@ -481,7 +477,7 @@ function SourcePreviewContent({
                 )}
                 aria-label={`Open ${sourceBadgeLabel(index)} source page`}
               >
-                <ExternalLink className="h-4 w-4" />
+                <ExternalLink aria-hidden="true" className="h-4 w-4" />
                 {index === 0 ? <span>Open</span> : null}
               </Link>
             </div>
@@ -500,13 +496,13 @@ function SourcePreviewContent({
             className={chatMicroAction}
             aria-label={`Open source page for ${primaryPreviewSource.title}`}
           >
-            <ExternalLink className="h-3.5 w-3.5" />
+            <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
             Open source page
           </Link>
         ) : null}
         {quoteText ? (
           <button type="button" className={chatMicroAction} onClick={onCopyQuote}>
-            <Copy className="h-3.5 w-3.5" />
+            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
             {copiedQuote ? "Copied quote" : "Copy quote"}
           </button>
         ) : null}
@@ -518,7 +514,11 @@ function SourcePreviewContent({
             reviewDueSource ? "text-[color:var(--warning)]" : "text-[color:var(--success)]",
           )}
         >
-          {reviewDueSource ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+          {reviewDueSource ? (
+            <CircleAlert aria-hidden="true" className="h-4 w-4" />
+          ) : (
+            <CircleCheck aria-hidden="true" className="h-4 w-4" />
+          )}
           {reviewDueSource
             ? `${sourceBadgeLabel(previewSources.indexOf(reviewDueSource))} review due`
             : "Sources current"}
@@ -529,7 +529,7 @@ function SourcePreviewContent({
             className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             Evidence details
-            <ExternalLink className="h-3.5 w-3.5" />
+            <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
           </Link>
         ) : null}
       </div>
@@ -540,8 +540,6 @@ function SourcePreviewContent({
 export function NaturalLanguageAnswer({
   text,
   sourceCount,
-  weakEvidence,
-  grounded,
   sourceOnly,
   bestSource,
   sources,
@@ -551,8 +549,6 @@ export function NaturalLanguageAnswer({
 }: {
   text: string;
   sourceCount: number;
-  weakEvidence: boolean;
-  grounded: boolean;
   sourceOnly: boolean;
   bestSource: BestSourceRecommendation | null;
   sources: SearchResult[];
@@ -573,7 +569,7 @@ export function NaturalLanguageAnswer({
   }, []);
   const cleaned = primaryAnswerDisplayText(text);
   if (!cleaned) return null;
-  const capsuleDisplay = sourceCapsuleDisplay({ sourceCount, weakEvidence, grounded });
+  const capsuleDisplay = sourceCapsuleDisplay({ sourceCount });
   const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);
   const quoteText = sourceLinks.find((source) => source.snippet)?.snippet || bestSource?.quote || bestSource?.snippet;
   const canOpenSourcePreview = previewSources.length > 0;
@@ -623,7 +619,7 @@ export function NaturalLanguageAnswer({
         className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
         aria-hidden="true"
       >
-        <ShieldCheck className="h-[18px] w-[18px]" />
+        <ShieldCheck aria-hidden="true" className="size-icon-lg" />
       </span>
       <div className="min-w-0 space-y-1.5">
         <p className={chatAnswerText}>
@@ -637,18 +633,19 @@ export function NaturalLanguageAnswer({
               data-testid="source-only-disclosure"
               role="note"
               className={cn(
-                "w-fit max-w-full overflow-hidden rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 text-xs",
+                "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-xs transition-[border-radius] duration-150",
+                sourceOnlyNoticeOpen ? "rounded-lg" : "rounded-full",
                 textMuted,
               )}
             >
               <button
                 type="button"
                 onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-                className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+                className="inline-flex min-h-7 w-full max-w-[68ch] items-center gap-1.5 px-2.5 py-1 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
                 aria-expanded={sourceOnlyNoticeOpen}
                 aria-controls="source-only-disclosure-detail"
               >
-                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                <CircleAlert className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
                 <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
                 <span className="shrink-0 text-2xs text-[color:var(--text-muted)]">· verify passages</span>
                 <ChevronDown
@@ -662,7 +659,7 @@ export function NaturalLanguageAnswer({
               {sourceOnlyNoticeOpen ? (
                 <div
                   id="source-only-disclosure-detail"
-                  className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 text-2xs leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
+                  className="border-t border-[color:var(--warning)]/15 px-3 py-2 text-2xs leading-5 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
                 >
                   <p>
                     This answer was assembled from your documents without the AI model, so it may be less complete.
@@ -721,7 +718,7 @@ export function NaturalLanguageAnswer({
             className={chatMicroAction}
             aria-label="Copy answer with source status"
           >
-            <Copy className="h-3.5 w-3.5" />
+            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
             {copied ? "Copied with sources" : "Copy with sources"}
           </button>
         </div>

@@ -2,7 +2,8 @@
 
 import {
   Activity,
-  AlertTriangle,
+  Ban,
+  TriangleAlert,
   ArrowLeft,
   BadgeCheck,
   CalendarDays,
@@ -28,12 +29,12 @@ import {
   type MedicationGovernance,
 } from "@/lib/medication-badges";
 import { medicationDetailTiles, type MedicationRecord, type MedicationSection } from "@/lib/medications";
-import { cn } from "@/components/ui-primitives";
+import { cn, pageContainer } from "@/components/ui-primitives";
 
 const sectionIcons: Record<string, LucideIcon> = {
   dose: CalendarDays,
-  risk: ShieldCheck,
-  contra: ShieldCheck,
+  risk: TriangleAlert,
+  contra: Ban,
   safe: ShieldCheck,
   mon: Activity,
   inter: FlaskConical,
@@ -176,7 +177,7 @@ function MedicationRecordDetail({
   const activeSections = sectionsByTab[activeTab];
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-3 py-1 sm:py-2">
+    <div className={cn(pageContainer, "space-y-3 py-1 sm:py-2")}>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="space-y-3.5">
           <section className="scroll-mt-16 px-1 sm:px-0">
@@ -325,7 +326,7 @@ export function MedicationRecordPage({ slug }: { slug: string }) {
         ) : error || !data?.record ? (
           <div className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] p-4 text-sm text-[color:var(--danger-text)]">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <p>{error ?? "Medication not found."}</p>
             </div>
           </div>

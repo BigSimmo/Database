@@ -1,7 +1,16 @@
 # Operator apply — July 8 ingestion & tenancy batch
 
+> **Status (2026-07-13): ✅ Verified live.** All six batch migrations are already
+> applied on production `Clinical KB Database` (`sjrfecxgysukkwxsowpy`) — confirmed
+> against the live migration history — and every batch probe passes:
+> `retrieval_owner_matches` fail-closed truth table, `jsonb_merge_deep` deep-merge,
+> `complete_ingestion_job(… p_worker_id)` lease fence, and the R17 partial-unique
+> index (`indisvalid`/`indisready` true, queue 0/0). The apply steps below are
+> retained for staging / disaster-recovery replay. **Remaining:** redeploy the
+> ingestion worker so R5 merge + `p_worker_id` fences are active end-to-end.
+
 Consolidated runbook for migrations merged to `main` in PRs **#380**, **#405**,
-**#408**, and **#409** that are **in the repo but not yet verified on live** as
+**#408**, and **#409** that were **in the repo but not yet verified on live** as
 of 2026-07-09. Companion to
 [`docs/supabase-migration-reconciliation.md`](supabase-migration-reconciliation.md)
 and [`docs/ingestion-concurrency-fix-workorder.md`](ingestion-concurrency-fix-workorder.md).
@@ -23,7 +32,7 @@ is live — `worker/main.ts` already passes `p_worker_id` to completion RPCs.
 
 All steps below are safe through a single `supabase db push` when the ingestion
 queue is quiet. R17 uses its **own migration version** (`20260708170000`, not
-`20260708160000`) so history/repair cannot collide with the fail-closed tenancy
+`20260708160001`) so history/repair cannot collide with the fail-closed tenancy
 migration at `20260708160001`.
 
 | Step | Migration                                                 | What                                         | How                                            |
@@ -48,7 +57,7 @@ create unique index concurrently if not exists ingestion_jobs_one_open_per_docum
   where status in ('pending', 'processing');
 ```
 
-Then mark only the R17 version as applied (never `20260708160000`):
+Then mark only the R17 version as applied (never `20260708160001`):
 
 ```bash
 supabase migration repair --linked --status applied 20260708170000

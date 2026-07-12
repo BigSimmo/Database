@@ -379,9 +379,15 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/?mode=answer");
 
-    const initialMenu = await openAppModeMenu(page, "Answer");
-    await expect(initialMenu).toBeVisible();
-    await initialMenu.getByRole("menuitemradio", { name: /^Services\b/ }).click();
+    // Re-open + re-click on each retry: a single click can be swallowed while the
+    // launcher is still hydrating, leaving the route on /?mode=answer. Mirrors the
+    // Forms switch below, which already guards against the same flake.
+    await expect(async () => {
+      if (/\/services$/.test(page.url())) return;
+      const menu = await openAppModeMenu(page, "Answer");
+      await menu.getByRole("menuitemradio", { name: /^Services\b/ }).click();
+      await expect(page).toHaveURL(/\/services$/, { timeout: 3_000 });
+    }).toPass({ timeout: 20_000 });
 
     await expect(page).toHaveURL(/\/services$/);
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
@@ -461,7 +467,7 @@ test.describe("Clinical KB tools launcher", () => {
     for (const home of [
       { path: "/?mode=answer", testId: "answer-empty-state", heading: "How can I help?", headingLevel: 2 },
       { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
-      { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
+      { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
       { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
       { path: "/favourites", testId: "favourites-hub", heading: "Favourites command library", headingLevel: 1 },
       { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
@@ -577,10 +583,10 @@ test.describe("Clinical KB tools launcher", () => {
       };
       if (!baseline) {
         baseline = metrics;
-        // Compact hero mobile scale: 3rem icon, 1.6rem heading, 0.875rem subtitle.
-        expect(metrics.iconWidth).toBe(48);
-        expect(metrics.iconHeight).toBe(48);
-        expect(metrics.headingFontSize).toBeCloseTo(25.6, 1);
+        // Compact hero mobile scale: 2.75rem icon, 1.45rem heading, 0.875rem subtitle.
+        expect(metrics.iconWidth).toBe(44);
+        expect(metrics.iconHeight).toBe(44);
+        expect(metrics.headingFontSize).toBeCloseTo(23.2, 1);
         expect(metrics.subtitleFontSize).toBeCloseTo(14, 1);
       } else {
         expect(metrics, `${home.path} hero metrics`).toEqual(baseline);
@@ -590,14 +596,45 @@ test.describe("Clinical KB tools launcher", () => {
     }
   });
 
-  test("phone bottom-dock search opens the command surface above the pill", async ({ page }) => {
+  test("phone bottom-dock search keeps the command popup hidden", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
-    await expect(visibleGlobalSearchInput(page).first()).toBeVisible();
+    const input = visibleGlobalSearchInput(page).first();
+    await expect(input).toBeVisible();
     await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
-    await commandSurfaceOpensAbovePill(page);
+
+    // Phones never show the universal command popup — it crowds the small
+    // screen — so focusing/typing must not surface the dropdown or its scrim.
+    await input.click();
+    await input.press("ArrowDown");
+    await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+    await expect(page.locator("form.answer-footer-search-dock")).not.toHaveAttribute("data-command-open", "true");
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone mode homes keep the shared search in the hero, not the bottom dock", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    for (const home of ["/services", "/forms", "/differentials", "/applications"]) {
+      await gotoLauncher(page, home);
+      const heroInput = page.locator(".mode-home-composer-slot").getByTestId("global-search-input");
+      await expect(heroInput).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
+
+      // The pill sits in the flow of the hero, not fixed to the viewport bottom.
+      const geometry = await heroInput.evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight };
+      });
+      expect(geometry.top).toBeGreaterThan(0);
+      expect(geometry.bottom).toBeLessThan(geometry.viewportHeight - 40);
+
+      // Focusing the hero composer must not surface the universal popup on phones.
+      await heroInput.click();
+      await heroInput.press("ArrowDown");
+      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+      await expectNoPageHorizontalOverflow(page);
+    }
   });
 
   test("desktop answer footer opens the command surface above the pill", async ({ page }) => {
@@ -633,7 +670,7 @@ test.describe("Clinical KB tools launcher", () => {
           headingLevel: 2,
         },
         { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
-        { path: "/forms", testId: "forms-home", heading: "What do you need from forms?", headingLevel: 1 },
+        { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
         { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
         { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
       ] as const) {
@@ -903,15 +940,13 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\/forms$/);
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(page.getByTestId("forms-home")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "What do you need from forms?" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Forms" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toHaveCount(0);
     await expect(page.getByTestId("global-search-input")).toHaveCount(1);
     const formsHomeSearch = page.getByTestId("forms-home").getByTestId("global-search-input");
     await expect(formsHomeSearch).toBeVisible();
     const formsSearchBox = await formsHomeSearch.boundingBox();
-    const formsHeadingBox = await page
-      .getByRole("heading", { level: 1, name: "What do you need from forms?" })
-      .boundingBox();
+    const formsHeadingBox = await page.getByRole("heading", { level: 1, name: "Forms" }).boundingBox();
     expect(formsSearchBox).not.toBeNull();
     expect(formsHeadingBox).not.toBeNull();
     expect((formsHeadingBox?.y ?? 0) + (formsHeadingBox?.height ?? 0)).toBeLessThan(formsSearchBox?.y ?? 0);
@@ -1228,6 +1263,50 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("diagnosis detail actions stay tappable and tabs stay single-line", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await gotoLauncher(page, "/differentials/diagnoses/delirium");
+    await expect(page.getByTestId("differential-detail-page")).toBeVisible();
+    // The desktop action cluster must keep its intrinsic width (shrink-0) so the
+    // icon action does not get crushed below the 44px tap standard.
+    await expectMinTouchTarget(page.getByRole("button", { name: "Save diagnosis" }));
+
+    // Tabs: no page overflow and single-line labels at the narrowest width.
+    await page.setViewportSize({ width: 320, height: 700 });
+    await expect(page.getByTestId("differential-detail-page")).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    const overviewTab = page.getByRole("tab", { name: "Overview" });
+    await expect(overviewTab).toBeVisible();
+    // Count rendered label lines from text-node rects (an icon rect would bridge
+    // two wrapped lines and mask a wrap); the tab label must stay on one line.
+    const overviewLineCount = await overviewTab.evaluate((element) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      const rects: DOMRect[] = [];
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!(node.textContent ?? "").trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of range.getClientRects()) {
+          if (rect.height > 4 && rect.width > 1) rects.push(rect);
+        }
+      }
+      rects.sort((a, b) => a.top - b.top);
+      let lines = 0;
+      let lineBottom = Number.NEGATIVE_INFINITY;
+      for (const rect of rects) {
+        if (rect.top >= lineBottom - 4) {
+          lines += 1;
+          lineBottom = rect.bottom;
+        } else {
+          lineBottom = Math.max(lineBottom, rect.bottom);
+        }
+      }
+      return lines;
+    });
+    expect(overviewLineCount).toBe(1);
+  });
+
   test("differentials presentation comparison page stays wired to differentials mode", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 920 });
     const workflow = acuteConfusionPresentationWorkflow;
@@ -1262,6 +1341,12 @@ test.describe("Clinical KB tools launcher", () => {
     const desktopTableBox = await page.getByTestId("differential-comparison-scroll").boundingBox();
     expect(desktopTableBox?.width ?? 0).toBeGreaterThan(900);
     await expectNoPageHorizontalOverflow(page);
+
+    await gotoLauncher(page, "/differentials/presentations?ids=wernicke-encephalopathy");
+    await expect(page).toHaveURL(/ids=wernicke-encephalopathy/);
+    await expect(
+      page.getByRole("heading", { name: `Selected differentials (1 of ${workflow.totalCount})` }).first(),
+    ).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials/presentations");

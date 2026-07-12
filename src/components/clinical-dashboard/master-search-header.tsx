@@ -9,13 +9,13 @@ import {
   useState,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
-  type Ref,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
 import {
   Check,
-  CheckCircle2,
+  CircleCheck,
   ChevronDown,
   FileText,
   Filter,
@@ -71,10 +71,6 @@ import { tagSearchText } from "@/lib/document-tags";
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
-// Mode-home shells centre the composer in the hero at every width (see
-// heroComposerFromTablet): phones share the hero-centred landing design that
-// tests/ui-tools.spec.ts "mode home routes center the shared search on mobile"
-// encodes, so the query intentionally always matches.
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 
@@ -179,7 +175,6 @@ export function MasterSearchHeader({
   searchComposerVisible = true,
   desktopHomeComposerSlotId,
   mobileBottomSearchAddonSlotId,
-  heroComposerFromTablet = false,
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
@@ -211,7 +206,7 @@ export function MasterSearchHeader({
   onNewChat?: () => void;
   onOpenMobileSidebar?: () => void;
   queryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>;
-  queryInputRef?: Ref<HTMLInputElement>;
+  queryInputRef?: RefObject<HTMLInputElement | null>;
   queryInputAutoFocus?: boolean;
   /** Overrides the mode's default input placeholder (e.g. "Ask a follow-up..." mid-thread). */
   composerPlaceholder?: string;
@@ -231,12 +226,12 @@ export function MasterSearchHeader({
   mobileBottomSearchVariant?: "default" | "compact";
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
+  /** Mode-home slot the composer portals into at every viewport width, so the
+   *  search pill sits in the middle of the hero on phones as well as desktop
+   *  instead of docking to the bottom edge. */
   desktopHomeComposerSlotId?: string;
   /** Phone-only slot rendered above the bottom search pill for page-specific dock addons. */
   mobileBottomSearchAddonSlotId?: string;
-  /** Portal the composer into the hero slot from the tablet breakpoint (sm) up,
-   *  rather than the default desktop (lg) breakpoint. */
-  heroComposerFromTablet?: boolean;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
   /** Phone-only hide-on-scroll for the universal header and bottom search dock.
@@ -305,8 +300,13 @@ export function MasterSearchHeader({
   const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
+  // Mode homes portal the composer into the hero slot at every width, so the
+  // phone bottom dock only exists when no hero slot is provided.
   const phoneBottomSearchDockActive =
-    usesPhoneSearchLayout && searchComposerVisible && (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
+    usesPhoneSearchLayout &&
+    searchComposerVisible &&
+    !desktopHomeComposerSlotId &&
+    (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
   const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden =
     bottomComposerScrollHiddenActive &&
@@ -614,6 +614,22 @@ export function MasterSearchHeader({
     visibleAppModeOptions.findIndex((mode) => mode.id === selectedAppMode.id),
   );
 
+  // Both the hero-portal composer and the default composer bind the caller's
+  // queryInputRef. During home <-> result transitions the two briefly coexist,
+  // and React nulls a plain shared ref when the outgoing composer unmounts —
+  // clobbering the surviving input's binding (quote follow-up focus broke).
+  // A cleanup-function ref only clears the binding it still owns.
+  const bindQueryInputRef = useCallback(
+    (element: HTMLInputElement | null) => {
+      if (!element || !queryInputRef) return undefined;
+      queryInputRef.current = element;
+      return () => {
+        if (queryInputRef.current === element) queryInputRef.current = null;
+      };
+    },
+    [queryInputRef],
+  );
+
   function focusModeOption(index: number) {
     const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
     modeOptionRefs.current[nextIndex]?.focus();
@@ -697,12 +713,19 @@ export function MasterSearchHeader({
 
   useEffect(() => {
     if (!desktopHomeComposerSlotId) {
-      const frame = window.requestAnimationFrame(() => {
+      // No hero slot at this route: reset the portal state. Deferred to a
+      // microtask (not requestAnimationFrame) so it stays off the synchronous
+      // effect body without being frame-gated — headless CI can starve rAF.
+      let cancelled = false;
+      queueMicrotask(() => {
+        if (cancelled) return;
         setDesktopHomeComposerActive(false);
         setDesktopHomeComposerFallback(false);
         setDesktopHomeComposerHost(null);
       });
-      return () => window.cancelAnimationFrame(frame);
+      return () => {
+        cancelled = true;
+      };
     }
 
     // The composer is portaled into a stable host we own, and we move that host
@@ -711,16 +734,25 @@ export function MasterSearchHeader({
     // into it made React reconcile the portal against a container that another
     // part of the tree had already removed, throwing a null-parentNode error.
     // Because the host is stable, React's portal container never disappears.
+    // The slot is used at every viewport width — phones included — so mode
+    // homes keep the composer in the middle of the hero instead of docking it
+    // to the bottom edge.
     const host = document.createElement("div");
     // Layout-transparent so the composer lays out as a direct child of the slot.
     host.style.display = "contents";
 
     const mediaQuery = window.matchMedia(
-      heroComposerFromTablet ? modeHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
+      desktopHomeComposerSlotId ? modeHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
     );
-    let frame: number | null = null;
+
     let retryTimeout: number | null = null;
     let portalRetryCount = 0;
+    // Runs synchronously off the MutationObserver (which already coalesces
+    // records into a microtask) rather than behind requestAnimationFrame.
+    // Headless CI throttles/pauses rAF whenever the page is not actively
+    // compositing, which stalled portal activation for seconds and made the
+    // hero composer flake out of the mode-home slot. A microtask-driven sync
+    // settles the portal on the same tick the slot mounts, no frame required.
     const syncTarget = () => {
       if (retryTimeout !== null) {
         window.clearTimeout(retryTimeout);
@@ -748,26 +780,21 @@ export function MasterSearchHeader({
         }
       }
     };
-    const scheduleSync = () => {
-      if (frame !== null) window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(syncTarget);
-    };
 
-    const observer = new MutationObserver(scheduleSync);
+    const observer = new MutationObserver(syncTarget);
     observer.observe(document.body, { childList: true, subtree: true });
-    scheduleSync();
-    mediaQuery.addEventListener("change", scheduleSync);
+    syncTarget();
+    mediaQuery.addEventListener("change", syncTarget);
     return () => {
-      if (frame !== null) window.cancelAnimationFrame(frame);
       if (retryTimeout !== null) window.clearTimeout(retryTimeout);
       observer.disconnect();
-      mediaQuery.removeEventListener("change", scheduleSync);
+      mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
       setDesktopHomeComposerActive(false);
       setDesktopHomeComposerFallback(false);
       setDesktopHomeComposerHost(null);
     };
-  }, [desktopHomeComposerSlotId, heroComposerFromTablet]);
+  }, [desktopHomeComposerSlotId]);
 
   const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
   function dismissScope(reason: "outside" | "escape") {
@@ -840,7 +867,10 @@ export function MasterSearchHeader({
         </div>
         <div className="grid gap-2.5">
           <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]"
+            />
             <input
               ref={scopeFilterInputRef}
               value={scopeFilter}
@@ -906,7 +936,7 @@ export function MasterSearchHeader({
                       )}
                       aria-hidden
                     >
-                      {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+                      {selected ? <CircleCheck aria-hidden="true" className="h-3.5 w-3.5" /> : null}
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>
@@ -960,7 +990,10 @@ export function MasterSearchHeader({
               <span className="nums rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
                 {activeQuickFilterCount ? `${activeQuickFilterCount} active` : "Optional"}
               </span>
-              <ChevronDown className="h-3.5 w-3.5 text-[color:var(--clinical-accent)] transition group-open:rotate-180" />
+              <ChevronDown
+                aria-hidden="true"
+                className="h-3.5 w-3.5 text-[color:var(--clinical-accent)] transition group-open:rotate-180"
+              />
             </span>
           </summary>
           <div className="grid gap-2.5 border-t border-[color:var(--border-lux)] p-3">
@@ -1055,7 +1088,7 @@ export function MasterSearchHeader({
             <span className={eyebrowText}>Label filters</span>
             <span className="flex items-center gap-2 text-2xs font-semibold text-[color:var(--text-soft)]">
               {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, action, intent"}
-              <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 transition group-open:rotate-180" />
             </span>
           </summary>
           <div className="mt-2 grid gap-2 border-t border-[color:var(--border)] pt-2">
@@ -1098,7 +1131,11 @@ export function MasterSearchHeader({
         onSubmit={submit}
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
         data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
-        data-command-open={usesBottomComposerPlacement && commandDropdownOpen ? "true" : undefined}
+        data-command-open={
+          // Phones never show the command dropdown, so the dock scrim must not
+          // grow for it — gate the open attribute to widths that can display it.
+          usesBottomComposerPlacement && !usesPhoneSearchLayout && commandDropdownOpen ? "true" : undefined
+        }
         data-scroll-hidden={shouldHideBottomOnScroll && bottomComposerHidden ? "true" : undefined}
         {...(shouldHideBottomOnScroll ? composerFocusProps : undefined)}
         className={cn(
@@ -1176,11 +1213,7 @@ export function MasterSearchHeader({
           onRunModeAction={runModeAction}
           onCommandScopesChange={(scopes) => onCommandScopesChange?.(scopes)}
           onListboxIdReady={setCommandListboxId}
-          onFocusSearchInput={() => {
-            if (queryInputRef && "current" in queryInputRef) {
-              queryInputRef.current?.focus();
-            }
-          }}
+          onFocusSearchInput={() => queryInputRef?.current?.focus()}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
@@ -1222,7 +1255,7 @@ export function MasterSearchHeader({
               pr-* utility, which let text run under an overlaid button. */}
             <label className="flex min-w-0 flex-1 items-center overflow-hidden">
               <input
-                ref={queryInputRef}
+                ref={bindQueryInputRef}
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
                 value={query}
@@ -1250,7 +1283,7 @@ export function MasterSearchHeader({
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
                   aria-label="Clear search question"
                 >
-                  <X className="h-4 w-4" />
+                  <X aria-hidden="true" className="h-4 w-4" />
                 </button>
               )}
             </label>
@@ -1269,13 +1302,13 @@ export function MasterSearchHeader({
               aria-label={selectedSearch.submitAriaLabel}
             >
               {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
               ) : usesSendAffordance ? (
-                <Send className="h-4 w-4" />
+                <Send aria-hidden="true" className="h-4 w-4" />
               ) : usesModeIdentityAffordance ? (
-                <ModeIdentityIcon className="h-4.5 w-4.5" />
+                <ModeIdentityIcon className="size-icon-lg" />
               ) : (
-                <Search className="h-4.5 w-4.5" />
+                <Search aria-hidden="true" className="size-icon-lg" />
               )}
               <span className="sr-only">{submitLabel}</span>
             </button>
@@ -1397,7 +1430,11 @@ export function MasterSearchHeader({
               )}
               aria-label={useMobileBackControl ? "Back to differentials home" : "Open Clinical Guide menu"}
             >
-              {useMobileBackControl ? <ArrowLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {useMobileBackControl ? (
+                <ArrowLeft aria-hidden="true" className="h-5 w-5" />
+              ) : (
+                <Menu aria-hidden="true" className="h-5 w-5" />
+              )}
             </button>
             {isServicesMode ? (
               <div className="hidden min-w-0 items-center gap-3 lg:flex">
@@ -1450,6 +1487,7 @@ export function MasterSearchHeader({
                 </span>
               </span>
               <ChevronDown
+                aria-hidden="true"
                 className={cn(
                   "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
                   modeMenuOpen && "rotate-180",
@@ -1505,7 +1543,9 @@ export function MasterSearchHeader({
                           {mode.description}
                         </span>
                       </span>
-                      {active ? <Check className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
+                      {active ? (
+                        <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" />
+                      ) : null}
                     </button>
                   );
                 })}
@@ -1544,7 +1584,7 @@ export function MasterSearchHeader({
                 aria-label="Start a new chat"
                 title="New chat"
               >
-                <MessageSquarePlus className="h-5 w-5 xl:h-4 xl:w-4" />
+                <MessageSquarePlus aria-hidden="true" className="h-5 w-5 xl:h-4 xl:w-4" />
                 <span className="hidden whitespace-nowrap xl:inline">New chat</span>
               </button>
             ) : null}

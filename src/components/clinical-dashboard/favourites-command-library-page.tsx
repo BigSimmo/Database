@@ -46,7 +46,8 @@ import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
-type FavouriteType = "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form";
+type FavouriteType =
+  "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form" | "Differential";
 type ViewMode = FavouritesViewMode;
 type SortMode = "last-used" | "title" | "type";
 
@@ -98,6 +99,8 @@ const typeStyles: Record<FavouriteType, string> = {
   Service:
     "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
   Form: "border-[color:var(--type-form-border)] bg-[color:var(--type-form-soft)] text-[color:var(--type-form)]",
+  Differential:
+    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
 };
 
 const lastUsedByItemId: Record<string, string> = {
@@ -116,6 +119,7 @@ const typeByPrototypeType: Record<PrototypeFavouriteItem["type"], FavouriteType>
   sources: "Source",
   services: "Service",
   forms: "Form",
+  differentials: "Differential",
 };
 
 const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
@@ -123,7 +127,8 @@ const fallbackIconByType: Record<PrototypeFavouriteItem["type"], LucideIcon> = {
   documents: FileText,
   sources: Quote,
   services: appModeIcons.services,
-  forms: FileText,
+  forms: appModeIcons.forms,
+  differentials: appModeIcons.differentials,
 };
 
 function lastUsedScore(lastUsed: string): number {
@@ -357,6 +362,11 @@ function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id:
   );
 }
 
+/**
+ * Renders a menu of actions for a favourite item.
+ *
+ * @param item - The favourite item associated with the available actions
+ */
 function RowActionsMenu({ item }: { item: FavouriteItem }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -381,7 +391,7 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
         aria-label={`More actions for ${item.title}`}
         onClick={() => setOpen((current) => !current)}
         className={cn(
-          "grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+          "grid h-11 w-11 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
           focusRing,
         )}
       >
@@ -565,7 +575,10 @@ function FavouritesTable({
               <option value="title">Sort: Title</option>
               <option value="type">Sort: Type</option>
             </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--text-soft)]" />
+            <ChevronDown
+              aria-hidden="true"
+              className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[color:var(--text-soft)]"
+            />
           </label>
         </div>
       </div>
@@ -972,7 +985,7 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
             <header>
               <div className="flex min-w-0 items-start gap-3">
                 <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <Heart className="h-4.5 w-4.5" aria-hidden />
+                  <Heart className="size-icon-lg" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">

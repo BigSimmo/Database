@@ -8,6 +8,7 @@ import {
   type ApiRateLimitResult,
 } from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
+import { toClientAnswerPayload } from "@/lib/answer-client-payload";
 import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
@@ -25,6 +26,7 @@ import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackRe
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
 import { safeErrorLogDetails } from "@/lib/privacy";
+import { startSseHeartbeat } from "@/lib/sse-heartbeat";
 import { parseJsonBody } from "@/lib/validation/body";
 import type { RagAnswer } from "@/lib/types";
 
@@ -141,8 +143,17 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
     new ReadableStream({
       async start(controller) {
         const send = (event: string, data: unknown) => {
-          controller.enqueue(encoder.encode(encodeSse(event, data)));
+          try {
+            controller.enqueue(encoder.encode(encodeSse(event, data)));
+          } catch {
+            // The client may cancel between generation callbacks. Once the
+            // stream is closed there is no remaining consumer for this frame.
+          }
         };
+        // Generation can go silent for long stretches (strong-route reasoning
+        // before the first output token); heartbeat comments keep the
+        // connection visibly alive for proxies and the client's stall watchdog.
+        const stopHeartbeat = startSseHeartbeat((frame) => controller.enqueue(encoder.encode(frame)));
         const onProgress = (event: AnswerProgressEvent) => send("progress", event);
         // Stream the answer prose as it generates (content-preserving) and signal a reset when a
         // provisional answer is being revised by the quality gates.
@@ -221,7 +232,9 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
           }
 
           send("final", {
-            ...answer,
+            // Boundary trim only — governance warnings and diagnostics above
+            // consumed the full answer (see answer-client-payload.ts).
+            ...toClientAnswerPayload(answer),
             degradedMode: answerDegradedModeSignal(answer),
             scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
             sourceGovernanceWarnings: warnings,
@@ -239,7 +252,14 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
           const streamError = streamErrorPayload(error);
           send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
         } finally {
-          controller.close();
+          stopHeartbeat();
+          // The client may have already cancelled the stream (Stop button /
+          // watchdog abort), in which case close() throws on a closed stream.
+          try {
+            controller.close();
+          } catch {
+            // Stream already closed or cancelled — nothing left to release.
+          }
         }
       },
     }),

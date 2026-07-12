@@ -677,6 +677,8 @@ ${markdownTable([
   ["Document recall@5", retrieval.document_recall_at_5],
   ["Content recall@5", retrieval.content_recall_at_5],
   ["MRR@10", retrieval.mrr_at_10],
+  ["Content MRR@10", retrieval.content_mrr_at_10],
+  ["Content MRR cases", retrieval.content_mrr_case_count],
   ["Median latency ms", retrieval.median_latency_ms],
   ["Failed cases", retrieval.failed_cases.length],
 ])}

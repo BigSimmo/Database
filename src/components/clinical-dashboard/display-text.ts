@@ -1,5 +1,6 @@
 import {
   normalizeExtractedGlyphs,
+  normalizeInlineBulletGlyphs,
   sourceTextForCompactDisplay,
   sourceTextForClinicalProse,
   sourceTextForClinicalProsePreservingBreaks,
@@ -35,7 +36,9 @@ export function looksLikeDisplayArtifact(value: string) {
 
 export function sanitizeDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
   const normalized = normalizeDisplayText(
-    options.compactSource ? sourceTextForCompactDisplay(value) : sourceTextForClinicalProse(value),
+    options.compactSource
+      ? sourceTextForCompactDisplay(value)
+      : normalizeInlineBulletGlyphs(sourceTextForClinicalProse(value)),
   );
   if (!normalized) return "";
   const artifactStart = normalized.search(

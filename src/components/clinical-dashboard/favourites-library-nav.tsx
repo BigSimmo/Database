@@ -210,7 +210,7 @@ function SidebarRow({ entry }: { entry: SidebarEntry }) {
       aria-pressed={entry.active}
       onClick={entry.onClick}
       className={cn(
-        "flex min-h-9 w-full items-center gap-2.5 rounded-lg border px-2.5 text-left text-sm-minus font-semibold transition",
+        "flex min-h-11 w-full items-center gap-2.5 rounded-lg border px-2.5 text-left text-sm-minus font-semibold transition",
         entry.active
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[inset_2px_0_0_var(--clinical-accent)]"
           : "border-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
@@ -224,6 +224,12 @@ function SidebarRow({ entry }: { entry: SidebarEntry }) {
   );
 }
 
+/**
+ * Renders the favourites library navigation sidebar in expanded or compact mode.
+ *
+ * @param collapsed - Whether to display the compact sidebar layout.
+ * @param onCollapsedChange - Called when the user requests a different sidebar layout.
+ */
 export function FavouritesSidebar({
   collapsed,
   onCollapsedChange,
@@ -302,7 +308,7 @@ export function FavouritesSidebar({
           type="button"
           onClick={() => onCollapsedChange(true)}
           className={cn(
-            "grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
+            "grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
             focusRing,
           )}
           aria-label="Compact library sidebar"

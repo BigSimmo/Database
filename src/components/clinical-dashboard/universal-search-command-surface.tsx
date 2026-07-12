@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Clock, CornerDownLeft, Loader2, Search, Sparkles } from "lucide-react";
+import { TriangleAlert, Clock, CornerDownLeft, Loader2, Search, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 
@@ -22,15 +22,17 @@ import {
 } from "@/lib/search-command-surface";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 
-// Reverse of modeIdByDomain for chip counts: the domain whose live result total a
-// cross-mode chip should show. Answer/favourites chips have no countable domain.
-const domainByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain>> = {
-  documents: "documents",
-  prescribing: "medications",
-  services: "services",
-  forms: "forms",
-  differentials: "differentials",
-  tools: "tools",
+// Reverse of modeIdByDomain for chip counts: the domains whose live result totals a
+// cross-mode chip should sum. Answer/favourites chips have no countable domain; the
+// differentials chip counts both of its domains because the mode home search composes
+// presentations and diagnoses into one result list.
+const domainsByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain[]>> = {
+  documents: ["documents"],
+  prescribing: ["medications"],
+  services: ["services"],
+  forms: ["forms"],
+  differentials: ["differentials", "presentations"],
+  tools: ["tools"],
 };
 
 const modeIdByDomain: Record<UniversalSearchDomain, AppModeId> = {
@@ -39,6 +41,9 @@ const modeIdByDomain: Record<UniversalSearchDomain, AppModeId> = {
   services: "services",
   forms: "forms",
   differentials: "differentials",
+  // Presentations are the differentials mode's umbrella pages — no app mode of their own,
+  // so the group borrows the differentials icon and "View all in Differentials" target.
+  presentations: "differentials",
   tools: "tools",
 };
 
@@ -48,6 +53,7 @@ const domainHeadings: Record<UniversalSearchDomain, string> = {
   services: "Services",
   forms: "Forms",
   differentials: "Differentials",
+  presentations: "Presentations",
   tools: "Tools",
 };
 
@@ -77,7 +83,7 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
         aria-hidden
       >
         {hint}
-        <CornerDownLeft className="h-3 w-3" />
+        <CornerDownLeft aria-hidden="true" className="h-3 w-3" />
       </span>
     </div>
   );
@@ -153,15 +159,19 @@ function CommandDropdown({
   return (
     <div
       className={cn(
-        "universal-command-dropdown absolute left-0 right-0 z-30 overflow-hidden rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--surface)] shadow-[0_8px_20px_rgb(16_24_40_/_9%),0_24px_56px_rgb(16_24_40_/_14%)]",
+        // text-left: the hero composer slot sits inside the centred mode-home
+        // template, so without it the section headings inherit text-center.
+        "universal-command-dropdown absolute left-0 right-0 z-30 overflow-hidden rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--surface)] text-left shadow-[0_8px_20px_rgb(16_24_40_/_9%),0_24px_56px_rgb(16_24_40_/_14%)]",
         opensUpward ? "bottom-[calc(100%+0.5rem)] top-auto" : "top-[calc(100%+0.5rem)]",
-        placement === "bottom-dock" ? "block" : "hidden lg:block",
+        // Phones never get the typeahead popup — it crowds the small screen —
+        // so both placements stay hidden below their smallest useful width.
+        placement === "bottom-dock" ? "hidden sm:block" : "hidden lg:block",
       )}
       role="presentation"
     >
       {showSafetyBanner ? (
         <div className="flex items-start gap-2.5 border-b border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-4 py-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--danger)]" aria-hidden />
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--danger)]" aria-hidden />
           <div className="min-w-0 text-xs font-semibold leading-5 text-[color:var(--text)]">
             <span className="font-extrabold uppercase tracking-wide text-[color:var(--danger)]">Safety first · </span>
             Stabilise ABCs, check BGL, sats, attention test, collateral, review meds/substances.
@@ -180,7 +190,7 @@ function CommandDropdown({
         id={listboxId}
         role="listbox"
         aria-label={`${mode.label} search suggestions`}
-        className={cn("overflow-y-auto p-2", opensUpward ? "max-h-[min(38dvh,20rem)]" : "max-h-[26rem]")}
+        className={cn("overflow-y-auto p-2", opensUpward ? "max-h-[min(38dvh,20rem)]" : "max-h-[min(42dvh,24rem)]")}
       >
         {sections.map((section) =>
           section.items.length ? (
@@ -312,11 +322,33 @@ export function UniversalSearchCommandSurface({
   const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
   const mode = appModeDefinition(modeId);
+  // The dropdown is CSS-hidden below sm (bottom-dock) / lg (inline), so skip the
+  // typeahead fetches at widths where nothing could display the results.
+  const dropdownMediaQuery = placement === "bottom-dock" ? "(min-width: 640px)" : "(min-width: 1024px)";
+  // Initialise from the real viewport. The mode-home composer can be moved into
+  // its portal while the input is receiving focus; starting every fresh mount
+  // at false loses that focus event and leaves the desktop popup closed.
+  const [dropdownDisplayable, setDropdownDisplayable] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(dropdownMediaQuery).matches,
+  );
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(dropdownMediaQuery);
+    const sync = () => {
+      setDropdownDisplayable(mediaQuery.matches);
+      if (!mediaQuery.matches) {
+        onDropdownOpenChange(false);
+        setActiveIndex(-1);
+      }
+    };
+    sync();
+    mediaQuery.addEventListener("change", sync);
+    return () => mediaQuery.removeEventListener("change", sync);
+  }, [dropdownMediaQuery, onDropdownOpenChange]);
   // A true "everything" view: the active mode's own domain is included (no excludeDomain) so
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
     query: trimmedQuery,
-    enabled: dropdownOpen && Boolean(config),
+    enabled: dropdownOpen && dropdownDisplayable && Boolean(config),
   });
 
   const showSafetyBanner =
@@ -450,7 +482,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Search">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-                  <Clock className="h-4 w-4" />
+                  <Clock aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="truncate text-sm font-semibold text-[color:var(--text)]">{recent}</span>
               </OptionShell>
@@ -475,7 +507,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Search">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-                  <Search className="h-4 w-4" />
+                  <Search aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">
                   {suggestion.text}
@@ -507,7 +539,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Answer">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <Sparkles className="h-4 w-4" />
+                  <Sparkles aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{action.label}</span>
@@ -574,7 +606,7 @@ export function UniversalSearchCommandSurface({
               render: (active: boolean) => (
                 <OptionShell active={active} hint="Search">
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-                    <Search className="h-4 w-4" />
+                    <Search aria-hidden="true" className="h-4 w-4" />
                   </span>
                   <span className="truncate text-sm font-semibold text-[color:var(--text-muted)]">
                     View all in {targetMode.label}
@@ -640,11 +672,15 @@ export function UniversalSearchCommandSurface({
           const TargetIcon = appModeIcons[target];
           // Live count from the universal typeahead response ("Forms (2)") — only shown when
           // fresh results for this exact query exist, so the chip never shows a stale number.
-          const targetDomain = domainByTargetMode[target];
-          const targetCount =
-            targetDomain && universalQuery === trimmedQuery
-              ? universalGroups.find((group) => group.kind === targetDomain)?.total
-              : undefined;
+          // A mode spanning several domains (differentials) sums its present groups' totals.
+          const targetDomains = domainsByTargetMode[target];
+          const countableGroups =
+            targetDomains && universalQuery === trimmedQuery
+              ? universalGroups.filter((group) => targetDomains.includes(group.kind))
+              : [];
+          const targetCount = countableGroups.length
+            ? countableGroups.reduce((sum, group) => sum + group.total, 0)
+            : undefined;
           return {
             id: nextId(),
             label: targetMode.label,
@@ -698,6 +734,14 @@ export function UniversalSearchCommandSurface({
   const activeItemId = activeIndex >= 0 && activeIndex < flatItems.length ? flatItems[activeIndex].id : null;
 
   function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (!dropdownDisplayable) {
+      if (event.key === "Escape") {
+        onDropdownOpenChange(false);
+        setActiveIndex(-1);
+      }
+      onInputKeyDown?.(event);
+      return;
+    }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       onDropdownOpenChange(true);
@@ -776,7 +820,9 @@ export function UniversalSearchCommandSurface({
             handleComposerKeyDown(event as unknown as ReactKeyboardEvent<HTMLInputElement>);
           }
         }}
-        onFocusCapture={() => onDropdownOpenChange(true)}
+        onFocusCapture={() => {
+          if (dropdownDisplayable) onDropdownOpenChange(true);
+        }}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
             onDropdownOpenChange(false);
@@ -785,7 +831,7 @@ export function UniversalSearchCommandSurface({
         }}
       >
         {children}
-        {dropdownOpen ? (
+        {dropdownOpen && dropdownDisplayable ? (
           <CommandDropdown
             modeId={modeId}
             query={trimmedQuery}
@@ -807,7 +853,7 @@ export function UniversalSearchCommandSurface({
         examples={config.examples}
         onPickExample={(example) => {
           onQueryChange(example);
-          onDropdownOpenChange(true);
+          if (dropdownDisplayable) onDropdownOpenChange(true);
           onFocusSearchInput?.();
         }}
       />

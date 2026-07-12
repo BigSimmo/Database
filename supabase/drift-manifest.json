@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-09T10:38:15.859Z",
+  "generated_at": "2026-07-11T02:45:10.714Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "3a60bf1561142aed58e45a1cf8a9605ccc715dd7358e154c4ad9879b82be4cd5",
-  "replay_seconds": 20,
+  "schema_sha256": "aa8a419ab55b4637b858df628aa250b714ab1acd715d4f7786bcf6ec71f5e218",
+  "replay_seconds": 22,
   "snapshot": {
     "views": [
       {
@@ -4262,12 +4262,6 @@
         "name": "clinical_registry_record_sources_record_id_document_id_key",
         "table": "clinical_registry_record_sources",
         "def_hash": "aff03b1509bdec54ffc6611caf47b647"
-      },
-      {
-        "def": "CREATE INDEX clinical_registry_record_sources_record_idx ON public.clinical_registry_record_sources USING btree (record_id)",
-        "name": "clinical_registry_record_sources_record_idx",
-        "table": "clinical_registry_record_sources",
-        "def_hash": "ef53891aac4bf949c894e35187d71517"
       },
       {
         "def": "CREATE UNIQUE INDEX clinical_registry_records_owner_id_kind_slug_key ON public.clinical_registry_records USING btree (owner_id, kind, slug)",

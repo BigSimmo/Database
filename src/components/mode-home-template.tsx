@@ -57,51 +57,36 @@ export function ModeHomeHero({
   subtitle,
   icon: Icon,
   headingLevel = 1,
-  compact = false,
 }: {
   testId?: string;
   title: string;
   subtitle: string;
   icon: LucideIcon;
   headingLevel?: 1 | 2;
-  /**
-   * Mobile-only tightening used by ModeHomeTemplate so short mode homes fit a
-   * phone viewport without scrolling. All sm+/lg values are identical to the
-   * default treatment, so tablet and desktop render exactly the same.
-   */
-  compact?: boolean;
 }) {
   const Heading = headingLevel === 1 ? "h1" : "h2";
 
+  // Sizing is a single mobile-first system: the icon and gaps step up sm→lg,
+  // and the display heading scales continuously via the fluid `text-hero` token
+  // (globals.css) so it never jumps at a breakpoint. The compact-only mobile
+  // tightening that short mode homes relied on is now the base treatment, so the
+  // hero still fits a phone viewport without scrolling.
   return (
     <section
-      className={cn("grid justify-items-center px-4 sm:gap-4 sm:px-0", compact ? "gap-2" : "gap-3")}
+      className="grid justify-items-center gap-1.5 px-4 sm:gap-3 sm:px-0"
       aria-labelledby={`${testId ?? "mode-home"}-title`}
     >
-      <span
-        className={cn(
-          "mode-home-icon grid place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16 lg:h-[4.75rem] lg:w-[4.75rem] lg:rounded-[1.35rem]",
-          compact ? "h-12 w-12" : "h-14 w-14",
-        )}
-      >
-        <Icon className={cn("sm:h-8 sm:w-8 lg:h-10 lg:w-10", compact ? "h-6 w-6" : "h-7 w-7")} aria-hidden="true" />
+      <span className="mode-home-icon grid h-11 w-11 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12 lg:h-14 lg:w-14 lg:rounded-[1.15rem]">
+        <Icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7" aria-hidden="true" />
       </span>
-      <div className={cn("grid", compact ? "gap-1.5 sm:gap-2" : "gap-2")}>
+      <div className="grid gap-1 sm:gap-1.5">
         <Heading
           id={`${testId ?? "mode-home"}-title`}
-          className={cn(
-            "text-balance font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)] sm:text-4xl lg:text-5xl",
-            compact ? "text-3xl-minus" : "text-3xl",
-          )}
+          className="text-balance text-hero font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)]"
         >
           {title}
         </Heading>
-        <p
-          className={cn(
-            "mx-auto max-w-2xl text-pretty text-sm font-medium text-[color:var(--text-muted)] sm:text-base sm:leading-6 lg:text-lg-minus",
-            compact ? "leading-5" : "leading-6",
-          )}
-        >
+        <p className="mx-auto max-w-2xl text-pretty text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:text-base-minus sm:leading-5 lg:text-base lg:leading-6">
           {subtitle}
         </p>
       </div>
@@ -219,11 +204,11 @@ export function ModeHomeTemplate({
     <div
       data-testid={testId}
       className={cn(
-        "mode-home-template mx-auto box-border flex w-full max-w-none flex-col items-center justify-center gap-3.5 px-0 text-center sm:max-w-[64rem] sm:gap-6 lg:gap-7",
+        "mode-home-template mx-auto box-border flex w-full max-w-none flex-col items-center justify-center gap-3.5 px-0 text-center sm:max-w-[60rem] sm:gap-4 lg:gap-5",
         className,
       )}
     >
-      <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} compact />
+      <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
 
       {desktopComposerSlotId ? (
         <div
@@ -235,20 +220,20 @@ export function ModeHomeTemplate({
       {actions?.length ? (
         <section
           aria-label={actionsLabel}
-          className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] sm:gap-5 sm:overflow-visible sm:rounded-xl sm:border sm:shadow-[var(--shadow-card)] lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
+          className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] sm:gap-3 sm:overflow-visible sm:rounded-xl sm:border sm:shadow-[var(--shadow-card)] lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
         >
           {actions.map((action, index) => {
             const ActionIcon = action.icon;
             const content = (
               <>
-                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-14 sm:w-14 sm:rounded-xl">
-                  <ActionIcon className="h-5 w-5 sm:h-7 sm:w-7" aria-hidden="true" />
+                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-11 sm:w-11 sm:rounded-xl">
+                  <ActionIcon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-balance text-base font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere] sm:text-lg-minus">
+                  <span className="block text-balance text-base-minus font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere]">
                     {action.title}
                   </span>
-                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6">
+                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm-minus sm:leading-[1.3]">
                     {action.description}
                   </span>
                 </span>
@@ -259,7 +244,7 @@ export function ModeHomeTemplate({
               </>
             );
             const actionClassName = cn(
-              "mode-home-action group grid min-h-[4.8rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[8rem] sm:grid-cols-[3.5rem_minmax(0,1fr)_1.5rem] sm:gap-4 sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:px-5 sm:py-5 sm:shadow-[var(--shadow-card)] lg:min-h-[8.4rem] lg:px-6",
+              "mode-home-action group grid min-h-[4.4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[4.75rem] sm:grid-cols-[2.75rem_minmax(0,1fr)_1rem] sm:gap-3 sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:px-4 sm:py-3.5 sm:shadow-[var(--shadow-card)] lg:min-h-[4.75rem] lg:px-5",
               index > 0 && "border-t border-[color:var(--border)] sm:border-t-[color:var(--border)]",
             );
 
@@ -290,7 +275,7 @@ export function ModeHomeTemplate({
       {pills?.length ? (
         <section
           aria-label={pillsTitle ?? "Quick links"}
-          className="grid w-full max-w-none self-stretch gap-2.5 border-t border-[color:var(--border)]/70 px-4 pt-5 sm:px-0 sm:pt-6"
+          className="grid w-full max-w-none self-stretch gap-2.5 border-t border-[color:var(--border)]/70 px-4 pt-5 sm:px-0 sm:pt-5"
         >
           {pillsTitle || pillsAction ? (
             <div className="flex min-h-8 w-full items-center justify-between gap-3">

@@ -3,7 +3,12 @@ import { analyzeClinicalQuery } from "@/lib/clinical-search";
 import { demoSearch } from "@/lib/demo-data";
 import { fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { differentialRecords, rankDifferentialRecords } from "@/lib/differentials";
+import {
+  differentialPresentations,
+  differentialRecords,
+  rankDifferentialRecords,
+  rankPresentationWorkflows,
+} from "@/lib/differentials";
 import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
 import { rowToMedicationRecord } from "@/lib/medication-records";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
@@ -15,6 +20,7 @@ import { fetchOwnerRegistryRowsWithSeed } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { rankToolRecords } from "@/lib/tools-catalog";
 import type { ClinicalQueryAnalysis, SearchResult } from "@/lib/types";
+import { universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search-domains";
 
 // Server-side federated cross-entity search: one parallel in-process fan-out to the document
 // retrieval pipeline plus the shared registry rankers (medications, services, forms,
@@ -25,16 +31,10 @@ import type { ClinicalQueryAnalysis, SearchResult } from "@/lib/types";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
 
-export type UniversalSearchDomain = "documents" | "medications" | "services" | "forms" | "differentials" | "tools";
-
-export const universalSearchDomains: UniversalSearchDomain[] = [
-  "documents",
-  "medications",
-  "services",
-  "forms",
-  "differentials",
-  "tools",
-];
+// Domain type + canonical order live in the universal-search-domains leaf module (client
+// code value-imports the list from there); re-exported here for server consumers.
+export { universalSearchDomains };
+export type { UniversalSearchDomain };
 
 export type UniversalSearchItem = {
   id: string;
@@ -215,6 +215,29 @@ async function searchDifferentialsDomain(args: ResolvedSearchArgs): Promise<Univ
   );
 }
 
+async function searchPresentationsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
+  // Presentations share the differentials snapshot (owner edits surface only on detail pages
+  // today), so demo and live share the in-bundle catalogue. The ranker's cross-entity lane
+  // also matches candidate differential titles, so a diagnosis-shaped query surfaces the
+  // umbrella work-up alongside the diagnosis itself.
+  return rankPresentationWorkflows(
+    differentialPresentations(),
+    args.baseQuery,
+    args.limitPerDomain,
+    args.expansions,
+  ).map((match) => ({
+    id: match.workflow.id,
+    kind: "presentations",
+    title: match.workflow.title,
+    subtitle: match.workflow.subtitle || undefined,
+    href: `/differentials/presentations/${match.workflow.id}`,
+    score: match.score,
+    badge:
+      match.workflow.status === "emergent" ? "Emergent" : match.workflow.status === "urgent" ? "Urgent" : undefined,
+    meta: match.workflow.totalCount ? `${match.workflow.totalCount} differentials` : undefined,
+  }));
+}
+
 async function searchToolsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   return rankToolRecords(args.baseQuery, args.limitPerDomain, args.expansions).map((match) => ({
     id: match.tool.id,
@@ -325,6 +348,7 @@ const domainAdapters: Record<
   services: { run: searchServicesDomain, timeoutMs: registryDomainTimeoutMs },
   forms: { run: searchFormsDomain, timeoutMs: registryDomainTimeoutMs },
   differentials: { run: searchDifferentialsDomain, timeoutMs: registryDomainTimeoutMs },
+  presentations: { run: searchPresentationsDomain, timeoutMs: registryDomainTimeoutMs },
   tools: { run: searchToolsDomain, timeoutMs: registryDomainTimeoutMs },
 };
 
@@ -375,7 +399,7 @@ function preferredLeadDomains(analysis: ClinicalQueryAnalysis): UniversalSearchD
     case "document_lookup":
       return ["documents"];
     case "comparison":
-      return ["differentials"];
+      return ["differentials", "presentations"];
     case "table_threshold":
       return ["documents", "medications"];
     default:
@@ -486,7 +510,7 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
   };
 }
 
-export function universalSearchViewAllHref(domain: UniversalSearchDomain, query: string) {
+export function universalSearchViewAllHref(domain: UniversalSearchDomain, query: string): string {
   switch (domain) {
     case "documents":
       return documentsSearchHref({ query, run: true });
@@ -497,6 +521,8 @@ export function universalSearchViewAllHref(domain: UniversalSearchDomain, query:
     case "forms":
       return `/forms?q=${encodeURIComponent(query)}&run=1`;
     case "differentials":
+    // The differentials mode home search composes both kinds, so presentations share it.
+    case "presentations":
       return `/differentials?q=${encodeURIComponent(query)}&run=1`;
     case "tools":
       return `/?mode=tools&q=${encodeURIComponent(query)}&run=1`;

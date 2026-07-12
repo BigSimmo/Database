@@ -4,7 +4,7 @@ import {
   Activity,
   Ban,
   CalendarDays,
-  CheckCircle2,
+  CircleCheck,
   ChevronRight,
   Lock,
   Pill,
@@ -34,7 +34,7 @@ import { medicationIdentityBadges, type MedicationRecord } from "@/lib/medicatio
 import { medicationMatchesCommandScopes } from "@/lib/search-command-surface";
 import { SEMANTIC_TONE_META } from "@/lib/semantic-tone";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
-import { cn, EmptyState } from "@/components/ui-primitives";
+import { cn, EmptyState, pageContainer } from "@/components/ui-primitives";
 
 type MedicationPrescribingWorkspaceProps = {
   query: string;
@@ -89,7 +89,7 @@ const medicationCapabilities: Capability[] = [
   },
   {
     label: "Safety",
-    description: "Avoid and cautions",
+    description: "Contraindications and cautions",
     query: "medication contraindications and cautions",
     icon: ShieldCheck,
   },
@@ -306,7 +306,7 @@ const matchBadgeTone: Record<MedicationResult["tone"], ClinicalBadgeTone> = {
 };
 
 function ResultMatchBadge({ result }: { result: MedicationResult }) {
-  return <ClinicalBadge label={result.match} tone={matchBadgeTone[result.tone]} icon={CheckCircle2} />;
+  return <ClinicalBadge label={result.match} tone={matchBadgeTone[result.tone]} icon={CircleCheck} />;
 }
 
 // Small leading icon for the prescribing-action text: contraindication content is
@@ -421,7 +421,7 @@ function MedicationResults({
   const activeFilterLabel = medicationResultFilters.find((filter) => filter.id === activeFilter)?.label ?? "filtered";
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-3 py-0 sm:py-2">
+    <div className={cn(pageContainer, "space-y-3 py-0 sm:py-2")}>
       <div className="hidden lg:block">
         <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} />
       </div>

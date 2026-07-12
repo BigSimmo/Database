@@ -10,3 +10,9 @@
 27121756b10df6d93841ebf48b0f1991e0144a1f:data/medications-snapshot.json:generic-api-key:47690
 b65acddaa13e69e0ad2a49783116056b3a1a3639:data/medications-snapshot.json:generic-api-key:21520
 b65acddaa13e69e0ad2a49783116056b3a1a3639:data/medications-snapshot.json:generic-api-key:46330
+# A retrieval-eval metric-spec field (since renamed to "field" at tip 9f3d0defe)
+# held plain summary field names like p90_latency_ms and tripped generic-api-key
+# as a false positive (no secret; GitGuardian + Semgrep pass). The original commit
+# and an earlier allowlist comment that quoted the pattern are both pinned below.
+d7cfc5559f0d7a5db74eb49808f237c989b4136a:scripts/compare-retrieval-eval.ts:generic-api-key:37
+d2b7b89852a2090d56ce6aed1dd39417aedf332d:.gitleaksignore:generic-api-key:13

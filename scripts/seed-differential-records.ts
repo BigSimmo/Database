@@ -3,6 +3,7 @@ import { loadEnvConfig } from "@next/env";
 import { confirm } from "./cli-utils";
 import { buildDefaultDifferentialRows, loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import type { DifferentialRecordRow } from "@/lib/differential-records";
+import { staleSeededPresentations } from "@/lib/differential-seed";
 
 loadEnvConfig(process.cwd());
 
@@ -85,7 +86,7 @@ async function main() {
   const supabase = await loadAdminClient();
   const { data: existing, error: existingError } = await supabase
     .from("differential_records")
-    .select("kind, slug, source_status, validation_status, last_reviewed_at, review_due_at")
+    .select("id, kind, slug, source_status, validation_status, last_reviewed_at, review_due_at")
     .eq("owner_id", args.ownerId);
   if (existingError) {
     throw new Error(`Could not read existing governance: ${existingError.message}`);
@@ -118,6 +119,35 @@ async function main() {
     onConflict: "owner_id,kind,slug",
   });
   if (error) throw new Error(`Upsert failed: ${error.message}`);
+
+  // Upserts never delete, so presentation rows the snapshot no longer produces
+  // (e.g. the removed "urgency-urgent" export artifact) linger for
+  // already-seeded owners; prune them and their registry corpus documents.
+  const stale = staleSeededPresentations(existing ?? []);
+  if (stale.length > 0) {
+    const { differentialCorpusDocumentId } = await loadRegistryCorpus();
+    console.log(
+      `[differentials:seed] Removing ${stale.length} stale presentation row(s) no longer in the snapshot: ${stale
+        .map((row) => row.slug)
+        .join(", ")}`,
+    );
+    const { error: staleCorpusError } = await supabase
+      .from("documents")
+      .delete()
+      .in(
+        "id",
+        stale.map((row) => differentialCorpusDocumentId(row.id)),
+      );
+    if (staleCorpusError) throw new Error(`Stale corpus document cleanup failed: ${staleCorpusError.message}`);
+    const { error: staleRowError } = await supabase
+      .from("differential_records")
+      .delete()
+      .in(
+        "id",
+        stale.map((row) => row.id),
+      );
+    if (staleRowError) throw new Error(`Stale presentation row cleanup failed: ${staleRowError.message}`);
+  }
 
   const { count, error: countError } = await supabase
     .from("differential_records")
