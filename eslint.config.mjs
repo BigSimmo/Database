@@ -41,9 +41,9 @@ const eslintConfig = defineConfig([
     ".tmp-visual/**",
     "sample-documents/**",
     "scratch/**",
-    ".claude/**",
+    // Recursive `**/` variants cover nested worktrees; the bare globs above already
+    // ignore the repo-root dirs, so only the recursive forms are kept here.
     "**/.claude/**",
-    ".tmp-visual/**",
     "**/.tmp-visual/**",
     "next-env.d.ts",
   ]),

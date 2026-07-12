@@ -1198,6 +1198,72 @@ describe("RAG structured-output fallback", () => {
     expect(secondAnswer.routingReason).toContain("answer_inflight_coalesced");
   });
 
+  it("does not propagate an originating request's abort to a coalesced concurrent caller", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "300000");
+    vi.stubEnv("RAG_ANSWER_CACHE_SIZE", "100");
+
+    const sources = [source()];
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "match_document_chunks_text") return { data: sources, error: null };
+      if (name === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn(async () => ({
+      text: JSON.stringify({
+        answer: "Use a stepwise agitation and arousal approach based on rating and route.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [],
+        citations: [{ chunk_id: "agitation-chunk-1" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      }),
+      model: "gpt-4.1-mini",
+      operation: "answer",
+      latencyMs: 12,
+      requestId: "req_independent",
+      usage: { input_tokens: 100, output_tokens: 120, total_tokens: 220 },
+    }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({ rpc, from: vi.fn(() => new EmptyQuery()) }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    // Originating request aborts before it can produce an answer; its shared in-flight promise rejects.
+    const controller = new AbortController();
+    controller.abort();
+    const first = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-1",
+      logQuery: false,
+      signal: controller.signal,
+    });
+    // A second identical request coalesces onto the (now-doomed) in-flight promise.
+    const second = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-1",
+      logQuery: false,
+    });
+
+    // The originator's failure stays with the originator...
+    await expect(first).rejects.toBeTruthy();
+    // ...and the coalesced caller still gets a real, independently generated answer rather than a 500.
+    const secondAnswer = await second;
+    expect(secondAnswer.openAIRequestIds).toEqual(["req_independent"]);
+    expect(secondAnswer.routingReason ?? "").not.toContain("answer_inflight_coalesced");
+    // It ran its OWN pipeline (search + generation once) instead of cloning the failed one.
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls.filter(([name]) => name === "match_document_chunks_text")).toHaveLength(1);
+  });
+
   it("retries fast model output that cites evidence IDs outside retrieved chunks", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
