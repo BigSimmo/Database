@@ -4,6 +4,7 @@ import { buildClinicalTextSearchQuery } from "@/lib/clinical-search";
 import { readExpiringCacheEntry, writeBoundedExpiringCacheEntry } from "@/lib/bounded-ttl-cache";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { env } from "@/lib/env";
+import { recordCacheLookup } from "@/lib/observability/cache-metrics";
 import { queryCacheKeyForStorage } from "@/lib/query-privacy";
 import { ragCacheKeyMatchesOwner } from "@/lib/rag-cache-utils";
 import { compactContextText } from "@/lib/rag-source-block";
@@ -184,8 +185,21 @@ export async function getCachedSearch(
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
 ): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
+  // Caching disabled for this call — neither a hit nor a miss, so it stays out
+  // of the hit-rate counter entirely.
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return null;
 
+  const cached = await lookupCachedSearch(args, queryClass, queryVariants);
+  // Cache hit-rate telemetry for the deep /api/health probe (docs/observability-slos.md §4).
+  recordCacheLookup(cached !== null);
+  return cached;
+}
+
+async function lookupCachedSearch(
+  args: SearchChunksArgs,
+  queryClass?: RagQueryClass,
+  queryVariants: string[] = [],
+): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
   const key = scopedSearchCacheKey(args, queryClass, queryVariants);
   const cached = searchCache.get(key);
   if (!cached) return null;

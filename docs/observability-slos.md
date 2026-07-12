@@ -168,13 +168,49 @@ Operational notes:
   `workflow_dispatch` run and confirm it goes green before trusting the
   nightly cadence (repo gate for this workflow).
 
-## 4. Gaps / next steps (not in this change)
+## 4. Degradation counters on `/api/health` (shipped)
 
-- Host-level metrics (CPU, memory, restart count) and log drains once the
+The §2 reliability SQL is now also a scrape. An **authorized deep probe** —
+`GET /api/health?deep=1` with the `x-health-deep-token: $HEALTH_DEEP_PROBE_SECRET`
+header (same operator gate as the Supabase probe) — returns two counter blocks:
+
+- **`slo`** — `answerSloSnapshot` (`src/lib/observability/answer-slo.ts`) counts
+  `rag_queries` over the trailing `windowMinutes` (60) and reports
+  `hybridRpcErrorQueries` / `hybridRpcErrorRate` (the §2 silent-RPC-death guard)
+  and `degradedQueries` / `degradedRate` (the source-only/fallback guard). These
+  are windowed rates straight from the persisted telemetry.
+
+- **`cache`** — `cacheMetricsSnapshot` (`src/lib/observability/cache-metrics.ts`)
+  reports `{ lookups, hits, misses, hitRate }` for the retrieval search cache,
+  incremented in-process at the `getCachedSearch` hot path (`src/lib/rag-cache.ts`).
+  These are **cumulative since process start** (Prometheus-style): a scraper
+  derives a windowed hit-rate from the delta between two polls. Measuring at the
+  lookup site — not from `rag_queries` — also captures coalesced and fully
+  cache-served requests that never write a telemetry row. `hitRate` is a
+  convenience for eyeballing a single probe.
+
+```jsonc
+// GET /api/health?deep=1  (authorized, live)
+"slo":   { "windowMinutes": 60, "totalQueries": 412,
+           "hybridRpcErrorQueries": 0, "hybridRpcErrorRate": 0.0,
+           "degradedQueries": 26,      "degradedRate": 0.063 },
+"cache": { "lookups": 1873, "hits": 1402, "misses": 471, "hitRate": 0.748 }
+```
+
+**Neither block flips liveness.** The probe stays `200` even when a rate is bad;
+a Supabase-side RPC fault or a cold cache must not trip the container
+`HEALTHCHECK` into a restart it cannot fix. Degradation is made _visible_, not
+_fatal_ — exactly the failure mode this doc guards against. The `slo` query
+throwing degrades to an absent `slo` block (not a false-healthy zero); the cache
+counter is always present for an authorized probe (in-process, works in demo
+mode). The §2 warn/page thresholds map directly onto these fields.
+
+## 5. Gaps / next steps
+
+- **Wire the warn/page thresholds into an actual alerting channel.** The §4
+  counters are now scrapeable; the remaining work is routing them past their §2
+  thresholds (and the 3 h-sustained hybrid escalation) into a real channel — a
+  host-native alerter polling `/api/health?deep=1`, or a scheduled workflow
+  evaluating the §2 SQL.
+- **Host-level metrics** (CPU, memory, restart count) and log drains once the
   container host exists (`docs/deployment-architecture.md` §2).
-- A lightweight `/api/health` extension exposing cache hit-rate and
-  `hybrid_rpc_errors`-in-last-hour counters for host-native alerting, so the
-  SQL above can become a scrape instead of a manual query. (Touches app code —
-  deliberately excluded from this change.)
-- Wire the warn/page thresholds into an actual alerting channel (Supabase log
-  drain → host alerts, or a scheduled workflow evaluating the SQL above).
