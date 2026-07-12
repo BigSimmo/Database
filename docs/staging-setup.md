@@ -51,22 +51,23 @@ those vars are unset.
 
 ## B. Staging app host (compute tier)
 
-Recommended host: **Fly.io `syd`** (Sydney region; no MCP available here, so
-this is an operator step). Google Cloud Run `australia-southeast2` is the
-equivalent. Railway is unsuitable — no Sydney region.
+Host: **Railway**, same as production (see `docs/deployment-architecture.md` §2).
+Stand staging up as a **second environment** in the `clinical-kb` Railway project
+(e.g. a `staging` environment) or a separate project, with its own `app` (+
+optional `worker`) service pinned to **Southeast Asia (`asia-southeast1-eqsg3a`,
+Singapore)** — the closest region to the staging Supabase project in Sydney.
+Reuse the same images; only the environment variables differ.
 
-1. **Build the image** from the committed `Dockerfile`, passing the _staging_
-   publishable key (it inlines into the client bundle):
+1. **Build the image** — Railway builds it remotely from the committed
+   `Dockerfile` on deploy, so there is no local `docker build` and no local
+   8 GiB-heap OOM. The two `NEXT_PUBLIC_*` build args inline into the client
+   bundle; set them as **staging** service variables and Railway exposes them to
+   the build via the Dockerfile `ARG`s:
 
-   ```bash
-   docker build \
-     --build-arg NEXT_PUBLIC_SUPABASE_URL=https://<staging-ref>.supabase.co \
-     --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<staging sb_publishable_…> \
-     -t clinical-kb-app:staging .
    ```
-
-   Note: local Docker Desktop can OOM on the 8 GiB Next build heap; prefer the
-   CI image-build workflow (builds on GitHub runners) if the local build wedges.
+   NEXT_PUBLIC_SUPABASE_URL             = https://<staging-ref>.supabase.co
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = <staging sb_publishable_…>
+   ```
 
 2. **Runtime secrets** (injected at deploy, never baked into the image) — all
    with **staging** values, distinct from production:
@@ -87,8 +88,10 @@ equivalent. Railway is unsuitable — no Sydney region.
    `SUPABASE_PROJECT_REF` to the staging ref **without** them will (correctly)
    fail `check:supabase-project` — that's the deliberate speed bump.
 
-3. **Host config:** bind `0.0.0.0:$PORT` (the Dockerfile already does),
-   health check `/api/health`, `min_machines_running=1`, no scale-to-zero.
+3. **Service config:** the Dockerfile already binds `0.0.0.0:$PORT` (Railway
+   injects `$PORT`). Set the app service's healthcheck to `/api/health`, restart
+   policy to `ON_FAILURE`, and one replica pinned to `southeast-asia` with no
+   scale-to-zero (mirror `railway.app.json`).
 
 4. **Worker (optional, for ingestion in staging):** build `Dockerfile.worker`
    and run one instance with the same staging secrets. Required to process the
@@ -110,6 +113,8 @@ equivalent. Railway is unsuitable — no Sydney region.
 ## What is operator-only (cannot be scripted here)
 
 - Creating the Supabase project (billable) and its DB password.
-- Opening the Fly.io/host account and setting the runtime secrets.
+- Setting the staging runtime secrets in the Railway environment (service
+  variables). Writing admin credentials to Railway is an operator/authorized
+  action.
 - Any change to the **production** project's settings (e.g. auth
   percentage-based connection allocation — see `docs/capacity-review.md` §3).
