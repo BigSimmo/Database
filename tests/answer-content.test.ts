@@ -50,6 +50,12 @@ describe("primaryAnswerDisplayText", () => {
     expect(primaryAnswerDisplayText(answer, { preserveBold: true })).toContain("administer lithium");
   });
 
+  it("keeps a should-not / must-not contraindication directive beyond the compact head", () => {
+    const answer =
+      "Give paracetamol for ongoing pain. Review the observations hourly overnight. Document the management plan clearly in the notes. Clozapine should not be used in this patient.";
+    expect(primaryAnswerDisplayText(answer)).toContain("should not be used");
+  });
+
   it("is unchanged for a short answer with no safety signal", () => {
     const answer = "Offer simple analgesia and reassess in one hour.";
     expect(primaryAnswerDisplayText(answer)).toBe(answer);

@@ -249,8 +249,12 @@ export function isPreformattedGroundedAnswer(answer: Pick<RagAnswer, "preformatt
 // Fragments carrying a safety-critical signal must never be dropped by the
 // compact 3-fragment / 85-word cap — a withhold/threshold/escalation caveat
 // hidden from the primary prose is a clinical-safety regression.
+// Covers the common withhold / withdrawal / contraindication / negation /
+// escalation directives so a short safety caveat is never dropped from the
+// compact primary answer. Kept deliberately broad (matching a non-safety
+// fragment only preserves it verbatim — the safe direction).
 const primaryAnswerSafetySignalPattern =
-  /\b(?:withhold|withheld|stop|cease|hold|held|threshold|escalat\w*|urgent|red\s*zone|amber|immediately|do not|avoid|contraindicat\w*|toxic)\b/i;
+  /\b(?:withhold|withheld|stop|cease|discontinue\w*|suspend\w*|hold|held|threshold|escalat\w*|urgent|immediately|never|avoid|contraindicat\w*|toxic|red\s*zone|amber|(?:do|must|should|will)\s+not|not\s+recommended)\b/i;
 
 // Test against a de-bolded copy so server bold markers inside a phrase
 // ("do **not** administer", "red **zone**") on the preserveBold path can never
