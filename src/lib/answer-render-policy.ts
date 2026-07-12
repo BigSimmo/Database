@@ -604,11 +604,7 @@ export function buildAnswerRenderModel(
     relatedDocuments,
     bestSource,
     warnings,
-<<<<<<< HEAD
-    copyText: formatAnswerRenderCopyText({ answerText, trust, primarySources, warnings, visualEvidence }),
-=======
-    copyText: formatAnswerRenderCopyText({ answerText: copyAnswerText, trust, primarySources, warnings }),
->>>>>>> origin/main
+    copyText: formatAnswerRenderCopyText({ answerText: copyAnswerText, trust, primarySources, warnings, visualEvidence }),
     debugReasons: options.includeDebugReasons ? decisions : undefined,
   };
 }

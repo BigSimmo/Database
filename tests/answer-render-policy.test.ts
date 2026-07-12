@@ -125,7 +125,6 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
 }
 
 describe("answer render policy", () => {
-<<<<<<< HEAD
   it("copies the displayed table values, units, and canonical provenance", () => {
     const model = buildAnswerRenderModel(
       answer({
@@ -142,7 +141,8 @@ describe("answer render policy", () => {
     expect(model.copyText).toContain("0.49 ×10^9/L");
     expect(model.copyText).toContain("Stop and escalate");
     expect(model.copyText).toContain("/documents/doc-1?page=4&chunk=chunk-1");
-=======
+  });
+
   it("strips high-yield bold markers from the copy/paste clinical draft", () => {
     const model = buildAnswerRenderModel(
       answer({
@@ -153,7 +153,6 @@ describe("answer render policy", () => {
     expect(model.copyText).not.toContain("**");
     expect(model.copyText).toContain("withhold clozapine");
     expect(model.copyText).toContain("within 24 hours");
->>>>>>> origin/main
   });
 
   it("limits unsupported answers to source review and warnings even when raw extras are present", () => {
