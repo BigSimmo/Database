@@ -32,8 +32,9 @@ import {
   X,
 } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { AccessibleTable } from "@/components/AccessibleTable";
-import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
+import { AccessibleTable, hasRenderableAccessibleTable } from "@/components/AccessibleTable";
+import { documentDisplayTitle, documentOrganizationProfile } from "@/components/DocumentOrganizationBadges";
+import { formatDocumentLabelDisplay } from "@/lib/document-tags";
 import {
   DocumentActionAnchor,
   DocumentActionButton,
@@ -442,7 +443,15 @@ function DocumentImage({ image }: { image: ImageRow }) {
     : looksLikeTableText(image.tableTextSnippet)
       ? image.tableTextSnippet
       : null;
-  const hasStructuredTable = Boolean(tableMarkdown || image.tableRows?.length || image.tableColumns?.length);
+  // Only let the table "lead" (collapsing the source image) when AccessibleTable
+  // will actually render a table. Columns-only input or unparseable markdown
+  // render nothing, so those route to the image-first branch instead of leaving
+  // an empty caption above a hidden source image.
+  const hasStructuredTable = hasRenderableAccessibleTable({
+    markdown: tableMarkdown,
+    rows: image.tableRows,
+    columns: image.tableColumns,
+  });
   const tableCaption = tableHeading || cleanCaption || "Document table";
   const showImageCaptionLine = cleanCaption && cleanCaption !== tableCaption;
   const displayLabels = smartEvidenceTags(
@@ -528,7 +537,6 @@ function DocumentImage({ image }: { image: ImageRow }) {
       ) : null}
     </figcaption>
   );
-
   return (
     <figure ref={figureRef} className={cn(sourceCard, "overflow-hidden p-3")}>
       <p className={cn("text-xs font-semibold uppercase tracking-[0.08em]", textMuted)}>
@@ -1772,6 +1780,22 @@ function compactDocumentType(document: ClinicalDocument) {
   return documentFileKind(document.file_name, "PDF");
 }
 
+// Derive the header eyebrow from the document's real type instead of asserting
+// every document is a "Clinical guideline". Prefers the organization profile's
+// document_type, then a high-confidence document_type label, then a neutral fallback.
+function documentTypeEyebrow(document: ClinicalDocument) {
+  const profile = documentOrganizationProfile(document);
+  const profileType =
+    typeof profile?.document_type?.label === "string" && profile.document_type.label !== "unknown"
+      ? profile.document_type.label
+      : null;
+  const labelType = document.labels?.find(
+    (label) => label.label_type === "document_type" && (label.confidence ?? 0) >= 0.5,
+  )?.label;
+  const typeLabel = profileType ?? labelType;
+  return typeLabel ? formatDocumentLabelDisplay(typeLabel, "document_type") : "Clinical document";
+}
+
 function documentOverviewText(document: ClinicalDocument) {
   const profile = document.summary?.clinical_specifics?.profile;
   // The stored raw summary opens with PDF-header boilerplate on many live
@@ -1790,20 +1814,6 @@ function documentKeySections(document: ClinicalDocument) {
   return Array.from(new Set(labels)).slice(0, 3);
 }
 
-// Eyebrow above the document title. Derived from the document's own labels (a
-// "document_type" label, else "document_intent") so it reflects the actual type
-// rather than claiming every document is a clinical guideline. Falls back to a
-// neutral label when the type is unknown.
-function documentTypeEyebrow(document: ClinicalDocument) {
-  const labels = document.labels ?? [];
-  const typeLabel =
-    labels.find((label) => label.label_type === "document_type")?.label ??
-    labels.find((label) => label.label_type === "document_intent")?.label;
-  const trimmed = typeLabel?.trim();
-  if (trimmed) return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-  return "Clinical document";
-}
-
 function DocumentPagePreview({ pageNumber }: { pageNumber: number | null }) {
   // A real "jump to page" chip rather than a fake wireframe thumbnail that looks
   // like a skeleton that never resolves.
@@ -1817,7 +1827,6 @@ function DocumentPagePreview({ pageNumber }: { pageNumber: number | null }) {
     </a>
   );
 }
-
 function usefulDocumentPages(initialPage: number, pages: PageRow[]) {
   return Array.from(new Set([initialPage, ...pages.map((page) => page.page_number)]))
     .filter((page) => Number.isFinite(page))
@@ -1846,6 +1855,7 @@ function DocumentOverviewLanding({
   const keySections = documentKeySections(document);
   const usefulPages = usefulDocumentPages(initialPage, pages);
   const documentType = compactDocumentType(document);
+  const overviewText = documentOverviewText(document);
 
   return (
     <section className="grid gap-4 lg:grid-cols-3 lg:items-start">
@@ -1871,6 +1881,9 @@ function DocumentOverviewLanding({
                 `Uploaded ${formatClinicalDate(document.created_at)}`,
               ]}
             />
+            {overviewText ? (
+              <p className={cn("mt-2 line-clamp-2 text-sm leading-6", textMuted)}>{overviewText}</p>
+            ) : null}
             {/* Search relevance badges are rendered in document search results; the viewer has no ranking context. */}
           </div>
         </div>
@@ -2393,13 +2406,6 @@ export function DocumentViewer({
         ? "auth-required"
         : "error";
   const readyDocument = viewerState === "ready" ? document : null;
-  const headerTitle = readyDocument
-    ? documentDisplayTitle(readyDocument)
-    : viewerState === "auth-required"
-      ? "Sign in required"
-      : viewerState === "loading"
-        ? "Document"
-        : "Source unavailable";
   const headerSubtitle = readyDocument
     ? `page ${initialPage} · ${readyDocument.file_name}`
     : viewerState === "loading"
@@ -2520,12 +2526,11 @@ export function DocumentViewer({
             <ArrowLeft className="h-5 w-5 shrink-0" />
             <span className="hidden sm:inline">Documents</span>
           </Link>
-
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <Link
               href={scopedDocumentHref}
               className="hidden h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] min-[380px]:grid"
-              aria-label="Scope this document"
+              aria-label="Add this document to scope"
               title={headerSubtitle}
             >
               <Target className="h-5 w-5" />
@@ -2540,7 +2545,6 @@ export function DocumentViewer({
             </button>
           </div>
         </div>
-        <h1 className="sr-only">{headerTitle}</h1>
       </header>
 
       {readyDocument ? (

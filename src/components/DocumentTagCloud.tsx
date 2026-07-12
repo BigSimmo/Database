@@ -53,6 +53,15 @@ function confidenceTitle(tag: SmartDocumentTag) {
   return `${tag.group}: ${tag.source} tag, ${Math.round(tag.confidence * 100)}% confidence`;
 }
 
+/**
+ * Renders a document tag with group-specific styling and optional search interaction.
+ *
+ * @param tag - The document tag to display.
+ * @param compact - Whether to use compact sizing.
+ * @param selected - Whether to indicate the tag as selected.
+ * @param onTagClick - Optional callback invoked when the tag is clicked.
+ * @returns The rendered document tag chip.
+ */
 function DocumentTagChip({
   tag,
   compact,

@@ -34,6 +34,7 @@ import {
   codeText,
   floatingControl,
   metadataPill,
+  pageContainer,
   primaryControl,
   textMuted,
   toneDanger,
@@ -493,7 +494,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
       data-testid="form-detail-page"
       className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:px-5 sm:pb-10 sm:pt-6 lg:px-8"
     >
-      <div className="mx-auto max-w-7xl">
+      <div className={pageContainer}>
         {notice ? (
           <div
             role="status"
@@ -547,7 +548,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   {code}
                 </div>
                 <div className="min-w-0">
-                  <h1 className="max-w-4xl text-xl font-extrabold leading-[1.08] text-[color:var(--text-heading)] sm:text-4xl">
+                  <h1 className="max-w-4xl text-3xl font-extrabold leading-[1.05] text-[color:var(--text-heading)] sm:text-4xl">
                     {form.title}
                   </h1>
                   <p className="mt-1.5 max-w-4xl text-xs font-medium leading-4 text-[color:var(--text-muted)] sm:mt-3 sm:text-base sm:leading-6">

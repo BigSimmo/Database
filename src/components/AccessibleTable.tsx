@@ -292,6 +292,29 @@ function useMobileTableExpansion(enabledByDefault: boolean) {
   return enabledByDefault && isMobile;
 }
 
+// Mirrors the component's `normalized` computation so callers can decide layout
+// (e.g. whether to collapse a source image) using the exact same parse/normalize
+// rules AccessibleTable renders with. Returns false when the table would render
+// nothing — columns-only input, unparseable markdown, or an all-metadata grid.
+export function hasRenderableAccessibleTable({
+  markdown,
+  rows,
+  columns,
+  clinicalOnly = false,
+}: {
+  markdown?: string | null;
+  rows?: string[][] | null;
+  columns?: string[] | null;
+  clinicalOnly?: boolean;
+}): boolean {
+  const hasExplicitRows = Boolean(rows?.length);
+  const parsed = hasExplicitRows ? rows : parseMarkdownTable(markdown);
+  if (!parsed?.length) return false;
+  const table = normalizeAccessibleTable(parsed, hasExplicitRows ? columns : null);
+  if (!table) return false;
+  return Boolean(clinicalOnly ? clinicalOnlyTable(table) : table);
+}
+
 export function AccessibleTable({
   caption,
   markdown,

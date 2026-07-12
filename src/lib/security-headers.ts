@@ -70,11 +70,12 @@ export function buildContentSecurityPolicy({
     "frame-ancestors 'none'; " +
     "form-action 'self'; " +
     upgradeInsecureRequests +
-    // img-src must allow https: so cross-origin Supabase Storage signed-URL
-    // images (document pages) can load. connect-src must include *.supabase.co
-    // for the signed-URL/API fetches.
-    "img-src 'self' data: blob: https:; " +
-    "media-src 'self' https:; " +
+    // img-src/media-src are scoped to the Supabase Storage origin that serves the
+    // signed-URL images (document pages) — the app loads no other cross-origin
+    // media, so a bare `https:` would needlessly widen the exfil surface. connect-src
+    // must include *.supabase.co for the signed-URL/API fetches.
+    "img-src 'self' data: blob: https://*.supabase.co; " +
+    "media-src 'self' https://*.supabase.co; " +
     "connect-src 'self' https://*.supabase.co https://api.openai.com; " +
     scriptSrc +
     "style-src 'self' 'unsafe-inline'"

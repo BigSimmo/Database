@@ -59,7 +59,16 @@ type OwnerScopedQuery<T> = {
   or(filters: string): T;
 };
 
-/** Scope reads to public rows (owner_id IS NULL) and, when signed in, the caller's owned rows. */
+/**
+ * Scope reads to public rows (owner_id IS NULL) and, when signed in, the caller's owned rows.
+ *
+ * Anonymous callers intentionally see ONLY the public corpus (owner_id IS NULL). Documents pooled
+ * under PUBLIC_WORKSPACE_OWNER_ID by anonymous uploads (see upload/route.ts) are a deliberate
+ * moderation quarantine: they stay out of anonymous viewing here — and out of RAG retrieval, which
+ * is gated separately on owner_id IS NULL — until an operator reviews and promotes them to
+ * owner_id IS NULL via scripts/promote-public-documents.ts (or the 20260706120000 promote
+ * migration). Do not union the pool owner in here without making that content-moderation decision.
+ */
 export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, ownerId: string | undefined): T {
   if (ownerId) return query.or(`owner_id.eq.${ownerId},owner_id.is.null`);
   return query.is("owner_id", null);
