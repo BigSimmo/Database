@@ -52,6 +52,18 @@ describe("GET /api/health", () => {
     expect(body.checks).toMatchObject({ supabaseConfig: "missing", openaiConfig: "missing" });
   });
 
+  it("gates the deep probe without a token and omits the slo snapshot", async () => {
+    mockEnv({ configured: true });
+    const { GET } = await import("../src/app/api/health/route");
+
+    const response = await GET(healthRequest("?deep=1"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(503);
+    expect(body.checks).toMatchObject({ supabase: "unauthorized" });
+    expect(body.slo).toBeUndefined();
+  });
+
   it("does not leak secret values in the payload", async () => {
     mockEnv({ configured: true });
     const { GET } = await import("../src/app/api/health/route");
