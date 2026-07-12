@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ListChecks } from "lucide-react";
+import { CircleCheck, ListChecks } from "lucide-react";
 
 import { AccessibleTable } from "@/components/AccessibleTable";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -110,7 +110,7 @@ export function ClinicalOutputPanel({
         <div className="mt-3 rounded-md border border-[color:var(--primary)]/15 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]">
           <div className="flex items-start gap-2.5">
             <span className={cn(iconTilePremium, "h-8 w-8 text-[color:var(--primary)]")}>
-              <CheckCircle2 className="h-4 w-4" />
+              <CircleCheck aria-hidden="true" className="h-4 w-4" />
             </span>
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">

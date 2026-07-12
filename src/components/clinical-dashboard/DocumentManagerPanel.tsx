@@ -307,7 +307,11 @@ export function UploadPanel({
           disabled={uploading || (!demoMode && !canUpload)}
           className={cn(floatingControl, "w-full justify-center")}
         >
-          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+          {uploading ? (
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          ) : (
+            <UploadCloud aria-hidden="true" className="h-4 w-4" />
+          )}
           Upload guidelines
         </button>
       </div>
@@ -442,7 +446,11 @@ export function IndexingMonitor({
                   disabled={busy}
                   className={cn(floatingControl, "min-h-9 px-3 text-xs")}
                 >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {busy ? (
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                  )}
                   Retry
                 </button>
               )}
@@ -452,7 +460,11 @@ export function IndexingMonitor({
                 disabled={busy || job.status === "processing"}
                 className={cn(floatingControl, "min-h-9 px-3 text-xs")}
               >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {busy ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                )}
                 Reindex
               </button>
               <button
@@ -461,7 +473,11 @@ export function IndexingMonitor({
                 disabled={busy || job.status === "processing"}
                 className={cn(floatingControl, "min-h-9 px-3 text-xs")}
               >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {busy ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles aria-hidden="true" className="h-4 w-4" />
+                )}
                 Enrich
               </button>
             </div>
@@ -581,7 +597,7 @@ export function IngestionQualityConsole({
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Link href={`/documents/${item.documentId}`} className={cn(floatingControl, "min-h-9 px-3 text-xs")}>
-                    <ExternalLink className="h-4 w-4" />
+                    <ExternalLink aria-hidden="true" className="h-4 w-4" />
                     Open
                   </Link>
                   {item.jobId ? (
@@ -591,7 +607,11 @@ export function IngestionQualityConsole({
                       disabled={busy}
                       className={cn(floatingControl, "min-h-9 px-3 text-xs")}
                     >
-                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      {busy ? (
+                        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                      )}
                       Retry
                     </button>
                   ) : null}
@@ -601,7 +621,11 @@ export function IngestionQualityConsole({
                     disabled={busy}
                     className={cn(floatingControl, "min-h-9 px-3 text-xs")}
                   >
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    {busy ? (
+                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                    )}
                     Reindex
                   </button>
                   <button
@@ -610,7 +634,11 @@ export function IngestionQualityConsole({
                     disabled={busy}
                     className={cn(floatingControl, "min-h-9 px-3 text-xs")}
                   >
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {busy ? (
+                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles aria-hidden="true" className="h-4 w-4" />
+                    )}
                     Enrich
                   </button>
                 </div>

@@ -12,6 +12,7 @@ import {
   FolderOpen,
   ListChecks,
   Loader2,
+  Pill,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -19,6 +20,7 @@ import {
   Sparkles,
   Tag,
   Target,
+  Users,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -115,13 +117,13 @@ const searchRecordConfig: Record<
 
 const documentFacetIcons: Record<SmartDocumentTagGroup, LucideIcon> = {
   Site: FileText,
-  Medication: Target,
+  Medication: Pill,
   Risk: ShieldAlert,
   Workflow: ListChecks,
   Topic: Tag,
-  Population: FileText,
+  Population: Users,
   Setting: FileText,
-  Service: Sparkles,
+  Service: ShieldCheck,
   "Document type": FileText,
   "Clinical action": ListChecks,
   "Care phase": Clock3,
@@ -153,7 +155,7 @@ function DocumentTagFacetRail({
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
         {activeKeys.length > 0 ? (
           <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-11 px-2 text-2xs sm:min-h-8")}>
-            <X className="h-3.5 w-3.5" />
+            <X aria-hidden="true" className="h-3.5 w-3.5" />
             Clear
           </button>
         ) : null}
@@ -363,7 +365,7 @@ function SearchResultsHeader({ resultLabel, trimmedQuery }: { resultLabel: strin
       <div className="min-w-0">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-            <FileText className="h-5 w-5" />
+            <FileText aria-hidden="true" className="h-5 w-5" />
           </span>
           <div className="min-w-0">
             <h3 className="text-lg font-semibold leading-6 text-[color:var(--text-heading)]">{resultLabel}</h3>
@@ -385,9 +387,9 @@ function SearchResultsHeader({ resultLabel, trimmedQuery }: { resultLabel: strin
           "min-h-11 shrink-0 gap-2 rounded-lg px-3 text-sm text-[color:var(--text-heading)]",
         )}
       >
-        <SlidersHorizontal className="h-4 w-4" />
+        <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
         Best match
-        <ChevronDown className="h-3.5 w-3.5" />
+        <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
       </button>
     </section>
   );
@@ -439,7 +441,7 @@ function DocumentResultsOverview({
         onClick={onOpenLibrary}
         className={cn(floatingControl, "min-h-9 w-full rounded-lg px-3 text-xs sm:w-auto")}
       >
-        <FolderOpen className="h-4 w-4" />
+        <FolderOpen aria-hidden="true" className="h-4 w-4" />
         Browse library
       </button>
     </section>
@@ -497,7 +499,7 @@ function SelectedDocumentEvidencePanel({
     >
       <div className="flex items-start gap-2">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-          <Sparkles className="h-4.5 w-4.5" aria-hidden="true" />
+          <Sparkles className="size-icon-lg" aria-hidden="true" />
         </span>
         <div className="min-w-0">
           <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
@@ -911,7 +913,7 @@ function DocumentSearchResultsPanelImpl({
         recordMatchCount > 0 ? null : trimmedQuery && !shouldShowHome ? (
           <div className={cn(panelSubtle, "grid gap-3 p-5 text-center sm:p-6")}>
             <span className="mx-auto grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-              <FileText className="h-5 w-5" />
+              <FileText aria-hidden="true" className="h-5 w-5" />
             </span>
             <div>
               <h3 className="text-base font-semibold text-[color:var(--text-heading)]">No matching documents</h3>

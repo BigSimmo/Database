@@ -27,7 +27,11 @@ export function CopyButton({
       aria-label={ariaLabel ?? label}
       className={cn(floatingControl, "px-3 text-xs")}
     >
-      {copied ? <ClipboardCheck className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
+      {copied ? (
+        <ClipboardCheck aria-hidden="true" className="h-4 w-4" />
+      ) : (
+        <Clipboard aria-hidden="true" className="h-4 w-4" />
+      )}
       <span className="sm:hidden">{copied ? copyButton.copied : (shortLabel ?? label)}</span>
       <span className="hidden sm:inline">{copied ? copyButton.copied : label}</span>
     </button>

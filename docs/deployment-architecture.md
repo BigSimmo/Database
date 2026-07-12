@@ -35,12 +35,9 @@ Run the Next.js app as a **single long-lived container** (Node 24, image built
 from `Dockerfile`) on a managed container host **in Sydney, co-located with
 the Supabase project's ap-southeast-2 region**.
 
-Recommended host: **Fly.io (`syd` region)**, because it runs plain OCI images
-with per-app secrets, health checks, and rollback to previous releases, and it
-has a Sydney region. Google Cloud Run (`australia-southeast2`) is an equivalent
-alternative if a GCP account is preferred; the image is host-agnostic either
-way. Railway is _not_ suitable today (no Sydney region — cross-region RPC
-latency would multiply across the per-answer fan-out).
+Recommended host: any OCI-image host. Production runs on **Railway**; Google
+Cloud Run (`australia-southeast2`) is a Sydney-region alternative if lower
+answer latency matters. The image is host-agnostic.
 
 ### Why a long-lived container and not serverless (Vercel et al.)
 
