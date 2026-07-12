@@ -1818,12 +1818,12 @@ function documentKeySections(document: ClinicalDocument) {
   return Array.from(new Set(labels)).slice(0, 3);
 }
 
-function DocumentPagePreview({ pageNumber }: { pageNumber: number | null }) {
+function DocumentPagePreview({ href, pageNumber }: { href: string; pageNumber: number | null }) {
   // A real "jump to page" chip rather than a fake wireframe thumbnail that looks
   // like a skeleton that never resolves.
   return (
     <a
-      href="#pdf-preview-section"
+      href={href}
       className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/40 hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)]"
     >
       <FileText className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" />
@@ -1843,6 +1843,7 @@ function DocumentOverviewLanding({
   signedUrl,
   downloadUrl,
   pages,
+  pageHref,
   onAskFromDocument,
   onAddToScope,
   canSummarizeDocument,
@@ -1852,6 +1853,7 @@ function DocumentOverviewLanding({
   signedUrl: string | null;
   downloadUrl: string | null;
   pages: PageRow[];
+  pageHref: (page: number) => string;
   onAskFromDocument: () => void;
   onAddToScope: () => void;
   canSummarizeDocument: boolean;
@@ -1982,7 +1984,7 @@ function DocumentOverviewLanding({
             <p className={cn("mt-1 text-sm leading-6", textMuted)}>Most relevant pages for this document.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {(usefulPages.length ? usefulPages : [initialPage]).map((page) => (
-                <DocumentPagePreview key={page} pageNumber={page} />
+                <DocumentPagePreview key={page} href={pageHref(page)} pageNumber={page} />
               ))}
             </div>
           </div>
@@ -2419,6 +2421,11 @@ export function DocumentViewer({
   const scopedDocumentHref = readyDocument
     ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}`
     : documentHomeHref;
+  const documentPageHref = (page: number) => {
+    const params = new URLSearchParams({ page: String(Math.max(1, Math.trunc(page))) });
+    if (chunkId) params.set("chunk", chunkId);
+    return `/documents/${encodeURIComponent(documentId)}?${params.toString()}#pdf-preview-section`;
+  };
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
   const summarizeTitle = canSummarizeDocument ? "Answer from this document" : "Load a source document before answering";
   const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
@@ -2696,6 +2703,7 @@ export function DocumentViewer({
               signedUrl={signedUrl}
               downloadUrl={downloadSignedUrl}
               pages={pages}
+              pageHref={documentPageHref}
               onAskFromDocument={() => void summarize()}
               onAddToScope={() => router.push(scopedDocumentHref)}
               canSummarizeDocument={canSummarizeDocument}
@@ -2933,7 +2941,10 @@ export function DocumentViewer({
               {document.summary?.clinical_specifics?.profile ? (
                 <ClinicalSummaryProfile profile={document.summary.clinical_specifics.profile} />
               ) : (
-                <FormattedHighYieldSummary formatted={formattedStoredSummary} showLead={false} />
+                <FormattedHighYieldSummary
+                  formatted={formattedStoredSummary}
+                  showLead={formattedStoredSummary.sections.length === 0}
+                />
               )}
               {!document.summary?.clinical_specifics?.profile && document.summary?.clinical_specifics && (
                 <div className="mt-4 space-y-4">

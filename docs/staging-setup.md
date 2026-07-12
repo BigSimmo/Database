@@ -25,13 +25,15 @@ those vars are unset.
 
 2. **Apply the schema.** From a checkout linked to the staging project:
 
-   ```bash
+   ````bash
    supabase link --project-ref <staging-ref>
    supabase db push          # applies supabase/migrations/* → matches schema.sql
-   ```
+   ```dotenv
 
    Then confirm health: `npm run check:indexing` (runs `search_schema_health()`
    over the hybrid RPCs) should report ok.
+
+   ````
 
 3. **Seed a small corpus (~50 docs).** Use synthetic/public content only — do
    **not** copy clinical production documents into staging.
@@ -72,16 +74,16 @@ Reuse the same images; only the environment variables differ.
 2. **Runtime secrets** (injected at deploy, never baked into the image) — all
    with **staging** values, distinct from production:
 
-   | Var                             | Value                             |
-   | ------------------------------- | --------------------------------- |
-   | `SUPABASE_SERVICE_ROLE_KEY`     | staging `sb_secret_…`             |
-   | `OPENAI_API_KEY`                | an OpenAI key (staging or shared) |
-   | `SUPABASE_PROJECT_REF`          | `<staging-ref>`                   |
-   | `SUPABASE_PROJECT_NAME`         | `Clinical KB Staging`             |
-   | `SUPABASE_STAGING_PROJECT_REF`  | `<staging-ref>`                   |
-   | `SUPABASE_STAGING_PROJECT_NAME` | `Clinical KB Staging`             |
-   | `RAG_QUERY_HASH_SECRET`         | a staging secret                  |
-   | `RAG_PROVIDER_MODE`             | `auto`                            |
+   | Var                             | Value                                                     |
+   | ------------------------------- | --------------------------------------------------------- |
+   | `SUPABASE_SERVICE_ROLE_KEY`     | staging `sb_secret_…`                                     |
+   | `OPENAI_API_KEY`                | a staging-only OpenAI key; never reuse the production key |
+   | `SUPABASE_PROJECT_REF`          | `<staging-ref>`                                           |
+   | `SUPABASE_PROJECT_NAME`         | `Clinical KB Staging`                                     |
+   | `SUPABASE_STAGING_PROJECT_REF`  | `<staging-ref>`                                           |
+   | `SUPABASE_STAGING_PROJECT_NAME` | `Clinical KB Staging`                                     |
+   | `RAG_QUERY_HASH_SECRET`         | a staging secret                                          |
+   | `RAG_PROVIDER_MODE`             | `auto`                                                    |
 
    The two `SUPABASE_STAGING_PROJECT_*` vars are what make the identity guard
    accept the staging project. Setting `NEXT_PUBLIC_SUPABASE_URL` +

@@ -1433,6 +1433,7 @@ summary::-webkit-details-marker {
      right-rail evidence/profile/tables text. Scoped to lg+, where the rail sits
      beside the main column. */
   .document-viewer-composer.floating-composer-edge {
+    left: max(2rem, var(--safe-area-left));
     right: calc(max(0px, (100vw - 1440px) / 2) + 480px + 3.5rem + var(--safe-area-right));
   }
 }

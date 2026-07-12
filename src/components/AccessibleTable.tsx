@@ -158,7 +158,9 @@ function AccessibleTableMarkup({
                   scope="col"
                   className={cn(
                     "nums border-b border-l border-[color:var(--border)]/70 align-top font-semibold leading-5 text-[color:var(--text)]",
-                    "whitespace-normal break-words",
+                    renderDensePreview
+                      ? "overflow-hidden text-ellipsis whitespace-nowrap"
+                      : "whitespace-normal break-words",
                     renderDensePreview
                       ? "px-2 py-1.5 text-3xs uppercase tracking-[0.06em]"
                       : expanded
