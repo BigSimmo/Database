@@ -90,6 +90,9 @@ demands more; replicas are safe but dilute in-memory coalescing, so add them onl
 after the shared `rag_response_cache` hit rate is confirmed healthy. On Railway,
 prefer a single-region replica bump (`railway scale southeast-asia=N`) over
 spreading replicas across regions, which would multiply the cross-region DB hop.
+**Before the first vertical scale-up**, clear the auth 10-connection cap so the
+auth pool scales with compute instead of staying pinned — operator runbook:
+`docs/auth-connection-cap-runbook.md` (`docs/capacity-review.md` §2–§3).
 
 ### 2.1 The Railway↔Supabase connection (Singapore → Sydney)
 
@@ -206,6 +209,11 @@ cron-triggered completion/repair gate — the two are complementary, not
 alternatives. The worker service selects its Dockerfile via the
 `RAILWAY_DOCKERFILE_PATH=Dockerfile.worker` variable (captured in
 `railway.worker.json`).
+
+> **Operator run recipe:** the copy-pasteable build/run/verify steps, the
+> required env + secrets, and the pre-deploy migration gate live in
+> [`worker-deploy-runbook.md`](worker-deploy-runbook.md). This section is the
+> decision record; that runbook is how to ship it.
 
 Reasoning:
 

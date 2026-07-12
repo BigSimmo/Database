@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  Ban,
   TriangleAlert,
   ArrowLeft,
   BadgeCheck,
@@ -32,8 +33,8 @@ import { cn, pageContainer } from "@/components/ui-primitives";
 
 const sectionIcons: Record<string, LucideIcon> = {
   dose: CalendarDays,
-  risk: ShieldCheck,
-  contra: ShieldCheck,
+  risk: TriangleAlert,
+  contra: Ban,
   safe: ShieldCheck,
   mon: Activity,
   inter: FlaskConical,
