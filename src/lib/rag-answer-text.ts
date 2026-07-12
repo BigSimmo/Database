@@ -209,14 +209,6 @@ function separateSettingRunOns(value: string): string {
     .replace(/\bfor community patients,?\s+for inpatients,?/gi, "for community patients. For inpatients,");
 }
 
-/**
- * Cleans clinical answer text by removing artifacts, normalizing formatting, and improving readability.
- *
- * @param value - The clinical answer text to polish
- * @param options - Formatting options
- * @param options.preserveBold - Whether to preserve inline bold markers
- * @returns The polished clinical answer text
- */
 function stripAnswerArtifactNoise(text: string) {
   return text
     .replace(productCatalogueFragmentPattern, " ")
@@ -247,6 +239,14 @@ function restoreBoldSpans(text: string, boldSpans: string[]) {
   return restored;
 }
 
+/**
+ * Cleans clinical answer text by removing artifacts, normalizing formatting, and improving readability.
+ *
+ * @param value - The clinical answer text to polish
+ * @param options - Formatting options
+ * @param options.preserveBold - Whether to preserve inline bold markers
+ * @returns The polished clinical answer text
+ */
 export function polishClinicalAnswerProse(value: string, options: { preserveBold?: boolean } = {}) {
   // Bold markers normally come off before bullet normalization so an emphasized
   // item ("o **Reduce dose**") still reads as a sub-bullet to the "o" matcher.

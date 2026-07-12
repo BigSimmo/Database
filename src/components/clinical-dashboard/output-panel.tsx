@@ -4,7 +4,7 @@ import { CircleCheck, ListChecks } from "lucide-react";
 
 import { AccessibleTable } from "@/components/AccessibleTable";
 import { SafeBoldText } from "@/components/SafeBoldText";
-import { plainAnswerText } from "@/components/clinical-dashboard/answer-content";
+import { isPreformattedGroundedAnswer, plainAnswerText } from "@/components/clinical-dashboard/answer-content";
 import { SectionHeading, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import {
   AnswerViewModeControl,
@@ -56,9 +56,7 @@ export function ClinicalOutputPanel({
   const rows = evidenceMapRows ?? buildAnswerEvidenceMap(answer);
   if (sections.length === 0 && (viewMode !== "evidence_map" || rows.length === 0)) return null;
   const leadSection = sections.find((section) => section.id === "bottom-line") ?? sections[0];
-  const primaryAnswer = plainAnswerText(answer.answer, {
-    preformatted: Boolean(answer.preformatted && answer.grounded),
-  });
+  const primaryAnswer = plainAnswerText(answer.answer, { preformatted: isPreformattedGroundedAnswer(answer) });
   const detailSections = sections
     .filter((section) => section.id !== "verify-source")
     .filter((section) => (showLead ? section.id !== leadSection?.id : section.id !== "bottom-line"))

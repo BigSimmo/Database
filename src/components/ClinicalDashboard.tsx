@@ -68,6 +68,7 @@ import {
 import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import {
+  isPreformattedGroundedAnswer,
   NaturalLanguageAnswer,
   ScopeAndGovernanceNotice,
   UserQuestionBubble,
@@ -523,7 +524,7 @@ function PriorAnswerTurnSurface({
     () => buildAnswerRenderModel(turn.answer, { sources: turn.sources }),
     [turn.answer, turn.sources],
   );
-  const turnPreformatted = Boolean(turn.answer.preformatted && turn.answer.grounded);
+  const turnPreformatted = isPreformattedGroundedAnswer(turn.answer);
   const safeText = useMemo(
     () => sanitizeAnswerDisplayText(turn.answer.answer, { preformatted: turnPreformatted }),
     [turn.answer.answer, turnPreformatted],
@@ -2861,7 +2862,7 @@ export function ClinicalDashboard({
     currentRelevance?.isSourceBacked !== false &&
     answerRenderModel?.trust !== "unsupported";
   const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
-  const answerPreformatted = Boolean(answer?.preformatted && answer?.grounded);
+  const answerPreformatted = isPreformattedGroundedAnswer(answer);
   const safeAnswerText = useMemo(
     () => sanitizeAnswerDisplayText(answer?.answer ?? "", { preformatted: answerPreformatted }),
     [answer?.answer, answerPreformatted],
