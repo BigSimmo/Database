@@ -544,6 +544,13 @@ export function formatAnswerRenderCopyText(args: {
     .trim();
 }
 
+/**
+ * Builds a trust-gated render model for a clinical answer, including sources, evidence, warnings, and copy-ready text.
+ *
+ * @param answer - The clinical answer and associated evidence to render
+ * @param options - Optional source overrides and diagnostic decision details
+ * @returns The structured answer render model
+ */
 export function buildAnswerRenderModel(
   answer: RagAnswer,
   options: BuildAnswerRenderModelOptions = {},

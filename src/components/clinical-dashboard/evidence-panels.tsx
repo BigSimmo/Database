@@ -569,6 +569,13 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
     .filter((tab) => tab.count > 0);
 }
 
+/**
+ * Builds the non-empty clinical detail sections used by the clinical notes view.
+ *
+ * @param answer - The answer from which to derive clinical detail sections.
+ * @param viewMode - Selects the standard or high-yield section set.
+ * @returns The sorted clinical detail sections with display-ready items.
+ */
 function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: AnswerViewMode) {
   const sections =
     viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);

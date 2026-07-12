@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { memo, type RefObject, useCallback, useEffect, useRef, useState } from "react";
@@ -38,6 +38,11 @@ import type {
 } from "@/lib/types";
 import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-output";
 
+/**
+ * Renders a staged answer with inline content and optional clinical notes, evidence, safety findings, and follow-up interfaces.
+ *
+ * @returns The staged answer surface.
+ */
 function StagedAnswerResultSurfaceImpl({
   answer,
   query,

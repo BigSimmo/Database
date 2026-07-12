@@ -288,6 +288,11 @@ export function sourceTextForClinicalProse(text: string) {
   return compactWhitespace(stripLowYieldSourceNoise(stripInternalImageDataBlocks(text)));
 }
 
+/**
+ * Produces clinical prose with meaningful line breaks preserved.
+ *
+ * @returns The cleaned text with normalized whitespace and low-yield source noise removed.
+ */
 export function sourceTextForClinicalProsePreservingBreaks(text: string) {
   return readableWhitespace(stripLowYieldSourceNoise(sourceTextForDisplayPreservingBreaks(text)));
 }
@@ -300,12 +305,23 @@ export function sourceTextForClinicalProsePreservingBreaks(text: string) {
 // leave garble). Apply only glyph repair + whitespace collapse, matching the
 // server's own `finalizeRagAnswerQuality` exemption for `preformatted && grounded`.
 // When preserveBold is false, strip **bold** markers so literal Markdown markers
-// never leak through to the display.
+/**
+ * Normalizes preformatted text for display while preserving its readable structure.
+ *
+ * @param options - Controls whether Markdown bold markers are preserved.
+ * @returns The normalized text, with bold markers removed unless `preserveBold` is `true`.
+ */
 export function normalizePreformattedDisplayText(text: string, options: { preserveBold?: boolean } = {}) {
   const normalized = readableWhitespace(text);
   return options.preserveBold ? normalized : normalized.replace(/\*\*([^*]+)\*\*/g, "$1");
 }
 
+/**
+ * Determines whether source text contains little clinically useful content.
+ *
+ * @param text - Source text to assess.
+ * @returns `true` if the text is predominantly source noise or contains only a short remainder, `false` otherwise.
+ */
 export function isLowYieldClinicalText(text: string) {
   const cleaned = sourceTextForClinicalProse(text);
   if (!cleaned) return true;
@@ -595,6 +611,13 @@ const standaloneBloodValueLinePattern =
 const bloodValueWithNounTailLinePattern =
   /^o\s+(?:\*\*)?(?:rh(?:d)?\s+)?(?:pos(?:itive)?|neg(?:ative)?)(?:\*\*)?\s+(?:blood(?!\s+(?:cultures?|tests?|screens?|samples?|results?)\b)|red\s+cells?)\b/i;
 
+/**
+ * Replaces OCR-style lowercase `o` sub-bullets while preserving blood-group value text.
+ *
+ * @param text - Text containing potential OCR sub-bullet markers
+ * @param joiner - Text used to replace recognized sub-bullet markers
+ * @returns Text with eligible sub-bullet markers replaced
+ */
 function replaceSubBulletOGlyphs(text: string, joiner: string) {
   return text.replace(subBulletOGlyphPattern, (match, offset: number) => {
     const before = text.slice(0, offset);

@@ -197,13 +197,26 @@ function removeBadAnswerFragments(value: string) {
 // immediately followed by a community schedule with no sentence break (e.g. "...monitored daily
 // for inpatients for community patients weekly..."). The synthesis prompt handles most of these,
 // but this is a narrow deterministic safety-net for the clearest recurring pattern. It also
-// consumes the original comma so it cannot produce a double comma.
+/**
+ * Separates flattened inpatient and community patient schedule phrases into distinct sentences.
+ *
+ * @param value - Clinical prose containing a setting-related run-on phrase
+ * @returns The prose with the targeted setting run-on replaced by separate sentences
+ */
 function separateSettingRunOns(value: string): string {
   return value
     .replace(/\bfor inpatients,?\s+for community patients,?/gi, "for inpatients. For community patients,")
     .replace(/\bfor community patients,?\s+for inpatients,?/gi, "for community patients. For inpatients,");
 }
 
+/**
+ * Cleans clinical answer text by removing artifacts, normalizing formatting, and improving readability.
+ *
+ * @param value - The clinical answer text to polish
+ * @param options - Formatting options
+ * @param options.preserveBold - Whether to preserve inline bold markers
+ * @returns The polished clinical answer text
+ */
 export function polishClinicalAnswerProse(value: string, options: { preserveBold?: boolean } = {}) {
   // Bold markers normally come off before bullet normalization so an emphasized
   // item ("o **Reduce dose**") still reads as a sub-bullet to the "o" matcher.

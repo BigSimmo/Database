@@ -26,6 +26,16 @@ import {
   buildHighYieldClinicalOutputSections,
 } from "@/lib/ward-output";
 
+/**
+ * Renders a source-backed clinical answer with structured details, lead content, or an evidence map.
+ *
+ * @param answer - The clinical answer to display
+ * @param collapsed - Whether to wrap the content in a collapsed utility drawer
+ * @param showLead - Whether to display the concise lead section
+ * @param viewMode - The presentation mode for the clinical output
+ * @param onViewModeChange - Callback invoked when the presentation mode changes
+ * @param evidenceMapRows - Evidence map rows to display instead of computing them from the answer
+ */
 export function ClinicalOutputPanel({
   answer,
   collapsed = false,

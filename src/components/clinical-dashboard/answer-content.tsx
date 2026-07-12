@@ -172,6 +172,12 @@ export const SourceImage = memo(function SourceImage({
   );
 });
 
+/**
+ * Displays the active search scope and source governance warnings.
+ *
+ * @param scope - The current search scope summary, or `null` when unavailable
+ * @param warnings - Source governance warnings to display
+ */
 export function ScopeAndGovernanceNotice({
   scope,
   warnings,
@@ -234,6 +240,13 @@ export type AnswerDisplayTextOptions = {
 const primaryAnswerSafetySignalPattern =
   /\b(?:withhold|withheld|stop|cease|hold|threshold|escalat\w*|urgent|red\s*zone|amber|immediately|do not|contraindicat\w*|toxic)\b/i;
 
+/**
+ * Produces sanitized, display-ready text for an answer.
+ *
+ * @param value - The answer text to sanitize
+ * @param options - Controls preformatted handling and bold-text preservation
+ * @returns The sanitized answer text
+ */
 export function plainAnswerText(value: string, options: AnswerDisplayTextOptions = {}) {
   // clinicalProseUsefulness runs the source-noise stripper, so preformatted
   // answers bypass it and go straight to the lossless display path.
@@ -248,6 +261,13 @@ export function plainAnswerText(value: string, options: AnswerDisplayTextOptions
     .trim();
 }
 
+/**
+ * Selects and compacts the primary answer text while preserving safety-critical guidance.
+ *
+ * @param value - The answer text to prepare for display
+ * @param options - Formatting options, including preformatted mode
+ * @returns The display-ready answer text
+ */
 export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTextOptions = {}) {
   const cleaned = plainAnswerText(value, options);
   // Deterministic preformatted answers are already concise and display-ready;
@@ -577,6 +597,20 @@ function SourcePreviewContent({
   );
 }
 
+/**
+ * Displays a sanitized clinical answer with source status, source previews, and copy actions.
+ *
+ * @param text - The raw answer text to display.
+ * @param preformatted - Whether to preserve the supplied formatting during display processing.
+ * @param sourceCount - The number of direct sources associated with the answer.
+ * @param sourceOnly - Whether to show a notice that the answer was assembled solely from source passages.
+ * @param bestSource - The highest-priority source recommendation, when available.
+ * @param sources - Search results used to build the source preview.
+ * @param sourceLinks - Source links and snippets associated with the answer.
+ * @param copied - Whether the answer has been copied.
+ * @param onCopy - Callback invoked to copy the answer with source status.
+ * @returns The rendered answer section, or `null` when the answer has no displayable text.
+ */
 export function NaturalLanguageAnswer({
   text,
   preformatted = false,
