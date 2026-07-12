@@ -9,6 +9,20 @@ import {
 } from "../src/lib/rag-answer-text";
 
 describe("RAG answer text helpers", () => {
+  it("strips bold by default but preserves it under preserveBold", () => {
+    const input = "Escalate if **ANC below 1.5**.";
+    expect(polishClinicalAnswerProse(input)).not.toContain("**");
+    expect(polishClinicalAnswerProse(input, { preserveBold: true })).toContain("**ANC below 1.5**");
+  });
+
+  it("normalizes a bolded sub-bullet while preserving the bold", () => {
+    const out = polishClinicalAnswerProse("Actions: o **Reduce dose** o **Recheck ANC**", { preserveBold: true });
+    expect(out).toContain("**Reduce dose**");
+    expect(out).toContain("**Recheck ANC**");
+    // The leading "o" sub-bullet glyph is normalized away, not left as a literal.
+    expect(out).not.toMatch(/\bo\s+\*\*Reduce/);
+  });
+
   it("normalizes balanced word tokens for query/source matching", () => {
     expect(splitBalancedWords("Clozapine: red-range blood results!")).toEqual([
       "clozapine",
@@ -72,6 +86,17 @@ describe("RAG answer text helpers", () => {
       "Therapy with lithium should always begin with conventional tablets (lithium carbonate 250 mg).",
     );
     expect(cleaned).not.toMatch(/Lithicarb|Quilonum|Imprest|DOSAGE|Dose evidence|Tests1/i);
+  });
+
+  it("strips bolded catalogue noise when preserveBold keeps clinical emphasis", () => {
+    const noisy =
+      "Dose evidence: **Lithium** Carbonate **250 mg** Tablet - Lithicarb®. Therapy with **lithium** should always begin with conventional tablets (**lithium** carbonate **250 mg**).";
+
+    const cleaned = polishClinicalAnswerProse(noisy, { preserveBold: true });
+
+    expect(cleaned).toContain("Therapy with **lithium**");
+    expect(cleaned).toContain("**250 mg**");
+    expect(cleaned).not.toMatch(/Lithicarb|Dose evidence/i);
   });
 
   it("flags source-inventory wording and truncated clinical fragments as answer quality issues", () => {

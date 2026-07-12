@@ -44,11 +44,11 @@ material.
 
 | ID    | Risk     | One-line                                                                                                                                                                                            |
 | ----- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PIA-1 | High     | Cross-border disclosure to OpenAI (US) has no code-visible DPA/ZDR and no user-facing notice/consent (APP 8, APP 5).                                                                                |
+| PIA-1 | High     | Cross-border disclosure to OpenAI (US) lacks an executed DPA/ZDR contractual basis (APP 8); the user-facing APP 5 notice is now live (PR #513).                                                     |
 | PIA-2 | High     | Query-hash HMAC would downgrade to **unsalted, dictionary-reversible SHA-256** without `RAG_QUERY_HASH_SECRET` — now **enforced**: production fails closed at boot; operator must place the secret. |
 | PIA-3 | Resolved | Generated answer text is no longer persisted to `rag_queries` by default; answer-text persistence is gated behind `RAG_PERSIST_ANSWER_TEXT` (default off, blocked in production readiness).         |
 | PIA-4 | Medium   | `rag_query_misses` has **no retention/purge job** (only `rag_queries` and `rag_retrieval_logs` do).                                                                                                 |
-| PIA-5 | Medium   | No privacy policy / collection notice / data-handling documentation shipped (APP 1, APP 5).                                                                                                         |
+| PIA-5 | Medium   | Privacy policy + collection notice now live (PR #513); broader data-handling documentation still maturing (APP 1, APP 5).                                                                           |
 | PIA-6 | Low-Med  | OpenAI **prompt-cache retention is forced to 24h** for gpt-5.5 regardless of config — query + retrieved excerpts persist ≤24h at OpenAI.                                                            |
 | PIA-7 | Low      | `RAG_PERSIST_RAW_QUERY_TEXT=true` would store raw PHI query text with no secondary safeguard beyond the 30-day purge.                                                                               |
 
@@ -56,14 +56,14 @@ material.
 
 ## 2. System overview and data classification
 
-| Data category                                                             | Where it lives                                                                                                   | Sensitivity                                | Notes                                                                    |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------ |
-| Clinical reference corpus (documents, chunks, embeddings, images, tables) | Supabase (Sydney) + storage buckets                                                                              | Low–Medium                                 | Published guidelines are not PHI; **uploaded** docs _could_ contain PHI. |
-| Free-text clinical queries                                                | Transient in request; hashed into `rag_queries` / `rag_query_misses` / `rag_retrieval_logs`; sent to OpenAI (US) | **High (potential PHI)**                   | The primary incidental-PHI vector.                                       |
-| Generated answers                                                         | `rag_queries.answer` (not persisted unless `RAG_PERSIST_ANSWER_TEXT`), `rag_response_cache.payload`              | **High (derived from PHI query + corpus)** | Answer text dropped at rest by default; see PIA-3.                       |
-| User identity                                                             | Supabase Auth (`auth.users`), `owner_id` foreign keys                                                            | Medium (PII)                               | Email + SSO identity; managed by Supabase Auth.                          |
-| Audit trail                                                               | `audit_logs`                                                                                                     | Medium                                     | Append-only, service-role-only, retained indefinitely by design.         |
-| Operational telemetry                                                     | `rag_retrieval_logs`, ingestion job tables                                                                       | Low–Medium                                 | Redacted query text; per-owner.                                          |
+| Data category                                                             | Where it lives                                                                                                                | Sensitivity                                | Notes                                                                                                                      |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Clinical reference corpus (documents, chunks, embeddings, images, tables) | Supabase (Sydney) + storage buckets                                                                                           | Low–Medium                                 | Published guidelines are not PHI; **uploaded** docs _could_ contain PHI.                                                   |
+| Free-text clinical queries                                                | Transient in request; hashed into `rag_queries` / `rag_query_misses` / `rag_retrieval_logs`; sent to OpenAI (US)              | **High (potential PHI)**                   | The primary incidental-PHI vector.                                                                                         |
+| Generated answers                                                         | `rag_queries.answer` (not persisted unless `RAG_PERSIST_ANSWER_TEXT`); `rag_response_cache.payload` (read-TTL, no purge cron) | **High (derived from PHI query + corpus)** | Durable answer log dropped at rest by default (PIA-3); cache row persists until same-key overwrite (TTL gates reads only). |
+| User identity                                                             | Supabase Auth (`auth.users`), `owner_id` foreign keys                                                                         | Medium (PII)                               | Email + SSO identity; managed by Supabase Auth.                                                                            |
+| Audit trail                                                               | `audit_logs`                                                                                                                  | Medium                                     | Append-only, service-role-only, retained indefinitely by design.                                                           |
+| Operational telemetry                                                     | `rag_retrieval_logs`, ingestion job tables                                                                                    | Low–Medium                                 | Redacted query text; per-owner.                                                                                            |
 
 **Deployment context (from code):** the answer system prompt positions the assistant as _"an
 experienced psychiatrist in Perth"_ ([src/lib/rag.ts:7053](src/lib/rag.ts)) — i.e. a **WA psychiatry**
@@ -308,22 +308,23 @@ the operative framework for a WA private clinician. (The WA _Privacy and Respons
 Act 2024_ targets WA **public-sector** entities and may apply to public-health deployments — confirm
 with counsel if this is deployed inside a WA Health service.)
 
-| APP                                       | Obligation                                                                         | Status in this app                                                                                                                                                                                       | Gap              |
-| ----------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **APP 1** — open & transparent management | Have a clear, up-to-date APP privacy policy                                        | No privacy policy/collection notice ships in the repo                                                                                                                                                    | PIA-5            |
-| **APP 3** — collection of sensitive info  | Collect health info only with consent + where reasonably necessary                 | App does not solicit PHI; incidental via free-text. No consent gate/notice on the query box                                                                                                              | PIA-5            |
-| **APP 5** — notification of collection    | Tell individuals what's collected & disclosed (incl. overseas)                     | No collection notice; OpenAI disclosure not surfaced to the clinician                                                                                                                                    | PIA-1, PIA-5     |
-| **APP 6** — use/disclosure                | Use only for the primary purpose or a permitted secondary purpose                  | Query used for answer generation (primary). Log retention = quality/eval (secondary) — defensible but should be documented                                                                               | PIA-5            |
-| **APP 8** — cross-border disclosure       | Discloser stays accountable for the overseas recipient unless an exception applies | Disclosure to OpenAI (US); no code-visible DPA/ZDR; accountability unclear                                                                                                                               | **PIA-1**        |
-| **APP 11** — security & destruction       | Reasonable security; destroy/de-identify when no longer needed                     | Strong: Sydney residency, RLS, private storage, query hashing, 30/90-day purge, answer text dropped at rest by default (PIA-3 closed). Weakened by PIA-2 (conditional HMAC), PIA-4 (misses never purged) | PIA-2/4          |
-| **NDB scheme** (Pt IIIC)                  | Notify OAIC + individuals of eligible breaches of health info                      | No documented breach-response runbook tied to these tables                                                                                                                                               | Recommend adding |
+| APP                                       | Obligation                                                                         | Status in this app                                                                                                                                                                                                                                                              | Gap              |
+| ----------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **APP 1** — open & transparent management | Have a clear, up-to-date APP privacy policy                                        | Privacy policy now ships (PR #513, [src/app/privacy/page.tsx](src/app/privacy/page.tsx)) — see PIA-1 progress note                                                                                                                                                              | Resolved (PIA-1) |
+| **APP 3** — collection of sensitive info  | Collect health info only with consent + where reasonably necessary                 | App does not solicit PHI; incidental via free-text. No consent gate/notice on the query box                                                                                                                                                                                     | PIA-5            |
+| **APP 5** — notification of collection    | Tell individuals what's collected & disclosed (incl. overseas)                     | Collection notice and OpenAI disclosure now surfaced (PR #513, composer notice) — see PIA-1 progress note                                                                                                                                                                       | Resolved (PIA-1) |
+| **APP 6** — use/disclosure                | Use only for the primary purpose or a permitted secondary purpose                  | Query used for answer generation (primary). Log retention = quality/eval (secondary) — defensible but should be documented                                                                                                                                                      | PIA-5            |
+| **APP 8** — cross-border disclosure       | Discloser stays accountable for the overseas recipient unless an exception applies | Disclosure to OpenAI (US); no code-visible DPA/ZDR; accountability unclear                                                                                                                                                                                                      | **PIA-1**        |
+| **APP 11** — security & destruction       | Reasonable security; destroy/de-identify when no longer needed                     | Strong: Sydney residency, RLS, private storage, query hashing, 30/90-day purge, durable answer log dropped at rest by default (PIA-3 closed). Weakened by PIA-2 (conditional HMAC), PIA-4 (misses never purged), and `rag_response_cache` (read-TTL but no purge cron — see §8) | PIA-2/4          |
+| **NDB scheme** (Pt IIIC)                  | Notify OAIC + individuals of eligible breaches of health info                      | No documented breach-response runbook tied to these tables                                                                                                                                                                                                                      | Recommend adding |
 
 **Overall:** the _engineering_ controls for data-at-rest are strong and largely APP-11-aligned. The
-material shortfalls are **governance/contractual** (APP 8 cross-border, APP 1/5 notices) plus the
-**hardening** item still open (conditional HMAC); un-redacted answer retention (PIA-3) is now closed —
-answer text is dropped at rest by default. None of these are cross-tenant
-data-leak bugs — the tenancy review found **zero** confirmed cross-tenant leaks — they are
-compliance-posture and PHI-minimisation gaps.
+material shortfall is **governance/contractual** — the APP 8 cross-border DPA/ZDR basis (the APP 1/5
+collection notices are now live on `main`; see PIA-1 progress) — plus the **hardening** item still
+open (conditional HMAC). Un-redacted answer retention (PIA-3) is now closed for the durable log; the
+`rag_response_cache` still retains answers until a same-key overwrite (read-TTL only, no purge cron —
+see §8). None of these are cross-tenant data-leak bugs — the tenancy review found **zero** confirmed
+cross-tenant leaks — they are compliance-posture and PHI-minimisation gaps.
 
 ---
 
@@ -368,10 +369,10 @@ compliance-posture and PHI-minimisation gaps.
 - **Risk:** The `answer` column held the full generated text, which can restate patient specifics
   echoed from the query; the query itself is hashed but the answer was not. Owner-scoped (not
   cross-tenant) and purged at 30 days, but it was un-redacted PHI-derived content at rest.
-- **Fix (shipped):** Answer-text persistence is gated behind a dedicated `RAG_PERSIST_ANSWER_TEXT`
-  flag (default **off**), applied centrally in `insertRagQuery` via `answerTextForStorage`
-  ([query-privacy.ts](src/lib/query-privacy.ts), [rag.ts](src/lib/rag.ts)) so every `logRagQuery`
-  caller is covered, and at the promoted-eval-case write in
+- **Fix (shipped):** Answer-text persistence in the durable log is gated behind a dedicated
+  `RAG_PERSIST_ANSWER_TEXT` flag (default **off**), applied centrally in `insertRagQuery` via
+  `answerTextForStorage` ([query-privacy.ts](src/lib/query-privacy.ts), [rag.ts](src/lib/rag.ts)) so
+  every `logRagQuery` caller is covered, and at the promoted-eval-case write in
   [eval-cases/route.ts](src/app/api/eval-cases/route.ts). With the flag off the column is written as
   `null` and each row records `metadata.answer_retained = false`. The offline eval/quality pipeline
   reads the in-memory answer (`logQuery: false`) and never reads this column back
@@ -379,6 +380,15 @@ compliance-posture and PHI-minimisation gaps.
   [scripts/promote-query-misses.ts](scripts/promote-query-misses.ts)), so persistence-off does not
   affect eval — confirming the pipeline has no real dependency on stored answer text. The flag is
   additionally blocked in a production-like environment by `npm run check:production-readiness`.
+- **Residual (scoped out):** The answer also lands in `rag_response_cache.payload`
+  ([rag-cache.ts](src/lib/rag-cache.ts)). Its `expires_at` TTL (`RAG_ANSWER_CACHE_TTL_MS`, default
+  5 min) only gates **reads** — `sharedCacheSelector` filters on `expires_at`, while
+  `replaceSharedCacheRow` deletes only the _same_ cache key before inserting, and there is **no hard
+  purge cron** (see the retention table in §8). So an expired row is not destroyed: a one-off query's
+  answer can persist at rest until a same-key overwrite or a manual invalidation. Nulling the payload
+  would defeat caching, so it is intentionally not gated by this flag; bounding it properly needs a
+  scheduled purge (a PIA-4-style follow-up). This is distinct from — and not covered by — the 30-day
+  durable-log fix above.
 
 ### PIA-4 — `rag_query_misses` never purged **(Medium)**
 
@@ -390,10 +400,14 @@ compliance-posture and PHI-minimisation gaps.
 
 ### PIA-5 — No privacy policy / collection notice / data-handling doc **(Medium)**
 
-- **Risk:** APP 1 (policy) and APP 5 (notification) are unmet; users are not told what is collected,
+- **Risk:** APP 1 (policy) and APP 5 (notification) were unmet; users were not told what is collected,
   retained, or disclosed overseas.
 - **Fix:** Ship a privacy policy + in-product collection notice; document retention windows and the
   OpenAI disclosure. Low engineering cost, high compliance value.
+- **Progress (2026-07-13):** the privacy policy + in-product collection notice are **live on `main`**
+  via PR #513 ([privacy page](src/app/privacy/page.tsx), composer notice), closing the core APP 1/APP 5
+  notification gap. Residual: broader data-handling documentation (retention windows, breach-response
+  runbook) and the APP 8 contractual basis (tracked under PIA-1).
 
 ### PIA-6 — OpenAI prompt-cache retention forced to 24h **(Low-Medium)**
 
@@ -414,13 +428,15 @@ compliance-posture and PHI-minimisation gaps.
 
 ## 11. Recommendation
 
-Before the app is used with real patients in a WA clinical setting, close **PIA-1** and **PIA-2** as
-launch-blockers (cross-border contractual basis + user notice; the mandatory HMAC secret is now
-enforced in code — the remaining step is placing it in the deploy host's secret store). **PIA-3** is
-closed (answer text is no longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4**
-remains as a fast follow-up (purge `rag_query_misses`), and ship the **PIA-5** privacy documentation. The data-at-rest security posture (Sydney residency, RLS, private storage,
-query hashing, automated purge) is already strong and should be highlighted in the privacy policy as
-evidence of "reasonable steps" under APP 11.
+Before the app is used with real patients in a WA clinical setting, close **PIA-1** (execute the
+cross-border DPA/ZDR contractual basis — the APP 5 user notice is already live) and **PIA-2** (place
+the mandatory HMAC secret in the deploy host's secret store; the fail-closed boot guard is now
+enforced in code) as launch-blockers. **PIA-3** is closed (the durable `rag_queries.answer` log is no
+longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4** remains as a fast
+follow-up (purge `rag_query_misses`, and add a `rag_response_cache` purge cron), and complete the
+**PIA-5** residual data-handling documentation. The data-at-rest security posture (Sydney residency,
+RLS, private storage, query hashing, automated purge) is already strong and should be highlighted in
+the privacy policy as evidence of "reasonable steps" under APP 11.
 
 See the companion **[tenancy defense-in-depth review](docs/tenancy-defense-in-depth-review.md)** for the
 cross-tenant isolation analysis referenced above.

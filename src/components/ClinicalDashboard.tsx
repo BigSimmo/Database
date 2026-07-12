@@ -68,6 +68,7 @@ import {
 import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import {
+  isPreformattedGroundedAnswer,
   NaturalLanguageAnswer,
   ScopeAndGovernanceNotice,
   UserQuestionBubble,
@@ -501,9 +502,13 @@ function answerTimedOutError() {
 }
 
 /**
- * Read-only surface for a previous turn in the answer thread. Renders the
- * question bubble and the natural-language answer with its source capsule;
- * evidence drawers, clinical notes, and feedback stay on the latest turn only.
+ * Renders a collapsible, read-only view of a previous answer-thread turn with its question, answer, sources, and source-review notice.
+ *
+ * @param turn - The previous question and answer turn to display
+ * @param copied - Whether the turn's answer has been copied
+ * @param collapsed - Whether the answer content is collapsed
+ * @param onToggleCollapsed - Called when the answer visibility is toggled
+ * @param onCopy - Called with the answer text when copying is requested
  */
 function PriorAnswerTurnSurface({
   turn,
@@ -522,7 +527,11 @@ function PriorAnswerTurnSurface({
     () => buildAnswerRenderModel(turn.answer, { sources: turn.sources }),
     [turn.answer, turn.sources],
   );
-  const safeText = useMemo(() => sanitizeAnswerDisplayText(turn.answer.answer), [turn.answer.answer]);
+  const turnPreformatted = isPreformattedGroundedAnswer(turn.answer);
+  const safeText = useMemo(
+    () => sanitizeAnswerDisplayText(turn.answer.answer, { preformatted: turnPreformatted }),
+    [turn.answer.answer, turnPreformatted],
+  );
   const sourceCount =
     renderModel.primarySources.length ||
     turn.sources.length ||
@@ -561,7 +570,8 @@ function PriorAnswerTurnSurface({
         ) : (
           <>
             <NaturalLanguageAnswer
-              text={previewText}
+              text={turn.answer.answer}
+              preformatted={turnPreformatted}
               sourceCount={sourceCount}
               sourceOnly={turn.answer.answerQualityTier === "source_only"}
               bestSource={renderModel.bestSource}
@@ -676,6 +686,14 @@ function mergeDocumentRefresh(current: ClinicalDocument[], updates: ClinicalDocu
   });
 }
 
+/**
+ * Renders the clinical search dashboard, including document search, answer generation, conversation history, source management, and ingestion controls.
+ *
+ * @param initialSearchMode - The mode selected when the dashboard loads.
+ * @param initialQuery - The initial search or composer query.
+ * @param focusSearch - Whether to focus the search input on load.
+ * @param autoRunSearch - Whether to automatically submit the initial query.
+ */
 export function ClinicalDashboard({
   initialSearchMode = "answer",
   initialQuery = "",
@@ -2998,7 +3016,11 @@ export function ClinicalDashboard({
     currentRelevance?.isSourceBacked !== false &&
     answerRenderModel?.trust !== "unsupported";
   const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
-  const safeAnswerText = useMemo(() => sanitizeAnswerDisplayText(answer?.answer ?? ""), [answer?.answer]);
+  const answerPreformatted = isPreformattedGroundedAnswer(answer);
+  const safeAnswerText = useMemo(
+    () => sanitizeAnswerDisplayText(answer?.answer ?? "", { preformatted: answerPreformatted }),
+    [answer?.answer, answerPreformatted],
+  );
   const answerFollowUpSuggestions = useMemo(() => {
     if (!answer || !latestAnswerQuery) return [];
     const priorQueries = [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery];
@@ -3013,7 +3035,11 @@ export function ClinicalDashboard({
     return (answer?.answerSections ?? [])
       .map((section) => {
         const heading = sanitizeDisplayText(section.heading, { minLength: 1, minTokens: 1 });
-        const body = sanitizeAnswerDisplayText(section.body, { minLength: 8, minTokens: 2 });
+        const body = sanitizeAnswerDisplayText(section.body, {
+          minLength: 8,
+          minTokens: 2,
+          preformatted: answerPreformatted,
+        });
         if (!heading || !body) return null;
 
         const citationSources: SearchResult[] = [];
@@ -3034,7 +3060,7 @@ export function ClinicalDashboard({
         };
       })
       .filter((section): section is AnswerSection & { citationSources: SearchResult[] } => section !== null);
-  }, [answer?.answerSections, sourceLookup]);
+  }, [answer?.answerSections, answerPreformatted, sourceLookup]);
   const answerEvidenceMapRows = useMemo(() => {
     if (!answerRenderModel?.allowedBlocks.includes("evidenceMap")) return [];
     return evidenceMapRowsFromRenderModel(answerRenderModel).slice(0, answerRenderModel.trust === "high" ? 8 : 6);
@@ -3833,7 +3859,6 @@ export function ClinicalDashboard({
                       <StagedAnswerResultSurface
                         answer={answer}
                         query={latestAnswerQuery ?? query}
-                        safeAnswerText={safeAnswerText}
                         bestSource={bestSource}
                         sourceGovernanceWarnings={sourceGovernanceWarnings}
                         sourceSummary={sourceSummary}
