@@ -28,7 +28,7 @@ import {
   type MedicationGovernance,
 } from "@/lib/medication-badges";
 import { medicationDetailTiles, type MedicationRecord, type MedicationSection } from "@/lib/medications";
-import { cn } from "@/components/ui-primitives";
+import { cn, pageContainer } from "@/components/ui-primitives";
 
 const sectionIcons: Record<string, LucideIcon> = {
   dose: CalendarDays,
@@ -176,7 +176,7 @@ function MedicationRecordDetail({
   const activeSections = sectionsByTab[activeTab];
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-3 py-1 sm:py-2">
+    <div className={cn(pageContainer, "space-y-3 py-1 sm:py-2")}>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="space-y-3.5">
           <section className="scroll-mt-16 px-1 sm:px-0">

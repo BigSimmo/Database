@@ -24,6 +24,7 @@ import { useRegistryRecords, type RegistryRequestStatus } from "@/lib/use-regist
 import {
   cn,
   codeText,
+  pageContainer,
   searchFocusRing,
   searchPageCanvas,
   searchResultsSection,
@@ -626,7 +627,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
 
   return (
     <div className={cn("overflow-x-hidden", searchPageCanvas)}>
-      <main className="mx-auto grid w-full max-w-7xl gap-3 px-4 pt-3 sm:px-6 lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6">
+      <main className={cn(pageContainer, "grid gap-3 px-4 pt-3 sm:px-6 lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6")}>
         <RegistryStatusNotice status={registry.status} />
         {registryReady ? (
           <>
