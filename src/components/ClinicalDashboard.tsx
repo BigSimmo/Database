@@ -3572,7 +3572,7 @@ export function ClinicalDashboard({
                       className={cn(primaryControl, "text-xs")}
                       onClick={() => void ask(answerLifecycle.query ?? query)}
                     >
-                      <RefreshCw className="h-4 w-4" />
+                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
                       Run again
                     </button>
                   </div>
