@@ -332,9 +332,9 @@ function PathwayPanel() {
       </h2>
       <div className="mt-5 grid grid-cols-[1fr_24px_1fr_24px_1.4fr_24px_1fr] items-center gap-3">
         <PathwayNode label="Before" code="1A" title="Referral for examination" />
-        <ChevronRight className="h-5 w-5 text-[color:var(--text-muted)]" />
+        <ChevronRight aria-hidden="true" className="h-5 w-5 text-[color:var(--text-muted)]" />
         <PathwayNode label="Current" code="4A" title="Transport order" active />
-        <ChevronRight className="h-5 w-5 text-[color:var(--text-muted)]" />
+        <ChevronRight aria-hidden="true" className="h-5 w-5 text-[color:var(--text-muted)]" />
         <PathwayNode
           label="Parallel"
           code="3A"
@@ -342,7 +342,7 @@ function PathwayPanel() {
           secondaryCode="4B"
           secondaryTitle="Extension of Transport Order"
         />
-        <ChevronRight className="h-5 w-5 text-[color:var(--text-muted)]" />
+        <ChevronRight aria-hidden="true" className="h-5 w-5 text-[color:var(--text-muted)]" />
         <PathwayNode label="After" code="" title="Examination at destination" />
       </div>
       <div className="mt-5 flex justify-center">
@@ -355,9 +355,9 @@ function PathwayPanel() {
             searchFocusRing,
           )}
         >
-          <Workflow className="h-5 w-5" />
+          <Workflow aria-hidden="true" className="h-5 w-5" />
           View full pathway
-          <ExternalLink className="h-4 w-4" />
+          <ExternalLink aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
     </section>
@@ -416,7 +416,7 @@ function VerifiedFooter() {
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-5 text-xs text-[color:var(--text-muted)] lg:py-6 lg:text-sm">
       <span className="inline-flex items-center gap-2 font-extrabold text-[color:var(--clinical-accent)]">
-        <ShieldCheck className="h-5 w-5" />
+        <ShieldCheck aria-hidden="true" className="h-5 w-5" />
         Source verified
       </span>
       <span>·</span>
@@ -537,7 +537,9 @@ function MobilePathway() {
                 </p>
               ) : null}
             </div>
-            {index < 3 ? <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" /> : null}
+            {index < 3 ? (
+              <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" />
+            ) : null}
           </div>
         ))}
       </div>
@@ -550,7 +552,7 @@ function MobilePathway() {
           searchFocusRing,
         )}
       >
-        <Workflow className="h-4 w-4" />
+        <Workflow aria-hidden="true" className="h-4 w-4" />
         View full pathway
       </button>
     </section>

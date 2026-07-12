@@ -69,30 +69,30 @@ export function DocumentOrganizationBadges({
     <div className={cn("flex flex-wrap gap-1.5", className)}>
       {siteLabel ? (
         <span className={cn(metadataPill, toneInfo, sizeClass)} title="Hospital or service site">
-          <Building2 className="mr-1 h-3.5 w-3.5" />
+          <Building2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
           {compact && siteShortLabel ? siteShortLabel : formatDocumentLabelDisplay(siteLabel, "site")}
         </span>
       ) : needsReview && candidateCount > 0 ? (
         <span className={cn(metadataPill, toneWarning, sizeClass)} title="Site candidate needs review">
-          <TriangleAlert className="mr-1 h-3.5 w-3.5" />
+          <TriangleAlert aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
           Ambiguous site
         </span>
       ) : null}
       {typeLabel ? (
         <span className={cn(metadataPill, toneNeutral, sizeClass)} title="Document type">
-          <FileText className="mr-1 h-3.5 w-3.5" />
+          <FileText aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
           {formatDocumentLabelDisplay(typeLabel, "document_type")}
         </span>
       ) : null}
       {needsReview ? (
         <span className={cn(metadataPill, toneWarning, sizeClass)} title="Organisation profile needs review">
-          <TriangleAlert className="mr-1 h-3.5 w-3.5" />
+          <TriangleAlert aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
           Needs review
         </span>
       ) : null}
       {manualOverride ? (
         <span className={cn(metadataPill, toneInfo, sizeClass)} title="Organisation profile was manually curated">
-          <Tag className="mr-1 h-3.5 w-3.5" />
+          <Tag aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
           Manual override
         </span>
       ) : null}

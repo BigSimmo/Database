@@ -108,7 +108,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
           )}
           aria-label="Close account setup"
         >
-          <X className="h-4 w-4" />
+          <X aria-hidden="true" className="h-4 w-4" />
         </button>
 
         <div className="px-4 pb-4 pt-5 sm:px-7 sm:pb-6 sm:pt-8">
@@ -129,7 +129,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
             <label className="block">
               <span className={fieldLabel}>Email address</span>
               <div className="relative">
-                <Mail className={fieldIcon} />
+                <Mail aria-hidden="true" className={fieldIcon} />
                 <input
                   ref={emailInputRef}
                   type="email"
@@ -148,7 +148,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
               disabled={busy}
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-5 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:shadow-none"
             >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
               Continue
             </button>
 
@@ -186,7 +186,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                   </p>
                 </div>
                 <span className="inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-2 text-2xs font-bold text-[color:var(--success)]">
-                  <CircleCheck className="h-3.5 w-3.5" />
+                  <CircleCheck aria-hidden="true" className="h-3.5 w-3.5" />
                   Saved
                 </span>
               </div>
@@ -219,7 +219,11 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                         )}
                         aria-hidden
                       >
-                        {selected ? <CircleCheck className="h-3 w-3" /> : <Circle className="h-2.5 w-2.5" />}
+                        {selected ? (
+                          <CircleCheck aria-hidden="true" className="h-3 w-3" />
+                        ) : (
+                          <Circle aria-hidden="true" className="h-2.5 w-2.5" />
+                        )}
                       </span>
                     </button>
                   );
@@ -239,7 +243,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                   </h3>
                 </div>
                 <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-[color:var(--success-soft)] px-2 text-2xs font-bold text-[color:var(--success)]">
-                  <CircleCheck className="h-3.5 w-3.5" />
+                  <CircleCheck aria-hidden="true" className="h-3.5 w-3.5" />
                   Verified
                 </span>
               </div>

@@ -3363,7 +3363,7 @@ export function ClinicalDashboard({
                     className={cn("rounded-lg border p-4 text-sm", toneInfo)}
                   >
                     <div className="flex items-start gap-2">
-                      <Search className="mt-0.5 h-4 w-4 shrink-0" />
+                      <Search aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                       <div className="min-w-0 space-y-1">
                         <p className="font-semibold text-[color:var(--text-heading)]">
                           {answerRecovery.noResults.heading}
@@ -3386,7 +3386,7 @@ export function ClinicalDashboard({
                         onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
                         className={cn(floatingControl, "text-xs")}
                       >
-                        <FileText className="h-4 w-4" />
+                        <FileText aria-hidden="true" className="h-4 w-4" />
                         {answerRecovery.searchDocuments}
                       </button>
                     </div>
@@ -3398,7 +3398,7 @@ export function ClinicalDashboard({
                     className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
                   >
                     <div className="flex items-start gap-2">
-                      <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                      <CircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                       <span className="min-w-0">{error}</span>
                     </div>
                     {activeModeResultKind === "answer" && lastFailedQuery && (
@@ -3413,7 +3413,7 @@ export function ClinicalDashboard({
                           }}
                           className={cn(floatingControl, "text-xs")}
                         >
-                          <RefreshCw className="h-4 w-4" />
+                          <RefreshCw aria-hidden="true" className="h-4 w-4" />
                           {answerRecovery.retry}
                         </button>
                         <button
@@ -3422,7 +3422,7 @@ export function ClinicalDashboard({
                           onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
                           className={cn(floatingControl, "text-xs")}
                         >
-                          <FileText className="h-4 w-4" />
+                          <FileText aria-hidden="true" className="h-4 w-4" />
                           {answerRecovery.searchDocuments}
                         </button>
                       </div>
@@ -3449,7 +3449,10 @@ export function ClinicalDashboard({
                     >
                       {loading && answerProgress ? (
                         <>
-                          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                          <Loader2
+                            aria-hidden="true"
+                            className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]"
+                          />
                           <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
                           <button
                             type="button"
@@ -3457,7 +3460,7 @@ export function ClinicalDashboard({
                             data-testid="stop-answer"
                             className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                           >
-                            <Square className="h-3 w-3 shrink-0 fill-current" />
+                            <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
                             Stop
                           </button>
                         </>
@@ -3468,7 +3471,10 @@ export function ClinicalDashboard({
                       role="status"
                       className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
                     >
-                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                      <Loader2
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]"
+                      />
                       <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
                       <button
                         type="button"
@@ -3476,7 +3482,7 @@ export function ClinicalDashboard({
                         data-testid="stop-answer"
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                       >
-                        <Square className="h-3 w-3 shrink-0 fill-current" />
+                        <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
                         Stop
                       </button>
                     </div>

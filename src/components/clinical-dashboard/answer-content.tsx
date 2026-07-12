@@ -123,7 +123,7 @@ export const SourceImage = memo(function SourceImage({
         )}
       >
         <div>
-          <CircleAlert className="mx-auto mb-2 h-5 w-5" />
+          <CircleAlert aria-hidden="true" className="mx-auto mb-2 h-5 w-5" />
           Image preview could not load.
           <button
             type="button"
@@ -164,7 +164,7 @@ export const SourceImage = memo(function SourceImage({
       ) : null}
       {!url || !loaded ? (
         <div className="absolute inset-0 grid place-items-center gap-1 text-xs font-semibold text-[color:var(--text-muted)]">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
           Loading image
         </div>
       ) : null}
@@ -427,7 +427,7 @@ function SourcePreviewContent({
           >
             {index === 0 ? (
               <p className="mb-2 inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)]">
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
                 Best match
               </p>
             ) : index === 1 ? (
@@ -477,7 +477,7 @@ function SourcePreviewContent({
                 )}
                 aria-label={`Open ${sourceBadgeLabel(index)} source page`}
               >
-                <ExternalLink className="h-4 w-4" />
+                <ExternalLink aria-hidden="true" className="h-4 w-4" />
                 {index === 0 ? <span>Open</span> : null}
               </Link>
             </div>
@@ -496,13 +496,13 @@ function SourcePreviewContent({
             className={chatMicroAction}
             aria-label={`Open source page for ${primaryPreviewSource.title}`}
           >
-            <ExternalLink className="h-3.5 w-3.5" />
+            <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
             Open source page
           </Link>
         ) : null}
         {quoteText ? (
           <button type="button" className={chatMicroAction} onClick={onCopyQuote}>
-            <Copy className="h-3.5 w-3.5" />
+            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
             {copiedQuote ? "Copied quote" : "Copy quote"}
           </button>
         ) : null}
@@ -514,7 +514,11 @@ function SourcePreviewContent({
             reviewDueSource ? "text-[color:var(--warning)]" : "text-[color:var(--success)]",
           )}
         >
-          {reviewDueSource ? <CircleAlert className="h-4 w-4" /> : <CircleCheck className="h-4 w-4" />}
+          {reviewDueSource ? (
+            <CircleAlert aria-hidden="true" className="h-4 w-4" />
+          ) : (
+            <CircleCheck aria-hidden="true" className="h-4 w-4" />
+          )}
           {reviewDueSource
             ? `${sourceBadgeLabel(previewSources.indexOf(reviewDueSource))} review due`
             : "Sources current"}
@@ -525,7 +529,7 @@ function SourcePreviewContent({
             className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             Evidence details
-            <ExternalLink className="h-3.5 w-3.5" />
+            <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
           </Link>
         ) : null}
       </div>
@@ -615,7 +619,7 @@ export function NaturalLanguageAnswer({
         className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
         aria-hidden="true"
       >
-        <ShieldCheck className="size-icon-lg" />
+        <ShieldCheck aria-hidden="true" className="size-icon-lg" />
       </span>
       <div className="min-w-0 space-y-1.5">
         <p className={chatAnswerText}>
@@ -714,7 +718,7 @@ export function NaturalLanguageAnswer({
             className={chatMicroAction}
             aria-label="Copy answer with source status"
           >
-            <Copy className="h-3.5 w-3.5" />
+            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
             {copied ? "Copied with sources" : "Copy with sources"}
           </button>
         </div>

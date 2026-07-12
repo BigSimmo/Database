@@ -139,7 +139,7 @@ export function SettingsDialog({
       aria-label="Close settings"
       className="absolute right-2.5 top-[max(0.45rem,env(safe-area-inset-top))] z-10 grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:left-4 lg:right-auto lg:top-4 lg:h-10 lg:w-10"
     >
-      <X className="size-icon-lg" />
+      <X aria-hidden="true" className="size-icon-lg" />
     </button>
   );
 
@@ -210,7 +210,7 @@ export function SettingsDialog({
                     : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] ring-[color:var(--clinical-accent)]/10",
                 )}
               >
-                {signedOutAccount ? <UserRound className="h-5 w-5" /> : identity.initials}
+                {signedOutAccount ? <UserRound aria-hidden="true" className="h-5 w-5" /> : identity.initials}
                 {identity.signedIn ? (
                   <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
                 ) : null}
@@ -277,7 +277,7 @@ export function SettingsDialog({
                         Email address
                       </span>
                       <div className="relative">
-                        <Mail className={fieldIcon} />
+                        <Mail aria-hidden="true" className={fieldIcon} />
                         <input
                           ref={settingsEmailInputRef}
                           type="email"
@@ -293,7 +293,11 @@ export function SettingsDialog({
                       disabled={settingsAuthBusy || !settingsEmail.trim() || !auth.isConfigured}
                       className={cn(primaryControl, "w-full")}
                     >
-                      {settingsAuthBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                      {settingsAuthBusy ? (
+                        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Mail aria-hidden="true" className="h-4 w-4" />
+                      )}
                       Continue with email
                     </button>
                   </form>
@@ -313,7 +317,10 @@ export function SettingsDialog({
                 </div>
 
                 <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                  <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
+                  <LockKeyhole
+                    aria-hidden="true"
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]"
+                  />
                   Accounts save preferences and search history. Do not enter PHI.
                 </p>
 
@@ -404,13 +411,13 @@ function SettingsProviderRow({
     >
       {provider === "email" ? (
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
-          <Mail className="h-4 w-4" />
+          <Mail aria-hidden="true" className="h-4 w-4" />
         </span>
       ) : (
         <SettingsProviderMark provider={provider} />
       )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
     </button>
   );
 }
@@ -446,7 +453,7 @@ function SettingsProviderMark({ provider }: { provider: "Apple" | "Google" | "Mi
 function SettingsClinicalContextStrip() {
   return (
     <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
-      <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+      <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0 truncate">
         Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
         <span className="px-1 text-[color:var(--text-soft)]">·</span> WA{" "}
@@ -535,7 +542,10 @@ function SettingsRow({
           </span>
         ) : null}
       </span>
-      <ChevronDown className="-rotate-90 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)] lg:h-4 lg:w-4" />
+      <ChevronDown
+        aria-hidden="true"
+        className="-rotate-90 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)] lg:h-4 lg:w-4"
+      />
     </>
   );
 
@@ -576,9 +586,9 @@ function SettingsHelpFooter({ onClick }: { onClick: () => void }) {
         className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full text-sm-minus font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-lux)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         data-testid="settings-row-guide-help"
       >
-        <BookOpen className="h-4 w-4" />
+        <BookOpen aria-hidden="true" className="h-4 w-4" />
         <span>Guide &amp; help</span>
-        <ChevronDown className="-rotate-90 h-3.5 w-3.5 text-[color:var(--text-soft)]" />
+        <ChevronDown aria-hidden="true" className="-rotate-90 h-3.5 w-3.5 text-[color:var(--text-soft)]" />
       </button>
     </div>
   );

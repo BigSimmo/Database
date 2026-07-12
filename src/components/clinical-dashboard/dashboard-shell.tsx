@@ -161,7 +161,10 @@ export function UtilityDrawer({
             )}
           </span>
         </span>
-        <ChevronDown className="h-4 w-4 shrink-0 -rotate-90 text-[color:var(--text-muted)] transition motion-safe:duration-150" />
+        <ChevronDown
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 -rotate-90 text-[color:var(--text-muted)] transition motion-safe:duration-150"
+        />
       </button>
 
       <details
@@ -199,7 +202,10 @@ export function UtilityDrawer({
               ) : null}
             </span>
           </span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition motion-safe:duration-150 group-open:rotate-180" />
+          <ChevronDown
+            aria-hidden="true"
+            className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition motion-safe:duration-150 group-open:rotate-180"
+          />
         </summary>
         {open && (!usesSheet || mobileInline) && <div className={cn(clinicalDivider, "p-4")}>{children}</div>}
       </details>
@@ -299,7 +305,7 @@ export function GuideTrigger({ onOpen }: { onOpen: () => void }) {
         className={cn(navPill, "px-3")}
         aria-label="Open user guide"
       >
-        <BookOpen className="h-4 w-4" />
+        <BookOpen aria-hidden="true" className="h-4 w-4" />
         Guide
       </button>
     </div>

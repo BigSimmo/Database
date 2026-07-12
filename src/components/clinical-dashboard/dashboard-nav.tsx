@@ -249,7 +249,7 @@ export function MobileSectionFab({
         }}
         onClick={() => setOpen((current) => !current)}
       >
-        {open ? <X className="h-6 w-6" /> : <ActiveIcon className="h-6 w-6" />}
+        {open ? <X aria-hidden="true" className="h-6 w-6" /> : <ActiveIcon className="h-6 w-6" />}
         {(state.badgeLabel ?? (activeItem.count !== null ? String(activeItem.count) : null)) ? (
           <span
             aria-hidden="true"

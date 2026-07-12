@@ -199,7 +199,7 @@ export function AnswerSupportSummaryCard({
               className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-[color:var(--warning)]"
               aria-hidden="true"
             >
-              <CircleAlert className="h-5 w-5" />
+              <CircleAlert aria-hidden="true" className="h-5 w-5" />
             </span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</span>
@@ -207,7 +207,7 @@ export function AnswerSupportSummaryCard({
             </span>
             <span className="flex shrink-0 items-center gap-2">
               <span className={cn(subtleStatusPill, "nums min-h-8 px-2 text-xs")}>{safetyFindingsCount}</span>
-              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+              <ChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
             </span>
           </button>
         ) : (
@@ -226,7 +226,11 @@ export function AnswerSupportSummaryCard({
               )}
               aria-hidden="true"
             >
-              {priority.tone === "caution" ? <CircleAlert className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+              {priority.tone === "caution" ? (
+                <CircleAlert aria-hidden="true" className="h-4 w-4" />
+              ) : (
+                <ShieldCheck aria-hidden="true" className="h-4 w-4" />
+              )}
             </span>
             <div className="min-w-0 sm:flex sm:min-w-0 sm:items-center sm:gap-3">
               <p className="shrink-0 text-sm font-semibold text-[color:var(--text-heading)]">{priority.title}</p>
@@ -258,14 +262,14 @@ export function AnswerSupportSummaryCard({
               className={supportButtonClass}
               aria-label="Open clinical notes"
             >
-              <ClipboardCheck className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
+              <ClipboardCheck aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Clinical notes</span>
                 <span className={cn("mt-1 block truncate text-xs", textMuted)}>
                   {clinicalCount} note{clinicalCount === 1 ? "" : "s"}
                 </span>
               </span>
-              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+              <ChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
             </button>
           ) : null}
           {evidenceAvailable ? (
@@ -278,12 +282,12 @@ export function AnswerSupportSummaryCard({
               className={supportButtonClass}
               aria-label="Open evidence"
             >
-              <Layers className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
+              <Layers aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence</span>
                 <span className={cn("mt-1 block truncate text-xs", textMuted)}>{evidenceSummary}</span>
               </span>
-              <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+              <ChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
             </button>
           ) : null}
         </div>
@@ -689,7 +693,7 @@ export function ClinicalNotesChecklistPanel({
             onClick={onOpenTables}
             className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9"
           >
-            <Table2 className="h-3.5 w-3.5" />
+            <Table2 aria-hidden="true" className="h-3.5 w-3.5" />
             Tables
           </button>
         </div>
@@ -742,7 +746,7 @@ export function ClinicalNotesChecklistPanel({
                     S{row.sourceIndex}
                   </span>
                 )}
-                <ChevronDown className="h-3.5 w-3.5 -rotate-90 text-[color:var(--text-muted)]" />
+                <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 -rotate-90 text-[color:var(--text-muted)]" />
               </div>
             </>
           );
@@ -773,7 +777,7 @@ export function ClinicalNotesChecklistPanel({
           onClick={() => setRequestedTab("safety")}
           className="mt-3 grid min-h-[58px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-3 py-2 text-left text-[color:var(--warning)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--warning-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
-          <CircleAlert className="h-5 w-5" />
+          <CircleAlert aria-hidden="true" className="h-5 w-5" />
           <span className="min-w-0">
             <span className="block text-xs font-bold uppercase tracking-[0.06em]">Safety preview ({warningCount})</span>
             <span className="block truncate text-xs font-semibold">Review toxicity symptoms</span>
@@ -789,12 +793,12 @@ export function ClinicalNotesChecklistPanel({
               href={bestSource.viewer_href}
               className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
             <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]">
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               Source
             </span>
           )}
@@ -803,7 +807,7 @@ export function ClinicalNotesChecklistPanel({
             onClick={onCopy}
             className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text)]"
           >
-            <Copy className="h-3.5 w-3.5" />
+            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
             {copied ? "Copied" : "Copy"}
           </button>
           <button
@@ -811,7 +815,7 @@ export function ClinicalNotesChecklistPanel({
             onClick={() => setAdded(true)}
             className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus aria-hidden="true" className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
           </button>
         </div>
@@ -826,9 +830,9 @@ function safetyFindingKindTone(kind: SafetyFindingKind) {
 
 function SafetyFindingRowIcon({ kind }: { kind: SafetyFindingKind }) {
   if (kind === "contraindication" || kind === "red_flag") {
-    return <ShieldAlert className="h-5 w-5" />;
+    return <ShieldAlert aria-hidden="true" className="h-5 w-5" />;
   }
-  return <CircleAlert className="h-5 w-5" />;
+  return <CircleAlert aria-hidden="true" className="h-5 w-5" />;
 }
 
 export function SafetyFindingsListContent({ findings }: { findings: SafetyFinding[] }) {
@@ -869,7 +873,7 @@ export function SafetyFindingsListContent({ findings }: { findings: SafetyFindin
                 aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
                 <span className="truncate">{formatCompactCitationLabel(finding.citation)}</span>
-                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
               </Link>
             </div>
             <p className="mt-1.5 text-sm leading-5 text-[color:var(--text-heading)]">{finding.text}</p>
@@ -1026,7 +1030,7 @@ export function AnswerFeedbackPanel({
         </div>
         {pending ? (
           <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
             Saving
           </span>
         ) : null}
@@ -1045,7 +1049,11 @@ export function AnswerFeedbackPanel({
                 feedbackToneClass(item.tone),
               )}
             >
-              {pending === item.type ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+              {pending === item.type ? (
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+              ) : (
+                <Icon className="h-4 w-4" />
+              )}
               {item.label}
             </button>
           );
@@ -1093,13 +1101,13 @@ function RenderModelSourceList({
                     p.{source.page_number ?? "n/a"} · {sourceStatusLabel(metadata)} · {source.sourceStrength} support
                   </p>
                 </div>
-                <ExternalLink className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
+                <ExternalLink aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
               </div>
               {snippet ? <p className={cn("mt-2 line-clamp-2 text-sm leading-6", textMuted)}>{snippet}</p> : null}
             </Link>
             <div className={cn(tableMicroActionRow, "justify-start border-t px-3 py-2")}>
               <button type="button" onClick={() => onScopeDocument(source.document_id)} className={chatMicroAction}>
-                <Filter className="h-3.5 w-3.5" />
+                <Filter aria-hidden="true" className="h-3.5 w-3.5" />
                 Scope document
               </button>
             </div>

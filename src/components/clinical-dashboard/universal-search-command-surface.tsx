@@ -83,7 +83,7 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
         aria-hidden
       >
         {hint}
-        <CornerDownLeft className="h-3 w-3" />
+        <CornerDownLeft aria-hidden="true" className="h-3 w-3" />
       </span>
     </div>
   );
@@ -482,7 +482,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Search">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-                  <Clock className="h-4 w-4" />
+                  <Clock aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="truncate text-sm font-semibold text-[color:var(--text)]">{recent}</span>
               </OptionShell>
@@ -507,7 +507,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Search">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-                  <Search className="h-4 w-4" />
+                  <Search aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">
                   {suggestion.text}
@@ -539,7 +539,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Answer">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <Sparkles className="h-4 w-4" />
+                  <Sparkles aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{action.label}</span>
@@ -606,7 +606,7 @@ export function UniversalSearchCommandSurface({
               render: (active: boolean) => (
                 <OptionShell active={active} hint="Search">
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-                    <Search className="h-4 w-4" />
+                    <Search aria-hidden="true" className="h-4 w-4" />
                   </span>
                   <span className="truncate text-sm font-semibold text-[color:var(--text-muted)]">
                     View all in {targetMode.label}

@@ -51,7 +51,7 @@ export function RouteErrorBoundary({
     >
       <div className="w-full max-w-md rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-6 text-center shadow-[var(--shadow-elevated)]">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--danger-soft)] text-[color:var(--danger)]">
-          <TriangleAlert className="h-6 w-6" />
+          <TriangleAlert aria-hidden="true" className="h-6 w-6" />
         </div>
 
         <h1 className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)]">{title}</h1>
@@ -70,7 +70,7 @@ export function RouteErrorBoundary({
             onClick={() => reset()}
             className={cn(primaryControl, "flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium")}
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw aria-hidden="true" className="h-4 w-4" />
             Try again
           </button>
 

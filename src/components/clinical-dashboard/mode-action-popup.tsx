@@ -672,7 +672,9 @@ export function ModeActionPopup({
                     </span>
                   ) : null}
                 </span>
-                {active ? <Check className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" /> : null}
+                {active ? (
+                  <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" />
+                ) : null}
               </button>
             );
           })}
@@ -739,7 +741,7 @@ export function ModeActionPopup({
           className={toolbarButton}
           aria-label={`Close ${title.toLowerCase()} options`}
         >
-          <X className="h-4 w-4" />
+          <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
     );
@@ -837,7 +839,7 @@ export function ModeActionPopup({
             onOpenChange(!open);
           }}
         >
-          <Plus className="h-5 w-5" />
+          <Plus aria-hidden="true" className="h-5 w-5" />
         </button>
       </div>
     </>

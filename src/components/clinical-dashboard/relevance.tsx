@@ -61,7 +61,11 @@ export function RelevanceBadge({
       aria-label={label}
       title={relevance?.supportReason ?? label}
     >
-      {showStrongIcon ? <CircleCheck className="h-3.5 w-3.5" /> : <CircleAlert className="h-3.5 w-3.5" />}
+      {showStrongIcon ? (
+        <CircleCheck aria-hidden="true" className="h-3.5 w-3.5" />
+      ) : (
+        <CircleAlert aria-hidden="true" className="h-3.5 w-3.5" />
+      )}
       <span>{label}</span>
     </span>
   );

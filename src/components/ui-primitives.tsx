@@ -206,7 +206,7 @@ export function InlineNotice({
           aria-label={dismissLabel}
           className="-m-2.5 grid h-tap w-tap shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
-          <X className="h-4 w-4" />
+          <X aria-hidden="true" className="h-4 w-4" />
         </button>
       )}
     </div>
@@ -403,7 +403,7 @@ export function LoadingPanel({
       role="status"
     >
       <div>
-        <Loader2 className="mx-auto mb-2 h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
+        <Loader2 aria-hidden="true" className="mx-auto mb-2 h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
         {label}
       </div>
     </div>

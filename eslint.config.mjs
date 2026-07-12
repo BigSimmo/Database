@@ -2,6 +2,8 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
+import requireLucideIconAria from "./eslint-rules/require-lucide-icon-aria.mjs";
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -19,6 +21,19 @@ const eslintConfig = defineConfig([
     files: ["**/*.{jsx,tsx}"],
     rules: {
       "jsx-a11y/label-has-associated-control": "error",
+    },
+  },
+  // A lucide-react icon rendered as JSX must be decorative (aria-hidden) or
+  // carry an accessible name. Enforces the codebase's own convention so a glyph
+  // can't silently reach the a11y tree. Mockups are design-scratch and exempt.
+  {
+    files: ["**/*.{jsx,tsx}"],
+    ignores: ["**/*mockup*", "**/mockups/**"],
+    plugins: {
+      local: { rules: { "require-lucide-icon-aria": requireLucideIconAria } },
+    },
+    rules: {
+      "local/require-lucide-icon-aria": "error",
     },
   },
   // Override default ignores of eslint-config-next.
