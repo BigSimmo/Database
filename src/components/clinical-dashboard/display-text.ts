@@ -25,6 +25,12 @@ export type DisplayTextSanitizeOptions = {
   preserveBold?: boolean;
 };
 
+/**
+ * Normalizes display text by trimming surrounding whitespace and collapsing internal whitespace.
+ *
+ * @param value - The display text to normalize
+ * @returns The normalized display text
+ */
 export function normalizeDisplayText(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
@@ -189,6 +195,12 @@ export function compactSourceSnippet(value: string, options: CompactSourceSnippe
   return text;
 }
 
+/**
+ * Compacts table fact fields into a deduplicated display representation.
+ *
+ * @param fact - The table fact whose fields should be compacted
+ * @returns The fact identifier and cleaned fields, or `null` when no displayable fields remain
+ */
 export function compactTableFact(fact: NonNullable<SearchResult["table_facts"]>[number]) {
   const fields = [
     { label: "Table", value: fact.table_title },
@@ -208,6 +220,12 @@ export function compactTableFact(fact: NonNullable<SearchResult["table_facts"]>[
   return cleanedFields.length ? { id: fact.id, fields: cleanedFields } : null;
 }
 
+/**
+ * Sanitizes answer text for display while removing embedded artifacts and low-information content.
+ *
+ * @param options - Controls minimum content thresholds, preformatted text handling, and bold formatting preservation.
+ * @returns The cleaned answer text, or an empty string when the input is empty, invalid, or artifact-like.
+ */
 export function sanitizeAnswerDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
   const normalized = (
     options.preformatted

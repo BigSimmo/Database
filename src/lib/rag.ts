@@ -1336,7 +1336,14 @@ function mergeSearchResults(primary: SearchResult[], secondary: SearchResult[]) 
   return Array.from(merged.values());
 }
 
-/** Search text chunk candidates. */
+/**
+ * Retrieves lexical document chunk candidates for the supplied query variants.
+ *
+ * @param queryVariants - Query variants used for strict matching and recall-oriented fallback searches.
+ * @param matchCount - Maximum number of candidates requested for the primary query.
+ * @param telemetry - Optional retrieval telemetry updated with RPC failures and text-relaxation usage.
+ * @returns Matching document chunks, using corrected or relaxed queries when strict matching produces no candidates.
+ */
 async function searchTextChunkCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   queryVariants: string[];
@@ -1621,7 +1628,12 @@ async function fetchDocumentTitleAliasRows(args: {
   }));
 }
 
-/** Search document lookup fast path. */
+/**
+ * Retrieves and ranks document chunks for document-focused queries.
+ *
+ * @param args - Search configuration, including the required owner scope and optional document restrictions.
+ * @returns Ranked document lookup results, limited to `matchCount`.
+ */
 async function searchDocumentLookupFastPath(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -1919,7 +1931,12 @@ async function loadChunksForSignalMatches(args: {
     .filter(Boolean) as SearchResult[];
 }
 
-/** Search table fact candidates. */
+/**
+ * Retrieves document chunks containing table facts relevant to a query.
+ *
+ * @param args - Retrieval options, including query variants, scope filters, result limit, and optional telemetry.
+ * @returns Search results containing the highest-ranked table facts grouped by source chunk.
+ */
 async function searchTableFactCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -2884,7 +2901,12 @@ function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
   return queryClass === "table_threshold" || queryClass === "medication_dose_risk" || queryClass === "comparison";
 }
 
-/** Search chunks with telemetry. */
+/**
+ * Retrieves and ranks document chunks using lexical, structured, memory, and embedding-based evidence, while recording retrieval telemetry.
+ *
+ * @param args - Retrieval options, including the query, scope, search mode, and embedding preferences.
+ * @returns The ranked search results and telemetry describing the retrieval process.
+ */
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   assertGlobalSearchAllowed(args);
   throwIfAborted(args.signal);

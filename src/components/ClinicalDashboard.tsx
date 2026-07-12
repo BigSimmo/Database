@@ -498,9 +498,13 @@ function answerTimedOutError() {
 }
 
 /**
- * Read-only surface for a previous turn in the answer thread. Renders the
- * question bubble and the natural-language answer with its source capsule;
- * evidence drawers, clinical notes, and feedback stay on the latest turn only.
+ * Renders a collapsible, read-only view of a previous answer-thread turn with its question, answer, sources, and source-review notice.
+ *
+ * @param turn - The previous question and answer turn to display
+ * @param copied - Whether the turn's answer has been copied
+ * @param collapsed - Whether the answer content is collapsed
+ * @param onToggleCollapsed - Called when the answer visibility is toggled
+ * @param onCopy - Called with the answer text when copying is requested
  */
 function PriorAnswerTurnSurface({
   turn,
@@ -678,6 +682,14 @@ function mergeDocumentRefresh(current: ClinicalDocument[], updates: ClinicalDocu
   });
 }
 
+/**
+ * Renders the clinical search dashboard, including document search, answer generation, conversation history, source management, and ingestion controls.
+ *
+ * @param initialSearchMode - The mode selected when the dashboard loads.
+ * @param initialQuery - The initial search or composer query.
+ * @param focusSearch - Whether to focus the search input on load.
+ * @param autoRunSearch - Whether to automatically submit the initial query.
+ */
 export function ClinicalDashboard({
   initialSearchMode = "answer",
   initialQuery = "",
