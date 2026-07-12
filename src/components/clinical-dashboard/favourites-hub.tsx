@@ -166,7 +166,6 @@ export function FavouritesHub({
           subtitle="Notes, sources, medication pages, and clinical sets, ready to reuse."
           icon={Heart}
           headingLevel={headingLevel}
-          compact
         />
 
         {desktopComposerSlotId ? (

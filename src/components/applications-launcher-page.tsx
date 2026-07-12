@@ -754,7 +754,6 @@ export function ApplicationsLauncherWorkspace({
           subtitle={copy.description}
           icon={Grid2X2}
           headingLevel={1}
-          compact
         />
 
         {desktopComposerSlotId ? (

@@ -102,6 +102,14 @@
   --text-3xl-plus: 1.9rem;
   --text-4xl-minus: 2.15rem;
 
+  /* Fluid display heading for the hero / mode-home titles (hybrid-fluid type:
+     the large display heading scales continuously; body / UI text stays on the
+     stepped scale above). The floor is deliberately 1.45rem so the phone
+     baseline (23.2px at ≤~393px) is unchanged, then it ramps to the 2.15rem cap
+     by ~1033px — no breakpoint jumps. Generates the `text-hero` utility.
+     clamp() font sizes are not flagged by scripts/check-type-scale.mjs. */
+  --text-hero: clamp(1.45rem, 1.02rem + 1.75vw, 2.15rem);
+
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for
      clinical codes and IDs (guideline refs, chunk/page numbers, versions). */

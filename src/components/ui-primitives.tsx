@@ -148,6 +148,13 @@ export const searchPageCanvas = "bg-[color:var(--background)] text-[color:var(--
 export const searchPageShell =
   "min-h-[calc(100dvh-4rem)] overflow-x-hidden px-3 py-3 pb-[calc(12rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
 export const searchPageContainer = "mx-auto w-full max-w-[1500px]";
+// Canonical content-page width. Detail pages (service / form / differential),
+// medication record + prescribing workspace, and the forms results view converge
+// on this so the reading measure is one source of truth instead of a scatter of
+// `mx-auto max-w-7xl` literals. Width only — call sites keep their own padding and
+// vertical rhythm via cn(). Intentionally-wider surfaces (the document viewer's
+// 1440px viewer+rail, the differentials tables) keep their bespoke widths.
+export const pageContainer = "mx-auto w-full max-w-7xl";
 export const searchResultsBodyGrid = "grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]";
 export const searchResultsMainColumn = "search-results-main min-w-0";
 export const searchResultsSidebar = "hidden w-[22rem] shrink-0 space-y-4 xl:block";

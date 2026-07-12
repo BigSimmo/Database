@@ -104,3 +104,48 @@ describe("paid anonymous answer limits", () => {
     expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_subject_key: "anon:caller" });
   });
 });
+
+describe("document_upload fail-closed limiter", () => {
+  it("fails closed (does not fall back to per-instance memory) when the durable limiter is unavailable", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { ApiRateLimitUnavailableError, consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
+    const supabase = {
+      rpc: vi.fn(async () => ({ data: null, error: { code: "PGRST202", message: "missing RPC" } })),
+    };
+
+    // Even when the caller opts into the in-memory fallback, document_upload (storage writes +
+    // ingestion cost) must fail closed rather than grant N× the limit across instances.
+    await expect(
+      consumeSubjectApiRateLimit({
+        supabase: supabase as never,
+        subject: { kind: "owner", ownerId: "owner-1" },
+        bucket: "document_upload",
+        allowInMemoryFallbackOnUnavailable: true,
+      }),
+    ).rejects.toBeInstanceOf(ApiRateLimitUnavailableError);
+  });
+
+  it("still allows the in-memory fallback for a non-fail-closed bucket (document_read)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
+    const supabase = {
+      rpc: vi.fn(async () => ({ data: null, error: { code: "PGRST202", message: "missing RPC" } })),
+    };
+
+    const result = await consumeSubjectApiRateLimit({
+      supabase: supabase as never,
+      subject: { kind: "owner", ownerId: "owner-1" },
+      bucket: "document_read",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+
+    // document_read degrades to the per-instance limiter instead of failing closed.
+    expect(result.limited).toBe(false);
+  });
+});

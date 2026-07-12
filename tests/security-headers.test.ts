@@ -7,7 +7,7 @@ import { buildContentSecurityPolicy, buildSecurityHeaders, resolveRuntimeFlags }
 // while all server-side tests still pass:
 //   1. Cross-Origin-Embedder-Policy: require-corp — blocks cross-origin
 //      subresources that lack a CORP/CORS opt-in (Supabase does not send one).
-//   2. A CSP that stops allowing https: images or the *.supabase.co origin.
+//   2. A CSP that stops allowing the *.supabase.co image origin.
 // These assertions fail loudly if either is reintroduced.
 
 const flagVariants = [
@@ -30,10 +30,13 @@ describe("security headers", () => {
         expect(headers.some((header) => /require-corp/i.test(header.value))).toBe(false);
       });
 
-      it("allows https: images so Supabase Storage signed-URL images can load", () => {
+      it("scopes img-src to the Supabase Storage origin (no bare https: wildcard)", () => {
         const imgSrc = csp.split(";").find((directive) => directive.trim().startsWith("img-src"));
         expect(imgSrc).toBeDefined();
-        expect(imgSrc).toContain("https:");
+        const sources = imgSrc!.trim().split(/\s+/);
+        // Supabase signed-URL images still load, but a broad `https:` wildcard is not allowed.
+        expect(sources).toContain("https://*.supabase.co");
+        expect(sources).not.toContain("https:");
       });
 
       it("allows the Supabase origin in connect-src for signed-URL/API fetches", () => {
