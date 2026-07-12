@@ -2,12 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle,
+  TriangleAlert,
   ArrowLeft,
   BadgeDollarSign,
   Bookmark,
   BookmarkCheck,
-  CheckCircle2,
+  CircleCheck,
   ChevronRight,
   Clipboard,
   Copy,
@@ -22,7 +22,7 @@ import {
   Tag,
   Users,
   X,
-  XCircle,
+  CircleX,
   type LucideIcon,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -110,9 +110,9 @@ function renderCriterionIcon(tone: ServiceCriterion["tone"]) {
         ? "text-[color:var(--danger)]"
         : "text-[color:var(--warning)]",
   );
-  if (tone === "meet") return <CheckCircle2 className={className} aria-hidden />;
-  if (tone === "reject") return <XCircle className={className} aria-hidden />;
-  return <AlertTriangle className={className} aria-hidden />;
+  if (tone === "meet") return <CircleCheck className={className} aria-hidden />;
+  if (tone === "reject") return <CircleX className={className} aria-hidden />;
+  return <TriangleAlert className={className} aria-hidden />;
 }
 
 function criterionPill(tone: ServiceCriterion["tone"]) {
@@ -604,7 +604,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               </div>
               <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
                 <div className="flex gap-3">
-                  <AlertTriangle className="mt-1 h-5 w-5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                  <TriangleAlert className="mt-1 h-5 w-5 shrink-0 text-[color:var(--warning)]" aria-hidden />
                   <div>
                     <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                       {verified ? "Verified for local use" : "Verify locally before use"}

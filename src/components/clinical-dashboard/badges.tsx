@@ -1,17 +1,17 @@
-import { AlertCircle, CheckCircle2, FileText, Loader2 } from "lucide-react";
+import { CircleAlert, CircleCheck, FileText, Loader2 } from "lucide-react";
 
 import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
 
 function statusTone(status: string) {
   if (status === "indexed" || status === "completed") {
     return {
-      icon: CheckCircle2,
+      icon: CircleCheck,
       className: toneSuccess,
     };
   }
   if (status === "failed") {
     return {
-      icon: AlertCircle,
+      icon: CircleAlert,
       className: toneDanger,
     };
   }
@@ -49,7 +49,7 @@ export function StrengthBadge({ strength }: { strength?: string }) {
   const className = strength === "strong" ? toneSuccess : strength === "limited" ? toneWarning : toneInfo;
   // A checkmark implies "verified"; limited support is a caution, so pair the
   // warning tone with a caution icon rather than a misleading tick.
-  const Icon = strength === "limited" ? AlertCircle : CheckCircle2;
+  const Icon = strength === "limited" ? CircleAlert : CircleCheck;
 
   return (
     <span

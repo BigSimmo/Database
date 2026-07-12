@@ -223,6 +223,7 @@ export function FavouritesHub({
                 </span>
               </span>
               <ChevronDown
+                aria-hidden="true"
                 className={cn(
                   "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
                   tabMenuOpen && "rotate-180",
@@ -296,7 +297,7 @@ export function FavouritesHub({
               className="inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 hover:bg-[color:var(--surface-subtle)]"
             >
               <span className="truncate">Filter: {normalizedQuery}</span>
-              <X className="h-3.5 w-3.5" />
+              <X aria-hidden="true" className="h-3.5 w-3.5" />
             </button>
           ) : null}
           {selectedSet ? (
@@ -306,13 +307,13 @@ export function FavouritesHub({
               className="inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-md border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-2 font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]/35"
             >
               <span className="truncate">Set: {selectedSet.title}</span>
-              <X className="h-3.5 w-3.5" />
+              <X aria-hidden="true" className="h-3.5 w-3.5" />
             </button>
           ) : null}
         </div>
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:justify-end">
           <button type="button" className={cn(floatingControl, "min-h-11 px-3 text-xs sm:min-h-9 sm:px-2.5")}>
-            <ArrowUpDown className="h-4 w-4" />
+            <ArrowUpDown aria-hidden="true" className="h-4 w-4" />
             Recent
           </button>
           <button
@@ -320,7 +321,7 @@ export function FavouritesHub({
             onClick={onAddFavourite}
             className={cn(primaryControl, "min-h-11 justify-center px-3 text-xs sm:min-h-9 sm:px-2.5")}
           >
-            <Plus className="h-4 w-4" />
+            <Plus aria-hidden="true" className="h-4 w-4" />
             <span className="hidden sm:inline">Add favourite</span>
             <span className="sm:hidden">Add</span>
           </button>
@@ -398,7 +399,7 @@ export function FavouritesHub({
             {empty ? (
               <div className="grid min-h-40 place-items-center rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center">
                 <div>
-                  <Search className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" />
+                  <Search aria-hidden="true" className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" />
                   <p className="font-semibold text-[color:var(--text-heading)]">No favourites match</p>
                   <p className="mt-1 text-sm text-[color:var(--text-muted)]">
                     Clear the composer text or choose another tab.
@@ -445,7 +446,7 @@ export function FavouritesHub({
               onClick={onAddFavourite}
               className={cn(floatingControl, "mt-3 min-h-9 w-full px-3 text-xs")}
             >
-              <Plus className="h-4 w-4" />
+              <Plus aria-hidden="true" className="h-4 w-4" />
               New set
             </button>
           </section>
@@ -479,7 +480,7 @@ function FavouriteItemRow({ item, onMoveToSet }: { item: FavouriteItem; onMoveTo
           {item.primaryAction}
         </Link>
         <button type="button" onClick={onMoveToSet} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
-          <FolderInput className="h-3.5 w-3.5" />
+          <FolderInput aria-hidden="true" className="h-3.5 w-3.5" />
           Move
         </button>
       </div>
@@ -491,7 +492,7 @@ function FavouriteItemRow({ item, onMoveToSet }: { item: FavouriteItem; onMoveTo
         className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden"
         aria-label={`Open ${item.title}`}
       >
-        <ChevronDown className="-rotate-90 h-4 w-4" />
+        <ChevronDown aria-hidden="true" className="-rotate-90 h-4 w-4" />
       </button>
     </article>
   );
@@ -519,7 +520,7 @@ function FavouriteSetRow({
       )}
     >
       <span className={iconTilePremium}>
-        <Folder className="h-4 w-4" />
+        <Folder aria-hidden="true" className="h-4 w-4" />
       </span>
       <span className="min-w-0">
         <span
@@ -540,7 +541,7 @@ function FavouriteSetRow({
           {compact ? "" : ` · ${favouriteSet.meta}`}
         </span>
       </span>
-      <ChevronDown className="-rotate-90 h-4 w-4 text-[color:var(--text-soft)]" />
+      <ChevronDown aria-hidden="true" className="-rotate-90 h-4 w-4 text-[color:var(--text-soft)]" />
     </button>
   );
 }

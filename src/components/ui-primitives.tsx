@@ -213,7 +213,7 @@ export function InlineNotice({
           aria-label={dismissLabel}
           className="-m-2.5 grid h-tap w-tap shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
-          <X className="h-4 w-4" />
+          <X aria-hidden="true" className="h-4 w-4" />
         </button>
       )}
     </div>
@@ -365,7 +365,7 @@ export function PanelHeading({
   return (
     <div className="flex items-start gap-3">
       <span className={iconTile}>
-        <Icon className="h-4 w-4" />
+        <Icon className="size-icon-md sm:size-icon-lg" />
       </span>
       <div className="min-w-0">
         <h2 className="text-base font-semibold text-[color:var(--text-heading)]">{title}</h2>
@@ -410,7 +410,7 @@ export function LoadingPanel({
       role="status"
     >
       <div>
-        <Loader2 className="mx-auto mb-2 h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
+        <Loader2 aria-hidden="true" className="mx-auto mb-2 h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
         {label}
       </div>
     </div>
@@ -422,7 +422,7 @@ export function EmptyState({ icon: Icon, title, body }: { icon: IconComponent; t
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-          <Icon className="h-4.5 w-4.5" />
+          <Icon className="size-icon-md sm:size-icon-lg" />
         </span>
         <div className="min-w-0">
           <p className="font-semibold text-[color:var(--text)]">{title}</p>

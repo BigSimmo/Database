@@ -253,7 +253,7 @@ export function EvidenceMapTable({ rows }: { rows: AnswerEvidenceMapRow[] }) {
               </span>
               <span className={cn(chatMicroAction, "pointer-events-none min-h-9 px-2 text-xs")}>
                 Open source
-                <ExternalLink className="h-3.5 w-3.5" />
+                <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
             </Link>
           ))}
