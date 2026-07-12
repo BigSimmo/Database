@@ -2,9 +2,10 @@ name: Docker image build
 
 # Validates that the production app and worker images build cleanly from the
 # tree — the deploy contract in docs/deployment-architecture.md ("Images are
-# built from main"). Runs the exact `npm ci` + `next build` the Fly.io / Cloud
-# Run deploy runs, on a runner with enough memory for the build's 8 GiB heap
-# (local Docker Desktop OOMs on this build; GitHub runners have ~16 GiB).
+# built from main"). Runs the exact `npm ci` + `next build` the Railway deploy
+# runs, on a runner with enough memory for the build's 8 GiB heap (local Docker
+# Desktop OOMs on this build; GitHub runners and Railway's remote builder have
+# enough headroom).
 #
 # Non-blocking: this is a standalone workflow, not part of the required `verify`
 # check. Nothing is pushed to a registry — the build either succeeds or fails.
