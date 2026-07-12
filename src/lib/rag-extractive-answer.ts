@@ -1730,12 +1730,22 @@ function applyProviderLabels(answer: RagAnswer): RagAnswer {
 // Public wrapper: runs quality finalization, then stamps provider/quality labels so the UI can
 // disclose source-only (lower-quality) answers and verify-against-sources guidance.
 /** Finalize rag answer quality. */
-export function finalizeRagAnswerQuality(answer: RagAnswer, query: string, queryClass: RagQueryClass): RagAnswer {
-  return applyProviderLabels(finalizeRagAnswerQualityCore(answer, query, queryClass));
+export function finalizeRagAnswerQuality(
+  answer: RagAnswer,
+  query: string,
+  queryClass: RagQueryClass,
+  verificationSources?: SearchResult[],
+): RagAnswer {
+  return applyProviderLabels(finalizeRagAnswerQualityCore(answer, query, queryClass, verificationSources));
 }
 
 /** Finalize rag answer quality core. */
-function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryClass: RagQueryClass): RagAnswer {
+function finalizeRagAnswerQualityCore(
+  answer: RagAnswer,
+  query: string,
+  queryClass: RagQueryClass,
+  verificationSources?: SearchResult[],
+): RagAnswer {
   // Deterministic, template-built answers (document-support lists, table/visual source
   // references) are well-formed by construction and carry no free-text clinical claims.
   // The clinical-prose sanitizer/quality gate below is designed for model prose and would
@@ -1812,9 +1822,12 @@ function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryCla
     })
     .filter((section): section is Exclude<typeof section, null> => Boolean(section));
 
-  return applyNumericVerification({
-    ...answer,
-    answer: boldHighYieldClinicalText(cleanedAnswer, query),
-    answerSections,
-  });
+  return applyNumericVerification(
+    {
+      ...answer,
+      answer: boldHighYieldClinicalText(cleanedAnswer, query),
+      answerSections,
+    },
+    verificationSources,
+  );
 }

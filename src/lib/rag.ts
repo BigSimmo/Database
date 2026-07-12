@@ -69,6 +69,7 @@ import {
   cacheIndexingVersion,
   cloneAnswer,
   getCachedAnswer,
+  attachAdjacentContext,
   getCachedSearch,
   getSharedCachedAnswer,
   getSharedCachedSearch,
@@ -3611,15 +3612,22 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
       message: "Waiting for an identical cited answer request already in progress.",
       reason: "answer_inflight_coalesced",
     });
-    const answer = cloneAnswer(await existing);
-    answer.routingReason = answer.routingReason
-      ? `${answer.routingReason}; answer_inflight_coalesced`
-      : "answer_inflight_coalesced";
-    answer.latencyTimings = {
-      ...answer.latencyTimings,
-      total_latency_ms: Date.now() - startedAt,
-    };
-    return answer;
+    try {
+      const answer = cloneAnswer(await existing);
+      answer.routingReason = answer.routingReason
+        ? `${answer.routingReason}; answer_inflight_coalesced`
+        : "answer_inflight_coalesced";
+      answer.latencyTimings = {
+        ...answer.latencyTimings,
+        total_latency_ms: Date.now() - startedAt,
+      };
+      return answer;
+    } catch {
+      // The in-flight request we coalesced onto failed — most often because the ORIGINATING
+      // caller aborted mid-flight (its AbortSignal is not ours) or its search phase threw. Do
+      // not propagate another caller's failure to this still-connected request: fall through to
+      // an independent, uncoalesced run so this request is decided only by its own inputs.
+    }
   }
 
   const pending = answerQuestionWithScopeUncoalesced(args, startedAt).finally(() => {
@@ -4642,6 +4650,11 @@ ${qualityRetryInstruction}`
     // citations from the retrieved results, so trigger recovery whenever the
     // generated answer is unusable and we have retrieved results to extract from.
     const canRecoverExtractively = !usedStrongModel && (answer.citations.length > 0 || answerInputResults.length > 0);
+    // Numeric faithfulness at finalize time must verify against the packed context the model
+    // actually generated from, not the unpacked answer.sources — otherwise a figure copied from
+    // a neighbour chunk's adjacent_context reads as unverified and blanks a correct dose/threshold
+    // answer. Only the model path needs this; the extractive branch verifies against its own sources.
+    let numericVerificationSources: SearchResult[] | undefined;
     if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
       answer = buildExtractiveAnswer({
         query: args.query,
@@ -4663,6 +4676,7 @@ ${qualityRetryInstruction}`
     } else {
       answer = boldRagAnswerHighYieldText(answer, args.query);
       answer.sources = answerInputResults;
+      numericVerificationSources = attachAdjacentContext(answerInputResults, packedContextResults);
       answer.quoteCards = reconcileQuoteCards(answer.quoteCards, answerInputResults, args.query);
       answer.documentBreakdown = documentBreakdown;
       answer.evidenceSummary = evidenceSummary;
@@ -4694,7 +4708,7 @@ ${qualityRetryInstruction}`
       ...retrievalDiagnostics,
       routeMode: answer.routingMode ?? retrievalDiagnostics.routeMode,
     });
-    answer = finalizeRagAnswerQuality(answer, args.query, queryClass);
+    answer = finalizeRagAnswerQuality(answer, args.query, queryClass, numericVerificationSources);
 
     if (args.logQuery !== false)
       await logRagQuery({

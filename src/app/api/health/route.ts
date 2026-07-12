@@ -1,21 +1,10 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { env, isDemoMode } from "@/lib/env";
 import type { AnswerSloSnapshot } from "@/lib/observability/answer-slo";
+import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function allowDeepHealthProbe(request: Request): boolean {
-  const secret = env.HEALTH_DEEP_PROBE_SECRET;
-  if (!secret) return false;
-  const token = request.headers.get("x-health-deep-token");
-  if (!token) return false;
-  if (token.length !== secret.length) return false;
-  const expected = Buffer.from(secret, "utf8");
-  const received = Buffer.from(token, "utf8");
-  return timingSafeEqual(expected, received);
-}
 
 export async function GET(request: Request) {
   const deep = new URL(request.url).searchParams.get("deep") === "1";

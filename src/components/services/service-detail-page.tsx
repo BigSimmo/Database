@@ -31,6 +31,7 @@ import {
   cn,
   floatingControl,
   metadataPill,
+  pageContainer,
   primaryControl,
   textMuted,
   toneDanger,
@@ -264,6 +265,12 @@ function SummaryCard({ card }: { card: ServiceSummaryCard }) {
   );
 }
 
+/**
+ * Displays referral information rows with their values and copy actions.
+ *
+ * @param rows - The referral information rows to display
+ * @param onCopy - Callback invoked with a row value and feedback label when copying is requested
+ */
 function ReferralTable({
   rows,
   onCopy,
@@ -501,7 +508,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
       data-testid="service-detail-page"
       className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 py-4 pb-[calc(10rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
     >
-      <div className="mx-auto max-w-7xl">
+      <div className={pageContainer}>
         {notice ? (
           <div
             role="status"

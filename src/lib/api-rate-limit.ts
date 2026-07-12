@@ -9,11 +9,19 @@ export function allowRateLimitInMemoryFallbackOnUnavailable() {
   return isLocalNoAuthMode() || process.env.NODE_ENV === "production";
 }
 
+// Buckets that must FAIL CLOSED (503) rather than fall back to a per-instance in-memory limiter
+// when the durable limiter is unavailable. A per-process Map gives N× the intended limit across N
+// horizontally-scaled instances during a limiter outage — unacceptable for expensive/abusable
+// paths: `answer` (paid provider generation) and `document_upload` (storage writes + ingestion
+// cost). Local-no-auth dev keeps the in-memory fallback for single-instance usability.
+function failsClosedOnLimiterUnavailable(bucket: ApiRateLimitBucket) {
+  return bucket === "answer" || bucket === "document_upload";
+}
+
 function allowAnonymousRateLimitFallback(bucket: ApiRateLimitBucket, allowInMemoryFallbackOnUnavailable?: boolean) {
-  // Paid answer generation must not fall back to a per-instance limiter in a
-  // distributed production runtime. If the durable limiter is unavailable,
-  // fail closed before retrieval or provider generation can start.
-  if (bucket === "answer" && !isLocalNoAuthMode()) return false;
+  // Fail-closed buckets must not fall back to a per-instance limiter in a distributed production
+  // runtime. If the durable limiter is unavailable, fail closed before any expensive work starts.
+  if (failsClosedOnLimiterUnavailable(bucket) && !isLocalNoAuthMode()) return false;
   if (allowInMemoryFallbackOnUnavailable) return true;
 
   // Anonymous public read/search paths must stay reachable if the durable limiter
@@ -150,7 +158,9 @@ export async function consumeSubjectApiRateLimit(args: {
   allowInMemoryFallbackOnUnavailable?: boolean;
 }): Promise<ApiRateLimitResult> {
   const allowInMemoryFallbackOnUnavailable =
-    args.bucket === "answer" && !isLocalNoAuthMode() ? false : args.allowInMemoryFallbackOnUnavailable;
+    failsClosedOnLimiterUnavailable(args.bucket) && !isLocalNoAuthMode()
+      ? false
+      : args.allowInMemoryFallbackOnUnavailable;
 
   if (args.subject.kind === "owner") {
     return consumeApiRateLimit({

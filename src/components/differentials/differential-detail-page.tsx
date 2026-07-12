@@ -28,7 +28,7 @@ import {
 import type { DifferentialRecordGovernance } from "@/components/clinical-dashboard/use-differential-catalog";
 import { DiagnosisMapPanel } from "@/components/differentials/diagnosis-map-panel";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
-import { cn, toneDanger, toneNeutral, toneWarning } from "@/components/ui-primitives";
+import { cn, pageContainer, toneDanger, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
   cleanDifferentialItem,
@@ -126,6 +126,14 @@ const sectionItemIconClass: Partial<Record<DifferentialSection["tone"], string>>
   test: "text-[color:var(--info)]",
 };
 
+/**
+ * Renders section items according to the section tone.
+ *
+ * @param section - The section whose tone determines the item layout and styling
+ * @param items - The items to display
+ * @param overlapLinks - Maps overlap item labels to diagnosis slugs for linked items
+ * @returns The rendered section item list
+ */
 function SectionItems({
   section,
   items,
@@ -702,6 +710,14 @@ function FooterStatus({
   );
 }
 
+/**
+ * Renders desktop actions for comparing, copying, and saving a diagnosis.
+ *
+ * @param record - The diagnosis record whose content is copied.
+ * @param saved - Whether the diagnosis is currently saved.
+ * @param onToggleSaved - Called when the saved state is toggled.
+ * @param onCompare - Called when comparison is requested.
+ */
 function TopActions({
   record,
   saved,
@@ -801,7 +817,7 @@ function IconForDiagnosis({ record }: { record: DifferentialRecord }) {
 function HeaderChrome() {
   return (
     <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+      <div className={cn(pageContainer, "flex items-center justify-between gap-3")}>
         <div className="flex items-center gap-3">
           <Link
             href="/differentials"
@@ -833,6 +849,12 @@ const detailTabs: Array<{ id: DifferentialDetailTabId; label: string }> = [
   { id: "source", label: "Source" },
 ];
 
+/**
+ * Renders keyboard-navigable tabs for the diagnosis detail sections.
+ *
+ * @param active - The currently selected tab.
+ * @param onChange - Called when the selected tab changes.
+ */
 function Tabs({
   active,
   onChange,
@@ -982,7 +1004,7 @@ export function DifferentialDetailPage({
       className="min-h-dvh bg-[color:var(--background)] pb-24 text-[color:var(--text)] lg:pb-6"
     >
       <HeaderChrome />
-      <div className="mx-auto grid w-full max-w-7xl gap-4 px-3 py-3 sm:px-6 sm:py-4 lg:gap-5 lg:px-8">
+      <div className={cn(pageContainer, "grid gap-4 px-3 py-3 sm:px-6 sm:py-4 lg:gap-5 lg:px-8")}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <nav aria-label="Differential breadcrumbs" className="mb-3 flex items-center gap-2 text-xs font-semibold">
