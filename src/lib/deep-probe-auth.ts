@@ -1,0 +1,19 @@
+import { timingSafeEqual } from "node:crypto";
+import { env } from "@/lib/env";
+
+// Shared operator gate for internal health/status detail. A caller proves it is an operator
+// (not an anonymous internet client) by presenting HEALTH_DEEP_PROBE_SECRET via the
+// `x-health-deep-token` header. Used by /api/health (deep Supabase probe) and
+// /api/setup-status (detailed setup checks) so both surfaces gate internal error text and
+// project posture behind the same secret. Constant-time compare; fails closed when the secret
+// is unset or the token length/value differs.
+export function allowDeepHealthProbe(request: Request): boolean {
+  const secret = env.HEALTH_DEEP_PROBE_SECRET;
+  if (!secret) return false;
+  const token = request.headers.get("x-health-deep-token");
+  if (!token) return false;
+  if (token.length !== secret.length) return false;
+  const expected = Buffer.from(secret, "utf8");
+  const received = Buffer.from(token, "utf8");
+  return timingSafeEqual(expected, received);
+}

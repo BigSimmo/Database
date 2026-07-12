@@ -37,7 +37,7 @@ describe("proxy content-security-policy", () => {
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
-    expect(csp).toContain("img-src 'self' data: blob: https:");
+    expect(csp).toContain("img-src 'self' data: blob: https://*.supabase.co");
     expect(csp).toContain("connect-src 'self' https://*.supabase.co https://api.openai.com");
     expect(csp).toContain("style-src 'self' 'unsafe-inline'");
   });

@@ -93,4 +93,51 @@ describe("/api/setup-status", () => {
     expect(response.status).toBe(200);
     expect(body.checks).toEqual(expect.arrayContaining([expect.objectContaining({ id: "project", status: "ready" })]));
   });
+
+  it("coarsens per-check detail for anonymous production callers and restores it with the operator token", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const from = vi.fn(async () => ({ error: null, data: [], count: 0 }));
+    const createAdminClient = vi.fn(() => ({ from, rpc: vi.fn() }));
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+        OPENAI_API_KEY: "openai-key",
+        SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
+        SUPABASE_IMAGE_BUCKET: "clinical-images",
+        WORKER_POLL_MS: 1500,
+        HEALTH_DEEP_PROBE_SECRET: "operator-secret",
+      },
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+    }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient }));
+    vi.doMock("@/lib/supabase/health", () => ({
+      probeSupabaseHealth: vi.fn(async () => ({ ok: true })),
+      isSupabaseUnavailableError: () => false,
+      formatSupabaseUnavailableError: (error: unknown) => String(error),
+    }));
+    vi.doMock("@/lib/supabase/project", () => ({
+      checkSupabaseProjectConfig: () => ({ status: "warning", detail: "raw project posture detail" }),
+      formatSupabaseProjectCheck: () => "SECRET-PROJECT-POSTURE-DETAIL",
+    }));
+    const { GET } = await import("../src/app/api/setup-status/route");
+
+    // Anonymous production caller: raw per-check detail (Supabase/project posture) is redacted.
+    const anon = await (await GET(new Request("https://clinical.example/api/setup-status"))).json();
+    expect(JSON.stringify(anon)).not.toContain("SECRET-PROJECT-POSTURE-DETAIL");
+    const anonProject = anon.checks.find((c: { id: string }) => c.id === "project");
+    expect(anonProject.detail).not.toContain("SECRET-PROJECT-POSTURE-DETAIL");
+
+    // Operator presenting the shared deep-probe token: full detail is restored.
+    const operator = await (
+      await GET(
+        new Request("https://clinical.example/api/setup-status", {
+          headers: { "x-health-deep-token": "operator-secret" },
+        }),
+      )
+    ).json();
+    const operatorProject = operator.checks.find((c: { id: string }) => c.id === "project");
+    expect(operatorProject.detail).toContain("SECRET-PROJECT-POSTURE-DETAIL");
+  });
 });
