@@ -1353,6 +1353,10 @@ async function searchTextChunkCandidates(args: {
       document_filters: args.documentIds ?? undefined,
       owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
     });
+    // Report the error before returning empty so a schema drift on this
+    // most-terminal lexical layer surfaces in hybrid_rpc_errors telemetry
+    // instead of silently degrading to zero candidates. Return value unchanged.
+    if (error) recordHybridRpcError(args.telemetry, "match_document_chunks_text", error);
     return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
   };
 
@@ -1625,6 +1629,7 @@ async function searchDocumentLookupFastPath(args: {
   ownerId?: string;
   documentIds?: string[];
   matchCount: number;
+  telemetry?: SearchTelemetry;
 }): Promise<SearchResult[]> {
   if (!args.ownerId) return [] as SearchResult[];
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
@@ -1638,6 +1643,7 @@ async function searchDocumentLookupFastPath(args: {
         match_count: index === 0 ? 12 : 8,
         owner_filter: requireOwnerScope(args.ownerId),
       });
+      if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
       if (error || !data?.length) return [] as DocumentLookupRow[];
       return data as DocumentLookupRow[];
     }),
@@ -1922,6 +1928,7 @@ async function searchTableFactCandidates(args: {
   documentIds?: string[];
   allowGlobalSearch?: boolean;
   matchCount: number;
+  telemetry?: SearchTelemetry;
 }) {
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
     0,
@@ -1935,6 +1942,7 @@ async function searchTableFactCandidates(args: {
         document_filters: args.documentIds ?? undefined,
         owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
       });
+      if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
       if (error || !data?.length) return [] as TableFactRpcRow[];
       return data as TableFactRpcRow[];
     }),
@@ -3133,6 +3141,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       documentIds: documentFilterList,
       allowGlobalSearch: args.allowGlobalSearch,
       matchCount: Math.min(candidateCount, 48),
+      telemetry,
     });
     const tableFactLatencyMs = Date.now() - tableFactStartedAt;
     telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
@@ -3154,6 +3163,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       ownerId: args.ownerId,
       documentIds: documentFilterList,
       matchCount: candidateCount,
+      telemetry,
     });
     const documentLookupLatencyMs = Date.now() - documentLookupStartedAt;
     telemetry.supabase_rpc_latency_ms += documentLookupLatencyMs;

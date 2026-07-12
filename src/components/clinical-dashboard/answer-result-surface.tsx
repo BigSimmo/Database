@@ -41,7 +41,6 @@ import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-outpu
 function StagedAnswerResultSurfaceImpl({
   answer,
   query,
-  safeAnswerText,
   bestSource,
   sourceGovernanceWarnings,
   sourceSummary,
@@ -68,7 +67,6 @@ function StagedAnswerResultSurfaceImpl({
 }: {
   answer: RagAnswer;
   query: string;
-  safeAnswerText: string;
   bestSource: BestSourceRecommendation | null;
   sourceGovernanceWarnings: SourceGovernanceWarning[];
   sourceSummary?: EvidenceSummary;
@@ -211,7 +209,8 @@ function StagedAnswerResultSurfaceImpl({
         >
           <div className="min-w-0 space-y-3">
             <NaturalLanguageAnswer
-              text={safeAnswerText || answer.answer}
+              text={answer.answer}
+              preformatted={Boolean(answer.preformatted && answer.grounded)}
               sourceCount={sourceCount}
               sourceOnly={answer.answerQualityTier === "source_only"}
               bestSource={bestSource}

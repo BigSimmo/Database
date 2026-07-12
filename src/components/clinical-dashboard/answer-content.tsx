@@ -219,15 +219,41 @@ export function ScopeAndGovernanceNotice({
   );
 }
 
-export function plainAnswerText(value: string) {
-  const useful = clinicalProseUsefulness(value);
-  return sanitizeAnswerDisplayText(useful.text || value, { minLength: 8, minTokens: 2 })
+export type AnswerDisplayTextOptions = {
+  // Server-`preformatted` answers are display-ready by construction; skip the
+  // noise-stripping prose sanitizer and fragment slicing so their document
+  // names / facility codes survive.
+  preformatted?: boolean;
+  // Keep server high-yield bold (**…**) so <SafeBoldText> can render it.
+  preserveBold?: boolean;
+};
+
+// Fragments carrying a safety-critical signal must never be dropped by the
+// compact 3-fragment / 85-word cap — a withhold/threshold/escalation caveat
+// hidden from the primary prose is a clinical-safety regression.
+const primaryAnswerSafetySignalPattern =
+  /\b(?:withhold|withheld|stop|cease|hold|threshold|escalat|urgent|red\s*zone|amber|immediately|do not|contraindicat|toxic)\b/i;
+
+export function plainAnswerText(value: string, options: AnswerDisplayTextOptions = {}) {
+  // clinicalProseUsefulness runs the source-noise stripper, so preformatted
+  // answers bypass it and go straight to the lossless display path.
+  const base = options.preformatted ? value : clinicalProseUsefulness(value).text || value;
+  return sanitizeAnswerDisplayText(base, {
+    minLength: 8,
+    minTokens: 2,
+    preformatted: options.preformatted,
+    preserveBold: options.preserveBold,
+  })
     .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
     .trim();
 }
 
-function primaryAnswerDisplayText(value: string) {
-  const cleaned = plainAnswerText(value);
+function primaryAnswerDisplayText(value: string, options: AnswerDisplayTextOptions = {}) {
+  const cleaned = plainAnswerText(value, options);
+  // Deterministic preformatted answers are already concise and display-ready;
+  // the fragment-level usefulness pass below would re-strip the very names/codes
+  // the preformatted path just preserved, so return them as-is.
+  if (options.preformatted) return cleaned;
   const fragments = cleaned
     .split(/\r?\n+/)
     .flatMap((line: string) =>
@@ -249,13 +275,21 @@ function primaryAnswerDisplayText(value: string) {
       return useful.useful || fragment.split(/\s+/).length >= 8;
     });
   const uniqueFragments = Array.from(new Set(fragments));
-  const selected = uniqueFragments.slice(0, 3).join(" ");
-  const words = selected.split(/\s+/).filter(Boolean);
-  if (words.length <= 85) return selected || cleaned;
-  return `${words
-    .slice(0, 85)
-    .join(" ")
-    .replace(/[;,:-]\s*$/, "")}...`;
+  // Compact head (unchanged when no later fragment is safety-critical), plus any
+  // safety-signal fragment beyond the head appended in full so the cap can never
+  // hide it. When safetyTail is empty this is byte-identical to the prior cap.
+  const head = uniqueFragments.slice(0, 3);
+  const safetyTail = uniqueFragments.slice(3).filter((fragment) => primaryAnswerSafetySignalPattern.test(fragment));
+  const headWords = head.join(" ").split(/\s+/).filter(Boolean);
+  const headText =
+    headWords.length <= 85
+      ? head.join(" ")
+      : `${headWords
+          .slice(0, 85)
+          .join(" ")
+          .replace(/[;,:-]\s*$/, "")}...`;
+  const selected = [headText, ...safetyTail].filter(Boolean).join(" ");
+  return selected || cleaned;
 }
 
 // One compact "Sources" pill in every state: the amber Source-only pill and the
@@ -535,6 +569,7 @@ function SourcePreviewContent({
 
 export function NaturalLanguageAnswer({
   text,
+  preformatted = false,
   sourceCount,
   sourceOnly,
   bestSource,
@@ -543,7 +578,10 @@ export function NaturalLanguageAnswer({
   copied,
   onCopy,
 }: {
+  // Raw answer text (server bold intact); this component owns display
+  // sanitization so <SafeBoldText> can render the high-yield emphasis.
   text: string;
+  preformatted?: boolean;
   sourceCount: number;
   sourceOnly: boolean;
   bestSource: BestSourceRecommendation | null;
@@ -563,7 +601,7 @@ export function NaturalLanguageAnswer({
       if (copySourceQuoteTimerRef.current !== null) window.clearTimeout(copySourceQuoteTimerRef.current);
     };
   }, []);
-  const cleaned = primaryAnswerDisplayText(text);
+  const cleaned = primaryAnswerDisplayText(text, { preformatted, preserveBold: true });
   if (!cleaned) return null;
   const capsuleDisplay = sourceCapsuleDisplay({ sourceCount });
   const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);

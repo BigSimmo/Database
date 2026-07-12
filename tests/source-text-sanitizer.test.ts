@@ -6,6 +6,7 @@ import {
   lowYieldSourceNoiseScore,
   normalizeExtractedGlyphs,
   normalizeInlineBulletGlyphs,
+  normalizePreformattedDisplayText,
   polishStoredSynopsis,
   repairTruncatedCompactTail,
   fenceSourceEvidence,
@@ -20,6 +21,19 @@ import {
 } from "../src/lib/source-text-sanitizer";
 
 describe("source text sanitizer", () => {
+  it("normalizePreformattedDisplayText is lossless for document names and codes", () => {
+    // Preformatted answers rely on this: it must repair glyphs/whitespace but
+    // NOT strip facility codes, all-caps titles, or parenthetical codes.
+    const docList =
+      "I found 2 indexed documents that support this query:  LITHIUM CLOZAPINE GUIDELINE MP-0123;\n\nand Behaviour Protocol (NOCC).";
+    const out = normalizePreformattedDisplayText(docList);
+    expect(out).toContain("LITHIUM CLOZAPINE GUIDELINE");
+    expect(out).toContain("MP-0123");
+    expect(out).toContain("(NOCC)");
+    // Collapses runs of spaces but keeps the content intact.
+    expect(out).not.toMatch(/ {2,}/);
+  });
+
   it("removes complete and partial internal image metadata from display text", () => {
     const text =
       "Source mentions: [[IMAGE_DATA_START]] Image ID: img-1; Source kind: table_crop; Image type: clinical_table; Table text: | Dose | Route | [[IMAGE_DATA_END]] Continue oral medication when indicated.";

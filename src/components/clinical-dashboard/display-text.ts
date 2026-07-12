@@ -1,6 +1,7 @@
 import {
   normalizeExtractedGlyphs,
   normalizeInlineBulletGlyphs,
+  normalizePreformattedDisplayText,
   sourceTextForCompactDisplay,
   sourceTextForClinicalProse,
   sourceTextForClinicalProsePreservingBreaks,
@@ -16,6 +17,12 @@ export type DisplayTextSanitizeOptions = {
   minLength?: number;
   minTokens?: number;
   compactSource?: boolean;
+  // Server-`preformatted` answers (doc-support lists, table/visual references)
+  // are display-ready by construction; run only lossless normalization so their
+  // document names / facility codes are not deleted as "source noise".
+  preformatted?: boolean;
+  // Keep server high-yield bold (**…**) so <SafeBoldText> can render it.
+  preserveBold?: boolean;
 };
 
 export function normalizeDisplayText(value: string) {
@@ -202,7 +209,13 @@ export function compactTableFact(fact: NonNullable<SearchResult["table_facts"]>[
 }
 
 export function sanitizeAnswerDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
-  const normalized = polishClinicalAnswerProse(sourceTextForClinicalProsePreservingBreaks(value)).trim();
+  const normalized = (
+    options.preformatted
+      ? normalizePreformattedDisplayText(value)
+      : polishClinicalAnswerProse(sourceTextForClinicalProsePreservingBreaks(value), {
+          preserveBold: options.preserveBold,
+        })
+  ).trim();
   if (!normalized) return "";
   const artifactStart = normalizeDisplayText(normalized).search(
     /\{\s*"(?:answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|source_chunk_ids|chunk_id|conflictsOrGaps|quoteCards?)\s*:/i,

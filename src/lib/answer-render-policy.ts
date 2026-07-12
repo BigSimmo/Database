@@ -575,6 +575,10 @@ export function buildAnswerRenderModel(
   });
   const allowedBlocks = blockOrder.filter((block) => decisions[block].shown);
   const answerText = answer.answer.trim();
+  // The copy/paste draft is plain text for clinical notes — strip the server's
+  // high-yield bold markers so a pasted draft never contains literal "**".
+  // (Preformatted answers carry no bold, so this is a no-op for them.)
+  const copyAnswerText = answerText.replace(/\*\*/g, "");
 
   return {
     answerText,
@@ -588,7 +592,7 @@ export function buildAnswerRenderModel(
     relatedDocuments,
     bestSource,
     warnings,
-    copyText: formatAnswerRenderCopyText({ answerText, trust, primarySources, warnings }),
+    copyText: formatAnswerRenderCopyText({ answerText: copyAnswerText, trust, primarySources, warnings }),
     debugReasons: options.includeDebugReasons ? decisions : undefined,
   };
 }

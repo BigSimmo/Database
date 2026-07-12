@@ -572,7 +572,9 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
 function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: AnswerViewMode) {
   const sections =
     viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);
-  const primaryAnswer = plainAnswerText(answer.answer);
+  const primaryAnswer = plainAnswerText(answer.answer, {
+    preformatted: Boolean(answer.preformatted && answer.grounded),
+  });
   const keepVerifySource = answer.answerQualityTier === "source_only" || answer.grounded === false;
   return sortClinicalDetailSections(
     sections

@@ -46,7 +46,9 @@ export function ClinicalOutputPanel({
   const rows = evidenceMapRows ?? buildAnswerEvidenceMap(answer);
   if (sections.length === 0 && (viewMode !== "evidence_map" || rows.length === 0)) return null;
   const leadSection = sections.find((section) => section.id === "bottom-line") ?? sections[0];
-  const primaryAnswer = plainAnswerText(answer.answer);
+  const primaryAnswer = plainAnswerText(answer.answer, {
+    preformatted: Boolean(answer.preformatted && answer.grounded),
+  });
   const detailSections = sections
     .filter((section) => section.id !== "verify-source")
     .filter((section) => (showLead ? section.id !== leadSection?.id : section.id !== "bottom-line"))

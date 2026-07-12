@@ -204,10 +204,18 @@ function separateSettingRunOns(value: string): string {
     .replace(/\bfor community patients,?\s+for inpatients,?/gi, "for community patients. For inpatients,");
 }
 
-export function polishClinicalAnswerProse(value: string) {
-  // Bold markers come off before bullet normalization so an emphasized item
-  // ("o **Reduce dose**") still reads as a sub-bullet to the "o" matcher.
-  const cleaned = normalizeInlineBulletGlyphs(normalizeSectionText(value).replace(/\*\*([^*]+)\*\*/g, "$1"))
+export function polishClinicalAnswerProse(value: string, options: { preserveBold?: boolean } = {}) {
+  // Bold markers normally come off before bullet normalization so an emphasized
+  // item ("o **Reduce dose**") still reads as a sub-bullet to the "o" matcher.
+  // The display path passes preserveBold so <SafeBoldText> can render the
+  // server's high-yield emphasis (and the un-bold unverified-number safety
+  // signal); the sub-bullet matcher tolerates a leading "**" so bolded
+  // sub-bullets still normalize. The server answer-gen path keeps the default
+  // (strip), so its quality gates are unchanged.
+  const normalized = normalizeSectionText(value);
+  const cleaned = normalizeInlineBulletGlyphs(
+    options.preserveBold ? normalized : normalized.replace(/\*\*([^*]+)\*\*/g, "$1"),
+  )
     .replace(productCatalogueFragmentPattern, " ")
     .replace(brandOrFormularyFragmentPattern, " ")
     .replace(imprestLocationPattern, " ")

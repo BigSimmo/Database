@@ -519,7 +519,11 @@ function PriorAnswerTurnSurface({
     () => buildAnswerRenderModel(turn.answer, { sources: turn.sources }),
     [turn.answer, turn.sources],
   );
-  const safeText = useMemo(() => sanitizeAnswerDisplayText(turn.answer.answer), [turn.answer.answer]);
+  const turnPreformatted = Boolean(turn.answer.preformatted && turn.answer.grounded);
+  const safeText = useMemo(
+    () => sanitizeAnswerDisplayText(turn.answer.answer, { preformatted: turnPreformatted }),
+    [turn.answer.answer, turnPreformatted],
+  );
   const sourceCount =
     renderModel.primarySources.length ||
     turn.sources.length ||
@@ -558,7 +562,8 @@ function PriorAnswerTurnSurface({
         ) : (
           <>
             <NaturalLanguageAnswer
-              text={previewText}
+              text={turn.answer.answer}
+              preformatted={turnPreformatted}
               sourceCount={sourceCount}
               sourceOnly={turn.answer.answerQualityTier === "source_only"}
               bestSource={renderModel.bestSource}
@@ -2844,7 +2849,11 @@ export function ClinicalDashboard({
     currentRelevance?.isSourceBacked !== false &&
     answerRenderModel?.trust !== "unsupported";
   const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
-  const safeAnswerText = useMemo(() => sanitizeAnswerDisplayText(answer?.answer ?? ""), [answer?.answer]);
+  const answerPreformatted = Boolean(answer?.preformatted && answer?.grounded);
+  const safeAnswerText = useMemo(
+    () => sanitizeAnswerDisplayText(answer?.answer ?? "", { preformatted: answerPreformatted }),
+    [answer?.answer, answerPreformatted],
+  );
   const answerFollowUpSuggestions = useMemo(() => {
     if (!answer || !latestAnswerQuery) return [];
     const priorQueries = [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery];
@@ -2859,7 +2868,11 @@ export function ClinicalDashboard({
     return (answer?.answerSections ?? [])
       .map((section) => {
         const heading = sanitizeDisplayText(section.heading, { minLength: 1, minTokens: 1 });
-        const body = sanitizeAnswerDisplayText(section.body, { minLength: 8, minTokens: 2 });
+        const body = sanitizeAnswerDisplayText(section.body, {
+          minLength: 8,
+          minTokens: 2,
+          preformatted: answerPreformatted,
+        });
         if (!heading || !body) return null;
 
         const citationSources: SearchResult[] = [];
@@ -2880,7 +2893,7 @@ export function ClinicalDashboard({
         };
       })
       .filter((section): section is AnswerSection & { citationSources: SearchResult[] } => section !== null);
-  }, [answer?.answerSections, sourceLookup]);
+  }, [answer?.answerSections, answerPreformatted, sourceLookup]);
   const answerEvidenceMapRows = useMemo(() => {
     if (!answerRenderModel?.allowedBlocks.includes("evidenceMap")) return [];
     return evidenceMapRowsFromRenderModel(answerRenderModel).slice(0, answerRenderModel.trust === "high" ? 8 : 6);
@@ -3607,7 +3620,6 @@ export function ClinicalDashboard({
                       <StagedAnswerResultSurface
                         answer={answer}
                         query={latestAnswerQuery ?? query}
-                        safeAnswerText={safeAnswerText}
                         bestSource={bestSource}
                         sourceGovernanceWarnings={sourceGovernanceWarnings}
                         sourceSummary={sourceSummary}

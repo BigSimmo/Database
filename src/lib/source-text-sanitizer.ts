@@ -292,6 +292,17 @@ export function sourceTextForClinicalProsePreservingBreaks(text: string) {
   return readableWhitespace(stripLowYieldSourceNoise(sourceTextForDisplayPreservingBreaks(text)));
 }
 
+// Lossless display normalization for server-`preformatted` answers (document
+// support lists, table/visual source references). These are well-formed by
+// construction and their "source-noise"-looking tokens — facility codes like
+// "MP-0123", all-caps guideline titles — ARE the payload, so the noise-stripping
+// prose sanitizer must NOT run on them (it would delete the document names and
+// leave garble). Apply only glyph repair + whitespace collapse, matching the
+// server's own `finalizeRagAnswerQuality` exemption for `preformatted && grounded`.
+export function normalizePreformattedDisplayText(text: string) {
+  return readableWhitespace(text);
+}
+
 export function isLowYieldClinicalText(text: string) {
   const cleaned = sourceTextForClinicalProse(text);
   if (!cleaned) return true;
@@ -554,7 +565,10 @@ const inlineBulletGlyphPattern = /\s*[•◦▪‣●]+\s*/g;
 // "Dose:\no Start 750 mg"), hence the start/newline alternatives. Lowercase
 // followers ("o pregnancy") are deliberately NOT converted: the risk of
 // deleting a genuine clinical "o" value outweighs the cosmetic artifact.
-const subBulletOGlyphPattern = /(?<=^|[\r\n]|[^\d\s]\s)o(?=\s+(?:\d|[A-Z][a-z0-9]|[A-Z]{2,}))/g;
+// The optional "**" before the follower lets a bolded sub-bullet ("o **Reduce
+// dose**") still be recognised when the display path preserves bold markers; a
+// superset of the previous match, so non-bold behaviour is unchanged.
+const subBulletOGlyphPattern = /(?<=^|[\r\n]|[^\d\s]\s)o(?=\s+(?:\*\*)?(?:\d|[A-Z][a-z0-9]|[A-Z]{2,}))/g;
 // Blood-group exemptions: "blood group o RhD negative" / "Blood Type: o
 // Negative" (any casing, optional colon), or a bare "group/type o" directly
 // followed by an Rh/positive/negative value, keep their lowercase "o" — it
