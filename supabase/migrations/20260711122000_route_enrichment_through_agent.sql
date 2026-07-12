@@ -163,4 +163,3 @@ revoke execute on function public.claim_indexing_v3_agent_jobs(text, integer, in
   from public, anon, authenticated;
 grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer)
   to service_role;
-

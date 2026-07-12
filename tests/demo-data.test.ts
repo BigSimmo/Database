@@ -82,6 +82,22 @@ describe("demo data mode", () => {
     expect(payload?.chunks.length).toBeGreaterThan(0);
     expect(payload?.images[0].caption).toContain("monitoring table");
   });
+
+  it("joins labels, stored summary, and index health onto the viewer payload like the live API", () => {
+    const lithium = getDemoDocumentPayload(demoDocuments[0].id);
+    expect(lithium?.document.labels?.length).toBeGreaterThan(0);
+    expect(lithium?.document.labels?.some((label) => label.label_type === "medication")).toBe(true);
+    // Deliberately messy stored summary so the display-time formatter is exercised end-to-end.
+    expect(lithium?.document.summary?.summary).toContain("Reference #");
+    expect(lithium?.document.summary?.summary).toContain("narrow therapeutic index");
+    expect(lithium?.indexHealth).toMatchObject({
+      extractionQuality: "good",
+      indexVersion: "rag-deep-memory-v1",
+    });
+
+    const clozapine = getDemoDocumentPayload(demoDocuments[1].id);
+    expect(clozapine?.document.summary?.clinical_specifics?.profile?.overview).toContain("clozapine");
+  });
 });
 
 // Class-level guard so a future route cannot reintroduce the /api/search/universal leak: demo

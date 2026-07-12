@@ -300,7 +300,7 @@ export function Sheet({
                 aria-label={closeLabel}
                 className={closeButtonClassName ?? toolbarButton}
               >
-                <X className="h-4 w-4" />
+                <X aria-hidden="true" className="h-4 w-4" />
               </button>
             </div>
           </div>

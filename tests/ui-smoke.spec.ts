@@ -937,7 +937,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Regression guard for the "all images fail to render" incident: document
     // page images load cross-origin from Supabase Storage signed URLs. A
     // Cross-Origin-Embedder-Policy: require-corp header (or a CSP that drops
-    // https: images / the *.supabase.co origin) silently breaks every image
+    // the *.supabase.co image origin) silently breaks every image
     // while all other tests still pass. Assert the actual served headers.
     const response = await page.request.get("/");
     expect(response.status()).toBe(200);
@@ -948,7 +948,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const csp = headers["content-security-policy"] ?? "";
     expect(csp).toContain("img-src");
     const imgSrc = csp.split(";").find((directive) => directive.trim().startsWith("img-src"));
-    expect(imgSrc).toContain("https:");
+    expect(imgSrc).toContain("https://*.supabase.co");
+    expect(imgSrc?.trim().split(/\s+/)).not.toContain("https:");
     expect(csp).toContain("https://*.supabase.co");
   });
 
@@ -1792,6 +1793,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
 
       const expandButton = clinicalTable.getByTestId("table-expand-button");
+      const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
       if (!viewport.expands) {
         await expect(page.getByRole("button", { name: "Open answer sources" })).toContainText(/sources?/i);
         await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
@@ -1822,11 +1824,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
         return;
       }
 
+      await expect(tableSurface).not.toHaveAttribute("role", "button");
+      await expect(tableSurface).not.toHaveAttribute("tabindex");
+      await expect(expandButton).toHaveAttribute("aria-expanded", "false");
       await page.keyboard.press("Escape");
       const surfaceDialog = await openMobileTableFullscreen(page, clinicalTable);
+      await expect(expandButton).toHaveAttribute("aria-expanded", "true");
+      await expect(surfaceDialog.getByRole("button", { name: "Close full-screen table" })).toBeFocused();
+      await page.keyboard.press("Shift+Tab");
+      expect(await surfaceDialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await page.keyboard.press("Tab");
+      expect(await surfaceDialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await expect(surfaceDialog).toContainText("FBC/ANC");
       await page.keyboard.press("Escape");
       await expect(surfaceDialog).toBeHidden();
+      await expect(expandButton).toHaveAttribute("aria-expanded", "false");
 
       await expect(expandButton).toBeVisible();
       await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
@@ -2150,7 +2162,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Synthetic lithium monitoring protocol");
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("Tables 1");
-    await expect(documentResults.getByRole("link", { name: "Open document" }).first()).toBeVisible();
+    const openDocumentLink = documentResults.getByRole("link", { name: "Open document" }).first();
+    await expect(openDocumentLink).toBeVisible();
+    // Exact viewer target built from mockDemoApi's lithium result (document_id / bestPages[0] /
+    // bestChunkIds[0]): a link to the wrong document, page, or chunk must fail this assertion.
+    await expect(openDocumentLink).toHaveAttribute(
+      "href",
+      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+    );
     await expect(page.getByRole("complementary").filter({ hasText: "Selected source" })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
@@ -2307,6 +2326,33 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     expect(fitWidthScrollStyles.overflowX).toBe("hidden");
     expect(fitWidthScrollStyles.touchAction).toContain("pan-y");
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("document viewer smart summary is structured with badges and demoted indexing details", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/documents/11111111-1111-4111-8111-111111111111?page=1");
+
+    const summaryCard = page.getByTestId("high-yield-summary");
+    await expect(summaryCard).toBeVisible();
+    // Smart summary: badge cluster from labels + detected phrases, structured
+    // sections, and no document-header boilerplate leaking through.
+    await expect(summaryCard.getByText("Narrow therapeutic index", { exact: true })).toBeVisible();
+    await expect(summaryCard.getByTestId("formatted-high-yield-summary")).toBeVisible();
+    await expect(summaryCard).not.toContainText("Reference #");
+    await expect(summaryCard).not.toContainText("Service/Department/Unit");
+
+    // The old meta-only "Document details" card is gone; indexing metadata is
+    // demoted behind a collapsed disclosure at the bottom of the sidebar.
+    await expect(page.getByText("Document details", { exact: true })).toHaveCount(0);
+    const indexingDetails = page.getByTestId("indexing-details");
+    await expect(indexingDetails).toBeVisible();
+    await expect(indexingDetails.getByText("rag-deep-memory-v1")).toBeHidden();
+    await indexingDetails.getByText("Indexing details", { exact: true }).click();
+    await expect(indexingDetails.getByText("rag-deep-memory-v1")).toBeVisible();
+
+    await expectDomIntegrity(page);
     await expectNoPageHorizontalOverflow(page);
   });
 

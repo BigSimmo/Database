@@ -8,7 +8,9 @@ import {
   type SmartDocumentTag,
   type SmartDocumentTagGroup,
 } from "@/lib/document-tags";
+import { documentTagGroupTone } from "@/lib/document-summary-badges";
 import type { DocumentLabel } from "@/lib/types";
+import { clinicalBadgeToneClass } from "@/components/clinical-dashboard/clinical-badge";
 import { cn } from "@/components/ui-primitives";
 
 type DocumentTagCloudProps = {
@@ -40,27 +42,26 @@ const groupIcon: Record<SmartDocumentTagGroup, typeof Tag> = {
   Manual: Sparkles,
 };
 
-const groupTone: Record<SmartDocumentTagGroup, string> = {
-  Site: "border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-  Medication: "border-[color:var(--primary)]/30 bg-[color:var(--primary-soft)]/45 text-[color:var(--primary)]",
-  Risk: "border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/50 text-[color:var(--warning)]",
-  Workflow: "border-[color:var(--info)]/30 bg-[color:var(--info-soft)]/50 text-[color:var(--info)]",
-  Topic: "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
-  Population: "border-[color:var(--success)]/25 bg-[color:var(--success-soft)]/40 text-[color:var(--success)]",
-  Setting: "border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-  Service: "border-[color:var(--primary)]/20 bg-[color:var(--surface-raised)] text-[color:var(--primary)]",
-  "Document type": "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
-  "Clinical action": "border-[color:var(--info)]/30 bg-[color:var(--info-soft)]/50 text-[color:var(--info)]",
-  "Care phase": "border-[color:var(--success)]/25 bg-[color:var(--success-soft)]/40 text-[color:var(--success)]",
-  "Document intent": "border-[color:var(--primary)]/20 bg-[color:var(--surface-raised)] text-[color:var(--primary)]",
-  "Content feature": "border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-  Manual: "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]",
-};
+// Chip colours come from the canonical semantic-tone system (see
+// /reference/colour-coding) via the shared group→tone map, so document tag
+// chips read the same as every other clinical badge in the app.
+function groupToneClass(group: SmartDocumentTagGroup): string {
+  return clinicalBadgeToneClass(documentTagGroupTone[group]);
+}
 
 function confidenceTitle(tag: SmartDocumentTag) {
   return `${tag.group}: ${tag.source} tag, ${Math.round(tag.confidence * 100)}% confidence`;
 }
 
+/**
+ * Renders a document tag with group-specific styling and optional search interaction.
+ *
+ * @param tag - The document tag to display.
+ * @param compact - Whether to use compact sizing.
+ * @param selected - Whether to indicate the tag as selected.
+ * @param onTagClick - Optional callback invoked when the tag is clicked.
+ * @returns The rendered document tag chip.
+ */
 function DocumentTagChip({
   tag,
   compact,
@@ -76,11 +77,10 @@ function DocumentTagChip({
   const tagClassName = cn(
     "inline-flex max-w-full items-center gap-1 rounded-md border font-semibold shadow-[var(--shadow-inset)]",
     compact ? "min-h-6 px-2 text-3xs" : "min-h-7 px-2 text-2xs",
-    groupTone[tag.group],
+    groupToneClass(tag.group),
     tag.queryMatched && "ring-2 ring-[color:var(--focus)]/25",
     selected && "ring-2 ring-[color:var(--primary)]/35",
-    onTagClick &&
-      "cursor-pointer transition hover:-translate-y-0.5 hover:border-[color:var(--border-strong)] focus:outline-none focus:ring-2 focus:ring-[color:var(--focus)]/40",
+    onTagClick && "cursor-pointer transition hover:-translate-y-0.5 hover:border-[color:var(--border-strong)]",
   );
   const content = (
     <>

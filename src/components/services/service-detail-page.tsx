@@ -2,12 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import {
-  AlertTriangle,
+  TriangleAlert,
   ArrowLeft,
   BadgeDollarSign,
   Bookmark,
   BookmarkCheck,
-  CheckCircle2,
+  CircleCheck,
   ChevronRight,
   Clipboard,
   Copy,
@@ -22,7 +22,7 @@ import {
   Tag,
   Users,
   X,
-  XCircle,
+  CircleX,
   type LucideIcon,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -31,6 +31,7 @@ import {
   cn,
   floatingControl,
   metadataPill,
+  pageContainer,
   primaryControl,
   textMuted,
   toneDanger,
@@ -109,9 +110,9 @@ function renderCriterionIcon(tone: ServiceCriterion["tone"]) {
         ? "text-[color:var(--danger)]"
         : "text-[color:var(--warning)]",
   );
-  if (tone === "meet") return <CheckCircle2 className={className} aria-hidden />;
-  if (tone === "reject") return <XCircle className={className} aria-hidden />;
-  return <AlertTriangle className={className} aria-hidden />;
+  if (tone === "meet") return <CircleCheck className={className} aria-hidden />;
+  if (tone === "reject") return <CircleX className={className} aria-hidden />;
+  return <TriangleAlert className={className} aria-hidden />;
 }
 
 function criterionPill(tone: ServiceCriterion["tone"]) {
@@ -264,6 +265,12 @@ function SummaryCard({ card }: { card: ServiceSummaryCard }) {
   );
 }
 
+/**
+ * Displays referral information rows with their values and copy actions.
+ *
+ * @param rows - The referral information rows to display
+ * @param onCopy - Callback invoked with a row value and feedback label when copying is requested
+ */
 function ReferralTable({
   rows,
   onCopy,
@@ -315,7 +322,7 @@ function ReferralTable({
                 disabled={!hasText(row.value)}
                 onClick={() => onCopy(row.value, `${row.label} copied`)}
                 aria-label={`Copy ${row.label}`}
-                className="inline-grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Copy className="h-4 w-4" aria-hidden />
               </button>
@@ -504,7 +511,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
       data-testid="service-detail-page"
       className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 py-4 pb-[calc(10rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
     >
-      <div className="mx-auto max-w-7xl">
+      <div className={pageContainer}>
         {notice ? (
           <div
             role="status"
@@ -550,11 +557,11 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                         <span
                           key={chip.label ?? `status-chip-${index}`}
                           className={cn(
-                            "inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2.5 text-2xs font-bold",
+                            "inline-flex min-h-6 items-center gap-1.5 rounded-2xl border px-2.5 py-0.5 text-2xs font-bold",
                             chipToneClass(chip.tone),
                           )}
                         >
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden />
                           {displayText(chip.label, "Status")}
                         </span>
                       ))}
@@ -600,7 +607,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               </div>
               <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
                 <div className="flex gap-3">
-                  <AlertTriangle className="mt-1 h-5 w-5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                  <TriangleAlert className="mt-1 h-5 w-5 shrink-0 text-[color:var(--warning)]" aria-hidden />
                   <div>
                     <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                       {verified ? "Verified for local use" : "Verify locally before use"}

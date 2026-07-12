@@ -693,3 +693,24 @@ export async function packAdjacentSourceContext(
     return results;
   }
 }
+
+// The numeric-faithfulness gate must verify answer figures against the SAME text
+// the model was shown. Generation runs on the packed context (packAdjacentSourceContext
+// merges neighbour-chunk text into adjacent_context), but answer.sources is the
+// unpacked answer-input set — so a dose/threshold the model faithfully copied from a
+// neighbour chunk would be absent from the finalize-time verification corpus and wrongly
+// flagged unverified, blanking a correct answer. Overlay the packed adjacent_context onto
+// the answer-input results (by chunk id) to rebuild the exact verification corpus, WITHOUT
+// mutating answer.sources itself (the route-boundary client trim and eval byte-identity
+// both depend on answer.sources staying unpacked — see answer-client-payload.ts).
+export function attachAdjacentContext(results: SearchResult[], packed: SearchResult[]): SearchResult[] {
+  const adjacentById = new Map<string, string>();
+  for (const source of packed) {
+    if (source.adjacent_context) adjacentById.set(source.id, source.adjacent_context);
+  }
+  if (adjacentById.size === 0) return results;
+  return results.map((result) => {
+    const adjacent = adjacentById.get(result.id);
+    return adjacent && adjacent !== result.adjacent_context ? { ...result, adjacent_context: adjacent } : result;
+  });
+}

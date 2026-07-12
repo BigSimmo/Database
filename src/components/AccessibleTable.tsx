@@ -1,17 +1,7 @@
 "use client";
 
 import { Maximize2, X } from "lucide-react";
-import {
-  type KeyboardEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
 import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
@@ -125,7 +115,13 @@ function AccessibleTableMarkup({
         <table
           aria-label={caption ?? undefined}
           className={cn(
-            "w-full border-separate border-spacing-0 text-left md:table-fixed",
+            // Non-dense tables use auto layout so columns size to their content
+            // (min-content = longest word) and wrap at word boundaries; a table
+            // too wide for its container scrolls via the overflow-x-auto wrapper
+            // above rather than squeezing columns until words break mid-character.
+            // The dense preview keeps a fixed layout (re-added below) for its
+            // ellipsised single-line cells.
+            "w-full border-separate border-spacing-0 text-left",
             renderDensePreview ? "min-w-full table-fixed text-2xs" : expanded ? "text-base-minus" : "text-sm",
           )}
         >
@@ -145,7 +141,7 @@ function AccessibleTableMarkup({
                     "nums border-b border-[color:var(--border)] align-top font-semibold leading-5 text-[color:var(--text)]",
                     renderDensePreview
                       ? "overflow-hidden text-ellipsis whitespace-nowrap"
-                      : "whitespace-normal break-words [overflow-wrap:anywhere]",
+                      : "whitespace-normal break-words",
                     index > 0 && "border-l border-[color:var(--border)]/70",
                     renderDensePreview
                       ? "px-2 py-1.5 text-3xs uppercase tracking-[0.06em]"
@@ -162,7 +158,9 @@ function AccessibleTableMarkup({
                   scope="col"
                   className={cn(
                     "nums border-b border-l border-[color:var(--border)]/70 align-top font-semibold leading-5 text-[color:var(--text)]",
-                    "whitespace-normal break-words [overflow-wrap:anywhere]",
+                    renderDensePreview
+                      ? "overflow-hidden text-ellipsis whitespace-nowrap"
+                      : "whitespace-normal break-words",
                     renderDensePreview
                       ? "px-2 py-1.5 text-3xs uppercase tracking-[0.06em]"
                       : expanded
@@ -200,9 +198,7 @@ function AccessibleTableMarkup({
                         className={cn(
                           "nums align-top text-[color:var(--text)]",
                           renderDensePreview ? "table-cell" : "block md:table-cell",
-                          renderDensePreview
-                            ? "overflow-hidden whitespace-nowrap"
-                            : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                          renderDensePreview ? "overflow-hidden whitespace-nowrap" : "whitespace-pre-wrap break-words",
                           renderDensePreview
                             ? "border-t border-[color:var(--border)]/70 px-2 py-1.5 leading-4"
                             : "border-b border-[color:var(--border)]/60 pb-2 last:border-b-0 md:border-b-0 md:border-t md:border-[color:var(--border)]/70 md:last:border-b-0",
@@ -298,6 +294,29 @@ function useMobileTableExpansion(enabledByDefault: boolean) {
   return enabledByDefault && isMobile;
 }
 
+// Mirrors the component's `normalized` computation so callers can decide layout
+// (e.g. whether to collapse a source image) using the exact same parse/normalize
+// rules AccessibleTable renders with. Returns false when the table would render
+// nothing — columns-only input, unparseable markdown, or an all-metadata grid.
+export function hasRenderableAccessibleTable({
+  markdown,
+  rows,
+  columns,
+  clinicalOnly = false,
+}: {
+  markdown?: string | null;
+  rows?: string[][] | null;
+  columns?: string[] | null;
+  clinicalOnly?: boolean;
+}): boolean {
+  const hasExplicitRows = Boolean(rows?.length);
+  const parsed = hasExplicitRows ? rows : parseMarkdownTable(markdown);
+  if (!parsed?.length) return false;
+  const table = normalizeAccessibleTable(parsed, hasExplicitRows ? columns : null);
+  if (!table) return false;
+  return Boolean(clinicalOnly ? clinicalOnlyTable(table) : table);
+}
+
 export function AccessibleTable({
   caption,
   markdown,
@@ -377,8 +396,9 @@ export function AccessibleTable({
         dialogRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
         ) ?? [],
-      );
-      if (!focusable.length) return;
+      ).filter((element) => element.getAttribute("aria-hidden") !== "true");
+      if (focusable.length === 0) return;
+
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (!dialogRef.current?.contains(document.activeElement)) {
@@ -443,32 +463,10 @@ export function AccessibleTable({
     setOpen(true);
   }
 
-  function handleSurfaceKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (!canExpand) return;
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    openDialog(event.currentTarget);
-  }
-
   return (
     <>
       <div className="relative min-w-0">
-        <div
-          data-testid="accessible-table-surface"
-          onClick={(event) => openDialog(event.currentTarget)}
-          onKeyDown={handleSurfaceKeyDown}
-          role={canExpand ? "button" : undefined}
-          tabIndex={canExpand ? 0 : -1}
-          aria-label={canExpand ? `Open ${title} full table` : undefined}
-          aria-haspopup={canExpand ? "dialog" : undefined}
-          aria-expanded={canExpand ? dialogOpen : undefined}
-          aria-controls={dialogOpen ? dialogId : undefined}
-          className={cn(
-            "min-w-0",
-            canExpand &&
-              "relative z-50 cursor-zoom-in rounded-lg outline-none ring-offset-2 ring-offset-[color:var(--surface)] transition focus-within:ring-4 focus-within:ring-[color:var(--focus)]/25",
-          )}
-        >
+        <div data-testid="accessible-table-surface" className="min-w-0">
           {table}
         </div>
         {canExpand ? (
@@ -477,6 +475,7 @@ export function AccessibleTable({
             data-testid="table-expand-button"
             aria-label={`Open ${title} full screen`}
             aria-haspopup="dialog"
+            aria-expanded={dialogOpen}
             aria-controls={dialogOpen ? dialogId : undefined}
             onClick={(event) => {
               event.stopPropagation();
@@ -485,13 +484,14 @@ export function AccessibleTable({
             className="relative z-50 mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 scroll-mb-[calc(18rem+env(safe-area-inset-bottom))] rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
           >
             <span>Expand table</span>
-            <Maximize2 className="h-4 w-4" />
+            <Maximize2 className="h-4 w-4" aria-hidden />
           </button>
         ) : null}
       </div>
       {dialogOpen ? (
         <div
           ref={dialogRef}
+          id={dialogId}
           data-testid="table-fullscreen-dialog"
           role="dialog"
           aria-modal="true"
@@ -517,7 +517,7 @@ export function AccessibleTable({
                 onClick={() => setOpen(false)}
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden />
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))]">

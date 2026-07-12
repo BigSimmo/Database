@@ -54,7 +54,7 @@ export function DocumentFileTile({
       )}
       aria-hidden
     >
-      <FileText className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
+      <FileText aria-hidden="true" className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />
       <span className="mt-0.5 leading-none">{label}</span>
     </span>
   );

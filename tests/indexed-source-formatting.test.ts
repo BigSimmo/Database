@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseIndexedSourceText } from "../src/lib/indexed-source-formatting";
+import {
+  flowIndexedText,
+  mergeContinuationBlocks,
+  parseIndexedSourceText,
+  type IndexedTextBlock,
+} from "../src/lib/indexed-source-formatting";
 
 describe("indexed source formatting", () => {
   it("turns raw PDF page extraction into headings, paragraphs, lists, and tables", () => {
@@ -72,5 +77,110 @@ The Clozapine monitoring protocol must be followed if a patient's blood test is 
       ],
     });
     expect(JSON.stringify(blocks)).not.toContain("Page 8 of 15");
+  });
+
+  it("re-joins soft-wrap continuations that extraction split with blank lines", () => {
+    const blocks = parseIndexedSourceText(`
+Lithium Therapy - Initiation and Continuation
+
+• NSAIDs: (e.g. ibuprofen) can reduce lithium clearance and therefore
+
+increase lithium levels and the risk of toxicity. Avoid the combination where possible.
+
+• Serotonergic drugs: Lithium can contribute to serotonin toxicity, therefore
+
+patients who are prescribed combinations of serotonergic drugs should be closely monitored
+
+2.7. Dosage (as lithium carbonate)
+
+Doses should be individualised depending on indication and patient risk
+
+factors i.e. weight, comorbidities (e.g. renal impairment) and concomitant medications.
+`);
+
+    const list = blocks.find((block) => block.type === "list");
+    expect(list).toMatchObject({
+      type: "list",
+      items: [
+        "NSAIDs: (e.g. ibuprofen) can reduce lithium clearance and therefore increase lithium levels and the risk of toxicity. Avoid the combination where possible.",
+        "Serotonergic drugs: Lithium can contribute to serotonin toxicity, therefore patients who are prescribed combinations of serotonergic drugs should be closely monitored",
+      ],
+    });
+
+    // Multi-level numbered heading is recognised and blocks merging across it.
+    expect(blocks).toContainEqual(
+      expect.objectContaining({ type: "heading", level: "section", text: "2.7. Dosage (as lithium carbonate)" }),
+    );
+    expect(blocks).toContainEqual(
+      expect.objectContaining({
+        type: "paragraph",
+        text: "Doses should be individualised depending on indication and patient risk factors i.e. weight, comorbidities (e.g. renal impairment) and concomitant medications.",
+      }),
+    );
+  });
+
+  it("does not classify decimal dose/value lines as numbered headings", () => {
+    for (const dose of ["12.5 mg daily", "2.5 mmol/L threshold", "0.5 mg at night"]) {
+      expect(parseIndexedSourceText(dose)).toContainEqual(expect.objectContaining({ type: "paragraph", text: dose }));
+      expect(parseIndexedSourceText(dose).some((block) => block.type === "heading")).toBe(false);
+    }
+    // Genuine numbered headings (Title-Case or digit-led) still resolve.
+    expect(parseIndexedSourceText("9. Polypharmacy")).toContainEqual(
+      expect.objectContaining({ type: "heading", text: "9. Polypharmacy" }),
+    );
+    expect(parseIndexedSourceText("2.7. Dosage (as lithium carbonate)")).toContainEqual(
+      expect.objectContaining({ type: "heading", text: "2.7. Dosage (as lithium carbonate)" }),
+    );
+  });
+
+  it("merges unterminated paragraphs but never merges across headings or tables", () => {
+    const heading: IndexedTextBlock = { type: "heading", id: "h", text: "1. Scope", level: "section" };
+    const merged = mergeContinuationBlocks([
+      { type: "paragraph", id: "a", text: "Monitoring must continue until" },
+      { type: "paragraph", id: "b", text: "the level stabilises." },
+      heading,
+      { type: "paragraph", id: "c", text: "applies to all adult inpatients." },
+    ]);
+    expect(merged).toEqual([
+      { type: "paragraph", id: "a", text: "Monitoring must continue until the level stabilises." },
+      heading,
+      { type: "paragraph", id: "c", text: "applies to all adult inpatients." },
+    ]);
+  });
+
+  it("keeps genuinely separate sentences as separate paragraphs", () => {
+    const merged = mergeContinuationBlocks([
+      { type: "paragraph", id: "a", text: "Reduce doses in the elderly." },
+      { type: "paragraph", id: "b", text: "Twice daily dosing should be spaced by 12 hours." },
+    ]);
+    expect(merged).toHaveLength(2);
+  });
+});
+
+describe("flowIndexedText", () => {
+  it("flows hard-wrapped excerpt text into readable sentences", () => {
+    const flowed = flowIndexedText(
+      "NSAIDs: (e.g. ibuprofen) can reduce lithium clearance and therefore\nincrease lithium levels and the risk of toxicity. Avoid the combination where\npossible. Low dose aspirin is safe to use.",
+    );
+    expect(flowed).toBe(
+      "NSAIDs: (e.g. ibuprofen) can reduce lithium clearance and therefore increase lithium levels and the risk of toxicity. Avoid the combination where possible. Low dose aspirin is safe to use.",
+    );
+  });
+
+  it("keeps paragraph breaks but heals blank lines that split a sentence", () => {
+    expect(flowIndexedText("First paragraph ends here.\n\nSecond paragraph starts here.")).toBe(
+      "First paragraph ends here.\n\nSecond paragraph starts here.",
+    );
+    expect(flowIndexedText("can reduce lithium clearance and therefore\n\nincrease lithium levels.")).toBe(
+      "can reduce lithium clearance and therefore increase lithium levels.",
+    );
+  });
+
+  it("treats a Windows CRLF as a single line break, not a blank line", () => {
+    // \r\n must collapse to one newline (→ one space when flowing), not a
+    // paragraph break, so CRLF-sourced excerpts read identically to LF ones.
+    expect(flowIndexedText("Escalate review when there is vomiting,\r\ndiarrhoea, dehydration, or ataxia.")).toBe(
+      "Escalate review when there is vomiting, diarrhoea, dehydration, or ataxia.",
+    );
   });
 });

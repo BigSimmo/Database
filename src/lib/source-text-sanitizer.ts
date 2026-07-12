@@ -242,6 +242,17 @@ function stripLowYieldLines(value: string) {
     .join("\n");
 }
 
+// Shared with the document-summary formatter so its boilerplate stripping can
+// reuse the exact control-line vocabulary and the H2 keep-bias signals above
+// instead of duplicating the regexes.
+export function isDocumentControlLine(value: string) {
+  return sourceControlLinePattern.test(value);
+}
+
+export function hasClinicalContentSignal(value: string) {
+  return clinicalSignalPattern.test(value) || clinicalThresholdSignalPattern.test(value);
+}
+
 export function stripLowYieldSourceNoise(text: string) {
   return (
     stripLowYieldLines(text)
@@ -277,10 +288,40 @@ export function sourceTextForClinicalProse(text: string) {
   return compactWhitespace(stripLowYieldSourceNoise(stripInternalImageDataBlocks(text)));
 }
 
+/**
+ * Produces clinical prose with meaningful line breaks preserved.
+ *
+ * @returns The cleaned text with normalized whitespace and low-yield source noise removed.
+ */
 export function sourceTextForClinicalProsePreservingBreaks(text: string) {
   return readableWhitespace(stripLowYieldSourceNoise(sourceTextForDisplayPreservingBreaks(text)));
 }
 
+// Lossless display normalization for server-`preformatted` answers (document
+// support lists, table/visual source references). These are well-formed by
+// construction and their "source-noise"-looking tokens — facility codes like
+// "MP-0123", all-caps guideline titles — ARE the payload, so the noise-stripping
+// prose sanitizer must NOT run on them (it would delete the document names and
+// leave garble). Apply only glyph repair + whitespace collapse, matching the
+// server's own `finalizeRagAnswerQuality` exemption for `preformatted && grounded`.
+// When preserveBold is false, strip **bold** markers so literal Markdown markers
+/**
+ * Normalizes preformatted text for display while preserving its readable structure.
+ *
+ * @param options - Controls whether Markdown bold markers are preserved.
+ * @returns The normalized text, with bold markers removed unless `preserveBold` is `true`.
+ */
+export function normalizePreformattedDisplayText(text: string, options: { preserveBold?: boolean } = {}) {
+  const normalized = readableWhitespace(text);
+  return options.preserveBold ? normalized : normalized.replace(/\*\*([^*]+)\*\*/g, "$1");
+}
+
+/**
+ * Determines whether source text contains little clinically useful content.
+ *
+ * @param text - Source text to assess.
+ * @returns `true` if the text is predominantly source noise or contains only a short remainder, `false` otherwise.
+ */
 export function isLowYieldClinicalText(text: string) {
   const cleaned = sourceTextForClinicalProse(text);
   if (!cleaned) return true;
@@ -543,7 +584,10 @@ const inlineBulletGlyphPattern = /\s*[•◦▪‣●]+\s*/g;
 // "Dose:\no Start 750 mg"), hence the start/newline alternatives. Lowercase
 // followers ("o pregnancy") are deliberately NOT converted: the risk of
 // deleting a genuine clinical "o" value outweighs the cosmetic artifact.
-const subBulletOGlyphPattern = /(?<=^|[\r\n]|[^\d\s]\s)o(?=\s+(?:\d|[A-Z][a-z0-9]|[A-Z]{2,}))/g;
+// The optional "**" before the follower lets a bolded sub-bullet ("o **Reduce
+// dose**") still be recognised when the display path preserves bold markers; a
+// superset of the previous match, so non-bold behaviour is unchanged.
+const subBulletOGlyphPattern = /(?<=^|[\r\n]|[^\d\s]\s)o(?=\s+(?:\*\*)?(?:\d|[A-Z][a-z0-9]|[A-Z]{2,}))/g;
 // Blood-group exemptions: "blood group o RhD negative" / "Blood Type: o
 // Negative" (any casing, optional colon), or a bare "group/type o" directly
 // followed by an Rh/positive/negative value, keep their lowercase "o" — it
@@ -555,15 +599,25 @@ const groupTypeLabelTailPattern = /\b(?:group|type):?\s$/i;
 // A word qualifying group/type ("risk group:", "test type:") marks a list
 // label, not a blood label — its positive/negative items are list content.
 const qualifiedGroupTypeTailPattern = /\b[A-Za-z][\w-]*\s+(?:group|type):?\s$/i;
-const rhValueHeadPattern = /^\s+rh(?:d)?\b/i;
-const posNegValueHeadPattern = /^\s+(?:pos(?:itive)?|neg(?:ative)?)\b/i;
+const rhValueHeadPattern = /^\s+(?:\*\*)?rh(?:d)?\b/i;
+const posNegValueHeadPattern = /^\s+(?:\*\*)?(?:pos(?:itive)?|neg(?:ative)?)\b/i;
 // An entire line that is just the ABO value ("o RhD negative", "o Negative",
-// "o Rh positive") — the strongest signal that the "o" is the group itself.
+// "o Rh positive", "o **RhD negative**", "o **Negative**") — the strongest
+// signal that the "o" is the group itself. Bold markers around the value are
+// allowed so high-yield emphasis from the server never causes a blood value to
+// be misclassified as a bullet.
 const standaloneBloodValueLinePattern =
-  /^o\s+(?:rh(?:d)?(?:\s+(?:pos(?:itive)?|neg(?:ative)?))?|pos(?:itive)?|neg(?:ative)?)$/i;
+  /^o\s+(?:\*\*)?(?:rh(?:d)?(?:\s+(?:pos(?:itive)?|neg(?:ative)?))?|pos(?:itive)?|neg(?:ative)?)(?:\*\*)?$/i;
 const bloodValueWithNounTailLinePattern =
-  /^o\s+(?:rh(?:d)?\s+)?(?:pos(?:itive)?|neg(?:ative)?)\s+(?:blood(?!\s+(?:cultures?|tests?|screens?|samples?|results?)\b)|red\s+cells?)\b/i;
+  /^o\s+(?:\*\*)?(?:rh(?:d)?\s+)?(?:pos(?:itive)?|neg(?:ative)?)(?:\*\*)?\s+(?:blood(?!\s+(?:cultures?|tests?|screens?|samples?|results?)\b)|red\s+cells?)\b/i;
 
+/**
+ * Replaces OCR-style lowercase `o` sub-bullets while preserving blood-group value text.
+ *
+ * @param text - Text containing potential OCR sub-bullet markers
+ * @param joiner - Text used to replace recognized sub-bullet markers
+ * @returns Text with eligible sub-bullet markers replaced
+ */
 function replaceSubBulletOGlyphs(text: string, joiner: string) {
   return text.replace(subBulletOGlyphPattern, (match, offset: number) => {
     const before = text.slice(0, offset);

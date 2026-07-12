@@ -91,6 +91,12 @@ export async function POST(request: Request) {
     supabase = createAdminClient();
     const adminSupabase = supabase;
     const access = await publicAccessContext(request, adminSupabase);
+    // Anonymous ("public") uploads are pooled under the non-null PUBLIC_WORKSPACE_OWNER_ID as a
+    // moderation quarantine: pooled documents are intentionally NOT anonymously viewable and NOT in
+    // RAG retrieval (both gated on owner_id IS NULL) until an operator reviews and promotes them via
+    // scripts/promote-public-documents.ts (or the promote migration). This is the documented
+    // public-workspace model — see TEN-N3 in docs/tenancy-defense-in-depth-review.md and
+    // withOwnerReadScope in src/lib/public-api-access.ts. Do not make pooled uploads public here.
     const uploadOwnerId = access.ownerId ?? (publicUploadsEnabled() ? publicWorkspaceOwnerId() : null);
     if (!uploadOwnerId) {
       return NextResponse.json({ error: "Public uploads are not configured for this workspace." }, { status: 503 });

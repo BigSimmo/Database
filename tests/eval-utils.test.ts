@@ -81,6 +81,84 @@ describe("RAG eval source identity matching", () => {
     expect(validation.failures).toContain("clinical numeric faithfulness warning present (1 unverified token(s))");
   });
 
+  it("accepts a source-only answer for acceptSourceOnly cases when expected documents are still cited", () => {
+    const testCase: RagEvalCase = {
+      id: "discharge-documentation",
+      question: "What should discharge documentation include?",
+      category: "routine",
+      supported: true,
+      acceptSourceOnly: true,
+      expectedFiles: ["MHSP.Discharge.pdf"],
+      allowedRoutes: ["extractive", "fast"],
+      minCitations: 2,
+      latencyTargetMs: 2000,
+    };
+    const dischargeSources = [
+      {
+        title: "Admission to Discharge for Mental Health Inpatients",
+        file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+      },
+      {
+        title: "Referral, Admission and Discharge - MHHITH",
+        file_name:
+          "Referral, Admission and Discharge - Mental Health Hospital in the Home (MHHITH) Policy and Procedure (RKPG).pdf",
+      },
+    ];
+    const sourceOnly = {
+      answer: "The following indexed discharge documents are available.",
+      grounded: false,
+      confidence: "high",
+      citations: dischargeSources.map((source, index) => ({
+        chunk_id: `c${index}`,
+        document_id: `d${index}`,
+        ...source,
+      })),
+      sources: dischargeSources,
+      routingMode: "extractive",
+      visualEvidence: [],
+      latencyTimings: { total_latency_ms: 800 },
+    } as unknown as RagAnswer;
+
+    const validation = validateRagAnswer(testCase, sourceOnly);
+
+    expect(validation.expectedHit).toBe(true);
+    expect(validation.failures).not.toContain("expected grounded answer");
+    expect(validation.failures).toEqual([]);
+  });
+
+  it("still fails an acceptSourceOnly case when the expected documents are no longer retrieved", () => {
+    const testCase: RagEvalCase = {
+      id: "discharge-documentation",
+      question: "What should discharge documentation include?",
+      category: "routine",
+      supported: true,
+      acceptSourceOnly: true,
+      expectedFiles: ["MHSP.Discharge.pdf"],
+      allowedRoutes: ["extractive", "fast"],
+      minCitations: 2,
+      latencyTargetMs: 2000,
+    };
+    const wrongSources = [
+      { title: "Pantoprazole Guideline", file_name: "Pantoprazole Guideline (NMHS).pdf" },
+      { title: "Pantoprazole Guideline", file_name: "Pantoprazole Guideline (NMHS).pdf" },
+    ];
+    const sourceOnlyMissingDocs = {
+      answer: "A source-only answer citing unrelated documents.",
+      grounded: false,
+      confidence: "high",
+      citations: wrongSources.map((source, index) => ({ chunk_id: `c${index}`, document_id: `d${index}`, ...source })),
+      sources: wrongSources,
+      routingMode: "extractive",
+      visualEvidence: [],
+      latencyTimings: { total_latency_ms: 800 },
+    } as unknown as RagAnswer;
+
+    const validation = validateRagAnswer(testCase, sourceOnlyMissingDocs);
+
+    expect(validation.expectedHit).toBe(false);
+    expect(validation.failures).toContain("expected document not in retrieved sources");
+  });
+
   it("retries transient provider rate-limit errors for eval operations", async () => {
     let attempts = 0;
 

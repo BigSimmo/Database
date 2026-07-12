@@ -111,6 +111,17 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  // PIA-3: rag_queries.answer holds the full generated answer text, which can
+  // restate patient specifics echoed from the query (the query is hashed, the
+  // answer is not). Default OFF: do not persist generated answer text at rest.
+  // The offline eval/quality pipeline reads the in-memory answer (logQuery:false)
+  // and never reads this column back, so persistence-off is safe. Set true only
+  // where retaining answer text is permitted and a retention policy exists
+  // (owner-scoped + 30-day purge). Blocked in production readiness.
+  RAG_PERSIST_ANSWER_TEXT: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   // Audit M15: server-side key for the redacted query hash. When set, stored
   // query hashes are HMAC-SHA256 (not offline-reversible, not correlatable
   // outside this deployment). When unset, the legacy unsalted SHA-256 is kept

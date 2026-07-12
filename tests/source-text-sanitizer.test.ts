@@ -6,6 +6,7 @@ import {
   lowYieldSourceNoiseScore,
   normalizeExtractedGlyphs,
   normalizeInlineBulletGlyphs,
+  normalizePreformattedDisplayText,
   polishStoredSynopsis,
   repairTruncatedCompactTail,
   fenceSourceEvidence,
@@ -20,6 +21,19 @@ import {
 } from "../src/lib/source-text-sanitizer";
 
 describe("source text sanitizer", () => {
+  it("normalizePreformattedDisplayText is lossless for document names and codes", () => {
+    // Preformatted answers rely on this: it must repair glyphs/whitespace but
+    // NOT strip facility codes, all-caps titles, or parenthetical codes.
+    const docList =
+      "I found 2 indexed documents that support this query:  LITHIUM CLOZAPINE GUIDELINE MP-0123;\n\nand Behaviour Protocol (NOCC).";
+    const out = normalizePreformattedDisplayText(docList);
+    expect(out).toContain("LITHIUM CLOZAPINE GUIDELINE");
+    expect(out).toContain("MP-0123");
+    expect(out).toContain("(NOCC)");
+    // Collapses runs of spaces but keeps the content intact.
+    expect(out).not.toMatch(/ {2,}/);
+  });
+
   it("removes complete and partial internal image metadata from display text", () => {
     const text =
       "Source mentions: [[IMAGE_DATA_START]] Image ID: img-1; Source kind: table_crop; Image type: clinical_table; Table text: | Dose | Route | [[IMAGE_DATA_END]] Continue oral medication when indicated.";
@@ -506,6 +520,34 @@ describe("normalizeInlineBulletGlyphs", () => {
     );
     expect(normalizeInlineBulletGlyphs("group o Negative units available")).toBe("group o Negative units available");
     expect(normalizeInlineBulletGlyphs("donor group o RhD negative")).toBe("donor group o RhD negative");
+  });
+
+  it("keeps blood-group values with bold markers intact", () => {
+    // Line-start forms: "o **RhD negative**" is a blood value, not a bullet.
+    expect(normalizeInlineBulletGlyphs("o **RhD negative**")).toBe("o **RhD negative**");
+    expect(normalizeInlineBulletGlyphs("o **Negative**")).toBe("o **Negative**");
+    expect(normalizeInlineBulletGlyphs("o **Rh positive**")).toBe("o **Rh positive**");
+
+    // Label-prefixed forms: "group/type: o **Negative**" is a blood value.
+    expect(normalizeInlineBulletGlyphs("blood group: o **RhD negative**")).toBe("blood group: o **RhD negative**");
+    expect(normalizeInlineBulletGlyphs("Blood Type: o **Negative**")).toBe("Blood Type: o **Negative**");
+    expect(normalizeInlineBulletGlyphs("group o **Negative** units available")).toBe(
+      "group o **Negative** units available",
+    );
+
+    // Blood-value + noun forms with bold markers.
+    expect(normalizeInlineBulletGlyphs("o **Negative** blood should be used")).toBe(
+      "o **Negative** blood should be used",
+    );
+    expect(normalizeInlineBulletGlyphs("o **RhD negative** red cells are required")).toBe(
+      "o **RhD negative** red cells are required",
+    );
+
+    // Non-blood bullets with bold content should still convert.
+    expect(normalizeInlineBulletGlyphs("o **Reduce dose** if ANC falls")).toBe("**Reduce dose** if ANC falls");
+    expect(normalizeInlineBulletGlyphs("Risk: o **Positive symptoms** require urgent review")).toBe(
+      "Risk: **Positive symptoms** require urgent review",
+    );
   });
 
   it("repairs a label colon followed by a converted sub-bullet ('Label:; item' → 'Label: item')", () => {

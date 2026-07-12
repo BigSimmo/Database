@@ -35,4 +35,10 @@ COPY . .
 USER node
 # Long-poll worker; WORKER_* env vars control claim batch size, concurrency,
 # and the stale-claim window (see src/lib/env.ts).
-CMD ["node", "node_modules/tsx/dist/cli.mjs", "worker/index.ts"]
+#
+# Route through scripts/run-tsx.mjs, NOT bare tsx: worker/index.ts imports
+# src/lib/env, which begins with `import "server-only"`. Under bare tsx that
+# import throws and the worker crash-loops on boot. run-tsx.mjs registers the
+# server-only stub hook so the import resolves outside the Next bundler.
+# Guarded by tests/tsx-server-only-runner.test.ts.
+CMD ["node", "scripts/run-tsx.mjs", "worker/index.ts"]

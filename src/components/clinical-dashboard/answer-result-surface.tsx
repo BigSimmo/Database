@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { memo, type RefObject, useCallback, useEffect, useRef, useState } from "react";
@@ -7,7 +7,11 @@ import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react"
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
-import { NaturalLanguageAnswer, UserQuestionBubble } from "@/components/clinical-dashboard/answer-content";
+import {
+  isPreformattedGroundedAnswer,
+  NaturalLanguageAnswer,
+  UserQuestionBubble,
+} from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerSupportSummaryCard,
   answerHasCentralTable,
@@ -38,10 +42,14 @@ import type {
 } from "@/lib/types";
 import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-output";
 
+/**
+ * Renders a staged answer with inline content and optional clinical notes, evidence, safety findings, and follow-up interfaces.
+ *
+ * @returns The staged answer surface.
+ */
 function StagedAnswerResultSurfaceImpl({
   answer,
   query,
-  safeAnswerText,
   bestSource,
   sourceGovernanceWarnings,
   sourceSummary,
@@ -68,7 +76,6 @@ function StagedAnswerResultSurfaceImpl({
 }: {
   answer: RagAnswer;
   query: string;
-  safeAnswerText: string;
   bestSource: BestSourceRecommendation | null;
   sourceGovernanceWarnings: SourceGovernanceWarning[];
   sourceSummary?: EvidenceSummary;
@@ -211,7 +218,8 @@ function StagedAnswerResultSurfaceImpl({
         >
           <div className="min-w-0 space-y-3">
             <NaturalLanguageAnswer
-              text={safeAnswerText || answer.answer}
+              text={answer.answer}
+              preformatted={isPreformattedGroundedAnswer(answer)}
               sourceCount={sourceCount}
               sourceOnly={answer.answerQualityTier === "source_only"}
               bestSource={bestSource}
@@ -269,7 +277,7 @@ function StagedAnswerResultSurfaceImpl({
             closeLabel="Close clinical notes"
             headerLeading={
               <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--clinical-accent)]")}>
-                <ClipboardCheck className="h-3.5 w-3.5" />
+                <ClipboardCheck aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
             }
             titleAccessory={
@@ -284,7 +292,7 @@ function StagedAnswerResultSurfaceImpl({
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label="Open clinical notes source"
                 >
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
                 </Link>
               ) : null
             }
@@ -320,7 +328,7 @@ function StagedAnswerResultSurfaceImpl({
             closeLabel="Close evidence"
             headerLeading={
               <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--clinical-accent)]")}>
-                <Layers className="h-3.5 w-3.5" />
+                <Layers aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
             }
             contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(88dvh,44rem)] sm:max-w-3xl"
@@ -357,7 +365,7 @@ function StagedAnswerResultSurfaceImpl({
             closeLabel="Close safety findings"
             headerLeading={
               <span className={cn(iconTilePremium, "h-8 w-8 rounded-lg text-[color:var(--warning)]")}>
-                <ShieldAlert className="h-3.5 w-3.5" />
+                <ShieldAlert aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
             }
             titleAccessory={

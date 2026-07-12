@@ -3,7 +3,7 @@ import {
   Activity,
   ArrowLeft,
   BrainCircuit,
-  CheckCircle2,
+  CircleCheck,
   ChevronDown,
   ChevronRight,
   CircleHelp,
@@ -36,7 +36,7 @@ type CandidateView = {
 };
 
 const criterionIcon: Record<DifferentialSection["tone"], LucideIcon> = {
-  fit: CheckCircle2,
+  fit: CircleCheck,
   warning: ShieldAlert,
   question: CircleHelp,
   action: Activity,
@@ -194,7 +194,7 @@ function DesktopComparisonTable({
             type="button"
             className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
           >
-            <CheckCircle2 className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
+            <CircleCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
             {workflow.selectedCount} of {workflow.totalCount} selected
             <ChevronDown className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
           </button>
@@ -338,7 +338,7 @@ function SelectedDifferentialsPanel({
               href={`/differentials/diagnoses/${candidate.record.slug}`}
               className="inline-flex min-w-0 items-center gap-2"
             >
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+              <CircleCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
               <span className="truncate">{candidate.record.title}</span>
             </Link>
             <MoreHorizontal className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
@@ -381,7 +381,7 @@ function ReviewPanel({ workflow }: { workflow: DifferentialPresentationWorkflow 
       <ul className="mt-3 grid gap-2">
         {workflow.reviewChecklist.map((item) => (
           <li key={item} className="flex gap-2 text-xs font-bold leading-5 text-[color:var(--text-heading)]">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
             {item}
           </li>
         ))}
@@ -474,7 +474,7 @@ function MobileCandidateCard({
         <span className="min-w-0">
           <span className="flex items-center gap-2">
             <CandidateGlyph record={candidate.record} className="h-4 w-4 shrink-0 text-[color:var(--text-muted)]" />
-            <span className="line-clamp-2 text-base font-extrabold leading-5 text-[color:var(--text-heading)]">
+            <span className="line-clamp-2 break-words text-base font-extrabold leading-5 text-[color:var(--text-heading)]">
               {candidate.record.title}
             </span>
           </span>
@@ -647,7 +647,7 @@ export function DifferentialPresentationWorkflowPage({
           <section className="mb-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="max-w-[58rem] text-2xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-3xl xl:whitespace-nowrap xl:text-2xl-minus xl:leading-[1.2]">
+                <h1 className="max-w-[58rem] text-balance text-2xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-3xl xl:text-2xl-minus xl:leading-[1.2]">
                   {workflow.title}
                 </h1>
                 <EmergencyBadge status={workflow.status} />

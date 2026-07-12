@@ -240,8 +240,12 @@ function hasActionableNumericContext(answer: RagAnswer) {
   return actionableNumericAnswerPattern.test(text);
 }
 
-export function applyNumericVerification(answer: RagAnswer): RagAnswer {
-  const sources = answer.sources ?? [];
+// `verificationSources` overrides the corpus numbers are checked against. The model path
+// passes the packed context it actually generated from (answer.sources stays the unpacked
+// answer-input set for the client/eval boundary); other callers omit it and verify against
+// answer.sources as before.
+export function applyNumericVerification(answer: RagAnswer, verificationSources?: SearchResult[]): RagAnswer {
+  const sources = verificationSources ?? answer.sources ?? [];
   const unverified = new Set<string>();
 
   // B4: the model is instructed to put dose details in structured

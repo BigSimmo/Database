@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
-  AlertCircle,
+  CircleAlert,
   BookOpen,
   ChevronDown,
   Clock3,
@@ -68,6 +68,7 @@ import {
 import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import {
+  isPreformattedGroundedAnswer,
   NaturalLanguageAnswer,
   ScopeAndGovernanceNotice,
   UserQuestionBubble,
@@ -498,9 +499,13 @@ function answerTimedOutError() {
 }
 
 /**
- * Read-only surface for a previous turn in the answer thread. Renders the
- * question bubble and the natural-language answer with its source capsule;
- * evidence drawers, clinical notes, and feedback stay on the latest turn only.
+ * Renders a collapsible, read-only view of a previous answer-thread turn with its question, answer, sources, and source-review notice.
+ *
+ * @param turn - The previous question and answer turn to display
+ * @param copied - Whether the turn's answer has been copied
+ * @param collapsed - Whether the answer content is collapsed
+ * @param onToggleCollapsed - Called when the answer visibility is toggled
+ * @param onCopy - Called with the answer text when copying is requested
  */
 function PriorAnswerTurnSurface({
   turn,
@@ -519,7 +524,11 @@ function PriorAnswerTurnSurface({
     () => buildAnswerRenderModel(turn.answer, { sources: turn.sources }),
     [turn.answer, turn.sources],
   );
-  const safeText = useMemo(() => sanitizeAnswerDisplayText(turn.answer.answer), [turn.answer.answer]);
+  const turnPreformatted = isPreformattedGroundedAnswer(turn.answer);
+  const safeText = useMemo(
+    () => sanitizeAnswerDisplayText(turn.answer.answer, { preformatted: turnPreformatted }),
+    [turn.answer.answer, turnPreformatted],
+  );
   const sourceCount =
     renderModel.primarySources.length ||
     turn.sources.length ||
@@ -558,7 +567,8 @@ function PriorAnswerTurnSurface({
         ) : (
           <>
             <NaturalLanguageAnswer
-              text={previewText}
+              text={turn.answer.answer}
+              preformatted={turnPreformatted}
               sourceCount={sourceCount}
               sourceOnly={turn.answer.answerQualityTier === "source_only"}
               bestSource={renderModel.bestSource}
@@ -573,7 +583,7 @@ function PriorAnswerTurnSurface({
                 data-testid="prior-answer-source-review"
                 className="mt-2 flex items-start gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-xs text-[color:var(--text-muted)]"
               >
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" aria-hidden />
+                <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" aria-hidden />
                 <span>
                   <strong className="text-[color:var(--text-heading)]">Review source match.</strong> Verify cited
                   passages before relying on this previous answer.
@@ -673,6 +683,14 @@ function mergeDocumentRefresh(current: ClinicalDocument[], updates: ClinicalDocu
   });
 }
 
+/**
+ * Renders the clinical search dashboard, including document search, answer generation, conversation history, source management, and ingestion controls.
+ *
+ * @param initialSearchMode - The mode selected when the dashboard loads.
+ * @param initialQuery - The initial search or composer query.
+ * @param focusSearch - Whether to focus the search input on load.
+ * @param autoRunSearch - Whether to automatically submit the initial query.
+ */
 export function ClinicalDashboard({
   initialSearchMode = "answer",
   initialQuery = "",
@@ -2897,7 +2915,11 @@ export function ClinicalDashboard({
     currentRelevance?.isSourceBacked !== false &&
     answerRenderModel?.trust !== "unsupported";
   const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
-  const safeAnswerText = useMemo(() => sanitizeAnswerDisplayText(answer?.answer ?? ""), [answer?.answer]);
+  const answerPreformatted = isPreformattedGroundedAnswer(answer);
+  const safeAnswerText = useMemo(
+    () => sanitizeAnswerDisplayText(answer?.answer ?? "", { preformatted: answerPreformatted }),
+    [answer?.answer, answerPreformatted],
+  );
   const answerFollowUpSuggestions = useMemo(() => {
     if (!answer || !latestAnswerQuery) return [];
     const priorQueries = [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery];
@@ -2912,7 +2934,11 @@ export function ClinicalDashboard({
     return (answer?.answerSections ?? [])
       .map((section) => {
         const heading = sanitizeDisplayText(section.heading, { minLength: 1, minTokens: 1 });
-        const body = sanitizeAnswerDisplayText(section.body, { minLength: 8, minTokens: 2 });
+        const body = sanitizeAnswerDisplayText(section.body, {
+          minLength: 8,
+          minTokens: 2,
+          preformatted: answerPreformatted,
+        });
         if (!heading || !body) return null;
 
         const citationSources: SearchResult[] = [];
@@ -2933,7 +2959,7 @@ export function ClinicalDashboard({
         };
       })
       .filter((section): section is AnswerSection & { citationSources: SearchResult[] } => section !== null);
-  }, [answer?.answerSections, sourceLookup]);
+  }, [answer?.answerSections, answerPreformatted, sourceLookup]);
   const answerEvidenceMapRows = useMemo(() => {
     if (!answerRenderModel?.allowedBlocks.includes("evidenceMap")) return [];
     return evidenceMapRowsFromRenderModel(answerRenderModel).slice(0, answerRenderModel.trust === "high" ? 8 : 6);
@@ -3035,7 +3061,7 @@ export function ClinicalDashboard({
   ] as const;
   const renderSystemNotice = (className?: string) => (
     <UtilityDrawer
-      icon={AlertCircle}
+      icon={CircleAlert}
       title={demoMode ? "Demo mode" : "Setup required"}
       summary={
         demoMode ? "Synthetic data only; not clinical guidance." : "Configuration is needed before real uploads."
@@ -3089,7 +3115,7 @@ export function ClinicalDashboard({
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
   const renderDegradedNotice = () => (
     <UtilityDrawer
-      icon={!isOnline ? WifiOff : AlertCircle}
+      icon={!isOnline ? WifiOff : CircleAlert}
       title={!isOnline ? "Offline" : "Service unavailable"}
       summary={
         !isOnline
@@ -3416,7 +3442,7 @@ export function ClinicalDashboard({
                     className={cn("rounded-lg border p-4 text-sm", toneInfo)}
                   >
                     <div className="flex items-start gap-2">
-                      <Search className="mt-0.5 h-4 w-4 shrink-0" />
+                      <Search aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                       <div className="min-w-0 space-y-1">
                         <p className="font-semibold text-[color:var(--text-heading)]">
                           {answerRecovery.noResults.heading}
@@ -3439,7 +3465,7 @@ export function ClinicalDashboard({
                         onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
                         className={cn(floatingControl, "text-xs")}
                       >
-                        <FileText className="h-4 w-4" />
+                        <FileText aria-hidden="true" className="h-4 w-4" />
                         {answerRecovery.searchDocuments}
                       </button>
                     </div>
@@ -3451,7 +3477,7 @@ export function ClinicalDashboard({
                     className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
                   >
                     <div className="flex items-start gap-2">
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <CircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
                       <span className="min-w-0">{error}</span>
                     </div>
                     {activeModeResultKind === "answer" && lastFailedQuery && (
@@ -3466,7 +3492,7 @@ export function ClinicalDashboard({
                           }}
                           className={cn(floatingControl, "text-xs")}
                         >
-                          <RefreshCw className="h-4 w-4" />
+                          <RefreshCw aria-hidden="true" className="h-4 w-4" />
                           {answerRecovery.retry}
                         </button>
                         <button
@@ -3475,7 +3501,7 @@ export function ClinicalDashboard({
                           onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
                           className={cn(floatingControl, "text-xs")}
                         >
-                          <FileText className="h-4 w-4" />
+                          <FileText aria-hidden="true" className="h-4 w-4" />
                           {answerRecovery.searchDocuments}
                         </button>
                       </div>
@@ -3502,7 +3528,10 @@ export function ClinicalDashboard({
                     >
                       {loading && answerProgress ? (
                         <>
-                          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                          <Loader2
+                            aria-hidden="true"
+                            className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]"
+                          />
                           <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
                           <button
                             type="button"
@@ -3510,7 +3539,7 @@ export function ClinicalDashboard({
                             data-testid="stop-answer"
                             className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                           >
-                            <Square className="h-3 w-3 shrink-0 fill-current" />
+                            <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
                             Stop
                           </button>
                         </>
@@ -3521,7 +3550,10 @@ export function ClinicalDashboard({
                       role="status"
                       className="flex min-h-[44px] items-center gap-2 rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-medium text-[color:var(--text-heading)]"
                     >
-                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]" />
+                      <Loader2
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]"
+                      />
                       <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
                       <button
                         type="button"
@@ -3529,7 +3561,7 @@ export function ClinicalDashboard({
                         data-testid="stop-answer"
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                       >
-                        <Square className="h-3 w-3 shrink-0 fill-current" />
+                        <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
                         Stop
                       </button>
                     </div>
@@ -3660,7 +3692,6 @@ export function ClinicalDashboard({
                       <StagedAnswerResultSurface
                         answer={answer}
                         query={latestAnswerQuery ?? query}
-                        safeAnswerText={safeAnswerText}
                         bestSource={bestSource}
                         sourceGovernanceWarnings={sourceGovernanceWarnings}
                         sourceSummary={sourceSummary}

@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from "react";
 
 import type {
   UniversalSearchAnswerAction,
-  UniversalSearchDomain,
   UniversalSearchGroup,
   UniversalSearchInterpretation,
   UniversalSearchTopHit,
 } from "@/lib/universal-search";
+// Value import from the leaf module only: universal-search.ts itself is server-only
+// (snapshot catalogues, rag, supabase) and must never enter the client bundle.
+import { universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search-domains";
 import { useAuthSession } from "@/lib/supabase/client";
 
 export type UniversalSearchState = {
@@ -128,9 +130,7 @@ export function useUniversalSearch(args: {
     // is not enough — abort frees the server/DB work too.
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      const domains = (["documents", "medications", "services", "forms", "differentials", "tools"] as const).filter(
-        (domain) => domain !== excludeDomain,
-      );
+      const domains = universalSearchDomains.filter((domain) => domain !== excludeDomain);
       const params = new URLSearchParams({
         q: trimmedQuery,
         limit: String(limitPerDomain),

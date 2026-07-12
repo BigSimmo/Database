@@ -6,7 +6,7 @@ import {
   Bookmark,
   BookmarkCheck,
   CalendarDays,
-  CheckCircle2,
+  CircleCheck,
   ChevronRight,
   Clipboard,
   ClipboardList,
@@ -24,7 +24,7 @@ import {
   Tag,
   UserRound,
   X,
-  XCircle,
+  CircleX,
   type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
@@ -34,6 +34,7 @@ import {
   codeText,
   floatingControl,
   metadataPill,
+  pageContainer,
   primaryControl,
   textMuted,
   toneDanger,
@@ -314,9 +315,9 @@ function PathwayContextCard({
                   )}
                 >
                   {criterion.tone === "reject" ? (
-                    <XCircle className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                    <CircleX className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                   ) : (
-                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+                    <CircleCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden />
                   )}
                   {criterion.label}
                 </span>
@@ -501,7 +502,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
       data-testid="form-detail-page"
       className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:px-5 sm:pb-10 sm:pt-6 lg:px-8"
     >
-      <div className="mx-auto max-w-7xl">
+      <div className={pageContainer}>
         {notice ? (
           <div
             role="status"
@@ -555,7 +556,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   {code}
                 </div>
                 <div className="min-w-0">
-                  <h1 className="max-w-4xl text-xl font-extrabold leading-[1.08] text-[color:var(--text-heading)] sm:text-4xl">
+                  <h1 className="max-w-4xl text-3xl font-extrabold leading-[1.05] text-[color:var(--text-heading)] sm:text-4xl">
                     {form.title}
                   </h1>
                   <p className="mt-1.5 max-w-4xl text-xs font-medium leading-4 text-[color:var(--text-muted)] sm:mt-3 sm:text-base sm:leading-6">
@@ -608,7 +609,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             <section className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2.5 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:gap-3 sm:p-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--danger-soft)] text-[color:var(--danger)] sm:h-10 sm:w-10">
-                  <FileText className="h-4.5 w-4.5 sm:h-5 sm:w-5" aria-hidden />
+                  <FileText className="size-icon-md sm:size-icon-lg" aria-hidden />
                 </span>
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -694,7 +695,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                         ? FileText
                         : label.includes("pathway")
                           ? Navigation
-                          : CheckCircle2;
+                          : CircleCheck;
                 return <InfoRow key={row.label} label={row.label} value={row.value} icon={Icon} />;
               })}
             </section>
@@ -768,7 +769,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                         key={note}
                         className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
                       >
-                        <CheckCircle2
+                        <CircleCheck
                           className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]"
                           aria-hidden
                         />

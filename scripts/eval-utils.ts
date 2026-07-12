@@ -152,7 +152,12 @@ export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
   const route = answer.routingMode ?? "unsupported";
   const visualEvidence = answer.visualEvidence ?? [];
 
-  if (testCase.supported && !answer.grounded) failures.push("expected grounded answer");
+  // acceptSourceOnly cases (diffuse questions with no single authoritative source) may
+  // legitimately return a source-only answer (grounded=false); the retrieval regression
+  // guard for them is the expected-document coverage check below, not grounding.
+  if (testCase.supported && !answer.grounded && !testCase.acceptSourceOnly) {
+    failures.push("expected grounded answer");
+  }
   if (!testCase.supported && answer.grounded) failures.push("expected unsupported answer");
   if (testCase.falsePositiveControl && answer.grounded)
     failures.push("false-positive control produced grounded answer");

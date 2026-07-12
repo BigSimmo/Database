@@ -30,19 +30,19 @@ import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-regi
 const taskCards: ModeHomeAction[] = [
   {
     title: "Find a form",
-    description: "Search by number, pathway, clock, or keyword.",
+    description: "Number, pathway, clock, keyword.",
     icon: Search,
     href: appModeHomeHref("forms", { focus: true }),
   },
   {
     title: "Readiness checks",
-    description: "Review maker, clock, copies, and source.",
+    description: "Maker, clock, copies, source.",
     icon: ClipboardCheck,
     href: `/forms/${defaultFormSlug() ?? ""}`,
   },
   {
     title: "Browse pathways",
-    description: "Before, current, parallel, and after forms.",
+    description: "Before, current, parallel, after.",
     icon: Route,
     href: appModeHomeHref("forms", {
       query: "forms pathway before current parallel after",
@@ -113,13 +113,13 @@ export function FormsHomePage() {
     <ModeHomeMain testId="forms-home">
       <ModeHomeTemplate
         testId="forms-home-template"
-        title="What do you need from forms?"
+        title="Forms"
         subtitle="Search, check, or follow a pathway."
         icon={FileText}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Forms tasks"
         actions={hasRegistryRecords ? taskCards : []}
-        pillsTitle="Common tasks"
+        pillsTitle="Browse by type"
         pills={hasRegistryRecords ? commonTasks : []}
         footer={
           hasRegistryRecords ? (
