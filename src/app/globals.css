@@ -1407,6 +1407,17 @@ summary::-webkit-details-marker {
   }
 }
 
+@media (min-width: 1024px) {
+  /* The document viewer is a two-column layout (main + 480px right rail). Keep
+     the floating composer within the main column so it never overlaps the
+     right-rail evidence/profile/tables text. Scoped to lg+, where the rail sits
+     beside the main column. */
+  .document-viewer-composer.floating-composer-edge {
+    left: max(2rem, var(--safe-area-left));
+    right: calc(max(0px, (100vw - 1440px) / 2) + 480px + 3.5rem + var(--safe-area-right));
+  }
+}
+
 @media (max-width: 639px) {
   .edge-glass-header {
     padding-left: max(0px, var(--safe-area-left));
