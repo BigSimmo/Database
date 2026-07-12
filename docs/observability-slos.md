@@ -182,12 +182,16 @@ header (same operator gate as the Supabase probe) — returns two counter blocks
 
 - **`cache`** — `cacheMetricsSnapshot` (`src/lib/observability/cache-metrics.ts`)
   reports `{ lookups, hits, misses, hitRate }` for the retrieval search cache,
-  incremented in-process at the `getCachedSearch` hot path (`src/lib/rag-cache.ts`).
-  These are **cumulative since process start** (Prometheus-style): a scraper
-  derives a windowed hit-rate from the delta between two polls. Measuring at the
-  lookup site — not from `rag_queries` — also captures coalesced and fully
-  cache-served requests that never write a telemetry row. `hitRate` is a
-  convenience for eyeballing a single probe.
+  incremented in-process at the two-layer cache orchestration in
+  `searchChunksWithTelemetry` (`src/lib/rag.ts`). A request served by **either**
+  the process-local or the shared (`rag_response_cache`) layer counts as a hit,
+  so a cold process falling through to a warm shared cache is not miscounted as a
+  miss; disabled/skipped lookups are recorded as neither. These are **cumulative
+  since process start** (Prometheus-style): a scraper derives a windowed hit-rate
+  from the delta between two polls. Measuring at the lookup site — not from
+  `rag_queries` — also captures coalesced and fully cache-served requests that
+  never write a telemetry row. `hitRate` is a convenience for eyeballing a single
+  probe.
 
 ```jsonc
 // GET /api/health?deep=1  (authorized, live)

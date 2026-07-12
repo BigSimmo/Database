@@ -3,8 +3,9 @@
 // The cache hit-rate half of the /api/health silent-degradation counters (see
 // docs/observability-slos.md). Its sibling `answer-slo.ts` aggregates
 // `rag_queries` over a trailing window; cache effectiveness instead has to be
-// measured where the lookups actually happen (rag-cache.ts) so it also covers
-// requests that never write a rag_queries row — coalesced or fully cache-served.
+// measured where the lookups actually happen (the search-cache orchestration in
+// searchChunksWithTelemetry) so it also covers requests that never write a
+// rag_queries row — coalesced or fully cache-served.
 //
 // Counters are cumulative since process start (Prometheus-style): a host-native
 // scraper derives a windowed hit-rate from the delta between two polls, which is
@@ -38,4 +39,23 @@ export function cacheMetricsSnapshot(): CacheMetricsSnapshot {
 export function resetCacheMetrics(): void {
   lookups = 0;
   hits = 0;
+}
+
+/**
+ * Classify the outcome of the two-layer search-cache lookup so the counter
+ * reflects real cache effectiveness. Retrieval consults the process-local cache
+ * first and the shared (`rag_response_cache`) cache second; a request served by
+ * *either* layer is a hit. A miss is only counted when a layer was actually
+ * consulted and returned nothing — when caching is disabled/skipped the shared
+ * lookup returns `null` and the request is `"skip"` (recorded as neither), so a
+ * cold process with a warm shared cache does not read as false degradation.
+ * Pure, so the orchestration stays trivial and this stays unit-tested.
+ */
+export function classifySearchCacheOutcome(
+  localHit: boolean,
+  sharedResult: { kind: "hit" | "miss" } | null | undefined,
+): "hit" | "miss" | "skip" {
+  if (localHit || sharedResult?.kind === "hit") return "hit";
+  if (sharedResult?.kind === "miss") return "miss";
+  return "skip";
 }
