@@ -38,10 +38,10 @@ import { DocumentFileTile, DocumentMetaRow } from "@/components/clinical-dashboa
 import { documentRelevancePercent } from "@/components/clinical-dashboard/relevance-score";
 import { cn } from "@/components/ui-primitives";
 import {
-  documentEvidenceHref,
-  documentReaderHref,
+  mockDocumentEvidenceHref,
+  mockDocumentReaderHref,
+  mockDocumentsSearchHref,
   documentSearchRequestBody,
-  documentsSearchHref,
 } from "@/lib/document-flow-routes";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { DocumentMatch } from "@/lib/types";
@@ -248,7 +248,7 @@ const monitoringTableRows = [
 ] as const;
 
 function documentHref(document: DocumentFixture, query = defaultQuery, evidence?: EvidenceFixture) {
-  return documentReaderHref({
+  return mockDocumentReaderHref({
     document: document.slug,
     query,
     page: String(evidence?.page ?? document.page),
@@ -257,7 +257,7 @@ function documentHref(document: DocumentFixture, query = defaultQuery, evidence?
 }
 
 function evidenceHref(document: DocumentFixture, evidence: EvidenceFixture, query = defaultQuery) {
-  return documentEvidenceHref({
+  return mockDocumentEvidenceHref({
     document: document.slug,
     evidence: evidence.id,
     query,
@@ -277,7 +277,7 @@ function findEvidence(document: DocumentFixture, id: string | null): EvidenceFix
 }
 
 function searchHref(query = defaultQuery) {
-  return documentsSearchHref({ query });
+  return mockDocumentsSearchHref(query);
 }
 
 function evidenceCountLabel(document: DocumentFixture, type: EvidenceType, label: string) {

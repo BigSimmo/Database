@@ -125,6 +125,24 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
 }
 
 describe("answer render policy", () => {
+  it("copies the displayed table values, units, and canonical provenance", () => {
+    const model = buildAnswerRenderModel(
+      answer({
+        visualEvidence: [
+          visual({
+            tableTitle: "ANC action thresholds",
+            tableColumns: ["ANC", "Action"],
+            tableRows: [["0.49 ×10^9/L", "Stop and escalate"]],
+          }),
+        ],
+      }),
+    );
+    expect(model.copyText).toContain("ANC action thresholds");
+    expect(model.copyText).toContain("0.49 ×10^9/L");
+    expect(model.copyText).toContain("Stop and escalate");
+    expect(model.copyText).toContain("/documents/doc-1?page=4&chunk=chunk-1");
+  });
+
   it("limits unsupported answers to source review and warnings even when raw extras are present", () => {
     const model = buildAnswerRenderModel(
       answer({

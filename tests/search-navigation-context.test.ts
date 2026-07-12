@@ -109,4 +109,14 @@ describe("search navigation context", () => {
     ).toBe(true);
     expect(routedSubmissionContextChanged("answer:lithium", "answer", "lithium", {})).toBe(false);
   });
+
+  it("round-trips only a validated opaque private scope reference", () => {
+    const scopeRef = "22222222-2222-4222-8222-222222222222";
+    const params = appendSearchNavigationContext(new URLSearchParams(), { scopeRef });
+    expect(params.get("scopeRef")).toBe(scopeRef);
+    expect(readSearchNavigationContext(params).scopeRef).toBe(scopeRef);
+    expect(
+      readSearchNavigationContext(new URLSearchParams("scopeRef=private-document-title")).scopeRef,
+    ).toBeUndefined();
+  });
 });

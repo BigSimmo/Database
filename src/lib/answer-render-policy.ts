@@ -10,6 +10,7 @@ import type {
   SourceStrength,
   VisualEvidenceCard,
 } from "@/lib/types";
+import { formatDisplayedVisualEvidenceForClipboard } from "@/lib/ward-output";
 
 export type AnswerRenderTrust = "unsupported" | "low" | "medium" | "high";
 
@@ -515,6 +516,7 @@ export function formatAnswerRenderCopyText(args: {
   trust: AnswerRenderTrust;
   primarySources: SourceLink[];
   warnings: string[];
+  visualEvidence?: VisualEvidenceCard[];
 }) {
   const sourceLines = args.primarySources.length
     ? args.primarySources.map(
@@ -539,6 +541,9 @@ export function formatAnswerRenderCopyText(args: {
     "",
     "Warnings",
     ...warningLines,
+    ...(args.visualEvidence?.length
+      ? ["", "Displayed table evidence", ...formatDisplayedVisualEvidenceForClipboard(args.visualEvidence)]
+      : []),
   ]
     .join("\n")
     .trim();
@@ -588,7 +593,7 @@ export function buildAnswerRenderModel(
     relatedDocuments,
     bestSource,
     warnings,
-    copyText: formatAnswerRenderCopyText({ answerText, trust, primarySources, warnings }),
+    copyText: formatAnswerRenderCopyText({ answerText, trust, primarySources, warnings, visualEvidence }),
     debugReasons: options.includeDebugReasons ? decisions : undefined,
   };
 }

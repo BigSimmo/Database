@@ -41,7 +41,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 ### Shell and routing
 
 - **Root layout:** `src/app/layout.tsx` — fonts, `AuthProvider`, global CSS
-- **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — route-aware standalone shell and lazy dashboard dispatch via `global-mockup-search-shell.tsx`
+- **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — canonical route-aware shell and lazy dashboard dispatch. The mockup-named module is a compatibility re-export used only below `/mockups`.
 - **Home:** `src/app/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
 - **Modes (8):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, prescribing, tools
@@ -284,14 +284,14 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
 ## Related docs
 
-| Topic                   | Doc                                           |
-| ----------------------- | --------------------------------------------- |
-| Routes and modes        | `docs/site-map.md`                            |
-| Search/RAG roadmap      | `docs/search-rag-master-plan.md`              |
-| Reindex operations      | `docs/reindex-runbook.md`                     |
-| Production readiness    | `docs/production-readiness-checklist.md`      |
-| Frontend refactor       | `docs/frontend-architecture-refactor-plan.md` |
-| Repo audit (2026-07-01) | `docs/audit/repo-audit-2026-07-01.md`         |
+| Topic                   | Doc                                      |
+| ----------------------- | ---------------------------------------- |
+| Routes and modes        | `docs/site-map.md`                       |
+| Search/RAG roadmap      | `docs/search-rag-master-plan.md`         |
+| Reindex operations      | `docs/reindex-runbook.md`                |
+| Production readiness    | `docs/production-readiness-checklist.md` |
+| Frontend architecture   | `docs/frontend-architecture.md`          |
+| Repo audit (2026-07-01) | `docs/audit/repo-audit-2026-07-01.md`    |
 
 ---
 

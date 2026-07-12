@@ -41,7 +41,13 @@ export function DocumentManagementActions({
   onDeleted?: (result: DocumentDeleteResult) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { status: authStatus, authorizationHeader, markSessionExpired } = useAuthSession();
+  const {
+    status: authStatus,
+    authorizationHeader,
+    registerAuthRequest,
+    isAuthEpochCurrent,
+    markSessionExpired,
+  } = useAuthSession();
   const [mode, setMode] = useState<DialogMode>(null);
   const [title, setTitle] = useState(document.title);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
@@ -85,6 +91,8 @@ export function DocumentManagementActions({
     }
     setPending(true);
     setError(null);
+    const controller = new AbortController();
+    const authRequest = registerAuthRequest(controller);
     try {
       const response = await fetch(`/api/documents/${document.id}`, {
         method: "PATCH",
@@ -93,13 +101,17 @@ export function DocumentManagementActions({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ title: nextTitle }),
+        signal: controller.signal,
       });
       const payload = await readPayload(response);
+      if (!isAuthEpochCurrent(authRequest.epoch)) return;
       if (payload.document) onRenamed?.(payload.document as ClinicalDocument);
       setMode(null);
     } catch (renameError) {
+      if (!isAuthEpochCurrent(authRequest.epoch) || controller.signal.aborted) return;
       setError(renameError instanceof Error ? renameError.message : "Document rename failed.");
     } finally {
+      authRequest.release();
       setPending(false);
     }
   }
@@ -112,17 +124,23 @@ export function DocumentManagementActions({
     }
     setPending(true);
     setError(null);
+    const controller = new AbortController();
+    const authRequest = registerAuthRequest(controller);
     try {
       const response = await fetch(`/api/documents/${document.id}`, {
         method: "DELETE",
         headers: authorizationHeader,
+        signal: controller.signal,
       });
       const payload = (await readPayload(response)) as DocumentDeleteResult;
+      if (!isAuthEpochCurrent(authRequest.epoch)) return;
       onDeleted?.(payload);
       setMode(null);
     } catch (deleteError) {
+      if (!isAuthEpochCurrent(authRequest.epoch) || controller.signal.aborted) return;
       setError(deleteError instanceof Error ? deleteError.message : "Document delete failed.");
     } finally {
+      authRequest.release();
       setPending(false);
     }
   }
