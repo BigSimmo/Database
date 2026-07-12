@@ -27,6 +27,7 @@ import {
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { ClinicalOutputPanel } from "@/components/clinical-dashboard/output-panel";
 import {
+  isPreformattedGroundedAnswer,
   keyClinicalItemsFromSections,
   keyClinicalItemsFromTable,
   plainAnswerText,
@@ -579,9 +580,7 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
 function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: AnswerViewMode) {
   const sections =
     viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);
-  const primaryAnswer = plainAnswerText(answer.answer, {
-    preformatted: Boolean(answer.preformatted && answer.grounded),
-  });
+  const primaryAnswer = plainAnswerText(answer.answer, { preformatted: isPreformattedGroundedAnswer(answer) });
   const keepVerifySource = answer.answerQualityTier === "source_only" || answer.grounded === false;
   return sortClinicalDetailSections(
     sections

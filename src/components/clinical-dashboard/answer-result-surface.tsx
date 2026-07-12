@@ -7,7 +7,11 @@ import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react"
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
-import { NaturalLanguageAnswer, UserQuestionBubble } from "@/components/clinical-dashboard/answer-content";
+import {
+  isPreformattedGroundedAnswer,
+  NaturalLanguageAnswer,
+  UserQuestionBubble,
+} from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerSupportSummaryCard,
   answerHasCentralTable,
@@ -215,7 +219,7 @@ function StagedAnswerResultSurfaceImpl({
           <div className="min-w-0 space-y-3">
             <NaturalLanguageAnswer
               text={answer.answer}
-              preformatted={Boolean(answer.preformatted && answer.grounded)}
+              preformatted={isPreformattedGroundedAnswer(answer)}
               sourceCount={sourceCount}
               sourceOnly={answer.answerQualityTier === "source_only"}
               bestSource={bestSource}

@@ -53,6 +53,7 @@ import type {
   AnswerSection,
   AnswerSectionKind,
   BestSourceRecommendation,
+  RagAnswer,
   SearchResult,
   SearchScopeSummary,
   VisualEvidenceCard,
@@ -234,11 +235,38 @@ export type AnswerDisplayTextOptions = {
   preserveBold?: boolean;
 };
 
+/**
+ * Reports whether an answer is a server-`preformatted`, grounded answer whose
+ * display text should bypass prose sanitization and be shown as-is.
+ *
+ * @param answer - The answer to check, or `null`/`undefined` when unavailable
+ * @returns `true` when the answer is preformatted and grounded
+ */
+export function isPreformattedGroundedAnswer(
+  answer: Pick<RagAnswer, "preformatted" | "grounded"> | null | undefined,
+) {
+  return Boolean(answer?.preformatted && answer?.grounded);
+}
+
 // Fragments carrying a safety-critical signal must never be dropped by the
 // compact 3-fragment / 85-word cap — a withhold/threshold/escalation caveat
 // hidden from the primary prose is a clinical-safety regression.
 const primaryAnswerSafetySignalPattern =
   /\b(?:withhold|withheld|stop|cease|hold|held|threshold|escalat\w*|urgent|red\s*zone|amber|immediately|do not|contraindicat\w*|toxic)\b/i;
+
+// Shared tail of the sanitize path: run the display sanitizer, then strip the
+// synthetic-demo notice both plainAnswerText and primaryAnswerDisplayText need
+// removed before the text reaches the screen.
+function sanitizeAndStripSyntheticNotice(value: string, options: AnswerDisplayTextOptions) {
+  return sanitizeAnswerDisplayText(value, {
+    minLength: 8,
+    minTokens: 2,
+    preformatted: options.preformatted,
+    preserveBold: options.preserveBold,
+  })
+    .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
+    .trim();
+}
 
 /**
  * Produces sanitized, display-ready text for an answer.
@@ -251,14 +279,7 @@ export function plainAnswerText(value: string, options: AnswerDisplayTextOptions
   // clinicalProseUsefulness runs the source-noise stripper, so preformatted
   // answers bypass it and go straight to the lossless display path.
   const base = options.preformatted ? value : clinicalProseUsefulness(value).text || value;
-  return sanitizeAnswerDisplayText(base, {
-    minLength: 8,
-    minTokens: 2,
-    preformatted: options.preformatted,
-    preserveBold: options.preserveBold,
-  })
-    .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
-    .trim();
+  return sanitizeAndStripSyntheticNotice(base, options);
 }
 
 /**
@@ -276,14 +297,7 @@ export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTe
   // Skip whole-text clinicalProseUsefulness: its 3-token floor drops short
   // safety sentences ("Stop lithium.") before the fragment-level safety
   // bypass below can rescue them.
-  const cleaned = sanitizeAnswerDisplayText(value, {
-    minLength: 8,
-    minTokens: 2,
-    preformatted: false,
-    preserveBold: options.preserveBold,
-  })
-    .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
-    .trim();
+  const cleaned = sanitizeAndStripSyntheticNotice(value, { preformatted: false, preserveBold: options.preserveBold });
   const fragments = cleaned
     .split(/\r?\n+/)
     .flatMap((line: string) =>
