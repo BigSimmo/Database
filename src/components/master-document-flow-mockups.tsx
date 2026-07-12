@@ -296,11 +296,13 @@ function Pill({
   active = false,
   tone = "neutral",
   icon: Icon,
+  className,
 }: {
   children: ReactNode;
   active?: boolean;
   tone?: "neutral" | "teal" | "green" | "amber" | "blue" | "violet";
   icon?: LucideIcon;
+  className?: string;
 }) {
   const toneClass =
     active || tone === "teal"
@@ -319,6 +321,7 @@ function Pill({
       className={cn(
         "inline-flex min-h-7 max-w-full shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-bold shadow-[var(--shadow-inset)]",
         toneClass,
+        className,
       )}
     >
       {Icon ? <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : null}
@@ -1596,12 +1599,12 @@ function MasterEvidenceDetailContent({
             >
               <ArrowLeft className="h-6 w-6" aria-hidden="true" />
             </Link>
-            <h1 className="shrink-0 text-lg font-extrabold text-[color:var(--text-heading)] sm:text-2xl">
-              Evidence
-            </h1>
-            <Pill icon={evidenceTypeIconFor(evidence.type)}>
-              {evidence.label} · p.{evidence.page}
-            </Pill>
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <h1 className="shrink-0 text-lg font-extrabold text-[color:var(--text-heading)] sm:text-2xl">Evidence</h1>
+              <Pill className="min-w-0 flex-1" icon={evidenceTypeIconFor(evidence.type)}>
+                {evidence.label} · p.{evidence.page}
+              </Pill>
+            </div>
             <div className="ml-auto shrink-0">
               <IconButton label="More evidence actions" icon={MoreVertical} />
             </div>
