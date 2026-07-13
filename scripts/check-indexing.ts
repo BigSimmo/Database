@@ -80,6 +80,12 @@ type SchemaHealth = {
 
 const documentIdBatchSize = 50;
 
+/**
+ * Converts object metadata into a record for property access.
+ *
+ * @param metadata - The value to convert.
+ * @returns The metadata record, or an empty record when the value is not a plain object.
+ */
 function metadataRecord(metadata: unknown): Record<string, unknown> {
   return metadata && typeof metadata === "object" && !Array.isArray(metadata)
     ? (metadata as Record<string, unknown>)
@@ -98,6 +104,12 @@ type DocumentHealthRow = {
   metadata: unknown;
 };
 
+/**
+ * Loads document health records from Supabase in ascending ID order.
+ *
+ * @param pageSize - The maximum number of documents to load per query.
+ * @returns The loaded document health records.
+ */
 async function loadAllDocuments(supabase: SupabaseLike, pageSize = 1000) {
   const documents: DocumentHealthRow[] = [];
   let cursor: string | null = null;
@@ -125,11 +137,24 @@ function hasCurrentEnrichmentVersion(metadata: unknown, expectedVersion: string)
   return metadataRecord(metadata).rag_enrichment_version === expectedVersion;
 }
 
+/**
+ * Determines whether metadata contains the expected memory or indexing version.
+ *
+ * @param metadata - Metadata to inspect.
+ * @param expectedVersion - Version that must match.
+ * @returns `true` if either the memory or indexing version matches, `false` otherwise.
+ */
 function hasCurrentMemoryVersion(metadata: unknown, expectedVersion: string) {
   const record = metadataRecord(metadata);
   return record.rag_memory_version === expectedVersion || record.rag_indexing_version === expectedVersion;
 }
 
+/**
+ * Determines whether a document is a registry projection.
+ *
+ * @param document - The document to classify
+ * @returns `true` if the document is a `.registry.json` registry record with a registry record identifier, `false` otherwise.
+ */
 function isRegistryProjectionDocument(document: DocumentHealthRow) {
   const metadata = metadataRecord(document.metadata);
   return (
@@ -139,6 +164,11 @@ function isRegistryProjectionDocument(document: DocumentHealthRow) {
   );
 }
 
+/**
+ * Determines whether the current enrichment version is required.
+ *
+ * @returns `true` if the strict enrichment version flag or environment variable is enabled, `false` otherwise.
+ */
 function strictEnrichmentVersionRequired() {
   return (
     process.argv.includes("--strict-enrichment-version") || process.env.RAG_REQUIRE_CURRENT_ENRICHMENT_VERSION === "1"
@@ -179,6 +209,12 @@ function readableReadinessError(error: unknown) {
   return message;
 }
 
+/**
+ * Loads enrichment summaries and labels for the specified documents.
+ *
+ * @param documentIds - The document IDs whose enrichment rows should be loaded
+ * @returns The loaded summary and label rows grouped as `summaries` and `labels`
+ */
 async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[]) {
   const summaries: MetadataRow[] = [];
   const labels: MetadataRow[] = [];
@@ -226,6 +262,15 @@ async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[])
   return { summaries, labels };
 }
 
+/**
+ * Loads document-related rows in batches and converts valid results into metadata rows.
+ *
+ * @param table - The table from which to load rows
+ * @param select - The columns to retrieve
+ * @param documentIds - The document identifiers whose rows should be loaded
+ * @param orderColumns - The columns used to order each result page
+ * @returns The valid metadata rows associated with the specified documents
+ */
 async function loadRowsForDocuments(
   supabase: SupabaseLike,
   table: string,
@@ -254,6 +299,13 @@ async function loadRowsForDocuments(
   return rows;
 }
 
+/**
+ * Loads deep-memory rows and related index-quality data for the specified documents.
+ *
+ * @param documentIds - Document identifiers whose related rows should be loaded
+ * @returns The loaded sections, memory cards, chunks, table facts, embedding fields, index units, quality rows, and any missing-schema messages
+ * @throws Propagates query errors and errors unrelated to a missing `document_index_units` table
+ */
 async function loadDeepMemoryRows(supabase: SupabaseLike, documentIds: string[]) {
   const [sections, memoryCards, chunks, tableFacts, embeddingFields, qualityRows] = await Promise.all([
     loadRowsForDocuments(
@@ -307,6 +359,11 @@ async function loadDeepMemoryRows(supabase: SupabaseLike, documentIds: string[])
   return { sections, memoryCards, chunks, tableFacts, embeddingFields, indexUnits, qualityRows, missingSchema };
 }
 
+/**
+ * Verifies indexing prerequisites, database health, document coverage, and indexing consistency.
+ *
+ * @throws If prerequisites fail, required database resources are unavailable, or readiness checks detect issues.
+ */
 async function main() {
   const [
     { env, requireOpenAIEnv, requireServerEnv },
