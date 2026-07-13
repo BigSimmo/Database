@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { isEmptyIndexedDocument, type IndexingHealthDocument } from "../scripts/lib/indexing-health-document";
+import {
+  hasChunkCountMismatch,
+  isEmptyIndexedDocument,
+  type IndexingHealthDocument,
+} from "../scripts/lib/indexing-health-document";
 
 const source = readFileSync(new URL("../scripts/check-indexing.ts", import.meta.url), "utf8");
 const smartBackfillSource = readFileSync(new URL("../scripts/backfill-smart-index.ts", import.meta.url), "utf8");
@@ -15,13 +19,18 @@ describe("indexing health scan", () => {
     expect(source).toMatch(
       /const \[sections, memoryCards, chunks, tableFacts, embeddingFields, qualityRows\] = await Promise\.all/,
     );
-    expect(source).toMatch(/const \[enrichmentRows, deepMemoryRows\] = await Promise\.all\(\[\s*loadEnrichmentRows/);
+    expect(source).toMatch(
+      /const \[enrichmentRows, deepMemoryRows, registryChunkRows\] = await Promise\.all\(\[\s*loadEnrichmentRows/,
+    );
   });
 
   it("keeps lightweight registry projections in core search checks without requiring PDF artifacts", () => {
     expect(source).toContain("const richIndexedDocuments = indexedDocuments.filter");
     expect(source).toContain("searchable registry projections");
     expect(source).toContain("indexedDocuments.filter(isEmptyIndexedDocument)");
+    expect(source).toContain('loadRowsForDocuments(supabaseForChecks, "document_chunks", "document_id"');
+    expect(source).toContain("for (const chunk of registryChunkRows)");
+    expect(source).toContain("const documentsWithChunkCountMismatch = indexedDocuments.filter");
 
     const registryProjection: IndexingHealthDocument = {
       status: "indexed",
@@ -34,6 +43,8 @@ describe("indexing health scan", () => {
     expect(isEmptyIndexedDocument(registryProjection)).toBe(false);
     expect(isEmptyIndexedDocument({ ...registryProjection, chunk_count: 0 })).toBe(true);
     expect(isEmptyIndexedDocument({ ...registryProjection, file_name: "guideline.pdf" })).toBe(true);
+    expect(hasChunkCountMismatch(registryProjection, 0)).toBe(true);
+    expect(hasChunkCountMismatch(registryProjection, 1)).toBe(false);
   });
 });
 

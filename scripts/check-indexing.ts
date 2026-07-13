@@ -1,5 +1,10 @@
 import { loadEnvConfig } from "@next/env";
-import { isEmptyIndexedDocument, isRegistryProjectionDocument } from "./lib/indexing-health-document";
+import {
+  hasChunkCountMismatch,
+  isEmptyIndexedDocument,
+  isRegistryProjectionDocument,
+  metadataRecord,
+} from "./lib/indexing-health-document";
 
 loadEnvConfig(process.cwd());
 
@@ -80,18 +85,6 @@ type SchemaHealth = {
 };
 
 const documentIdBatchSize = 50;
-
-/**
- * Converts object metadata into a record for property access.
- *
- * @param metadata - The value to convert.
- * @returns The metadata record, or an empty record when the value is not a plain object.
- */
-function metadataRecord(metadata: unknown): Record<string, unknown> {
-  return metadata && typeof metadata === "object" && !Array.isArray(metadata)
-    ? (metadata as Record<string, unknown>)
-    : {};
-}
 
 type DocumentHealthRow = {
   id: string;
@@ -419,10 +412,12 @@ async function main() {
   // look 786 documents behind and would trigger an unnecessary model backfill.
   const registryProjectionDocuments = indexedDocuments.filter(isRegistryProjectionDocument);
   const richIndexedDocuments = indexedDocuments.filter((document) => !isRegistryProjectionDocument(document));
+  const registryProjectionIds = registryProjectionDocuments.map((document) => document.id);
   const indexedDocumentIds = richIndexedDocuments.map((document) => document.id);
-  const [enrichmentRows, deepMemoryRows] = await Promise.all([
+  const [enrichmentRows, deepMemoryRows, registryChunkRows] = await Promise.all([
     loadEnrichmentRows(supabaseForChecks, indexedDocumentIds),
     loadDeepMemoryRows(supabaseForChecks, indexedDocumentIds),
+    loadRowsForDocuments(supabaseForChecks, "document_chunks", "document_id", registryProjectionIds, ["document_id"]),
   ]);
   const summariesByDocument = new Map(enrichmentRows.summaries.map((row) => [row.document_id, row]));
   const labelRowsByDocument = new Map<string, MetadataRow[]>();
@@ -444,6 +439,9 @@ async function main() {
   for (const chunk of deepMemoryRows.chunks) {
     chunkRowsByDocument.set(chunk.document_id, [...(chunkRowsByDocument.get(chunk.document_id) ?? []), chunk]);
   }
+  for (const chunk of registryChunkRows) {
+    chunkRowsByDocument.set(chunk.document_id, [...(chunkRowsByDocument.get(chunk.document_id) ?? []), chunk]);
+  }
 
   const duplicateHashGroups = new Map<string, string[]>();
   for (const document of documents ?? []) {
@@ -453,8 +451,8 @@ async function main() {
   }
   const duplicateGroups = Array.from(duplicateHashGroups.values()).filter((titles) => titles.length > 1);
   const emptyIndexedDocuments = indexedDocuments.filter(isEmptyIndexedDocument);
-  const documentsWithChunkCountMismatch = richIndexedDocuments.filter(
-    (document) => (chunkRowsByDocument.get(document.id) ?? []).length !== (document.chunk_count ?? 0),
+  const documentsWithChunkCountMismatch = indexedDocuments.filter((document) =>
+    hasChunkCountMismatch(document, (chunkRowsByDocument.get(document.id) ?? []).length),
   );
   const documentsMissingSummaries = richIndexedDocuments.filter((document) => !summariesByDocument.has(document.id));
   const documentsMissingGeneratedLabels = richIndexedDocuments.filter((document) =>

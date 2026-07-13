@@ -6,7 +6,7 @@ export type IndexingHealthDocument = {
   metadata: unknown;
 };
 
-function metadataRecord(metadata: unknown): Record<string, unknown> {
+export function metadataRecord(metadata: unknown): Record<string, unknown> {
   return metadata && typeof metadata === "object" && !Array.isArray(metadata)
     ? (metadata as Record<string, unknown>)
     : {};
@@ -26,4 +26,8 @@ export function isEmptyIndexedDocument(document: IndexingHealthDocument) {
   if ((document.chunk_count ?? 0) === 0) return true;
 
   return !isRegistryProjectionDocument(document) && (document.page_count ?? 0) === 0;
+}
+
+export function hasChunkCountMismatch(document: IndexingHealthDocument, actualChunkCount: number) {
+  return actualChunkCount !== (document.chunk_count ?? 0);
 }
