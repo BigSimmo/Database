@@ -15,7 +15,7 @@ import {
   compactPromptChunk,
   selectCoverageAwarePromptChunks,
 } from "@/lib/indexing-coverage";
-import { generateStructuredTextResponse } from "@/lib/openai";
+import { generateStructuredTextResult } from "@/lib/openai";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
 import { cleanClinicalSummaryText, fenceSourceEvidence, sourceTextForModelEvidence } from "@/lib/source-text-sanitizer";
@@ -555,11 +555,13 @@ export async function generateDocumentEnrichment(args: {
   chunks: EnrichmentChunk[];
   images?: EnrichmentImage[];
 }) {
-  const raw = await generateStructuredTextResponse(
+  const result = await generateStructuredTextResult(
     buildEnrichmentPrompt({ ...args, images: args.images ?? [] }),
     summarySchema,
     {
       model: env.OPENAI_STRONG_ANSWER_MODEL || env.OPENAI_FAST_ANSWER_MODEL,
+      // Answer-size budget; responseBody() floors the effective cap by reasoning effort so
+      // medium-effort reasoning cannot starve the enrichment JSON (reasoningHeadroomFloor).
       maxOutputTokens: 2400,
       operation: "summary",
       schemaName: "clinical_document_enrichment",
@@ -568,7 +570,17 @@ export async function generateDocumentEnrichment(args: {
       textVerbosity: "medium",
     },
   );
-  const parsed = parseGeneratedSummary(raw, args.document, args.chunks, args.images ?? []);
+  // Ingestion runs unattended over the whole corpus, so a truncated enrichment must be loud,
+  // not silent — a silently cut-off summary degrades retrieval for that document and would be
+  // re-wasted on every re-index. Warn with the document identity so it is greppable and
+  // re-processable; parsing still proceeds on the partial text.
+  if (result.truncated) {
+    console.warn("document enrichment truncated", {
+      document: args.document.file_name ?? args.document.title,
+      reason: result.incompleteReason ?? result.status ?? "unknown",
+    });
+  }
+  const parsed = parseGeneratedSummary(result.text, args.document, args.chunks, args.images ?? []);
   const inferred = inferLabels(args.document);
   const organization = classifyDocumentOrganization({
     ...args.document,
