@@ -77,6 +77,25 @@ export async function withProviderBackoff<T>(
   throw new Error(`Provider retry loop exhausted for ${label}.`);
 }
 
+export async function withProviderBackoffProgress<TProgress, TResult>(
+  label: string,
+  operation: (onProgress: (event: TProgress) => void) => Promise<TResult>,
+  options: { maxAttempts?: number; initialDelayMs?: number; maxDelayMs?: number } = {},
+) {
+  let successfulProgress: TProgress[] = [];
+  const result = await withProviderBackoff(
+    label,
+    async () => {
+      const attemptProgress: TProgress[] = [];
+      const attemptResult = await operation((event) => attemptProgress.push(event));
+      successfulProgress = attemptProgress;
+      return attemptResult;
+    },
+    options,
+  );
+  return { result, progress: successfulProgress };
+}
+
 export async function findOwnerIdByEmail(supabase: SupabaseAdmin, email: string) {
   const normalized = email.trim().toLowerCase();
   const perPage = 1000;

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   analyzeSourceLocality,
   assertLocalityMetadataPatch,
@@ -9,7 +9,7 @@ import {
   isRegistryRecordSource,
   type SourceAuthorityDocument,
 } from "@/lib/source-authority-metadata";
-import { parseBackfillSourceMetadataArgs } from "../scripts/backfill-source-metadata";
+import { parseBackfillSourceMetadataArgs, runLocalityOnlyBackfill } from "../scripts/backfill-source-metadata";
 
 function document(
   overrides: Partial<SourceAuthorityDocument> & Pick<SourceAuthorityDocument, "file_name">,
@@ -221,6 +221,96 @@ describe("source authority metadata tooling", () => {
       apply: true,
       confirm: true,
     });
+  });
+
+  it("applies only bounded locality fields through the metadata patch RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const target = {
+      ...document({
+        file_name: "WACHS-lithium-guideline.pdf",
+        metadata: { publisher_code: "WACHS" },
+      }),
+      id: "document-1",
+      source_path: null,
+      status: "active",
+    };
+
+    try {
+      await runLocalityOnlyBackfill(
+        parseBackfillSourceMetadataArgs(["--locality-only", "--apply", "--confirm"]),
+        [target],
+        { rpc } as never,
+      );
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(rpc).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith("apply_document_metadata_patch", {
+      p_document_id: "document-1",
+      p_metadata_patch: {
+        publisher: "WA Country Health Service",
+        jurisdiction: "Australia/WA",
+      },
+    });
+  });
+
+  it("fails closed when a locality metadata patch RPC is rejected", async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: { message: "write denied" } });
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const target = {
+      ...document({
+        file_name: "WACHS-lithium-guideline.pdf",
+        metadata: { publisher_code: "WACHS" },
+      }),
+      id: "document-2",
+      source_path: null,
+      status: "active",
+    };
+
+    try {
+      await expect(
+        runLocalityOnlyBackfill(
+          parseBackfillSourceMetadataArgs(["--locality-only", "--apply", "--confirm"]),
+          [target],
+          { rpc } as never,
+        ),
+      ).rejects.toThrow("Failed to patch WACHS-lithium-guideline.pdf: write denied");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("caps locality audit details without changing aggregate counts", async () => {
+    const logged: string[] = [];
+    const log = vi.spyOn(console, "log").mockImplementation((value) => logged.push(String(value)));
+    const targets = Array.from({ length: 25 }, (_, index) => ({
+      ...document({
+        file_name: `WACHS-conflict-${index}.pdf`,
+        metadata: { publisher_code: "TGA", publisher: "Therapeutic Goods Administration", jurisdiction: "Australia" },
+      }),
+      id: `document-${index}`,
+      source_path: null,
+      status: "active",
+    }));
+
+    try {
+      await runLocalityOnlyBackfill(parseBackfillSourceMetadataArgs(["--locality-only"]), targets, {
+        rpc: vi.fn(),
+      } as never);
+    } finally {
+      log.mockRestore();
+    }
+
+    const summary = JSON.parse(logged[0]) as {
+      authority_conflict_count: number;
+      conflicts: unknown[];
+      detail_limit: number;
+    };
+    expect(summary.authority_conflict_count).toBe(25);
+    expect(summary.detail_limit).toBe(20);
+    expect(summary.conflicts).toHaveLength(20);
   });
 
   it("makes both governance scripts consume the shared authority helper", () => {

@@ -12,7 +12,7 @@ import {
   percentile,
   resolveEvalOwnerId,
   validateRagAnswer,
-  withProviderBackoff,
+  withProviderBackoffProgress,
 } from "./eval-utils";
 
 loadEnvConfig(process.cwd());
@@ -234,18 +234,17 @@ async function main() {
   if (!args.json) console.log(`Running ${cases.length} RAG eval case(s), scope=${scope}.`);
 
   for (const testCase of cases) {
-    const progress: RagEvalProgressDiagnosticEvent[] = [];
-    const answer = (await withProviderBackoff(`rag:${testCase.id}`, () =>
-      answerQuestionWithScope({
-        query: testCase.question,
-        ownerId,
-        logQuery: false,
-        skipCache: true,
-        onProgress: (event) => {
-          progress.push(event);
-        },
-      }),
-    )) as RagAnswer;
+    const { result: answer, progress } = await withProviderBackoffProgress<RagEvalProgressDiagnosticEvent, RagAnswer>(
+      `rag:${testCase.id}`,
+      (onProgress) =>
+        answerQuestionWithScope({
+          query: testCase.question,
+          ownerId,
+          logQuery: false,
+          skipCache: true,
+          onProgress,
+        }),
+    );
     const latencyMs = answer.latencyTimings?.total_latency_ms ?? 0;
     const validation = validateRagAnswer(testCase, answer);
     const governanceDiagnostics = buildRagEvaluationDiagnostics(answer, progress);

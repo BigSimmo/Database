@@ -50,6 +50,7 @@ type ClinicalValidationEvidence = {
 };
 
 const BACKFILL_VERSION = "source_metadata_backfill_2026_06_30_v1";
+const LOCALITY_AUDIT_DETAIL_LIMIT = 20;
 
 export type BackfillSourceMetadataArgs = {
   apply: boolean;
@@ -673,7 +674,7 @@ async function evalDocumentIds(evalOnly: boolean) {
   return topFiles;
 }
 
-async function runLocalityOnlyBackfill(
+export async function runLocalityOnlyBackfill(
   args: BackfillSourceMetadataArgs,
   documents: DocumentRow[],
   supabase: Awaited<ReturnType<(typeof import("@/lib/supabase/admin"))["createAdminClient"]>>,
@@ -688,6 +689,10 @@ async function runLocalityOnlyBackfill(
     documents_seen: documents.length,
     documents_with_changes: changed.length,
     ...authorityAudit,
+    detail_limit: LOCALITY_AUDIT_DETAIL_LIMIT,
+    conflicts: authorityAudit.conflicts.slice(0, LOCALITY_AUDIT_DETAIL_LIMIT),
+    missing_australian_locality: authorityAudit.missing_australian_locality.slice(0, LOCALITY_AUDIT_DETAIL_LIMIT),
+    proposed_locality_corrections: authorityAudit.proposed_locality_corrections.slice(0, LOCALITY_AUDIT_DETAIL_LIMIT),
   };
   console.log(JSON.stringify(summary, null, 2));
 

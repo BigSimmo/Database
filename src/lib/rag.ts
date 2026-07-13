@@ -4864,11 +4864,6 @@ ${qualityRetryInstruction}`
     results: answerInputResults,
   });
   const generationFallbackResults = strongRetryContextResults;
-  const generationFallbackArtifacts = buildContextDerivedArtifacts(answerFocusQuery, generationFallbackResults);
-  const generationFallbackSelectionSummary = summarizeAustralianSourceSelection(
-    answerInputResults,
-    generationFallbackResults,
-  );
   const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
   await args.onProgress?.({
     stage: "ranking",
@@ -5225,6 +5220,11 @@ ${qualityRetryInstruction}`
   } catch (error) {
     if ((error instanceof DOMException && error.name === "AbortError") || args.signal?.aborted) throw error;
     const relatedDocuments = await relatedDocumentsPromise;
+    const generationFallbackArtifacts = buildContextDerivedArtifacts(answerFocusQuery, generationFallbackResults);
+    const generationFallbackSelectionSummary = summarizeAustralianSourceSelection(
+      answerInputResults,
+      generationFallbackResults,
+    );
     await args.onProgress?.({
       stage: "fallback",
       message: "Generation failed, returning source-based fallback answer.",

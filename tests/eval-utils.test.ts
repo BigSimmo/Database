@@ -7,6 +7,7 @@ import {
   resolveEvalOwnerId,
   validateRagAnswer,
   withProviderBackoff,
+  withProviderBackoffProgress,
   type SupabaseAdmin,
 } from "../scripts/eval-utils";
 import type { RagEvalCase } from "../src/lib/rag-eval-cases";
@@ -175,6 +176,31 @@ describe("RAG eval source identity matching", () => {
     expect(result).toBe("ok");
     expect(attempts).toBe(2);
     expect(isProviderRateLimitError(new Error("429 too many requests"))).toBe(true);
+  });
+
+  it("keeps progress only from the successful provider attempt", async () => {
+    let attempts = 0;
+
+    const outcome = await withProviderBackoffProgress<string, string>(
+      "test-progress-rate-limit",
+      async (onProgress) => {
+        attempts += 1;
+        onProgress(`attempt-${attempts}:retrieved`);
+        if (attempts === 1) {
+          onProgress("attempt-1:supplementary-selected");
+          throw new Error("429 too many requests");
+        }
+        onProgress("attempt-2:finalized");
+        return "ok";
+      },
+      { maxAttempts: 2, initialDelayMs: 1, maxDelayMs: 1 },
+    );
+
+    expect(outcome).toEqual({
+      result: "ok",
+      progress: ["attempt-2:retrieved", "attempt-2:finalized"],
+    });
+    expect(attempts).toBe(2);
   });
 
   it("pauses between eval cases when configured", async () => {
