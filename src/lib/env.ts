@@ -192,6 +192,15 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  // Eval-gated experiment: tag chunk metadata with medspaCy ConText assertion status
+  // (negated/uncertain/family/historical) at ingestion. Default off — requires the
+  // optional medspacy Python dependency and a reviewed `npm run eval:assertions` run
+  // before enabling. Nothing consumes the annotations yet (answer-verification is
+  // deliberately NOT wired to them). See worker/assertion-tagging.ts.
+  WORKER_MEDSPACY_ASSERTION: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   PYTHON_BIN: z.string().default("python"),
   NEXT_PUBLIC_DEMO_MODE: z.enum(["true", "false"]).optional().default("false"),
 });
