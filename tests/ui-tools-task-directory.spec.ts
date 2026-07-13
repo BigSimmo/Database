@@ -18,7 +18,7 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
-test.describe("Tools task directory mockup (Concept 4)", () => {
+test.describe("Tools task directory mockup (Concept 4) @mockup", () => {
   test.describe.configure({ timeout: 60_000 });
 
   test("renders task-grouped rows and is reachable", async ({ page }) => {

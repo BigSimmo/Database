@@ -514,7 +514,7 @@ describe("RAG structured-output fallback", () => {
 
   it("keeps source-backed agitation step numbers grounded across multiple citations", async () => {
     const answer = await answerFromTextSources(
-      "What should be considered for agitation and arousal pharmacological management?",
+      "What steps are listed for agitation and arousal pharmacological management?",
       [
         source({
           id: "agitation-step-table",

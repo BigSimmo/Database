@@ -88,6 +88,7 @@ function ragResult(overrides: Partial<RagQualityResult> = {}): RagQualityResult 
     rpcLatencyMs: 150,
     embeddingLatencyMs: 25,
     route: "fast",
+    latencyRoute: "fast",
     model: "test-model",
     citations: 2,
     visualEvidence: 0,
@@ -230,6 +231,28 @@ describe("eval quality reporting", () => {
     expect(regressed.rag.summary.grounded_supported_rate).toBe(0);
     expect(regressed.blocking_threshold_failures).toEqual(
       expect.arrayContaining([expect.stringContaining("RAG grounded_supported_rate")]),
+    );
+  });
+
+  it("budgets a model-attempt extractive fallback against its attempted route", () => {
+    const report = buildEvalQualityReport({
+      generatedAt: "2026-07-13T00:00:00.000Z",
+      retrievalResults: [],
+      ragResults: [
+        ragResult({
+          route: "extractive",
+          latencyRoute: "fast",
+          latencyMs: 15_000,
+          generationLatencyMs: 12_000,
+          model: null,
+          routingReason: "strong_routine_retrieval; generation_fallback:provider_timeout",
+        }),
+      ],
+    });
+
+    expect(report.rag.summary.route_p95_latency_ms).toEqual({ fast: 15_000 });
+    expect(report.threshold_failures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("route extractive")]),
     );
   });
 
@@ -559,7 +582,7 @@ describe("eval quality reporting", () => {
     expect(markdown).toContain("## Source Governance");
     expect(markdown).toContain("## Answer Metrics");
     expect(markdown).toContain("## Answer Case Diagnostics");
-    expect(markdown).toContain("| rag-1 | fast | 900 | 200 | 650 | 150 | 25 | test-model | passed |");
+    expect(markdown).toContain("| rag-1 | fast | fast | 900 | 200 | 650 | 150 | 25 | test-model | passed |");
     expect(markdown).toContain("| Hit@K | 1 |");
     expect(markdown).toContain("Policy: unknown, unverified");
   });
