@@ -12,6 +12,10 @@ function enumOrDefault<T extends string>(value: unknown, allowed: Set<string>, f
   return typeof value === "string" && allowed.has(value) ? (value as T) : fallback;
 }
 
+function recordOrNull(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : null;
+}
+
 export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata {
   const value = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
 
@@ -23,6 +27,7 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
     registry_record_slug: stringOrNull(value.registry_record_slug),
     source_title: stringOrNull(value.source_title),
     publisher: stringOrNull(value.publisher),
+    publisher_code: stringOrNull(value.publisher_code),
     jurisdiction: stringOrNull(value.jurisdiction),
     version: stringOrNull(value.version),
     publication_date: stringOrNull(value.publication_date),
@@ -32,6 +37,7 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
     uploaded_by: stringOrNull(value.uploaded_by),
     document_status: enumOrDefault(value.document_status, knownStatuses, "unknown"),
     clinical_validation_status: enumOrDefault(value.clinical_validation_status, knownValidation, "unverified"),
+    clinical_validation_evidence: recordOrNull(value.clinical_validation_evidence),
     extraction_quality: enumOrDefault(value.extraction_quality, knownExtraction, "unknown"),
   };
 }

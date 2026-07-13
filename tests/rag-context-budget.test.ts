@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { capPerDocumentCrowding, packedContextCacheKey, selectModelContextResults } from "../src/lib/rag";
 import type { RagQueryClass, SearchResult } from "../src/lib/types";
 
-function source(index: number): SearchResult {
+function source(index: number, overrides: Partial<SearchResult> = {}): SearchResult {
   return {
     id: `chunk-${index}`,
     document_id: `doc-${index}`,
@@ -16,7 +16,38 @@ function source(index: number): SearchResult {
     similarity: 0.9 - index * 0.01,
     hybrid_score: 0.9 - index * 0.01,
     images: [],
+    ...overrides,
   };
+}
+
+function governedSource(
+  index: number,
+  args: {
+    documentId: string;
+    publisherCode: string;
+    publisher: string;
+    jurisdiction: string;
+    validation?: "unverified" | "locally_reviewed" | "approved";
+  },
+) {
+  return source(index, {
+    document_id: args.documentId,
+    source_metadata: {
+      source_title: `Guideline ${index}`,
+      publisher: args.publisher,
+      publisher_code: args.publisherCode,
+      jurisdiction: args.jurisdiction,
+      version: null,
+      publication_date: null,
+      review_date: null,
+      uploaded_at: null,
+      indexed_at: null,
+      uploaded_by: null,
+      document_status: "current",
+      clinical_validation_status: args.validation ?? "approved",
+      extraction_quality: "good",
+    },
+  });
 }
 
 const results = Array.from({ length: 12 }, (_, index) => source(index + 1));
@@ -44,8 +75,21 @@ describe("RAG model context budgeting", () => {
   it("keeps broader context for synthesis-heavy fast routes", () => {
     expect(select({ routeMode: "fast", queryClass: "comparison" })).toHaveLength(12);
     expect(select({ routeMode: "fast", queryClass: "broad_summary" })).toHaveLength(12);
-    expect(select({ routeMode: "fast", queryClass: "medication_dose_risk" })).toHaveLength(12);
     expect(select({ routeMode: "fast", queryClass: "document_lookup", crossDocument: true })).toHaveLength(12);
+  });
+
+  it("bounds high-risk supplementary-only context without dropping all available evidence", () => {
+    const selected = select({ routeMode: "fast", queryClass: "medication_dose_risk" });
+
+    expect(selected).toHaveLength(6);
+    expect(selected.map((result) => result.id)).toEqual([
+      "chunk-1",
+      "chunk-2",
+      "chunk-3",
+      "chunk-4",
+      "chunk-5",
+      "chunk-6",
+    ]);
   });
 
   it("does not limit strong generation or non-model routes", () => {
@@ -86,6 +130,110 @@ describe("RAG model context budgeting", () => {
       id: `only-${index + 1}`,
     }));
     expect(capPerDocumentCrowding(singleDoc)).toHaveLength(6);
+  });
+
+  it("uses four validated Australian passages across two documents without supplementary padding", () => {
+    const highRiskResults = [
+      governedSource(1, {
+        documentId: "wa-doc-1",
+        publisherCode: "FSH",
+        publisher: "Fiona Stanley Fremantle Hospitals Group",
+        jurisdiction: "Australia/WA",
+      }),
+      governedSource(2, {
+        documentId: "wa-doc-2",
+        publisherCode: "EMHS",
+        publisher: "East Metropolitan Health Service",
+        jurisdiction: "Australia/WA",
+      }),
+      governedSource(3, {
+        documentId: "wa-doc-1",
+        publisherCode: "FSH",
+        publisher: "WA Health",
+        jurisdiction: "Australia/WA",
+      }),
+      governedSource(4, {
+        documentId: "wa-doc-2",
+        publisherCode: "EMHS",
+        publisher: "East Metropolitan Health Service",
+        jurisdiction: "Australia/WA",
+      }),
+      governedSource(5, {
+        documentId: "bmj-doc",
+        publisherCode: "BMJ",
+        publisher: "BMJ Best Practice",
+        jurisdiction: "International",
+        validation: "unverified",
+      }),
+    ];
+
+    const selected = selectModelContextResults({
+      routeMode: "strong",
+      queryClass: "medication_dose_risk",
+      crossDocument: false,
+      results: highRiskResults,
+    });
+
+    expect(selected.map((result) => result.id)).toEqual(["chunk-1", "chunk-2", "chunk-3", "chunk-4"]);
+    expect(new Set(selected.map((result) => result.document_id))).toEqual(new Set(["wa-doc-1", "wa-doc-2"]));
+  });
+
+  it("keeps supplementary evidence when authoritative Australian coverage is not sufficient", () => {
+    const selected = selectModelContextResults({
+      routeMode: "strong",
+      queryClass: "table_threshold",
+      crossDocument: false,
+      results: [
+        governedSource(1, {
+          documentId: "wa-doc",
+          publisherCode: "WACHS",
+          publisher: "WA Country Health Service",
+          jurisdiction: "Australia/WA",
+        }),
+        governedSource(2, {
+          documentId: "national-doc",
+          publisherCode: "TGA",
+          publisher: "Therapeutic Goods Administration",
+          jurisdiction: "Australia/National",
+          validation: "unverified",
+        }),
+        governedSource(3, {
+          documentId: "bmj-doc",
+          publisherCode: "BMJ",
+          publisher: "BMJ Best Practice",
+          jurisdiction: "International",
+          validation: "unverified",
+        }),
+      ],
+    });
+
+    expect(selected.map((result) => result.id)).toEqual(["chunk-1", "chunk-2", "chunk-3"]);
+  });
+
+  it("does not promote a known international code with conflicting WA metadata", () => {
+    const conflict = governedSource(1, {
+      documentId: "conflict-doc",
+      publisherCode: "BMJ",
+      publisher: "BMJ Best Practice",
+      jurisdiction: "Australia/WA",
+    });
+    const waSources = [2, 3, 4, 5].map((index) =>
+      governedSource(index, {
+        documentId: index % 2 === 0 ? "wa-doc-1" : "wa-doc-2",
+        publisherCode: index % 2 === 0 ? "FSH" : "EMHS",
+        publisher: index % 2 === 0 ? "Fiona Stanley Fremantle Hospitals Group" : "East Metropolitan Health Service",
+        jurisdiction: "Australia/WA",
+      }),
+    );
+
+    const selected = selectModelContextResults({
+      routeMode: "strong",
+      queryClass: "medication_dose_risk",
+      crossDocument: false,
+      results: [conflict, ...waSources],
+    });
+
+    expect(selected.map((result) => result.id)).toEqual(["chunk-2", "chunk-3", "chunk-4", "chunk-5"]);
   });
 
   it("uses a stable context pack cache key for matching retry inputs", () => {
