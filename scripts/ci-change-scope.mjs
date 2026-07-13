@@ -131,6 +131,8 @@ const containerPatterns = [
   "next.config.ts",
   "package.json",
   "package-lock.json",
+  "railway.app.json",
+  "railway.worker.json",
   "worker/python/requirements.txt",
   /^scripts\/(check-node-engine|guard-next-build)\.(?:cjs|mjs)$/,
 ];
@@ -437,10 +439,14 @@ function selfTest() {
     source_changed: true,
     build_changed: true,
   });
-  assertScope("container", ["Dockerfile.worker", "worker/python/requirements.txt"], {
-    container_changed: true,
-    build_changed: true,
-  });
+  assertScope(
+    "container",
+    ["Dockerfile.worker", "railway.app.json", "railway.worker.json", "worker/python/requirements.txt"],
+    {
+      container_changed: true,
+      build_changed: true,
+    },
+  );
   assertScope("renamed-destination", parseStatusPorcelain("R  src/lib/rag-new.ts\0docs/rag-old.md\0"), {
     source_changed: true,
     rag_eval_changed: true,

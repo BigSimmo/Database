@@ -31,6 +31,8 @@ on:
       - ".npmrc"
       - ".nvmrc"
       - "next.config.ts"
+      - "railway.app.json"
+      - "railway.worker.json"
       - "worker/python/requirements.txt"
       - "scripts/check-node-engine.cjs"
       - "scripts/guard-next-build.mjs"
