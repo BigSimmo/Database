@@ -3549,10 +3549,8 @@ export function ClinicalDashboard({
                   // shell background shows through as an empty band. (sm+ is inert:
                   // bottomSearchScrollHidden only ever goes true on phones.) The
                   // reserve hugs the real dock height (follow-up scroll row + composer
-                  // pill ≈ 6rem measured); a larger reserve just paints extra shell
-                  // background above the dock. The answer section fills the remaining
-                  // space and bottom-anchors its content, so short answers sit against
-                  // the dock instead of floating under a half-screen black void.
+                  // pill ≈ 6rem measured); the old 18rem reserve just painted extra
+                  // shell background as a black band above the dock.
                   bottomSearchScrollHidden
                   ? "mb-0 sm:mb-24"
                   : answerFollowUpSuggestions.length > 0
@@ -3589,9 +3587,11 @@ export function ClinicalDashboard({
                 searchMode === "answer"
                   ? compactMobileModeHome
                     ? "pb-4"
-                    : // Phones bottom-anchor the answer against the dock (the <main>
-                      // reserve already clears it), so the large mobile bottom padding
-                      // would only add a scrollable black strip under a short answer.
+                    : // The <main> reserve already clears the fixed composer dock on
+                      // phones, so the old large mobile bottom padding only floated a
+                      // long answer's last line high above the dock (and padded a short
+                      // answer's empty space further). Keep it small here; sm+/desktop
+                      // keep the original generous padding.
                       "pb-4 sm:pb-36 lg:pb-40"
                   : hasMobileBottomSearch
                     ? compactMobileModeHome
@@ -3620,16 +3620,15 @@ export function ClinicalDashboard({
                         "max-sm:flex max-sm:min-h-[calc(100dvh-12.5rem)] max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
                         centeredModeHome && "max-sm:justify-center",
                       )
-                    : // A rendered answer bottom-anchors on phones: the section fills
-                      // the space left above the fixed composer dock and pushes its
-                      // content to the bottom, so a SHORT answer sits just above the
-                      // dock instead of top-hugging with a half-screen black void
-                      // below it. The floor subtracts the safe-area insets so it tracks
-                      // the real header/dock height across notched devices. Long answers
-                      // exceed the floor, so justify-end is inert and they scroll
-                      // normally. sm+/desktop keeps the original block + floor.
+                    : // A rendered answer is content-sized and top-aligned on phones:
+                      // it must NOT inherit the viewport-height floor (that floor exists
+                      // to give the centred home block room). With the floor, a short
+                      // answer stretches the section to ~full height and you can scroll
+                      // down into a black void; content-sized keeps the answer under the
+                      // question with calm space below and no phantom scroll. Other
+                      // result kinds keep the floor; sm+/desktop is unchanged.
                       activeModeResultKind === "answer" && answer
-                      ? "flex min-h-[calc(100dvh-13rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex-col justify-end sm:block sm:min-h-[calc(100dvh-11rem)]"
+                      ? "sm:min-h-[calc(100dvh-11rem)]"
                       : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                   centeredModeHome || showAnswerHome
                     ? // Phones centre the home block mid-screen, matching the
