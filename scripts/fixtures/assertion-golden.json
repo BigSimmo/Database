@@ -1,5 +1,5 @@
 {
-  "description": "Golden cases for medspaCy assertion tagging (worker/python/analyze_assertions.py). AU community mental health phrasing. `expect.asserted` terms must NOT appear in negated_terms or uncertain_terms; other expect arrays assert membership in the corresponding *_terms output.",
+  "description": "Golden cases for medspaCy assertion tagging (worker/python/analyze_assertions.py). AU community mental health phrasing. Contract: expect.negated/uncertain/family/historical assert membership in the corresponding *_terms output; additionally EVERY target not listed in expect.negated (resp. expect.uncertain) must be absent from negated_terms (resp. uncertain_terms), so false-positive existence flags fail the gate. `expect.asserted` is documentation of intent — those terms are enforced by the universal false-positive rule. Family/historical are positive-only (contextual qualifiers may legitimately co-occur with asserted mentions).",
   "cases": [
     {
       "id": "denies-si",
@@ -89,7 +89,8 @@
       "id": "may-have-akathisia",
       "text": "The restlessness may represent akathisia rather than agitation.",
       "targets": ["akathisia", "agitation"],
-      "expect": { "uncertain": ["akathisia"] }
+      "note": "'rather than X' excludes X: agitation is correctly both negated (excluded) and uncertain (inside the tentative differential). Surfaced by the false-positive gate; encoded as intended behavior.",
+      "expect": { "uncertain": ["akathisia", "agitation"], "negated": ["agitation"] }
     },
     {
       "id": "if-toxicity",

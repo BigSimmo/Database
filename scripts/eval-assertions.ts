@@ -22,6 +22,8 @@ const goldenCaseSchema = z.object({
   id: z.string(),
   text: z.string().min(1),
   targets: z.array(z.string()).min(1),
+  // Free-text rationale for non-obvious expectations (JSON has no comments).
+  note: z.string().optional(),
   expect: expectationSchema,
 });
 
@@ -32,7 +34,7 @@ const fixtureSchema = z.object({
 
 type Check = {
   caseId: string;
-  category: "negated" | "uncertain" | "family" | "historical" | "asserted";
+  category: "negated" | "uncertain" | "family" | "historical" | "no-false-negation" | "no-false-uncertainty";
   term: string;
   pass: boolean;
   detail: string;
@@ -51,6 +53,11 @@ async function main() {
   const fixturePath = argValue("--fixture") ?? path.join("scripts", "fixtures", "assertion-golden.json");
   const minAccuracy = Number(argValue("--min-accuracy") ?? "0.8");
   const jsonOut = argValue("--json-out");
+  // A mistyped threshold must fail loudly, never silently disable the gate:
+  // accuracy < NaN is always false, which would report PASS at any score.
+  if (!Number.isFinite(minAccuracy) || minAccuracy < 0 || minAccuracy > 1) {
+    throw new Error(`--min-accuracy must be a number between 0 and 1 (got "${argValue("--min-accuracy")}").`);
+  }
 
   const fixture = fixtureSchema.parse(JSON.parse(await readFile(fixturePath, "utf8")));
 
@@ -94,21 +101,34 @@ async function main() {
         });
       }
     }
-    // Asserted terms must NOT be flagged negated or uncertain (family/historical
-    // flags are contextual qualifiers, not existence changes, so they don't fail it).
-    for (const term of goldenCase.expect.asserted.map(normalizeTerm)) {
-      const wrongly = [
-        ...(negated.includes(term) ? ["negated"] : []),
-        ...(uncertain.includes(term) ? ["uncertain"] : []),
-      ];
-      const pass = wrongly.length === 0;
-      checks.push({
-        caseId: goldenCase.id,
-        category: "asserted",
-        term,
-        pass,
-        detail: pass ? "ok" : `asserted term "${term}" wrongly flagged: ${wrongly.join(", ")}`,
-      });
+    // False-positive gate: EVERY target the case does not expect in an
+    // existence-changing category (negated/uncertain) must be absent from it —
+    // an over-broad ConText rule must fail here, not pass silently. Family and
+    // historical stay positive-only: they are contextual qualifiers, and cases
+    // may legitimately overlap them with asserted mentions.
+    const expectedNegated = new Set(goldenCase.expect.negated.map(normalizeTerm));
+    const expectedUncertain = new Set(goldenCase.expect.uncertain.map(normalizeTerm));
+    for (const term of goldenCase.targets.map(normalizeTerm)) {
+      if (!expectedNegated.has(term)) {
+        const pass = !negated.includes(term);
+        checks.push({
+          caseId: goldenCase.id,
+          category: "no-false-negation",
+          term,
+          pass,
+          detail: pass ? "ok" : `target "${term}" wrongly flagged negated`,
+        });
+      }
+      if (!expectedUncertain.has(term)) {
+        const pass = !uncertain.includes(term);
+        checks.push({
+          caseId: goldenCase.id,
+          category: "no-false-uncertainty",
+          term,
+          pass,
+          detail: pass ? "ok" : `target "${term}" wrongly flagged uncertain`,
+        });
+      }
     }
   }
 

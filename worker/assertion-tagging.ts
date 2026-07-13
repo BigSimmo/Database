@@ -65,6 +65,11 @@ export function defaultAssertionTargets(): string[] {
 
 export type AssertionScriptRunner = (input: { chunks: AssertionInputChunk[]; targets: string[] }) => Promise<string>;
 
+// Generous ceiling for one document's chunk batch (model load is seconds, tagging is
+// fast). A hung Python process must reject — annotateChunkAssertions then fails open —
+// so assertion tagging can never wedge an ingestion job.
+const assertionScriptTimeoutMs = 120_000;
+
 function extractJsonFromStdout(stdout: string) {
   const first = stdout.indexOf("{");
   const last = stdout.lastIndexOf("}");
@@ -87,14 +92,22 @@ export const runAssertionScript: AssertionScriptRunner = async (input) => {
       });
       let out = "";
       let err = "";
+      const timeout = setTimeout(() => {
+        child.kill();
+        reject(new Error(`Assertion script timed out after ${assertionScriptTimeoutMs}ms.`));
+      }, assertionScriptTimeoutMs);
       child.stdout.on("data", (chunk) => {
         out += chunk.toString();
       });
       child.stderr.on("data", (chunk) => {
         err += chunk.toString();
       });
-      child.on("error", (error) => reject(new Error(`Assertion script failed to start: ${error.message}`)));
+      child.on("error", (error) => {
+        clearTimeout(timeout);
+        reject(new Error(`Assertion script failed to start: ${error.message}`));
+      });
       child.on("close", (code) => {
+        clearTimeout(timeout);
         if (code !== 0) {
           reject(new Error(err.trim() || `Assertion script exited with ${code}`));
           return;

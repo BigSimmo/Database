@@ -41,6 +41,9 @@ AU_CONTEXT_RULES = [
     ConTextRule("impression:", "POSSIBLE_EXISTENCE", direction="FORWARD"),
     ConTextRule("previous episode of", "HISTORICAL", direction="FORWARD"),
     ConTextRule("previous episodes of", "HISTORICAL", direction="FORWARD"),
+    # A semicolon starts a new clause; modifier scope must not leak across it
+    # ("Possible NMS; cease antipsychotic" must not mark the antipsychotic uncertain).
+    ConTextRule(";", "TERMINATE", direction="TERMINATE"),
 ]
 
 
