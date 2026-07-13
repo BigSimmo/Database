@@ -61,6 +61,7 @@ import {
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
 import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pdf-canvas-viewer";
+import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { documentPageHref } from "@/lib/document-viewer-navigation";
@@ -2372,12 +2373,12 @@ export function DocumentViewer({
                   )}
                 </>
               ) : (
-                <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--clinical-accent-soft)_40%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--text-muted)] sm:min-h-72">
-                  <div>
-                    <FileText aria-hidden="true" className="mx-auto mb-2 h-8 w-8" />
-                    Source preview is available after a signed URL is generated.
-                  </div>
-                </div>
+                <NonPdfSourcePreview
+                  fileType={document?.file_type}
+                  title={document ? documentDisplayTitle(document) : "Source document"}
+                  signedUrl={signedUrl}
+                  downloadSignedUrl={downloadSignedUrl}
+                />
               )}
             </div>
           </div>
