@@ -407,11 +407,11 @@ function SafetySnapshot({
                     key={fact.id}
                     className={cn("min-w-0", index > 0 && "sm:border-l sm:pl-4", index > 0 && theme.divider)}
                   >
-                    <p className="grid gap-1 text-3xs font-bold leading-tight text-[color:var(--text-heading)] sm:flex sm:items-center sm:gap-2 sm:text-xs">
+                    <p className="grid gap-1 text-2xs font-bold leading-tight text-[color:var(--text-heading)] sm:flex sm:items-center sm:gap-2 sm:text-xs">
                       <Icon className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", theme.accentText)} aria-hidden />
                       <span>{fact.label}</span>
                     </p>
-                    <p className="mt-1 text-3xs font-semibold text-[color:var(--text-muted)] sm:text-xs">
+                    <p className="mt-1 text-2xs font-semibold text-[color:var(--text-muted)] sm:text-xs">
                       {fact.value}
                     </p>
                   </div>
@@ -474,7 +474,7 @@ function RelatedDiagnoses({ record, knownRelatedSlugs }: { record: DifferentialR
               </span>
               <span className="flex shrink-0 items-center gap-2">
                 <span
-                  className={cn("rounded-md border px-1.5 py-0.5 text-3xs font-extrabold uppercase", tag.className)}
+                  className={cn("rounded-md border px-1.5 py-0.5 text-2xs font-extrabold uppercase", tag.className)}
                 >
                   {tag.label}
                 </span>
@@ -589,13 +589,13 @@ function ComparePanel({
           <span className="inline-flex min-w-0 items-center gap-2">
             <BrainCircuit className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
             <span className="truncate">{record.title}</span>
-            <span className="shrink-0 text-3xs font-extrabold uppercase text-[color:var(--text-muted)]">
+            <span className="shrink-0 text-2xs font-extrabold uppercase text-[color:var(--text-muted)]">
               This diagnosis
             </span>
           </span>
           <span
             className={cn(
-              "shrink-0 rounded-md border px-1.5 py-0.5 text-3xs font-extrabold uppercase",
+              "shrink-0 rounded-md border px-1.5 py-0.5 text-2xs font-extrabold uppercase",
               statusToneClass[record.status],
             )}
           >
@@ -612,7 +612,7 @@ function ComparePanel({
               </span>
               <span className="flex shrink-0 items-center gap-2">
                 <span
-                  className={cn("rounded-md border px-1.5 py-0.5 text-3xs font-extrabold uppercase", tag.className)}
+                  className={cn("rounded-md border px-1.5 py-0.5 text-2xs font-extrabold uppercase", tag.className)}
                 >
                   {tag.label}
                 </span>

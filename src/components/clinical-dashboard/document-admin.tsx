@@ -234,7 +234,7 @@ function DocumentLabelReviewPanel({
                 if (!labelRows.length) return null;
                 return (
                   <section key={title} className="grid gap-1.5">
-                    <p className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                    <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                       {title}
                     </p>
                     <div className="grid gap-1.5">
@@ -248,10 +248,10 @@ function DocumentLabelReviewPanel({
                               <span className="truncate text-xs font-semibold text-[color:var(--text)]">
                                 {label.displayLabel}
                               </span>
-                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-3xs")}>
+                              <span className={cn(metadataPill, labelTierTone[label.tier], "min-h-6 text-2xs")}>
                                 {label.tier}
                               </span>
-                              <span className={cn(metadataPill, "min-h-6 text-3xs")}>
+                              <span className={cn(metadataPill, "min-h-6 text-2xs")}>
                                 {labelTypeDisplay(label.labelType)}
                               </span>
                             </div>
@@ -422,7 +422,7 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className={cn(metadataPill, "min-h-6 px-2 text-3xs", tagQualityTone[issue.kind])}>
+                  <span className={cn(metadataPill, "min-h-6 px-2 text-2xs", tagQualityTone[issue.kind])}>
                     {tagQualityLabel(issue.kind)}
                   </span>
                   <p className="min-w-0 truncate text-sm font-semibold text-[color:var(--text)]">{issue.label}</p>
@@ -745,7 +745,7 @@ export function DocumentDrawer({
         <div>
           <label
             htmlFor="browse-filter-type"
-            className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+            className="text-2xs font-bold uppercase tracking-wider text-[color:var(--text-muted)]"
           >
             Type
           </label>
@@ -767,7 +767,7 @@ export function DocumentDrawer({
         <div>
           <label
             htmlFor="browse-filter-site"
-            className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+            className="text-2xs font-bold uppercase tracking-wider text-[color:var(--text-muted)]"
           >
             Site
           </label>
@@ -789,7 +789,7 @@ export function DocumentDrawer({
         <div>
           <label
             htmlFor="browse-filter-topic"
-            className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+            className="text-2xs font-bold uppercase tracking-wider text-[color:var(--text-muted)]"
           >
             Topic
           </label>
@@ -811,7 +811,7 @@ export function DocumentDrawer({
         <div>
           <label
             htmlFor="browse-filter-population"
-            className="text-3xs font-bold uppercase tracking-wider text-[color:var(--text-soft)]"
+            className="text-2xs font-bold uppercase tracking-wider text-[color:var(--text-muted)]"
           >
             Population
           </label>
