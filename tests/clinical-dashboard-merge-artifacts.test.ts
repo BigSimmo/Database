@@ -72,6 +72,16 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(clinicalDashboardSource).not.toContain("max-sm:min-h-0 max-sm:flex-1");
   });
 
+  it("never hand-authors -webkit-backdrop-filter declarations", () => {
+    // Writing the prefixed duplicate in source makes Lightning CSS drop the
+    // whole backdrop-filter property group (the tint-only-glass bug); the
+    // pipeline auto-generates the -webkit- pair for Safari <= 17 from the
+    // unprefixed declaration alone. Feature probes inside @supports
+    // conditions are fine — only declarations (line-leading property) are
+    // rejected. See the authoring rule beside .edge-glass-header-backdrop.
+    expect(globalStylesSource).not.toMatch(/^\s*-webkit-backdrop-filter\s*:/m);
+  });
+
   it("reserves phone space for the fixed mode-home composer", () => {
     expect(globalSearchShellSource).toContain("const mobileComposerReserve = !shouldShowSearchComposer");
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = !reservesFloatingComposer");
