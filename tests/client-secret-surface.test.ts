@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, extname, join, relative, resolve } from "node:path";
-import ts from "typescript";
+import { parse } from "@babel/parser";
 import { describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
@@ -25,8 +25,8 @@ const importCache = new Map<string, string[]>();
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { recursive: true })
     .map(String)
-    .filter((name) => SOURCE_EXTENSIONS.includes(extname(name)))
-    .map((name) => join(dir, name));
+    .map((name) => join(dir, name))
+    .filter((file) => SOURCE_EXTENSIONS.includes(extname(file)) && statSync(file).isFile());
 }
 
 function isClientModule(text: string) {
@@ -45,7 +45,9 @@ function resolveLocalImport(importer: string, specifier: string) {
     ...SOURCE_EXTENSIONS.map((extension) => `${base}${extension}`),
     ...SOURCE_EXTENSIONS.map((extension) => join(base, `index${extension}`)),
   ]) {
-    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+    if (SOURCE_EXTENSIONS.includes(extname(candidate)) && existsSync(candidate) && statSync(candidate).isFile()) {
+      return candidate;
+    }
   }
   return null;
 }
@@ -54,26 +56,30 @@ function localImports(file: string) {
   const cached = importCache.get(file);
   if (cached) return cached;
   const text = readFileSync(file, "utf8");
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+  const source = parse(text, {
+    sourceType: "module",
+    plugins: ["jsx", "typescript", "importAttributes"],
+  });
   const specifiers: string[] = [];
-  for (const statement of source.statements) {
-    if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
-      const clause = statement.importClause;
-      const namedBindings = clause?.namedBindings;
+  for (const statement of source.program.body) {
+    if (statement.type === "ImportDeclaration") {
       const isTypeOnly =
-        clause?.isTypeOnly ||
-        (namedBindings &&
-          ts.isNamedImports(namedBindings) &&
-          namedBindings.elements.every((element) => element.isTypeOnly));
-      if (!isTypeOnly) specifiers.push(statement.moduleSpecifier.text);
+        statement.importKind === "type" ||
+        Boolean(
+          !statement.specifiers.some((specifier) => specifier.type === "ImportDefaultSpecifier") &&
+            statement.specifiers.some((specifier) => specifier.type === "ImportSpecifier") &&
+            statement.specifiers.every(
+              (specifier) => specifier.type === "ImportSpecifier" && specifier.importKind === "type",
+            ),
+        );
+      if (!isTypeOnly) specifiers.push(statement.source.value);
     }
     if (
-      ts.isExportDeclaration(statement) &&
-      !statement.isTypeOnly &&
-      statement.moduleSpecifier &&
-      ts.isStringLiteral(statement.moduleSpecifier)
+      (statement.type === "ExportNamedDeclaration" || statement.type === "ExportAllDeclaration") &&
+      statement.exportKind !== "type" &&
+      statement.source
     ) {
-      specifiers.push(statement.moduleSpecifier.text);
+      specifiers.push(statement.source.value);
     }
   }
   const imports = specifiers.flatMap((specifier) => {
