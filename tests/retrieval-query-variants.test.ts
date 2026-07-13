@@ -284,6 +284,30 @@ describe("retrieval query variants", () => {
         "medication_dose_risk",
       ),
     ).toEqual({ returnFastPath: true, reason: "dose_evidence_text_match" });
+
+    expect(
+      decideTextFastPath(
+        "How should agitation be managed when oral medication is refused?",
+        [
+          result({
+            content: "For agitation, use IM medication when oral medication is refused, with review and monitoring.",
+            similarity: 0.67,
+          }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "dose_evidence_text_match" });
+
+    expect(
+      decideTextFastPath(
+        "What medication doses are used for opioid withdrawal?",
+        [
+          result({ content: "Opioid withdrawal management guidance.", similarity: 0.9 }),
+          result({ content: "For agitation, lorazepam 1 mg IM may be used.", similarity: 0.88 }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "missing_dose_query_context" });
   });
 
   it("keeps flowchart zone-action fast paths gated on action evidence", () => {
