@@ -20,12 +20,14 @@ Default to running **only** offline-safe gates. For any provider-touching comman
 ## Gate classification
 
 **Offline-safe — may run without confirmation:**
+
 - `lint`, `typecheck`, `test`
 - `verify:cheap` (runtime, action-pin, sitemap, brand, type/icon scale, lint, typecheck, unit tests)
 - `verify:pr-local` (format + verify:cheap, conditional build/client-bundle scan + offline RAG tests); inspect selection with `verify:pr-local -- --dry-run --files <paths>`
 - `eval:rag:offline`, `ensure`, `verify:ui` (Chromium, local dev server / demo mode)
 
 **Provider-touching — confirmation-required (report and ask):**
+
 - `check:supabase-project` (live Supabase)
 - `verify:release` and its `governance:release` / `eval:quality:release` (live Supabase + OpenAI)
 - any `eval:*` that is not `:offline` (e.g. `eval:retrieval:quality`)

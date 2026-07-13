@@ -27,7 +27,9 @@ For UI/browser/styling/routing/reduced-motion/forced-colors changes, run `npm ru
 ## Review Checklist
 
 ### 1. Global search composer placement invariants
+
 (from `docs/codebase-index.md` "Global search composer placement rules")
+
 - **One shared composer** — `master-search-header.tsx` serves every mode.
 - **Mode homes** (`/services`, `/forms`, `/favourites`, `/differentials`, `/applications`, dashboard homes): inline in hero via the `mode-home-composer-slot` portal, phone and tablet+ alike.
 - **Result/detail views:** fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up. Preserve `--mobile-composer-reserve` clearance.
@@ -35,7 +37,9 @@ For UI/browser/styling/routing/reduced-motion/forced-colors changes, run `npm ru
 - **Local filter fields** (sidebar "Search chats", document drawer finds) are scoped filters, not global search — they share `fieldControlWithIcon`/`fieldIcon` primitives and should not be converted to global search.
 
 ### 2. Design tokens
+
 - Color/radius must come from the `@theme` block in `globals.css` (single source of truth). Flag hardcoded hex/rgb/px where a token exists.
 
 ### 3. Accessibility
+
 - Reduced-motion and forced-colors paths covered; lucide icons satisfy `require-lucide-icon-aria`. Keep `tests/ui-accessibility.spec.ts` assertions honest.

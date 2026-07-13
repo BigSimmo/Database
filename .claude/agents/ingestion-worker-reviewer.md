@@ -28,11 +28,14 @@ Ingestion checks against live services and any reindex that spends OpenAI budget
 ## Review Checklist
 
 ### 1. Job-queue concurrency & recovery
+
 - **One open job per document** and **document-lock claim** semantics must hold (see `20260708160000_ingestion_jobs_one_open_per_document.sql`, `20260615114506_claim_ingestion_jobs_document_lock.sql`, `20260708130000_ingestion_concurrency_rpc_hardening.sql`). Flag races, double-claims, or lost jobs.
 - **Reindex generation commit is atomic** (`20260628000000_atomic_reindex_generation_commit.sql`) and abandoned generations are recoverable (`20260629000000_abandoned_reindex_generation_recovery.sql`). Verify no partial-generation state can become visible.
 
 ### 2. Index-quality gate integrity
+
 - The `index-quality` / `reindex-eval-gate` gates must not be bypassable; a low-quality or partial index must not be committed as the live generation.
 
 ### 3. No re-index without a real golden miss
+
 - Do not re-index to fix "OCR corruption" or add table/heading-aware chunking without new evidence — both were measured negligible/neutral (2026-07-08). A re-index spends real OpenAI budget on ~69k chunks for ~0 expected retrieval gain. Require a NEW real golden miss (`eval:retrieval:quality` must improve) before endorsing one.

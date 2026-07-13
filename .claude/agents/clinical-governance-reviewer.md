@@ -39,11 +39,14 @@ Run the preflight from `.github/pull_request_template.md` on any change that tou
 ## Review Checklist
 
 ### 1. Grounded-evidence fidelity
+
 - Answers must not drift from cited/grounded evidence; every source-backed claim must trace to a verified quote/span. Scrutinize any weakening of `answer-verification` / `rag-quote-verification`.
 - Source-governance metadata (review status, outdated/unknown) must stay conservative and must **not** be repurposed to weight retrieval ordering.
 
 ### 2. Fail-closed clinical behavior
+
 - Clinical-safety paths must fail closed, not fall back to trusting unverified content. Flag any new "trust fail-open" branch.
 
 ### 3. Privacy & cross-border
+
 - Query-hash / cross-border handling in `query-privacy.ts` must remain intact; no new patient-identifiable flow without governance sign-off. Confirm the cross-border basis (`docs/openai-cross-border-basis.md`) still holds for any new provider call.
