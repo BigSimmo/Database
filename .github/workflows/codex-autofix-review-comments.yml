@@ -1,24 +1,28 @@
 name: Codex auto-resolve review comments
 
 on:
+  pull_request_review:
+    types: [submitted]
   pull_request_review_comment:
     types: [created]
 
 permissions:
   contents: read
-  issues: write
-  models: read
-  pull-requests: write
 
 jobs:
   request-codex-autoresolve:
     name: Request Codex auto-resolve
     runs-on: ubuntu-24.04
+    # Only run after Codex submits a completed review, never on the first inline
+    # comment mid-review. Approvals/dismissals are handled below (no findings).
     if: >
+      github.event_name == 'pull_request_review' &&
       github.event.pull_request.state == 'open' &&
-      github.event.comment.user.type == 'Bot' &&
-      (github.event.comment.user.login == 'chatgpt-codex-connector' ||
-      github.event.comment.user.login == 'chatgpt-codex-connector[bot]')
+      github.event.review.user.type == 'Bot' &&
+      (github.event.review.user.login == 'chatgpt-codex-connector' ||
+      github.event.review.user.login == 'chatgpt-codex-connector[bot]')
+    permissions:
+      contents: read
     concurrency:
       group: codex-autoresolve-${{ github.event.pull_request.number }}
       cancel-in-progress: false
@@ -26,10 +30,13 @@ jobs:
       - name: Ask Codex to resolve review comments
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
-          github-token: ${{ github.token }}
+          # A fine-grained PAT from a real (non-bot) account. The Codex connector
+          # ignores @codex commands authored by github-actions[bot], so the
+          # request must be posted by a user identity for Codex to act on it.
+          github-token: ${{ secrets.CODEX_TRIGGER_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
-            const reviewComment = context.payload.comment;
+            const review = context.payload.review;
             const allowedCodexBotLogins = new Set([
               "chatgpt-codex-connector",
               "chatgpt-codex-connector[bot]",
@@ -38,103 +45,62 @@ jobs:
             const resolvedDispositionMarker = "<!-- codex-thread-disposition:resolved -->";
 
             if (
-              reviewComment.user?.type !== "Bot" ||
-              !allowedCodexBotLogins.has(reviewComment.user.login)
+              review.user?.type !== "Bot" ||
+              !allowedCodexBotLogins.has(review.user.login)
             ) {
-              core.warning("Skipping Codex auto-resolve request because the review comment author is not the trusted Codex connector bot.");
+              core.warning("Skipping Codex auto-resolve request because the review author is not the trusted Codex connector bot.");
               return;
             }
 
-            if (reviewComment.in_reply_to_id) {
-              const replyBody = (reviewComment.body || "").trimStart();
-              if (!replyBody.startsWith(resolvedDispositionMarker)) {
-                core.notice("Skipping review-thread reply without the trusted resolved disposition marker.");
-                return;
-              }
-
-              const owner = context.repo.owner;
-              const repo = context.repo.repo;
-              const issue_number = pr.number;
-              const targetCommentIds = new Set([reviewComment.id, reviewComment.in_reply_to_id]);
-              const reviewThreadsQuery = `
-                query ReviewThreads($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
-                  repository(owner: $owner, name: $repo) {
-                    pullRequest(number: $number) {
-                      reviewThreads(first: 100, after: $cursor) {
-                        nodes {
-                          id
-                          isResolved
-                          comments(first: 100) {
-                            nodes { databaseId }
-                          }
-                        }
-                        pageInfo {
-                          endCursor
-                          hasNextPage
-                        }
-                      }
-                    }
-                  }
-                }
-              `;
-
-              let cursor = null;
-              let matchingThread;
-
-              try {
-                do {
-                  const result = await github.graphql(reviewThreadsQuery, {
-                    owner,
-                    repo,
-                    number: issue_number,
-                    cursor,
-                  });
-                  const connection = result.repository?.pullRequest?.reviewThreads;
-                  matchingThread = connection?.nodes?.find((thread) =>
-                    thread.comments.nodes.some((comment) => targetCommentIds.has(comment.databaseId)),
-                  );
-                  cursor = connection?.pageInfo?.hasNextPage ? connection.pageInfo.endCursor : null;
-                } while (!matchingThread && cursor);
-
-                if (!matchingThread) {
-                  core.setFailed("Codex auto-resolve could not find the review thread for the disposition reply.");
-                  return;
-                }
-
-                if (matchingThread.isResolved) {
-                  core.notice("The Codex review thread was already resolved.");
-                  return;
-                }
-
-                await github.graphql(
-                  `mutation ResolveReviewThread($threadId: ID!) {
-                    resolveReviewThread(input: { threadId: $threadId }) {
-                      thread { id isResolved }
-                    }
-                  }`,
-                  { threadId: matchingThread.id },
-                );
-                core.notice("Resolved the Codex review thread after its explicit disposition reply.");
-              } catch (error) {
-                const message = `Codex auto-resolve failed while closing the review thread: ${error.message || error}`;
-                core.warning(message);
-                core.setFailed(message);
-              }
-              return;
-            }
-
-            const sourceBody = (reviewComment.body || "").trimStart();
-            const hasAutoResolveMarker =
-              sourceBody.startsWith("<!-- codex-autoresolve:") ||
-              sourceBody.startsWith("<!-- codex-autoresolve-pr:");
-            if (hasAutoResolveMarker && sourceBody.includes(scopedResolveCommand)) {
-              core.notice("Skipping Codex auto-resolve request because the source comment already looks like an auto-resolve request.");
+            // Gate: only a completed review that actually raised findings is worth
+            // an auto-resolve pass. An approval or dismissal has nothing to fix.
+            if (review.state === "approved" || review.state === "dismissed") {
+              core.notice(`Skipping Codex auto-resolve request because the Codex review state was '${review.state}' (no actionable findings).`);
               return;
             }
 
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue_number = pr.number;
+
+            let reviewComments;
+            try {
+              reviewComments = await github.paginate(github.rest.pulls.listCommentsForReview, {
+                owner,
+                repo,
+                pull_number: issue_number,
+                review_id: review.id,
+                per_page: 100,
+              });
+            } catch (error) {
+              if (error.status === 403) {
+                const message = "Codex auto-resolve failed because the trigger token cannot read review comments.";
+                core.warning(message);
+                core.setFailed(message);
+                return;
+              }
+
+              throw error;
+            }
+
+            if (reviewComments.length === 0) {
+              core.notice("Skipping Codex auto-resolve request because the completed Codex review left no inline findings to resolve.");
+              return;
+            }
+
+            // The request is posted by the trigger token's account, so dedup must
+            // trust that identity rather than github-actions[bot].
+            let triggerLogin;
+            try {
+              const { data: authenticatedUser } = await github.rest.users.getAuthenticated();
+              triggerLogin = authenticatedUser.login;
+            } catch (error) {
+              const message = "Codex auto-resolve failed because it could not identify the trigger token's account.";
+              core.warning(message);
+              core.setFailed(message);
+              return;
+            }
+
             const marker = `<!-- codex-autoresolve-pr:${pr.number} -->`;
             const maxAutoResolveRequests = 1;
 
@@ -159,8 +125,7 @@ jobs:
 
             const trustedExistingRequests = existingComments.filter(
               (comment) =>
-                comment.user?.type === "Bot" &&
-                comment.user.login === "github-actions[bot]" &&
+                comment.user?.login === triggerLogin &&
                 (comment.body || "").trimStart().startsWith("<!-- codex-autoresolve"),
             );
             const hasTrustedExistingRequest = trustedExistingRequests.some((comment) =>
@@ -180,7 +145,7 @@ jobs:
             const prompt = [
               marker,
               `<!-- codex-autoresolve-head:${pr.head.sha} -->`,
-              `<!-- codex-autoresolve-source-review-comment:${reviewComment.id} -->`,
+              `<!-- codex-autoresolve-source-review:${review.id} -->`,
               `${scopedResolveCommand} using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. After fixing or dispositioning a thread, reply in that thread with ${resolvedDispositionMarker} as the first line, followed by a concise summary; that marker authorizes the workflow to close that exact thread. If human input or new authorization is required, do not use the marker and leave the thread open with the blocker. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`,
             ].join("\n\n");
 
@@ -193,11 +158,133 @@ jobs:
               });
             } catch (error) {
               if (error.status === 403) {
-                const message = "Codex auto-resolve failed because this workflow token cannot comment on the pull request.";
+                const message = "Codex auto-resolve failed because the trigger token cannot comment on the pull request.";
                 core.warning(message);
                 core.setFailed(message);
                 return;
               }
 
               throw error;
+            }
+
+  resolve-codex-thread:
+    name: Resolve Codex review thread
+    runs-on: ubuntu-24.04
+    # Marker-driven thread closure only. This is the narrow job that carries
+    # pull-requests: write, and it acts solely on trusted disposition replies.
+    if: >
+      github.event_name == 'pull_request_review_comment' &&
+      github.event.pull_request.state == 'open' &&
+      github.event.comment.user.type == 'Bot' &&
+      (github.event.comment.user.login == 'chatgpt-codex-connector' ||
+      github.event.comment.user.login == 'chatgpt-codex-connector[bot]')
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      group: codex-autoresolve-thread-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      - name: Resolve Codex review thread on disposition marker
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const pr = context.payload.pull_request;
+            const reviewComment = context.payload.comment;
+            const allowedCodexBotLogins = new Set([
+              "chatgpt-codex-connector",
+              "chatgpt-codex-connector[bot]",
+            ]);
+            const resolvedDispositionMarker = "<!-- codex-thread-disposition:resolved -->";
+
+            if (
+              reviewComment.user?.type !== "Bot" ||
+              !allowedCodexBotLogins.has(reviewComment.user.login)
+            ) {
+              core.warning("Skipping Codex thread resolution because the review comment author is not the trusted Codex connector bot.");
+              return;
+            }
+
+            // Only trusted, marked replies resolve a thread. A non-reply review
+            // comment is a fresh finding; the request job (on the submitted
+            // review) owns that path, so there is nothing to do here.
+            if (!reviewComment.in_reply_to_id) {
+              core.notice("Skipping non-reply Codex review comment; the auto-resolve request is driven by the submitted review.");
+              return;
+            }
+
+            const replyBody = (reviewComment.body || "").trimStart();
+            if (!replyBody.startsWith(resolvedDispositionMarker)) {
+              core.notice("Skipping review-thread reply without the trusted resolved disposition marker.");
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = pr.number;
+            const targetCommentIds = new Set([reviewComment.id, reviewComment.in_reply_to_id]);
+            const reviewThreadsQuery = `
+              query ReviewThreads($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    reviewThreads(first: 100, after: $cursor) {
+                      nodes {
+                        id
+                        isResolved
+                        comments(first: 100) {
+                          nodes { databaseId }
+                        }
+                      }
+                      pageInfo {
+                        endCursor
+                        hasNextPage
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            let cursor = null;
+            let matchingThread;
+
+            try {
+              do {
+                const result = await github.graphql(reviewThreadsQuery, {
+                  owner,
+                  repo,
+                  number: issue_number,
+                  cursor,
+                });
+                const connection = result.repository?.pullRequest?.reviewThreads;
+                matchingThread = connection?.nodes?.find((thread) =>
+                  thread.comments.nodes.some((comment) => targetCommentIds.has(comment.databaseId)),
+                );
+                cursor = connection?.pageInfo?.hasNextPage ? connection.pageInfo.endCursor : null;
+              } while (!matchingThread && cursor);
+
+              if (!matchingThread) {
+                core.setFailed("Codex auto-resolve could not find the review thread for the disposition reply.");
+                return;
+              }
+
+              if (matchingThread.isResolved) {
+                core.notice("The Codex review thread was already resolved.");
+                return;
+              }
+
+              await github.graphql(
+                `mutation ResolveReviewThread($threadId: ID!) {
+                  resolveReviewThread(input: { threadId: $threadId }) {
+                    thread { id isResolved }
+                  }
+                }`,
+                { threadId: matchingThread.id },
+              );
+              core.notice("Resolved the Codex review thread after its explicit disposition reply.");
+            } catch (error) {
+              const message = `Codex auto-resolve failed while closing the review thread: ${error.message || error}`;
+              core.warning(message);
+              core.setFailed(message);
             }

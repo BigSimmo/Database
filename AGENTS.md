@@ -389,19 +389,20 @@ When explicitly asked to fix or resolve review findings:
 
 ### Automatic resolve trigger
 
-Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex posts a PR review or inline review comment.
+Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex submits a completed PR review that raised findings.
 
-- The workflow must only trigger from Codex review bot reviews or comments on open pull requests.
+- The auto-resolve request must fire only from a Codex-authored `pull_request_review` **submitted** event on an open pull request — never from the first inline comment mid-review. This guarantees the request is posted only after a code review completes; without a review there are no findings and the request is pointless.
+- The request job must skip reviews with no actionable findings: skip `approved`/`dismissed` reviews, and skip when the submitted review carries zero inline comments.
 - Match the trusted Codex connector bot by exact login and bot type; do not use substring login checks.
-- Keep per-pull-request concurrency on the authorized job, not the whole workflow, so unrelated review comments cannot displace a pending Codex request.
+- Keep per-pull-request concurrency on the authorized job, not the whole workflow, so unrelated events cannot displace a pending Codex request.
 - Pin the supported Node 24-based `actions/github-script` release to its reviewed immutable commit SHA.
-- The workflow must skip auto-resolve request comments and must never turn review-thread replies into new repair requests.
-- The workflow must treat unmarked review-thread replies as inert. A trusted Codex reply beginning with `<!-- codex-thread-disposition:resolved -->` may only resolve the exact containing thread.
+- Post the `@codex` resolve request with a real (non-bot) user identity — a fine-grained PAT held in the `CODEX_TRIGGER_TOKEN` secret. The Codex connector ignores commands authored by `github-actions[bot]`, so a bot-authored request is silently dropped. The token needs `pull-requests: write` (issue-comment) access and no more.
+- The workflow must treat unmarked review-thread replies as inert. A trusted Codex reply beginning with `<!-- codex-thread-disposition:resolved -->` may only resolve the exact containing thread, and a non-reply Codex review comment must never be turned into a new repair request.
 - The workflow must ask Codex to resolve only existing actionable Codex review findings for the triggering pull request and current head using these repository instructions; the resolve task must not perform a new review or create new findings.
 - The workflow may request one automatic repair pass per pull request lifetime. Later heads require an explicit human request.
-- Only trust a pull-request deduplication marker when it was posted by the GitHub Actions bot.
+- Only trust a pull-request deduplication marker when it was posted by the trigger-token account (the same identity that posts the request), resolved at runtime rather than hard-coded.
 - Permission failures while reading or creating pull-request comments must fail the workflow visibly, not return a successful soft-skip.
-- Grant `pull-requests: write` only to the narrow marker-driven thread-resolution workflow; retain read-only repository contents and do not approve reviews or alter code.
+- Grant `pull-requests: write` only to the narrow marker-driven thread-resolution job; the request job runs with read-only repository contents and relies on the trigger token's own scope, and neither job approves reviews or alters code.
 - The workflow must not run Codex directly with API credentials.
 - P0 and P1 findings should always be fixed.
 - P2 and lower findings should be fixed only when clear, scoped, low-risk, and testable; otherwise explain the decision and resolve or mark ready for human resolution.
