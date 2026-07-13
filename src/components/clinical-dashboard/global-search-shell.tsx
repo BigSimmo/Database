@@ -20,6 +20,7 @@ import {
   demoRecentQueryOwnerId,
   loadRecentQueries,
 } from "@/components/clinical-dashboard/recent-query-storage";
+import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import {
@@ -134,18 +135,23 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
 
-  if (shouldRenderClinicalDashboard) {
-    return (
-      <ClinicalDashboard
-        initialSearchMode={resolvedSearchMode}
-        initialQuery={requestedQuery}
-        focusSearch={searchParams.get("focus") === "1"}
-        autoRunSearch={isHomeRoute ? hasSubmittedModeSearch : true}
-      />
-    );
-  }
-
-  return <GlobalStandaloneSearchShellClient {...props} />;
+  // Wrap both render paths so the patient-considerations profile is shared
+  // between the prescribing workspace (ClinicalDashboard) and the medication
+  // detail pages (standalone shell), backed by sessionStorage across navigation.
+  return (
+    <PatientProfileProvider>
+      {shouldRenderClinicalDashboard ? (
+        <ClinicalDashboard
+          initialSearchMode={resolvedSearchMode}
+          initialQuery={requestedQuery}
+          focusSearch={searchParams.get("focus") === "1"}
+          autoRunSearch={isHomeRoute ? hasSubmittedModeSearch : true}
+        />
+      ) : (
+        <GlobalStandaloneSearchShellClient {...props} />
+      )}
+    </PatientProfileProvider>
+  );
 }
 
 function GlobalStandaloneSearchShellClient({
