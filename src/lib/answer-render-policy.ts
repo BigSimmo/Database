@@ -535,6 +535,9 @@ export function formatAnswerRenderCopyText(args: {
       )
     : ["No policy-approved sources were attached."];
   const warningLines = args.warnings.length ? args.warnings.map((warning) => `- ${warning}`) : ["- None"];
+  const visualEvidenceLines = args.visualEvidence?.length
+    ? formatDisplayedVisualEvidenceForClipboard(args.visualEvidence)
+    : [];
 
   return [
     "Clinical answer draft",
@@ -551,9 +554,7 @@ export function formatAnswerRenderCopyText(args: {
     "",
     "Warnings",
     ...warningLines,
-    ...(args.visualEvidence?.length
-      ? ["", "Displayed table evidence", ...formatDisplayedVisualEvidenceForClipboard(args.visualEvidence)]
-      : []),
+    ...(visualEvidenceLines.length ? ["", "Displayed table evidence", ...visualEvidenceLines] : []),
   ]
     .join("\n")
     .trim();

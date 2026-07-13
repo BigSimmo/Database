@@ -49,7 +49,12 @@ function rate(numerator: number, denominator: number) {
  */
 export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 60): Promise<AnswerSloSnapshot> {
   const sinceIso = new Date(Date.now() - windowMinutes * 60_000).toISOString();
-  const base = () => client.from("rag_queries").select("*", { count: "exact", head: true }).gt("created_at", sinceIso);
+  const base = () =>
+    client
+      .from("rag_queries")
+      .select("*", { count: "exact", head: true })
+      .gt("created_at", sinceIso)
+      .not("answer", "is", null);
 
   const [total, hybrid, degraded] = await Promise.all([
     base(),

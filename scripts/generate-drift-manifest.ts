@@ -68,19 +68,23 @@ async function main() {
   docker(["run", "-d", "--name", CONTAINER, "-e", `POSTGRES_PASSWORD=${scratchPassword}`, "-p", `${port}:5432`, image]);
 
   try {
-    // Wait for Postgres readiness (image init runs its own restarts; give it time).
-    let ready = false;
+    // The Supabase image briefly accepts connections before its init migrations
+    // deliberately restart Postgres. Require sustained readiness so replay does
+    // not race that shutdown window.
+    let consecutiveReadyChecks = 0;
     for (let attempt = 0; attempt < 60; attempt += 1) {
       try {
         docker(["exec", CONTAINER, "pg_isready", "-U", "postgres", "-q"]);
-        ready = true;
-        break;
+        consecutiveReadyChecks += 1;
+        if (consecutiveReadyChecks >= 5) break;
       } catch {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        consecutiveReadyChecks = 0;
       }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
-    if (!ready) throw new Error("scratch Postgres did not become ready in time");
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    if (consecutiveReadyChecks < 5) {
+      throw new Error("scratch Postgres did not remain ready after initialization");
+    }
 
     const psql = (user: string, sql: string) =>
       docker(

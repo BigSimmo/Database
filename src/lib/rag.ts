@@ -65,6 +65,7 @@ export {
   textCandidateBudgetForQueryClass,
 } from "@/lib/rag-retrieval-variants";
 import {
+  answerCacheAllowedForOwner,
   answerInflight,
   cacheIndexingVersion,
   cloneAnswer,
@@ -3661,11 +3662,15 @@ export async function answerQuestion(query: string, documentId?: string) {
 /** Answer question with scope. */
 export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs): Promise<RagAnswer> {
   const startedAt = Date.now();
-  const coalescingEnabled = !args.skipCache && env.RAG_ANSWER_CACHE_TTL_MS > 0 && env.RAG_ANSWER_CACHE_SIZE > 0;
+  const coalescingEnabled =
+    answerCacheAllowedForOwner(args.ownerId) &&
+    !args.skipCache &&
+    env.RAG_ANSWER_CACHE_TTL_MS > 0 &&
+    env.RAG_ANSWER_CACHE_SIZE > 0;
   const inflightKey = coalescingEnabled ? scopedAnswerCacheKey(args) : null;
-  const existing = inflightKey ? answerInflight.get(inflightKey) : undefined;
+  let existing = inflightKey ? answerInflight.get(inflightKey) : undefined;
 
-  if (existing) {
+  while (existing) {
     await args.onProgress?.({
       stage: "cached",
       message: "Waiting for an identical cited answer request already in progress.",
@@ -3685,7 +3690,15 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
       // The in-flight request we coalesced onto failed — most often because the ORIGINATING
       // caller aborted mid-flight (its AbortSignal is not ours) or its search phase threw. Do
       // not propagate another caller's failure to this still-connected request: fall through to
-      // an independent, uncoalesced run so this request is decided only by its own inputs.
+      // one replacement run. Recheck the map first: another still-connected
+      // waiter may already have installed that replacement while this rejected
+      // promise's microtasks were draining.
+      const replacement = inflightKey ? answerInflight.get(inflightKey) : undefined;
+      if (replacement && replacement !== existing) {
+        existing = replacement;
+        continue;
+      }
+      break;
     }
   }
 

@@ -9,7 +9,8 @@ function fakeClient(counts: { total: number; hybrid: number; degraded: number },
   const build = (filter: "total" | "hybrid" | "degraded") => {
     const builder = {
       gt: () => builder,
-      not: (column: string) => build(column.includes("hybrid_rpc_errors") ? "hybrid" : "degraded"),
+      not: (column: string) =>
+        column === "answer" ? builder : build(column.includes("hybrid_rpc_errors") ? "hybrid" : "degraded"),
       then: (resolve: (value: { count: number | null; error: unknown }) => unknown) =>
         resolve({ count: error ? null : counts[filter], error: error ?? null }),
     };
