@@ -27,3 +27,21 @@ export function clearLegacyRecentQueries() {
     // Recent queries are a convenience only.
   }
 }
+
+// Sign-out / session-expiry boundary: on a shared workstation the next person
+// must not inherit anyone's recent clinical question text, so remove every
+// owner-scoped key too, not just the legacy unscoped residue.
+export function clearRecentQueries() {
+  if (typeof window === "undefined") return;
+  try {
+    clearLegacyRecentQueries();
+    for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.sessionStorage.key(index);
+      if (key?.startsWith(`${recentQueryStorageKey}:`)) {
+        window.sessionStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // Recent queries are a convenience only.
+  }
+}

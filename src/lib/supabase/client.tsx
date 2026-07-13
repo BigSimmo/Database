@@ -4,6 +4,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
+import { clearRecentQueries } from "@/components/clinical-dashboard/recent-query-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
@@ -137,9 +138,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.session) {
           setError(null);
           setNotice(null);
-        } else if (callbackError) {
-          setError(decodeURIComponent(callbackError));
-          setNotice(null);
+        } else {
+          clearPersistedAnswerThread();
+          clearRecentQueries();
+          if (callbackError) {
+            setError(decodeURIComponent(callbackError));
+            setNotice(null);
+          }
         }
       } catch {
         if (!active) return;
@@ -158,6 +163,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextSession) {
         setError(null);
         setNotice(null);
+      } else {
+        clearPersistedAnswerThread();
+        clearRecentQueries();
       }
     });
 
@@ -265,6 +273,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     invalidateAuthRequests();
     await client.auth.signOut();
     clearPersistedAnswerThread();
+    clearRecentQueries();
     setSession(null);
     setStatus("signed_out");
     setError(null);
@@ -274,6 +283,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const markSessionExpired = useCallback(() => {
     invalidateAuthRequests();
     clearPersistedAnswerThread();
+    clearRecentQueries();
     setSession(null);
     setStatus("expired");
     setNotice(null);
