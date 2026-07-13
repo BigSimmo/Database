@@ -33,11 +33,19 @@ const envSchema = z.object({
   // Strong tier intentionally stays on the standard (non-"pro") model. Fast vs strong
   // is differentiated by reasoning effort (OPENAI_*_REASONING_EFFORT), not model tier.
   OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.5"),
-  // Reasoning models (gpt-5*) draw reasoning tokens from this same budget, so a
-  // low cap can starve the JSON answer payload and silently truncate clinical
-  // content (doses/thresholds cut mid-sentence). Raised default to 4000 for headroom;
-  // if output is still cut off, createTextResult now flags it as truncated (GEN-C1).
-  OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(4000),
+  // Reasoning models (gpt-5*) draw reasoning tokens from this SAME budget as the
+  // visible answer, so a low cap makes medium/high-effort reasoning consume the whole
+  // budget *thinking* and return `incomplete: max_output_tokens` BEFORE it writes the
+  // JSON answer — the answer is then discarded and the request degrades to
+  // "unsupported" after 60-90s of wasted generation (GEN-C1). The old 4000 default did
+  // exactly this on the strong route in production (confirmed via rag_queries telemetry).
+  // 16000 gives ample headroom for reasoning + a full clinical answer; it is a CEILING
+  // (billed per token actually used), not a spend commitment, so raising it costs
+  // nothing when answers finish early. responseBody() additionally floors the effective
+  // budget by reasoning effort so no call site can under-provision (reasoningHeadroomFloor
+  // in openai.ts), and the answer path self-heals a truncation by retrying with a larger
+  // cap before falling back.
+  OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(16000),
   OPENAI_QUERY_CACHE_SIZE: z.coerce.number().int().nonnegative().default(200),
   // Max inputs per embeddings request. The OpenAI embeddings endpoint caps a single
   // request at 2048 inputs / ~300k tokens; a full-corpus re-embed of ~400k texts in one
@@ -65,7 +73,15 @@ const envSchema = z.object({
     .default("false")
     .transform((value) => value === "true"),
   OPENAI_FAST_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh"]).default("low"),
-  OPENAI_STRONG_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh"]).default("high"),
+  // "high" reasoning on gpt-5.5 is both slow (overruns OPENAI_ANSWER_TIMEOUT_MS ->
+  // provider_timeout) and token-hungry (exhausts OPENAI_MAX_OUTPUT_TOKENS -> truncation) —
+  // the two dominant answer-generation failure modes seen in production. "medium" is ample
+  // for answers grounded in retrieved sources and roughly halves generation time. Note
+  // strongReasoningEffortForQueryClass() previously kept the FULL configured effort for the
+  // safety-critical medication_dose_risk/table_threshold classes, so with the old "high"
+  // default those exact classes ran high-effort and starved first; medium fixes them too.
+  // That function never raises effort above this configured value.
+  OPENAI_STRONG_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh"]).default("medium"),
   OPENAI_SUMMARY_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh"]).default("medium"),
   OPENAI_VISION_REASONING_EFFORT: z.enum(["none", "low", "medium", "high", "xhigh"]).default("low"),
   OPENAI_TEXT_VERBOSITY: z.enum(["low", "medium", "high"]).default("low"),

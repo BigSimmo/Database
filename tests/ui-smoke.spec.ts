@@ -1563,8 +1563,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await page.goto("/privacy", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("main")).toBeVisible();
-      await expect(page.getByRole("heading", { level: 1, name: "Privacy and data processing" })).toBeVisible();
-      await expect(page.getByText("Draft for privacy and clinical-governance approval")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Privacy & data handling" })).toBeVisible();
+      await expect(page.getByText("This is draft product information", { exact: false })).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
@@ -2732,6 +2732,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
         }),
       )
       .toBe(0);
+    // The scrim tail (taller than the bar) may leave only a whisper at the top
+    // edge while hidden — bound it so it can't grow into a visible band.
+    const scrimBottom = await page
+      .locator(".edge-glass-header-backdrop")
+      .evaluate((node) => node.getBoundingClientRect().bottom);
+    expect(scrimBottom).toBeLessThanOrEqual(34);
 
     // Any deliberate scroll up slides the glass bar back in.
     for (const offset of [160, 120, 60]) {
@@ -2740,6 +2746,37 @@ test.describe("Clinical KB UI smoke coverage", () => {
       }, offset);
     }
     await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+  });
+
+  test("private-scope alert stays reachable while the answer view scrolls", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    // An unauthenticated session with a routed private-scope ref resolves to
+    // privateScopeStatus="unavailable", which renders the recovery alert.
+    await gotoApp(page, "/?mode=answer&scopeRef=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+
+    const alert = page.getByTestId("private-scope-unavailable");
+    await expect(alert).toBeVisible({ timeout: 15000 });
+
+    const main = page.locator("main#main-content");
+    await main.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.style.height = "2000px";
+      node.appendChild(spacer);
+    });
+    for (const offset of [80, 160, 260, 380]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+
+    // Sticky inside <main>: the recovery actions must remain on-screen (they
+    // used to scroll away with content, stranding the user mid-thread).
+    await expect(alert).toBeVisible();
+    const box = await alert.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.y).toBeLessThanOrEqual(200);
   });
 
   test("answer glass header hides and returns on desktop widths too", async ({ page }) => {
