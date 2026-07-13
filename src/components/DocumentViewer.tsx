@@ -1022,6 +1022,11 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
   const [pageInput, setPageInput] = useState(String(initialPage));
   const [totalPages, setTotalPages] = useState(0);
   const [zoom, setZoom] = useState(1.1);
+  // Debounced mirror of `zoom`. Zoom steps update `zoom` immediately (an interim
+  // CSS transform gives instant visual feedback) but only `renderZoom` drives the
+  // pdf.js raster, so rapid +/-, wheel, and pinch input re-rasterise once on
+  // settle instead of queueing a RenderTask per delta.
+  const [renderZoom, setRenderZoom] = useState(1.1);
   const [fitWidth, setFitWidth] = useState(true);
   const [holderWidth, setHolderWidth] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -1117,6 +1122,14 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
     return () => window.removeEventListener("keydown", exitOnEscape);
   }, [fullscreenFallback]);
 
+  // Settle rapid zoom deltas into a single raster. The interim CSS transform on
+  // the canvas keeps the view visually correct during this window.
+  useEffect(() => {
+    if (renderZoom === zoom) return () => undefined;
+    const timeout = window.setTimeout(() => setRenderZoom(zoom), 140);
+    return () => window.clearTimeout(timeout);
+  }, [renderZoom, zoom]);
+
   useEffect(() => {
     if (!pdf || !canvasRef.current || !holderRef.current) return;
     const activePdf = pdf;
@@ -1132,7 +1145,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
         const availableWidth = Math.max(220, holderRef.current.clientWidth - 16);
         const requestedScale = fitWidth
           ? Math.min(maxFitScale, Math.max(minZoomScale, availableWidth / baseViewport.width))
-          : zoom;
+          : renderZoom;
         const viewportScale = Math.min(maxZoomScale, Math.max(minZoomScale, requestedScale));
         const outputScale = Math.min(maxRenderScale, window.devicePixelRatio || 1);
         const viewport = pdfPage.getViewport({ scale: viewportScale * outputScale });
@@ -1170,7 +1183,7 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [fitWidth, holderWidth, page, pdf, zoom]);
+  }, [fitWidth, holderWidth, page, pdf, renderZoom]);
 
   function jumpToPage(nextPage: number) {
     const bounded = Math.min(Math.max(nextPage, 1), totalPages || nextPage);
@@ -1211,6 +1224,11 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
 
   const pagesReady = Boolean(pdf && totalPages > 0 && !loading);
   const fullscreenActive = isFullscreen || fullscreenFallback;
+  // While a zoom step waits for its debounced raster, scale the last raster with
+  // a CSS transform so the view tracks the target zoom instantly. It resets to 1
+  // the moment `renderZoom` catches up and the crisp raster paints. Fit mode is
+  // sized by the container, so it never carries an interim scale.
+  const interimZoomScale = !fitWidth && renderZoom > 0 && zoom !== renderZoom ? zoom / renderZoom : 1;
 
   return (
     <div
@@ -1377,6 +1395,11 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
             ref={canvasRef}
             aria-label={`${title} page ${page}`}
             className="mx-auto max-w-full rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]"
+            style={
+              interimZoomScale === 1
+                ? undefined
+                : { transform: `scale(${interimZoomScale})`, transformOrigin: "top center" }
+            }
           />
         )}
       </div>
