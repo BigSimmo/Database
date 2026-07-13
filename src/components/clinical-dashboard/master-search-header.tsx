@@ -69,6 +69,10 @@ import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
 
+// Shared between the composer input's aria-describedby and the rendered
+// PrivacyInputNotice id/testId so the wiring cannot drift apart.
+const composerPrivacyWarningId = "answer-composer-privacy-warning";
+
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
@@ -1130,6 +1134,13 @@ export function MasterSearchHeader({
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
     const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
+    // Phone submitted non-answer result docks reserve pill-only scroll
+    // clearance (ClinicalDashboard <main> margins / global-search-shell
+    // mobileComposerReserve), so an extra notice line would push the fixed
+    // dock over the last result. Those flows already showed the notice on
+    // their entry composer; answer docks keep it (their reserves were sized
+    // for the old taller notice-above-pill stack).
+    const showsComposerPrivacyNotice = searchMode === "answer" || !usesPhoneFooterDock;
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
 
@@ -1272,7 +1283,7 @@ export function MasterSearchHeader({
                 aria-expanded={commandDropdownOpen}
                 aria-controls={commandDropdownOpen ? commandListboxId : undefined}
                 aria-autocomplete="list"
-                aria-describedby="answer-composer-privacy-warning"
+                aria-describedby={showsComposerPrivacyNotice ? composerPrivacyWarningId : undefined}
                 // React's onChange already fires on every input event; a duplicate
                 // onInput called onQueryChange twice per keystroke, doubling the
                 // controlled-state work on a large parent tree.
@@ -1323,13 +1334,16 @@ export function MasterSearchHeader({
           </div>
         </UniversalSearchCommandSurface>
         {/* Single site-wide APP-5 privacy line: every composer variant (home
-            hero, phone dock, answer thread, sticky search) renders exactly one
-            compact notice below the pill; no other surface may duplicate it. */}
-        <PrivacyInputNotice
-          id="answer-composer-privacy-warning"
-          testId="answer-composer-privacy-warning"
-          className="mt-1.5 justify-center px-3 text-center"
-        />
+            hero, answer dock, sticky search) renders exactly one compact
+            notice below the pill; no other surface may duplicate it. Phone
+            non-answer result docks skip it — see showsComposerPrivacyNotice. */}
+        {showsComposerPrivacyNotice ? (
+          <PrivacyInputNotice
+            id={composerPrivacyWarningId}
+            testId={composerPrivacyWarningId}
+            className="mt-1.5 justify-center px-3 text-center"
+          />
+        ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
             open it even when the footer chip row is not shown. */}
         {hasScopeFooterChip && !usesScopeSheet && scopeOpen ? (

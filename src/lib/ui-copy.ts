@@ -105,9 +105,9 @@ export const emptyStates = {
   },
 } as const;
 
-// Privacy / data-handling copy — labels for the /privacy transparency page and
-// the answer empty-state link. Wording is a plain-language engineering summary
-// of docs/privacy-impact-assessment.md; it is not legal advice. See PIA-1 /
+// Privacy / data-handling copy — labels for the /privacy transparency page.
+// Wording is a plain-language engineering summary of
+// docs/privacy-impact-assessment.md; it is not legal advice. See PIA-1 /
 // PIA-5. The APP-5 composer/upload warning itself lives in
 // components/privacy-input-notice.tsx.
 export const privacyCopy = {
