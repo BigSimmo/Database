@@ -257,6 +257,9 @@ describe("Supabase schema Data API grants", () => {
       );
     }
     expect(schema).toContain(
+      "revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated, service_role",
+    );
+    expect(schema).not.toContain(
       "grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role",
     );
     expect(atomicReindexMigration).toContain("atomic reindex patch did not match match_document_chunks_hybrid");

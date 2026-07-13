@@ -4826,8 +4826,7 @@ revoke execute on function public.jsonb_merge_deep(jsonb, jsonb) from public, an
 grant execute on function public.jsonb_merge_deep(jsonb, jsonb) to service_role;
 revoke execute on function public.apply_document_metadata_patch(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.apply_document_metadata_patch(uuid, jsonb) to service_role;
-revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated;
-grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role;
+revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated, service_role;
 revoke execute on function public.cleanup_abandoned_document_index_generations(uuid, integer, boolean) from public, anon, authenticated;
 grant execute on function public.cleanup_abandoned_document_index_generations(uuid, integer, boolean) to service_role;
 revoke execute on function public.is_committed_document_generation(uuid, jsonb) from public, anon, authenticated;
