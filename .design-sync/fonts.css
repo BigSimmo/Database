@@ -1,0 +1,17 @@
+/* Geist variable fonts (OFL) from the `geist` npm package installed in
+ * .ds-sync/ — parsed by design-sync's extraFonts, which copies the woff2s
+ * into the uploaded bundle's fonts/ directory. */
+@font-face {
+  font-family: "Geist";
+  src: url("../.ds-sync/node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../.ds-sync/node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
