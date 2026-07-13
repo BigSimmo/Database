@@ -1,0 +1,6 @@
+/* next/font injects these variables at runtime in the app; the synced bundle
+ * ships Geist via @font-face instead, so map the variables to the families. */
+:root {
+  --font-geist-sans: "Geist";
+  --font-geist-mono: "Geist Mono";
+}
