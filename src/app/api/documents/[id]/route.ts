@@ -381,16 +381,39 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (summaryResult.error) throw new Error(summaryResult.error.message);
     if (tableFactsResult.error) throw new Error(tableFactsResult.error.message);
 
+    const omitPublicInternalFields = (row: Record<string, unknown>) => {
+      const internalKeys = new Set([
+        "owner_id",
+        "storage_path",
+        "content_hash",
+        "source_path",
+        "import_batch_id",
+        "error_message",
+        "metadata",
+      ]);
+      return Object.fromEntries(Object.entries(row).filter(([key]) => !internalKeys.has(key)));
+    };
+    const publicRows = <T extends Record<string, unknown>>(rows: T[]) =>
+      access.authenticated ? rows : rows.map(omitPublicInternalFields);
+    const responseDocument = access.authenticated
+      ? document
+      : omitPublicInternalFields(document as Record<string, unknown>);
+
     return NextResponse.json({
       document: {
-        ...document,
-        labels: labelsResult.data ?? [],
-        summary: summaryResult.data ?? null,
+        ...responseDocument,
+        labels: publicRows((labelsResult.data ?? []) as Record<string, unknown>[]),
+        summary:
+          access.authenticated || !summaryResult.data
+            ? (summaryResult.data ?? null)
+            : omitPublicInternalFields(summaryResult.data as Record<string, unknown>),
       },
-      pages: pages ?? [],
-      images: committedRows(document, images ?? []).map(withImageTableMetadata),
-      tableFacts: committedRows(document, tableFactsResult.data ?? []),
-      chunks: committedRows(document, chunks ?? []),
+      pages: publicRows((pages ?? []) as Record<string, unknown>[]),
+      images: publicRows(
+        committedRows(document, images ?? []).map(withImageTableMetadata) as Record<string, unknown>[],
+      ),
+      tableFacts: publicRows(committedRows(document, tableFactsResult.data ?? []) as Record<string, unknown>[]),
+      chunks: publicRows(committedRows(document, chunks ?? []) as Record<string, unknown>[]),
       pageWindow: {
         from: pageWindow.from,
         to: pageWindow.to,
@@ -407,12 +430,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         hasAfter: Boolean(document.chunk_count && chunkRangeEnd + 1 < document.chunk_count),
         selectedChunkId: selectedChunk?.id ?? null,
       },
-      indexHealth: {
-        extractionQuality: safeMetadata(document.metadata).extraction_quality ?? null,
-        indexedAt: safeMetadata(document.metadata).indexed_at ?? null,
-        indexVersion: safeMetadata(document.metadata).rag_indexing_version ?? null,
-        warnings: safeMetadata(document.metadata).extraction_warnings ?? [],
-      },
+      ...(access.authenticated
+        ? {
+            indexHealth: {
+              extractionQuality: safeMetadata(document.metadata).extraction_quality ?? null,
+              indexedAt: safeMetadata(document.metadata).indexed_at ?? null,
+              indexVersion: safeMetadata(document.metadata).rag_indexing_version ?? null,
+              warnings: safeMetadata(document.metadata).extraction_warnings ?? [],
+            },
+          }
+        : {}),
     });
   } catch (error) {
     if (error instanceof AuthenticationError) {

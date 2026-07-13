@@ -1,9 +1,7 @@
-import { cn } from "@/components/ui-primitives";
-
 function SkeletonBlock({ className }: { className?: string }) {
   return (
     <span
-      className={cn("block animate-skeleton-shimmer rounded-md bg-[color:var(--surface-subtle)]", className)}
+      className={`block animate-skeleton-shimmer rounded-md bg-[color:var(--surface-subtle)]${className ? ` ${className}` : ""}`}
       aria-hidden
     />
   );

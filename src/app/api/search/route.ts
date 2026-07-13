@@ -24,6 +24,7 @@ import { publicAccessContext } from "@/lib/public-api-access";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { parseJsonBody } from "@/lib/validation/body";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
+import { resolveRetrievalAccessScope } from "@/lib/owner-scope";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import {
   normalizedQueryTextForStorage,
@@ -681,15 +682,14 @@ async function buildScopedSearchPayload(
   body: SearchRequestBody,
   supabase: ReturnType<typeof createAdminClient>,
   ownerId?: string | null,
-  publicOnly = false,
 ) {
   const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const effectiveQueryClass =
     queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;
+  const accessScope = resolveRetrievalAccessScope(ownerId);
   const scope = await resolveSearchScope({
     supabase,
-    ownerId: ownerId ?? undefined,
-    publicOnly,
+    accessScope,
     documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
     filters: body.filters,
   });
@@ -734,6 +734,7 @@ async function buildScopedSearchPayload(
       : (body.topK ?? 8),
     documentIds: scope.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
     ownerId: ownerId ?? undefined,
+    accessScope,
     allowGlobalSearch: !ownerId,
     queryMode: body.queryMode,
   });
@@ -751,6 +752,7 @@ async function buildScopedSearchPayload(
     ? await fetchRelatedDocuments({
         supabase,
         ownerId: ownerId ?? undefined,
+        accessScope,
         query: searchFocusQuery,
         results,
         limit: isSourceLibrarySearchMode(body.mode) ? body.documentLimit : undefined,
@@ -923,7 +925,7 @@ export async function POST(request: Request) {
 
     const key = scopedSearchKey(searchBody, ownerId, publicOnly);
     const { payload, coalesced } = await coalesceScopedSearch(key, () =>
-      buildScopedSearchPayload(searchBody, supabase!, ownerId, publicOnly),
+      buildScopedSearchPayload(searchBody, supabase!, ownerId),
     );
     return NextResponse.json({
       ...payload,

@@ -1,4 +1,5 @@
 import { citationFromResult, documentCitationHref } from "@/lib/citations";
+import { medicationDoseQueryContext, medicationDoseQuerySubjectTokens } from "@/lib/clinical-search";
 import type {
   RagQueryClass,
   RetrievalCandidate,
@@ -232,6 +233,7 @@ function signalMatchesText(signal: string, text: string) {
 }
 
 function matchedSignalsForResult(args: {
+  query: string;
   intent: RetrievalIntent;
   result: SearchResult;
   chunkType: RetrievalChunkType;
@@ -259,6 +261,12 @@ function matchedSignalsForResult(args: {
   if (args.chunkType !== "text") signals.push(args.chunkType);
   if (args.intent.needsDoseRouteFrequency && hasDoseAmount(text)) signals.push("dose_amount");
   if (args.intent.needsDoseRouteFrequency && hasRoute(text)) signals.push("route");
+  if (
+    args.intent.requiredTermSignals.includes("clinical_subject") &&
+    medicationDoseQueryContext(args.query, args.result).matched
+  ) {
+    signals.push("clinical_subject");
+  }
   if (args.intent.needsPatientEducation && signalMatchesText("active_community", text))
     signals.push("active_community");
   if (args.intent.needsPatientEducation && signalMatchesText("ed", text)) signals.push("ed");
@@ -320,6 +328,9 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
   if (args.intent.needsExactVisualTable && (signals.has("table") || signals.has("table_fact"))) boost += 0.08;
   if (args.intent.needsDoseRouteFrequency && signals.has("dose_amount")) boost += 0.08;
   if (args.intent.needsDoseRouteFrequency && signals.has("route")) boost += 0.08;
+  if (args.intent.requiredTermSignals.includes("clinical_subject")) {
+    boost += signals.has("clinical_subject") ? 0.24 : -0.24;
+  }
   if (args.intent.needsComparison && args.result.document_summary) boost += 0.03;
   if (signals.has("document_title")) boost += 0.05;
   if (signals.has("direct_relevance")) boost += 0.06;
@@ -340,10 +351,12 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
 export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): RetrievalIntent {
   const normalizedQuery = normalize(query);
   const asksDoseRoute =
-    /\b(?:dose|dosage|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|im|po|sc|sl|frequency|mg|mcg|prn)\b/.test(
+    /\b(?:dose|doses|dosage|dosages|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|im|po|sc|sl|frequency|mg|mcg|prn)\b/.test(
       normalizedQuery,
     );
-  const asksDoseAmount = /\b(?:dose|dosage|dosing|mg|mcg|microgram|maximum|minimum)\b/.test(normalizedQuery);
+  const asksDoseAmount = /\b(?:dose|doses|dosage|dosages|dosing|mg|mcg|microgram|maximum|minimum)\b/.test(
+    normalizedQuery,
+  );
   const asksTable = /\b(?:table|chart|matrix|threshold|cutoff|cut off|range|criteria|row)\b/.test(normalizedQuery);
   const asksSourceImage =
     /\b(?:source|show|open|view|display|see)\b.*\b(?:image|figure|visual|table|chart|matrix)\b/.test(normalizedQuery) ||
@@ -387,6 +400,9 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
     if (asksDoseAmount) requiredTermSignals.push("dose_amount");
     if (/\b(?:route|oral|intramuscular|subcutaneous|subcut|sublingual|im|po|sc|sl)\b/.test(normalizedQuery))
       requiredTermSignals.push("route");
+    if (queryClass === "medication_dose_risk" && medicationDoseQuerySubjectTokens(query).length > 0) {
+      requiredTermSignals.push("clinical_subject");
+    }
   }
   if (asksFlowchart) {
     preferredDocumentSignals.push("flowchart", "pathway", "risk matrix");
@@ -452,7 +468,7 @@ export function buildRetrievalCandidates(
       matchedSignals: [],
       sourceHref: documentCitationHref(citationFromResult(result)),
     };
-    const matchedSignals = matchedSignalsForResult({ intent, result, chunkType });
+    const matchedSignals = matchedSignalsForResult({ query, intent, result, chunkType });
     const lexicalScore = lexicalScoreForSignals(intent.requiredTermSignals, matchedSignals);
     const candidate = { ...initial, lexicalScore, matchedSignals };
     // The relevance score stays CLAMPED: live hybrid scores routinely saturate at 1.0, and letting

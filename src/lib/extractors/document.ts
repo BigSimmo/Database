@@ -244,6 +244,21 @@ async function extractXlsx(buffer: Buffer) {
   return { pages, images: [] } satisfies ExtractedDocument;
 }
 
+export async function assertOoxmlArchiveBudget(buffer: Buffer) {
+  const zip = await JSZip.loadAsync(buffer);
+  const entries = Object.values(zip.files);
+  if (entries.length > 10_000) throw new Error("OOXML archive contains too many entries.");
+  const expandedBytes = entries.reduce((total, file) => {
+    const data = (file as unknown as { _data?: { uncompressedSize?: number } })._data;
+    return total + Math.max(0, Number(data?.uncompressedSize ?? 0));
+  }, 0);
+  const maxExpandedBytes = 512 * 1024 * 1024;
+  const maxRatioBytes = Math.max(buffer.byteLength * 100, 16 * 1024 * 1024);
+  if (expandedBytes > maxExpandedBytes || expandedBytes > maxRatioBytes) {
+    throw new Error("OOXML archive exceeds the safe expanded-size budget.");
+  }
+}
+
 function extractTxt(buffer: Buffer) {
   return {
     pages: [{ pageNumber: 1, text: buffer.toString("utf8"), ocrUsed: false }],
@@ -260,6 +275,7 @@ export async function extractDocument(args: { buffer: Buffer; fileName: string; 
     args.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     args.fileName.toLowerCase().endsWith(".docx")
   ) {
+    await assertOoxmlArchiveBudget(args.buffer);
     return extractDocx(args.buffer);
   }
 
@@ -267,6 +283,7 @@ export async function extractDocument(args: { buffer: Buffer; fileName: string; 
     args.mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
     args.fileName.toLowerCase().endsWith(".xlsx")
   ) {
+    await assertOoxmlArchiveBudget(args.buffer);
     return extractXlsx(args.buffer);
   }
 

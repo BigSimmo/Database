@@ -1322,13 +1322,6 @@ async function upsertMemoryCardsFromSections(job: ClaimedJob): Promise<number> {
 
   if (sections.length === 0) return 0;
 
-  await sql`
-    delete from public.document_memory_cards
-    where document_id = ${job.document_id}::uuid
-      and metadata->>'generated_by' = ${GENERATED_BY}
-      and metadata->>'source' = 'document_sections'
-  `;
-
   const prepared = sections
     .map((section) => {
       const heading = normalizeText(section.heading) || "Document section";
@@ -1353,15 +1346,24 @@ async function upsertMemoryCardsFromSections(job: ClaimedJob): Promise<number> {
   if (prepared.length === 0) return 0;
 
   const embeddings = await embeddingBatch(prepared.map((card) => card.embeddingText));
+  embeddings.forEach((embedding, index) =>
+    assertEmbeddingDim(embedding, `memory card ${prepared[index].section.section_id}`),
+  );
   let inserted = 0;
-  for (let index = 0; index < prepared.length; index += 1) {
-    const card = prepared[index];
-    const section = card.section;
-    const chunkIds = section.chunk_ids ?? [];
-    const emb = embeddings[index];
-    assertEmbeddingDim(emb, `memory card ${section.section_id}`);
+  await sql.begin(async (tx) => {
+    await tx`
+      delete from public.document_memory_cards
+      where document_id = ${job.document_id}::uuid
+        and metadata->>'generated_by' = ${GENERATED_BY}
+        and metadata->>'source' = 'document_sections'
+    `;
+    for (let index = 0; index < prepared.length; index += 1) {
+      const card = prepared[index];
+      const section = card.section;
+      const chunkIds = section.chunk_ids ?? [];
+      const emb = embeddings[index];
 
-    await sql`
+      await tx`
       insert into public.document_memory_cards (
         document_id,
         owner_id,
@@ -1398,9 +1400,10 @@ async function upsertMemoryCardsFromSections(job: ClaimedJob): Promise<number> {
         })},
         ${JSON.stringify(emb)}::vector
       )
-    `;
-    inserted += 1;
-  }
+      `;
+      inserted += 1;
+    }
+  });
 
   return inserted;
 }
@@ -1441,14 +1444,6 @@ async function upsertSectionIndexUnits(job: ClaimedJob): Promise<number> {
     order by s.section_index asc
   `;
 
-  await sql`
-    delete from public.document_index_units
-    where document_id = ${job.document_id}::uuid
-      and unit_type = 'section_summary'
-      and metadata->>'generated_by' = ${GENERATED_BY}
-      and metadata->>'source' = 'document_sections'
-  `;
-
   const preparedSections = sections
     .map((section) => {
       const content = normalizeText(section.summary);
@@ -1473,13 +1468,23 @@ async function upsertSectionIndexUnits(job: ClaimedJob): Promise<number> {
     );
 
   const embeddings = await embeddingBatch(preparedSections.map((section) => section.embeddingText));
+  embeddings.forEach((embedding, index) =>
+    assertEmbeddingDim(embedding, `section index unit ${preparedSections[index].section.section_id}`),
+  );
   let inserted = 0;
-  for (let index = 0; index < preparedSections.length; index += 1) {
-    const { section, title, content } = preparedSections[index];
-    const emb = embeddings[index];
-    assertEmbeddingDim(emb, `section index unit ${section.section_id}`);
+  await sql.begin(async (tx) => {
+    await tx`
+      delete from public.document_index_units
+      where document_id = ${job.document_id}::uuid
+        and unit_type = 'section_summary'
+        and metadata->>'generated_by' = ${GENERATED_BY}
+        and metadata->>'source' = 'document_sections'
+    `;
+    for (let index = 0; index < preparedSections.length; index += 1) {
+      const { section, title, content } = preparedSections[index];
+      const emb = embeddings[index];
 
-    await sql`
+      await tx`
       insert into public.document_index_units (
         owner_id,
         document_id,
@@ -1521,9 +1526,10 @@ async function upsertSectionIndexUnits(job: ClaimedJob): Promise<number> {
           anchor_id: section.anchor_id,
         })}
       )
-    `;
-    inserted += 1;
-  }
+      `;
+      inserted += 1;
+    }
+  });
 
   return inserted;
 }
@@ -1545,22 +1551,6 @@ async function upsertVisualArtifacts(
   const scored = images.map((img) => ({ ...img, priority: scoreImage(img) })).filter((img) => img.priority > -0.2);
 
   const selected = chooseByBudget(scored);
-
-  await sql.begin(async (tx) => {
-    await tx`
-      delete from public.document_embedding_fields
-      where document_id = ${job.document_id}::uuid
-        and field_type = any(${VISUAL_FIELD_TYPES}::text[])
-        and metadata->>'generated_by' = ${GENERATED_BY}
-    `;
-
-    await tx`
-      delete from public.document_index_units
-      where document_id = ${job.document_id}::uuid
-        and unit_type = any(${VISUAL_UNIT_TYPES}::text[])
-        and metadata->>'generated_by' = ${GENERATED_BY}
-    `;
-  });
 
   let createdUnits = 0;
   let createdFields = 0;
@@ -1614,12 +1604,27 @@ async function upsertVisualArtifacts(
   }
 
   const embeddings = await embeddingBatch(preparedUnits.map((prepared) => prepared.content));
-  for (let index = 0; index < preparedUnits.length; index += 1) {
-    const { unit, content, unitType, fieldType, contentHash } = preparedUnits[index];
-    const emb = embeddings[index];
-    assertEmbeddingDim(emb, `visual index unit ${unit.sourceImageId}`);
+  embeddings.forEach((embedding, index) =>
+    assertEmbeddingDim(embedding, `visual index unit ${preparedUnits[index].unit.sourceImageId}`),
+  );
+  await sql.begin(async (tx) => {
+    await tx`
+      delete from public.document_embedding_fields
+      where document_id = ${job.document_id}::uuid
+        and field_type = any(${VISUAL_FIELD_TYPES}::text[])
+        and metadata->>'generated_by' = ${GENERATED_BY}
+    `;
+    await tx`
+      delete from public.document_index_units
+      where document_id = ${job.document_id}::uuid
+        and unit_type = any(${VISUAL_UNIT_TYPES}::text[])
+        and metadata->>'generated_by' = ${GENERATED_BY}
+    `;
+    for (let index = 0; index < preparedUnits.length; index += 1) {
+      const { unit, content, unitType, fieldType, contentHash } = preparedUnits[index];
+      const emb = embeddings[index];
 
-    await sql`
+      await tx`
       insert into public.document_index_units (
         owner_id,
         document_id,
@@ -1655,11 +1660,10 @@ async function upsertVisualArtifacts(
         ${JSON.stringify(emb)}::vector,
         ${jsonb({ ...unit.metadata, visual_unit_type: unit.unitType, generated_by: GENERATED_BY })}
       )
-    `;
-    createdUnits += 1;
+      `;
+      createdUnits += 1;
 
-    assertEmbeddingDim(emb, `visual embedding field ${unit.sourceImageId}`);
-    await sql`
+      await tx`
         insert into public.document_embedding_fields (
           owner_id,
           document_id,
@@ -1679,9 +1683,10 @@ async function upsertVisualArtifacts(
           ${jsonb({ source_image_id: unit.sourceImageId, visual_field_type: unit.unitType, generated_by: GENERATED_BY })},
           ${contentHash}
         )
-      `;
-    createdFields += 1;
-  }
+        `;
+      createdFields += 1;
+    }
+  });
 
   return { selected_images: selected.length, created_units: createdUnits, created_fields: createdFields };
 }
@@ -1693,22 +1698,21 @@ async function upsertCoreEmbeddingFields(job: ClaimedJob, summary: string): Prom
     { field_type: "document_summary", content: normalizeText(summary) || "Summary unavailable" },
   ];
 
-  await sql`
-    delete from public.document_embedding_fields
-    where document_id = ${job.document_id}::uuid
-      and field_type = any(${base.map((b) => b.field_type)}::text[])
-      and metadata->>'generated_by' = ${GENERATED_BY}
-  `;
-
   const embeddings = await embeddingBatch(base.map((row) => row.content));
+  embeddings.forEach((embedding, index) => assertEmbeddingDim(embedding, `${base[index].field_type} embedding field`));
   let inserted = 0;
-  for (let index = 0; index < base.length; index += 1) {
-    const row = base[index];
-    const emb = embeddings[index];
-    const contentHash = await sha256Hex(row.content);
-    assertEmbeddingDim(emb, `${row.field_type} embedding field`);
-
-    await sql`
+  const preparedRows = await Promise.all(
+    base.map(async (row, index) => ({ row, emb: embeddings[index], contentHash: await sha256Hex(row.content) })),
+  );
+  await sql.begin(async (tx) => {
+    await tx`
+      delete from public.document_embedding_fields
+      where document_id = ${job.document_id}::uuid
+        and field_type = any(${base.map((b) => b.field_type)}::text[])
+        and metadata->>'generated_by' = ${GENERATED_BY}
+    `;
+    for (const { row, emb, contentHash } of preparedRows) {
+      await tx`
       insert into public.document_embedding_fields (
         owner_id, document_id, source_chunk_id, field_type, content, embedding, metadata, content_hash
       ) values (
@@ -1721,9 +1725,10 @@ async function upsertCoreEmbeddingFields(job: ClaimedJob, summary: string): Prom
         ${jsonb({ generated_by: GENERATED_BY })},
         ${contentHash}
       )
-    `;
-    inserted += 1;
-  }
+      `;
+      inserted += 1;
+    }
+  });
 
   return inserted;
 }

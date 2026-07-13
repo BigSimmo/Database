@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import { AuthProvider } from "@/lib/supabase/client";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
+import { resolveMetadataBase } from "@/lib/metadata-base";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,11 +16,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  // Absolute base for OG/twitter image URLs (app/opengraph-image). Set
-  // NEXT_PUBLIC_SITE_URL in production; the localhost fallback only affects dev,
-  // where social unfurls aren't consumed.
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+const baseMetadata: Metadata = {
   applicationName: "Clinical KB",
   title: "Clinical KB",
   description: "Private medical guideline RAG knowledge base",
@@ -29,6 +26,18 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  return {
+    ...baseMetadata,
+    metadataBase: resolveMetadataBase(requestHeaders, {
+      configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+      trustedDeploymentDomain: process.env.RAILWAY_PUBLIC_DOMAIN,
+      allowRequestOrigin: process.env.NODE_ENV !== "production",
+    }),
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

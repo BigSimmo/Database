@@ -134,7 +134,7 @@ describe("RAG trust validation", () => {
     expect(sections).toHaveLength(1);
   });
 
-  it("adds review citations to grounded generated answers without backfilling uncited answers", () => {
+  it("does not promote uncited retrieved chunks into answer citations", () => {
     const answer = parseAnswerJson(
       JSON.stringify({
         answer: "The patient safety plan should include warning signs and support contacts.",
@@ -155,9 +155,9 @@ describe("RAG trust validation", () => {
       ],
     );
 
-    expect(answer.citations).toHaveLength(2);
-    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(["chunk-1", "chunk-2"]);
-    expect(answer.routingReason).toContain("review_citations_enriched");
+    expect(answer.citations).toHaveLength(1);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(["chunk-1"]);
+    expect(answer.routingReason ?? "").not.toContain("review_citations_enriched");
   });
 
   it("strips provenance boilerplate from generated answer and section prose", () => {

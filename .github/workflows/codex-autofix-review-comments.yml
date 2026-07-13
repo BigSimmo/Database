@@ -8,7 +8,7 @@ permissions:
   contents: read
   issues: write
   models: read
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   request-codex-autoresolve:
@@ -35,6 +35,7 @@ jobs:
               "chatgpt-codex-connector[bot]",
             ]);
             const scopedResolveCommand = "@codex resolve actionable Codex review findings for this pull request and current head";
+            const resolvedDispositionMarker = "<!-- codex-thread-disposition:resolved -->";
 
             if (
               reviewComment.user?.type !== "Bot" ||
@@ -45,7 +46,80 @@ jobs:
             }
 
             if (reviewComment.in_reply_to_id) {
-              core.notice("Skipping Codex auto-resolve request because the comment is a review-thread reply.");
+              const replyBody = (reviewComment.body || "").trimStart();
+              if (!replyBody.startsWith(resolvedDispositionMarker)) {
+                core.notice("Skipping review-thread reply without the trusted resolved disposition marker.");
+                return;
+              }
+
+              const owner = context.repo.owner;
+              const repo = context.repo.repo;
+              const issue_number = pr.number;
+              const targetCommentIds = new Set([reviewComment.id, reviewComment.in_reply_to_id]);
+              const reviewThreadsQuery = `
+                query ReviewThreads($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      reviewThreads(first: 100, after: $cursor) {
+                        nodes {
+                          id
+                          isResolved
+                          comments(first: 100) {
+                            nodes { databaseId }
+                          }
+                        }
+                        pageInfo {
+                          endCursor
+                          hasNextPage
+                        }
+                      }
+                    }
+                  }
+                }
+              `;
+
+              let cursor = null;
+              let matchingThread;
+
+              try {
+                do {
+                  const result = await github.graphql(reviewThreadsQuery, {
+                    owner,
+                    repo,
+                    number: issue_number,
+                    cursor,
+                  });
+                  const connection = result.repository?.pullRequest?.reviewThreads;
+                  matchingThread = connection?.nodes?.find((thread) =>
+                    thread.comments.nodes.some((comment) => targetCommentIds.has(comment.databaseId)),
+                  );
+                  cursor = connection?.pageInfo?.hasNextPage ? connection.pageInfo.endCursor : null;
+                } while (!matchingThread && cursor);
+
+                if (!matchingThread) {
+                  core.setFailed("Codex auto-resolve could not find the review thread for the disposition reply.");
+                  return;
+                }
+
+                if (matchingThread.isResolved) {
+                  core.notice("The Codex review thread was already resolved.");
+                  return;
+                }
+
+                await github.graphql(
+                  `mutation ResolveReviewThread($threadId: ID!) {
+                    resolveReviewThread(input: { threadId: $threadId }) {
+                      thread { id isResolved }
+                    }
+                  }`,
+                  { threadId: matchingThread.id },
+                );
+                core.notice("Resolved the Codex review thread after its explicit disposition reply.");
+              } catch (error) {
+                const message = `Codex auto-resolve failed while closing the review thread: ${error.message || error}`;
+                core.warning(message);
+                core.setFailed(message);
+              }
               return;
             }
 
@@ -61,8 +135,8 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue_number = pr.number;
-            const marker = `<!-- codex-autoresolve:${pr.head.sha} -->`;
-            const maxAutoResolveRequests = 3;
+            const marker = `<!-- codex-autoresolve-pr:${pr.number} -->`;
+            const maxAutoResolveRequests = 1;
 
             let existingComments;
             try {
@@ -94,19 +168,20 @@ jobs:
             );
 
             if (hasTrustedExistingRequest) {
-              core.notice("Skipping duplicate Codex auto-resolve request for this pull request head.");
+              core.notice("Skipping duplicate Codex auto-resolve request for this pull request.");
               return;
             }
 
             if (trustedExistingRequests.length >= maxAutoResolveRequests) {
-              core.warning(`Skipping Codex auto-resolve request because this pull request reached the automatic repair limit of ${maxAutoResolveRequests}.`);
+              core.warning("Skipping Codex auto-resolve request because this pull request already used its single automatic repair pass.");
               return;
             }
 
             const prompt = [
               marker,
+              `<!-- codex-autoresolve-head:${pr.head.sha} -->`,
               `<!-- codex-autoresolve-source-review-comment:${reviewComment.id} -->`,
-              `${scopedResolveCommand} using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit unless explicitly asked. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`,
+              `${scopedResolveCommand} using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. After fixing or dispositioning a thread, reply in that thread with ${resolvedDispositionMarker} as the first line, followed by a concise summary; that marker authorizes the workflow to close that exact thread. If human input or new authorization is required, do not use the marker and leave the thread open with the blocker. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`,
             ].join("\n\n");
 
             try {

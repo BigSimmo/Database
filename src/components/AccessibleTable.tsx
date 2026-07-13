@@ -322,6 +322,7 @@ export function AccessibleTable({
   markdown,
   rows,
   columns,
+  normalizedTable,
   compact = false,
   expandOnMobile = false,
   previewRows,
@@ -338,6 +339,7 @@ export function AccessibleTable({
   markdown?: string | null;
   rows?: string[][] | null;
   columns?: string[] | null;
+  normalizedTable?: NormalizedAccessibleTable | null;
   compact?: boolean;
   expandOnMobile?: boolean;
   previewRows?: number;
@@ -355,8 +357,8 @@ export function AccessibleTable({
   lowConfidenceFallback?: ReactNode;
 }) {
   const dialogId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
   const canExpand = useMobileTableExpansion(expandOnMobile);
@@ -365,6 +367,7 @@ export function AccessibleTable({
     return hasExplicitRows ? rows : parseMarkdownTable(markdown);
   }, [hasExplicitRows, rows, markdown]);
   const normalized = useMemo(() => {
+    if (normalizedTable) return normalizedTable;
     if (!parsed?.length) return null;
     // Audit M8/H4 parity (diff review): markdown-parsed rows include their
     // own header line as row 0 — passing explicit columns alongside them made
@@ -376,7 +379,7 @@ export function AccessibleTable({
     const table = normalizeAccessibleTable(parsed, hasExplicitRows ? columns : null);
     if (!table) return null;
     return clinicalOnly ? clinicalOnlyTable(table) : table;
-  }, [clinicalOnly, columns, hasExplicitRows, parsed]);
+  }, [clinicalOnly, columns, hasExplicitRows, normalizedTable, parsed]);
 
   const dialogOpen = open;
 
@@ -392,7 +395,6 @@ export function AccessibleTable({
         return;
       }
       if (event.key !== "Tab") return;
-
       const focusable = Array.from(
         dialogRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
