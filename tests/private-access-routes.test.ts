@@ -4077,7 +4077,60 @@ describe("private document API access", () => {
     expect(summarizeDocument).toHaveBeenCalledWith(documentId, userId, {
       signal: expect.any(AbortSignal),
     });
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_owner_id: userId, p_bucket: "document_summarize" }),
+    );
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("rate limits streamed document summaries before provider work", async () => {
+    const summarizeDocument = vi.fn(async () => ({
+      answer: "Expensive streamed summary.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) =>
+      name === "consume_api_rate_limit" && args?.p_bucket === "document_summarize"
+        ? { data: [rateLimitRow({ limited: true, limit_value: 12, remaining: 0 })], error: null }
+        : name === "consume_api_rate_limit"
+          ? { data: [rateLimitRow()], error: null }
+          : ok([]),
+    );
+    mockRuntime(client, { summarizeDocument });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          summaryMode: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(await payload(response)).toMatchObject({
+      error: "Too many document summary requests. Retry shortly.",
+      details: { retryAfterSeconds: 60 },
+    });
+    expect(client.rpc).toHaveBeenNthCalledWith(
+      1,
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_owner_id: userId, p_bucket: "answer" }),
+    );
+    expect(client.rpc).toHaveBeenNthCalledWith(
+      2,
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_owner_id: userId, p_bucket: "document_summarize" }),
+    );
+    expect(summarizeDocument).not.toHaveBeenCalled();
   });
 
   it("completes cached answers after safe cached progress and before final", async () => {

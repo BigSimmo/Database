@@ -68,6 +68,10 @@ function rateLimitStream(rateLimit: ApiRateLimitResult) {
   return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
 }
 
+function documentSummaryRateLimitStream(rateLimit: ApiRateLimitResult) {
+  return rateLimitJsonResponse("Too many document summary requests. Retry shortly.", rateLimit);
+}
+
 function streamErrorPayload(error: unknown) {
   if (error instanceof PublicApiError) {
     return {
@@ -301,6 +305,18 @@ export async function POST(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
+
+    if (body.summaryMode) {
+      // Streamed full-document summaries use the same paid provider path as the
+      // legacy summary endpoint. Preserve the general answer ceiling, then also
+      // enforce the stricter summary quota before the SSE stream can start.
+      const summaryRateLimit = await consumeSubjectApiRateLimit({
+        supabase,
+        subject: access.rateLimitSubject,
+        bucket: "document_summarize",
+      });
+      if (summaryRateLimit.limited) return documentSummaryRateLimitStream(summaryRateLimit);
+    }
 
     return streamAnswer(body, resolveRetrievalAccessScope(access.ownerId), request.signal);
   } catch (error) {
