@@ -268,14 +268,7 @@ export async function setCachedSearch(
 
 type SharedCacheKind = "search" | "answer";
 type SharedCacheMissReason =
-  | "cache_lookup_error"
-  | "cache_lookup_exception"
-  | "cache_payload_invalid"
-  | "no_entry"
-  | "expired"
-  | "indexing_version_mismatch"
-  | "dependency_version_mismatch"
-  | "unknown_filter_miss";
+  "cache_lookup_error" | "cache_lookup_exception" | "cache_payload_invalid" | "unknown_filter_miss";
 
 function sharedCacheSelector(
   supabase: ReturnType<typeof createAdminClient>,
@@ -367,37 +360,6 @@ export async function getSharedCachedSearch(
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
   const normalizedQuery = retrievalPlanCacheQuery(args, queryClass, queryVariants);
   const indexingVersion = await cacheIndexingVersion(args);
-  async function probeSharedCacheMissReason(reasonFromLookup?: SharedCacheMissReason): Promise<SharedCacheMissReason> {
-    if (reasonFromLookup) return reasonFromLookup;
-    try {
-      const supabase = createAdminClient();
-      let probeQuery = supabase
-        .from("rag_response_cache")
-        .select("indexing_version,dependency_version,expires_at")
-        .eq("cache_kind", "search")
-        .eq("scope_key", scopeKey(args))
-        .eq("normalized_query", normalizedQuery)
-        .order("expires_at", { ascending: false })
-        .limit(5);
-      probeQuery = args.ownerId ? probeQuery.eq("owner_id", args.ownerId) : probeQuery.is("owner_id", null);
-      const { data, error } = await probeQuery;
-      if (error) return "cache_lookup_error";
-      if (!data?.length) return "no_entry";
-      const now = Date.now();
-      const nonExpired = data.find((entry) => {
-        const expiresAt = Date.parse(String(entry.expires_at ?? ""));
-        return Number.isFinite(expiresAt) && expiresAt > now;
-      });
-      if (!nonExpired) return "expired";
-      if (String(nonExpired.indexing_version ?? "") !== indexingVersion) return "indexing_version_mismatch";
-      if (String(nonExpired.dependency_version ?? "") !== ragCacheDependencyVersion) {
-        return "dependency_version_mismatch";
-      }
-      return "unknown_filter_miss";
-    } catch {
-      return "cache_lookup_exception";
-    }
-  }
   try {
     const { data, error } = await sharedCacheSelector(
       createAdminClient(),
@@ -406,11 +368,14 @@ export async function getSharedCachedSearch(
       indexingVersion,
       normalizedQuery,
     ).maybeSingle();
-    if (error) return { kind: "miss", reason: await probeSharedCacheMissReason("cache_lookup_error") };
-    if (!data?.payload) return { kind: "miss", reason: await probeSharedCacheMissReason() };
+    if (error) return { kind: "miss", reason: "cache_lookup_error" };
+    // The selector deliberately folds TTL, dependency, and indexing-version
+    // validity into the hit query. Keep a filtered miss coarse rather than pay
+    // a second cross-region lookup solely to distinguish those miss classes.
+    if (!data?.payload) return { kind: "miss", reason: "unknown_filter_miss" };
     const payload = data.payload as { results?: SearchResult[]; telemetry?: Partial<SearchTelemetry> };
     if (!Array.isArray(payload.results)) {
-      return { kind: "miss", reason: await probeSharedCacheMissReason("cache_payload_invalid") };
+      return { kind: "miss", reason: "cache_payload_invalid" };
     }
     return {
       kind: "hit",
