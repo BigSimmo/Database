@@ -210,6 +210,24 @@ describe("RAG eval source identity matching", () => {
     expect(isProviderRateLimitError(new Error("429 too many requests"))).toBe(true);
   });
 
+  it("retries structured provider rate-limit errors that are not Error instances", async () => {
+    const operation = vi.fn(async () => {
+      if (operation.mock.calls.length === 1) throw { message: "rate limit exceeded" };
+      return "ok";
+    });
+
+    await expect(
+      withProviderBackoff("test-structured-rate-limit", operation, {
+        maxAttempts: 2,
+        initialDelayMs: 1,
+        maxDelayMs: 1,
+      }),
+    ).resolves.toBe("ok");
+
+    expect(operation).toHaveBeenCalledTimes(2);
+    expect(isProviderRateLimitError({ message: "rate limit exceeded" })).toBe(true);
+  });
+
   it("fails immediately when provider quota is exhausted", async () => {
     const operation = vi.fn(async () => {
       throw Object.assign(new Error("OpenAI quota is exhausted. Falling back to a source-only answer."), {

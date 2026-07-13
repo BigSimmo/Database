@@ -39,13 +39,19 @@ function providerRetryNumber(value: string | undefined, fallback: number) {
 
 function providerErrorText(error: unknown) {
   const maybeRecord = error && typeof error === "object" ? (error as Record<string, unknown>) : {};
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof maybeRecord.message === "string"
+        ? maybeRecord.message
+        : String(error);
   const maybeDetails =
     maybeRecord.details && typeof maybeRecord.details === "object"
       ? (maybeRecord.details as Record<string, unknown>)
       : {};
   return [
     error instanceof Error ? error.name : "",
-    error instanceof Error ? error.message : String(error),
+    message,
     maybeRecord.status,
     maybeRecord.code,
     maybeRecord.type,
