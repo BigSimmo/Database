@@ -5692,6 +5692,8 @@ export async function summarizeDocument(documentId: string, ownerId?: string) {
 
   if (ownerId) {
     documentQuery = documentQuery.eq("owner_id", ownerId);
+  } else {
+    documentQuery = documentQuery.is("owner_id", null);
   }
 
   const { data: document, error: documentError } = await documentQuery.maybeSingle();

@@ -305,6 +305,7 @@ function mockRuntime(
   vi.doUnmock("@/lib/openai");
   vi.doUnmock("@/lib/document-enrichment");
   vi.doUnmock("@/lib/deep-memory");
+  vi.doUnmock("@/lib/demo-data");
   vi.doMock("@/lib/env", () => ({
     env: {
       MAX_UPLOAD_MB: 150,
@@ -3969,6 +3970,111 @@ describe("private document API access", () => {
     expectSingleCompletionBeforeFinal(body);
     expect(ssePayload(body, "final")).toMatchObject({ demoMode: true });
     expect(ssePayload(body, "final")).not.toHaveProperty("feedbackToken");
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("preserves danger-governance warnings when streaming a demo refusal", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope }, { demoMode: true });
+    vi.doMock("@/lib/demo-data", () => ({
+      demoSummary: vi.fn(),
+      demoAnswer: vi.fn(() => ({
+        answer: "Use the outdated protocol.",
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: "demo-danger", document_id: documentId, page_number: 1 }],
+        sources: [
+          {
+            id: "demo-danger",
+            document_id: documentId,
+            title: "Outdated demo guideline",
+            file_name: "outdated-demo.pdf",
+            page_number: 1,
+            chunk_index: 0,
+            section_heading: null,
+            content: "Use the outdated protocol.",
+            image_ids: [],
+            similarity: 0.95,
+            source_metadata: {
+              source_title: "Outdated demo guideline",
+              publisher: "Local WA service",
+              jurisdiction: "Australia/WA",
+              version: null,
+              publication_date: null,
+              review_date: null,
+              uploaded_at: null,
+              indexed_at: null,
+              uploaded_by: null,
+              document_status: "outdated",
+              clinical_validation_status: "approved",
+              extraction_quality: "good",
+            },
+            images: [],
+          },
+        ],
+      })),
+    }));
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      request("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "monitoring" }),
+      }),
+    );
+    const responseBody = await response.text();
+    const finalPayload = ssePayload(responseBody, "final");
+
+    expect(response.status).toBe(200);
+    expect(finalPayload).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+      demoMode: true,
+      sourceGovernanceWarnings: expect.arrayContaining([
+        expect.objectContaining({ code: "outdated_source", severity: "danger" }),
+      ]),
+    });
+    expect(String(finalPayload.answer)).toContain("cannot provide a clinical answer");
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("streams blank-document summaries through the committed full-document summary path", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const summarizeDocument = vi.fn(async () => ({
+      answer: "Full committed document summary.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope, summarizeDocument });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          summaryMode: true,
+        }),
+      }),
+    );
+    const responseBody = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(responseBody).toContain('"stage":"retrieving"');
+    expect(responseBody).toContain('"stage":"generating"');
+    expect(ssePayload(responseBody, "final")).toMatchObject({
+      answer: "Full committed document summary.",
+      interactionId: expect.any(String),
+      feedbackToken: expect.any(String),
+    });
+    expect(summarizeDocument).toHaveBeenCalledWith(documentId, userId);
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 

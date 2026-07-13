@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { demoAnswer } from "@/lib/demo-data";
+import { demoAnswer, demoSummary } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
 import {
@@ -15,7 +15,7 @@ import {
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
 } from "@/lib/answer-response";
-import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
+import { answerQuestionWithScope, summarizeDocument, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
@@ -37,13 +37,24 @@ import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 
 export const runtime = "nodejs";
 
-const answerSchema = z.object({
-  query: z.string().trim().min(1).max(2000),
-  documentId: z.string().uuid().optional(),
-  documentIds: z.array(z.string().uuid()).max(25).optional(),
-  filters: searchScopeFiltersSchema.optional(),
-  queryMode: clinicalQueryModeSchema.optional().default("auto"),
-});
+const answerSchema = z
+  .object({
+    query: z.string().trim().min(1).max(2000),
+    documentId: z.string().uuid().optional(),
+    documentIds: z.array(z.string().uuid()).max(25).optional(),
+    filters: searchScopeFiltersSchema.optional(),
+    queryMode: clinicalQueryModeSchema.optional().default("auto"),
+    summaryMode: z.boolean().optional().default(false),
+  })
+  .superRefine((value, context) => {
+    if (value.summaryMode && !value.documentId) {
+      context.addIssue({
+        code: "custom",
+        path: ["documentId"],
+        message: "Document summary mode requires a document id.",
+      });
+    }
+  });
 
 type AnswerBody = z.infer<typeof answerSchema>;
 const emptyScopeAnswer =
@@ -106,7 +117,10 @@ function logStreamError(error: unknown, signal?: AbortSignal) {
 }
 
 function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
-  const demo = demoAnswer(body.query, body.documentId, body.documentIds);
+  const demo =
+    body.summaryMode && body.documentId
+      ? demoSummary(body.documentId)
+      : demoAnswer(body.query, body.documentId, body.documentIds);
   const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const sources = annotateSearchResults(answerFocusQuery, demo.sources);
   const relevance = buildEvidenceRelevance(answerFocusQuery, sources);
@@ -194,36 +208,44 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
             });
             return;
           }
+          if (isDemoMode()) {
+            sendFinal({ ...buildDemoStreamAnswer(body), interactionId });
+            return;
+          }
+
           const singleDocumentScope = Boolean(
             body.documentId && !body.documentIds?.length && scope?.activeFilterCount === 0,
           );
-          const answer = isDemoMode()
-            ? buildDemoStreamAnswer(body)
-            : await answerQuestionWithScope({
-                query: body.query,
-                documentId: singleDocumentScope ? body.documentId : undefined,
-                documentIds: singleDocumentScope
-                  ? undefined
-                  : (scope?.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
-                ownerId,
-                accessScope,
-                allowGlobalSearch: !ownerId,
-                queryMode: body.queryMode,
-                onProgress,
-                onToken,
-                onRevising,
-                signal,
-              });
+          if (body.summaryMode) {
+            sendProgress({ stage: "analyzing", message: "Reading the committed document sections." });
+            sendProgress({ stage: "generating", message: "Building the governed clinical summary." });
+          }
+          const answer =
+            body.summaryMode && body.documentId
+              ? await summarizeDocument(body.documentId, ownerId)
+              : await answerQuestionWithScope({
+                  query: body.query,
+                  documentId: singleDocumentScope ? body.documentId : undefined,
+                  documentIds: singleDocumentScope
+                    ? undefined
+                    : (scope?.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
+                  ownerId,
+                  accessScope,
+                  allowGlobalSearch: !ownerId,
+                  queryMode: body.queryMode,
+                  onProgress,
+                  onToken,
+                  onRevising,
+                  signal,
+                });
           const governedResponse = buildGovernedAnswerClientResponse(answer);
 
-          if (!isDemoMode()) {
-            logAnswerDiagnostics({
-              supabase: createAdminClient(),
-              query: body.query,
-              ownerId,
-              answer: governedResponse.telemetryAnswer,
-            });
-          }
+          logAnswerDiagnostics({
+            supabase: createAdminClient(),
+            query: body.query,
+            ownerId,
+            answer: governedResponse.telemetryAnswer,
+          });
 
           sendFinal({
             ...governedResponse.payload,

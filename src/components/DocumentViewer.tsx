@@ -2418,10 +2418,12 @@ export function DocumentViewer({
       setSummaryError("Sign in before summarising private documents.");
       return;
     }
-    const query = sourceSearch.trim() || documentSummaryQuestion;
+    const summaryMode = sourceSearch.trim().length === 0;
+    const query = summaryMode ? documentSummaryQuestion : sourceSearch.trim();
     const controller = new AbortController();
     summaryAbortRef.current?.abort();
     summaryAbortRef.current = controller;
+    const authRequest = registerAuthRequest(controller);
     const startedAt = Date.now();
     setLoadingSummary(true);
     setSummary(null);
@@ -2436,13 +2438,16 @@ export function DocumentViewer({
       },
     ]);
     try {
+      if (!isAuthEpochCurrent(authRequest.epoch)) {
+        throw new DOMException("Stale authentication epoch", "AbortError");
+      }
       const response = await fetch("/api/answer/stream", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(clientDemoMode ? {} : authorizationHeader),
         },
-        body: JSON.stringify({ query, documentId }),
+        body: JSON.stringify({ query, documentId, ...(summaryMode ? { summaryMode: true } : {}) }),
         signal: controller.signal,
       });
       if (response.status === 401) markSessionExpired();
@@ -2455,21 +2460,29 @@ export function DocumentViewer({
         );
       }
       const payload = await readAnswerStream(response, (progress) => {
-        if (summaryAbortRef.current !== controller) return;
+        if (
+          controller.signal.aborted ||
+          summaryAbortRef.current !== controller ||
+          !isAuthEpochCurrent(authRequest.epoch)
+        )
+          return;
         setSummaryProgressEvents((events) => [...events, { ...progress, receivedAt: Date.now() }].slice(-20));
       });
-      if (summaryAbortRef.current !== controller) return;
-      setSummary({ ...payload, answer: cleanClinicalSummaryText(String(payload.answer ?? "")) });
+      if (controller.signal.aborted || summaryAbortRef.current !== controller || !isAuthEpochCurrent(authRequest.epoch))
+        return;
+      setSummary(payload);
       window.requestAnimationFrame(() => {
         generatedSummaryRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      if (summaryAbortRef.current !== controller) return;
+      if (controller.signal.aborted || summaryAbortRef.current !== controller || !isAuthEpochCurrent(authRequest.epoch))
+        return;
       setSummaryProgressEvents([]);
       setSummaryProgressStartedAt(null);
       setSummaryError(error instanceof Error ? error.message : "Answer could not be generated from this document.");
     } finally {
+      authRequest.release();
       if (summaryAbortRef.current === controller) {
         summaryAbortRef.current = null;
         setLoadingSummary(false);

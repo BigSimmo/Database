@@ -3,7 +3,8 @@ import { expect, test, type Locator, type Page } from "playwright/test";
 import { scrollPrimarySurface } from "./playwright-scroll";
 import { recentQueryStorageKey } from "../src/components/clinical-dashboard/dashboard-contracts";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
-import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
+import { documentSummaryQuestion } from "../src/lib/answer-contract";
+import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { deriveGovernanceFromSections } from "../src/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
@@ -203,7 +204,10 @@ type DemoAnswerOverride = (query: string, documentId?: string, documentIds?: str
 type MockDemoApiOptions = {
   answerOverride?: DemoAnswerOverride;
   answerDelayMs?: number;
-  onAnswerRequest?: (query: string, scope: { documentId?: string; documentIds?: string[] }) => void;
+  onAnswerRequest?: (
+    query: string,
+    scope: { documentId?: string; documentIds?: string[]; summaryMode?: boolean },
+  ) => void;
 };
 
 async function blockExternalRequests(page: Page) {
@@ -299,19 +303,26 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
       query?: string;
       documentId?: string;
       documentIds?: string[];
+      summaryMode?: boolean;
     };
     const query = typeof body.query === "string" ? body.query.trim() : "";
     if (!query || query.length > 2000) {
       await route.fulfill({ status: 400, json: { error: "A query between 1 and 2000 characters is required." } });
       return;
     }
-    options.onAnswerRequest?.(query, { documentId: body.documentId, documentIds: body.documentIds });
+    options.onAnswerRequest?.(query, {
+      documentId: body.documentId,
+      documentIds: body.documentIds,
+      summaryMode: body.summaryMode,
+    });
     if (options.answerDelayMs) {
       await new Promise((resolve) => setTimeout(resolve, options.answerDelayMs));
     }
     const answer =
       options.answerOverride?.(query, body.documentId, body.documentIds) ??
-      demoAnswer(query, body.documentId, body.documentIds);
+      (body.summaryMode && body.documentId
+        ? demoSummary(body.documentId)
+        : demoAnswer(query, body.documentId, body.documentIds));
     await fulfillAnswerResponse(route, {
       ...answer,
       demoMode: true,
@@ -2935,7 +2946,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 820 });
-    const answerRequests: Array<{ query: string; documentId?: string }> = [];
+    const answerRequests: Array<{ query: string; documentId?: string; summaryMode?: boolean }> = [];
     let legacySummaryRequestCount = 0;
     page.on("request", (request) => {
       if (/\/api\/documents\/[^/]+\/summarize$/.test(new URL(request.url()).pathname)) {
@@ -2943,7 +2954,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
       }
     });
     await mockDemoApi(page, {
-      onAnswerRequest: (query, scope) => answerRequests.push({ query, documentId: scope.documentId }),
+      onAnswerRequest: (query, scope) =>
+        answerRequests.push({ query, documentId: scope.documentId, summaryMode: scope.summaryMode }),
       answerOverride: (query, documentId, documentIds) => ({
         ...demoAnswer(query, documentId, documentIds),
         answer:
@@ -2979,8 +2991,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
       {
         query: "How is clozapine monitored?",
         documentId: "11111111-1111-4111-8111-111111111111",
+        summaryMode: undefined,
       },
     ]);
+    expect(legacySummaryRequestCount).toBe(0);
+
+    await composer.getByRole("textbox", { name: "Search or answer from this document" }).fill("");
+    await composer.getByRole("button", { name: "Answer from this document" }).click();
+    await expect.poll(() => answerRequests.length).toBe(2);
+    expect(answerRequests[1]).toEqual({
+      query: documentSummaryQuestion,
+      documentId: "11111111-1111-4111-8111-111111111111",
+      summaryMode: true,
+    });
     expect(legacySummaryRequestCount).toBe(0);
     await expectNoPageHorizontalOverflow(page);
   });
