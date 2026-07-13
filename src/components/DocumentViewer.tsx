@@ -1995,6 +1995,14 @@ function DocumentOverviewLanding({
   );
 }
 
+/**
+ * Renders the clinical document viewer with source previews, extracted content, summaries, and document tools.
+ *
+ * @param documentId - The identifier of the document to load.
+ * @param initialPage - The page to display initially in the source preview.
+ * @param chunkId - An optional indexed passage to pin and scroll into view.
+ * @returns The document viewer interface.
+ */
 export function DocumentViewer({
   documentId,
   initialPage,

@@ -27,14 +27,20 @@ const baseMetadata: Metadata = {
   },
 };
 
+/**
+ * Generates application metadata with a request-aware base URL.
+ *
+ * @returns The application metadata, including its resolved base URL.
+ */
 export async function generateMetadata(): Promise<Metadata> {
-  const requestHeaders = await headers();
+  const allowRequestOrigin = process.env.NODE_ENV !== "production";
+  const requestHeaders = allowRequestOrigin ? await headers() : new Headers();
   return {
     ...baseMetadata,
     metadataBase: resolveMetadataBase(requestHeaders, {
       configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
       trustedDeploymentDomain: process.env.RAILWAY_PUBLIC_DOMAIN,
-      allowRequestOrigin: process.env.NODE_ENV !== "production",
+      allowRequestOrigin,
     }),
   };
 }
