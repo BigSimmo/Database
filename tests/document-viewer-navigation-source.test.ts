@@ -12,5 +12,9 @@ describe("document viewer useful-page navigation", () => {
 
   it("normalizes invalid page numbers to the first page", () => {
     expect(documentPageHref("document-id", 0)).toBe("/documents/document-id?page=1#pdf-preview-section");
+    expect(documentPageHref("document-id", Number.NaN)).toBe("/documents/document-id?page=1#pdf-preview-section");
+    expect(documentPageHref("document-id", Number.POSITIVE_INFINITY)).toBe(
+      "/documents/document-id?page=1#pdf-preview-section",
+    );
   });
 });

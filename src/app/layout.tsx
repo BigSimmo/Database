@@ -31,7 +31,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
   return {
     ...baseMetadata,
-    metadataBase: resolveMetadataBase(requestHeaders, process.env.NEXT_PUBLIC_SITE_URL),
+    metadataBase: resolveMetadataBase(requestHeaders, {
+      configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+      trustedDeploymentDomain: process.env.RAILWAY_PUBLIC_DOMAIN,
+      allowRequestOrigin: process.env.NODE_ENV !== "production",
+    }),
   };
 }
 

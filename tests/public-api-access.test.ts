@@ -34,16 +34,16 @@ describe("anonymous API rate-limit identity", () => {
     expect(second).not.toBe(first);
   });
 
-  it("ignores caller-controlled Cloudflare identity when the proxy address is stable", () => {
+  it("ignores caller-controlled identity entries before Railway's appended address", () => {
     const first = anonymousApiSubjectKey(forwardedRequest("192.0.2.10, 198.51.100.20", "203.0.113.10"));
-    const second = anonymousApiSubjectKey(forwardedRequest("192.0.2.10, 198.51.100.20", "203.0.113.99"));
+    const second = anonymousApiSubjectKey(forwardedRequest("192.0.2.99, 198.51.100.20", "203.0.113.99"));
 
     expect(second).toBe(first);
   });
 
-  it("keeps distinct client addresses separate when the proxy appends the same hop", () => {
+  it("keeps distinct Railway-appended client addresses separate", () => {
     const first = anonymousApiSubjectKey(forwardedRequest("192.0.2.10, 198.51.100.20", "203.0.113.10"));
-    const second = anonymousApiSubjectKey(forwardedRequest("192.0.2.99, 198.51.100.20", "203.0.113.10"));
+    const second = anonymousApiSubjectKey(forwardedRequest("192.0.2.10, 198.51.100.99", "203.0.113.10"));
 
     expect(second).not.toBe(first);
   });

@@ -11,23 +11,26 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 
 export type RateLimitSubject = { kind: "owner"; ownerId: string } | { kind: "anonymous"; subjectKey: string };
 
-function firstForwardedIp(value: string | null) {
-  return value?.split(",")[0]?.trim() || "";
+function trustedProxyIp(value: string | null) {
+  const forwarded = value
+    ?.split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return forwarded?.at(-1) ?? "";
 }
 
 function requestIpSignal(request: Request) {
   return (
-    firstForwardedIp(request.headers.get("x-forwarded-for")) ||
-    firstForwardedIp(request.headers.get("x-real-ip")) ||
+    trustedProxyIp(request.headers.get("x-forwarded-for")) ||
+    trustedProxyIp(request.headers.get("x-real-ip")) ||
     "unknown-ip"
   );
 }
 
 export function anonymousApiSubjectKey(request: Request) {
-  // Trust only the deployment proxy's forwarding headers. Ignore the
-  // caller-controlled Cloudflare/User-Agent values: rotating either must not
-  // mint a fresh allowance. The deployment contract supplies the client as the
-  // first X-Forwarded-For address (followed by any proxy hops).
+  // Trust only the deployment proxy's appended forwarding entry. Ignore the
+  // caller-controlled Cloudflare/User-Agent values and any leading XFF entries:
+  // Railway appends the trusted client address at the right edge of the chain.
   // If no trusted proxy IP is available, every unknown caller intentionally
   // shares the same conservative quota rather than failing open.
   const source = requestIpSignal(request);
