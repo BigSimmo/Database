@@ -1769,7 +1769,7 @@ describe("RAG structured-output fallback", () => {
     });
     let requestIndex = 0;
     const generateStructuredTextResult = vi.fn(async () => ({
-      text: '{"answer":"Lithium dosing requires',
+      text: "",
       model: "gpt-5.4-mini",
       operation: "answer",
       latencyMs: 12,

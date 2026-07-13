@@ -499,7 +499,7 @@ describe("OpenAI query embedding cache", () => {
     expect(capturedBodies[3]).toMatchObject({ max_output_tokens: 300 });
   });
 
-  it("flags truncated (incomplete) responses (GEN-C1)", async () => {
+  it("returns an empty max-token incomplete response so the caller can retry (GEN-C1)", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
 
     vi.doMock("openai", () => ({
@@ -511,7 +511,7 @@ describe("OpenAI query embedding cache", () => {
               data: {
                 status: "incomplete",
                 incomplete_details: { reason: "max_output_tokens" },
-                output_text: '{"answer":"Withhold clozapine if ANC below',
+                output_text: "",
               },
               request_id: "req_trunc",
             }),
@@ -530,6 +530,7 @@ describe("OpenAI query embedding cache", () => {
     expect(result.truncated).toBe(true);
     expect(result.status).toBe("incomplete");
     expect(result.incompleteReason).toBe("max_output_tokens");
+    expect(result.text).toBe("");
   });
 
   it("marks a completed response as not truncated (GEN-C1)", async () => {

@@ -112,7 +112,9 @@ describe("RAG answer text helpers", () => {
   it("rejects dose figures with a missing unit while accepting a complete dose", () => {
     expect(hasClinicalAnswerQualityIssue("For sertraline, increase according to response, maximum 60.")).toBe(true);
     expect(hasClinicalAnswerQualityIssue("For sertraline, the maximum dose is 60 mg daily.")).toBe(false);
+    expect(hasClinicalAnswerQualityIssue("For sertraline, the maximum dose is 60 milligrams daily.")).toBe(false);
     expect(hasClinicalAnswerQualityIssue("For lithium, the dose is 10 mmol daily.")).toBe(false);
+    expect(hasClinicalAnswerQualityIssue("For insulin, the dose is 10 international units daily.")).toBe(false);
     expect(hasClinicalAnswerQualityIssue("For olanzapine, the maximum dose is 2 tablets daily.")).toBe(false);
   });
 

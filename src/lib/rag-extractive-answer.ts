@@ -335,7 +335,7 @@ function queryIntentTokens(query: string, intent: AnswerIntent) {
 function answerIntentEvidencePattern(intent: AnswerIntent) {
   switch (intent) {
     case "dose":
-      return /\b(?:doses?|dosing|dosage|max(?:imum)?|mg|mcg|microgram|micrograms|mmol\/l|eGFR|renal|creatinine|daily|bd|tds|mane|nocte)\b/i;
+      return doseIntentEvidencePattern;
     case "contraindication":
       return /\b(?:contraindicat\w*|avoid|must not|do not|should not|not use|opioid[-\s]?free|withdrawal|precipitat\w*)\b/i;
     case "monitoring_schedule":
@@ -350,6 +350,18 @@ function answerIntentEvidencePattern(intent: AnswerIntent) {
       return /\b(?:assess|arrange|check|collaborat\w*|complete|conduct|continue|develop|diagnos\w*|document|dose|ensure|identify|include|incorporate|involve|link|manage|monitor|provide|record|refer|revise|review\w*|risk|share|therapy|treat|update)\b/i;
   }
 }
+
+const clinicalDoseUnitSource = String.raw`(?:mg|milligrams?|mcg|micrograms?|g|grams?|kg|kilograms?|ml|millilit(?:er|re)s?|l|lit(?:er|re)s?|international\s+units?|units?|iu|mmol(?:\/l)?|millimoles?(?:\s+per\s+lit(?:er|re))?|meq|milliequivalents?|tablets?|capsules?|puffs?|drops?|sprays?|patch(?:es)?)`;
+const clinicalDoseValueSource = String.raw`\d+(?:\.\d+)?\s*${clinicalDoseUnitSource}`;
+const clinicalDoseValuePattern = new RegExp(String.raw`\b${clinicalDoseValueSource}\b`, "i");
+const maximumDoseEquivalentPattern = new RegExp(
+  String.raw`\b(?:up\s+to|(?:do\s+)?not\s+exceed|no\s+more\s+than|at\s+most|limit(?:ed)?(?:\s+the\s+dose)?\s+to)\s+${clinicalDoseValueSource}\b`,
+  "i",
+);
+const doseIntentEvidencePattern = new RegExp(
+  String.raw`\b(?:doses?|dosing|dosage|max(?:imum)?|${clinicalDoseUnitSource}|eGFR|renal|creatinine|daily|bd|tds|mane|nocte)\b`,
+  "i",
+);
 
 /** Requires blood count evidence. */
 function requiresBloodCountEvidence(query: string) {
@@ -379,12 +391,7 @@ function hasWithholdActionEvidence(text: string) {
 
 /** Has explicit or equivalent maximum-dose evidence. */
 export function hasMaximumDoseEvidence(text: string) {
-  return (
-    /\bmax(?:imum)?\b/i.test(text) ||
-    /\b(?:up\s+to|(?:do\s+)?not\s+exceed|no\s+more\s+than|at\s+most|limit(?:ed)?\s+to)\s+\d+(?:\.\d+)?\s*(?:mg|mcg|micrograms?|g|kg|ml|l|units?|iu|mmol(?:\/l)?|meq|tablets?|capsules?|puffs?|drops?|sprays?|patch(?:es)?)\b/i.test(
-      text,
-    )
-  );
+  return /\bmax(?:imum)?\b/i.test(text) || maximumDoseEquivalentPattern.test(text);
 }
 
 /** Result covers answer intent. */
@@ -399,13 +406,21 @@ function resultCoversAnswerIntent(result: SearchResult, query: string, intent: A
     (/\bect\b/i.test(query) && /\b(?:ect|electroconvulsive)\b/i.test(text));
   if (!entityCoverage) return false;
   if (intent === "general") return true;
-  const intentCoverage = answerIntentEvidencePattern(intent).test(text);
+  const asksForMaximumDose = intent === "dose" && /\bmax(?:imum)?\b/i.test(query);
+  const maximumDoseCoverage = asksForMaximumDose && hasMaximumDoseEvidence(text);
+  const intentCoverage = answerIntentEvidencePattern(intent).test(text) || maximumDoseCoverage;
   if (!intentCoverage) return false;
-  if (intentTokens.length > 0 && !intentTokens.some((token) => queryTokenMatchesText(token, text))) return false;
+  if (
+    intentTokens.length > 0 &&
+    !intentTokens.some((token) => queryTokenMatchesText(token, text)) &&
+    !maximumDoseCoverage
+  ) {
+    return false;
+  }
   if (intent === "red_result_action" && requiresBloodCountEvidence(query) && !hasBloodCountEvidence(text)) return false;
   if (intent === "red_result_action" && asksForWithholdAction(query) && !hasWithholdActionEvidence(text)) return false;
   if (/\brenal\b/i.test(query) && !/\b(?:renal|kidney|eGFR|creatinine)\b/i.test(text)) return false;
-  if (/\bmax(?:imum)?\b/i.test(query) && !hasMaximumDoseEvidence(text)) {
+  if (asksForMaximumDose && !maximumDoseCoverage) {
     return false;
   }
   return true;
@@ -420,8 +435,10 @@ const extractiveHeadingOnlyPattern =
   /^(?:dosage?|dosing|monitoring|baseline tests?|therapy|source|section|table|guideline|referral criteria|criteria)(?:\s*\([^)]{1,80}\))?\.?$/i;
 const extractiveAllowedLowercaseStarterPattern =
   /^(?:if|when|for|in|avoid|do|must|withhold|cease|stop|monitor|check|reduce|increase|adjust|start|commence|begin|use|target|baseline|serum|therapy|dosing|titrate|arrange|refer|review|prescribe|record|complete|continue|discontinue|escalate)\b/i;
-const extractiveConcreteDosePattern =
-  /\b(?:\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms|mmol\/?l)|mmol\/l|daily|bd|tds|mane|nocte|target|range|serum|levels?|titration|titrate|titrated|adjust(?:ed|ment)?|dose\s+(?:adjust|reduc|increas)|reduce(?:d)?\s+doses?|doses?\s+(?:in|for|when|with|based|according)|max(?:imum)?|renal|eGFR|CrCl|creatinine|elderly|impairment|conventional tablets?)\b/i;
+const extractiveConcreteDosePattern = new RegExp(
+  String.raw`\b(?:${clinicalDoseValueSource}|mmol\/l|daily|bd|tds|mane|nocte|target|range|serum|levels?|titration|titrate|titrated|adjust(?:ed|ment)?|dose\s+(?:adjust|reduc|increas)|reduce(?:d)?\s+doses?|doses?\s+(?:in|for|when|with|based|according)|max(?:imum)?|renal|eGFR|CrCl|creatinine|elderly|impairment|conventional tablets?)\b`,
+  "i",
+);
 const extractiveMedicationEntityPattern =
   /\b(?:acamprosate|aripiprazole|baclofen|benzodiazepine|citalopram|clozapine|diazepam|disulfiram|droperidol|escitalopram|fluoxetine|haloperidol|lithium|lorazepam|naltrexone|olanzapine|promethazine|quetiapine|risperidone|sertraline|valproate)\b/gi;
 
@@ -660,7 +677,8 @@ function factKindForSentence(sentence: string, query: string, intent: AnswerInte
     return "monitoring";
   }
   if (
-    /\b(?:doses?|dosing|dosage|max(?:imum)?|\d+(?:\.\d+)?\s?(?:mg|mcg)|daily|bd|tds|mane|nocte|mmol\/l)\b/i.test(text)
+    /\b(?:doses?|dosing|dosage|max(?:imum)?|daily|bd|tds|mane|nocte|mmol\/l)\b/i.test(text) ||
+    clinicalDoseValuePattern.test(text)
   ) {
     return "dose";
   }

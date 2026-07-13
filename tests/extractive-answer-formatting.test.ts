@@ -12,6 +12,10 @@ describe("maximum-dose evidence", () => {
     expect(hasMaximumDoseEvidence("Olanzapine may be increased up to 20 mg daily.")).toBe(true);
     expect(hasMaximumDoseEvidence("The total daily dose must not exceed 20 mg.")).toBe(true);
     expect(hasMaximumDoseEvidence("Use no more than 2 tablets daily.")).toBe(true);
+    expect(hasMaximumDoseEvidence("The total daily dose must not exceed 20 milligrams.")).toBe(true);
+    expect(hasMaximumDoseEvidence("Use at most 500 micrograms daily.")).toBe(true);
+    expect(hasMaximumDoseEvidence("Limit the dose to 5 millilitres daily.")).toBe(true);
+    expect(hasMaximumDoseEvidence("Use no more than 10 international units daily.")).toBe(true);
     expect(hasMaximumDoseEvidence("The starting dose is 5 mg daily.")).toBe(false);
   });
 });
@@ -239,6 +243,42 @@ describe("extractive sentence stitching", () => {
 });
 
 describe("extractive answer end to end", () => {
+  it("uses equivalent maximum-dose wording even when the source omits maximum and dose tokens", () => {
+    const result = {
+      id: "olanzapine-chunk-1",
+      document_id: "olanzapine-doc",
+      title: "Olanzapine Prescribing Guideline",
+      file_name: "Olanzapine Prescribing Guideline.pdf",
+      page_number: 4,
+      chunk_index: 3,
+      section_heading: "Maintenance",
+      content: "Olanzapine may be increased up to 20 milligrams daily.",
+      image_ids: [],
+      similarity: 0.91,
+      hybrid_score: 0.95,
+      images: [],
+    } as unknown as SearchResult;
+
+    const answer = buildExtractiveAnswer({
+      query: "What is the maximum olanzapine dose?",
+      queryClass: "medication_dose_risk",
+      results: [result],
+      quoteCards: [],
+      documentBreakdown: [] as RagAnswer["documentBreakdown"],
+      evidenceSummary: undefined as unknown as RagAnswer["evidenceSummary"],
+      sourceCoverage: undefined as unknown as RagAnswer["sourceCoverage"],
+      conflictsOrGaps: [],
+      visualEvidence: [] as unknown as RagAnswer["visualEvidence"],
+      bestSource: undefined as unknown as RagAnswer["bestSource"],
+      smartPanel: undefined as unknown as RagAnswer["smartPanel"],
+      relatedDocuments: [] as unknown as RagAnswer["relatedDocuments"],
+      routeReason: "demo",
+      timings: undefined as unknown as RagAnswer["latencyTimings"],
+    });
+
+    expect((answer.answer ?? "").replace(/\*\*/g, "")).toMatch(/up to 20 milligrams daily/i);
+  });
+
   it("renders the lithium source-only case cleanly through buildExtractiveAnswer", () => {
     const result = {
       id: "lithium-chunk-1",

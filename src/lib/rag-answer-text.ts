@@ -291,7 +291,7 @@ export function hasClinicalAnswerQualityIssue(value: string) {
   bracketedCitationMarkerPattern.lastIndex = 0;
   clinicalAbbreviationCitationDigitPattern.lastIndex = 0;
   const bareDoseFigurePattern =
-    /\b(?:maximum(?:\s+(?:recommended|daily))?(?:\s+dose)?|dose(?:\s+(?:of|is|to))?|increase(?:d)?\s+to)\s*:?\s*\d+(?:\.\d+)?(?!\d|\.\d|\s*(?:mg|mcg|micrograms?|g|kg|ml|l|units?|iu|mmol(?:\/l)?|meq|tablets?|capsules?|puffs?|drops?|sprays?|patch(?:es)?)\b)/i;
+    /\b(?:maximum(?:\s+(?:recommended|daily))?(?:\s+dose)?|dose(?:\s+(?:of|is|to))?|increase(?:d)?\s+to)\s*:?\s*\d+(?:\.\d+)?(?!\d|\.\d|\s*(?:mg|milligrams?|mcg|micrograms?|g|grams?|kg|kilograms?|ml|millilit(?:er|re)s?|l|lit(?:er|re)s?|international\s+units?|units?|iu|mmol(?:\/l)?|millimoles?(?:\s+per\s+lit(?:er|re))?|meq|milliequivalents?|tablets?|capsules?|puffs?|drops?|sprays?|patch(?:es)?)\b)/i;
   return (
     sourceInventoryWordingPattern.test(normalized) ||
     clippedClinicalFragmentPattern.test(normalized) ||

@@ -483,7 +483,8 @@ async function createTextResult(
         requestId,
       });
     }
-    if (!outputText) {
+    const retryableEmptyTruncation = completion.truncated && completion.incompleteReason === "max_output_tokens";
+    if (!outputText && !retryableEmptyTruncation) {
       throw new PublicApiError("OpenAI returned no usable output.", 502, {
         code: "openai_missing_output",
         requestId,
