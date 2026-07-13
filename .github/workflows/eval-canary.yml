@@ -93,6 +93,9 @@ jobs:
       - name: Answer-quality subset (live generation)
         env:
           ANSWER_CASE_LIMIT: ${{ github.event.inputs.answer_case_limit || '8' }}
+          # Canary-only latency allowance: cross-region runner -> Sydney Supabase
+          # + OpenAI. Release/local eval:quality keeps the strict default gates.
+          EVAL_LATENCY_CONTEXT: cross-region-runner
         run: |
           if [[ ! "$ANSWER_CASE_LIMIT" =~ ^[0-9]+$ ]] || (( ANSWER_CASE_LIMIT < 1 || ANSWER_CASE_LIMIT > 100 )); then
             echo "answer_case_limit must be an integer from 1 to 100" >&2

@@ -1,3 +1,6 @@
 PyMuPDF>=1.24.0
 pillow>=10.0.0
 pytesseract>=0.3.10
+# Optional: clinical assertion tagging (negation/uncertainty), used only when
+# WORKER_MEDSPACY_ASSERTION=true. medspaCy pins its own compatible spaCy version.
+medspacy>=1.1.0

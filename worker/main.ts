@@ -42,7 +42,8 @@ import { probeSupabaseHealth } from "../src/lib/supabase/health";
 import type { Json, TablesInsert, TablesUpdate } from "../src/lib/supabase/database.types";
 import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
 import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
-import { checkPythonPdfPrerequisites } from "./prerequisites";
+import { checkMedspacyPrerequisites, checkPythonPdfPrerequisites } from "./prerequisites";
+import { annotateChunkAssertions, defaultAssertionTargets } from "./assertion-tagging";
 import { buildTableFactRows } from "./table-facts";
 
 type JobDocument = {
@@ -1428,6 +1429,18 @@ async function insertEmbeddedChunks(job: JobRow, extracted: ExtractedDocument) {
       },
     })),
   );
+  if (env.WORKER_MEDSPACY_ASSERTION) {
+    // Fail-open (annotateChunkAssertions never throws): a broken medspaCy install
+    // degrades to unannotated chunks, never a failed ingestion job.
+    const assertions = await annotateChunkAssertions(
+      chunks.map((chunk, index) => ({ id: String(index), text: chunk.content })),
+      defaultAssertionTargets(),
+    );
+    chunks.forEach((chunk, index) => {
+      const assertion = assertions.get(String(index));
+      if (assertion) chunk.metadata = { ...chunk.metadata, assertion };
+    });
+  }
   const indexedChunkRows: IndexedChunkRow[] = [];
 
   for (let start = 0; start < chunks.length; start += env.WORKER_BATCH_SIZE) {
@@ -1921,6 +1934,12 @@ async function main() {
   console.log(`Clinical KB worker started. worker=${workerId}`);
   if (!prereqs.ok) {
     console.warn(`PDF/OCR prerequisite warning: ${prereqs.detail}`);
+  }
+  if (env.WORKER_MEDSPACY_ASSERTION) {
+    const medspacyPrereqs = await checkMedspacyPrerequisites();
+    if (!medspacyPrereqs.ok) {
+      console.warn(`medspaCy assertion prerequisite warning (tagging will fail open): ${medspacyPrereqs.detail}`);
+    }
   }
 
   while (true) {
