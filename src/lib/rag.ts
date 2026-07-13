@@ -9,7 +9,6 @@ import {
 import { classifyCorpusGrounding } from "@/lib/corpus-grounding";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createStreamingAnswerExtractor } from "@/lib/answer-stream-extractor";
-import { documentSummaryQuestion } from "@/lib/answer-contract";
 import { embedTextWithTelemetry, generateStructuredTextResult, type OpenAITextResult } from "@/lib/openai";
 import {
   SOURCE_ONLY_EMBEDDING_SKIP_REASON,
@@ -107,7 +106,7 @@ export {
   retrievalPlanCacheQuery,
 } from "@/lib/rag-cache";
 import { classifySearchCacheOutcome, recordCacheLookup } from "@/lib/observability/cache-metrics";
-import { buildRagSourceBlock, compactContextText } from "@/lib/rag-source-block";
+import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag-source-block";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
 import {
   buildClinicalTextSearchQuery,
@@ -175,7 +174,7 @@ import {
   unavailableDocumentNoisePattern,
 } from "@/lib/rag-query-guard";
 export { shouldShortCircuitUnsupportedSearch } from "@/lib/rag-query-guard";
-import { isLowYieldClinicalText } from "@/lib/source-text-sanitizer";
+import { cleanClinicalSummaryText, isLowYieldClinicalText } from "@/lib/source-text-sanitizer";
 import {
   hasClinicalAnswerQualityIssue,
   isUsableAnswerSectionText,
@@ -5686,10 +5685,10 @@ ${qualityRetryInstruction}`
   }
 }
 
-/** Summarize a document through the same governed answer pipeline as every other question. */
+/** Summarize the committed document context; the route applies the shared client-response governance contract. */
 export async function summarizeDocument(documentId: string, ownerId?: string) {
   const supabase = createAdminClient();
-  let documentQuery = supabase.from("documents").select("id").eq("id", documentId);
+  let documentQuery = supabase.from("documents").select("id,title,file_name,metadata").eq("id", documentId);
 
   if (ownerId) {
     documentQuery = documentQuery.eq("owner_id", ownerId);
@@ -5699,10 +5698,79 @@ export async function summarizeDocument(documentId: string, ownerId?: string) {
 
   if (documentError) throw new Error(documentError.message);
   if (!document) throw new Error("Document not found.");
-  return answerQuestionWithScope({
-    query: documentSummaryQuestion,
-    documentId,
-    ownerId,
-    allowGlobalSearch: !ownerId,
+
+  const { data: chunks, error } = await supabase
+    .from("document_chunks")
+    .select(
+      "id,document_id,page_number,chunk_index,section_heading,content,retrieval_synopsis,image_ids,index_generation_id",
+    )
+    .eq("document_id", documentId)
+    .order("chunk_index", { ascending: true })
+    .limit(40);
+
+  if (error) throw new Error(error.message);
+  const committedGeneration = committedIndexGeneration((document as { metadata?: unknown }).metadata);
+  const committedChunks = (chunks ?? []).filter(
+    (chunk) => !chunk.index_generation_id || chunk.index_generation_id === committedGeneration,
+  );
+  if (!committedChunks.length) {
+    return {
+      answer: "This document has not been indexed yet, so no summary can be generated.",
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+    } satisfies RagAnswer;
+  }
+
+  const results = committedChunks.map((chunk) => ({
+    ...chunk,
+    title: document.title,
+    file_name: document.file_name,
+    source_metadata: normalizeSourceMetadata((document as { metadata?: unknown }).metadata),
+    similarity: 1,
+    images: [],
+  })) as SearchResult[];
+
+  const summaryInstructions = `Summarize a clinical document for practical psychiatric use in Perth, Australia.
+Use only the excerpts provided. Use a layered response: make the answer field a plain high-yield clinical paragraph,
+usually 1-3 short sentences and 35-75 words, then use answerSections for distinct structured support when it improves
+scanability. Do not prefix the answer with "Summary", "Key practical points", "Direct answer", or similar labels, and
+do not use bullets in the answer field. Focus on high-yield actions, thresholds, medication or risk monitoring,
+exceptions, comparisons, source gaps, and citations. Exclude administrative document-control details unless they
+change clinical action.
+Return data matching the supplied structured output schema.`;
+  const summaryInput = `Document:
+${neutralizeIdentityField(document.title)}
+
+Sources:
+${buildRagSourceBlock(results)}`;
+
+  const generated = await generateStructuredTextResult(summaryInput, answerJsonOutputSchemaForResults(results), {
+    model: env.OPENAI_ANSWER_MODEL,
+    maxOutputTokens: env.OPENAI_MAX_OUTPUT_TOKENS,
+    operation: "summary",
+    schemaName: "clinical_document_summary",
+    instructions: summaryInstructions,
+    promptCacheKey: "clinical-document-summary-v2",
+    reasoningEffort: env.OPENAI_SUMMARY_REASONING_EFFORT,
   });
+  const answer = parseAnswerJson(generated.text, results, "summary");
+  answer.answer = cleanClinicalSummaryText(answer.answer);
+  answer.quoteCards = reconcileQuoteCards(answer.quoteCards, results, "summary");
+  answer.documentBreakdown = buildDocumentBreakdown(results, answer.quoteCards);
+  answer.evidenceSummary = buildEvidenceSummary(results, answer.quoteCards);
+  answer.sourceCoverage = buildSourceCoverage(results);
+  answer.conflictsOrGaps = detectConflictsOrGaps(results);
+  answer.visualEvidence = buildVisualEvidence(results);
+  answer.bestSource = selectBestSourceRecommendation(results, answer.quoteCards);
+  answer.smartPanel = { ...buildSmartPanel("summary", results), bestSource: answer.bestSource };
+  answer.modelUsed = env.OPENAI_ANSWER_MODEL;
+  answer.openAIRequestIds = generated.requestId ? [generated.requestId] : [];
+  answer.openAIUsage = generated.usage;
+  answer.latencyTimings = {
+    generation_latency_ms: generated.latencyMs,
+    total_latency_ms: generated.latencyMs,
+  };
+  return assessAndEnforceClaimSupport(answer);
 }
