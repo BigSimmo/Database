@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 import { env, isDemoMode } from "@/lib/env";
-import type { AnswerSloSnapshot } from "@/lib/observability/answer-slo";
+import type { AnswerSloSnapshot, SloProbeClient } from "@/lib/observability/answer-slo";
 import { cacheMetricsSnapshot, type CacheMetricsSnapshot } from "@/lib/observability/cache-metrics";
 import type { SpendProbeClient, SpendSnapshot } from "@/lib/observability/spend-metrics";
 
@@ -51,7 +51,9 @@ export async function healthResponse(request: Request, options: HealthResponseOp
           checks.supabase = health.ok ? "ok" : "error";
           if (health.ok && options.includeSlo !== false) {
             try {
-              slo = await answerSloSnapshot(admin);
+              // Avoid recursively instantiating the full generated PostgREST
+              // client type against the intentionally tiny SLO query surface.
+              slo = await answerSloSnapshot(admin as unknown as SloProbeClient);
             } catch {
               slo = null;
             }
