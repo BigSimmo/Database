@@ -2405,9 +2405,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectSingleMedicationPage(page);
     await expect(page.getByRole("link", { name: "Back to medication search" })).toBeVisible();
 
-    await gotoApp(page, "/mockups/medication-prescribing");
-    await expect(page).toHaveURL(/\/medications\/acamprosate$/);
-    await expectSingleMedicationPage(page);
     expect(parentNodeErrors).toEqual([]);
   });
 

@@ -9,7 +9,7 @@ async function goto(page: Page, path: string) {
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 }
 
-test.describe("Tools mockups collapse the primary region when filtering", () => {
+test.describe("Tools mockups collapse the primary region when filtering @mockup", () => {
   test.describe.configure({ timeout: 60_000 });
 
   test("command center hides Start here and avoids a populated grid over an empty state", async ({ page }) => {
