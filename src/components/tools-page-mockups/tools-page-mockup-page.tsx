@@ -1103,7 +1103,14 @@ function SplitPaneMockup() {
                   {filter.filtered.length > 0 ? (
                     <div className="grid gap-3 sm:grid-cols-2">
                       {filter.filtered.map((tool) => (
-                        <ToolCard key={tool.id} tool={tool} suggested={tool.id === suggestedId} />
+                        <WideToolTile
+                          key={tool.id}
+                          tool={tool}
+                          suggested={tool.id === suggestedId}
+                          compact
+                          selected={selectedToolId === tool.id}
+                          onSelect={() => setSelectedToolId(tool.id)}
+                        />
                       ))}
                     </div>
                   ) : (

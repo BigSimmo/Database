@@ -75,7 +75,7 @@ export function sanitizeQuoteCards(
       if (!quote) return null;
       if (!isExactSourceQuote(quote, source)) return null;
       return {
-        ...resultCitation(source),
+        ...resultCitation(source, "exact_quote"),
         quote,
         section_heading: card.section_heading ?? source.section_heading,
       } satisfies QuoteCard;
@@ -100,8 +100,9 @@ export function enrichGroundedReviewCitations(answer: RagAnswer, results: Search
   if ((answer.unverifiedNumericTokens?.length ?? 0) > 0 || answer.faithfulnessWarning) return answer;
 
   const existing = new Set(answer.citations.map((citation) => citation.chunk_id));
+  const verifiedQuoteIds = new Set((answer.quoteCards ?? []).map((quote) => quote.chunk_id));
   const additional = compactCitations(results)
-    .filter((citation) => !existing.has(citation.chunk_id))
+    .filter((citation) => verifiedQuoteIds.has(citation.chunk_id) && !existing.has(citation.chunk_id))
     .slice(0, minCitations - answer.citations.length);
   if (additional.length === 0) return answer;
 

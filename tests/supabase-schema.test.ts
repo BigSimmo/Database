@@ -54,6 +54,18 @@ const ingestionJobsOneOpenMigration = readFileSync(
   new URL("../supabase/migrations/20260708170000_ingestion_jobs_one_open_per_document.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const retrievalPublicExecuteMigration = readFileSync(
+  new URL("../supabase/migrations/20260708150150_harden_retrieval_public_execute.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ingestionRpcPrivilegesMigration = readFileSync(
+  new URL("../supabase/migrations/20260709062443_reconcile_ingestion_rpc_privileges_production.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ingestionRpcPrivilegesDuplicateMigration = readFileSync(
+  new URL("../supabase/migrations/20260709150000_reconcile_ingestion_rpc_privileges.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const atomicReindexMigration = readFileSync(
   new URL("../supabase/migrations/20260628000000_atomic_reindex_generation_commit.sql", import.meta.url),
   "utf8",
@@ -82,6 +94,18 @@ const promoteIndexGenerationIdMigration = readFileSync(
 ).replace(/\s+/g, " ");
 const indexingV3AgentJobsMigration = readFileSync(
   new URL("../supabase/migrations/20260702190000_indexing_v3_agent_jobs_table.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const routeEnrichmentThroughAgentMigration = readFileSync(
+  new URL("../supabase/migrations/20260713062139_route_enrichment_through_agent.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ragRemediationFunctionReconciliationMigration = readFileSync(
+  new URL("../supabase/migrations/20260713083000_reconcile_rag_remediation_functions.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const deepMemoryCommitReconciliationMigration = readFileSync(
+  new URL("../supabase/migrations/20260713090500_reconcile_deep_memory_commit.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const clinicalRegistryRecordsMigration = readFileSync(
@@ -128,6 +152,10 @@ const searchDocumentChunksOwnerScopeMigration = readFileSync(
   new URL("../supabase/migrations/20260705133000_tighten_search_document_chunks_owner_scope.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const retrievalPlanCacheMigration = readFileSync(
+  new URL("../supabase/migrations/20260711120000_retrieval_fn_plan_cache_mode.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -146,6 +174,21 @@ function extractIndexUnitHybridFunction(sql: string) {
 }
 
 describe("Supabase schema Data API grants", () => {
+  it("codifies custom plans for non-inlined retrieval functions", () => {
+    for (const functionName of [
+      "match_document_table_facts_text",
+      "match_document_memory_cards_hybrid",
+      "match_document_index_units_hybrid",
+      "match_document_embedding_fields_hybrid",
+    ]) {
+      const start = schema.indexOf(`create or replace function public.${functionName}(`);
+      const end = schema.indexOf("as $$", start);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(schema.slice(start, end)).toContain("set plan_cache_mode = 'force_custom_plan'");
+      expect(retrievalPlanCacheMigration).toContain(`alter function public.${functionName}`);
+    }
+  });
+
   it("explicitly grants service-role access for upload and ingestion tables", () => {
     expect(schema).toContain("public.import_batches,");
     expect(schema).toContain("public.document_labels,");
@@ -157,17 +200,12 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("grant execute on all functions in schema public to service_role;");
   });
 
-  it("keeps browser Data API grants read-only except manual labels", () => {
+  it("keeps browser Data API table privileges disabled", () => {
     expect(schema).toContain("revoke all privileges on all tables in schema public from anon, authenticated;");
     expect(schema).toContain("revoke execute on all functions in schema public from public, anon, authenticated;");
-    expect(schema).toMatch(
-      /grant select on table .*public\.documents, .*public\.document_pages, .*public\.document_images, .*public\.document_labels, .*public\.document_summaries, .*public\.document_chunks, .*public\.ingestion_jobs, .*public\.rag_queries, .*public\.storage_cleanup_jobs.* to authenticated;/,
-    );
+    expect(schema).not.toMatch(/grant [^;]* on table [^;]* to authenticated;/);
     expect(schema).not.toContain("grant select, insert, update, delete on table public.documents to authenticated;");
     expect(schema).not.toContain("grant select, insert on table public.rag_queries to authenticated;");
-    const authenticatedSelectGrant = schema.match(/grant select on table ([^;]+) to authenticated;/)?.[1] ?? "";
-    expect(authenticatedSelectGrant).not.toContain("public.document_sections");
-    expect(authenticatedSelectGrant).not.toContain("public.document_memory_cards");
     expect(schema).not.toMatch(/grant [^;]* on table [^;]*public\.document_sections[^;]* to authenticated;/);
     expect(schema).not.toMatch(/grant [^;]* on table [^;]*public\.document_memory_cards[^;]* to authenticated;/);
     expect(schema).not.toMatch(/grant [^;]* on table [^;]* to anon;/);
@@ -243,6 +281,9 @@ describe("Supabase schema Data API grants", () => {
       );
     }
     expect(schema).toContain(
+      "revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated, service_role",
+    );
+    expect(schema).not.toContain(
       "grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role",
     );
     expect(atomicReindexMigration).toContain("atomic reindex patch did not match match_document_chunks_hybrid");
@@ -368,6 +409,25 @@ describe("Supabase schema Data API grants", () => {
       "revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated",
     );
     expect(schema).toContain("grant execute on function public.invoke_indexing_v3_agent(integer) to service_role");
+  });
+
+  it("keeps enrichment requests conflict-safe with job-first locking and complete reset metadata", () => {
+    for (const sql of [schema, routeEnrichmentThroughAgentMigration]) {
+      const start = sql.indexOf("create or replace function public.request_indexing_v3_enrichment");
+      const end = sql.indexOf("$$;", start);
+      const body = sql.slice(start, end);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(start);
+      expect(body).toContain("on conflict (document_id) do nothing");
+      expect(body).toContain("select id, status into v_job_id, v_job_status");
+      expect(body).toContain("from public.indexing_v3_agent_jobs");
+      expect(body).toContain("for update");
+      expect(body).toContain("v_job_status = 'processing'");
+      expect(body.indexOf("from public.indexing_v3_agent_jobs")).toBeLessThan(
+        body.lastIndexOf("from public.documents"),
+      );
+      expect(body).toContain("'indexing_v3_agent_attempt_count' - 'indexing_v3_agent_max_attempts'");
+    }
   });
 
   it("drops the stale duplicate ingestion_job_stages document index", () => {
@@ -875,6 +935,43 @@ describe("RC9 — lexical text path must not fabricate a cosine similarity", () 
 });
 
 describe("Supabase Preview replay guards", () => {
+  it("codifies owner-plus-public RPCs and forwards the canonical remediation functions", () => {
+    for (const functionName of [
+      "retrieval_owner_matches_v2",
+      "corpus_topic_term_stats_v2",
+      "match_document_chunks_text_v2",
+      "match_document_chunks_hybrid_v2",
+      "match_document_chunks_v2",
+      "get_related_document_metadata_v2",
+      "match_document_lookup_chunks_text_v2",
+      "match_documents_for_query_v2",
+      "match_document_table_facts_text_v2",
+      "match_document_embedding_fields_hybrid_v2",
+      "match_document_index_units_hybrid_v2",
+      "match_document_memory_cards_hybrid_v3",
+    ]) {
+      expect(schema).toContain(`create or replace function public.${functionName}(`);
+    }
+    expect(ragRemediationFunctionReconciliationMigration).toContain(
+      "create or replace function public.commit_document_deep_memory_generation(",
+    );
+    expect(ragRemediationFunctionReconciliationMigration).toContain(
+      "create or replace function public.request_indexing_v3_enrichment(",
+    );
+    expect(ragRemediationFunctionReconciliationMigration).toContain("on conflict (document_id) do nothing");
+    expect(ragRemediationFunctionReconciliationMigration).toContain("for update");
+    expect(deepMemoryCommitReconciliationMigration).toContain(
+      "create or replace function public.commit_document_deep_memory_generation(",
+    );
+    expect(deepMemoryCommitReconciliationMigration).toContain(
+      "Re-check producer evidence inside the transaction. Legacy NULL-generation",
+    );
+    expect(deepMemoryCommitReconciliationMigration).toContain("local-worker rows predate explicit producer metadata");
+    expect(deepMemoryCommitReconciliationMigration).toContain(
+      "and metadata->>'artifact_generation_id' = p_artifact_generation_id::text",
+    );
+  });
+
   it("keeps retrieval_synopsis when adding lexical_score to match_document_chunks_text", () => {
     expect(lexicalScoreMigration).toContain("retrieval_synopsis text");
     expect(lexicalScoreMigration).toContain("c.retrieval_synopsis");
@@ -913,5 +1010,22 @@ describe("Supabase Preview replay guards", () => {
     expect(ingestionJobsOneOpenNeutralizedMigration).not.toContain("concurrently");
     expect(ingestionJobsOneOpenMigration).toContain("ingestion_jobs_one_open_per_document_uidx");
     expect(ingestionJobsOneOpenMigration).not.toContain("concurrently");
+  });
+
+  it("codifies production ACL migration versions and neutralizes the later duplicate", () => {
+    expect(retrievalPublicExecuteMigration).toContain(
+      "revoke execute on function public.retrieval_owner_matches(uuid, uuid)",
+    );
+    expect(retrievalPublicExecuteMigration).toContain(
+      "revoke execute on function public.search_document_chunks(uuid, text, integer, uuid)",
+    );
+    expect(ingestionRpcPrivilegesMigration).toContain(
+      "revoke execute on function public.complete_ingestion_job(uuid, uuid, uuid, text, text)",
+    );
+    expect(ingestionRpcPrivilegesMigration).toContain(
+      "revoke execute on function public.fail_or_retry_ingestion_job(uuid, uuid, uuid, boolean, text, text, text, timestamp with time zone, text)",
+    );
+    expect(ingestionRpcPrivilegesDuplicateMigration).toContain("NEUTRALIZED 2026-07-13");
+    expect(ingestionRpcPrivilegesDuplicateMigration).toContain("select 1 where false;");
   });
 });

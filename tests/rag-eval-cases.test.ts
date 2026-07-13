@@ -249,10 +249,37 @@ describe("captured RAG eval cases", () => {
     expect(quality?.expectedFiles).toEqual(["MHSP.Duress.pdf"]);
   });
 
-  it("scores an acceptSourceOnly case as relevant for a clean source-only answer", () => {
+  it("scores an acceptSourceOnly source-only answer as relevant only when it still cites the expected doc", () => {
     const testCase = answerQualityEvalCases.find((item) => item.id === "quality-discharge-documentation")!;
-    const sourceOnly = {
-      answer: "No current indexed document directly supporting this request was found.",
+
+    const citingExpected = {
+      answer: "The uploaded discharge documents are cited below — review them directly.",
+      grounded: false,
+      confidence: "unsupported",
+      citations: [
+        {
+          chunk_id: "discharge-1",
+          document_id: "discharge-doc",
+          title: "Discharge",
+          file_name: "MHSP.Discharge.pdf",
+          page_number: 1,
+          chunk_index: 0,
+        },
+      ],
+      sources: [],
+      routingMode: "extractive",
+      queryClass: "document_lookup",
+      answerSections: [],
+    } satisfies RagAnswer;
+    const withCite = scoreAnswerQualityEvalCase(testCase, citingExpected).find((s) => s.metric === "relevance");
+    expect(withCite?.score).toBe(1);
+
+    // A source-only answer that no longer surfaces the expected document must NOT score relevant —
+    // otherwise a retrieval regression that stops returning MHSP.Discharge.pdf would hide here.
+    // A prose mention of the topic ("discharge") must NOT rescue an uncited answer — coverage is
+    // citation-based, not answer-text based (the doc-name alternatives include bare topic tokens).
+    const withoutCite = {
+      answer: "No current source with discharge documentation guidance was found.",
       grounded: false,
       confidence: "unsupported",
       citations: [],
@@ -261,9 +288,8 @@ describe("captured RAG eval cases", () => {
       queryClass: "document_lookup",
       answerSections: [],
     } satisfies RagAnswer;
-
-    const relevance = scoreAnswerQualityEvalCase(testCase, sourceOnly).find((score) => score.metric === "relevance");
-    expect(relevance?.score).toBe(1);
+    const noCite = scoreAnswerQualityEvalCase(testCase, withoutCite).find((s) => s.metric === "relevance");
+    expect(noCite?.score).toBe(0);
   });
 
   it("scores answer quality for relevance, readability, artifacts, intent coverage, and fail-closed behavior", () => {

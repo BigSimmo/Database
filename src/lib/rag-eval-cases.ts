@@ -128,8 +128,15 @@ export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answ
   const expectedClassOk = !testCase.expectedQueryClass || answer.queryClass === testCase.expectedQueryClass;
   const relevanceOk = testCase.supported
     ? testCase.acceptSourceOnly
-      ? // Diffuse question: a grounded synthesis OR a source-only/unsupported answer is acceptable.
-        (answer.grounded || unsupported) && expectedClassOk
+      ? // Diffuse question: a grounded synthesis OR a source-only/unsupported answer is acceptable,
+        // but it must still CITE the expected documents. A prose mention is not enough — the doc-name
+        // alternatives include bare topic tokens (e.g. "duress"), so a gap answer that merely names
+        // the topic would slip through. Require citation coverage, otherwise a source-only answer
+        // that stopped retrieving the expected doc would still score relevant and hide a retrieval
+        // regression in this canary.
+        (answer.grounded || unsupported) &&
+        expectedClassOk &&
+        expectedFileCoverage(testCase.expectedFiles, answer.citations, answer.citations.length).anyHit
       : answer.grounded && answer.citations.length >= testCase.minCitations && expectedClassOk
     : unsupported;
   const readabilityOk = wordCount >= 5 && wordCount <= 220 && !fragmentPattern.test(text);

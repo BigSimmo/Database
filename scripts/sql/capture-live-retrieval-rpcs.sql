@@ -1,7 +1,12 @@
 -- capture-live-retrieval-rpcs.sql  (READ-ONLY)
 --
--- Captures the VERBATIM live bodies of the retrieval RPCs that are still flagged
--- "LIVE IS AHEAD" in supabase/drift-allowlist.json, so their definitions can be
+-- Captures the VERBATIM live bodies of retrieval RPCs still flagged
+-- "LIVE IS AHEAD" in supabase/drift-allowlist.json. The target set is currently
+-- empty because the 20260712 live-ahead definitions have been forward-codified.
+-- If drift reappears, add only the newly allowlisted signatures between the
+-- guard markers below so the test and capture query stay synchronized.
+--
+-- Definitions are forward-codified into a migration + supabase/schema.sql without
 -- forward-codified into a migration + supabase/schema.sql WITHOUT hand-authoring
 -- them. These bodies are complex, have diverged in both directions (e.g. the
 -- fail-closed retrieval_owner_matches predicate was applied to live while live
@@ -27,11 +32,7 @@
 -- pg_proc. Run it via the Supabase Dashboard SQL editor, an approved
 -- service-role SQL path, or the Supabase MCP execute_sql tool.
 --
--- Expect EXACTLY 7 rows back (one per target). A target that no longer resolves
--- on live (renamed, dropped, or already reconciled) is filtered out and simply
--- yields FEWER rows — the query does not error. If you get fewer than 7, find
--- which with the "missing signatures" snippet in the work-order and reconcile
--- the target set + allowlist before continuing.
+-- Expect zero rows while the drift allowlist has no LIVE IS AHEAD targets.
 --
 -- search_path is pinned to '' so oid::regprocedure renders fully-qualified and
 -- matches the allowlist keys / schema_drift_snapshot() signatures exactly, and
@@ -43,25 +44,8 @@
 
 set search_path = '';
 
-select
-  r.signature,
-  pg_get_functiondef(r.proc) as definition
-from (
-  select t.signature, to_regprocedure(t.signature) as proc
-  from (
-    -- >>> forward-codify targets >>> (kept in lockstep with the "LIVE IS AHEAD"
-    -- retrieval entries in supabase/drift-allowlist.json — see
-    -- tests/forward-codify-retrieval-targets.test.ts)
-    values
-      ('public.get_related_document_metadata(uuid[],uuid)'),
-      ('public.match_document_chunks(extensions.vector,integer,double precision,uuid,uuid)'),
-      ('public.match_document_chunks_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)'),
-      ('public.match_document_chunks_text(text,integer,uuid[],uuid)'),
-      ('public.match_document_table_facts_text(text,integer,uuid[],uuid)'),
-      ('public.match_documents_for_query(text,integer,uuid)'),
-      ('public.repair_strict_enrichment_gate_batch(integer)')
-    -- <<< forward-codify targets <<<
-  ) as t(signature)
-) as r
-where r.proc is not null
-order by r.signature;
+-- >>> forward-codify targets >>> (kept in lockstep with the LIVE IS AHEAD
+-- retrieval entries in supabase/drift-allowlist.json; currently empty)
+-- <<< forward-codify targets <<<
+select null::text as signature, null::text as definition
+where false;
