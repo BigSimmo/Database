@@ -109,9 +109,9 @@ Clinician browser
    │        • source_chunk_ids= real chunk UUIDs                            ← owner's own data
    │        • metadata.query_hash = HMAC/SHA-256 (query-privacy.ts:51)
    │
-   └──►(E) RESPONSE CACHE (Supabase rag_response_cache, owner-scoped)
+   └──►(E) RESPONSE CACHE (Supabase rag_response_cache, authenticated owner-scoped)
           payload = full answer, TTL ~5 min (RAG_ANSWER_CACHE_TTL_MS)
-          keyed by owner_id predicate (rag.ts:1667) — no cross-tenant serve
+          disabled for anonymous answers; authenticated rows are keyed by owner_id
    ▼
 Clinician browser  ← answer + citations
 ```
@@ -323,8 +323,8 @@ material shortfall is **governance/contractual** — the APP 8 cross-border DPA/
 collection notices are now live on `main`; see PIA-1 progress) — plus the **hardening** item still
 open (conditional HMAC). Un-redacted answer retention (PIA-3) is now closed for the durable log; the
 `rag_response_cache` still retains answers until a same-key overwrite (read-TTL only, no purge cron —
-see §8). None of these are cross-tenant data-leak bugs — the tenancy review found **zero** confirmed
-cross-tenant leaks — they are compliance-posture and PHI-minimisation gaps.
+see §8). Anonymous answer caching is disabled, and the tenancy review found **zero** confirmed
+cross-tenant leaks. The remaining items are compliance-posture and PHI-minimisation gaps.
 
 ---
 

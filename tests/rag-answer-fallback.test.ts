@@ -1255,8 +1255,13 @@ describe("RAG structured-output fallback", () => {
       logQuery: false,
       signal: controller.signal,
     });
-    // A second identical request coalesces onto the (now-doomed) in-flight promise.
+    // Two identical waiters coalesce onto the (now-doomed) in-flight promise.
     const second = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-1",
+      logQuery: false,
+    });
+    const third = answerQuestionWithScope({
       query: "Summarize inpatient approach",
       ownerId: "owner-1",
       logQuery: false,
@@ -1265,8 +1270,9 @@ describe("RAG structured-output fallback", () => {
     // The originator's failure stays with the originator...
     await expect(first).rejects.toBeTruthy();
     // ...and the coalesced caller still gets a real, independently generated answer rather than a 500.
-    const secondAnswer = await second;
+    const [secondAnswer, thirdAnswer] = await Promise.all([second, third]);
     expect(secondAnswer.openAIRequestIds).toEqual(["req_independent"]);
+    expect(thirdAnswer.openAIRequestIds).toEqual(["req_independent"]);
     expect(secondAnswer.routingReason ?? "").not.toContain("answer_inflight_coalesced");
     // It ran its OWN pipeline (search + generation once) instead of cloning the failed one.
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);

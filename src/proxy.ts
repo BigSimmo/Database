@@ -25,8 +25,6 @@ import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-
 
 const documentFlowRedirects: Record<string, string> = {
   "/mockups/document-search-command": "/documents/search",
-  "/mockups/document-search/source": "/documents/source",
-  "/mockups/document-search/source/evidence": "/documents/source/evidence",
 };
 
 // Same runtime flags next.config.ts uses for the static headers, so the nonce'd

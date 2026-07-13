@@ -61,11 +61,16 @@ export function cloneAnswer(answer: RagAnswer) {
   return structuredClone(answer);
 }
 
+/** Anonymous callers share no stable identity, so their PHI-bearing answers must never be cached or coalesced. */
+export function answerCacheAllowedForOwner(ownerId?: string | null) {
+  return Boolean(ownerId);
+}
+
 export async function getCachedAnswer(
   args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
   startedAt: number,
 ): Promise<RagAnswer | null> {
-  if (args.skipCache) return null;
+  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return null;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return null;
 
   const key = scopedAnswerCacheKey(args);
@@ -95,7 +100,7 @@ export async function setCachedAnswer(
   answer: RagAnswer,
   options?: { indexingVersionAtRetrievalStart?: string | null },
 ): Promise<void> {
-  if (args.skipCache) return;
+  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return;
 
   if (options?.indexingVersionAtRetrievalStart) {
@@ -446,7 +451,7 @@ export async function getSharedCachedAnswer(
   >,
   startedAt: number,
 ) {
-  if (args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return null;
+  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return null;
   try {
     const indexingVersion = await cacheIndexingVersion(args);
     const { data, error } = await sharedCacheSelector(
@@ -534,7 +539,7 @@ function setSharedCachedAnswer(
   >,
   answer: RagAnswer,
 ) {
-  if (args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return;
+  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return;
   void replaceSharedCacheRow("answer", args, { answer: cloneAnswer(answer) }, env.RAG_ANSWER_CACHE_TTL_MS);
 }
 

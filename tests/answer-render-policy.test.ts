@@ -143,6 +143,18 @@ describe("answer render policy", () => {
     expect(model.copyText).toContain("/documents/doc-1?page=4&chunk=chunk-1");
   });
 
+  it("omits the table-evidence heading when displayed evidence has no table rows", () => {
+    const text = formatAnswerRenderCopyText({
+      answerText: "Review the image source.",
+      trust: "high",
+      primarySources: [],
+      warnings: [],
+      visualEvidence: [visual({ tableRows: undefined, tableColumns: undefined })],
+    });
+
+    expect(text).not.toContain("Displayed table evidence");
+  });
+
   it("strips high-yield bold markers from the copy/paste clinical draft", () => {
     const model = buildAnswerRenderModel(
       answer({

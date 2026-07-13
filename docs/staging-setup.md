@@ -25,15 +25,13 @@ those vars are unset.
 
 2. **Apply the schema.** From a checkout linked to the staging project:
 
-   ````bash
+   ```bash
    supabase link --project-ref <staging-ref>
    supabase db push          # applies supabase/migrations/* → matches schema.sql
-   ```dotenv
+   ```
 
    Then confirm health: `npm run check:indexing` (runs `search_schema_health()`
    over the hybrid RPCs) should report ok.
-
-   ````
 
 3. **Seed a small corpus (~50 docs).** Use synthetic/public content only — do
    **not** copy clinical production documents into staging.
