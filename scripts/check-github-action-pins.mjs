@@ -36,6 +36,7 @@ const usesPattern = /^\s*uses:\s*([^@\s]+)@v(\d+)\s*(?:#.*)?$/;
 const runsOnLatestPattern = /^\s*runs-on:\s*ubuntu-latest\s*(?:#.*)?$/;
 const failures = [];
 const expectedSupabaseCliVersion = "2.108.0";
+const expectedSupabaseCliVersionPattern = expectedSupabaseCliVersion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 for (const fileName of readdirSync(workflowDir)
   .filter((name) => /\.ya?ml$/i.test(name))
@@ -72,7 +73,7 @@ const migrationJob = yamlBlock(ciWorkflow, "db-reset-verify:", 2);
 const setupSupabaseStep = yamlBlock(migrationJob, "- name: Setup Supabase CLI", 6);
 const restoreSupabaseStep = yamlBlock(migrationJob, "- name: Restore Supabase Docker image cache", 6);
 const saveSupabaseStep = yamlBlock(migrationJob, "- name: Save Supabase Docker images", 6);
-if (!/^  SUPABASE_CLI_VERSION: 2\.108\.0$/m.test(ciWorkflow)) {
+if (!new RegExp(`^  SUPABASE_CLI_VERSION: ${expectedSupabaseCliVersionPattern}$`, "m").test(ciWorkflow)) {
   failures.push(`ci.yml: global SUPABASE_CLI_VERSION must remain pinned to ${expectedSupabaseCliVersion}.`);
 }
 if (!/^          version: \$\{\{ env\.SUPABASE_CLI_VERSION \}\}$/m.test(setupSupabaseStep)) {

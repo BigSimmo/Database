@@ -1482,6 +1482,8 @@ export function ClinicalDashboard({
         return [...current, ...nextDocuments.filter((document) => !seen.has(document.id))];
       });
       setDocumentsPagination(payload.pagination ?? null);
+    } catch (error) {
+      if (!isAbortError(error)) setApiUnavailable(true);
     } finally {
       setLoadingMoreDocuments(false);
     }
