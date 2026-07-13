@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import * as ts from "typescript";
+import { parse } from "@babel/parser";
 import { describe, expect, it } from "vitest";
 
 // The dashboard render surfaces are progressively being extracted from the
@@ -17,7 +17,10 @@ const scannedFiles = [
   return {
     path,
     source,
-    ast: ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX),
+    ast: parse(source, {
+      sourceType: "module",
+      plugins: ["jsx", "typescript"],
+    }),
   };
 });
 
@@ -28,37 +31,38 @@ const globalSearchShellSource = readFileSync(
 const clinicalDashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
 const globalStylesSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
 
-type FoundDeclaration = { node: ts.FunctionDeclaration; ast: ts.SourceFile };
+type FoundDeclaration = { source: string };
 
 function findFunctionDeclaration(name: string): FoundDeclaration | null {
   for (const file of scannedFiles) {
-    let found: ts.FunctionDeclaration | null = null;
-
-    function visit(node: ts.Node) {
-      if (found) return;
-      if (ts.isFunctionDeclaration(node) && node.name?.text === name) {
-        found = node;
+    let found: string | null = null;
+    const visit = (node: unknown) => {
+      if (found || !node || typeof node !== "object") return;
+      const current = node as Record<string, unknown>;
+      const identifier = current.id as Record<string, unknown> | undefined;
+      if (
+        current.type === "FunctionDeclaration" &&
+        identifier?.type === "Identifier" &&
+        identifier.name === name &&
+        typeof current.start === "number" &&
+        typeof current.end === "number"
+      ) {
+        found = file.source.slice(current.start, current.end);
         return;
       }
-      ts.forEachChild(node, visit);
-    }
-
+      for (const value of Object.values(current)) {
+        if (Array.isArray(value)) value.forEach(visit);
+        else visit(value);
+      }
+    };
     visit(file.ast);
-    if (found) return { node: found, ast: file.ast };
+    if (found) return { source: found };
   }
   return null;
 }
 
-function descendantIdentifiers(node: ts.Node) {
-  const identifiers = new Set<string>();
-
-  function visit(current: ts.Node) {
-    if (ts.isIdentifier(current)) identifiers.add(current.text);
-    ts.forEachChild(current, visit);
-  }
-
-  visit(node);
-  return identifiers;
+function descendantIdentifiers(source: string) {
+  return new Set(source.match(/\b[A-Za-z_$][\w$]*\b/g) ?? []);
 }
 
 describe("ClinicalDashboard merge-artifact guards", () => {
@@ -96,8 +100,8 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(panel, "ClinicalOutputPanel should remain a local function declaration").not.toBeNull();
     if (!panel) throw new Error("ClinicalOutputPanel should remain a local function declaration");
 
-    const panelSource = panel.node.getText(panel.ast);
-    const panelIdentifiers = descendantIdentifiers(panel.node);
+    const panelSource = panel.source;
+    const panelIdentifiers = descendantIdentifiers(panel.source);
 
     expect(panelIdentifiers.has("copiedWardNote")).toBe(false);
     expect(panelIdentifiers.has("onCopyWardNote")).toBe(false);
@@ -113,7 +117,7 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(answer, "NaturalLanguageAnswer should remain a local function declaration").not.toBeNull();
     if (!answer) throw new Error("NaturalLanguageAnswer should remain a local function declaration");
 
-    const answerSource = answer.node.getText(answer.ast);
+    const answerSource = answer.source;
     expect(answerSource).toContain("plain-answer-prose");
     expect(answerSource).not.toContain("parseAnswerDisplayContent");
     expect(answerSource).not.toContain("AnswerSymbolTile");
