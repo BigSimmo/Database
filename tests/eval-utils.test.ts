@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_EVAL_OWNER_ID,
   expectedFileCoverage,
+  isProviderQuotaError,
   isProviderRateLimitError,
   pauseBetweenEvalCases,
   resolveEvalOwnerId,
@@ -207,6 +208,27 @@ describe("RAG eval source identity matching", () => {
     expect(result).toBe("ok");
     expect(attempts).toBe(2);
     expect(isProviderRateLimitError(new Error("429 too many requests"))).toBe(true);
+  });
+
+  it("fails immediately when provider quota is exhausted", async () => {
+    const operation = vi.fn(async () => {
+      throw Object.assign(new Error("OpenAI quota is exhausted. Falling back to a source-only answer."), {
+        status: 429,
+        details: { code: "insufficient_quota" },
+      });
+    });
+
+    await expect(
+      withProviderBackoff("test-quota", operation, { maxAttempts: 6, initialDelayMs: 1, maxDelayMs: 1 }),
+    ).rejects.toThrow(/quota is exhausted/i);
+
+    expect(operation).toHaveBeenCalledTimes(1);
+    expect(isProviderQuotaError(new Error("Billing hard limit reached."))).toBe(true);
+    expect(
+      isProviderRateLimitError(
+        Object.assign(new Error("429 too many requests"), { details: { code: "insufficient_quota" } }),
+      ),
+    ).toBe(false);
   });
 
   it("keeps progress only from the successful provider attempt", async () => {
