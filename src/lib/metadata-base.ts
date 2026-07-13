@@ -4,6 +4,12 @@ export type MetadataBaseOptions = {
   allowRequestOrigin?: boolean;
 };
 
+/**
+ * Parses a value as an HTTP or HTTPS URL.
+ *
+ * @param value - The URL value to parse.
+ * @returns The parsed URL when it uses HTTP or HTTPS; `undefined` otherwise.
+ */
 function httpUrl(value: string | undefined) {
   const candidate = value?.trim();
   if (!candidate) return undefined;
@@ -15,7 +21,16 @@ function httpUrl(value: string | undefined) {
   }
 }
 
-/** Resolve metadata from validated configuration, trusted deployment state, or an explicit dev fallback. */
+/**
+ * Resolves the base URL used for metadata generation.
+ *
+ * Sources are considered in order: configured site URL, trusted deployment domain,
+ * and the request origin when explicitly enabled.
+ *
+ * @param requestHeaders - Headers used to derive the request origin.
+ * @param options - Configuration controlling the fallback sources.
+ * @returns A valid HTTP or HTTPS metadata base URL, or `undefined` when none can be resolved.
+ */
 export function resolveMetadataBase(requestHeaders: Headers, options: MetadataBaseOptions = {}) {
   const configuredUrl = httpUrl(options.configuredSiteUrl);
   if (configuredUrl) return configuredUrl;

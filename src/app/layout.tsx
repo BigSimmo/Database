@@ -27,6 +27,11 @@ const baseMetadata: Metadata = {
   },
 };
 
+/**
+ * Generates application metadata with a request-aware base URL.
+ *
+ * @returns The application metadata, including its resolved base URL.
+ */
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
   return {

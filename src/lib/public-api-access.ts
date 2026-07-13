@@ -11,6 +11,12 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 
 export type RateLimitSubject = { kind: "owner"; ownerId: string } | { kind: "anonymous"; subjectKey: string };
 
+/**
+ * Extracts the last non-empty IP address from a proxy forwarding header value.
+ *
+ * @param value - A comma-separated proxy forwarding header value
+ * @returns The last trimmed IP address, or an empty string when no address is present
+ */
 function trustedProxyIp(value: string | null) {
   const forwarded = value
     ?.split(",")
@@ -19,6 +25,12 @@ function trustedProxyIp(value: string | null) {
   return forwarded?.at(-1) ?? "";
 }
 
+/**
+ * Determines the request's source IP from trusted proxy forwarding headers.
+ *
+ * @param request - The request containing the proxy forwarding headers
+ * @returns The last non-empty address from `x-forwarded-for`, the address from `x-real-ip`, or `"unknown-ip"` when neither header provides an address
+ */
 function requestIpSignal(request: Request) {
   return (
     trustedProxyIp(request.headers.get("x-forwarded-for")) ||
@@ -27,6 +39,12 @@ function requestIpSignal(request: Request) {
   );
 }
 
+/**
+ * Creates a stable anonymous rate-limit subject key from the request's trusted proxy IP signal.
+ *
+ * @param request - The request from which to derive the IP signal
+ * @returns A prefixed, truncated SHA-256 hash of the source IP signal
+ */
 export function anonymousApiSubjectKey(request: Request) {
   // Trust only the deployment proxy's appended forwarding entry. Ignore the
   // caller-controlled Cloudflare/User-Agent values and any leading XFF entries:
