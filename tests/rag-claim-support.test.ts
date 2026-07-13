@@ -253,12 +253,12 @@ describe("deterministic claim support", () => {
     expect(assessAndEnforceClaimSupport(input).responseMode).toBe("evidence_gap");
   });
 
-  it("accepts an accurately attributed three-document comparison with one explicit missing cell", () => {
+  it("accepts an accurately attributed comparison with a bounded non-clinical missing cell", () => {
     const protocolA = source("a", "Protocol A sets the clozapine ANC threshold below 1.5 x 10^9/L.");
     const protocolB = source("b", "Protocol B sets the clozapine ANC threshold below 1.0 x 10^9/L.");
     const protocolC = source("c", "Protocol C discusses clozapine governance without an ANC threshold.");
     const input = answer(
-      "Evidence gap — ANC: Protocol A: below 1.5 x 10^9/L; Protocol B: below 1.0 x 10^9/L; Protocol C: no evidence found.",
+      "Evidence gap — ANC: Protocol A: below 1.5 x 10^9/L; Protocol B: below 1.0 x 10^9/L; Protocol C: not reported.",
       [protocolA, protocolB, protocolC],
       [citation(protocolA, "deterministic_support"), citation(protocolB, "deterministic_support")],
     );

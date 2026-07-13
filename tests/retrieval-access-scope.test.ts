@@ -78,7 +78,9 @@ describe("owner-plus-public retrieval contract", () => {
   it("uses the same stable id tie-break as SQL when rollout scores are equal", async () => {
     const { callVersionedRetrievalRpc } = await import("../src/lib/rag");
     const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
-      if (name === "match_document_chunks_hybrid_v2") return undefined;
+      if (name === "match_document_chunks_hybrid_v2") {
+        return { data: null, error: { code: "PGRST202", message: "schema cache miss" } };
+      }
       return args.owner_filter === "owner-a"
         ? { data: [{ id: "z-owner", hybrid_score: 0.9, rrf_score: 0.1 }], error: null }
         : { data: [{ id: "a-public", hybrid_score: 0.9, rrf_score: 0.1 }], error: null };

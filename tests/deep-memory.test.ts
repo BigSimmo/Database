@@ -718,7 +718,11 @@ describe("deep RAG memory indexing", () => {
       const supabase = {
         from: vi.fn((table: string) => ({
           select: () => ({ eq: async () => ({ data: [], error: null }) }),
-          delete: () => ({ eq: () => ({ eq: () => ({ eq: async () => ({ data: null, error: null }) }) }) }),
+          delete: () => {
+            operations.push(`delete:${table}:staged`);
+            const query = { eq: () => query };
+            return query;
+          },
           insert: (payload: Record<string, unknown>[]) => {
             operations.push(`insert:${table}`);
             const result = {

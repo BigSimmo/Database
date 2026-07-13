@@ -269,7 +269,7 @@ function isBoundedEvidenceGapSegment(segment: string, parameter: string) {
     return true;
   }
   if (extractClinicalValueAtoms(segment).length > 0 || clinicalRecommendationPattern.test(segment)) return false;
-  return false;
+  return true;
 }
 
 function comparisonRows(answer: RagAnswer, claim: string) {

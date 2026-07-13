@@ -366,7 +366,7 @@ and PHI-minimisation gaps.
 - **Remaining (operator):** place `RAG_QUERY_HASH_SECRET` in the deploy host's secret store on the live
   project (the code enforces its presence but cannot supply the value).
 
-### PIA-3 — Generated answers stored un-redacted in `rag_queries` **(Resolved)**
+### PIA-3 — Generated answers stored un-redacted in `rag_queries` **(Mitigated)**
 
 - **Risk:** The `answer` column held the full generated text, which can restate patient specifics
   echoed from the query; the query itself is hashed but the answer was not. Owner-scoped (not
@@ -433,7 +433,7 @@ and PHI-minimisation gaps.
 Before the app is used with real patients in a WA clinical setting, close **PIA-1** (execute the
 cross-border DPA/ZDR contractual basis and approve the shipped draft APP 5 wording) and **PIA-2** (place
 the mandatory HMAC secret in the deploy host's secret store; the fail-closed boot guard is now
-enforced in code) as launch-blockers. **PIA-3** is closed (the durable `rag_queries.answer` log is no
+enforced in code) as launch-blockers. **PIA-3** is mitigated (the durable `rag_queries.answer` log is no
 longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4** remains as a fast
 follow-up (purge `rag_query_misses`, and add a `rag_response_cache` purge cron), and complete the
 **PIA-5** residual data-handling documentation. The data-at-rest security posture (Sydney residency,
