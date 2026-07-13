@@ -88,6 +88,8 @@
     "medications:seed": "node scripts/run-tsx.mjs scripts/seed-medication-records.ts",
     "reindex": "node scripts/run-tsx.mjs scripts/reindex.ts",
     "reindex:health": "node scripts/run-tsx.mjs scripts/reindex-health.ts",
+    "ingestion:autopilot": "node scripts/run-tsx.mjs scripts/ingestion-autopilot.ts",
+    "flake:ledger": "node scripts/flake-ledger.mjs",
     "reindex:cleanup-staged": "node scripts/run-tsx.mjs scripts/cleanup-abandoned-reindex-generations.ts",
     "images:re-stamp-generation": "node scripts/run-tsx.mjs scripts/reindex-image-generation-metadata.ts",
     "supabase:recovery-status": "node scripts/run-tsx.mjs scripts/supabase-recovery-status.ts",
