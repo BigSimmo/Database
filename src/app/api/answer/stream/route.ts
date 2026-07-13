@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
@@ -126,6 +127,7 @@ function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
 function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signal?: AbortSignal) {
   const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
+  const interactionId = randomUUID();
 
   return new Response(
     new ReadableStream({
@@ -169,6 +171,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
               degradedMode: answerDegradedModeSignal(),
               scope: { ...scope, queryMode: body.queryMode },
               sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+              interactionId,
             });
             return;
           }
@@ -226,6 +229,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
               degradedMode: answerDegradedModeSignal(answer),
               scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
               sourceGovernanceWarnings: warnings,
+              interactionId,
             });
             return;
           }
@@ -241,6 +245,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
             degradedMode: answerDegradedModeSignal(answer),
             scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
             sourceGovernanceWarnings: warnings,
+            interactionId,
           });
         } catch (error) {
           logStreamError(error);
@@ -249,7 +254,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
           // error — the UI's answer search uses this route, not /api/answer.
           const fallbackReason = nonProductionSupabaseDemoFallbackReason(error);
           if (fallbackReason) {
-            send("final", buildDemoStreamAnswer(body, fallbackReason));
+            send("final", { ...buildDemoStreamAnswer(body, fallbackReason), interactionId });
             return;
           }
           const streamError = streamErrorPayload(error);
