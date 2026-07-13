@@ -108,6 +108,26 @@ const deepMemoryCommitReconciliationMigration = readFileSync(
   new URL("../supabase/migrations/20260713090500_reconcile_deep_memory_commit.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const indexFriendlyLexicalRetrievalMigration = readFileSync(
+  new URL("../supabase/migrations/20260713100000_index_friendly_lexical_retrieval.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const pinOwnerMatchesV2SearchPathMigration = readFileSync(
+  new URL("../supabase/migrations/20260713101000_pin_retrieval_owner_matches_v2_search_path.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const supabaseAdminDefaultPrivilegesMigration = readFileSync(
+  new URL("../supabase/migrations/20260713102000_revoke_supabase_admin_default_privileges.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const scrubLegacyQueryTextMigration = readFileSync(
+  new URL("../supabase/migrations/20260713103000_scrub_legacy_rag_query_text.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const validateContentNotBlankMigration = readFileSync(
+  new URL("../supabase/migrations/20260713104000_validate_content_not_blank_constraints.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const clinicalRegistryRecordsMigration = readFileSync(
   new URL("../supabase/migrations/20260703020000_clinical_registry_records.sql", import.meta.url),
   "utf8",
@@ -970,6 +990,109 @@ describe("Supabase Preview replay guards", () => {
     expect(deepMemoryCommitReconciliationMigration).toContain(
       "and metadata->>'artifact_generation_id' = p_artifact_generation_id::text",
     );
+  });
+
+  it("keeps the lexical text path index-friendly (no OR across chunk and title relations)", () => {
+    // 2026-07-13 audit finding 1: OR-ing chunk and title tsquery predicates across
+    // two relations defeated both GIN indexes and sequential-scanned every chunk.
+    // The candidate search must stay split into separately indexable probes.
+    for (const body of [
+      extractTextChunkFunction(schema),
+      extractTextChunkFunction(indexFriendlyLexicalRetrievalMigration),
+    ]) {
+      expect(body).toContain("chunk_hits as (");
+      expect(body).toContain("title_chunk_hits as (");
+      expect(body).toContain("union");
+      expect(body).not.toContain("c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq");
+      expect(body).toContain("where public.retrieval_owner_matches(owner_filter, d.owner_id)");
+      expect(body).toContain("public.is_committed_document_generation(c.index_generation_id, d.metadata)");
+      expect(body).toContain("limit least(greatest(match_count * 2, 24), 96)");
+      expect(body).toContain("0::double precision as similarity");
+      expect(body).toContain("least(0.5,");
+    }
+    expect(indexFriendlyLexicalRetrievalMigration).toContain(
+      "revoke execute on function public.match_document_chunks_text(text, integer, uuid[], uuid) from public, anon, authenticated;",
+    );
+    expect(indexFriendlyLexicalRetrievalMigration).toContain(
+      "grant execute on function public.match_document_chunks_text(text, integer, uuid[], uuid) to service_role;",
+    );
+  });
+
+  it("pins search_path on retrieval_owner_matches_v2", () => {
+    // 2026-07-13 audit finding 6 / Supabase advisor function_search_path_mutable:
+    // this helper was the only owner-plus-public wrapper without a pinned path.
+    const start = schema.indexOf("create or replace function public.retrieval_owner_matches_v2(");
+    expect(start).toBeGreaterThanOrEqual(0);
+    const header = schema.slice(start, schema.indexOf("$$", start));
+    expect(header).toContain("set search_path = public, extensions, pg_temp");
+    expect(pinOwnerMatchesV2SearchPathMigration).toContain(
+      "alter function public.retrieval_owner_matches_v2(uuid, uuid, boolean) set search_path = public, extensions, pg_temp;",
+    );
+  });
+
+  it("locks down supabase_admin future-object default privileges", () => {
+    // 2026-07-13 audit finding 7: the 20260528007000 hardening covered role
+    // postgres only; default privileges are keyed to the creating role.
+    for (const sql of [schema, supabaseAdminDefaultPrivilegesMigration]) {
+      expect(sql).toContain(
+        "alter default privileges for role supabase_admin in schema public revoke all privileges on tables from anon, authenticated;",
+      );
+      expect(sql).toContain(
+        "alter default privileges for role supabase_admin in schema public revoke usage, select on sequences from anon, authenticated;",
+      );
+      expect(sql).toContain(
+        "alter default privileges for role supabase_admin in schema public revoke execute on functions from public, anon, authenticated;",
+      );
+      expect(sql).toContain(
+        "alter default privileges for role supabase_admin in schema public grant execute on functions to service_role;",
+      );
+      // Guarded: only a superuser or member of supabase_admin may alter its defaults.
+      expect(sql).toContain("when insufficient_privilege then");
+    }
+    // The migration also proves the lockdown with future-object probes.
+    expect(supabaseAdminDefaultPrivilegesMigration).toContain("_defacl_probe_table");
+    expect(supabaseAdminDefaultPrivilegesMigration).toContain(
+      "has_table_privilege('anon', 'public._defacl_probe_table', 'select')",
+    );
+    expect(supabaseAdminDefaultPrivilegesMigration).toContain(
+      "has_function_privilege('anon', 'public._defacl_probe_fn()', 'execute')",
+    );
+    expect(supabaseAdminDefaultPrivilegesMigration).toContain(
+      "has_sequence_privilege('anon', probe_seq, 'usage, select')",
+    );
+  });
+
+  it("scrubs legacy plaintext query text with salted irreversible placeholders", () => {
+    // 2026-07-13 audit finding 5: rows written before the HMAC rollout still
+    // held raw clinical query text. Placeholders must be salted (not bare
+    // md5(query), which is dictionary-attackable) and the migration must
+    // assert completion for every query-bearing table.
+    expect(scrubLegacyQueryTextMigration).toContain(
+      "'redacted-query:legacy:' || md5(gen_random_uuid()::text || query)",
+    );
+    expect(scrubLegacyQueryTextMigration).not.toMatch(/md5\(query\)/);
+    for (const table of ["rag_queries", "rag_query_misses", "rag_retrieval_logs"]) {
+      expect(scrubLegacyQueryTextMigration).toContain(`update public.${table}`);
+    }
+    // Cache rows are deleted, not re-keyed: a scrubbed key would never be hit again.
+    expect(scrubLegacyQueryTextMigration).toContain("delete from public.rag_response_cache");
+    expect(scrubLegacyQueryTextMigration).toContain("where normalized_query not like 'redacted-cache:%'");
+    expect(scrubLegacyQueryTextMigration).toContain("raise exception");
+  });
+
+  it("validates the content_not_blank guards so they are no longer NOT VALID", () => {
+    // 2026-07-13 audit finding 12: the three content-quality checks were codified
+    // NOT VALID from live; zero violating rows existed, so they are now validated
+    // and the canonical replay creates them enforced from the start.
+    for (const constraint of [
+      "document_chunks_content_not_blank",
+      "document_embedding_fields_content_not_blank",
+      "document_index_units_content_not_blank",
+    ]) {
+      expect(validateContentNotBlankMigration).toContain(`validate constraint ${constraint}`);
+      expect(schema).toContain(`add constraint ${constraint} check (length(btrim(content)) > 0);`);
+    }
+    expect(schema).not.toContain("check (length(btrim(content)) > 0) not valid");
   });
 
   it("keeps retrieval_synopsis when adding lexical_score to match_document_chunks_text", () => {
