@@ -652,6 +652,15 @@ function ragCaseDiagnosticsTable(results: RagQualityResult[]) {
 function latencyRouteForAnswer(answer: RagAnswer) {
   const route = answer.routingMode ?? "none";
   if ((answer.latencyTimings?.generation_latency_ms ?? 0) <= 0) return route;
+  // A generation ran and failed before a source-backed answer was assembled (e.g.
+  // provider_timeout -> extractive fallback). These chains structurally cost the failed
+  // generation's timeout PLUS the fallback work, so they get their own latency budget
+  // instead of inflating the plain fast budget, hiding inside the no-model extractive
+  // one, or — for strong-classified reasons (e.g. multi_document_comparison_synthesis) —
+  // blending into the strong budget. This check deliberately outranks the strong
+  // classifiers below: a successful strong generation (including quality retries) never
+  // records a generation_fallback, so genuine strong answers keep the strong budget.
+  if (/\bgeneration_fallback:/i.test(answer.routingReason ?? "")) return "fallback";
   if (route === "strong") return "strong";
   if (
     /^(?:broad_clinical_management_synthesis|clinical_risk_or_complex_query|limited_retrieval_strength|multi_document_comparison_synthesis|retrieval_gap_or_conflict)\b/i.test(
@@ -660,11 +669,6 @@ function latencyRouteForAnswer(answer: RagAnswer) {
   ) {
     return "strong";
   }
-  // A generation ran and failed before a source-backed answer was assembled (e.g.
-  // provider_timeout -> extractive fallback). These chains structurally cost the failed
-  // generation's timeout PLUS the fallback work, so they get their own latency budget
-  // instead of inflating the plain fast budget or hiding inside the no-model extractive one.
-  if (/\bgeneration_fallback:/i.test(answer.routingReason ?? "")) return "fallback";
   return "fast";
 }
 
