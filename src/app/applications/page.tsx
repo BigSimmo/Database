@@ -1,19 +1,23 @@
 import { redirect } from "next/navigation";
 
 type ApplicationsPageProps = {
-  searchParams?: Promise<{
-    q?: string | string[];
-  }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-function firstSearchParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
+function forwardedSearchParams(params: Record<string, string | string[] | undefined>) {
+  const forwarded = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    for (const item of Array.isArray(value) ? value : [value]) {
+      if (item !== undefined) forwarded.append(key, item);
+    }
+  }
+  return forwarded.toString();
 }
 
 // "Tools" is the canonical name and /tools the canonical route (PT-11); this
 // legacy route only forwards old links and browser history.
 export default async function ApplicationsRedirect({ searchParams }: ApplicationsPageProps) {
   const params = searchParams ? await searchParams : {};
-  const query = firstSearchParam(params.q)?.trim();
-  redirect(query ? `/tools?q=${encodeURIComponent(query)}` : "/tools");
+  const query = forwardedSearchParams(params);
+  redirect(query ? `/tools?${query}` : "/tools");
 }
