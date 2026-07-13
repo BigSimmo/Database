@@ -75,7 +75,7 @@ const sidebarToolItems = [
   { id: "forms", label: "Forms", icon: ClipboardPen, href: "/forms", badge: "Early access" },
   { id: "favourites", label: "Favourites", icon: Heart, href: "/favourites" },
   { id: "differentials", label: "Differentials", icon: BrainCircuit, href: "/differentials" },
-  { id: "prescribing", label: "Medications", icon: Pill, href: "/?mode=prescribing" },
+  { id: "prescribing", label: "Medication", icon: Pill, href: "/?mode=prescribing" },
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
 ] as const;
 

@@ -415,8 +415,9 @@ export function MasterSearchHeader({
   const activeQuickFilterCount =
     (scopeFilters.sourceStatuses?.length ? 1 : 0) + (scopeFilters.locality ? 1 : 0) + activeLabelFilterCount;
   const submitLabel = trimmedQuery ? selectedSearch.submitBusyLabel : selectedSearch.submitIdleLabel;
-  const queryPlaceholder =
-    composerPlaceholder ?? (isAnswerFooterComposer ? "Ask Clinical Guide" : selectedSearch.placeholder);
+  // One task-oriented placeholder per mode (PT-14): the follow-up composer must
+  // not swap to brand copy that hides what the input actually does.
+  const queryPlaceholder = composerPlaceholder ?? selectedSearch.placeholder;
   const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
   const actionMenuModeOptions = useMemo<ModeActionModeOption[]>(
     () =>
