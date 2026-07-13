@@ -5455,6 +5455,13 @@ ${qualityRetryInstruction}`
         (verified.unverifiedNumericTokens?.length ?? 0) === 0
       );
     };
+    const retainCitedExtractiveFallbackEvidence = (candidate: RagAnswer) => {
+      const citedChunkIds = new Set(candidate.citations.map((citation) => citation.chunk_id));
+      return {
+        ...candidate,
+        sources: candidate.sources.filter((source) => citedChunkIds.has(source.id)),
+      };
+    };
     let extractiveFallbackAnswer = canRecoverGenerationErrorExtractively
       ? buildExtractiveFallbackCandidate(generationFallbackResults)
       : null;
@@ -5464,7 +5471,7 @@ ${qualityRetryInstruction}`
     if (extractiveFallbackAnswer && (queryClass === "medication_dose_risk" || queryClass === "table_threshold")) {
       extractiveFallbackAnswer =
         generationFallbackResults
-          .map((result) => buildExtractiveFallbackCandidate([result]))
+          .map((result) => retainCitedExtractiveFallbackEvidence(buildExtractiveFallbackCandidate([result])))
           .find(isSafeExtractiveFallbackCandidate) ?? extractiveFallbackAnswer;
     }
     const extractiveFallbackQualityReason = extractiveFallbackAnswer
