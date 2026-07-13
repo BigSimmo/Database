@@ -34,10 +34,11 @@ const baseMetadata: Metadata = {
  */
 export async function generateMetadata(): Promise<Metadata> {
   const allowRequestOrigin = process.env.NODE_ENV !== "production";
-  const requestHeaders = allowRequestOrigin ? await headers() : new Headers();
+  const requestHeaders = await headers();
+  const metadataHeaders = allowRequestOrigin ? requestHeaders : new Headers();
   return {
     ...baseMetadata,
-    metadataBase: resolveMetadataBase(requestHeaders, {
+    metadataBase: resolveMetadataBase(metadataHeaders, {
       configuredSiteUrl: process.env.NEXT_PUBLIC_SITE_URL,
       trustedDeploymentDomain: process.env.RAILWAY_PUBLIC_DOMAIN,
       allowRequestOrigin,

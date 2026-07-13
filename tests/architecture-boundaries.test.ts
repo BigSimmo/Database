@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import ts from "typescript";
+import { parse } from "@babel/parser";
 import { describe, expect, it } from "vitest";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
@@ -20,62 +20,78 @@ function sourceFiles() {
   return files;
 }
 
-function scriptKind(filePath: string) {
-  if (filePath.endsWith(".tsx")) return ts.ScriptKind.TSX;
-  if (filePath.endsWith(".jsx")) return ts.ScriptKind.JSX;
-  if (filePath.endsWith(".js") || filePath.endsWith(".mjs")) return ts.ScriptKind.JS;
-  return ts.ScriptKind.TS;
+function parseModuleSource(sourceText: string) {
+  return parse(sourceText, {
+    sourceType: "module",
+    plugins: ["jsx", "typescript", "importAttributes"],
+  });
 }
 
-function moduleSpecifiersFromSource(filePath: string, sourceText: string) {
-  const source = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true, scriptKind(filePath));
+function moduleSpecifiersFromSource(_filePath: string, sourceText: string) {
   const staticImports = new Set<string>();
   const dynamicImports = new Set<string>();
+  const source = parseModuleSource(sourceText);
 
-  for (const statement of source.statements) {
-    if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
-      const clause = statement.importClause;
-      const namedImports =
-        clause?.namedBindings && ts.isNamedImports(clause.namedBindings) ? clause.namedBindings : null;
+  for (const statement of source.program.body) {
+    if (statement.type === "ImportDeclaration") {
       const typeOnly =
-        clause?.isTypeOnly ||
+        statement.importKind === "type" ||
         Boolean(
-          clause &&
-          !clause.name &&
-          namedImports?.elements.length &&
-          namedImports.elements.every((item) => item.isTypeOnly),
+          !statement.specifiers.some((specifier) => specifier.type === "ImportDefaultSpecifier") &&
+          statement.specifiers.some((specifier) => specifier.type === "ImportSpecifier") &&
+          statement.specifiers.every(
+            (specifier) => specifier.type === "ImportSpecifier" && specifier.importKind === "type",
+          ),
         );
-      if (!typeOnly) staticImports.add(statement.moduleSpecifier.text);
+      if (!typeOnly) staticImports.add(statement.source.value);
     }
     if (
-      ts.isExportDeclaration(statement) &&
-      statement.moduleSpecifier &&
-      ts.isStringLiteral(statement.moduleSpecifier)
+      (statement.type === "ExportNamedDeclaration" || statement.type === "ExportAllDeclaration") &&
+      statement.source
     ) {
       const typeOnly =
-        statement.isTypeOnly ||
+        statement.exportKind === "type" ||
         Boolean(
-          statement.exportClause &&
-          ts.isNamedExports(statement.exportClause) &&
-          statement.exportClause.elements.length > 0 &&
-          statement.exportClause.elements.every((item) => item.isTypeOnly),
+          statement.type === "ExportNamedDeclaration" &&
+          statement.specifiers.length > 0 &&
+          statement.specifiers.every((specifier) => "exportKind" in specifier && specifier.exportKind === "type"),
         );
-      if (!typeOnly) staticImports.add(statement.moduleSpecifier.text);
+      if (!typeOnly) staticImports.add(statement.source.value);
     }
   }
 
-  const visit = (node: ts.Node) => {
-    const moduleSpecifier = ts.isCallExpression(node) ? node.arguments[0] : undefined;
+  const visit = (node: unknown) => {
+    if (!node || typeof node !== "object") return;
+    const current = node as Record<string, unknown>;
+    const argumentsList = Array.isArray(current.arguments) ? current.arguments : null;
     if (
-      ts.isCallExpression(node) &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      (node.arguments.length === 1 || node.arguments.length === 2) &&
-      moduleSpecifier &&
-      ts.isStringLiteralLike(moduleSpecifier)
+      current.type === "CallExpression" &&
+      current.callee &&
+      argumentsList &&
+      (argumentsList.length === 1 || argumentsList.length === 2)
     ) {
-      dynamicImports.add(moduleSpecifier.text);
+      const callee = current.callee as Record<string, unknown>;
+      const moduleSpecifier = argumentsList[0] as Record<string, unknown> | undefined;
+      if (callee.type === "Import" && moduleSpecifier) {
+        if (moduleSpecifier.type === "StringLiteral" && typeof moduleSpecifier.value === "string") {
+          dynamicImports.add(moduleSpecifier.value);
+        } else if (
+          moduleSpecifier.type === "TemplateLiteral" &&
+          Array.isArray(moduleSpecifier.expressions) &&
+          moduleSpecifier.expressions.length === 0 &&
+          Array.isArray(moduleSpecifier.quasis) &&
+          moduleSpecifier.quasis.length === 1
+        ) {
+          const cooked = ((moduleSpecifier.quasis[0] as Record<string, unknown>).value as Record<string, unknown>)
+            ?.cooked;
+          if (typeof cooked === "string") dynamicImports.add(cooked);
+        }
+      }
     }
-    ts.forEachChild(node, visit);
+    for (const value of Object.values(current)) {
+      if (Array.isArray(value)) value.forEach(visit);
+      else visit(value);
+    }
   };
   visit(source);
 
@@ -188,13 +204,8 @@ describe("architecture boundaries", () => {
   it("keeps server environment and provider modules out of the client graph", () => {
     const { files, graph, parsed } = runtimeGraph();
     const clientEntries = files.filter((file) => {
-      const firstStatement = parsed.get(file)?.source.statements[0];
-      return Boolean(
-        firstStatement &&
-        ts.isExpressionStatement(firstStatement) &&
-        ts.isStringLiteral(firstStatement.expression) &&
-        firstStatement.expression.text === "use client",
-      );
+      const program = parsed.get(file)?.source.program;
+      return program?.directives?.some((directive) => directive.value.value === "use client");
     });
     const clientGraph = new Set(clientEntries);
     const pending = [...clientEntries];
