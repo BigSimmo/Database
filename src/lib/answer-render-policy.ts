@@ -671,6 +671,9 @@ export function formatAnswerRenderCopyText(args: {
     ...(table.source ? [`Source: ${table.source.label} | ${table.source.href}`] : []),
     "",
   ]);
+  const visualEvidenceLines = args.visualEvidence?.length
+    ? formatDisplayedVisualEvidenceForClipboard(args.visualEvidence)
+    : [];
 
   return [
     "Clinical answer draft",
@@ -688,9 +691,7 @@ export function formatAnswerRenderCopyText(args: {
     "",
     "Warnings",
     ...warningLines,
-    ...(args.visualEvidence?.length
-      ? ["", "Displayed table evidence", ...formatDisplayedVisualEvidenceForClipboard(args.visualEvidence)]
-      : []),
+    ...(visualEvidenceLines.length ? ["", "Displayed table evidence", ...visualEvidenceLines] : []),
   ]
     .join("\n")
     .trim();

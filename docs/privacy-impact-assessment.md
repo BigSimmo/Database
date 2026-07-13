@@ -109,9 +109,9 @@ Clinician browser
    │        • source_chunk_ids= real chunk UUIDs                            ← owner's own data
    │        • metadata.query_hash = HMAC/SHA-256 (query-privacy.ts:51)
    │
-   └──►(E) RESPONSE CACHE (Supabase rag_response_cache, owner-scoped)
+   └──►(E) RESPONSE CACHE (Supabase rag_response_cache, authenticated owner-scoped)
           payload = full answer, TTL ~5 min (RAG_ANSWER_CACHE_TTL_MS)
-          keyed by owner_id predicate (rag.ts:1667) — no cross-tenant serve
+          disabled for anonymous answers; authenticated rows are keyed by owner_id
    ▼
 Clinician browser  ← answer + citations
 ```
@@ -322,9 +322,9 @@ with counsel if this is deployed inside a WA Health service.)
 material shortfalls are **governance/contractual** (APP 8 cross-border terms and final approval of the
 draft APP 1/5 policy/notice wording) plus the
 **hardening** items of operator HMAC-secret placement and query-miss/cache retention. Answer prose is omitted by default;
-enabling its persistence is an exceptional, non-production mode requiring governance approval. None of these are cross-tenant
-data-leak bugs — the tenancy review found **zero** confirmed cross-tenant leaks — they are
-compliance-posture and PHI-minimisation gaps.
+enabling its persistence is an exceptional, non-production mode requiring governance approval. Anonymous answer caching
+is disabled. The tenancy review found **zero** confirmed cross-tenant leaks; the remaining items are compliance-posture
+and PHI-minimisation gaps.
 
 ---
 

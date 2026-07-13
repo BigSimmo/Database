@@ -1135,7 +1135,7 @@ describe("RAG structured-output fallback", () => {
     expect(answer.quoteCards?.length).toBe(1);
   });
 
-  it("coalesces identical legacy public answer requests at the real RAG boundary", async () => {
+  it("does not cache or coalesce anonymous answers despite legacy skipCache input", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "300000");
@@ -1259,7 +1259,7 @@ describe("RAG structured-output fallback", () => {
     const secondAnswer = (await secondResponse.json()) as RagAnswer;
 
     expect([firstResponse.status, secondResponse.status]).toEqual([200, 200]);
-    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
     const generateCalls = generateStructuredTextResult.mock.calls as unknown as Array<
       [
         unknown,
@@ -1292,10 +1292,10 @@ describe("RAG structured-output fallback", () => {
       "agitation-chunk-1",
     ]);
     expect(rpc).toHaveBeenCalledWith("match_document_chunks_text_v2", expect.any(Object));
-    expect(rpc.mock.calls.filter(([name]) => name === "match_document_chunks_text_v2")).toHaveLength(1);
+    expect(rpc.mock.calls.filter(([name]) => name === "match_document_chunks_text_v2")).toHaveLength(2);
     expect(firstAnswer.openAIRequestIds).toEqual(["req_coalesced"]);
     expect(secondAnswer.openAIRequestIds).toEqual(["req_coalesced"]);
-    expect(secondAnswer.routingReason).toContain("answer_inflight_coalesced");
+    expect(secondAnswer.routingReason ?? "").not.toContain("answer_inflight_coalesced");
   });
 
   it("does not propagate an originating request's abort to a coalesced concurrent caller", async () => {
@@ -1346,8 +1346,13 @@ describe("RAG structured-output fallback", () => {
       logQuery: false,
       signal: controller.signal,
     });
-    // A second identical request coalesces onto the (now-doomed) in-flight promise.
+    // Two identical waiters coalesce onto the (now-doomed) in-flight promise.
     const second = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-1",
+      logQuery: false,
+    });
+    const third = answerQuestionWithScope({
       query: "Summarize inpatient approach",
       ownerId: "owner-1",
       logQuery: false,
@@ -1356,8 +1361,9 @@ describe("RAG structured-output fallback", () => {
     // The originator's failure stays with the originator...
     await expect(first).rejects.toBeTruthy();
     // ...and the coalesced caller still gets a real, independently generated answer rather than a 500.
-    const secondAnswer = await second;
+    const [secondAnswer, thirdAnswer] = await Promise.all([second, third]);
     expect(secondAnswer.openAIRequestIds).toEqual(["req_independent"]);
+    expect(thirdAnswer.openAIRequestIds).toEqual(["req_independent"]);
     expect(secondAnswer.routingReason ?? "").not.toContain("answer_inflight_coalesced");
     // It ran its OWN pipeline (search + generation once) instead of cloning the failed one.
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);

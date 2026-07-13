@@ -173,6 +173,19 @@ export type UploadOutcome =
   | { kind: "duplicate"; fileName: string; documentId: string; message: string }
   | { kind: "failed"; fileName: string; status: number; code: string; message: string };
 
+export function uploadBatchCompletion(outcomes: UploadOutcome[]) {
+  const queued = outcomes.filter((outcome) => outcome.kind === "queued");
+  const duplicates = outcomes.filter((outcome) => outcome.kind === "duplicate");
+  const failures = outcomes.filter((outcome) => outcome.kind === "failed");
+  return {
+    queued,
+    duplicates,
+    failures,
+    shouldClearInput: queued.length + duplicates.length > 0,
+    shouldRefreshDocuments: queued.length > 0,
+  };
+}
+
 type UploadResponsePayload = {
   error?: string;
   message?: string;
@@ -355,9 +368,7 @@ export function UploadPanel({
       }
     }
 
-    const queued = outcomes.filter((outcome) => outcome.kind === "queued");
-    const duplicates = outcomes.filter((outcome) => outcome.kind === "duplicate");
-    const failures = outcomes.filter((outcome) => outcome.kind === "failed");
+    const { queued, duplicates, failures, shouldClearInput, shouldRefreshDocuments } = uploadBatchCompletion(outcomes);
     setUploadPercent(failures.length === 0 ? 100 : null);
     if (failures.length === 0) {
       const parts = [
@@ -365,14 +376,14 @@ export function UploadPanel({
         duplicates.length ? `${duplicates.length} already existed; no indexing job was queued` : null,
       ].filter(Boolean);
       changeStatus(parts.join(". ") + ".");
-      if (input) input.value = "";
-      if (queued.length) onUploaded();
     } else {
       const successful = queued.length + duplicates.length;
       changeStatus(
         `Upload complete: ${successful} accepted; ${failures.length} failed. ${failures.map((outcome) => `${outcome.fileName}: ${outcome.message}`).join("; ")}`,
       );
     }
+    if (input && shouldClearInput) input.value = "";
+    if (shouldRefreshDocuments) onUploaded();
     setUploading(false);
     setUploadPercent(null);
   }

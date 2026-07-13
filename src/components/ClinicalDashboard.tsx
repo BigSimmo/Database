@@ -942,7 +942,7 @@ export function ClinicalDashboard({
       try {
         const response = await fetch(input, { ...init, signal: controller.signal });
         if (!isAuthEpochCurrent(authRequest.epoch)) throw new DOMException("Stale authentication epoch", "AbortError");
-        return response;
+        return { response, requestEpoch: authRequest.epoch };
       } finally {
         authRequest.release();
       }
@@ -1461,7 +1461,7 @@ export function ClinicalDashboard({
     setLoadingMoreDocuments(true);
     try {
       const protectedHeaders = clientDemoMode ? undefined : authorizationHeader;
-      const response = await authBoundFetch(
+      const { response, requestEpoch } = await authBoundFetch(
         `/api/documents?limit=${documentPageSize}&offset=${documentsPagination.nextOffset}`,
         { headers: protectedHeaders },
       );
@@ -1470,16 +1470,20 @@ export function ClinicalDashboard({
         return;
       }
       if (!response.ok) {
+        if (!isAuthEpochCurrent(requestEpoch)) return;
         setApiUnavailable(true);
         return;
       }
       const payload = await response.json();
+      if (!isAuthEpochCurrent(requestEpoch)) return;
       const nextDocuments = (payload.documents ?? []) as ClinicalDocument[];
       setDocuments((current) => {
         const seen = new Set(current.map((document) => document.id));
         return [...current, ...nextDocuments.filter((document) => !seen.has(document.id))];
       });
       setDocumentsPagination(payload.pagination ?? null);
+    } catch (error) {
+      if (!isAbortError(error)) setApiUnavailable(true);
     } finally {
       setLoadingMoreDocuments(false);
     }
@@ -1489,6 +1493,7 @@ export function ClinicalDashboard({
     canUsePrivateApis,
     clientDemoMode,
     documentsPagination,
+    isAuthEpochCurrent,
     loadingMoreDocuments,
     markSessionExpired,
   ]);
@@ -1497,7 +1502,7 @@ export function ClinicalDashboard({
     async (jobId: string) => {
       setIndexingActionId(jobId);
       try {
-        const response = await authBoundFetch(`/api/ingestion/jobs/${jobId}/retry`, {
+        const { response, requestEpoch } = await authBoundFetch(`/api/ingestion/jobs/${jobId}/retry`, {
           method: "POST",
           headers: authorizationHeader,
         });
@@ -1506,6 +1511,7 @@ export function ClinicalDashboard({
           return;
         }
         const payload = await response.json().catch(() => ({}));
+        if (!isAuthEpochCurrent(requestEpoch)) return;
         if (!response.ok) {
           throw new Error(typeof payload.error === "string" ? payload.error : "Job retry could not be started.");
         }
@@ -1524,14 +1530,14 @@ export function ClinicalDashboard({
         setIndexingActionId(null);
       }
     },
-    [authBoundFetch, authorizationHeader, markSessionExpired, refresh],
+    [authBoundFetch, authorizationHeader, isAuthEpochCurrent, markSessionExpired, refresh],
   );
 
   const reindexDocument = useCallback(
     async (documentId: string, mode: "full" | "enrichment" = "full") => {
       setIndexingActionId(documentId);
       try {
-        const response = await authBoundFetch(`/api/documents/${documentId}/reindex`, {
+        const { response, requestEpoch } = await authBoundFetch(`/api/documents/${documentId}/reindex`, {
           method: "POST",
           headers: {
             ...authorizationHeader,
@@ -1544,6 +1550,7 @@ export function ClinicalDashboard({
           return;
         }
         const payload = await response.json().catch(() => ({}));
+        if (!isAuthEpochCurrent(requestEpoch)) return;
         if (!response.ok) {
           throw new Error(
             typeof payload.error === "string"
@@ -1568,7 +1575,7 @@ export function ClinicalDashboard({
         setIndexingActionId(null);
       }
     },
-    [authBoundFetch, authorizationHeader, markSessionExpired, refresh],
+    [authBoundFetch, authorizationHeader, isAuthEpochCurrent, markSessionExpired, refresh],
   );
   const enrichDocument = useCallback(
     (documentId: string) => reindexDocument(documentId, "enrichment"),
@@ -1637,7 +1644,7 @@ export function ClinicalDashboard({
     async (documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody) => {
       if (!canUsePrivateApis) return false;
       try {
-        const response = await authBoundFetch(`/api/documents/${documentId}/labels`, {
+        const { response, requestEpoch } = await authBoundFetch(`/api/documents/${documentId}/labels`, {
           method,
           headers: {
             "Content-Type": "application/json",
@@ -1646,6 +1653,7 @@ export function ClinicalDashboard({
           body: JSON.stringify(body),
         });
         const payload = await response.json().catch(() => ({}));
+        if (!isAuthEpochCurrent(requestEpoch)) return false;
         if (response.status === 401) {
           markSessionExpired();
           return false;
@@ -1677,6 +1685,7 @@ export function ClinicalDashboard({
       clientDemoMode,
       handleDocumentLabelPatched,
       handleDocumentLabelsUpdated,
+      isAuthEpochCurrent,
       markSessionExpired,
     ],
   );
@@ -2730,7 +2739,7 @@ export function ClinicalDashboard({
     setBulkActionBusy(true);
     setBulkActionStatus(null);
     try {
-      const response = await authBoundFetch("/api/documents/bulk/reindex", {
+      const { response, requestEpoch } = await authBoundFetch("/api/documents/bulk/reindex", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -2743,6 +2752,7 @@ export function ClinicalDashboard({
         return;
       }
       const payload = await response.json().catch(() => ({}));
+      if (!isAuthEpochCurrent(requestEpoch)) return;
       if (!response.ok) throw new Error(payload.error || errorCopy.bulkReindexFailed);
       setBulkActionStatus(
         `${payload.results?.filter((result: { ok: boolean }) => result.ok).length ?? 0} selected documents updated.`,
@@ -2766,7 +2776,7 @@ export function ClinicalDashboard({
     setBulkActionBusy(true);
     setBulkActionStatus(null);
     try {
-      const response = await authBoundFetch("/api/documents/bulk", {
+      const { response, requestEpoch } = await authBoundFetch("/api/documents/bulk", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -2779,6 +2789,7 @@ export function ClinicalDashboard({
         return;
       }
       const payload = await response.json().catch(() => ({}));
+      if (!isAuthEpochCurrent(requestEpoch)) return;
       if (!response.ok) throw new Error(payload.error || errorCopy.bulkMetadataUpdateFailed);
       setBulkActionStatus(`${payload.updatedCount ?? 0} selected documents updated.`);
       await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
@@ -2843,6 +2854,7 @@ export function ClinicalDashboard({
     setSelectedDocumentIds([]);
     setScopeFilters({});
     resetAnswerThread();
+    dispatchAnswerLifecycle({ type: "reset" });
     setAnswer(null);
     setSources([]);
     setDocumentMatches([]);
