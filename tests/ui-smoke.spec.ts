@@ -965,7 +965,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { name: "Forms (Early access)", href: "/forms" },
       { name: "Favourites", href: "/favourites" },
       { name: "Differentials", href: "/differentials" },
-      { name: "Medications", href: "/?mode=prescribing" },
+      { name: "Medication", href: "/?mode=prescribing" },
       { name: "Tools", href: "/?mode=tools" },
     ] as const) {
       await expect(page.getByRole("link", { name: tool.name, exact: true })).toHaveAttribute("href", tool.href);
@@ -982,7 +982,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { path: "/?mode=answer", label: "Answer" },
       { path: "/?mode=documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
-      { path: "/?mode=prescribing", label: "Medications" },
+      { path: "/?mode=prescribing", label: "Medication" },
     ] as const) {
       await gotoApp(page, route.path);
       if (route.path.includes("mode=answer")) {
