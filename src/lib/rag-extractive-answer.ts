@@ -1625,7 +1625,15 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
   return null;
 }
 
-/** Final quality failure. */
+/**
+ * Replaces an answer that fails final quality checks with an evidence-gap response.
+ *
+ * @param answer - The answer to replace.
+ * @param query - The original user query.
+ * @param queryClass - The classified query type.
+ * @param reason - The quality gate failure reason.
+ * @returns The answer marked as unsupported and requiring an evidence gap response.
+ */
 function finalQualityFailure(answer: RagAnswer, query: string, queryClass: RagQueryClass, reason: string): RagAnswer {
   return {
     ...answer,
@@ -1655,7 +1663,12 @@ const crossReferenceRedirectPattern =
 const crossReferenceDocumentObjectPattern =
   /\b(?:guidance|guidelines?|policy|policies|procedures?|protocols?|appendix|appendices|manuals?|documents?|documentation|frameworks?|standards?|sops?|handbooks?|factsheets?|leaflets?|booklets?|templates?|checklists?|forms?|sections?|chapters?)\b/i;
 
-/** Is bare cross-reference answer. */
+/**
+ * Determines whether text consists of a bare redirect to another source for additional information.
+ *
+ * @param text - The answer text to evaluate
+ * @returns `true` if the lead sentence directs the reader to another document or source for further information, `false` otherwise.
+ */
 export function isBareCrossReferenceAnswer(text: string) {
   const lead = firstSentence(text).replace(/\*\*/g, "");
   if (!lead) return false;
@@ -1666,7 +1679,14 @@ export function isBareCrossReferenceAnswer(text: string) {
   );
 }
 
-/** Should preserve source backed generated answer. */
+/**
+ * Determines whether a source-backed generated answer may bypass a quality-gate failure.
+ *
+ * @param answer - The generated answer and its source-selection metadata
+ * @param reason - The quality-gate failure reason
+ * @param cleanedAnswer - The sanitized answer text used for cross-reference detection
+ * @returns `true` if the answer is grounded and supported by relevant source-selection signals, `false` otherwise
+ */
 function shouldPreserveSourceBackedGeneratedAnswer(answer: RagAnswer, reason: string, cleanedAnswer: string) {
   if (reason !== "missing_query_intent" && reason !== "missing_query_overlap") return false;
   // Never rescue a bare cross-reference / "refer elsewhere for more information" pointer: it carries
@@ -1772,7 +1792,15 @@ export function finalizeRagAnswerQuality(
   return applyProviderLabels(finalizeRagAnswerQualityCore(answer, query, queryClass, verificationSources));
 }
 
-/** Finalize rag answer quality core. */
+/**
+ * Finalizes an answer by applying quality gates, sanitizing content, and verifying numeric claims.
+ *
+ * @param answer - The answer to validate and finalize
+ * @param query - The user query used to assess relevance and highlight clinical terms
+ * @param queryClass - The classification of the user query
+ * @param verificationSources - Optional sources used to verify numeric claims
+ * @returns The finalized RAG answer with validated content, sections, and confidence metadata
+ */
 function finalizeRagAnswerQualityCore(
   answer: RagAnswer,
   query: string,
