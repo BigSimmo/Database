@@ -195,8 +195,8 @@ describe("architecture boundaries", () => {
   it("keeps server environment and provider modules out of the client graph", () => {
     const { files, graph, parsed } = runtimeGraph();
     const clientEntries = files.filter((file) => {
-      const firstStatement = parsed.get(file)?.source.program.body[0];
-      return firstStatement?.type === "ExpressionStatement" && firstStatement.expression.type === "StringLiteral" && firstStatement.expression.value === "use client";
+      const program = parsed.get(file)?.source.program;
+      return program?.directives?.some((directive) => directive.value.value === "use client");
     });
     const clientGraph = new Set(clientEntries);
     const pending = [...clientEntries];
