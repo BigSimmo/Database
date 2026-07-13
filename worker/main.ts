@@ -151,17 +151,22 @@ async function updateJobProgress(jobId: string, patch: { stage: string; progress
   // locked_at, but only while we still hold the lease (`locked_by = workerId`),
   // so a worker that was already reclaimed no-ops instead of resurrecting or
   // overwriting a lease another worker now owns.
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("ingestion_jobs")
     .update({ ...patch, locked_at: new Date().toISOString() })
     .eq("id", jobId)
-    .eq("locked_by", workerId);
+    .eq("locked_by", workerId)
+    .eq("status", "processing")
+    .select("id");
   if (error) {
     console.warn(
       "Ingestion progress update failed",
       safeErrorLogDetails(supabaseStageError("update ingestion progress", error)),
     );
     return;
+  }
+  if (!data || data.length !== 1) {
+    throw new Error("Ingestion lease lost before progress update.");
   }
   progressUpdateState.set(jobId, { updatedAt: now, progress: patch.progress, stage: patch.stage });
 }
@@ -504,6 +509,7 @@ async function resetDocumentIndex(documentId: string) {
 }
 
 async function commitDocumentIndexGeneration(args: {
+  jobId: string;
   documentId: string;
   indexGenerationId: string;
   pageCount: number;
@@ -517,6 +523,8 @@ async function commitDocumentIndexGeneration(args: {
   // audit-retained non-searchable rows). Retrieval filters searchable=true, so
   // the persisted count intentionally differs from extracted_image_count.
   const { error } = await supabase.rpc("commit_document_index_generation", {
+    p_job_id: args.jobId,
+    p_worker_id: workerId,
     p_document_id: args.documentId,
     p_index_generation_id: args.indexGenerationId,
     p_status: "indexed",
@@ -533,17 +541,7 @@ async function commitDocumentIndexGeneration(args: {
     p_quality: sanitizeJsonbRecord(args.quality),
   });
   if (!error) return;
-  if (!isMissingSchemaError(error)) throw supabaseStageError("commit_document_index_generation", error);
-
-  await updateDocument(args.documentId, {
-    status: "indexed",
-    page_count: args.pageCount,
-    chunk_count: args.chunkCount,
-    image_count: args.imageCount,
-    error_message: null,
-    metadata: sanitizeJsonbRecord(args.metadata),
-  });
-  await replacePageRows(args.documentId, args.pages);
+  throw supabaseStageError("commit_document_index_generation", error);
   await upsertIndexQuality(args.quality);
   await deleteStaleIndexGenerationRows(args.documentId, args.indexGenerationId);
 }
@@ -556,20 +554,6 @@ function buildDocumentPageRows(documentId: string, extracted: ExtractedDocument)
     ocr_used: Boolean(page.ocrUsed),
     metadata: {},
   }));
-}
-
-async function insertPageRows(pages: ReturnType<typeof buildDocumentPageRows>) {
-  if (pages.length === 0) return;
-  const { error } = await supabase.from("document_pages").upsert(pages, {
-    onConflict: "document_id,page_number",
-  });
-  if (error) throw supabaseStageError("upsert document_pages", error);
-}
-
-async function replacePageRows(documentId: string, pages: ReturnType<typeof buildDocumentPageRows>) {
-  const { error: deleteError } = await supabase.from("document_pages").delete().eq("document_id", documentId);
-  if (deleteError) throw supabaseStageError("delete stale document_pages", deleteError);
-  await insertPageRows(pages);
 }
 
 // Audit M13 (mirrors 20260702000000_commit_generation_preserve_legacy_artifacts):
@@ -1740,6 +1724,7 @@ async function processJob(job: JobRow) {
       ...metrics,
     };
     await commitDocumentIndexGeneration({
+      jobId: job.id,
       documentId: job.document_id,
       indexGenerationId,
       pageCount: extracted.pages.length,

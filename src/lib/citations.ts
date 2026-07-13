@@ -1,6 +1,6 @@
 import { normalizeExtractedGlyphs, stripClassificationBanner } from "@/lib/source-text-sanitizer";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
-import type { Citation, SearchResult } from "@/lib/types";
+import type { Citation, CitationProvenance, SearchResult } from "@/lib/types";
 
 // Citation titles come straight from document extraction, so repair glyph
 // artifacts (ligatures, soft hyphens, control chars), drop protective-marking
@@ -14,7 +14,7 @@ function cleanCitationTitle(value: string) {
     .trim();
 }
 
-export function citationFromResult(result: SearchResult): Citation {
+export function citationFromResult(result: SearchResult, provenance: CitationProvenance = "retrieval_only"): Citation {
   return {
     chunk_id: result.id,
     document_id: result.document_id,
@@ -24,6 +24,7 @@ export function citationFromResult(result: SearchResult): Citation {
     chunk_index: result.chunk_index,
     similarity: result.similarity,
     source_metadata: result.source_metadata,
+    provenance,
   };
 }
 
@@ -119,7 +120,7 @@ export function uniqueCitations<T extends Citation>(citations: T[]) {
   return unique;
 }
 
-export function compactCitations(results: SearchResult[], limit = 6) {
+export function compactCitations(results: SearchResult[], limit = 6, provenance: CitationProvenance = "review_only") {
   const seen = new Set<string>();
   const citations: Citation[] = [];
 
@@ -127,7 +128,7 @@ export function compactCitations(results: SearchResult[], limit = 6) {
     const key = `${result.document_id}:${result.page_number}:${result.chunk_index}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    citations.push(citationFromResult(result));
+    citations.push(citationFromResult(result, provenance));
     if (citations.length >= limit) break;
   }
 

@@ -128,23 +128,22 @@ export function buildAnswerLogRow(args: { query: string; ownerId?: string | null
 // detached and its error swallowed (with a throttled warning).
 let answerLogFailureCount = 0;
 
-export function logAnswerDiagnostics(args: {
+export async function logAnswerDiagnostics(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
   ownerId?: string | null;
   answer: AnswerTelemetrySource;
 }) {
-  void (async () => {
-    try {
-      await args.supabase.from("rag_retrieval_logs").insert(buildAnswerLogRow(args));
-    } catch (error) {
-      answerLogFailureCount += 1;
-      if (answerLogFailureCount <= 3 || answerLogFailureCount % 25 === 0) {
-        console.warn("rag_retrieval_logs answer insert failed", {
-          failures: answerLogFailureCount,
-          message: error instanceof Error ? error.message : "unknown answer logging error",
-        });
-      }
+  try {
+    const { error } = await args.supabase.from("rag_retrieval_logs").insert(buildAnswerLogRow(args));
+    if (error) throw error;
+  } catch (error) {
+    answerLogFailureCount += 1;
+    if (answerLogFailureCount <= 3 || answerLogFailureCount % 25 === 0) {
+      console.warn("rag_retrieval_logs answer insert failed", {
+        failures: answerLogFailureCount,
+        message: error instanceof Error ? error.message : "unknown answer logging error",
+      });
     }
-  })();
+  }
 }

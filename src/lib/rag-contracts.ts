@@ -5,6 +5,7 @@ import type {
   RetrievalIntent,
   RetrievalSelectionSummary,
 } from "@/lib/types";
+import type { RetrievalAccessScope } from "@/lib/owner-scope";
 
 export type SearchChunksArgs = {
   query: string;
@@ -13,6 +14,7 @@ export type SearchChunksArgs = {
   documentId?: string;
   documentIds?: string[];
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   allowGlobalSearch?: boolean;
   skipCache?: boolean;
   queryMode?: ClinicalQueryMode;

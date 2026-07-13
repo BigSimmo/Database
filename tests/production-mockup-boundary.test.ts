@@ -21,4 +21,17 @@ describe("production and mockup boundaries", () => {
     expect(production).toContain("export function GlobalSearchShell");
     expect(compatibility).toContain("GlobalSearchShell as GlobalMockupSearchShell");
   });
+  it("keeps routed differential filters and filtered tool preview wiring", () => {
+    const differentials = readFileSync(
+      resolve(process.cwd(), "src/components/differentials/differentials-home-page.tsx"),
+      "utf8",
+    );
+    const tools = readFileSync(
+      resolve(process.cwd(), "src/components/tools-page-mockups/tools-page-mockup-page.tsx"),
+      "utf8",
+    );
+    expect(differentials).toContain("onSuggestedSearch={navigateToSearch}");
+    expect(tools).toContain("selected={selectedToolId === tool.id}");
+    expect(tools).toContain("onSelect={() => setSelectedToolId(tool.id)}");
+  });
 });

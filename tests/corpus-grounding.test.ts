@@ -142,7 +142,7 @@ describe("classifyCorpusGrounding (RPC + cache)", () => {
     expect(result.verdict).toBe("inconclusive");
   });
 
-  it("scopes the cache by owner filter", async () => {
+  it("shares the public sentinel cache and separates authenticated owners", async () => {
     const { classifyCorpusGrounding, resetCorpusGroundingCacheForTests } = await load();
     resetCorpusGroundingCacheForTests();
     const { client, rpc } = fakeSupabase([
@@ -156,8 +156,48 @@ describe("classifyCorpusGrounding (RPC + cache)", () => {
       query: "bipolar disorder",
       ownerFilter: "00000000-0000-0000-0000-000000000000",
     });
+    await classifyCorpusGrounding({
+      supabase: client,
+      query: "bipolar disorder",
+      ownerFilter: "owner-a",
+    });
     expect(rpc).toHaveBeenCalledTimes(2);
   });
+
+  it.each(["42883", "PGRST202"])(
+    "prefers v2 and safely merges owner and public aggregates during %s rollout",
+    async (missingCode) => {
+      const { classifyCorpusGrounding, resetCorpusGroundingCacheForTests } = await load();
+      resetCorpusGroundingCacheForTests();
+      const rpc = vi.fn(async (name: string, args: { terms: string[]; owner_filter: string }) => {
+        if (name === "corpus_topic_term_stats_v2") {
+          return { data: null, error: { code: missingCode, message: "missing" } };
+        }
+        return {
+          data: [
+            stats({
+              term: "bipolar",
+              title_doc_count: args.owner_filter === "owner-a" ? 1 : 0,
+              total_doc_count: 100,
+            }),
+          ],
+          error: null,
+        };
+      });
+      const result = await classifyCorpusGrounding({
+        supabase: { rpc } as never,
+        query: "bipolar",
+        ownerFilter: "owner-a",
+        accessScope: { ownerId: "owner-a", includePublic: true },
+      });
+      expect(result.verdict).toBe("in_corpus_topic");
+      expect(rpc).toHaveBeenCalledWith(
+        "corpus_topic_term_stats_v2",
+        expect.objectContaining({ owner_filter: "owner-a", include_public: true }),
+      );
+      expect(rpc.mock.calls.filter(([name]) => name === "corpus_topic_term_stats")).toHaveLength(2);
+    },
+  );
 });
 
 describe("analyzeQueryWithClassifierFallback corpus grounding", () => {

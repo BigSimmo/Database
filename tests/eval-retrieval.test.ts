@@ -60,6 +60,195 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.failures).toEqual([]);
   });
 
+  it("scores ideal graded signal ranking, coverage, and irrelevant sources", () => {
+    const evaluated = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "graded-ideal",
+        query: "What ANC table threshold applies?",
+        expectedQueryClass: "table_threshold",
+        expectedDocumentSubstrings: ["ClozapinePresAdminMonitor"],
+        expectedContentTerms: ["anc"],
+        topK: 10,
+        expectTableEvidence: true,
+      },
+      results: [
+        result({
+          table_facts: [
+            {
+              id: "fact-1",
+              document_id: "doc-1",
+              source_chunk_id: "chunk-1",
+              source_image_id: null,
+              page_number: 3,
+              table_title: "ANC thresholds",
+              row_label: "Red",
+              clinical_parameter: "ANC",
+              threshold_value: "1.5",
+              action: "Withhold",
+              metadata: {},
+            },
+          ],
+        }),
+        result({
+          id: "distractor",
+          title: "Catering roster",
+          file_name: "Roster.pdf",
+          section_heading: "Meals",
+          content: "Kitchen opening hours.",
+        }),
+      ],
+      telemetry: { query_class: "table_threshold" },
+      latencyMs: 10,
+    });
+
+    expect(evaluated.declaredSignalCount).toBe(3);
+    expect(evaluated.ndcgAt10).toBe(1);
+    expect(evaluated.requiredSignalCoverageAt10).toBe(1);
+    expect(evaluated.irrelevantSourceRateAt10).toBe(0.5);
+    expect(summarizeGoldenRetrievalResults([evaluated])).toMatchObject({
+      signal_metric_case_count: 1,
+      ndcg_at_10: 1,
+      required_signal_coverage_at_10: 1,
+      irrelevant_source_rate_at_10: 0.5,
+    });
+  });
+
+  it("penalises distractor promotion and reports missing required signals", () => {
+    const testCase = {
+      id: "graded-demotion",
+      query: "What ANC threshold applies?",
+      expectedQueryClass: "table_threshold",
+      expectedDocumentSubstrings: ["ClozapinePresAdminMonitor"],
+      expectedContentTerms: ["anc", "withhold"],
+      topK: 10,
+      expectTableEvidence: false,
+    };
+    const answer = result({ content: "ANC monitoring applies." });
+    const distractor = result({
+      id: "distractor",
+      title: "Catering roster",
+      file_name: "Roster.pdf",
+      section_heading: "Meals",
+      content: "Kitchen opening hours.",
+    });
+    const ideal = evaluateGoldenRetrievalCase({
+      testCase,
+      results: [answer, distractor],
+      telemetry: { query_class: "table_threshold" },
+      latencyMs: 10,
+    });
+    const demoted = evaluateGoldenRetrievalCase({
+      testCase,
+      results: [distractor, answer],
+      telemetry: { query_class: "table_threshold" },
+      latencyMs: 10,
+    });
+
+    expect(demoted.ndcgAt10).toBeLessThan(ideal.ndcgAt10);
+    expect(demoted.requiredSignalCoverageAt10).toBeCloseTo(2 / 3, 5);
+    expect(demoted.irrelevantSourceRateAt10).toBe(0.5);
+  });
+
+  it("treats alternative content terms as one signal and table evidence as one signal", () => {
+    const evaluated = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "alternative-table",
+        query: "What blood monitoring table applies?",
+        expectedQueryClass: "table_threshold",
+        expectedDocumentSubstrings: [],
+        expectedContentTerms: [["fbc", "full blood count"]],
+        topK: 10,
+        expectTableEvidence: true,
+      },
+      results: [
+        result({
+          title: "Other",
+          file_name: "Other.pdf",
+          content: "A full blood count is required.",
+          index_unit: {
+            id: "unit-1",
+            unit_type: "table_threshold",
+            title: "Blood monitoring",
+            content: "Full blood count threshold",
+            source_chunk_id: "chunk-1",
+            source_image_id: null,
+            page_start: 3,
+            page_end: 3,
+            heading_path: [],
+            normalized_terms: ["full blood count"],
+            quality_score: 1,
+            extraction_mode: "deterministic",
+            metadata: {},
+          },
+        }),
+      ],
+      telemetry: { query_class: "table_threshold" },
+      latencyMs: 10,
+    });
+
+    expect(evaluated.declaredSignalCount).toBe(2);
+    expect(evaluated.requiredSignalCoverageAt10).toBe(1);
+    expect(evaluated.ndcgAt10).toBe(1);
+  });
+
+  it("uses explicit neutral values for cases with no declared retrieval signals", () => {
+    const evaluated = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "no-signals",
+        query: "Broad query",
+        expectedQueryClass: "broad_summary",
+        expectedDocumentSubstrings: [],
+        expectedContentTerms: [],
+        topK: 10,
+        expectTableEvidence: false,
+      },
+      results: [result()],
+      telemetry: { query_class: "broad_summary" },
+      latencyMs: 10,
+    });
+
+    expect(evaluated.declaredSignalCount).toBe(0);
+    expect(evaluated.ndcgAt10).toBe(1);
+    expect(evaluated.requiredSignalCoverageAt10).toBe(1);
+    expect(evaluated.irrelevantSourceRateAt10).toBe(0);
+
+    const summary = summarizeGoldenRetrievalResults([evaluated]);
+    expect(summary.signal_metric_case_count).toBe(0);
+    expect(summary.ndcg_at_10).toBe(1);
+    expect(summary.required_signal_coverage_at_10).toBe(1);
+    expect(summary.irrelevant_source_rate_at_10).toBe(0);
+  });
+
+  it("uses the same title, filename, and section semantics for content recall and signal grading", () => {
+    const evaluated = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "metadata-content-signal",
+        query: "Which section covers myocarditis?",
+        expectedQueryClass: "document_lookup",
+        expectedDocumentSubstrings: [],
+        expectedContentTerms: ["myocarditis"],
+        topK: 10,
+        expectTableEvidence: false,
+      },
+      results: [
+        result({
+          title: "Clozapine myocarditis protocol",
+          file_name: "myocarditis-guidance.pdf",
+          section_heading: "Myocarditis monitoring",
+          content: "General clinical observations.",
+          retrieval_synopsis: undefined,
+        }),
+      ],
+      telemetry: { query_class: "document_lookup" },
+      latencyMs: 10,
+    });
+
+    expect(evaluated.contentRecallAt5).toBe(1);
+    expect(evaluated.requiredSignalCoverageAt10).toBe(1);
+    expect(evaluated.ndcgAt10).toBe(1);
+    expect(evaluated.irrelevantSourceRateAt10).toBe(0);
+  });
+
   it("content_mrr@10 penalises answer passages that rank below distractors even when recall is perfect", () => {
     const testCase = {
       id: "content-rank",

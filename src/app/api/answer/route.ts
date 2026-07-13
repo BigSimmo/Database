@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
-import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { isDemoMode } from "@/lib/env";
 import { answerQuestionWithScope } from "@/lib/rag";
 import { jsonError, PublicApiError } from "@/lib/http";
 import {
@@ -14,6 +14,7 @@ import { classifyRagQuery } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
+import { resolveRetrievalAccessScope } from "@/lib/owner-scope";
 import {
   hasDangerSourceGovernanceWarning,
   sourceGovernanceRefusalAnswer,
@@ -36,7 +37,6 @@ const answerSchema = z.object({
   documentIds: z.array(z.string().uuid()).max(25).optional(),
   filters: searchScopeFiltersSchema.optional(),
   queryMode: clinicalQueryModeSchema.optional().default("auto"),
-  skipCache: z.boolean().optional().default(false),
 });
 
 type AnswerRequestBody = z.infer<typeof answerSchema>;
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
-    const publicOnly = !access.authenticated && !isLocalNoAuthMode();
+    const accessScope = resolveRetrievalAccessScope(access.ownerId);
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -96,8 +96,7 @@ export async function POST(request: Request) {
 
     const scope = await resolveSearchScope({
       supabase,
-      ownerId: access.ownerId,
-      publicOnly,
+      accessScope,
       documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
       filters: answerBody.filters,
     });
@@ -127,9 +126,9 @@ export async function POST(request: Request) {
           answerBody.documentIds ??
           (answerBody.documentId ? [answerBody.documentId] : undefined)),
       ownerId: access.ownerId,
+      accessScope,
       allowGlobalSearch: !access.ownerId,
       queryMode: answerBody.queryMode,
-      skipCache: answerBody.skipCache,
       signal: request.signal,
     });
     const warnings = sourceGovernanceWarnings({
@@ -143,6 +142,20 @@ export async function POST(request: Request) {
       // (refused) sources/smartPanel/smartApiPlan would still reach the client and
       // defeat the refusal. Keep only the safe "unsupported" contract fields, matching
       // the empty-scope branch above.
+      void logAnswerDiagnostics({
+        supabase,
+        query: answerBody.query,
+        ownerId: access.ownerId,
+        answer: {
+          ...answer,
+          grounded: false,
+          confidence: "unsupported",
+          sources: [],
+          responseMode: "evidence_gap",
+          fallbackReason: "source_governance_refusal",
+          routingReason: [answer.routingReason, "source_governance_refusal"].filter(Boolean).join("; "),
+        },
+      });
       return NextResponse.json({
         answer: sourceGovernanceRefusalAnswer,
         grounded: false,
