@@ -142,18 +142,30 @@ const qualityThresholds = {
   // Latency gates default to the strict near-region ceilings that release and
   // local runs are held to. The Eval Canary measures from cross-region GitHub
   // runners → Sydney Supabase + OpenAI, where a real grounded answer pays full
-  // generation time and the provider-timeout→extractive-fallback chain costs
-  // 30s+ per affected case (issue #459 post-#606: quality metrics perfect, p95
+  // generation time (issue #459 post-#606: quality metrics perfect, p95
   // measured 48,256ms) — that workflow opts into the wider allowance by setting
   // EVAL_LATENCY_CONTEXT=cross-region-runner, so eval:quality:release keeps the
   // strict gate. User-facing latency is enforced separately by the answer SLO
   // deep probe, not this eval.
   ragP95LatencyMs: crossRegionRunnerLatencyContext ? 60_000 : 25_000,
   ragRouteP95LatencyMs: {
+    // Refusals must stay fast — a slow refusal means the pipeline burned generation time
+    // before giving up, which is exactly the waste mode #580 eliminated.
     unsupported: 4_000,
-    extractive: crossRegionRunnerLatencyContext ? 60_000 : 12_000,
+    // Direct source-stitching with no model generation. Generation-fallback chains no
+    // longer land in this bucket (see "fallback" below), so the runner allowance only
+    // needs cross-region RPC headroom — not the blanket 60s that pre-fallback-bucket
+    // calibration required — and a no-model extraction slowdown stays visible.
+    extractive: crossRegionRunnerLatencyContext ? 35_000 : 12_000,
     fast: 25_000,
-    strong: 35_000,
+    // Generation-fallback chains (latencyRouteForAnswer buckets any answer whose routing
+    // reason records a generation_fallback here): the failed generation spends up to
+    // OPENAI_ANSWER_TIMEOUT_MS (30s) before the source-backed fallback stitches an
+    // answer. Timeout-dominated, so the budget is region-insensitive.
+    fallback: 50_000,
+    // Strong may retry a truncated generation at a larger budget (self-heal) = up to two
+    // sequential generations; near-region runs keep the strict single-generation gate.
+    strong: crossRegionRunnerLatencyContext ? 60_000 : 35_000,
   } as Record<string, number>,
 };
 
@@ -643,6 +655,15 @@ function ragCaseDiagnosticsTable(results: RagQualityResult[]) {
 function latencyRouteForAnswer(answer: RagAnswer) {
   const route = answer.routingMode ?? "none";
   if ((answer.latencyTimings?.generation_latency_ms ?? 0) <= 0) return route;
+  // A generation ran and failed before a source-backed answer was assembled (e.g.
+  // provider_timeout -> extractive fallback). These chains structurally cost the failed
+  // generation's timeout PLUS the fallback work, so they get their own latency budget
+  // instead of inflating the plain fast budget, hiding inside the no-model extractive
+  // one, or — for strong-classified reasons (e.g. multi_document_comparison_synthesis) —
+  // blending into the strong budget. This check deliberately outranks the strong
+  // classifiers below: a successful strong generation (including quality retries) never
+  // records a generation_fallback, so genuine strong answers keep the strong budget.
+  if (/\bgeneration_fallback:/i.test(answer.routingReason ?? "")) return "fallback";
   if (route === "strong") return "strong";
   if (
     /^(?:broad_clinical_management_synthesis|clinical_risk_or_complex_query|limited_retrieval_strength|multi_document_comparison_synthesis|retrieval_gap_or_conflict)\b/i.test(
