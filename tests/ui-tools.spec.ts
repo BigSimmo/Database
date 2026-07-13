@@ -549,14 +549,15 @@ test.describe("Clinical KB tools launcher", () => {
 
       const warning = page.getByTestId("answer-composer-privacy-warning");
       await expect(warning).toBeVisible();
-      await expect(warning).toHaveText("Don't enter identifiable patient details.");
+      await expect(warning).toContainText("Do not enter patient-identifiable information.");
+      await expect(warning.getByRole("link", { name: "Privacy and data processing" })).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveAttribute(
         "aria-describedby",
         "answer-composer-privacy-warning",
       );
-      await expect(
-        page.getByTestId("answer-empty-state").getByRole("link", { name: "Privacy & data handling" }),
-      ).toBeVisible();
+      // The composer notice is the single site-wide privacy element — no other
+      // /privacy link (e.g. the old hero-footer duplicate) may render with it.
+      await expect(page.locator('a[href="/privacy"]')).toHaveCount(1);
     }
   });
 
