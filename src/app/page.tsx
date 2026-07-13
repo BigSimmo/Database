@@ -44,5 +44,15 @@ export default async function Home({ searchParams }: HomeProps) {
     redirect(suffix ? `/differentials?${suffix}` : "/differentials");
   }
 
+  if (initialSearchMode === "specifiers") {
+    const specifierParams = new URLSearchParams();
+    const query = firstSearchParam(params.q)?.trim();
+    if (query) specifierParams.set("q", query);
+    if (firstSearchParam(params.focus) === "1") specifierParams.set("focus", "1");
+    if (firstSearchParam(params.run) === "1") specifierParams.set("run", "1");
+    const suffix = specifierParams.toString();
+    redirect(suffix ? `/specifiers?${suffix}` : "/specifiers");
+  }
+
   return <HomePageClient initialMode={initialSearchMode} />;
 }
