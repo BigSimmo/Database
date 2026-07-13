@@ -93,6 +93,9 @@ jobs:
       - name: Answer-quality subset (live generation)
         env:
           ANSWER_CASE_LIMIT: ${{ github.event.inputs.answer_case_limit || '8' }}
+          # Canary-only latency allowance: cross-region runner -> Sydney Supabase
+          # + OpenAI. Release/local eval:quality keeps the strict default gates.
+          EVAL_LATENCY_CONTEXT: cross-region-runner
         run: |
           if [[ ! "$ANSWER_CASE_LIMIT" =~ ^[0-9]+$ ]] || (( ANSWER_CASE_LIMIT < 1 || ANSWER_CASE_LIMIT > 100 )); then
             echo "answer_case_limit must be an integer from 1 to 100" >&2
@@ -100,7 +103,7 @@ jobs:
           fi
           npm run eval:quality -- --rag-only --limit "$ANSWER_CASE_LIMIT" --fail-on-threshold
 
-      - name: Open or update regression issue
+      - name: Open or update canary failure issue
         if: failure() && github.event_name == 'schedule'
         uses: actions/github-script@v9
         with:
@@ -112,9 +115,10 @@ jobs:
               "",
               `Run: ${runUrl}`,
               "",
-              "Triage order (docs/observability-slos.md §3): rerun via workflow_dispatch,",
-              "check hybrid_rpc_errors and `npm run check:indexing`, then bisect code.",
-              "A failure can be corpus-state-dependent — confirm before reverting anything.",
+              "Triage order (docs/observability-slos.md §3): inspect the failed step first.",
+              "Resolve provider quota/auth/config failures before rerunning; for completed evals,",
+              "check hybrid_rpc_errors and `npm run check:indexing`, then investigate corpus or code drift.",
+              "Do not bisect or revert code until provider health and the failure class are confirmed.",
             ].join("\n");
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
@@ -133,7 +137,7 @@ jobs:
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: "Eval canary regression: nightly golden eval failed",
+                title: "Eval canary failure: nightly evaluation did not complete",
                 labels: [label],
                 body,
               });

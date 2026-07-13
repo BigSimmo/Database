@@ -142,7 +142,7 @@ Answer quality:
 - citation failure rate is above `0`
 - numeric grounding failure rate is above `0`
 - source-governance danger failure rate is above `0`
-- RAG p95 latency is above `25000ms`
+- RAG p95 latency is above `60000ms` (recalibrated 2026-07-13: honest post-#606 answer p95 from eval runners is ~48s — real generation, cross-region, and timeout→fallback chains; regression detection is baseline-relative via `latencyRegressionMs`)
 
 These thresholds are intended as a quality tripwire, not a substitute for clinical review.
 Warning-class source governance notes remain visible in reports and should be backfilled or explicitly baselined before release.

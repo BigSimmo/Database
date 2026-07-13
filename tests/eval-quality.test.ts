@@ -234,26 +234,31 @@ describe("eval quality reporting", () => {
     );
   });
 
-  it("budgets a model-attempt extractive fallback against its attempted route", () => {
+  it("budgets a model-attempt extractive fallback against the fallback latency route", () => {
+    // A failed generation followed by a source-backed fallback structurally costs the
+    // generation timeout plus the fallback work, so it is budgeted in its own "fallback"
+    // bucket (50s) rather than the plain fast budget (25s) or the tight no-model
+    // extractive budget (12s). 35s here would fail both of those but must pass fallback.
     const report = buildEvalQualityReport({
       generatedAt: "2026-07-13T00:00:00.000Z",
       retrievalResults: [],
       ragResults: [
         ragResult({
           route: "extractive",
-          latencyRoute: "fast",
-          latencyMs: 15_000,
-          generationLatencyMs: 12_000,
+          latencyRoute: "fallback",
+          latencyMs: 35_000,
+          generationLatencyMs: 30_000,
           model: null,
           routingReason: "strong_routine_retrieval; generation_fallback:provider_timeout",
         }),
       ],
     });
 
-    expect(report.rag.summary.route_p95_latency_ms).toEqual({ fast: 15_000 });
+    expect(report.rag.summary.route_p95_latency_ms).toEqual({ fallback: 35_000 });
     expect(report.threshold_failures).not.toEqual(
       expect.arrayContaining([expect.stringContaining("route extractive")]),
     );
+    expect(report.threshold_failures).not.toEqual(expect.arrayContaining([expect.stringContaining("route fallback")]));
   });
 
   it("fails forced-embedding retrieval cases that return from cache, coverage, or lexical paths", () => {

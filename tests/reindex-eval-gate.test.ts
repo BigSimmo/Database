@@ -304,10 +304,10 @@ describe("decideReindexGate — quality", () => {
       baselineRetrieval: retrieval(),
       candidateRetrieval: retrieval(),
       baselineQuality: quality(),
-      candidateQuality: quality({ p95_latency_ms: 26000 }),
+      candidateQuality: quality({ p95_latency_ms: 61000 }),
     });
     expect(decision.decision).toBe("NO_GO");
-    expect(decision.failures.join(" ")).toMatch(/p95_latency_ms 26000 above absolute ceiling 25000/);
+    expect(decision.failures.join(" ")).toMatch(/p95_latency_ms 61000 above absolute ceiling 60000/);
   });
 
   it("fails closed when only one side supplies a quality summary", () => {

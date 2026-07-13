@@ -45,6 +45,7 @@
     "sweep:branch-ledger": "node scripts/sweep-branch-ledger.mjs",
     "docs:check-links": "node scripts/check-docs-links.mjs",
     "docs:check-scripts": "node scripts/check-docs-script-refs.mjs",
+    "deps:report": "node scripts/dependency-report.mjs",
     "docs:check-index": "node scripts/check-codebase-index-coverage.mjs",
     "sitemap:update": "node scripts/run-tsx.mjs scripts/generate-site-map.ts",
     "sitemap:check": "node scripts/run-tsx.mjs scripts/generate-site-map.ts --check",

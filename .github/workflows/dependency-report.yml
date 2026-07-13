@@ -1,0 +1,96 @@
+# Fortnightly dependency report. Surfaces outdated direct dependencies and audit
+# vulnerabilities into a rolling issue. REPORT ONLY — it never updates deps; acting
+# on the report means running the AGENTS.md `dependency` protocol by hand.
+#
+# SHIPPED DISABLED: workflow_dispatch only; the schedule is commented out. To enable
+# the cadence, uncomment `schedule:` and run one dispatch to confirm the issue.
+name: Dependency Report
+
+on:
+  workflow_dispatch: {}
+  # schedule:
+  #   # 07:00 UTC on the 1st and 15th.
+  #   - cron: "0 7 1,15 * *"
+
+concurrency:
+  group: dependency-report
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  dependency-report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Render dependency report
+        id: report
+        run: node scripts/dependency-report.mjs --out dependency-report.md
+
+      - name: Publish to rolling issue
+        uses: actions/github-script@v9
+        env:
+          # Pass step outputs via env (not inline template expansion) to avoid the
+          # GitHub Actions template-injection pattern, even though both values are
+          # currently a fixed enum / plain integer produced by our own script.
+          OUTDATED_COUNT: ${{ steps.report.outputs.outdated }}
+          SEVERITY: ${{ steps.report.outputs.severity }}
+        with:
+          script: |
+            const fs = require("fs");
+            const label = "dependency-report";
+            const body = fs.readFileSync("dependency-report.md", "utf8");
+            const outdated = Number(process.env.OUTDATED_COUNT || "0");
+            const severity = process.env.SEVERITY || "none";
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: label,
+            });
+            let issueNumber;
+            if (existing.length > 0) {
+              issueNumber = existing[0].number;
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body,
+              });
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: "Dependency report",
+                labels: [label],
+                body,
+              });
+              issueNumber = created.data.number;
+            }
+            // Notify only when there are high/critical vulns.
+            if (severity === "high" || severity === "critical") {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `⚠ ${severity} vulnerability present (${outdated} outdated direct deps) — ${new Date().toISOString()}`,
+              });
+              core.warning(`Dependency audit highest severity: ${severity}`);
+            }

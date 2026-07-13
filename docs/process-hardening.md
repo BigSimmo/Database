@@ -316,3 +316,39 @@ hybrid:10}`, all 10 forced-embedding vector cases passed (`force_embedding_failu
 - **supabase_admin default privileges (audit finding 7, operator caveat):** `20260713102000_revoke_supabase_admin_default_privileges.sql` revokes anon/authenticated future-object defaults for role `supabase_admin` and probes the lockdown with future-object creation. On hosted Supabase the migration degrades to a WARNING if `postgres` cannot act for `supabase_admin`; **operator follow-up:** watch for that warning during live apply and, if present, run the six `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin` statements once via the dashboard SQL editor, then re-run the migration's probe block.
 - **Legacy rag query text scrub (audit finding 5):** `20260713103000_scrub_legacy_rag_query_text.sql` performs four redaction/deletion operations for pre-HMAC plaintext query text: (1) scrubs `rag_queries.query` rows not matching `redacted-query:%`, replacing them with salted `redacted-query:legacy:` placeholders; (2) scrubs both `rag_query_misses.query` and `rag_query_misses.normalized_query` not matching `redacted-query:%`; (3) scrubs both `rag_retrieval_logs.query` and `rag_retrieval_logs.normalized_query` not matching `redacted-query:%` (nullable); (4) deletes `rag_response_cache` rows where `normalized_query` does not match `redacted-cache:%` (cache entries, not re-keyed). **Operator verification after live apply:** for each affected table/operation, count rows not matching the expected redacted pattern (expect 0 unless `RAG_PERSIST_RAW_QUERY_TEXT` is deliberately enabled): `select count(*) from rag_queries where query not like 'redacted-query:%';` (expect 0), `select count(*) from rag_query_misses where query not like 'redacted-query:%' or normalized_query not like 'redacted-query:%';` (expect 0), `select count(*) from rag_retrieval_logs where query not like 'redacted-query:%' or (normalized_query is not null and normalized_query not like 'redacted-query:%');` (expect 0), `select count(*) from rag_response_cache where normalized_query not like 'redacted-cache:%';` (expect 0). The migration includes a post-apply assertion block that enforces these exact checks and fails the migration if any unscrubbed/undeleted rows remain.
 - Remaining operator items from the 2026-07-13 audit (confirmation-required, not automated): apply this batch's migrations live, re-run Supabase advisors, trigger the Eval Canary and require two consecutive green scheduled runs, repair the invalid `storage.idx_objects_bucket_id_name_lower` index via dashboard/support, and dedupe response-cache purge cron jobs if `cron.job` shows duplicates.
+
+## Repo-productivity & automation tooling (2026-07-13)
+
+Machinery added to retire repeated traps and surface live-product signal proactively. This entry is
+the durable index for the tooling; `docs/operator-backlog.md` tracks the human-only enablement steps.
+
+- **Pre-push guards** (`.githooks/pre-push` → `scripts/guard-push.mjs`, auto-installed by the
+  `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): three guards,
+  each with an explicit override env var — auto-merge race sentinel (`claude/*`, blocks a push when the
+  PR's auto-merge is armed; `ALLOW_AUTOMERGE_PUSH=1`), format-before-push (closes the `verify:cheap` vs
+  CI `format:check` gap; `SKIP_FORMAT_GUARD=1`), and drift-manifest freshness (`SKIP_DRIFT_GUARD=1`).
+  `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
+  installer runs from `postinstall` (any new npm lifecycle script must also be COPY'd into the
+  Dockerfile npm-ci stages — see the 2026-07-13 docs-infra note).
+- **Stale-base tripwire** (`scripts/check-base-freshness.mjs`, `check:base-freshness`): advisory
+  ahead/behind-vs-`origin/main` warning wired into a second SessionStart hook; never blocks.
+- **Live-product monitoring:** `spend` block on `/api/health?deep=1` (`src/lib/observability/spend-metrics.ts`,
+  USD derived from already-persisted answer token counts; prices via `OPENAI_PRICE_*` env, placeholders
+  until set). `scripts/ops-digest.mjs` + `.github/workflows/ops-digest.yml` (**dispatch-only** until
+  `PROD_HEALTH_URL` var + `HEALTH_DEEP_PROBE_SECRET` secret exist in both Railway and GitHub).
+- **Ingestion autopilot** (`scripts/ingestion-autopilot.ts`, `ingestion:autopilot`): probes `reindex-health`
+  and recovers a stuck queue **only** with `--apply`. Workflow schedule is LIVE in **dry-run**
+  (`INGESTION_AUTOPILOT_APPLY` unset → read-only); flip that repo var to `true` after a clean dry-run to
+  allow real recovery.
+- **CI failure triage** (`.github/workflows/ci-triage.yml`): on PR CI failure, classifies each failed job
+  as main-side / possible-known-flake / needs-investigation. Inert until repo var `CI_TRIAGE_ENABLED=true`
+  (now set). Reads only job metadata + the trusted default-branch flake ledger (`tests/flake-ledger.json`,
+  `scripts/flake-ledger.mjs`); never runs PR code.
+- **Repo hygiene:** `check:env-parity` (env-var NAME reconciliation across `env.ts`, `check-ci-env.mjs`,
+  and — opt-in, names-only — `gh secret list` / Railway) and `sweep:branch-ledger` (report-only branch
+  inventory, cherry-pick-aware).
+- **Session skills** (`.claude/skills/{newtask,handoff,prlanded}`): the first repo-local skills, encoding
+  the clean-worktree, upload, and post-merge-verification rituals.
+- **CI guards (warn/advisory):** `check:bundle-budget` (warn-only client-JS size gate after Build until a
+  baseline is captured in `bundle-budget.json` and `enforce:true` is set) and `docs:check-scripts`
+  (advisory — validates `npm run` refs in docs against `package.json`).
