@@ -989,7 +989,7 @@ function hasValidatedGenericLaiManagementExtractiveAnswer(args: {
   const genericLaiManagementQuery =
     /\blong[- ]acting injectables?\b/i.test(args.query) &&
     /\b(?:manage|managed|management)\b/i.test(args.query) &&
-    !/\b(?:administer|compare|contraindicat|dose|dosing|escalat\w*|frequency|hepatic|initiat\w*|interval|missed|monitor\w*|observation|overdue|pregnan\w*|prescrib\w*|renal|risk\w*|route|side effect|stop|switch|versus|withhold)\b/i.test(
+    !/\b(?:adolescen\w*|administer|child(?:ren)?|compare|contraindicat|dose|dosing|elderly|escalat\w*|frequency|geriatric|hepatic|initiat\w*|interval|missed|monitor\w*|observation|older adult|overdue|paediatric|pediatric|pregnan\w*|prescrib\w*|renal|risk\w*|route|side effect|stop|switch|versus|withhold|young people|youth)\b/i.test(
       args.query,
     );
 

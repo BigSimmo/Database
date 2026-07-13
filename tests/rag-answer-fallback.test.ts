@@ -437,6 +437,25 @@ describe("RAG structured-output fallback", () => {
     expect(answer.latencyTimings?.generation_latency_ms).toBe(0);
   });
 
+  it("keeps special-population LAI management questions on model synthesis", async () => {
+    const answer = await answerFromTextSources(
+      "How are long acting injectables managed in adolescents?",
+      [
+        source({
+          id: "lai-management-adolescent",
+          document_id: "lai-doc",
+          title: "Long Acting Injectable Medication",
+          content: "Long acting injectables require prescribing, administration, follow-up, and clinical review.",
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["title", "content"] },
+        }),
+      ],
+      new Error("model generation attempted"),
+    );
+
+    expect(answer.routingReason).not.toContain("validated_generic_lai_management_extractive_answer");
+    expect(answer.routingReason).toContain("generation_fallback");
+  });
+
   it("recovers generation timeouts with an extractive source-backed answer when sources are strong", async () => {
     const answer = await answerFromTextSources(
       "How should agitation be managed when oral medication is refused?",
