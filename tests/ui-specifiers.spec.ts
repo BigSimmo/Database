@@ -105,3 +105,13 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
   await expectNoHorizontalOverflow(page);
   await expectNoBlockingAxeViolations(page, testInfo);
 });
+
+test("keeps the base diagnosis severity-neutral when applying a severity descriptor", async ({ page }) => {
+  await gotoApp(page, "/specifiers/builder?specifier=mild-severity");
+
+  await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue(
+    "Major depressive disorder, recurrent",
+  );
+  await expect(page.getByText("Major depressive disorder, recurrent, mild", { exact: true })).toBeVisible();
+  await expect(page.getByText(/severe, mild|moderate, mild/i)).toHaveCount(0);
+});

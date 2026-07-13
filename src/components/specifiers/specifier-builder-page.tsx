@@ -15,8 +15,8 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { normalizeSpecifierSelection, specifierFamilies, specifierRecords } from "@/lib/specifiers";
 
 const diagnosisPresets = [
-  "Major depressive disorder, recurrent, current episode severe",
-  "Major depressive disorder, single episode, moderate",
+  "Major depressive disorder, recurrent",
+  "Major depressive disorder, single episode",
   "Bipolar I disorder, current episode depressed",
   "Bipolar I disorder, current episode manic",
   "Bipolar II disorder, current episode depressed",
