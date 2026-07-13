@@ -403,9 +403,23 @@ function throwIfAborted(signal?: AbortSignal) {
 }
 
 export type AnswerProgressEvent = {
-  stage: "retrieved" | "routing" | "generating" | "retrying" | "finalizing" | "cached";
+  stage:
+    | "retrieved"
+    | "ranking"
+    | "routing"
+    | "generating"
+    | "retrying"
+    | "fallback"
+    | "verifying"
+    | "finalizing"
+    | "cached"
+    | "complete";
   message: string;
   resultCount?: number;
+  selectedContextCount?: number;
+  australianSourceCount?: number;
+  waSourceCount?: number;
+  usedSupplementaryFallback?: boolean;
   visibleSourceCount?: number;
   directSourceCount?: number;
   weakSourceCount?: number;
@@ -4855,6 +4869,15 @@ ${qualityRetryInstruction}`
     answerInputResults,
     generationFallbackResults,
   );
+  const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
+  await args.onProgress?.({
+    stage: "ranking",
+    message: "Selected governed source passages for answer generation.",
+    selectedContextCount: modelContextSelectionSummary.selectedCount,
+    australianSourceCount: modelContextSelectionSummary.australianSelectedCount,
+    waSourceCount: modelContextSelectionSummary.waSelectedCount,
+    usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
+  });
   try {
     await args.onProgress?.({
       stage: "generating",
@@ -5036,7 +5059,7 @@ ${qualityRetryInstruction}`
         retrievalDiagnostics,
       );
     }
-    await args.onProgress?.({ stage: "finalizing", message: "Checking citations and source metadata." });
+    await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
 
     const relatedDocuments = await relatedDocumentsPromise;
     const answerTimings = {
@@ -5203,10 +5226,14 @@ ${qualityRetryInstruction}`
     if ((error instanceof DOMException && error.name === "AbortError") || args.signal?.aborted) throw error;
     const relatedDocuments = await relatedDocumentsPromise;
     await args.onProgress?.({
-      stage: "finalizing",
+      stage: "fallback",
       message: "Generation failed, returning source-based fallback answer.",
       mode: "unsupported",
       reason: "generation_fallback",
+      selectedContextCount: generationFallbackSelectionSummary.selectedCount,
+      australianSourceCount: generationFallbackSelectionSummary.australianSelectedCount,
+      waSourceCount: generationFallbackSelectionSummary.waSelectedCount,
+      usedSupplementaryFallback: generationFallbackSelectionSummary.usedSupplementaryFallback,
     });
     const baseFallbackAnswer = await buildGenerationFallbackAnswer(
       error,
@@ -5362,6 +5389,7 @@ ${qualityRetryInstruction}`
       args.query,
       queryClass,
     );
+    await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
     if (args.logQuery !== false)
       await logRagQuery({
         owner_id: args.ownerId ?? null,

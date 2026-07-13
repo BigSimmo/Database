@@ -1638,11 +1638,21 @@ describe("RAG structured-output fallback", () => {
     }));
 
     const { answerQuestionWithScope, isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+    const progressEvents: Array<{
+      stage: string;
+      selectedContextCount?: number;
+      australianSourceCount?: number;
+      waSourceCount?: number;
+      usedSupplementaryFallback?: boolean;
+    }> = [];
     const answer = await answerQuestionWithScope({
       query: "Lithium dosing",
       ownerId: undefined,
       logQuery: false,
       skipCache: true,
+      onProgress: (event) => {
+        progressEvents.push(event);
+      },
     });
 
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
@@ -1671,6 +1681,25 @@ describe("RAG structured-output fallback", () => {
     expect(answer.openAIRequestIds).toEqual(["req_truncated_1", "req_truncated_2"]);
     expect(answer.openAIUsage).toMatchObject({ output_tokens: 1300, total_tokens: 1500 });
     expect(isCacheableGroundedGenerationFallback(answer)).toBe(true);
+    expect(progressEvents).toContainEqual(
+      expect.objectContaining({
+        stage: "ranking",
+        selectedContextCount: 4,
+        australianSourceCount: 4,
+        waSourceCount: 4,
+        usedSupplementaryFallback: false,
+      }),
+    );
+    expect(progressEvents).toContainEqual(
+      expect.objectContaining({
+        stage: "fallback",
+        selectedContextCount: 4,
+        australianSourceCount: 4,
+        waSourceCount: 4,
+        usedSupplementaryFallback: false,
+      }),
+    );
+    expect(progressEvents).toContainEqual(expect.objectContaining({ stage: "verifying" }));
   });
 
   it("fails closed instead of leaking another medication's numeric dose after generation failure", async () => {
