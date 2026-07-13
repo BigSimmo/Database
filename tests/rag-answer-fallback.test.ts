@@ -615,21 +615,16 @@ describe("RAG structured-output fallback", () => {
         from: vi.fn(() => new EmptyQuery()),
       }),
     }));
+    const generateParsedTextResult = vi.fn(async () => ({
+      parsed: {
+        queryClass: "unsupported_or_general",
+        confidence: 0.4,
+        reasons: ["direct definition question"],
+        expandedTerms: ["bulimia nervosa"],
+      },
+    }));
     const generateStructuredTextResult = vi
       .fn()
-      .mockResolvedValueOnce({
-        text: JSON.stringify({
-          queryClass: "unsupported_or_general",
-          confidence: 0.4,
-          reasons: ["direct definition question"],
-          expandedTerms: ["bulimia nervosa"],
-        }),
-        model: "gpt-4.1-mini",
-        operation: "text_generation",
-        latencyMs: 6,
-        requestId: "req_classifier",
-        usage: { input_tokens: 80, output_tokens: 20, total_tokens: 100 },
-      })
       .mockResolvedValueOnce({
         text: JSON.stringify({
           answer:
@@ -694,6 +689,7 @@ describe("RAG structured-output fallback", () => {
 
     vi.doMock("@/lib/openai", () => ({
       embedTextWithTelemetry: vi.fn(),
+      generateParsedTextResult,
       generateStructuredTextResult,
     }));
 
@@ -706,7 +702,8 @@ describe("RAG structured-output fallback", () => {
       skipCache: true,
     });
 
-    expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
+    expect(generateParsedTextResult).toHaveBeenCalledTimes(1);
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
     expect(answer.routingMode).toBe("strong");
     expect(answer.routingReason).toContain("fast_overexpanded_simple_retry_strong");
     expect(answer.openAIRequestIds ?? []).toEqual(["req_fast_overexpanded", "req_strong_concise"]);
@@ -1392,21 +1389,16 @@ describe("RAG structured-output fallback", () => {
       if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
+    const generateParsedTextResult = vi.fn(async () => ({
+      parsed: {
+        queryClass: "unsupported_or_general",
+        confidence: 0.4,
+        reasons: ["direct definition question"],
+        expandedTerms: ["bulimia nervosa"],
+      },
+    }));
     const generateStructuredTextResult = vi
       .fn()
-      .mockResolvedValueOnce({
-        text: JSON.stringify({
-          queryClass: "unsupported_or_general",
-          confidence: 0.4,
-          reasons: ["direct definition question"],
-          expandedTerms: ["bulimia nervosa"],
-        }),
-        model: "gpt-5.4-mini",
-        operation: "text_generation",
-        latencyMs: 6,
-        requestId: "req_classifier_invalid_evidence",
-        usage: { input_tokens: 80, output_tokens: 20, total_tokens: 100 },
-      })
       .mockResolvedValueOnce({
         text: JSON.stringify({
           answer:
@@ -1456,6 +1448,7 @@ describe("RAG structured-output fallback", () => {
     }));
     vi.doMock("@/lib/openai", () => ({
       embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateParsedTextResult,
       generateStructuredTextResult,
     }));
 
@@ -1467,7 +1460,8 @@ describe("RAG structured-output fallback", () => {
       skipCache: true,
     });
 
-    expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
+    expect(generateParsedTextResult).toHaveBeenCalledTimes(1);
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
     expect(answer.routingMode).toBe("strong");
     expect(answer.routingReason).toContain("fast_invalid_evidence_retry_strong");
     expect(answer.grounded).toBe(true);

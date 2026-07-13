@@ -12,9 +12,10 @@ afterEach(() => {
 
 async function loadWithClassifierMock(mock: ReturnType<typeof vi.fn>) {
   vi.stubEnv("OPENAI_API_KEY", "test-key");
+  vi.stubEnv("OPENAI_QUERY_CLASSIFIER_MODEL", "gpt-classifier-test");
   vi.doMock("@/lib/openai", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../src/lib/openai")>();
-    return { ...actual, generateStructuredTextResult: mock };
+    return { ...actual, generateParsedTextResult: mock };
   });
   const rag = await import("../src/lib/rag");
   const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
@@ -24,13 +25,13 @@ async function loadWithClassifierMock(mock: ReturnType<typeof vi.fn>) {
 
 function classifierResponse(overrides: Record<string, unknown> = {}) {
   return {
-    text: JSON.stringify({
+    parsed: {
       queryClass: "broad_summary",
       confidence: 0.9,
       reasons: ["classifier_test"],
       expandedTerms: ["mood disorder"],
       ...overrides,
-    }),
+    },
   };
 }
 
@@ -55,6 +56,14 @@ describe("classifier verdict memoization", () => {
     const second = await rag.analyzeQueryWithClassifierFallback(query, analysis);
 
     expect(mock).toHaveBeenCalledTimes(1);
+    expect(mock).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.any(Object),
+      expect.objectContaining({
+        model: "gpt-classifier-test",
+        promptCacheKey: "clinical-rag-query-classifier-v1",
+      }),
+    );
     expect(first.queryClass).toBe("broad_summary");
     expect(second.queryClass).toBe("broad_summary");
     expect(second).toEqual(first);
@@ -74,6 +83,20 @@ describe("classifier verdict memoization", () => {
     expect(second).toBe(analysis);
   });
 
+  it("threads a pseudonymous safety identifier for an authenticated classifier request", async () => {
+    vi.stubEnv("OPENAI_SAFETY_IDENTIFIER_SECRET", "test-secret-that-is-at-least-thirty-two-characters");
+    const mock = vi.fn(async () => classifierResponse());
+    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+
+    await rag.analyzeQueryWithClassifierFallback(query, analysis, { ownerId: "owner-a" });
+
+    const calls = mock.mock.calls as unknown as Array<[unknown, unknown, { safetyIdentifier?: string }]>;
+    const options = calls[0]?.[2];
+    expect(options?.safetyIdentifier).toMatch(/^[a-f0-9]{64}$/);
+    expect(options?.safetyIdentifier).not.toContain("owner-a");
+  });
+
   it("does not memoize transport errors — the next request retries the classifier", async () => {
     const mock = vi.fn().mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce(classifierResponse());
     const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
@@ -88,10 +111,10 @@ describe("classifier verdict memoization", () => {
   });
 
   it("deduplicates concurrent in-flight calls for the same query", async () => {
-    let resolveCall: ((value: { text: string }) => void) | undefined;
+    let resolveCall: ((value: ReturnType<typeof classifierResponse>) => void) | undefined;
     const mock = vi.fn(
       () =>
-        new Promise<{ text: string }>((resolve) => {
+        new Promise<{ parsed: ReturnType<typeof classifierResponse>["parsed"] }>((resolve) => {
           resolveCall = resolve;
         }),
     );

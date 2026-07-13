@@ -705,7 +705,7 @@ Audit and harden structured output contracts for this repo.
 Focus on places where model or model-like output is parsed, displayed, stored,
 or graded:
 - src/lib/rag.ts
-- src/lib/answer-stream-extractor.ts
+- src/lib/answer-stream-contract.ts
 - src/lib/answer-verification.ts
 - src/lib/answer-render-policy.ts
 - src/app/api/answer/route.ts

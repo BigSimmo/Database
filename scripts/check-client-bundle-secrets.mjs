@@ -7,6 +7,7 @@ const textExtensions = new Set([".css", ".html", ".js", ".json", ".map", ".md", 
 const forbiddenMarkers = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "OPENAI_API_KEY",
+  "OPENAI_SAFETY_IDENTIFIER_SECRET",
   "OPENAI_ORG_ID",
   "OPENAI_PROJECT_ID",
   "RAG_QUERY_HASH_SECRET",

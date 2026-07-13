@@ -14,8 +14,8 @@ import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
-import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
-import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
+import { queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
+import { resolveSearchScope } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope, type RetrievalAccessScope } from "@/lib/owner-scope";
 import {
   hasDangerSourceGovernanceWarning,
@@ -30,19 +30,11 @@ import { logger } from "@/lib/logger";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import { startSseHeartbeat } from "@/lib/sse-heartbeat";
 import { parseJsonBody } from "@/lib/validation/body";
+import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
+import type { AnswerStreamEventMap, AnswerStreamEventName } from "@/lib/answer-stream-contract";
 import type { RagAnswer } from "@/lib/types";
 
 export const runtime = "nodejs";
-
-const answerSchema = z.object({
-  query: z.string().trim().min(1).max(2000),
-  documentId: z.string().uuid().optional(),
-  documentIds: z.array(z.string().uuid()).max(25).optional(),
-  filters: searchScopeFiltersSchema.optional(),
-  queryMode: clinicalQueryModeSchema.optional().default("auto"),
-});
-
-type AnswerBody = z.infer<typeof answerSchema>;
 
 function answerDegradedModeSignal(answer?: Pick<RagAnswer, "degradedMode" | "answerQualityTier" | "fallbackReason">) {
   if (answer?.degradedMode) return answer.degradedMode;
@@ -100,7 +92,7 @@ function logStreamError(error: unknown) {
   logger.error("Search stream failed", safeErrorLogDetails(error));
 }
 
-function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
+function buildDemoStreamAnswer(body: AnswerRequestBody, fallbackReason?: string) {
   const demo = demoAnswer(body.query, body.documentId, body.documentIds);
   const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const sources = annotateSearchResults(answerFocusQuery, demo.sources);
@@ -123,14 +115,14 @@ function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
   };
 }
 
-function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signal?: AbortSignal) {
+function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope, signal?: AbortSignal) {
   const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
 
   return new Response(
     new ReadableStream({
       async start(controller) {
-        const send = (event: string, data: unknown) => {
+        const send = <Name extends AnswerStreamEventName>(event: Name, data: AnswerStreamEventMap[Name]) => {
           try {
             controller.enqueue(encoder.encode(encodeSse(event, data)));
           } catch {
@@ -138,16 +130,11 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
             // stream is closed there is no remaining consumer for this frame.
           }
         };
-        // Generation can go silent for long stretches (strong-route reasoning
-        // before the first output token); heartbeat comments keep the
+        // Generation can go silent for long stretches while the model reasons
+        // and deterministic gates run; heartbeat comments keep the
         // connection visibly alive for proxies and the client's stall watchdog.
         const stopHeartbeat = startSseHeartbeat((frame) => controller.enqueue(encoder.encode(frame)));
         const onProgress = (event: AnswerProgressEvent) => send("progress", event);
-        // Stream the answer prose as it generates (content-preserving) and signal a reset when a
-        // provisional answer is being revised by the quality gates.
-        const onToken = (delta: string) => send("token", { delta });
-        const onRevising = (reason: string) => send("revising", { reason });
-
         try {
           send("progress", { stage: "retrieving", message: "Searching indexed documents." });
           const scope = isDemoMode()
@@ -188,8 +175,6 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
                 allowGlobalSearch: !ownerId,
                 queryMode: body.queryMode,
                 onProgress,
-                onToken,
-                onRevising,
                 signal,
               });
           const warnings = sourceGovernanceWarnings({
@@ -278,7 +263,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
 
 export async function POST(request: Request) {
   try {
-    const body = await parseJsonBody(request, answerSchema, "Invalid answer request.");
+    const body = await parseJsonBody(request, answerRequestSchema, "Invalid answer request.");
     if (isDemoMode()) return streamAnswer(body, resolveRetrievalAccessScope(), request.signal);
 
     const supabase = createAdminClient();

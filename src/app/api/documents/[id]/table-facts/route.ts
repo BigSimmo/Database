@@ -8,12 +8,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { tableReviewMetadata, tableReviewSchema } from "@/lib/table-review";
 import { parseJsonBody } from "@/lib/validation/body";
+import { parseRouteParams } from "@/lib/validation/params";
 
 export const runtime = "nodejs";
 
 const updateSchema = tableReviewSchema.extend({
   factId: z.string().uuid(),
 });
+const tableFactsRouteParamsSchema = z.object({ id: z.string().uuid() });
 
 function metadataRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
@@ -36,7 +38,8 @@ async function loadOwnedDocument(args: {
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const { id } = parseRouteParams({ id: rawId }, tableFactsRouteParamsSchema, "Invalid document id.");
     if (isDemoMode()) return NextResponse.json({ tableFacts: [], demoMode: true });
 
     const supabase = createAdminClient();
@@ -67,7 +70,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const { id } = parseRouteParams({ id: rawId }, tableFactsRouteParamsSchema, "Invalid document id.");
     if (isDemoMode()) return NextResponse.json({ error: "Table review is unavailable in demo mode." }, { status: 400 });
 
     const parsed = await parseJsonBody(request, updateSchema, "Table review payload is invalid.");

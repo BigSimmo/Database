@@ -8,8 +8,13 @@ import {
 } from "@/lib/owner-scope";
 import { classifyCorpusGrounding } from "@/lib/corpus-grounding";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import { createStreamingAnswerExtractor } from "@/lib/answer-stream-extractor";
-import { embedTextWithTelemetry, generateStructuredTextResult, type OpenAITextResult } from "@/lib/openai";
+import {
+  embedTextWithTelemetry,
+  generateParsedTextResult,
+  generateStructuredTextResult,
+  openAISafetyIdentifier,
+  type OpenAITextResult,
+} from "@/lib/openai";
 import {
   SOURCE_ONLY_EMBEDDING_SKIP_REASON,
   allowsAutoDegrade,
@@ -117,6 +122,7 @@ import {
   zoneContextPatternsForQuery,
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
+import { ragAnswerPromptVersion, ragQueryClassifierPromptVersion, ragSummaryPromptVersion } from "@/lib/rag-versioning";
 import { logger } from "@/lib/logger";
 import {
   answerPrivacyMetadata,
@@ -397,7 +403,7 @@ function throwIfAborted(signal?: AbortSignal) {
 }
 
 export type AnswerProgressEvent = {
-  stage: "retrieved" | "routing" | "generating" | "retrying" | "finalizing" | "cached";
+  stage: "retrieving" | "retrieved" | "routing" | "generating" | "retrying" | "finalizing" | "cached";
   message: string;
   resultCount?: number;
   visibleSourceCount?: number;
@@ -414,13 +420,6 @@ export type AnswerProgressEvent = {
 type AnswerQuestionWithScopeArgs = SearchChunksArgs & {
   logQuery?: boolean;
   onProgress?: (event: AnswerProgressEvent) => void | Promise<void>;
-  // Streaming hooks. onToken receives the answer prose as it generates (content-preserving — the
-  // same text arrives incrementally). onRevising fires when a generated answer fails a quality
-  // gate and the pipeline re-generates with the strong model, so the UI can clear the provisional
-  // text and show a "revising for accuracy" state before the corrected answer streams in. Only the
-  // streaming route sets these; the non-streaming path leaves them undefined.
-  onToken?: (delta: string) => void;
-  onRevising?: (reason: string) => void;
   signal?: AbortSignal;
 };
 
@@ -1058,6 +1057,7 @@ function addOpenAIUsage(total: OpenAITokenUsage, usage?: OpenAITokenUsage) {
     output_tokens: (total.output_tokens ?? 0) + (usage.output_tokens ?? 0),
     total_tokens: (total.total_tokens ?? 0) + (usage.total_tokens ?? 0),
     cached_input_tokens: (total.cached_input_tokens ?? 0) + (usage.cached_input_tokens ?? 0),
+    cache_write_tokens: (total.cache_write_tokens ?? 0) + (usage.cache_write_tokens ?? 0),
     reasoning_output_tokens: (total.reasoning_output_tokens ?? 0) + (usage.reasoning_output_tokens ?? 0),
   };
 }
@@ -1067,54 +1067,21 @@ function hasOpenAIUsage(usage: OpenAITokenUsage) {
   return Object.values(usage).some((value) => typeof value === "number" && value > 0);
 }
 
-const queryClassifierOutputSchema = {
-  type: "object",
-  description: "Low-cost query classification fallback for clinical RAG retrieval only.",
-  additionalProperties: false,
-  properties: {
-    queryClass: {
-      type: "string",
-      enum: [
-        "document_lookup",
-        "table_threshold",
-        "medication_dose_risk",
-        "comparison",
-        "broad_summary",
-        "unsupported_or_general",
-      ],
-    },
-    confidence: {
-      type: "number",
-      minimum: 0,
-      maximum: 1,
-    },
-    reasons: {
-      type: "array",
-      maxItems: 4,
-      items: { type: "string", maxLength: 80 },
-    },
-    expandedTerms: {
-      type: "array",
-      maxItems: 10,
-      items: { type: "string", maxLength: 60 },
-    },
-  },
-  required: ["queryClass", "confidence", "reasons", "expandedTerms"],
-};
-
-const queryClassifierParseSchema = z.object({
-  queryClass: z.enum([
-    "document_lookup",
-    "table_threshold",
-    "medication_dose_risk",
-    "comparison",
-    "broad_summary",
-    "unsupported_or_general",
-  ]),
-  confidence: z.number().min(0).max(1),
-  reasons: z.array(z.string()).max(4),
-  expandedTerms: z.array(z.string()).max(10),
-});
+const queryClassifierParseSchema = z
+  .object({
+    queryClass: z.enum([
+      "document_lookup",
+      "table_threshold",
+      "medication_dose_risk",
+      "comparison",
+      "broad_summary",
+      "unsupported_or_general",
+    ]),
+    confidence: z.number().min(0).max(1),
+    reasons: z.array(z.string().max(80)).max(4),
+    expandedTerms: z.array(z.string().max(60)).max(10),
+  })
+  .strict();
 
 /** Unique text values. */
 function uniqueTextValues(values: Array<string | null | undefined>, limit = 32) {
@@ -1152,7 +1119,13 @@ function classifierVerdictMemoKey(query: string, analysis: ClinicalQueryAnalysis
   const normalizedQuery = query.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
   // The deterministic class + confidence bucket are part of the key so a deterministic-analyzer
   // change invalidates stale verdicts instead of replaying them against a different baseline.
-  return `${normalizedQuery}::${analysis.queryClass}::${analysis.confidence.toFixed(2)}`;
+  return [
+    env.OPENAI_QUERY_CLASSIFIER_MODEL,
+    ragQueryClassifierPromptVersion,
+    normalizedQuery,
+    analysis.queryClass,
+    analysis.confidence.toFixed(2),
+  ].join("::");
 }
 
 /** Store classifier verdict memo. */
@@ -1171,8 +1144,12 @@ export function resetClassifierVerdictMemoForTests() {
 }
 
 /** Request classifier verdict. */
-async function requestClassifierVerdict(query: string, analysis: ClinicalQueryAnalysis): Promise<ClassifierVerdict> {
-  const result = await generateStructuredTextResult(
+async function requestClassifierVerdict(
+  query: string,
+  analysis: ClinicalQueryAnalysis,
+  ownerId?: string | null,
+): Promise<ClassifierVerdict> {
+  const result = await generateParsedTextResult(
     [
       {
         role: "user",
@@ -1189,9 +1166,9 @@ async function requestClassifierVerdict(query: string, analysis: ClinicalQueryAn
         ],
       },
     ],
-    queryClassifierOutputSchema,
+    queryClassifierParseSchema,
     {
-      model: env.OPENAI_FAST_ANSWER_MODEL,
+      model: env.OPENAI_QUERY_CLASSIFIER_MODEL,
       maxOutputTokens: 220,
       operation: "text_generation",
       instructions:
@@ -1199,11 +1176,12 @@ async function requestClassifierVerdict(query: string, analysis: ClinicalQueryAn
       reasoningEffort: "low",
       textVerbosity: "low",
       schemaName: "clinical_rag_query_classifier",
-      promptCacheKey: "clinical-rag-query-classifier-v1",
+      promptCacheKey: ragQueryClassifierPromptVersion,
       timeoutMs: 6000,
+      safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(ownerId) : undefined,
     },
   );
-  return queryClassifierParseSchema.parse(JSON.parse(result.text));
+  return result.parsed;
 }
 
 /** Apply classifier verdict. */
@@ -1242,6 +1220,7 @@ export async function analyzeQueryWithClassifierFallback(
     // against the corpus BEFORE the nondeterministic LLM classifier. Scoped with the exact
     // owner_filter retrieval will use so grounding can never see documents retrieval cannot.
     corpusGrounding?: { supabase: ReturnType<typeof createAdminClient>; ownerFilter: string | null };
+    ownerId?: string | null;
   },
 ) {
   if (
@@ -1306,7 +1285,7 @@ export async function analyzeQueryWithClassifierFallback(
 
   let pending = classifierVerdictInflight.get(memoKey);
   if (!pending) {
-    pending = requestClassifierVerdict(query, analysis).finally(() => {
+    pending = requestClassifierVerdict(query, analysis, opts?.ownerId).finally(() => {
       classifierVerdictInflight.delete(memoKey);
     });
     classifierVerdictInflight.set(memoKey, pending);
@@ -3139,6 +3118,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   })();
   const queryAnalysis = await analyzeQueryWithClassifierFallback(retrievalQuery, analyzeClinicalQuery(retrievalQuery), {
     corpusGrounding: corpusGroundingScope,
+    ownerId: args.ownerId,
   });
   throwIfAborted(args.signal);
   if (modeQueryClass) queryAnalysis.queryClass = modeQueryClass;
@@ -4587,11 +4567,6 @@ Quality retry instruction:
 ${qualityRetryInstruction}`
       : buildAnswerInput(contextResults);
     const generationStartedAt = Date.now();
-    // Fresh per-generation extractor: each generateWithModel call is a separate JSON stream, so the
-    // answer prose restarts from zero. Deltas are forwarded only for the answer field; the rest of
-    // the structured JSON (sections, citations) is delivered in the final payload as before.
-    const streamExtractor = args.onToken ? createStreamingAnswerExtractor() : null;
-    let streamRawBuffer = "";
     try {
       const result = await generateStructuredTextResult(input, answerJsonOutputSchemaForResults(contextResults), {
         model,
@@ -4599,21 +4574,14 @@ ${qualityRetryInstruction}`
         operation: "answer",
         schemaName: "clinical_rag_answer",
         instructions: answerInstructions,
-        promptCacheKey: "clinical-rag-answer-v18",
+        promptCacheKey: ragAnswerPromptVersion,
         timeoutMs: env.OPENAI_ANSWER_TIMEOUT_MS,
         maxRetries: 0,
         reasoningEffort: useStrongReasoning
           ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)
           : env.OPENAI_FAST_REASONING_EFFORT,
         signal: args.signal,
-        onOutputTextDelta:
-          streamExtractor && args.onToken
-            ? (delta) => {
-                streamRawBuffer += delta;
-                const prose = streamExtractor.push(streamRawBuffer);
-                if (prose) args.onToken?.(prose);
-              }
-            : undefined,
+        safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(args.ownerId) : undefined,
       });
       openAIUsage = addOpenAIUsage(openAIUsage, result.usage);
       if (result.requestId) openAIRequestIds.push(result.requestId);
@@ -4789,9 +4757,6 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      // Any prose already streamed to the client is now provisional — tell the UI to clear it and
-      // show a "revising for accuracy" state before the corrected strong answer streams in.
-      args.onRevising?.(retryReason);
       // Widen the retry context from the trimmed fast set to the full result set, but keep the P9
       // per-document crowding cap — the strong-initial route is capped, so the retry must be too.
       packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
@@ -4869,7 +4834,6 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      args.onRevising?.(retryReason);
       // Same as the truncation retry above: widen but keep the P9 per-document crowding cap.
       packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, { strong: true });
@@ -4904,7 +4868,6 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      args.onRevising?.("strong_quality_retry");
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
         strong: true,
         qualityRetryInstruction: `The previous answer failed deterministic validation (${strongQualityFailureReason}). Return schema-valid output only, with a complete natural clinical synthesis in the answer field. The first sentence must directly answer the question as a full sentence. Every clinical claim must be supported by valid retrieved citation_chunk_id values; do not invent citation IDs. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the evidence cannot support the requested clinical answer, return a concise source-gap answer instead. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.`,
@@ -5336,13 +5299,14 @@ Sources:
 ${buildRagSourceBlock(results)}`;
 
   const generated = await generateStructuredTextResult(summaryInput, answerJsonOutputSchemaForResults(results), {
-    model: env.OPENAI_ANSWER_MODEL,
+    model: env.OPENAI_SUMMARY_MODEL,
     maxOutputTokens: env.OPENAI_MAX_OUTPUT_TOKENS,
     operation: "summary",
     schemaName: "clinical_document_summary",
     instructions: summaryInstructions,
-    promptCacheKey: "clinical-document-summary-v2",
+    promptCacheKey: ragSummaryPromptVersion,
     reasoningEffort: env.OPENAI_SUMMARY_REASONING_EFFORT,
+    safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(ownerId) : undefined,
   });
   const answer = parseAnswerJson(generated.text, results, "summary");
   answer.answer = cleanClinicalSummaryText(answer.answer);
@@ -5354,7 +5318,7 @@ ${buildRagSourceBlock(results)}`;
   answer.visualEvidence = buildVisualEvidence(results);
   answer.bestSource = selectBestSourceRecommendation(results, answer.quoteCards);
   answer.smartPanel = { ...buildSmartPanel("summary", results), bestSource: answer.bestSource };
-  answer.modelUsed = env.OPENAI_ANSWER_MODEL;
+  answer.modelUsed = env.OPENAI_SUMMARY_MODEL;
   answer.openAIRequestIds = generated.requestId ? [generated.requestId] : [];
   answer.openAIUsage = generated.usage;
   answer.latencyTimings = {

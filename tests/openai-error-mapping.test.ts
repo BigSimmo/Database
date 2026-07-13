@@ -46,10 +46,31 @@ describe("mapOpenAIError quota vs rate-limit classification", () => {
     const mapped = mapOpenAIError(openAIError("Incorrect API key provided.", { status: 401 }), "answer");
     expect(mapped.status).toBe(500);
     expect(mapped.message.toLowerCase()).toContain("authentication");
+    expect(mapped.details?.code).toBe("openai_invalid_api_key");
+  });
+
+  it("distinguishes access denial from an invalid API key", () => {
+    const mapped = mapOpenAIError(
+      openAIError("Project is not permitted to use this model.", { status: 403 }),
+      "answer",
+    );
+    expect(mapped.status).toBe(500);
+    expect(mapped.details?.code).toBe("openai_access_denied");
+    expect(mapped.message).toMatch(/project.*organization.*model/i);
+  });
+
+  it("maps an unavailable model to a stable operator-facing code", () => {
+    const mapped = mapOpenAIError(
+      openAIError("The model does not exist or you do not have access.", { status: 404, code: "model_not_found" }),
+      "answer",
+    );
+    expect(mapped.status).toBe(500);
+    expect(mapped.details?.code).toBe("openai_model_not_found");
   });
 
   it("maps timeouts to a 504 source-only fallback signal", () => {
     const mapped = mapOpenAIError(openAIError("Request timed out.", { code: "ETIMEDOUT" }), "answer");
     expect(mapped.status).toBe(504);
+    expect(mapped.details?.code).toBe("openai_timeout");
   });
 });

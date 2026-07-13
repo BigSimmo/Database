@@ -367,7 +367,7 @@ export async function generateModelIndexProfile(args: {
   images?: ModelIndexImage[];
 }) {
   if (args.chunks.length === 0) return emptyProfile();
-  const model = env.OPENAI_STRONG_ANSWER_MODEL || env.OPENAI_ANSWER_MODEL;
+  const model = env.OPENAI_INDEXING_MODEL;
   const raw = await generateStructuredTextResponse(buildPrompt({ ...args, images: args.images ?? [] }), schema, {
     model,
     maxOutputTokens: 3200,

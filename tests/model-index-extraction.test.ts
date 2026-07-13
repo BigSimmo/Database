@@ -6,8 +6,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/env", () => ({
   env: {
-    OPENAI_ANSWER_MODEL: "gpt-test",
-    OPENAI_STRONG_ANSWER_MODEL: "gpt-strong-test",
+    OPENAI_INDEXING_MODEL: "gpt-indexing-test",
   },
 }));
 

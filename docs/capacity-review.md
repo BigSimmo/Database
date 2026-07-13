@@ -72,8 +72,9 @@ moment load is highest. This only works while the app is a **single process**
 Per answer: 1 embedding call (unless the lexical fast path skips it) + 1–2
 generations (fast route, escalation to strong). 15 answers/min with grounded
 prompts (~5–15k tokens each) lands in the low hundreds of thousands of
-tokens/min at worst — within Tier-2+ gpt-5.5 TPM limits, but _bursts_ of
-simultaneous strong-route generations can trip request-per-minute limits.
+tokens/min at worst. Re-baseline the production project's current Terra/Sol
+token and request limits before rollout; _bursts_ of simultaneous strong-route
+generations can still trip request-per-minute limits.
 Existing dampers: coalescing (duplicate questions never reach OpenAI), the
 answer cache, `OPENAI_MAX_RETRIES`, and graceful degradation to source-only
 answers (which must stay _visible_ — see the degraded-rate SLO).

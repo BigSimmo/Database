@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -110,7 +111,7 @@ describe("OpenAI query embedding cache", () => {
                     input_tokens: 100,
                     output_tokens: 20,
                     total_tokens: 120,
-                    input_tokens_details: { cached_tokens: 64 },
+                    input_tokens_details: { cached_tokens: 64, cache_write_tokens: 36 },
                     output_tokens_details: { reasoning_tokens: 5 },
                   },
                 },
@@ -142,6 +143,7 @@ describe("OpenAI query embedding cache", () => {
       output_tokens: 20,
       total_tokens: 120,
       cached_input_tokens: 64,
+      cache_write_tokens: 36,
       reasoning_output_tokens: 5,
     });
     expect(capturedOptions).toMatchObject({ timeout: 1234, maxRetries: 1, signal: controller.signal });
@@ -163,6 +165,189 @@ describe("OpenAI query embedding cache", () => {
         schema: { type: "object", properties: {}, required: [] },
       },
     });
+  });
+
+  it("uses GPT-5.6 prompt cache options instead of the deprecated retention field", async () => {
+    let capturedBody: Record<string, unknown> = {};
+
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("OPENAI_PROMPT_CACHE_RETENTION", "24h");
+    vi.stubEnv("OPENAI_PROMPT_CACHE_TTL", "30m");
+
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = { create: vi.fn() };
+        responses = {
+          create: vi.fn((body: Record<string, unknown>) => {
+            capturedBody = body;
+            return {
+              withResponse: async () => ({
+                data: { status: "completed", output_text: '{"answer":"ok"}' },
+                request_id: "req_gpt56_cache",
+              }),
+            };
+          }),
+        };
+      },
+    }));
+
+    const { generateStructuredTextResult } = await import("../src/lib/openai");
+    await generateStructuredTextResult(
+      "Question",
+      { type: "object", properties: {}, required: [] },
+      { model: "gpt-5.6-terra", operation: "answer", schemaName: "clinical_test" },
+    );
+
+    expect(capturedBody).toMatchObject({
+      model: "gpt-5.6-terra",
+      prompt_cache_options: { ttl: "30m" },
+    });
+    expect(capturedBody).not.toHaveProperty("prompt_cache_retention");
+  });
+
+  it("uses Responses parse for static Zod schemas and forwards a pseudonymous safety identifier", async () => {
+    let capturedBody: Record<string, unknown> = {};
+
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = { create: vi.fn() };
+        responses = {
+          create: vi.fn(),
+          parse: vi.fn((body: Record<string, unknown>) => {
+            capturedBody = body;
+            return {
+              withResponse: async () => ({
+                data: {
+                  status: "completed",
+                  output_text: '{"queryClass":"broad_summary","confidence":0.9}',
+                  output_parsed: { queryClass: "broad_summary", confidence: 0.9 },
+                },
+                request_id: "req_parse",
+              }),
+            };
+          }),
+        };
+      },
+    }));
+
+    const { generateParsedTextResult } = await import("../src/lib/openai");
+    const result = await generateParsedTextResult(
+      "Question",
+      z.object({ queryClass: z.string(), confidence: z.number() }).strict(),
+      {
+        model: "gpt-5.6-luna",
+        operation: "text_generation",
+        schemaName: "clinical_query_classifier",
+        safetyIdentifier: "a".repeat(64),
+      },
+    );
+
+    expect(result.parsed).toEqual({ queryClass: "broad_summary", confidence: 0.9 });
+    expect(capturedBody).toMatchObject({
+      safety_identifier: "a".repeat(64),
+      text: {
+        format: expect.objectContaining({ type: "json_schema", name: "clinical_query_classifier", strict: true }),
+      },
+    });
+  });
+
+  it("omits GPT-5.6 prompt cache options when the TTL is disabled", async () => {
+    let capturedBody: Record<string, unknown> = {};
+
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("OPENAI_PROMPT_CACHE_TTL", "off");
+
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = { create: vi.fn() };
+        responses = {
+          create: vi.fn((body: Record<string, unknown>) => {
+            capturedBody = body;
+            return {
+              withResponse: async () => ({
+                data: { status: "completed", output_text: '{"answer":"ok"}' },
+                request_id: "req_gpt56_cache_off",
+              }),
+            };
+          }),
+        };
+      },
+    }));
+
+    const { generateStructuredTextResult } = await import("../src/lib/openai");
+    await generateStructuredTextResult(
+      "Question",
+      { type: "object", properties: {}, required: [] },
+      { model: "gpt-5.6-sol", operation: "answer", schemaName: "clinical_test" },
+    );
+
+    expect(capturedBody).not.toHaveProperty("prompt_cache_options");
+    expect(capturedBody).not.toHaveProperty("prompt_cache_retention");
+  });
+
+  it("fails closed when a Responses request reports failure or no output", async () => {
+    const responseQueue = [
+      { status: "failed", output_text: "" },
+      { status: "completed", output_text: "" },
+      { status: "incomplete", incomplete_details: { reason: "content_filter" }, output_text: "blocked" },
+    ];
+
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = { create: vi.fn() };
+        responses = {
+          create: vi.fn(() => ({
+            withResponse: async () => ({ data: responseQueue.shift(), request_id: "req_failed" }),
+          })),
+        };
+      },
+    }));
+
+    const { generateStructuredTextResult } = await import("../src/lib/openai");
+    const generate = () =>
+      generateStructuredTextResult(
+        "Question",
+        { type: "object", properties: {}, required: [] },
+        { model: "gpt-5.6-terra", operation: "answer", schemaName: "clinical_test" },
+      );
+
+    await expect(generate()).rejects.toMatchObject({ details: { code: "openai_response_failed" } });
+    await expect(generate()).rejects.toMatchObject({ details: { code: "openai_missing_output" } });
+    await expect(generate()).rejects.toMatchObject({ details: { code: "openai_content_filtered" } });
+  });
+
+  it("preserves caller cancellation instead of remapping it to a provider timeout", async () => {
+    const controller = new AbortController();
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = { create: vi.fn() };
+        responses = {
+          create: vi.fn(() => ({
+            withResponse: async () => {
+              controller.abort();
+              throw controller.signal.reason;
+            },
+          })),
+        };
+      },
+    }));
+
+    const { generateStructuredTextResult } = await import("../src/lib/openai");
+    await expect(
+      generateStructuredTextResult(
+        "Question",
+        { type: "object", properties: {}, required: [] },
+        {
+          model: "gpt-5.6-terra",
+          operation: "answer",
+          schemaName: "clinical_test",
+          signal: controller.signal,
+        },
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
   });
 
   it("applies model capability rules for reasoning and verbosity", async () => {

@@ -5,7 +5,7 @@ describe("ragCacheKeyMatchesOwner", () => {
   const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
   it("matches versioned scoped cache keys", () => {
-    const key = `rag-cache-v12|${ownerId}|scope:all|plan:hybrid|class:dose`;
+    const key = `rag-cache-v13|${ownerId}|scope:all|plan:hybrid|class:dose`;
     expect(ragCacheKeyMatchesOwner(key, ownerId)).toBe(true);
   });
 
@@ -15,7 +15,7 @@ describe("ragCacheKeyMatchesOwner", () => {
   });
 
   it("matches owner-plus-public cache keys", () => {
-    const key = `rag-cache-v12|owner:${ownerId}+public|scope:all|plan:hybrid`;
+    const key = `rag-cache-v13|owner:${ownerId}+public|scope:all|plan:hybrid`;
     expect(ragCacheKeyMatchesOwner(key, ownerId)).toBe(true);
   });
 
@@ -25,12 +25,12 @@ describe("ragCacheKeyMatchesOwner", () => {
   });
 
   it("does not match a different owner", () => {
-    const key = `rag-cache-v12|bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb|scope:all`;
+    const key = `rag-cache-v13|bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb|scope:all`;
     expect(ragCacheKeyMatchesOwner(key, ownerId)).toBe(false);
   });
 
   it("does not match an owner id prefix", () => {
-    const key = `rag-cache-v12|owner:${ownerId}0+public|scope:all`;
+    const key = `rag-cache-v13|owner:${ownerId}0+public|scope:all`;
     expect(ragCacheKeyMatchesOwner(key, ownerId)).toBe(false);
   });
 });

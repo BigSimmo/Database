@@ -200,6 +200,23 @@ describe("/api/documents/bulk", () => {
 });
 
 describe("/api/documents/[id]/table-facts", () => {
+  it("rejects an invalid document UUID before querying UUID columns", async () => {
+    const supabase = createSupabaseMock(() => ({ data: null, error: null }));
+    mockRouteRuntime(supabase.client);
+    const { GET } = await import("../src/app/api/documents/[id]/table-facts/route");
+
+    const response = await GET(new Request("http://localhost/api/documents/not-a-uuid/table-facts"), {
+      params: Promise.resolve({ id: "not-a-uuid" }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Invalid document id.",
+      code: "invalid_route_params",
+    });
+    expect(supabase.calls).toHaveLength(0);
+  });
+
   it("updates a committed table fact and its linked source image", async () => {
     const supabase = createSupabaseMock((call) => {
       if (call.table === "documents") {

@@ -1,4 +1,7 @@
+import { createHmac } from "node:crypto";
 import OpenAI from "openai";
+import { zodTextFormat } from "openai/helpers/zod";
+import type { ZodType } from "zod";
 import { env, requireOpenAIEnv } from "@/lib/env";
 import { assessClinicalImageUse } from "@/lib/image-filtering";
 import { PublicApiError } from "@/lib/http";
@@ -29,12 +32,7 @@ type TextGenerationOptions = {
   timeoutMs?: number;
   maxRetries?: number;
   signal?: AbortSignal;
-  // When set, the request is streamed and this is invoked with each raw output-text delta as it
-  // arrives. The returned OpenAITextResult is identical to the non-streaming path (same accumulated
-  // text, usage, and completion status), so streaming never changes what is generated — only when
-  // the caller sees it. Retries are disabled for streamed requests (a half-streamed retry would
-  // double-emit), so callers must tolerate that.
-  onOutputTextDelta?: (delta: string) => void;
+  safetyIdentifier?: string;
 };
 
 type ResolvedTextGenerationOptions = Required<Pick<TextGenerationOptions, "model" | "maxOutputTokens">> &
@@ -58,6 +56,8 @@ export type OpenAITextResult = {
   /** Reason supplied in incomplete_details (e.g. "max_output_tokens", "content_filter"). */
   incompleteReason?: string;
 };
+
+export type OpenAIParsedTextResult<T> = OpenAITextResult & { parsed: T };
 
 let openAIClient: OpenAI | null = null;
 const queryEmbeddingCache = new Map<string, number[]>();
@@ -166,11 +166,13 @@ const reasoningEfforts = new Set<OpenAIReasoningEffort>(["low", "medium", "high"
 function openAIModelCapabilities(model: string) {
   const normalized = model.toLowerCase();
   const isGpt5 = /^gpt-5(?:[.-]|$)/.test(normalized);
+  const isGpt56 = /^gpt-5\.6(?:[.-]|$)/.test(normalized);
   const isReasoningModel = isGpt5 || /^o\d(?:[.-]|$)/.test(normalized);
 
   return {
     supportsReasoning: isReasoningModel,
     supportsTextVerbosity: isGpt5,
+    usesPromptCacheOptions: isGpt56,
     requiredPromptCacheRetention: /^gpt-5\.5(?:[.-]|$)/.test(normalized) ? "24h" : undefined,
     allowedReasoningEfforts: isReasoningModel ? reasoningEfforts : new Set<OpenAIReasoningEffort>(),
   };
@@ -212,6 +214,12 @@ function responseBody(
   const configuredPromptCacheRetention =
     env.OPENAI_PROMPT_CACHE_RETENTION === "off" ? undefined : env.OPENAI_PROMPT_CACHE_RETENTION;
   const promptCacheRetention = capabilities.requiredPromptCacheRetention ?? configuredPromptCacheRetention;
+  const promptCacheTtl =
+    capabilities.usesPromptCacheOptions &&
+    env.OPENAI_PROMPT_CACHE_TTL !== "off" &&
+    !(env.OPENAI_PROMPT_CACHE_TTL === undefined && env.OPENAI_PROMPT_CACHE_RETENTION === "off")
+      ? (env.OPENAI_PROMPT_CACHE_TTL ?? "30m")
+      : undefined;
 
   if (format) textConfig.format = format;
   if (capabilities.supportsTextVerbosity) {
@@ -225,7 +233,14 @@ function responseBody(
     max_output_tokens: resolved.maxOutputTokens,
     store: env.OPENAI_STORE_RESPONSES,
     prompt_cache_key: resolved.promptCacheKey ?? promptCacheKeyFor(operation),
-    ...(promptCacheRetention ? { prompt_cache_retention: promptCacheRetention } : {}),
+    ...(capabilities.usesPromptCacheOptions
+      ? promptCacheTtl
+        ? { prompt_cache_options: { ttl: promptCacheTtl } }
+        : {}
+      : promptCacheRetention
+        ? { prompt_cache_retention: promptCacheRetention }
+        : {}),
+    ...(resolved.safetyIdentifier ? { safety_identifier: resolved.safetyIdentifier } : {}),
     metadata: { operation },
     ...(resolvedReasoningEffort !== "none" ? { reasoning: { effort: resolvedReasoningEffort } } : {}),
     ...(Object.keys(textConfig).length > 0 ? { text: textConfig } : {}),
@@ -273,6 +288,8 @@ function extractUsage(response: unknown): OpenAITokenUsage | undefined {
     output_tokens: typeof usage.output_tokens === "number" ? usage.output_tokens : undefined,
     total_tokens: typeof usage.total_tokens === "number" ? usage.total_tokens : undefined,
     cached_input_tokens: typeof inputDetails?.cached_tokens === "number" ? inputDetails.cached_tokens : undefined,
+    cache_write_tokens:
+      typeof inputDetails?.cache_write_tokens === "number" ? inputDetails.cache_write_tokens : undefined,
     reasoning_output_tokens:
       typeof outputDetails?.reasoning_tokens === "number" ? outputDetails.reasoning_tokens : undefined,
   };
@@ -324,14 +341,28 @@ export function mapOpenAIError(error: unknown, operation: OpenAIOperation) {
 
   if (isTimeoutError(error) || status === 408) {
     return new PublicApiError("OpenAI timed out. Trying source-only fallback response.", 504, {
-      code,
+      code: "openai_timeout",
       requestId,
     });
   }
 
-  if (status === 401 || status === 403) {
+  if (status === 401) {
     return new PublicApiError("OpenAI authentication failed. Check the server API key configuration.", 500, {
-      code,
+      code: "openai_invalid_api_key",
+      requestId,
+    });
+  }
+
+  if (code === "model_not_found" || status === 404) {
+    return new PublicApiError("The configured OpenAI model is unavailable or this project cannot access it.", 500, {
+      code: "openai_model_not_found",
+      requestId,
+    });
+  }
+
+  if (status === 403) {
+    return new PublicApiError("OpenAI denied access. Check project, organization, and model permissions.", 500, {
+      code: "openai_access_denied",
       requestId,
     });
   }
@@ -347,7 +378,10 @@ export function mapOpenAIError(error: unknown, operation: OpenAIOperation) {
   }
 
   if (status === 429 || code === "rate_limit_exceeded") {
-    return new PublicApiError("OpenAI is rate limited. Retry in a moment.", 429, { code, requestId });
+    return new PublicApiError("OpenAI is rate limited. Retry in a moment.", 429, {
+      code: "rate_limit_exceeded",
+      requestId,
+    });
   }
 
   if (code.startsWith("invalid_image") || code === "image_too_large" || code === "unsupported_image_media_type") {
@@ -363,101 +397,105 @@ export function mapOpenAIError(error: unknown, operation: OpenAIOperation) {
 
   if (status === 400) {
     return new PublicApiError("OpenAI rejected the request. Check the model, schema, and input configuration.", 502, {
-      code,
+      code: "openai_invalid_request",
       requestId,
     });
   }
 
   if (status && status >= 500) {
-    return new PublicApiError("OpenAI service error. Retry shortly.", 502, { code, requestId });
+    return new PublicApiError("OpenAI service error. Retry shortly.", 502, {
+      code: "openai_service_error",
+      requestId,
+    });
   }
 
-  return new PublicApiError(`OpenAI ${operation.replaceAll("_", " ")} request failed.`, 502, { code, requestId });
+  return new PublicApiError(`OpenAI ${operation.replaceAll("_", " ")} request failed.`, 502, {
+    code: "openai_request_failed",
+    requestId,
+  });
 }
 
 async function createTextResult(
   input: OpenAIResponseInput,
   options: ResolvedTextGenerationOptions,
   format?: Record<string, unknown>,
-): Promise<OpenAITextResult> {
+  parseResponse = false,
+): Promise<OpenAITextResult & { parsed?: unknown }> {
   const operation = options.operation ?? "text_generation";
   const startedAt = Date.now();
-  let streamedRequestId: string | null = null;
+  let responseRequestId: string | null = null;
 
   // Buffered (non-streaming) request — the baseline behaviour. The `responses.create` overloads are
   // incompatible with our generic call-site; the double-cast works around the SDK type mismatch.
   async function requestBuffered(client: ReturnType<typeof createOpenAIClient>): Promise<unknown> {
-    const request = client.responses.create(responseBody(input, options, format) as never, requestOptions(options));
+    const body = responseBody(input, options, format) as never;
+    const request = parseResponse
+      ? client.responses.parse(body, requestOptions(options))
+      : client.responses.create(body, requestOptions(options));
     const { data: responseData, request_id } = await unwrapOpenAIResponse(
       request as unknown as APIPromiseLike<unknown>,
     );
-    streamedRequestId = request_id ?? null;
+    responseRequestId = request_id ?? null;
     return responseData;
   }
 
   try {
     const client = createOpenAIClient();
-    let data: unknown;
-    if (options.onOutputTextDelta) {
-      try {
-        data = await streamResponseData(client, input, options, format);
-      } catch {
-        // A streaming-specific failure must never make the answer worse than the buffered baseline:
-        // fall back to a normal generation so the caller still gets a complete answer. A genuine
-        // API failure (quota/auth) will also throw here and propagate exactly as it would today.
-        data = await requestBuffered(client);
-      }
-    } else {
-      data = await requestBuffered(client);
-    }
+    const data = await requestBuffered(client);
     const completion = extractCompletionStatus(data);
+    const outputText = extractOutputText(data);
+    const parsed = parseResponse ? (data as { output_parsed?: unknown }).output_parsed : undefined;
+    const requestId = responseRequestId ?? getRequestId(data);
+
+    if (completion.status === "failed") {
+      throw new PublicApiError("OpenAI failed to complete the response.", 502, {
+        code: "openai_response_failed",
+        requestId,
+      });
+    }
+    if (completion.incompleteReason === "content_filter") {
+      throw new PublicApiError("OpenAI could not complete the response because it was filtered.", 502, {
+        code: "openai_content_filtered",
+        requestId,
+      });
+    }
+    if (!outputText) {
+      throw new PublicApiError("OpenAI returned no usable output.", 502, {
+        code: "openai_missing_output",
+        requestId,
+      });
+    }
+    if (parseResponse && parsed == null) {
+      throw new PublicApiError("OpenAI returned no schema-valid parsed output.", 502, {
+        code: "openai_missing_parsed_output",
+        requestId,
+      });
+    }
+
     return {
-      text: extractOutputText(data),
+      text: outputText,
       model: options.model,
       operation,
       latencyMs: Date.now() - startedAt,
-      requestId: streamedRequestId ?? getRequestId(data),
+      requestId,
       usage: extractUsage(data),
       status: completion.status,
       truncated: completion.truncated,
       incompleteReason: completion.incompleteReason,
+      ...(parseResponse ? { parsed } : {}),
     };
   } catch (error) {
-    throw mapOpenAIError(error, operation);
-  }
-
-  // Streamed Responses request: iterate the event stream, forwarding each output-text delta to the
-  // caller, and return the final full Response object (identical shape to the non-streaming path)
-  // captured from the terminal completed/incomplete/failed event. maxRetries is forced to 0 because
-  // a retry mid-stream would re-emit already-delivered deltas.
-  async function streamResponseData(
-    client: ReturnType<typeof createOpenAIClient>,
-    streamInput: OpenAIResponseInput,
-    streamOptions: ResolvedTextGenerationOptions,
-    streamFormat?: Record<string, unknown>,
-  ): Promise<unknown> {
-    const stream = (await client.responses.create(
-      { ...responseBody(streamInput, streamOptions, streamFormat), stream: true } as never,
-      { ...requestOptions(streamOptions), maxRetries: 0 },
-    )) as unknown as AsyncIterable<StreamEvent>;
-    let finalResponse: unknown = null;
-    for await (const event of stream) {
-      if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
-        streamOptions.onOutputTextDelta?.(event.delta);
-      } else if (
-        event.type === "response.completed" ||
-        event.type === "response.incomplete" ||
-        event.type === "response.failed"
-      ) {
-        finalResponse = event.response;
-      }
+    if (options.signal?.aborted) {
+      throw options.signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
     }
-    if (!finalResponse) throw new Error("OpenAI stream ended without a final response.");
-    return finalResponse;
+    throw mapOpenAIError(error, operation);
   }
 }
 
-type StreamEvent = { type: string; delta?: string; response?: unknown };
+export function openAISafetyIdentifier(ownerId: string | null | undefined) {
+  if (!ownerId || !env.OPENAI_SAFETY_IDENTIFIER_SECRET) return undefined;
+  return createHmac("sha256", env.OPENAI_SAFETY_IDENTIFIER_SECRET).update(ownerId, "utf8").digest("hex");
+}
 
 export function clearOpenAICaches() {
   queryEmbeddingCache.clear();
@@ -627,6 +665,20 @@ export async function generateStructuredTextResponse(
 ) {
   const result = await generateStructuredTextResult(input, schema, options);
   return result.text;
+}
+
+export async function generateParsedTextResult<T>(
+  input: OpenAIResponseInput,
+  schema: ZodType<T>,
+  options: string | TextGenerationOptions = env.OPENAI_ANSWER_MODEL,
+): Promise<OpenAIParsedTextResult<T>> {
+  const resolved = resolveTextGenerationOptions(options, env.OPENAI_ANSWER_MODEL);
+  const format = zodTextFormat(schema, resolved.schemaName ?? "structured_output") as unknown as Record<
+    string,
+    unknown
+  >;
+  const result = await createTextResult(input, resolved, format, true);
+  return { ...result, parsed: result.parsed as T };
 }
 
 const imageCaptionInstructions =

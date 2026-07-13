@@ -42,15 +42,15 @@ material.
 
 **Top gaps (full register in §10):**
 
-| ID    | Risk      | One-line                                                                                                                                                                        |
-| ----- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PIA-1 | High      | Cross-border disclosure to OpenAI (US) has no code-visible DPA/ZDR. A draft provider disclosure now ships in-product, but its wording lacks governance approval (APP 8, APP 5). |
-| PIA-2 | High      | Production now fails closed without `RAG_QUERY_HASH_SECRET`; the operator must still place the secret in the deploy host.                                                       |
-| PIA-3 | Mitigated | Generated answer text is omitted from `rag_queries` by default. `RAG_PERSIST_ANSWER_TEXT=true` is explicit opt-in and blocked by production readiness.                          |
-| PIA-4 | Medium    | `rag_query_misses` has **no retention/purge job** (only `rag_queries` and `rag_retrieval_logs` do).                                                                             |
-| PIA-5 | Medium    | Draft point-of-entry collection notices and a `/privacy` data-processing page ship, but no governance-approved final privacy policy exists (APP 1, APP 5).                      |
-| PIA-6 | Low-Med   | OpenAI **prompt-cache retention is forced to 24h** for gpt-5.5 regardless of config — query + retrieved excerpts persist ≤24h at OpenAI.                                        |
-| PIA-7 | Low       | `RAG_PERSIST_RAW_QUERY_TEXT=true` would store raw PHI query text with no secondary safeguard beyond the 30-day purge.                                                           |
+| ID    | Risk      | One-line                                                                                                                                                                                                                    |
+| ----- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PIA-1 | High      | Cross-border disclosure to OpenAI (US) has no code-visible DPA/ZDR. A draft provider disclosure now ships in-product, but its wording lacks governance approval (APP 8, APP 5).                                             |
+| PIA-2 | High      | Production now fails closed without `RAG_QUERY_HASH_SECRET`; the operator must still place the secret in the deploy host.                                                                                                   |
+| PIA-3 | Mitigated | Generated answer text is omitted from `rag_queries` by default. `RAG_PERSIST_ANSWER_TEXT=true` is explicit opt-in and blocked by production readiness.                                                                      |
+| PIA-4 | Medium    | `rag_query_misses` has **no retention/purge job** (only `rag_queries` and `rag_retrieval_logs` do).                                                                                                                         |
+| PIA-5 | Medium    | Draft point-of-entry collection notices and a `/privacy` data-processing page ship, but no governance-approved final privacy policy exists (APP 1, APP 5).                                                                  |
+| PIA-6 | Low-Med   | GPT-5.6 uses `prompt_cache_options.ttl="30m"` by default. This is a minimum cache lifetime and provider controls may retain cached data longer; the legacy 24h field remains only for explicitly configured pre-5.6 models. |
+| PIA-7 | Low       | `RAG_PERSIST_RAW_QUERY_TEXT=true` would store raw PHI query text with no secondary safeguard beyond the 30-day purge.                                                                                                       |
 
 ---
 
@@ -98,8 +98,8 @@ Clinician browser
    │      **raw query verbatim** ("Question:\n${query}", rag.ts:7144)   │
    │      + **retrieved chunk text** (buildRagSourceBlock, rag.ts:6306) │
    │      + system instructions (rag.ts:7053)                            │
-   │      → OpenAI Responses API (gpt-5.5)  openai.ts:384               ─┘
-   │      store:false (openai.ts:220); prompt_cache_retention:24h (:168)
+   │      → OpenAI Responses API (Terra fast / Sol strong)              ─┘
+   │      store:false; GPT-5.6 prompt_cache_options.ttl:30m
    │
    ├──►(D) LOCAL LOGGING (Supabase, Sydney, owner-stamped)
    │      insertRagQuery():  rag.ts:1983
@@ -129,26 +129,34 @@ Everything in Supabase stays in Sydney.
 
 ### 4.1 What is sent
 
-| Payload         | Content                                                                                              | Reference                                                      |
-| --------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Embedding input | **Raw query text**, verbatim (normalized whitespace/case only)                                       | [src/lib/openai.ts:498](src/lib/openai.ts) → `embedTexts` :423 |
-| Answer input    | **Raw query verbatim** (`Question:\n${args.query}`)                                                  | [src/lib/rag.ts:7144](src/lib/rag.ts)                          |
-| Answer input    | **Retrieved chunk text** (content, capped ~1800 chars, plus title/page/section/table-facts/captions) | [src/lib/rag.ts:6306-6325](src/lib/rag.ts)                     |
-| Instructions    | Static system prompt ("experienced psychiatrist in Perth…")                                          | [src/lib/rag.ts:7053](src/lib/rag.ts)                          |
-| Metadata        | `{ operation }` only — **no** owner id, **no** patient identifiers added by the app                  | [src/lib/openai.ts:223](src/lib/openai.ts)                     |
+| Payload         | Content                                                                                                                                       | Reference                                                      |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Embedding input | **Raw query text**, verbatim (normalized whitespace/case only)                                                                                | [src/lib/openai.ts:498](src/lib/openai.ts) → `embedTexts` :423 |
+| Answer input    | **Raw query verbatim** (`Question:\n${args.query}`)                                                                                           | [src/lib/rag.ts:7144](src/lib/rag.ts)                          |
+| Answer input    | **Retrieved chunk text** (content, capped ~1800 chars, plus title/page/section/table-facts/captions)                                          | [src/lib/rag.ts:6306-6325](src/lib/rag.ts)                     |
+| Instructions    | Static system prompt ("experienced psychiatrist in Perth…")                                                                                   | [src/lib/rag.ts:7053](src/lib/rag.ts)                          |
+| Metadata        | `{ operation }`; when configured, `safety_identifier` is an HMAC-SHA256 pseudonym of the authenticated owner. The raw owner id is never sent. | [src/lib/openai.ts](src/lib/openai.ts)                         |
 
 The app never _adds_ patient identifiers, but it does not scrub them either: **any PHI the clinician
 types into the query, or that exists in an indexed excerpt, is transmitted to OpenAI.**
 
 ### 4.2 Handling controls on the OpenAI request
 
-- **Model:** `gpt-5.5` for answers, `text-embedding-3-small` for embeddings ([src/lib/env.ts:18-27](src/lib/env.ts)).
+- **Models:** `gpt-5.6-terra` for fast synthesis, summaries, indexing, and vision;
+  `gpt-5.6-sol` for strong synthesis; `gpt-5.6-luna` is the documented query-classifier
+  rollout target; `text-embedding-3-small` remains the embedding model
+  ([src/lib/env.ts](src/lib/env.ts), [.env.example](../.env.example)). Existing deployments
+  with explicit model variables remain pinned until their configuration is changed.
 - **`store: false`** by default — responses are not retained in OpenAI's dashboard/store
   ([src/lib/openai.ts:220](src/lib/openai.ts), [src/lib/env.ts:55-58](src/lib/env.ts)).
-- **`prompt_cache_retention: "24h"`** — **forced on for gpt-5.5** regardless of the
-  `OPENAI_PROMPT_CACHE_RETENTION` env value ([src/lib/openai.ts:168, 208, 221-222](src/lib/openai.ts)).
-  Prompt prefixes (which include retrieved excerpts and can include the query) are cacheable at OpenAI
-  for up to 24 hours. See PIA-6.
+- **GPT-5.6 prompt caching:** the app sends `prompt_cache_options: { ttl: "30m" }`
+  unless `OPENAI_PROMPT_CACHE_TTL=off`; it never sends the deprecated
+  `prompt_cache_retention` field to GPT-5.6. Explicit pre-5.6 deployments retain the legacy
+  `OPENAI_PROMPT_CACHE_RETENTION` behavior ([src/lib/openai.ts](src/lib/openai.ts)). The 30-minute
+  value is a minimum cache lifetime, not a guaranteed deletion deadline. See PIA-6.
+- **Safety identifier:** when `OPENAI_SAFETY_IDENTIFIER_SECRET` is configured, authenticated
+  Responses requests carry a stable HMAC-SHA256 pseudonym. Anonymous and background requests omit
+  it, and raw owner identifiers are never sent. Production readiness warns when the secret is absent.
 - **No `baseURL` override and no zero-data-retention (ZDR) header** are set in code — the client is a
   plain `new OpenAI({ apiKey, timeout, maxRetries })` ([src/lib/openai.ts:69-73](src/lib/openai.ts)),
   so traffic goes to `api.openai.com` (US) under whatever data-processing terms attach to the API
@@ -156,14 +164,15 @@ types into the query, or that exists in an indexed excerpt, is transmitted to Op
 
 ### 4.3 Data-processing terms — what code can and cannot tell us
 
-The code shows the _technical_ posture (US endpoint, `store:false`, 24h prompt cache, no ZDR header).
+The code shows the _technical_ posture (US endpoint, `store:false`, model-aware prompt-cache
+configuration, optional HMAC safety identifier, no ZDR header).
 It **cannot** tell us the contractual posture. The following are **operator/legal actions**, not code
 facts, and must be confirmed:
 
 - Whether a **Data Processing Addendum (DPA)** / OpenAI Business/Enterprise agreement is in place for
   the account behind `OPENAI_API_KEY`.
-- Whether **Zero Data Retention (ZDR)** has been granted for the org (which would also remove the 24h
-  prompt-cache window).
+- Whether **Zero Data Retention (ZDR)** has been granted for the org and how it applies to the
+  configured prompt-cache lifetime.
 - OpenAI's standard API commitment (no training on API data by default; limited abuse-monitoring
   retention) — this needs to be pinned to the specific contract, not assumed.
 
@@ -411,13 +420,15 @@ and PHI-minimisation gaps.
   APP privacy policy and retain the point-of-entry links/notices. Broader retention and breach-response
   documentation also remains outstanding. No legal approval is claimed here.
 
-### PIA-6 — OpenAI prompt-cache retention forced to 24h **(Low-Medium)**
+### PIA-6 — OpenAI prompt-cache lifetime requires contractual confirmation **(Low-Medium)**
 
-- **Risk:** Query + retrieved excerpts persist at OpenAI for ≤24h via prompt caching even with
-  `store:false`; not operator-tunable for gpt-5.5.
-- **Evidence:** [openai.ts:168, 208, 221-222](src/lib/openai.ts).
-- **Fix:** Resolve via **ZDR** (removes the window) as part of PIA-1; document the 24h window in the
-  meantime. If a shorter window becomes configurable, expose it.
+- **Risk:** Query + retrieved excerpts can enter OpenAI prompt caches even with `store:false`.
+  GPT-5.6 requests a 30-minute TTL by default, but that value is a minimum and is not a contractual
+  deletion deadline. Explicit pre-5.6 models can still request the legacy 24-hour retention mode.
+- **Evidence:** [openai.ts](src/lib/openai.ts), [.env.example](../.env.example).
+- **Fix:** Confirm the effective cache/deletion behavior under the production project's **ZDR** and
+  data-residency terms. Keep `OPENAI_PROMPT_CACHE_TTL=off` available when governance requires the app
+  to omit the extended GPT-5.6 TTL option; document that provider-default caching policy still applies.
 
 ### PIA-7 — `RAG_PERSIST_RAW_QUERY_TEXT=true` stores raw PHI query text **(Low, config-gated)**
 
