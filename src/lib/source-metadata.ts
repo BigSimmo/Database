@@ -12,10 +12,6 @@ function enumOrDefault<T extends string>(value: unknown, allowed: Set<string>, f
   return typeof value === "string" && allowed.has(value) ? (value as T) : fallback;
 }
 
-function recordOrNull(value: unknown) {
-  return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : null;
-}
-
 export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata {
   const value = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
 
@@ -37,7 +33,6 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
     uploaded_by: stringOrNull(value.uploaded_by),
     document_status: enumOrDefault(value.document_status, knownStatuses, "unknown"),
     clinical_validation_status: enumOrDefault(value.clinical_validation_status, knownValidation, "unverified"),
-    clinical_validation_evidence: recordOrNull(value.clinical_validation_evidence),
     extraction_quality: enumOrDefault(value.extraction_quality, knownExtraction, "unknown"),
   };
 }

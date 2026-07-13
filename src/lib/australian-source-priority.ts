@@ -53,6 +53,26 @@ function capClinicalContextPerDocument(results: SearchResult[], maxPerDocument: 
   });
 }
 
+function resultRelevanceRank(result: SearchResult) {
+  return result.relevance?.verdict ? relevanceRank[result.relevance.verdict] : relevanceRank.direct;
+}
+
+function isSupplementaryPadding(args: {
+  candidate: { result: SearchResult; tier: AustralianSourceTier };
+  ranked: Array<{ result: SearchResult; tier: AustralianSourceTier }>;
+  sufficientAustralianChunks: number;
+}) {
+  if (isAustralianSourceTier(args.candidate.tier)) return false;
+  const candidateRelevance = resultRelevanceRank(args.candidate.result);
+  const australianAtLeastAsRelevant = args.ranked.filter(
+    ({ result, tier }) => isAustralianSourceTier(tier) && resultRelevanceRank(result) <= candidateRelevance,
+  );
+  return (
+    australianAtLeastAsRelevant.length >= args.sufficientAustralianChunks &&
+    new Set(australianAtLeastAsRelevant.map(({ result }) => result.document_id)).size >= 2
+  );
+}
+
 /**
  * Select a bounded clinical context while preferring authoritative Australian
  * evidence inside the same relevance band. Supplementary material remains
@@ -69,25 +89,17 @@ export function selectAustralianClinicalContext(
     .map((result, index) => ({ result, index, tier: australianSourceTier(result) }))
     .filter(({ result }) => result.relevance?.verdict !== "none")
     .sort((left, right) => {
-      const leftRelevance = left.result.relevance?.verdict
-        ? relevanceRank[left.result.relevance.verdict]
-        : relevanceRank.direct;
-      const rightRelevance = right.result.relevance?.verdict
-        ? relevanceRank[right.result.relevance.verdict]
-        : relevanceRank.direct;
+      const leftRelevance = resultRelevanceRank(left.result);
+      const rightRelevance = resultRelevanceRank(right.result);
       return leftRelevance - rightRelevance || tierRank[left.tier] - tierRank[right.tier] || left.index - right.index;
     });
+  const withoutSupplementaryPadding = ranked.filter(
+    (candidate) => !isSupplementaryPadding({ candidate, ranked, sufficientAustralianChunks }),
+  );
   const capped = capClinicalContextPerDocument(
-    ranked.map(({ result }) => result),
+    withoutSupplementaryPadding.map(({ result }) => result),
     maxPerDocument,
   );
-  const australian = capped.filter((result) => isAustralianSourceTier(australianSourceTier(result)));
-  const australianDocumentCount = new Set(australian.map((result) => result.document_id)).size;
-
-  if (australian.length >= sufficientAustralianChunks && australianDocumentCount >= 2) {
-    return australian.slice(0, limit);
-  }
-
   return capped.slice(0, limit);
 }
 

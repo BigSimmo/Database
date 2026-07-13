@@ -58,19 +58,6 @@ describe("source metadata helpers", () => {
     expect(metadata.registry_record_slug).toBe("perth-adult-mental-health");
   });
 
-  it("preserves source authority and validation evidence metadata", () => {
-    const metadata = normalizeSourceMetadata({
-      publisher_code: "WACHS",
-      clinical_validation_evidence: { reviewer: "clinical-governance", reference: "review-123" },
-    });
-
-    expect(metadata.publisher_code).toBe("WACHS");
-    expect(metadata.clinical_validation_evidence).toEqual({
-      reviewer: "clinical-governance",
-      reference: "review-123",
-    });
-  });
-
   it("preserves stale status labels for registry summaries", () => {
     const metadata = normalizeSourceMetadata({
       source_kind: "registry_record",

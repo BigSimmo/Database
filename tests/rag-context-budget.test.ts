@@ -50,6 +50,49 @@ function governedSource(
   });
 }
 
+function withRelevance(result: SearchResult, verdict: NonNullable<SearchResult["relevance"]>["verdict"]): SearchResult {
+  return {
+    ...result,
+    relevance: {
+      verdict,
+      label: verdict,
+      matchedTerms: verdict === "none" ? [] : ["lithium"],
+      missingTerms: [],
+      directSourceCount: verdict === "direct" ? 1 : 0,
+      weakSourceCount: verdict === "direct" ? 0 : 1,
+      score: verdict === "direct" ? 1 : verdict === "partial" ? 0.7 : verdict === "nearby" ? 0.4 : 0,
+      supportReason: `${verdict} test evidence`,
+      isSourceBacked: verdict === "direct" || verdict === "partial",
+      coverageScore: verdict === "direct" ? 1 : 0.5,
+      rankScore: verdict === "direct" ? 1 : 0.5,
+      titleMatchedTerms: [],
+      contentMatchedTerms: verdict === "none" ? [] : ["lithium"],
+      metadataMatchedTerms: [],
+      chips: [],
+    },
+  };
+}
+
+function waGovernedSource(index: number, documentId: string) {
+  const fsh = documentId === "wa-doc-1";
+  return governedSource(index, {
+    documentId,
+    publisherCode: fsh ? "FSH" : "EMHS",
+    publisher: fsh ? "Fiona Stanley Fremantle Hospitals Group" : "East Metropolitan Health Service",
+    jurisdiction: "Australia/WA",
+  });
+}
+
+function bmjSupplementarySource(index: number) {
+  return governedSource(index, {
+    documentId: "bmj-doc",
+    publisherCode: "BMJ",
+    publisher: "BMJ Best Practice",
+    jurisdiction: "International",
+    validation: "unverified",
+  });
+}
+
 const results = Array.from({ length: 12 }, (_, index) => source(index + 1));
 
 function select(args: {
@@ -176,6 +219,57 @@ describe("RAG model context budgeting", () => {
 
     expect(selected.map((result) => result.id)).toEqual(["chunk-1", "chunk-2", "chunk-3", "chunk-4"]);
     expect(new Set(selected.map((result) => result.document_id))).toEqual(new Set(["wa-doc-1", "wa-doc-2"]));
+  });
+
+  it("retains a direct supplementary passage when four Australian passages are only nearby", () => {
+    const selected = selectModelContextResults({
+      routeMode: "strong",
+      queryClass: "medication_dose_risk",
+      crossDocument: false,
+      results: [
+        withRelevance(bmjSupplementarySource(1), "direct"),
+        withRelevance(waGovernedSource(2, "wa-doc-1"), "nearby"),
+        withRelevance(waGovernedSource(3, "wa-doc-2"), "nearby"),
+        withRelevance(waGovernedSource(4, "wa-doc-1"), "nearby"),
+        withRelevance(waGovernedSource(5, "wa-doc-2"), "nearby"),
+      ],
+    });
+
+    expect(selected.map((result) => result.id)).toEqual(["chunk-1", "chunk-2", "chunk-3", "chunk-4", "chunk-5"]);
+  });
+
+  it("excludes supplementary padding before a 3+1 Australian distribution is diversity-capped", () => {
+    const selected = selectModelContextResults({
+      routeMode: "strong",
+      queryClass: "medication_dose_risk",
+      crossDocument: false,
+      results: [
+        withRelevance(waGovernedSource(1, "wa-doc-1"), "partial"),
+        withRelevance(waGovernedSource(2, "wa-doc-1"), "partial"),
+        withRelevance(waGovernedSource(3, "wa-doc-1"), "partial"),
+        withRelevance(waGovernedSource(4, "wa-doc-2"), "partial"),
+        withRelevance(bmjSupplementarySource(5), "partial"),
+      ],
+    });
+
+    expect(selected.map((result) => result.id)).toEqual(["chunk-1", "chunk-2", "chunk-4"]);
+  });
+
+  it("uses Australian-only context when four passages match supplementary relevance", () => {
+    const selected = selectModelContextResults({
+      routeMode: "strong",
+      queryClass: "table_threshold",
+      crossDocument: false,
+      results: [
+        withRelevance(waGovernedSource(1, "wa-doc-1"), "direct"),
+        withRelevance(waGovernedSource(2, "wa-doc-2"), "direct"),
+        withRelevance(waGovernedSource(3, "wa-doc-1"), "direct"),
+        withRelevance(waGovernedSource(4, "wa-doc-2"), "direct"),
+        withRelevance(bmjSupplementarySource(5), "direct"),
+      ],
+    });
+
+    expect(selected.map((result) => result.id)).toEqual(["chunk-1", "chunk-2", "chunk-3", "chunk-4"]);
   });
 
   it("keeps supplementary evidence when authoritative Australian coverage is not sufficient", () => {
