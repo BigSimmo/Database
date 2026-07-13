@@ -245,15 +245,37 @@ describe("answer-verification (GEN-C2 / GEN-H2)", () => {
     expect(verification.unverifiedTokens).toContain("12.5mg");
   });
 
-  it("does not let an unrelated answer citation verify a clinical number", () => {
+  // Verification is union-over-cited-chunks: a figure passes when at least one chunk
+  // the answer cites contains it verbatim. The earlier intersection semantics (require
+  // the figure in EVERY cited chunk) flagged nearly all legitimate multi-source answers
+  // — a stitched answer citing a dose table and a review-interval chunk can never have
+  // each figure in both — and demoted correct grounded answers to "unsupported"
+  // (4 golden-eval regressions, canary #459). Cross-entity misattribution (drug A's
+  // sentence carrying drug B's cited dose) is not detectable by bare atom membership
+  // under either semantics; that risk belongs to the claim-support layer
+  // (rag-claim-support.ts) and to per-section citation scoping.
+  it("verifies figures drawn from different cited chunks (union over citations)", () => {
+    const doseChunk = source({ id: "chunk-a", content: "Olanzapine maximum 20 mg in 24 hours." });
+    const reviewChunk = source({ id: "chunk-b", content: "Review all oral doses after 60 minutes." });
+    const verification = verifyAnswerNumbers(
+      "Olanzapine maximum 20 mg in 24 hours; review oral doses after 60 minutes.",
+      [{ chunk_id: "chunk-a" }, { chunk_id: "chunk-b" }],
+      [doseChunk, reviewChunk],
+    );
+    expect(verification.hasUnverifiedNumbers).toBe(false);
+    expect(verification.unverifiedTokens).toEqual([]);
+  });
+
+  it("still flags a figure that appears in no cited chunk even with multiple citations", () => {
     const drugA = source({ id: "chunk-a", content: "Drug A requires renal monitoring." });
     const drugB = source({ id: "chunk-b", content: "Drug B is given at 30 mg daily." });
     const verification = verifyAnswerNumbers(
-      "Give drug A at 30 mg daily.",
+      "Give drug A at 45 mg daily.",
       [{ chunk_id: "chunk-a" }, { chunk_id: "chunk-b" }],
       [drugA, drugB],
     );
-    expect(verification.unverifiedTokens).toContain("30mg");
+    expect(verification.hasUnverifiedNumbers).toBe(true);
+    expect(verification.unverifiedTokens).toContain("45mg");
   });
 
   // B1: substring matching previously let a wrong dose verify against a longer

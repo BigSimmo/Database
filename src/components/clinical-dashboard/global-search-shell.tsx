@@ -15,7 +15,11 @@ import {
 } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { recentQueryStorageKey } from "@/components/clinical-dashboard/dashboard-contracts";
+import {
+  clearLegacyRecentQueries,
+  demoRecentQueryOwnerId,
+  loadRecentQueries,
+} from "@/components/clinical-dashboard/recent-query-storage";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import {
@@ -38,6 +42,7 @@ import {
   visibleAppModeDefinitions,
   type AppModeId,
 } from "@/lib/app-modes";
+import { isLocalNoAuthMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
@@ -297,25 +302,29 @@ function GlobalStandaloneSearchShellClient({
     };
   }, [pathname, requestedFocus, searchParamString]);
 
+  // Recent queries are owner-scoped session state (2026-07-13 audit, finding 4):
+  // the legacy unscoped localStorage value could resurface another account's
+  // clinical queries on a shared workstation, so it is deleted, never read.
+  const recentQueriesOwnerId =
+    auth.session?.user.id ??
+    (!auth.isConfigured || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || isLocalNoAuthMode()
+      ? demoRecentQueryOwnerId
+      : null);
+
+  useEffect(() => {
+    clearLegacyRecentQueries();
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const frame = window.requestAnimationFrame(() => {
-      try {
-        const stored = JSON.parse(window.localStorage.getItem(recentQueryStorageKey) ?? "[]");
-        if (Array.isArray(stored) && !cancelled) {
-          setRecentQueries(
-            stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5),
-          );
-        }
-      } catch {
-        if (!cancelled) setRecentQueries([]);
-      }
+      if (!cancelled) setRecentQueries(loadRecentQueries(recentQueriesOwnerId));
     });
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [recentQueriesOwnerId]);
 
   function prefetchApplications() {
     router.prefetch("/?mode=tools");

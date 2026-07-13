@@ -45,7 +45,10 @@ describe("proxy content-security-policy", () => {
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("img-src 'self' data: blob: https://*.supabase.co");
-    expect(csp).toContain("connect-src 'self' https://*.supabase.co https://api.openai.com");
+    expect(csp).toContain("connect-src 'self' https://*.supabase.co;");
+    // OpenAI calls are server-side only; the browser must not be allowed to
+    // reach the provider origin (2026-07-13 audit, finding 12).
+    expect(csp).not.toContain("api.openai.com");
     expect(csp).toContain("style-src 'self' 'unsafe-inline'");
   });
 

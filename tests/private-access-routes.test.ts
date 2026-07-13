@@ -937,7 +937,7 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
       request("/api/upload", {
@@ -967,7 +967,7 @@ describe("private document API access", () => {
     mockRuntime(client, undefined, { publicUploadsEnabled: true, publicWorkspaceOwnerId: publicOwnerId });
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
       request("/api/upload", {
@@ -994,7 +994,7 @@ describe("private document API access", () => {
     mockRuntime(client, undefined, { publicUploadsEnabled: true, publicWorkspaceOwnerId: publicOwnerId });
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
       request("/api/upload", {
@@ -1113,7 +1113,7 @@ describe("private document API access", () => {
       signal: controller.signal,
     });
     const form = new FormData();
-    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    form.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
     vi.spyOn(uploadRequest, "formData").mockImplementation(async () => {
       controller.abort();
       return form;
@@ -1139,7 +1139,7 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const form = new FormData();
-    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    form.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
       authenticatedRequest("/api/upload", { method: "POST", body: form, signal: controller.signal }),
@@ -1184,12 +1184,12 @@ describe("private document API access", () => {
     expect(rejectedFormData).not.toHaveBeenCalled();
 
     const form = new FormData();
-    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    form.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
     resolveForm(form);
     expect((await firstResponsePromise).status).toBe(201);
 
     const afterRelease = new FormData();
-    afterRelease.set("file", new File(["%PDF-1.7 revised"], "second.pdf", { type: "application/pdf" }));
+    afterRelease.set("file", new File(["%PDF-1.7 revised\n%%EOF"], "second.pdf", { type: "application/pdf" }));
     const afterResponse = await POST(authenticatedRequest("/api/upload", { method: "POST", body: afterRelease }));
     expect(afterResponse.status).toBe(201);
   });
@@ -1214,7 +1214,7 @@ describe("private document API access", () => {
     expect(failedResponse.status).toBe(400);
 
     const form = new FormData();
-    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    form.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
     const admittedResponse = await POST(
       authenticatedRequest("/api/upload", {
         method: "POST",
@@ -1240,7 +1240,7 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const form = new FormData();
-    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    form.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
       authenticatedRequest("/api/upload", { method: "POST", body: form, signal: controller.signal }),
@@ -1267,7 +1267,7 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
     formData.set("title", "Guideline");
 
     const response = await POST(
@@ -1307,7 +1307,7 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7 revised"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7 revised\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
       authenticatedRequest("/api/upload", {
@@ -1340,7 +1340,7 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
       authenticatedRequest("/api/upload", {
@@ -2395,7 +2395,7 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
       authenticatedRequest("/api/upload", {
@@ -2422,7 +2422,7 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
       authenticatedRequest("/api/upload", {
@@ -2465,7 +2465,7 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
       authenticatedRequest("/api/upload", {

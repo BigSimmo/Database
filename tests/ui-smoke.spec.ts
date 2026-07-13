@@ -1762,6 +1762,30 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("legacy unscoped recent-query storage is purged and never displayed @critical", async ({ page }) => {
+    // 2026-07-13 audit finding 4: a historical clinical query written by an
+    // older build into the unscoped localStorage key must not resurface for
+    // whoever uses the browser next, and must be deleted on load.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    const legacyQuery = "legacy cross-user clozapine query";
+    await page.addInitScript(
+      ({ storageKey, value }) => {
+        window.localStorage.setItem(storageKey, JSON.stringify([value]));
+        window.sessionStorage.setItem(storageKey, JSON.stringify([value]));
+      },
+      { storageKey: recentQueryStorageKey, value: legacyQuery },
+    );
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await expect(page.getByText(legacyQuery)).toHaveCount(0);
+    await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), recentQueryStorageKey)).toBeNull();
+    await expect
+      .poll(() => page.evaluate((key) => window.sessionStorage.getItem(key), recentQueryStorageKey))
+      .toBeNull();
+  });
+
   test("answer search URL opens chat without the answer home copy", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     const answerRequests: string[] = [];
