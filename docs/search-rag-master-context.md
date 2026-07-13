@@ -35,7 +35,7 @@ Deployment/config note:
 
 - `.env.example` documents `OPENAI_ANSWER_TIMEOUT_MS=30000`, matching the server default in `src/lib/env.ts`.
 - Local `.env.local` may set it explicitly for parity; unset environments rely on the 30000ms server default.
-- The historical 12000ms value in `docs/search-rag-phase-0-baseline.md` and `docs/search-rag-master-plan.md` records the Phase 7 rollout, not current guidance.
+- The historical 12000ms value in `docs/archive/search-rag-phase-0-baseline.md` and `docs/search-rag-master-plan.md` records the Phase 7 rollout, not current guidance.
 
 ## Skill Lenses Used
 
