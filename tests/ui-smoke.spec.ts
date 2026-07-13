@@ -2670,17 +2670,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("phone universal header fully hides while scrolling dashboard main on phones", async ({ page }) => {
+  test("answer glass header overlays main and fully hides while scrolling on phones", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, "/?mode=answer");
 
     const header = page.locator("header.universal-header");
-    const collapseHost = page.getByTestId("universal-header-collapse");
     await expect(header).toBeVisible();
-    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
-    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("relative");
-
+    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+    // Answer mode takes the header out of flow (absolute over <main>) so
+    // content frosts under the glass bar; <main> must reserve the header's
+    // exact height as top padding or short answers regain phantom scroll.
+    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("absolute");
     const main = page.locator("main#main-content");
+    const reserve = await main.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingTop));
+    const headerHeight = await header.evaluate((node) => node.getBoundingClientRect().height);
+    expect(Math.abs(reserve - headerHeight)).toBeLessThanOrEqual(2);
+
     await main.evaluate((node) => {
       const spacer = document.createElement("div");
       spacer.setAttribute("data-testid", "header-hide-scroll-spacer");
@@ -2688,6 +2693,79 @@ test.describe("Clinical KB UI smoke coverage", () => {
       node.appendChild(spacer);
     });
     // Step scroll down so the dashboard main listener sees deliberate movement.
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+
+    await expect(header).toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () =>
+        header.evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          return Math.max(0, rect.bottom) - Math.max(0, rect.top);
+        }),
+      )
+      .toBe(0);
+
+    // Any deliberate scroll up slides the glass bar back in.
+    for (const offset of [160, 120, 60]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+  });
+
+  test("answer glass header hides and returns on desktop widths too", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 860 });
+    await gotoApp(page, "/?mode=answer");
+
+    const header = page.locator("header.universal-header");
+    await expect(header).toBeVisible();
+    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("absolute");
+
+    const main = page.locator("main#main-content");
+    await main.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.style.height = "2400px";
+      node.appendChild(spacer);
+    });
+    for (const offset of [40, 90, 150, 220, 300]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+    await expect(header).toHaveAttribute("data-scroll-hidden", "true");
+
+    for (const offset of [250, 200, 140]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+  });
+
+  test("non-answer phone header keeps the in-flow collapse hide", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=documents");
+
+    const header = page.locator("header.universal-header");
+    const collapseHost = page.getByTestId("universal-header-collapse");
+    await expect(header).toBeVisible();
+    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
+    // Non-answer modes keep the header in flow — their sm+ composer renders
+    // beneath it, which the absolute answer-mode overlay would bury.
+    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("relative");
+
+    const main = page.locator("main#main-content");
+    await main.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.style.height = "2000px";
+      node.appendChild(spacer);
+    });
     for (const offset of [40, 80, 120, 160, 200]) {
       await main.evaluate((node, top) => {
         node.scrollTop = top;

@@ -110,6 +110,7 @@ import {
   expandClinicalQuery,
   hasDoseEvidenceSupport,
   hasStructuredThresholdEvidence,
+  medicationDoseQueryContext,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
   riskZoneActionPattern,
@@ -2866,9 +2867,7 @@ export function evaluateEvidenceCoverageGate(
   }
 
   const hasStructuredThreshold = top.some(hasStructuredThresholdEvidence);
-  const hasDoseEvidence = top.some(hasDoseEvidenceSupport);
   const hasDoseAmount = top.some(hasDoseAmountEvidenceForGate);
-  const hasRoute = top.some(hasRouteEvidenceForGate);
   const hasVisualUnit = top.some((result) => visualEvidenceUnitTypes.has(result.index_unit?.unit_type ?? ""));
   const hasDirectTitle = directTitleOrAliasSupport(query, top);
 
@@ -2922,23 +2921,36 @@ export function evaluateEvidenceCoverageGate(
   }
 
   if (queryClass === "medication_dose_risk") {
-    const asksDoseRoute =
-      /\b(?:dose|dosage|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(
-        query,
-      );
+    const asksRoute =
+      /\b(?:route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(query);
     const agitationOk = !/\bagitation|arousal\b/i.test(query) || /\bagitation|arousal\b/i.test(evidenceText);
-    const accepted = hasDoseEvidence && hasDoseAmount && (!asksDoseRoute || hasRoute) && agitationOk;
+    const hasContextualDose = top.some(
+      (result) =>
+        hasDoseEvidenceSupport(result) &&
+        hasDoseAmountEvidenceForGate(result) &&
+        medicationDoseQueryContext(query, result).matched,
+    );
+    const hasContextualRoute = top.some(
+      (result) =>
+        hasDoseEvidenceSupport(result) &&
+        hasDoseAmountEvidenceForGate(result) &&
+        hasRouteEvidenceForGate(result) &&
+        medicationDoseQueryContext(query, result).matched,
+    );
+    const accepted = hasContextualDose && (!asksRoute || hasContextualRoute) && agitationOk;
     return {
       accepted,
       reason: accepted
         ? "dose_route_amount_evidence_gate"
         : !hasDoseAmount
           ? "missing_dose_amount_evidence"
-          : !hasRoute && asksDoseRoute
-            ? "missing_route_evidence"
-            : !agitationOk
-              ? "missing_agitation_context"
-              : "missing_dose_evidence",
+          : !hasContextualDose
+            ? "missing_dose_query_context"
+            : !hasContextualRoute && asksRoute
+              ? "missing_route_evidence"
+              : !agitationOk
+                ? "missing_agitation_context"
+                : "missing_dose_evidence",
       strategy: "text_fast_path",
       sourceImageRequired,
       sourceImageSatisfied,
