@@ -46,6 +46,18 @@ const envSchema = z.object({
   // in openai.ts), and the answer path self-heals a truncation by retrying with a larger
   // cap before falling back.
   OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(16000),
+  // Answer-generation pricing for the /api/health `spend` block (USD per 1,000,000
+  // tokens). Operator-tunable PLACEHOLDERS — set these to the live OpenAI price for
+  // the answer model. They only derive a cost SIGNAL from already-recorded token
+  // counts (src/lib/observability/spend-metrics.ts); they have no billing effect.
+  // Cached input is a subset of input billed at the cached rate; reasoning tokens
+  // are billed within output, so output covers them.
+  OPENAI_PRICE_INPUT_PER_MTOK: z.coerce.number().nonnegative().default(1.25),
+  OPENAI_PRICE_CACHED_INPUT_PER_MTOK: z.coerce.number().nonnegative().default(0.125),
+  OPENAI_PRICE_OUTPUT_PER_MTOK: z.coerce.number().nonnegative().default(10),
+  // Projected-daily-spend alert threshold (USD) for the `spend` block. 0 disables
+  // the alert flag (the spend figures are still reported).
+  SPEND_ALERT_DAILY_USD: z.coerce.number().nonnegative().default(0),
   OPENAI_QUERY_CACHE_SIZE: z.coerce.number().int().nonnegative().default(200),
   // Max inputs per embeddings request. The OpenAI embeddings endpoint caps a single
   // request at 2048 inputs / ~300k tokens; a full-corpus re-embed of ~400k texts in one
