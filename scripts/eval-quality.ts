@@ -66,6 +66,7 @@ export type RagQualityResult = {
   rpcLatencyMs?: number;
   embeddingLatencyMs?: number;
   route: string;
+  latencyRoute: string;
   model: string | null;
   citations: number;
   visualEvidence: number;
@@ -435,9 +436,9 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
   const routeLatencyP95 = Object.fromEntries(
     Array.from(
       results.reduce((accumulator, result) => {
-        const current = accumulator.get(result.route) ?? [];
+        const current = accumulator.get(result.latencyRoute) ?? [];
         current.push(result.latencyMs);
-        accumulator.set(result.route, current);
+        accumulator.set(result.latencyRoute, current);
         return accumulator;
       }, new Map<string, number[]>()),
     ).map(([route, routeLatencies]) => [route, percentile(routeLatencies, 95)]),
@@ -609,6 +610,7 @@ function ragCaseDiagnosticsTable(results: RagQualityResult[]) {
       [
         result.id,
         result.route,
+        result.latencyRoute,
         result.latencyMs,
         result.searchLatencyMs,
         result.generationLatencyMs,
@@ -621,10 +623,24 @@ function ragCaseDiagnosticsTable(results: RagQualityResult[]) {
         .join(" | "),
     );
   return [
-    "| Case | Route | Total ms | Search ms | Generation ms | RPC ms | Embedding ms | Model | Result |",
-    "| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+    "| Case | Route | Latency SLO | Total ms | Search ms | Generation ms | RPC ms | Embedding ms | Model | Result |",
+    "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
     ...rows.map((row) => `| ${row} |`),
   ].join("\n");
+}
+
+function latencyRouteForAnswer(answer: RagAnswer) {
+  const route = answer.routingMode ?? "none";
+  if ((answer.latencyTimings?.generation_latency_ms ?? 0) <= 0) return route;
+  if (route === "strong") return "strong";
+  if (
+    /^(?:broad_clinical_management_synthesis|clinical_risk_or_complex_query|limited_retrieval_strength|multi_document_comparison_synthesis|retrieval_gap_or_conflict)\b/i.test(
+      answer.routingReason ?? "",
+    )
+  ) {
+    return "strong";
+  }
+  return "fast";
 }
 
 export function renderEvalQualityMarkdown(report: EvalQualityReport) {
@@ -905,6 +921,7 @@ async function runRagQualityCases(args: {
       rpcLatencyMs: answer.latencyTimings?.supabase_rpc_latency_ms,
       embeddingLatencyMs: answer.latencyTimings?.embedding_latency_ms,
       route: answer.routingMode ?? "none",
+      latencyRoute: latencyRouteForAnswer(answer),
       model: answer.modelUsed ?? null,
       citations: answer.citations.length,
       visualEvidence: answer.visualEvidence?.length ?? 0,
