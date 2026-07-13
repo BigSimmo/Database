@@ -12,7 +12,7 @@ import {
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
-import { specifierFamilies, specifierRecords, type SpecifierFamily } from "@/lib/specifiers";
+import { normalizeSpecifierSelection, specifierFamilies, specifierRecords } from "@/lib/specifiers";
 
 const diagnosisPresets = [
   "Major depressive disorder, recurrent, current episode severe",
@@ -28,7 +28,7 @@ function wordingSegment(name: string) {
 }
 
 export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecifiers?: string[] }) {
-  const validInitial = initialSpecifiers.filter((slug) => specifierRecords.some((record) => record.slug === slug));
+  const validInitial = normalizeSpecifierSelection(initialSpecifiers);
   const [diagnosis, setDiagnosis] = useState(diagnosisPresets[0]);
   const [selected, setSelected] = useState<string[]>(validInitial);
   const selectedRecords = useMemo(
@@ -37,16 +37,10 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
   );
   const wording = [diagnosis, ...selectedRecords.map((record) => wordingSegment(record!.name))].join(", ");
 
-  function toggle(slug: string, family: SpecifierFamily) {
+  function toggle(slug: string) {
     setSelected((current) => {
       if (current.includes(slug)) return current.filter((item) => item !== slug);
-      if (family === "severity-remission") {
-        const severitySlugs = new Set(
-          specifierRecords.filter((record) => record.family === "severity-remission").map((record) => record.slug),
-        );
-        return [...current.filter((item) => !severitySlugs.has(item)), slug];
-      }
-      return [...current, slug];
+      return normalizeSpecifierSelection([...current, slug]);
     });
   }
 
@@ -129,7 +123,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                           <input
                             type="checkbox"
                             checked={checked}
-                            onChange={() => toggle(record.slug, record.family)}
+                            onChange={() => toggle(record.slug)}
                             className="peer sr-only"
                           />
                           <span

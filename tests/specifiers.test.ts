@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { findSpecifier, searchSpecifiers, specifierRecords } from "@/lib/specifiers";
+import { findSpecifier, normalizeSpecifierSelection, searchSpecifiers, specifierRecords } from "@/lib/specifiers";
 
 describe("psychiatric specifier catalogue", () => {
   it("keeps slugs unique and related links valid", () => {
@@ -37,6 +37,26 @@ describe("psychiatric specifier catalogue", () => {
 
     const psychoticResults = searchSpecifiers("", { diagnosis: "psychotic" });
     expect(psychoticResults.map(({ record }) => record.slug)).toContain("with-catatonia");
+
+    const depressiveResults = searchSpecifiers("mild", { diagnosis: "depressive" });
+    expect(depressiveResults.map(({ record }) => record.slug)).toContain("mild-severity");
+
+    const moodEpisodeResults = searchSpecifiers("", { diagnosis: "mood" });
+    expect(moodEpisodeResults.map(({ record }) => record.slug)).toEqual(
+      expect.arrayContaining(["with-anxious-distress", "with-rapid-cycling", "mild-severity"]),
+    );
+  });
+
+  it("normalizes seeded builder selections to one severity or remission descriptor", () => {
+    expect(
+      normalizeSpecifierSelection([
+        "with-anxious-distress",
+        "in-partial-remission",
+        "missing-specifier",
+        "in-full-remission",
+        "with-anxious-distress",
+      ]),
+    ).toEqual(["with-anxious-distress", "in-full-remission"]);
   });
 
   it("does not expose provenance columns in the specifier search records", () => {

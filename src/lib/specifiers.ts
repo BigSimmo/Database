@@ -554,6 +554,24 @@ export function findSpecifier(slug: string) {
   return specifierRecords.find((record) => record.slug === slug);
 }
 
+export function normalizeSpecifierSelection(slugs: string[]) {
+  const selected: string[] = [];
+
+  for (const slug of slugs) {
+    const record = findSpecifier(slug);
+    if (!record || selected.includes(slug)) continue;
+
+    if (record.family === "severity-remission") {
+      const retained = selected.filter((selectedSlug) => findSpecifier(selectedSlug)?.family !== "severity-remission");
+      selected.splice(0, selected.length, ...retained);
+    }
+
+    selected.push(slug);
+  }
+
+  return selected;
+}
+
 function normalizeSearchText(value: string) {
   return value
     .toLowerCase()
@@ -601,6 +619,31 @@ function recordSearchText(record: SpecifierRecord) {
   );
 }
 
+const diagnosisFiltersByApplicability: Record<string, readonly string[]> = {
+  "Depressive disorders": ["depressive", "mood"],
+  "Bipolar disorders": ["bipolar", "mood"],
+  "Major depressive episodes": ["depressive", "bipolar", "mood"],
+  "Bipolar depressive episodes": ["bipolar", "mood"],
+  "Mood disorders": ["depressive", "bipolar", "mood"],
+  "Psychotic disorders": ["psychotic"],
+  "Medical conditions": [],
+  "Recurrent depressive disorder": ["depressive", "mood"],
+  "Bipolar I disorder": ["bipolar", "mood"],
+  "Bipolar II disorder": ["bipolar", "mood"],
+  "Other specified diagnoses": [],
+};
+
+const knownDiagnosisFilters = new Set(["depressive", "bipolar", "psychotic", "mood"]);
+
+function matchesDiagnosisFilter(record: SpecifierRecord, diagnosis: string) {
+  if (!diagnosis) return true;
+  if (!knownDiagnosisFilters.has(diagnosis)) {
+    return normalizeSearchText(record.appliesTo.join(" ")).includes(diagnosis);
+  }
+
+  return record.appliesTo.some((applicability) => diagnosisFiltersByApplicability[applicability]?.includes(diagnosis));
+}
+
 export function searchSpecifiers(
   query: string,
   options: { family?: "all" | SpecifierFamily; diagnosis?: string } = {},
@@ -611,7 +654,7 @@ export function searchSpecifiers(
 
   return specifierRecords
     .filter((record) => !options.family || options.family === "all" || record.family === options.family)
-    .filter((record) => !diagnosis || normalizeSearchText(record.appliesTo.join(" ")).includes(diagnosis))
+    .filter((record) => matchesDiagnosisFilter(record, diagnosis))
     .map((record, index) => {
       const title = normalizeSearchText(`${record.name} ${record.shortName}`);
       const keywords = normalizeSearchText(record.keywords.join(" "));

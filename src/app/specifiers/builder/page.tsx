@@ -7,7 +7,7 @@ type BuilderRouteProps = {
 export default async function SpecifierBuilderRoute({ searchParams }: BuilderRouteProps) {
   const params = searchParams ? await searchParams : {};
   const initialSpecifiers = Array.isArray(params.specifier)
-    ? params.specifier
+    ? Array.from(new Set(params.specifier))
     : params.specifier
       ? [params.specifier]
       : [];
