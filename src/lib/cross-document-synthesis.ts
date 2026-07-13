@@ -1,6 +1,6 @@
 import type { RagQueryClass, SearchResult } from "@/lib/types";
-import { neutralizeIdentityField } from "@/lib/rag-source-block";
-import { sourceTextForModel } from "@/lib/source-text-sanitizer";
+import { compactEvidenceText, neutralizeIdentityField } from "@/lib/rag-source-block";
+import { fenceSourceEvidence } from "@/lib/source-text-sanitizer";
 
 export type CrossDocumentSynthesisPlan = {
   enabled: boolean;
@@ -82,7 +82,7 @@ function candidateSentences(result: SearchResult) {
     .slice(0, 4)
     .map((card) => `${card.card_type}: ${card.content}`)
     .join(". ");
-  return sourceTextForModel(`${memoryText}. ${result.section_heading ?? ""}. ${result.content}`)
+  return compactEvidenceText(`${memoryText}. ${result.section_heading ?? ""}. ${result.content}`, 2400)
     .split(/\r?\n|(?<=[.!?])\s+/)
     .map((sentence) => compact(sentence, 260))
     .filter(
@@ -257,13 +257,13 @@ export function buildCrossDocumentFusionBrief(query: string, results: SearchResu
     .sort((a, b) => score(b.result) - score(a.result));
 
   const sourceChunkIds = points.map((point) => point.result.id);
-  const text = `Fast fused source brief:
+  const text = fenceSourceEvidence(`Fast fused source brief:
 ${points
   .map((point, index) => {
     const page = point.result.page_number ? `p.${point.result.page_number}` : "page unavailable";
     return `${index + 1}. ${neutralizeIdentityField(point.result.title)} (${page}): ${point.sentence}`;
   })
-  .join("\n")}`;
+  .join("\n")}`);
 
   return {
     text,

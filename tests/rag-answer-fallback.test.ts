@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SearchResult } from "../src/lib/types";
+import type { RagAnswer, SearchResult } from "../src/lib/types";
+
+function retrievalRpcBaseName(name: string) {
+  return name.replace(/_v[23]$/, "");
+}
 
 function source(overrides: Partial<SearchResult> = {}): SearchResult {
   return {
@@ -88,8 +92,8 @@ async function answerFromTextSources(
   vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
 
   const rpc = vi.fn(async (name: string) => {
-    if (name === "match_document_chunks_text") return { data: sources, error: null };
-    if (name === "get_related_document_metadata") return { data: [], error: null };
+    if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+    if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
     return { data: [], error: null };
   });
 
@@ -142,6 +146,47 @@ afterEach(() => {
 });
 
 describe("RAG structured-output fallback", () => {
+  it("keeps provider-failed complex comparisons on the source-attributed comparison fallback", async () => {
+    const comparisonFact = (documentId: string, chunkId: string, value: string) => ({
+      id: `${documentId}-threshold`,
+      document_id: documentId,
+      source_chunk_id: chunkId,
+      source_image_id: null,
+      page_number: 2,
+      table_title: "ANC thresholds",
+      row_label: "Red range",
+      clinical_parameter: "ANC",
+      threshold_value: value,
+      action: "Withhold and repeat FBC",
+    });
+    const answer = await answerFromTextSources(
+      "Compare and reconcile the clinical implications of these ANC thresholds",
+      [
+        source({
+          id: "chunk-a",
+          document_id: "doc-a",
+          title: "Protocol A",
+          table_facts: [comparisonFact("doc-a", "chunk-a", "below 1.5 x 10^9/L")],
+        }),
+        source({
+          id: "chunk-b",
+          document_id: "doc-b",
+          title: "Protocol B",
+          table_facts: [comparisonFact("doc-b", "chunk-b", "below 1.0 x 10^9/L")],
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.comparisonEvaluationState).toBe("evaluated");
+    expect(answer.comparisonMatrix?.rows[0]?.status).toBe("conflict");
+    expect(answer.answer).toContain("Protocol A: below 1.5 x 10^9/L");
+    expect(answer.answer).toContain("Protocol B: below 1.0 x 10^9/L");
+    expect(answer.routingReason).toContain("generation_fallback");
+    expect(answer.routingReason).toContain("comparison_source_safe_fallback");
+    expect(answer.routingReason).not.toContain("source_backed_extractive_fallback");
+  });
+
   it("keeps table-threshold questions on fact synthesis instead of source lookup", async () => {
     const answer = await answerFromTextSources("What ANC threshold does the clozapine table show?", [
       source({
@@ -243,8 +288,8 @@ describe("RAG structured-output fallback", () => {
       ],
     });
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: [clozapineSource], error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: [clozapineSource], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
 
@@ -439,8 +484,8 @@ describe("RAG structured-output fallback", () => {
       text_rank: 0,
     });
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: [clozapineSource], error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: [clozapineSource], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
 
@@ -559,8 +604,8 @@ describe("RAG structured-output fallback", () => {
       text_rank: 1.2,
     });
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: [bulimiaSource], error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: [bulimiaSource], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
 
@@ -704,8 +749,9 @@ describe("RAG structured-output fallback", () => {
     });
 
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: [firstSource, secondSource], error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text")
+        return { data: [firstSource, secondSource], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
 
@@ -828,7 +874,10 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).toContain("strong_quality_retry");
     expect(answer.openAIRequestIds).toEqual(["req_fast_template", "req_strong_template", "req_strong_quality"]);
     expect(insert).toHaveBeenCalledTimes(1);
-    const insertCalls = insert.mock.calls as unknown as Array<[{ metadata?: Record<string, unknown> }]>;
+    const insertCalls = insert.mock.calls as unknown as Array<
+      [{ answer?: string | null; metadata?: Record<string, unknown> }]
+    >;
+    expect(insertCalls[0]?.[0]?.answer).toBeNull();
     const loggedMetadata = insertCalls[0]?.[0]?.metadata ?? {};
     expect(loggedMetadata.answer_retry_count).toBe(2);
     expect(loggedMetadata.answer_retry_reasons).toEqual(["fast_template_retry_strong", "strong_quality_retry"]);
@@ -869,8 +918,9 @@ describe("RAG structured-output fallback", () => {
       ],
     });
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: [clozapineTableSource], error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text")
+        return { data: [clozapineTableSource], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
 
@@ -956,8 +1006,8 @@ describe("RAG structured-output fallback", () => {
       }),
     ];
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: sources, error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
     const generateStructuredTextResult = vi.fn(async () => ({
@@ -1019,8 +1069,8 @@ describe("RAG structured-output fallback", () => {
       }),
     ];
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: sources, error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
     const generateStructuredTextResult = vi.fn(async () => ({
@@ -1079,7 +1129,7 @@ describe("RAG structured-output fallback", () => {
     expect(answer.quoteCards?.length).toBe(1);
   });
 
-  it("coalesces identical scoped answer requests before OpenAI generation", async () => {
+  it("coalesces identical legacy public answer requests at the real RAG boundary", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "300000");
@@ -1092,8 +1142,8 @@ describe("RAG structured-output fallback", () => {
       }),
     ];
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: sources, error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
 
@@ -1135,30 +1185,74 @@ describe("RAG structured-output fallback", () => {
     vi.doMock("@/lib/supabase/admin", () => ({
       createAdminClient: () => ({
         rpc,
-        from: vi.fn(() => new EmptyQuery()),
+        from: vi.fn((table: string) =>
+          table === "rag_retrieval_logs" ? { insert: vi.fn(async () => ({ error: null })) } : new EmptyQuery(),
+        ),
       }),
     }));
     vi.doMock("@/lib/openai", () => ({
       embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
       generateStructuredTextResult,
     }));
+    vi.doMock("@/lib/env", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/env")>("@/lib/env");
+      return {
+        ...actual,
+        env: {
+          ...actual.env,
+          RAG_SEARCH_CACHE_TTL_MS: 0,
+          RAG_ANSWER_CACHE_TTL_MS: 300000,
+          RAG_ANSWER_CACHE_SIZE: 100,
+        },
+        isDemoMode: () => false,
+        isLocalNoAuthMode: () => false,
+      };
+    });
+    vi.doMock("@/lib/public-api-access", () => ({
+      publicAccessContext: vi.fn(async () => ({
+        authenticated: false,
+        ownerId: undefined,
+        rateLimitSubject: { kind: "anonymous", subjectKey: "anon:test" },
+      })),
+    }));
+    vi.doMock("@/lib/api-rate-limit", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/api-rate-limit")>("@/lib/api-rate-limit");
+      return {
+        ...actual,
+        consumeSubjectApiRateLimit: vi.fn(async () => ({
+          limited: false,
+          limit: 6,
+          remaining: 5,
+          retryAfterSeconds: 1,
+          resetAt: new Date(Date.now() + 60_000).toISOString(),
+        })),
+      };
+    });
+    vi.doMock("@/lib/search-scope", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/search-scope")>("@/lib/search-scope");
+      return {
+        ...actual,
+        resolveSearchScope: vi.fn(async () => ({ documentIds: undefined, activeFilterCount: 0 })),
+      };
+    });
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
-    const first = answerQuestionWithScope({
-      query: "Summarize inpatient approach",
-      ownerId: "owner-1",
-      logQuery: false,
-    });
-    const second = answerQuestionWithScope({
-      query: "Summarize inpatient approach",
-      ownerId: "owner-1",
-      logQuery: false,
-    });
+    const { POST } = await import("../src/app/api/answer/route");
+    const publicRequest = () =>
+      new Request("http://localhost/api/answer", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ query: "Summarize inpatient approach", skipCache: true }),
+      });
+    const first = POST(publicRequest());
+    const second = POST(publicRequest());
 
     await generationStarted;
     releaseGeneration();
-    const [firstAnswer, secondAnswer] = await Promise.all([first, second]);
+    const [firstResponse, secondResponse] = await Promise.all([first, second]);
+    const firstAnswer = (await firstResponse.json()) as RagAnswer;
+    const secondAnswer = (await secondResponse.json()) as RagAnswer;
 
+    expect([firstResponse.status, secondResponse.status]).toEqual([200, 200]);
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
     const generateCalls = generateStructuredTextResult.mock.calls as unknown as Array<
       [
@@ -1191,8 +1285,8 @@ describe("RAG structured-output fallback", () => {
     expect(schema.properties.conflictsOrGaps.items.properties.source_chunk_ids.items.enum).toEqual([
       "agitation-chunk-1",
     ]);
-    expect(rpc).toHaveBeenCalledWith("match_document_chunks_text", expect.any(Object));
-    expect(rpc.mock.calls.filter(([name]) => name === "match_document_chunks_text")).toHaveLength(1);
+    expect(rpc).toHaveBeenCalledWith("match_document_chunks_text_v2", expect.any(Object));
+    expect(rpc.mock.calls.filter(([name]) => name === "match_document_chunks_text_v2")).toHaveLength(1);
     expect(firstAnswer.openAIRequestIds).toEqual(["req_coalesced"]);
     expect(secondAnswer.openAIRequestIds).toEqual(["req_coalesced"]);
     expect(secondAnswer.routingReason).toContain("answer_inflight_coalesced");
@@ -1216,8 +1310,8 @@ describe("RAG structured-output fallback", () => {
       text_rank: 1.2,
     });
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: [bulimiaSource], error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: [bulimiaSource], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
     const generateStructuredTextResult = vi
@@ -1356,8 +1450,8 @@ describe("RAG structured-output fallback", () => {
       }),
     ];
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: sources, error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
     let requestIndex = 0;
@@ -1438,8 +1532,8 @@ describe("RAG structured-output fallback", () => {
       }),
     ];
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: sources, error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
     const generateStructuredTextResult = vi.fn();
@@ -1504,8 +1598,8 @@ describe("RAG structured-output fallback", () => {
       }),
     );
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: sources, error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
     const generateStructuredTextResult = vi.fn();
@@ -1572,9 +1666,10 @@ describe("RAG structured-output fallback", () => {
       text_rank: 0.42,
     };
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_documents_for_query") return { data: [lithiumDocument], error: null };
-      if (name === "match_document_lookup_chunks_text") return { data: [lithiumChunk], error: null };
-      if (name === "match_document_chunks_hybrid") {
+      if (retrievalRpcBaseName(name) === "match_documents_for_query") return { data: [lithiumDocument], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_lookup_chunks_text")
+        return { data: [lithiumChunk], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_hybrid") {
         return {
           data: [
             source({
@@ -1592,7 +1687,7 @@ describe("RAG structured-output fallback", () => {
           error: null,
         };
       }
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
 
@@ -1658,9 +1753,9 @@ describe("RAG structured-output fallback", () => {
       text_rank: 0.42,
     };
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_documents_for_query") return { data: [noccDocument], error: null };
-      if (name === "match_document_lookup_chunks_text") return { data: [noccChunk], error: null };
-      if (name === "match_document_chunks_hybrid") {
+      if (retrievalRpcBaseName(name) === "match_documents_for_query") return { data: [noccDocument], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_lookup_chunks_text") return { data: [noccChunk], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_hybrid") {
         return {
           data: [
             source({
@@ -1678,7 +1773,7 @@ describe("RAG structured-output fallback", () => {
           error: null,
         };
       }
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
 
@@ -1729,8 +1824,8 @@ describe("RAG structured-output fallback", () => {
       text_rank: 1.3,
     });
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: [lithiumSource], error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: [lithiumSource], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
 
@@ -1976,8 +2071,8 @@ describe("RAG structured-output fallback", () => {
       text_rank: 1.2,
     });
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: [broadDoseSource], error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: [broadDoseSource], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
 
@@ -2036,15 +2131,15 @@ describe("RAG structured-output fallback", () => {
       text_rank: 0.7,
     });
     const rpc = vi.fn(async (name: string) => {
-      if (name === "match_document_chunks_text") return { data: [], error: null };
-      if (name === "match_document_table_facts_text") return { data: [], error: null };
-      if (name === "match_document_embedding_fields_hybrid") return { data: [], error: null };
-      if (name === "match_document_index_units_hybrid") {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_table_facts_text") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_embedding_fields_hybrid") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_index_units_hybrid") {
         return { data: null, error: { message: "canceling statement due to statement timeout" } };
       }
-      if (name === "match_document_chunks_hybrid") return { data: [hybridSource], error: null };
-      if (name === "match_document_memory_cards_hybrid") return { data: [], error: null };
-      if (name === "get_related_document_metadata") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_chunks_hybrid") return { data: [hybridSource], error: null };
+      if (retrievalRpcBaseName(name) === "match_document_memory_cards_hybrid") return { data: [], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
       return { data: [], error: null };
     });
 
@@ -2067,8 +2162,8 @@ describe("RAG structured-output fallback", () => {
       allowGlobalSearch: true,
     });
 
-    expect(rpc).toHaveBeenCalledWith("match_document_index_units_hybrid", expect.any(Object));
-    expect(rpc).toHaveBeenCalledWith("match_document_chunks_hybrid", expect.any(Object));
+    expect(rpc).toHaveBeenCalledWith("match_document_index_units_hybrid_v2", expect.any(Object));
+    expect(rpc).toHaveBeenCalledWith("match_document_chunks_hybrid_v2", expect.any(Object));
     expect(search.results.map((result) => result.id)).toContain("hybrid-fallback-chunk");
     expect(search.telemetry.index_unit_count).toBe(0);
     expect(search.telemetry.index_unit_top_score).toBe(0);

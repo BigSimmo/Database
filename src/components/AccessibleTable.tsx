@@ -293,6 +293,7 @@ export function AccessibleTable({
   markdown,
   rows,
   columns,
+  normalizedTable,
   compact = false,
   expandOnMobile = false,
   previewRows,
@@ -309,6 +310,7 @@ export function AccessibleTable({
   markdown?: string | null;
   rows?: string[][] | null;
   columns?: string[] | null;
+  normalizedTable?: NormalizedAccessibleTable | null;
   compact?: boolean;
   expandOnMobile?: boolean;
   previewRows?: number;
@@ -336,6 +338,7 @@ export function AccessibleTable({
     return hasExplicitRows ? rows : parseMarkdownTable(markdown);
   }, [hasExplicitRows, rows, markdown]);
   const normalized = useMemo(() => {
+    if (normalizedTable) return normalizedTable;
     if (!parsed?.length) return null;
     // Audit M8/H4 parity (diff review): markdown-parsed rows include their
     // own header line as row 0 — passing explicit columns alongside them made
@@ -347,7 +350,7 @@ export function AccessibleTable({
     const table = normalizeAccessibleTable(parsed, hasExplicitRows ? columns : null);
     if (!table) return null;
     return clinicalOnly ? clinicalOnlyTable(table) : table;
-  }, [clinicalOnly, columns, hasExplicitRows, parsed]);
+  }, [clinicalOnly, columns, hasExplicitRows, normalizedTable, parsed]);
 
   const dialogOpen = open;
 

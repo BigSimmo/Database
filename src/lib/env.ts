@@ -111,6 +111,10 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  RAG_PERSIST_ANSWER_TEXT: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   // Audit M15: server-side key for the redacted query hash. When set, stored
   // query hashes are HMAC-SHA256 (not offline-reversible, not correlatable
   // outside this deployment). When unset, the legacy unsalted SHA-256 is kept
@@ -119,6 +123,8 @@ const envSchema = z.object({
   SUPABASE_DOCUMENT_BUCKET: z.string().default("clinical-documents"),
   SUPABASE_IMAGE_BUCKET: z.string().default("clinical-images"),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().default(150),
+  MAX_CONCURRENT_UPLOADS: z.coerce.number().int().positive().default(1),
+  MAX_IN_FLIGHT_UPLOAD_MB: z.coerce.number().int().positive().default(151),
   MAX_IMPORT_JOBS_PER_RUN: z.coerce.number().int().positive().default(5),
   MAX_IMPORT_BYTES_PER_RUN: z.coerce.number().int().positive().default(157286400),
   CHUNK_SIZE: z.coerce.number().int().positive().default(2000),

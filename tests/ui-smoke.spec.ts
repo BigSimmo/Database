@@ -747,6 +747,40 @@ async function openUploadDrawer(page: Page) {
   return uploadDrawer;
 }
 
+async function openUploadSurface(page: Page) {
+  const uploadButton = page.getByRole("button", { name: /Upload document/i });
+  const uploadDialog = page.getByRole("dialog", { name: "Upload and indexing" });
+  const inlineUploadPanel = page.getByRole("tabpanel", { name: "Upload", exact: true });
+  const visibleUploadTab = page
+    .locator('[role="tab"]:visible')
+    .filter({ hasText: /^Upload\b/ })
+    .first();
+  await expect(uploadButton).toBeVisible();
+  await uploadButton.click();
+
+  await expect
+    .poll(async () => {
+      return (
+        (await uploadDialog.isVisible().catch(() => false)) ||
+        (await inlineUploadPanel.isVisible().catch(() => false)) ||
+        (await visibleUploadTab.isVisible().catch(() => false))
+      );
+    })
+    .toBe(true);
+
+  if (await uploadDialog.isVisible().catch(() => false)) {
+    const uploadTab = uploadDialog.getByRole("tab", { name: /^Upload\b/ });
+    if (await uploadTab.isVisible().catch(() => false)) await uploadTab.click();
+    const dialogUploadPanel = uploadDialog.getByRole("tabpanel", { name: "Upload", exact: true });
+    await expect(dialogUploadPanel).toBeVisible();
+    return dialogUploadPanel;
+  }
+
+  if (!(await inlineUploadPanel.isVisible().catch(() => false))) await visibleUploadTab.click();
+  await expect(inlineUploadPanel).toBeVisible();
+  return inlineUploadPanel;
+}
+
 async function dismissOverlayByHeaderClick(page: Page) {
   // Portaled integrated action menus cover the hero composer; avoid fixed viewport
   // coordinates that can hit menu tiles (e.g. Clinical tools -> tools mode).
@@ -1378,6 +1412,150 @@ test.describe("Clinical KB UI smoke coverage", () => {
     }).toPass({ timeout: 5_000 });
     await expectNoPageHorizontalOverflow(page);
   });
+
+  for (const viewport of [
+    { name: "desktop", width: 1280, height: 900 },
+    { name: "390x844 mobile", width: 390, height: 844 },
+  ] as const) {
+    test(`actual answer Copy control preserves ordinary prose at ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await mockDemoApi(page, {
+        answerOverride: (query, documentId, documentIds) => ({
+          ...demoAnswer(query, documentId, documentIds),
+          visualEvidence: [],
+        }),
+      });
+      await gotoApp(page, "/");
+      await waitForDemoDashboardReady(page);
+      await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+        origin: new URL(page.url()).origin,
+      });
+
+      await fillVisibleQuestionInput(page, "What lithium toxicity symptoms need review?");
+      await visibleAnswerSubmitButton(page).click();
+      const answerSurface = page.getByTestId("plain-answer-response");
+      await expect(answerSurface).toBeVisible({ timeout: uiAssertionTimeoutMs });
+      await answerSurface.getByRole("button", { name: "Copy answer with source status" }).click();
+
+      const copiedText = await page.evaluate(() => navigator.clipboard.readText());
+      expect(copiedText).toContain("toxicity safety-net review");
+      expect(copiedText).toContain("Sources for review");
+      expect(copiedText).not.toContain("Clinical tables");
+    });
+
+    test(`actual answer Copy control matches the visible clinical table at ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await mockDemoApi(page, {
+        answerOverride: (query, documentId, documentIds) => {
+          const base = demoAnswer(query, documentId, documentIds);
+          const table = base.visualEvidence?.[0];
+          if (!table) return base;
+          const secondTable = {
+            ...table,
+            id: `${table.id}-second`,
+            image_id: `${table.image_id}-second`,
+            source_chunk_id: base.sources[1]?.id ?? table.source_chunk_id,
+            viewer_href: "/documents/second-table?page=7&chunk=second-table-chunk",
+            title: "Synthetic metabolic monitoring guideline",
+            page_number: 7,
+            tableTitle: "Metabolic monitoring",
+            tableColumns: ["Parameter", "Timing"],
+            tableRows: [["HbA1c", "At baseline and review"]],
+          };
+          return {
+            ...base,
+            sourceGovernanceWarnings: [
+              {
+                code: "review_due_source" as const,
+                severity: "warning" as const,
+                message: "One or more supporting sources are due for review.",
+              },
+            ],
+            visualEvidence: [
+              {
+                ...table,
+                tableTitle: "ANC actions",
+                tableColumns: ["ANC range", "", "Action"],
+                tableRows: [
+                  ["1.0–1.5 × 10⁹/L", "", "Increase monitoring"],
+                  ["<1.0 × 10⁹/L", "", "Withhold and seek specialist advice"],
+                ],
+              },
+              secondTable,
+            ],
+          };
+        },
+      });
+      await gotoApp(page, "/");
+      await waitForDemoDashboardReady(page);
+      await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+        origin: new URL(page.url()).origin,
+      });
+
+      await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
+      await visibleAnswerSubmitButton(page).click();
+      const firstTable = page.getByRole("table", { name: "ANC actions" });
+      const secondTable = page.getByRole("table", { name: "Metabolic monitoring" });
+      await expect(firstTable).toBeVisible({ timeout: uiAssertionTimeoutMs });
+      await expect(firstTable).toContainText("1.0–1.5 × 10⁹/L");
+      await expect(firstTable).toContainText("Withhold and seek specialist advice");
+      await expect(secondTable).toBeVisible({ timeout: uiAssertionTimeoutMs });
+      await expect(secondTable).toContainText("HbA1c");
+      await expect(secondTable).toContainText("At baseline and review");
+      await expect(page.getByTestId("canonical-table-caveat")).toContainText("headers are incomplete");
+
+      const answerSurface = page.getByTestId("plain-answer-response");
+      await answerSurface.getByRole("button", { name: "Copy answer with source status" }).click();
+      const copiedText = await page.evaluate(() => navigator.clipboard.readText());
+      expect(copiedText).toContain("ANC range | [header missing] | Action");
+      expect(copiedText).toContain("1.0–1.5 × 10⁹/L | [blank] | Increase monitoring");
+      expect(copiedText).toContain("<1.0 × 10⁹/L | [blank] | Withhold and seek specialist advice");
+      expect(copiedText).toContain("Table headers are incomplete");
+      expect(copiedText).toContain("One or more supporting sources are due for review.");
+      expect(copiedText).toContain("Source: Synthetic clozapine monitoring protocol with image evidence, page 2");
+      expect(copiedText).toContain("Metabolic monitoring");
+      expect(copiedText).toContain("Parameter | Timing");
+      expect(copiedText).toContain("HbA1c | At baseline and review");
+    });
+  }
+
+  for (const viewport of [
+    { name: "mobile", width: 390, height: 844 },
+    { name: "200% zoom equivalent", width: 640, height: 450 },
+    { name: "tablet", width: 768, height: 1024 },
+    { name: "desktop", width: 1280, height: 900 },
+  ] as const) {
+    test(`privacy warnings and links are available before clinical input at ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await mockDemoApi(page);
+      await gotoApp(page, "/");
+      await waitForDemoDashboardReady(page);
+
+      const composer = visibleQuestionInput(page);
+      const composerForm = composer.locator("xpath=ancestor::form[1]");
+      const composerWarning = composerForm.getByText("Do not enter patient-identifiable information.");
+      await expect(composerForm.getByRole("note")).toBeVisible();
+      const composerPrivacyLink = composerForm.getByRole("link", { name: "Privacy and data processing" });
+      await expect(composerWarning).toBeVisible();
+      await expect(composerPrivacyLink).toBeVisible();
+      await composerPrivacyLink.focus();
+      await expect(composerPrivacyLink).toBeFocused();
+
+      const uploadSurface = await openUploadSurface(page);
+      await expect(uploadSurface.getByRole("note")).toBeVisible();
+      await expect(uploadSurface.getByText("Do not enter patient-identifiable information.")).toBeVisible();
+      const uploadPrivacyLink = uploadSurface.getByRole("link", { name: "Privacy and data processing" });
+      await expect(uploadPrivacyLink).toBeVisible();
+      await uploadPrivacyLink.focus();
+      await expect(uploadPrivacyLink).toBeFocused();
+
+      await page.goto("/privacy", { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("main")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Privacy and data processing" })).toBeVisible();
+      await expect(page.getByText("Draft for privacy and clinical-governance approval")).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+    });
+  }
 
   test("answer failure offers a retry action that re-runs the question", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });

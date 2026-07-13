@@ -3,7 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
-import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
+import {
+  assertLocalDeepMemoryOwnership,
+  DeepMemoryOwnershipConflictError,
+  upsertDocumentDeepMemory,
+} from "@/lib/deep-memory";
 import { jsonError } from "@/lib/http";
 import {
   activeIngestionJobColumns,
@@ -185,6 +189,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: "Document has no indexed chunks to enrich." }, { status: 400 });
       }
 
+      await assertLocalDeepMemoryOwnership(supabase, id);
       const enrichment = await upsertDocumentEnrichment({
         supabase,
         document: document as Parameters<typeof upsertDocumentEnrichment>[0]["document"],
@@ -308,6 +313,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ job }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
+    if (error instanceof DeepMemoryOwnershipConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     return jsonError(error);
   }
 }

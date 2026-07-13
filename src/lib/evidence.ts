@@ -210,7 +210,7 @@ export function extractQuoteCards(results: SearchResult[], query: string, limit 
     if (seen.has(key)) continue;
     seen.add(key);
     quoteCards.push({
-      ...citationFromResult(result),
+      ...citationFromResult(result, "exact_quote"),
       quote,
       isTruncated: truncated,
       section_heading: result.section_heading,

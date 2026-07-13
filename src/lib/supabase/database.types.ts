@@ -594,6 +594,7 @@ export type Database = {
       };
       document_index_units: {
         Row: {
+          artifact_generation_id: string | null;
           content: string;
           created_at: string;
           document_id: string;
@@ -604,6 +605,7 @@ export type Database = {
           metadata: Json;
           normalized_terms: string[];
           owner_id: string | null;
+          producer: string | null;
           page_end: number | null;
           page_start: number | null;
           quality_score: number;
@@ -614,8 +616,10 @@ export type Database = {
           title: string;
           unit_type: string;
           updated_at: string;
+          index_generation_id: string | null;
         };
         Insert: {
+          artifact_generation_id?: string | null;
           content: string;
           created_at?: string;
           document_id: string;
@@ -626,6 +630,7 @@ export type Database = {
           metadata?: Json;
           normalized_terms?: string[];
           owner_id?: string | null;
+          producer?: string | null;
           page_end?: number | null;
           page_start?: number | null;
           quality_score?: number;
@@ -636,8 +641,10 @@ export type Database = {
           title: string;
           unit_type: string;
           updated_at?: string;
+          index_generation_id?: string | null;
         };
         Update: {
+          artifact_generation_id?: string | null;
           content?: string;
           created_at?: string;
           document_id?: string;
@@ -648,6 +655,7 @@ export type Database = {
           metadata?: Json;
           normalized_terms?: string[];
           owner_id?: string | null;
+          producer?: string | null;
           page_end?: number | null;
           page_start?: number | null;
           quality_score?: number;
@@ -658,6 +666,7 @@ export type Database = {
           title?: string;
           unit_type?: string;
           updated_at?: string;
+          index_generation_id?: string | null;
         };
         Relationships: [
           {
@@ -746,6 +755,7 @@ export type Database = {
       };
       document_memory_cards: {
         Row: {
+          artifact_generation_id: string | null;
           card_type: string;
           confidence: number;
           content: string;
@@ -756,6 +766,7 @@ export type Database = {
           metadata: Json;
           normalized_terms: string[];
           owner_id: string | null;
+          producer: string | null;
           page_number: number | null;
           search_tsv: unknown;
           section_id: string | null;
@@ -763,8 +774,10 @@ export type Database = {
           source_image_ids: string[];
           title: string;
           updated_at: string;
+          index_generation_id: string | null;
         };
         Insert: {
+          artifact_generation_id?: string | null;
           card_type: string;
           confidence?: number;
           content: string;
@@ -775,6 +788,7 @@ export type Database = {
           metadata?: Json;
           normalized_terms?: string[];
           owner_id?: string | null;
+          producer?: string | null;
           page_number?: number | null;
           search_tsv?: unknown;
           section_id?: string | null;
@@ -782,8 +796,10 @@ export type Database = {
           source_image_ids?: string[];
           title: string;
           updated_at?: string;
+          index_generation_id?: string | null;
         };
         Update: {
+          artifact_generation_id?: string | null;
           card_type?: string;
           confidence?: number;
           content?: string;
@@ -794,6 +810,7 @@ export type Database = {
           metadata?: Json;
           normalized_terms?: string[];
           owner_id?: string | null;
+          producer?: string | null;
           page_number?: number | null;
           search_tsv?: unknown;
           section_id?: string | null;
@@ -801,6 +818,7 @@ export type Database = {
           source_image_ids?: string[];
           title?: string;
           updated_at?: string;
+          index_generation_id?: string | null;
         };
         Relationships: [
           {
@@ -873,6 +891,7 @@ export type Database = {
       };
       document_sections: {
         Row: {
+          artifact_generation_id: string | null;
           chunk_ids: string[];
           created_at: string;
           document_id: string;
@@ -882,14 +901,17 @@ export type Database = {
           id: string;
           metadata: Json;
           owner_id: string | null;
+          producer: string | null;
           page_end: number | null;
           page_start: number | null;
           section_index: number;
           summary: string;
           tags: string[];
           updated_at: string;
+          index_generation_id: string | null;
         };
         Insert: {
+          artifact_generation_id?: string | null;
           chunk_ids?: string[];
           created_at?: string;
           document_id: string;
@@ -899,14 +921,17 @@ export type Database = {
           id?: string;
           metadata?: Json;
           owner_id?: string | null;
+          producer?: string | null;
           page_end?: number | null;
           page_start?: number | null;
           section_index: number;
           summary?: string;
           tags?: string[];
           updated_at?: string;
+          index_generation_id?: string | null;
         };
         Update: {
+          artifact_generation_id?: string | null;
           chunk_ids?: string[];
           created_at?: string;
           document_id?: string;
@@ -916,12 +941,14 @@ export type Database = {
           id?: string;
           metadata?: Json;
           owner_id?: string | null;
+          producer?: string | null;
           page_end?: number | null;
           page_start?: number | null;
           section_index?: number;
           summary?: string;
           tags?: string[];
           updated_at?: string;
+          index_generation_id?: string | null;
         };
         Relationships: [
           {
@@ -2055,6 +2082,20 @@ export type Database = {
         Args: { p_document_id?: string | null; p_dry_run?: boolean; p_limit?: number };
         Returns: Json;
       };
+      commit_document_deep_memory_generation: {
+        Args: {
+          p_artifact_generation_id: string;
+          p_document_id: string;
+          p_document_intelligence_version: string;
+          p_index_unit_counts_by_type: Json;
+          p_memory_card_count: number;
+          p_producer: string;
+          p_rag_memory_version: string;
+          p_repaired_anchor_count?: number;
+          p_section_count: number;
+        };
+        Returns: Json;
+      };
       commit_document_index_generation: {
         Args: {
           p_chunk_count?: number;
@@ -2122,6 +2163,10 @@ export type Database = {
           total_doc_count: number;
         }[];
       };
+      corpus_topic_term_stats_v2: {
+        Args: { terms: string[]; owner_filter?: string; include_public?: boolean };
+        Returns: Database["public"]["Functions"]["corpus_topic_term_stats"]["Returns"];
+      };
       correct_clinical_query_terms: {
         Args: { input_query: string; min_sim?: number };
         Returns: string;
@@ -2166,6 +2211,10 @@ export type Database = {
           labels: Json;
           summary: string;
         }[];
+      };
+      get_related_document_metadata_v2: {
+        Args: { document_ids: string[]; include_public?: boolean; owner_filter?: string };
+        Returns: Database["public"]["Functions"]["get_related_document_metadata"]["Returns"];
       };
       get_visual_evidence_cards: {
         Args: { p_document_id: string; p_limit?: number };
@@ -2226,6 +2275,37 @@ export type Database = {
           title: string;
         }[];
       };
+      match_document_lookup_chunks_text_v2: {
+        Args: { query_text: string; document_filters: string[]; match_count?: number; owner_filter?: string; include_public?: boolean };
+        Returns: Database["public"]["Functions"]["match_document_lookup_chunks_text"]["Returns"];
+      };
+      match_documents_for_query_v2: {
+        Args: { query_text: string; match_count?: number; owner_filter?: string; include_public?: boolean };
+        Returns: Database["public"]["Functions"]["match_documents_for_query"]["Returns"];
+      };
+      match_document_table_facts_text_v2: {
+        Args: { query_text: string; match_count?: number; document_filters?: string[] | null; owner_filter?: string; include_public?: boolean };
+        Returns: Database["public"]["Functions"]["match_document_table_facts_text"]["Returns"];
+      };
+      match_document_embedding_fields_hybrid_v2: {
+        Args: { query_embedding: Vector; query_text: string; match_count?: number; min_similarity?: number; document_filters?: string[] | null; owner_filter?: string; include_public?: boolean };
+        Returns: Database["public"]["Functions"]["match_document_embedding_fields_hybrid"]["Returns"];
+      };
+      match_document_index_units_hybrid_v2: {
+        Args: { query_embedding: Vector; query_text: string; match_count?: number; min_similarity?: number; document_filters?: string[] | null; owner_filter?: string; include_public?: boolean };
+        Returns: Database["public"]["Functions"]["match_document_index_units_hybrid"]["Returns"];
+      };
+      match_document_chunks_v2: {
+        Args: {
+          document_filter?: string | null;
+          include_public?: boolean;
+          match_count?: number;
+          min_similarity?: number;
+          owner_filter?: string;
+          query_embedding: Vector;
+        };
+        Returns: Database["public"]["Functions"]["match_document_chunks"]["Returns"];
+      };
       match_document_chunks_hybrid: {
         Args: {
           document_filters?: string[] | null;
@@ -2254,6 +2334,18 @@ export type Database = {
           title: string;
         }[];
       };
+      match_document_chunks_hybrid_v2: {
+        Args: {
+          document_filters?: string[] | null;
+          include_public?: boolean;
+          match_count?: number;
+          min_similarity?: number;
+          owner_filter?: string;
+          query_embedding: Vector;
+          query_text: string;
+        };
+        Returns: Database["public"]["Functions"]["match_document_chunks_hybrid"]["Returns"];
+      };
       match_document_chunks_text: {
         Args: {
           document_filters?: string[] | null;
@@ -2272,6 +2364,35 @@ export type Database = {
           id: string;
           image_ids: string[];
           images: Json;
+          page_number: number;
+          retrieval_synopsis: string;
+          section_heading: string;
+          similarity: number;
+          source_metadata: Json;
+          text_rank: number;
+          title: string;
+        }[];
+      };
+      match_document_chunks_text_v2: {
+        Args: {
+          document_filters?: string[] | null;
+          include_public?: boolean;
+          match_count?: number;
+          owner_filter?: string;
+          query_text: string;
+        };
+        Returns: {
+          chunk_index: number;
+          content: string;
+          document_id: string;
+          document_labels: Json;
+          document_summary: string;
+          file_name: string;
+          hybrid_score: number;
+          id: string;
+          image_ids: string[];
+          images: Json;
+          lexical_score: number;
           page_number: number;
           retrieval_synopsis: string;
           section_heading: string;
@@ -2429,6 +2550,18 @@ export type Database = {
           title: string;
         }[];
       };
+      match_document_memory_cards_hybrid_v3: {
+        Args: {
+          document_filters?: string[] | null;
+          include_public?: boolean;
+          match_count?: number;
+          min_similarity?: number;
+          owner_filter?: string;
+          query_embedding: Vector;
+          query_text: string;
+        };
+        Returns: Database["public"]["Functions"]["match_document_memory_cards_hybrid_v2"]["Returns"];
+      };
       match_document_table_facts_text: {
         Args: {
           document_filters?: string[] | null;
@@ -2470,6 +2603,10 @@ export type Database = {
           text_rank: number;
           title: string;
         }[];
+      };
+      retrieval_owner_matches_v2: {
+        Args: { owner_filter: string; row_owner_id: string | null; include_public?: boolean };
+        Returns: boolean;
       };
       purge_expired_rag_queries: {
         Args: { p_retention_days?: number };

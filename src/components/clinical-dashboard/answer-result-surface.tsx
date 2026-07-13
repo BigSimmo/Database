@@ -10,7 +10,6 @@ import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mod
 import { NaturalLanguageAnswer, UserQuestionBubble } from "@/components/clinical-dashboard/answer-content";
 import {
   AnswerSupportSummaryCard,
-  answerHasCentralTable,
   answerSupportPriority,
   ClinicalNotesChecklistPanel,
   clinicalNotesCount,
@@ -21,7 +20,7 @@ import {
   primaryVisualTable,
   SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
-import { InlineTableCard, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
+import { CanonicalAnswerTables, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
@@ -110,7 +109,8 @@ function StagedAnswerResultSurfaceImpl({
     sources.length ||
     answer.sources?.length ||
     answer.citations.length;
-  const centralTable = answerHasCentralTable(answer) ? primaryVisualTable(answer) : null;
+  const centralTables = renderModel.tables;
+  const centralVisualEvidence = primaryVisualTable(answer);
   const showEvidenceDrawer = renderModel.allowedBlocks.some((block) =>
     ["sourceStatus", "reviewSources", "evidenceMap", "quoteCards", "visualEvidence", "warnings"].includes(block),
   );
@@ -186,14 +186,14 @@ function StagedAnswerResultSurfaceImpl({
       setCopiedQuotes(false);
     }
   }, [renderModel.quoteCards]);
-  const priority = answerSupportPriority(answer, safeAnswerSections, centralTable, safetyFindings, {
+  const priority = answerSupportPriority(answer, safeAnswerSections, centralVisualEvidence, safetyFindings, {
     grounded: answerGrounded,
     weakEvidence,
   });
   const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
   const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
   const showInlineSupportCard = Boolean(priority || showClinicalNotes || showEvidenceDrawer);
-  const showLayoutAside = Boolean(centralTable);
+  const showLayoutAside = centralTables.length > 0;
 
   return (
     <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">
@@ -202,7 +202,7 @@ function StagedAnswerResultSurfaceImpl({
 
         <div
           data-testid="table-specific-answer-layout"
-          data-desktop-table-aside={centralTable ? "true" : "false"}
+          data-desktop-table-aside={centralTables.length ? "true" : "false"}
           className={cn(
             "space-y-3",
             showLayoutAside &&
@@ -253,9 +253,9 @@ function StagedAnswerResultSurfaceImpl({
             ) : null}
           </div>
 
-          {centralTable ? (
+          {centralTables.length ? (
             <div className="min-w-0 lg:sticky lg:top-24">
-              <InlineTableCard item={centralTable} />
+              <CanonicalAnswerTables tables={centralTables} />
             </div>
           ) : null}
         </div>

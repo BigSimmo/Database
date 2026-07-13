@@ -35,6 +35,10 @@ export function queryTextForStorage(query: string): string {
   return env.RAG_PERSIST_RAW_QUERY_TEXT ? query : queryHashStorageText(query);
 }
 
+export function answerTextForStorage(answer: string | null | undefined): string | null {
+  return env.RAG_PERSIST_ANSWER_TEXT && typeof answer === "string" ? answer : null;
+}
+
 export function normalizedQueryTextForStorage(query: string): string {
   return env.RAG_PERSIST_RAW_QUERY_TEXT ? normalizeQueryText(query) : queryHashStorageText(query);
 }

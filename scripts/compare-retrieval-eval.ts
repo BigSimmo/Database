@@ -14,6 +14,11 @@ function numberValue(summary: Record<string, unknown>, key: string) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+function optionalNumberValue(summary: Record<string, unknown>, key: string) {
+  const value = summary[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
 function arrayLength(summary: Record<string, unknown>, key: string) {
   const value = summary[key];
   return Array.isArray(value) ? value.length : 0;
@@ -72,6 +77,13 @@ function main() {
     ],
     ["index_units_layer_count", layerCount(baseline, "index_units"), layerCount(candidate, "index_units"), 0],
   ];
+  for (const key of ["ndcg_at_10", "irrelevant_source_rate_at_10", "required_signal_coverage_at_10"] as const) {
+    const baselineValue = optionalNumberValue(baseline, key);
+    const candidateValue = optionalNumberValue(candidate, key);
+    if (baselineValue !== undefined && candidateValue !== undefined) {
+      metrics.push([key, baselineValue, candidateValue]);
+    }
+  }
 
   console.log("Retrieval eval comparison: candidate (delta from baseline)");
   for (const [name, baseValue, candidateValue, digits] of metrics) {

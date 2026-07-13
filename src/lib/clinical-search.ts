@@ -325,7 +325,7 @@ const intentPatterns: Array<{
   {
     intent: "drug_dosing",
     pattern:
-      /dose|dosage|dosing|titrate|mg|mcg|frequency|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer|table|chart|monitor/i,
+      /dose|dosage|dosing|titrate|mg|mcg|frequency|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer|table|chart/i,
     imageEvidenceFocus: true,
     sectionedLookup: false,
   },
@@ -354,7 +354,7 @@ const tableThresholdPattern =
 // genuine medication_dose_risk query still matches via a drug name, dose/route term, or the
 // medication/pharmacology/agitation vocabulary retained below.
 const medicationDoseRiskPattern =
-  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|subcutaneous|subcut|sublingual|administer\w*|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*)\b/i;
+  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|subcutaneous|subcut|sublingual|administer\w*|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*)\b/i;
 const documentIncludePattern =
   /\b(?:what should|what must|what does|what do|which items?|requirements?|checklist|forms?)\b.{0,80}\b(?:include|contain|cover|require|required|needed|need)\b|\b(?:include|contain|cover|require|required|needed|need)\b.{0,80}\b(?:plan|form|checklist|protocol|procedure|guideline|document|file|pdf)\b/i;
 const explicitDocumentLookupPattern =
@@ -832,7 +832,12 @@ const explicitDoseTerms = ["dose", "dosage", "dosing", "titrat", "mg", "mcg"] as
 /** Classify query intent. */
 export function classifyQueryIntent(query: string): IntentSignals {
   const lowered = query.toLowerCase();
-  const match = intentPatterns.find((entry) => entry.pattern.test(query));
+  const hasMedicationContext =
+    medicationTerms(normalizeAnalysisText(query)).length > 0 || medicationDoseRiskPattern.test(query);
+  const medicationMonitoringIntent = hasMedicationContext && /\bmonitor\w*\b/i.test(query);
+  const match = medicationMonitoringIntent
+    ? intentPatterns.find((entry) => entry.intent === "drug_dosing")
+    : intentPatterns.find((entry) => entry.pattern.test(query));
   const hasDosingSignals = containsAny(lowered, intentSignalWords.dosing);
   const hasEscalationSignals = containsAny(lowered, intentSignalWords.escalation);
   const hasImageSignals = containsAny(lowered, intentSignalWords.visuals);

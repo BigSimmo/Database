@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-11T02:45:10.714Z",
+  "generated_at": "2026-07-12T22:42:08.632Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "aa8a419ab55b4637b858df628aa250b714ab1acd715d4f7786bcf6ec71f5e218",
-  "replay_seconds": 22,
+  "schema_sha256": "1e05583cbc2bdb0a8216138bf8863b4d09782bc3e3a6ef88179f4a910b482874",
+  "replay_seconds": 9,
   "snapshot": {
     "views": [
       {
@@ -1294,6 +1294,14 @@
         "name": "document_index_units",
         "columns": [
           {
+            "name": "artifact_generation_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
             "name": "content",
             "type": "text",
             "default": null,
@@ -1392,6 +1400,14 @@
           {
             "name": "page_start",
             "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "producer",
+            "type": "text",
             "default": null,
             "identity": "",
             "not_null": false,
@@ -1572,6 +1588,14 @@
         "name": "document_memory_cards",
         "columns": [
           {
+            "name": "artifact_generation_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
             "name": "card_type",
             "type": "text",
             "default": null,
@@ -1662,6 +1686,14 @@
           {
             "name": "page_number",
             "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "producer",
+            "type": "text",
             "default": null,
             "identity": "",
             "not_null": false,
@@ -1802,6 +1834,14 @@
         "name": "document_sections",
         "columns": [
           {
+            "name": "artifact_generation_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
             "name": "chunk_ids",
             "type": "uuid[]",
             "default": "'{}'::uuid[]",
@@ -1892,6 +1932,14 @@
           {
             "name": "page_start",
             "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "producer",
+            "type": "text",
             "default": null,
             "identity": "",
             "not_null": false,
@@ -4516,6 +4564,12 @@
         "def_hash": "4c6a54693a5fb959b1b58355ba5351f6"
       },
       {
+        "def": "CREATE INDEX document_index_units_producer_generation_idx ON public.document_index_units USING btree (document_id, producer, artifact_generation_id)",
+        "name": "document_index_units_producer_generation_idx",
+        "table": "document_index_units",
+        "def_hash": "001677a8770ea201d3e8974c7ad6d11a"
+      },
+      {
         "def": "CREATE INDEX document_index_units_search_idx ON public.document_index_units USING gin (search_tsv)",
         "name": "document_index_units_search_idx",
         "table": "document_index_units",
@@ -4582,6 +4636,12 @@
         "def_hash": "e0de0793827f87bd1bb61deb52974a05"
       },
       {
+        "def": "CREATE INDEX document_memory_cards_producer_generation_idx ON public.document_memory_cards USING btree (document_id, producer, artifact_generation_id)",
+        "name": "document_memory_cards_producer_generation_idx",
+        "table": "document_memory_cards",
+        "def_hash": "985f01f81f3703a1236fb2ac68140ccc"
+      },
+      {
         "def": "CREATE INDEX document_memory_cards_search_idx ON public.document_memory_cards USING gin (search_tsv)",
         "name": "document_memory_cards_search_idx",
         "table": "document_memory_cards",
@@ -4612,16 +4672,16 @@
         "def_hash": "001064d4f85791f720b56615ca14500f"
       },
       {
-        "def": "CREATE UNIQUE INDEX document_sections_document_id_section_index_key ON public.document_sections USING btree (document_id, section_index)",
-        "name": "document_sections_document_id_section_index_key",
-        "table": "document_sections",
-        "def_hash": "a252b6bf70b1aca1064dba5c1119db7e"
-      },
-      {
         "def": "CREATE INDEX document_sections_document_idx ON public.document_sections USING btree (document_id, section_index)",
         "name": "document_sections_document_idx",
         "table": "document_sections",
         "def_hash": "3c347411100782cc0952fdc3272c5e53"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX document_sections_legacy_section_index_key ON public.document_sections USING btree (document_id, section_index) WHERE (artifact_generation_id IS NULL)",
+        "name": "document_sections_legacy_section_index_key",
+        "table": "document_sections",
+        "def_hash": "e2a1349bc5035d27764f918730daf794"
       },
       {
         "def": "CREATE INDEX document_sections_owner_idx ON public.document_sections USING btree (owner_id)",
@@ -4634,6 +4694,18 @@
         "name": "document_sections_pkey",
         "table": "document_sections",
         "def_hash": "62d2a40c615f8108365c1afb74c20c79"
+      },
+      {
+        "def": "CREATE INDEX document_sections_producer_generation_idx ON public.document_sections USING btree (document_id, producer, artifact_generation_id)",
+        "name": "document_sections_producer_generation_idx",
+        "table": "document_sections",
+        "def_hash": "ec938c52f14683fd7f87c93923f50d19"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX document_sections_producer_generation_section_index_key ON public.document_sections USING btree (document_id, producer, artifact_generation_id, section_index) WHERE ((producer IS NOT NULL) AND (artifact_generation_id IS NOT NULL))",
+        "name": "document_sections_producer_generation_section_index_key",
+        "table": "document_sections",
+        "def_hash": "5c67294bb06127bdefb77f06db58bc65"
       },
       {
         "def": "CREATE UNIQUE INDEX document_summaries_document_id_key ON public.document_summaries USING btree (document_id)",
@@ -5674,6 +5746,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "8042a896b6ebcc4e4da8848f82aa0784",
+        "signature": "public.commit_document_deep_memory_generation(uuid,text,uuid,text,text,integer,integer,jsonb,integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "594b1f715fbbfa1df1b1f1183a7fef5a",
         "signature": "public.commit_document_index_generation(uuid,uuid,text,integer,integer,integer,jsonb,jsonb,jsonb)"
       },
@@ -6427,11 +6507,6 @@
       {
         "def": "FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE",
         "name": "document_sections_document_id_fkey",
-        "table": "document_sections"
-      },
-      {
-        "def": "UNIQUE (document_id, section_index)",
-        "name": "document_sections_document_id_section_index_key",
         "table": "document_sections"
       },
       {

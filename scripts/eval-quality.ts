@@ -668,6 +668,10 @@ ${markdownTable([
   ["Document recall@5", retrieval.document_recall_at_5],
   ["Content recall@5", retrieval.content_recall_at_5],
   ["MRR@10", retrieval.mrr_at_10],
+  ["nDCG@10", retrieval.ndcg_at_10],
+  ["Irrelevant source rate@10", retrieval.irrelevant_source_rate_at_10],
+  ["Required signal coverage@10", retrieval.required_signal_coverage_at_10],
+  ["Signal metric cases", retrieval.signal_metric_case_count],
   ["Median latency ms", retrieval.median_latency_ms],
   ["Failed cases", retrieval.failed_cases.length],
 ])}

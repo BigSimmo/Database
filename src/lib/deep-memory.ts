@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildClinicalTextSearchQuery, classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { logger } from "@/lib/logger";
-import { retrievalOwnerFilter } from "@/lib/owner-scope";
+import {
+  PUBLIC_OWNER_FILTER_SENTINEL,
+  retrievalAccessScopeForArgs,
+  retrievalRpcScopeArgs,
+  type RetrievalAccessScope,
+} from "@/lib/owner-scope";
 import {
   buildDocumentIndexUnitInputs,
   countDocumentIndexUnitsByType,
@@ -9,6 +14,7 @@ import {
   embeddingTextForDocumentIndexUnit,
 } from "@/lib/document-index-units";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import { isMissingRetrievalRpcError } from "@/lib/retrieval-rpc-rollout";
 import {
   fallbackModelIndexProfile,
   generateModelIndexProfile,
@@ -29,6 +35,18 @@ import type {
 } from "@/lib/types";
 
 export const ragDeepMemoryVersion = "rag-deep-memory-v1" as const;
+export const localDeepMemoryProducer = "local-worker" as const;
+
+export class DeepMemoryOwnershipConflictError extends Error {
+  readonly code = "deep_memory_ownership_conflict";
+
+  constructor(readonly documentId: string) {
+    super(
+      `Deep-memory artifacts for document ${documentId} are owned by another producer or have ambiguous ownership; refusing to overwrite them.`,
+    );
+    this.name = "DeepMemoryOwnershipConflictError";
+  }
+}
 
 type MemoryChunk = {
   id: string;
@@ -176,6 +194,7 @@ export function buildDocumentSections(args: { document: MemoryDocument; chunks: 
       metadata: {
         rag_indexing_version: ragDeepMemoryVersion,
         index_generation_id: indexGenerationId,
+        generated_by: localDeepMemoryProducer,
         source_path: args.document.source_path ?? null,
       },
     };
@@ -320,7 +339,7 @@ function createCard(args: {
     metadata: {
       rag_indexing_version: ragDeepMemoryVersion,
       index_generation_id: args.indexGenerationId ?? metadataRecord(args.chunk?.metadata).index_generation_id ?? null,
-      generated_by: "local-worker",
+      generated_by: localDeepMemoryProducer,
       chunk_index: args.chunk?.chunk_index ?? null,
       section_heading: args.chunk?.section_heading ?? null,
       ...args.metadata,
@@ -546,43 +565,8 @@ async function repairMissingChunkAnchors(supabase: SupabaseClient, chunks: Memor
   return repaired;
 }
 
-async function stampDeepMemoryVersion(args: {
-  supabase: SupabaseClient;
-  documentId: string;
-  sectionCount: number;
-  memoryCardCount: number;
-  indexUnitCountsByType: Record<string, number>;
-  repairedAnchorCount: number;
-}) {
+async function stampDeepMemoryChunks(args: { supabase: SupabaseClient; documentId: string }) {
   const stampedAt = new Date().toISOString();
-
-  const { data: doc, error: fetchError } = await args.supabase
-    .from("documents")
-    .select("metadata")
-    .eq("id", args.documentId)
-    .single();
-  if (fetchError) throw new Error(fetchError.message);
-
-  const docMetadata = metadataRecord(doc?.metadata);
-  const { error: docError } = await args.supabase
-    .from("documents")
-    .update({
-      metadata: {
-        ...docMetadata,
-        rag_indexing_version: ragDeepMemoryVersion,
-        rag_memory_version: ragDeepMemoryVersion,
-        rag_memory_updated_at: stampedAt,
-        document_intelligence_version: documentIntelligenceVersion,
-        document_intelligence_updated_at: stampedAt,
-        section_count: args.sectionCount,
-        memory_card_count: args.memoryCardCount,
-        index_unit_count: Object.values(args.indexUnitCountsByType).reduce((sum, count) => sum + count, 0),
-        index_unit_counts_by_type: args.indexUnitCountsByType,
-        repaired_anchor_count: args.repairedAnchorCount,
-      },
-    })
-    .eq("id", args.documentId);
-  if (docError) throw new Error(docError.message);
 
   const { data: chunks, error: chunksError } = await args.supabase
     .from("document_chunks")
@@ -620,6 +604,48 @@ async function stampDeepMemoryVersion(args: {
   }
 }
 
+type DeepMemoryArtifactTable = "document_sections" | "document_memory_cards" | "document_index_units";
+
+function artifactOwnership(
+  table: DeepMemoryArtifactTable,
+  artifact: { producer?: unknown; metadata?: unknown },
+): "local" | "agent" | "ambiguous" {
+  const explicitProducer = typeof artifact.producer === "string" ? artifact.producer : null;
+  const metadata = artifact.metadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return "ambiguous";
+  const record = metadata as Record<string, unknown>;
+  if (explicitProducer && record.generated_by !== explicitProducer) return "ambiguous";
+  if (record.generated_by === localDeepMemoryProducer) return "local";
+  if (record.generated_by === "indexing-v3-agent") return "agent";
+  if (Object.hasOwn(record, "generated_by")) return "ambiguous";
+  if (table === "document_sections" && record.rag_indexing_version === ragDeepMemoryVersion) return "local";
+  return "ambiguous";
+}
+
+export async function assertLocalDeepMemoryOwnership(supabase: SupabaseClient, documentId: string) {
+  const tables: DeepMemoryArtifactTable[] = ["document_sections", "document_memory_cards", "document_index_units"];
+
+  const artifactResults = await Promise.all(
+    tables.map(async (table) => ({
+      table,
+      result: await supabase
+        .from(table)
+        .select("producer,artifact_generation_id,metadata")
+        .eq("document_id", documentId),
+    })),
+  );
+
+  for (const {
+    table,
+    result: { data, error },
+  } of artifactResults) {
+    if (error) throw new Error(error.message);
+    if (!Array.isArray(data) || data.some((row) => artifactOwnership(table, row) !== "local")) {
+      throw new DeepMemoryOwnershipConflictError(documentId);
+    }
+  }
+}
+
 export async function upsertDocumentDeepMemory(args: {
   supabase: SupabaseClient;
   document: MemoryDocument;
@@ -628,6 +654,8 @@ export async function upsertDocumentDeepMemory(args: {
   summary?: string | null;
 }) {
   if (args.chunks.length === 0) throw new Error("Cannot build deep memory for a document with no chunks.");
+
+  await assertLocalDeepMemoryOwnership(args.supabase, args.document.id);
 
   const sections = buildDocumentSections(args);
   let modelProfile: ModelIndexProfile | null = null;
@@ -694,20 +722,46 @@ export async function upsertDocumentDeepMemory(args: {
   if (indexUnits.length > 0 && indexUnitEmbeddings.length !== indexUnits.length) {
     throw new Error("OpenAI returned an unexpected index-unit embedding count.");
   }
+  let repairedAnchorCount = 0;
+  const indexUnitCountsByType = countDocumentIndexUnitsByType(indexUnits);
 
-  // All embeddings are in hand — replace the previous memory atomically-ish:
-  // delete then insert without any intervening network dependency (M11).
-  const { error: indexUnitDeleteError } = await args.supabase
-    .from("document_index_units")
-    .delete()
-    .eq("document_id", args.document.id);
-  if (indexUnitDeleteError) throw new Error(indexUnitDeleteError.message);
-  await args.supabase.from("document_memory_cards").delete().eq("document_id", args.document.id);
-  await args.supabase.from("document_sections").delete().eq("document_id", args.document.id);
+  const artifactGenerationId = crypto.randomUUID();
+  const stagedMetadata = (metadata: unknown) => ({
+    ...metadataRecord(metadata),
+    generated_by: localDeepMemoryProducer,
+    artifact_generation_id: artifactGenerationId,
+    index_generation_id: artifactGenerationId,
+  });
+  const stagedSections = sections.map((section) => ({
+    ...section,
+    producer: localDeepMemoryProducer,
+    artifact_generation_id: artifactGenerationId,
+    index_generation_id: artifactGenerationId,
+    metadata: stagedMetadata(section.metadata),
+  }));
+
+  const cleanupStagedArtifacts = async () => {
+    for (const table of ["document_memory_cards", "document_index_units", "document_sections"] as const) {
+      try {
+        await args.supabase
+          .from(table)
+          .delete()
+          .eq("document_id", args.document.id)
+          .eq("producer", localDeepMemoryProducer)
+          .eq("artifact_generation_id", artifactGenerationId)
+          .eq("index_generation_id", artifactGenerationId)
+          .eq("metadata->>generated_by", localDeepMemoryProducer)
+          .eq("metadata->>artifact_generation_id", artifactGenerationId)
+          .eq("metadata->>index_generation_id", artifactGenerationId);
+      } catch {
+        // Best effort only. Never replace the staging/commit error with cleanup.
+      }
+    }
+  };
 
   const { data: insertedSections, error: sectionError } = await args.supabase
     .from("document_sections")
-    .insert(sections)
+    .insert(stagedSections)
     .select("id,section_index");
   if (sectionError) throw new Error(sectionError.message);
 
@@ -716,29 +770,61 @@ export async function upsertDocumentDeepMemory(args: {
     sectionIds.set(section.section_index, section.id);
   }
 
-  for (let start = 0; start < cards.length; start += 50) {
-    const batch = cards.slice(start, start + 50).map((card, index) => {
-      const { section_index: sectionIndex, ...row } = card;
-      return {
-        ...row,
-        section_id: sectionIndex === undefined ? null : (sectionIds.get(sectionIndex) ?? null),
-        embedding: assertEmbeddingDim(embeddings[start + index], `document_memory_cards.${start + index}`),
-      };
-    });
-    const { error } = await args.supabase.from("document_memory_cards").insert(batch);
-    if (error) throw new Error(error.message);
-  }
-
-  if (indexUnits.length > 0) {
-    for (let start = 0; start < indexUnits.length; start += 50) {
-      const batch = indexUnits.slice(start, start + 50).map((unit, index) => ({
-        ...unit,
-        embedding: assertEmbeddingDim(indexUnitEmbeddings[start + index], `document_index_units.${start + index}`),
-      }));
-      const { error } = await args.supabase.from("document_index_units").insert(batch);
+  try {
+    for (let start = 0; start < cards.length; start += 50) {
+      const batch = cards.slice(start, start + 50).map((card, index) => {
+        const { section_index: sectionIndex, ...row } = card;
+        return {
+          ...row,
+          producer: localDeepMemoryProducer,
+          artifact_generation_id: artifactGenerationId,
+          index_generation_id: artifactGenerationId,
+          metadata: stagedMetadata(row.metadata),
+          section_id: sectionIndex === undefined ? null : (sectionIds.get(sectionIndex) ?? null),
+          embedding: assertEmbeddingDim(embeddings[start + index], `document_memory_cards.${start + index}`),
+        };
+      });
+      const { error } = await args.supabase.from("document_memory_cards").insert(batch);
       if (error) throw new Error(error.message);
     }
+
+    if (indexUnits.length > 0) {
+      for (let start = 0; start < indexUnits.length; start += 50) {
+        const batch = indexUnits.slice(start, start + 50).map((unit, index) => ({
+          ...unit,
+          producer: localDeepMemoryProducer,
+          artifact_generation_id: artifactGenerationId,
+          index_generation_id: artifactGenerationId,
+          metadata: stagedMetadata(unit.metadata),
+          embedding: assertEmbeddingDim(indexUnitEmbeddings[start + index], `document_index_units.${start + index}`),
+        }));
+        const { error } = await args.supabase.from("document_index_units").insert(batch);
+        if (error) throw new Error(error.message);
+      }
+    }
+
+    repairedAnchorCount = await repairMissingChunkAnchors(args.supabase, args.chunks);
+    await stampDeepMemoryChunks({ supabase: args.supabase, documentId: args.document.id });
+  } catch (error) {
+    await cleanupStagedArtifacts();
+    throw error;
   }
+
+  // The RPC may have committed even when its response is lost. Never clean up
+  // after invocation: committed rows now share the document generation, while
+  // genuinely staged leftovers remain invisible and are superseded later.
+  const { error: commitError } = await args.supabase.rpc("commit_document_deep_memory_generation", {
+    p_document_id: args.document.id,
+    p_producer: localDeepMemoryProducer,
+    p_artifact_generation_id: artifactGenerationId,
+    p_rag_memory_version: ragDeepMemoryVersion,
+    p_document_intelligence_version: documentIntelligenceVersion,
+    p_section_count: sections.length,
+    p_memory_card_count: cards.length,
+    p_index_unit_counts_by_type: indexUnitCountsByType,
+    p_repaired_anchor_count: repairedAnchorCount,
+  });
+  if (commitError) throw new Error(commitError.message);
 
   if (modelProfile?.aliases.length) {
     const aliases = modelProfile.aliases
@@ -765,15 +851,6 @@ export async function upsertDocumentDeepMemory(args: {
     }
   }
 
-  const repairedAnchorCount = await repairMissingChunkAnchors(args.supabase, args.chunks);
-  await stampDeepMemoryVersion({
-    supabase: args.supabase,
-    documentId: args.document.id,
-    sectionCount: sections.length,
-    memoryCardCount: cards.length,
-    indexUnitCountsByType: countDocumentIndexUnitsByType(indexUnits),
-    repairedAnchorCount,
-  });
   return { sections, memoryCards: cards, indexUnits, modelProfile };
 }
 
@@ -812,23 +889,59 @@ export async function fetchMemoryCardsForQuery(args: {
   query: string;
   queryEmbedding?: number[];
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   documentIds?: string[];
   matchCount?: number;
 }) {
   try {
+    const accessScope = retrievalAccessScopeForArgs(args);
     if (args.queryEmbedding?.length) {
-      const { data, error } = await args.supabase.rpc("match_document_memory_cards_hybrid", {
+      const versioned = await args.supabase.rpc("match_document_memory_cards_hybrid_v3", {
         query_embedding: args.queryEmbedding,
         query_text: buildClinicalTextSearchQuery(args.query),
         match_count: args.matchCount ?? 32,
         min_similarity: 0.1,
         document_filters: args.documentIds?.length ? args.documentIds : null,
-        owner_filter: retrievalOwnerFilter({
-          ownerId: args.ownerId,
-          documentIds: args.documentIds,
-          allowGlobalSearch: !args.ownerId && !args.documentIds?.length,
-        }),
+        ...retrievalRpcScopeArgs(accessScope),
       });
+      let data = versioned?.data;
+      let error = versioned?.error;
+      if (!versioned || isMissingRetrievalRpcError(versioned.error)) {
+        const baseArgs = {
+          query_embedding: args.queryEmbedding,
+          query_text: buildClinicalTextSearchQuery(args.query),
+          match_count: args.matchCount ?? 32,
+          min_similarity: 0.1,
+          document_filters: args.documentIds?.length ? args.documentIds : null,
+        };
+        const ownerResult = await args.supabase.rpc("match_document_memory_cards_hybrid_v2", {
+          ...baseArgs,
+          owner_filter: accessScope.ownerId ?? PUBLIC_OWNER_FILTER_SENTINEL,
+        });
+        const publicResult =
+          accessScope.ownerId && accessScope.includePublic
+            ? await args.supabase.rpc("match_document_memory_cards_hybrid_v2", {
+                ...baseArgs,
+                owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+              })
+            : { data: [], error: null };
+        error = ownerResult.error ?? publicResult.error;
+        type MemoryCardHybridRow = { id: string; hybrid_score: number; rrf_score?: number | null } & Record<
+          string,
+          unknown
+        >;
+        const compareRows = (left: MemoryCardHybridRow, right: MemoryCardHybridRow) =>
+          right.hybrid_score - left.hybrid_score ||
+          Number(right.rrf_score ?? 0) - Number(left.rrf_score ?? 0) ||
+          left.id.localeCompare(right.id);
+        const merged = new Map<string, MemoryCardHybridRow>();
+        const fallbackRows = [...(ownerResult.data ?? []), ...(publicResult.data ?? [])] as MemoryCardHybridRow[];
+        for (const row of fallbackRows) {
+          const current = merged.get(row.id);
+          if (!current || compareRows(row, current) < 0) merged.set(row.id, row);
+        }
+        data = [...merged.values()].sort(compareRows).slice(0, args.matchCount ?? 32) as typeof data;
+      }
 
       if (error) {
         // P0.1: surface the hybrid RPC failure instead of silently dropping to the lexical
@@ -876,7 +989,13 @@ export async function fetchMemoryCardsForQuery(args: {
       .order("confidence", { ascending: false })
       .limit(args.matchCount ?? 32);
 
-    if (args.ownerId) queryBuilder = queryBuilder.eq("owner_id", args.ownerId);
+    if (accessScope.ownerId && accessScope.includePublic) {
+      queryBuilder = queryBuilder.or(`owner_id.eq.${accessScope.ownerId},owner_id.is.null`);
+    } else if (accessScope.ownerId) {
+      queryBuilder = queryBuilder.eq("owner_id", accessScope.ownerId);
+    } else {
+      queryBuilder = queryBuilder.is("owner_id", null);
+    }
     if (args.documentIds?.length) queryBuilder = queryBuilder.in("document_id", args.documentIds);
 
     const { data, error } = await queryBuilder;
@@ -884,8 +1003,16 @@ export async function fetchMemoryCardsForQuery(args: {
 
     const cards = (data ?? []) as DocumentMemoryCard[];
     const documentIds = Array.from(new Set(cards.map((card) => card.document_id)));
+    let documentsQuery = args.supabase.from("documents").select("id,metadata").in("id", documentIds);
+    if (accessScope.ownerId && accessScope.includePublic) {
+      documentsQuery = documentsQuery.or(`owner_id.eq.${accessScope.ownerId},owner_id.is.null`);
+    } else if (accessScope.ownerId) {
+      documentsQuery = documentsQuery.eq("owner_id", accessScope.ownerId);
+    } else {
+      documentsQuery = documentsQuery.is("owner_id", null);
+    }
     const { data: documents, error: documentsError } = documentIds.length
-      ? await args.supabase.from("documents").select("id,metadata").in("id", documentIds)
+      ? await documentsQuery
       : { data: [], error: null };
     const committedGenerationByDocument = new Map(
       (documents ?? []).map((document) => [document.id, committedIndexGeneration(document.metadata)] as const),
@@ -900,7 +1027,7 @@ export async function fetchMemoryCardsForQuery(args: {
 
     return cards
       .filter((card) => {
-        if (!committedGenerationByDocument.has(card.document_id)) return true;
+        if (!committedGenerationByDocument.has(card.document_id)) return false;
         return isCommittedGenerationMetadata({
           rowMetadata: card.metadata,
           committedGeneration: committedGenerationByDocument.get(card.document_id),

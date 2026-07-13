@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
+import {
+  assertLocalDeepMemoryOwnership,
+  DeepMemoryOwnershipConflictError,
+  upsertDocumentDeepMemory,
+} from "@/lib/deep-memory";
 import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
@@ -162,6 +166,7 @@ export async function POST(request: Request) {
           committedImages.sort(
             (a, b) => Number(b.clinical_relevance_score ?? 0) - Number(a.clinical_relevance_score ?? 0),
           );
+          await assertLocalDeepMemoryOwnership(supabase, document.id);
           const enrichment = await upsertDocumentEnrichment({
             supabase,
             document: document as Parameters<typeof upsertDocumentEnrichment>[0]["document"],
@@ -279,6 +284,7 @@ export async function POST(request: Request) {
         }
         results.push({ documentId: document.id, mode: parsed.mode, ok: true, jobId: job.id });
       } catch (error) {
+        if (error instanceof DeepMemoryOwnershipConflictError) throw error;
         results.push({
           documentId: document.id,
           mode: parsed.mode,
@@ -296,6 +302,9 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
+    if (error instanceof DeepMemoryOwnershipConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     if (error instanceof PublicApiError) return jsonError(error, error.status);
     return jsonError(error, 500);
   }

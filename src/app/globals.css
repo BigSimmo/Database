@@ -67,6 +67,7 @@
   --text-base-minus: 0.9375rem;
   --text-lg-minus: 1.0625rem;
   --text-2xl-minus: 1.375rem;
+  --text-2xl-compact: 1.45rem;
   --text-3xl-minus: 1.625rem;
 
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
