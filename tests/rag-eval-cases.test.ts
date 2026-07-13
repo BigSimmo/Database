@@ -276,8 +276,10 @@ describe("captured RAG eval cases", () => {
 
     // A source-only answer that no longer surfaces the expected document must NOT score relevant —
     // otherwise a retrieval regression that stops returning MHSP.Discharge.pdf would hide here.
+    // A prose mention of the topic ("discharge") must NOT rescue an uncited answer — coverage is
+    // citation-based, not answer-text based (the doc-name alternatives include bare topic tokens).
     const withoutCite = {
-      answer: "No current indexed document directly supporting this request was found.",
+      answer: "No current source with discharge documentation guidance was found.",
       grounded: false,
       confidence: "unsupported",
       citations: [],
