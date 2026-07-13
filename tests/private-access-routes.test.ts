@@ -562,6 +562,40 @@ describe("private document API access", () => {
     expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
   });
 
+  it("allows anonymous users to read public document detail", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && matchesOwnerReadScope(call)) {
+        return ok({
+          id: documentId,
+          owner_id: null,
+          title: "Public guideline",
+          file_name: "guideline.pdf",
+          file_type: "application/pdf",
+          page_count: 2,
+          chunk_count: 1,
+          metadata: { index_generation_id: "generation-a" },
+        });
+      }
+      if (["document_pages", "document_images", "document_chunks", "document_table_facts"].includes(call.table)) {
+        return ok([]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await GET(request(`/api/documents/${documentId}`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.document).toMatchObject({ id: documentId, title: "Public guideline" });
+    expect(body.document).not.toHaveProperty("owner_id");
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
+  });
+
   it("allows authenticated users to open public document signed URLs", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
@@ -779,6 +813,36 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(body.mimeType).toBe("image/png");
     expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`${userId}/images/${imageId}.png`, 600);
+  });
+
+  it("allows anonymous image signed URLs when the parent document is public", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok({
+          document_id: documentId,
+          storage_path: `public/images/${imageId}.png`,
+          mime_type: "image/png",
+          caption: "Public image",
+          metadata: { index_generation_id: "generation-a" },
+        });
+      }
+      if (call.table === "documents" && matchesOwnerReadScope(call)) {
+        return ok({ id: documentId, metadata: { index_generation_id: "generation-a" } });
+      }
+      return ok(null);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/images/[id]/signed-url/route");
+
+    const response = await GET(request(`/api/images/${imageId}/signed-url`), {
+      params: Promise.resolve({ id: imageId }),
+    });
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.mimeType).toBe("image/png");
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`public/images/${imageId}.png`, 600);
   });
 
   it("allows legacy image signed URLs when parent document generation metadata is missing", async () => {
@@ -2249,11 +2313,11 @@ describe("private document API access", () => {
     expect(body.tableFacts.map((fact: { id: string }) => fact.id)).toEqual(["fact-old"]);
   });
 
-  it("filters direct document search fallback rows to the committed index generation", async () => {
+  it("lets anonymous users search a public document and filters fallback rows to the committed generation", async () => {
     const committedGeneration = "11111111-1111-4111-8111-111111111111";
     const replacementGeneration = "22222222-2222-4222-8222-222222222222";
     const client = createSupabaseMock((call) => {
-      if (call.table === "documents" && call.operation === "select") {
+      if (call.table === "documents" && call.operation === "select" && matchesOwnerReadScope(call)) {
         return ok({ id: documentId, metadata: { index_generation_id: committedGeneration } });
       }
       if (call.table === "document_chunks") {
@@ -2292,7 +2356,7 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { GET } = await import("../src/app/api/documents/[id]/search/route");
 
-    const response = await GET(authenticatedRequest(`/api/documents/${documentId}/search?q=lithium`), {
+    const response = await GET(request(`/api/documents/${documentId}/search?q=lithium`), {
       params: Promise.resolve({ id: documentId }),
     });
     const body = (await payload(response)) as { strategy: string; results: Array<{ id: string }> };
@@ -2300,6 +2364,8 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(body.strategy).toBe("portable_ilike_fallback");
     expect(body.results.map((result: { id: string }) => result.id)).toEqual(["chunk-old"]);
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
   });
 
   it("filters table fact review rows to the committed index generation", async () => {
