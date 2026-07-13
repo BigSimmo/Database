@@ -1,0 +1,138 @@
+# CI failure triage. When CI fails on a pull request, post ONE comment that
+# classifies the failure so attention is not spent on failures that are not the
+# author's fault:
+#   - main-side: the same job is also failing on the latest default-branch run
+#     (CI merges the PR branch with current main, so a main regression surfaces on
+#     every open PR — this has cost debugging time before).
+#   - possible known flake: a UI/Playwright job failed — check tests/flake-ledger.json.
+#   - needs investigation: everything else.
+#
+# SHIPPED INERT: this event-triggered workflow does nothing until the repo variable
+# CI_TRIAGE_ENABLED == "true". It never runs PR-authored code — it only reads job
+# metadata + the committed flake ledger via the trusted default-branch checkout, and
+# posts a comment with the built-in token.
+name: CI Triage
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+concurrency:
+  group: ci-triage-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    if: >
+      vars.CI_TRIAGE_ENABLED == 'true' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request'
+    steps:
+      - name: Checkout default branch (trusted) for the flake ledger
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Post triage comment
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require("fs");
+            const run = context.payload.workflow_run;
+
+            // Resolve the PR for this run (empty for fork PRs → skip quietly).
+            const pr = (run.pull_requests || [])[0];
+            if (!pr) {
+              core.info("No associated PR on the workflow_run payload; skipping.");
+              return;
+            }
+
+            // Failed jobs for this run.
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run.id,
+              per_page: 100,
+            });
+            const failed = jobs.filter((j) => j.conclusion === "failure").map((j) => j.name);
+            if (failed.length === 0) {
+              core.info("No failed jobs found; skipping.");
+              return;
+            }
+
+            // Is the same job failing on the latest default-branch CI run? → main-side.
+            let mainFailingJobs = new Set();
+            try {
+              const { data: mainRuns } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                event: "push",
+                branch: context.payload.repository.default_branch,
+                per_page: 1,
+              });
+              // reuse: find the CI workflow's latest main run
+              const latestMain = (mainRuns.workflow_runs || []).find((r) => r.name === run.name);
+              if (latestMain && latestMain.conclusion === "failure") {
+                const mainJobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: latestMain.id,
+                  per_page: 100,
+                });
+                mainFailingJobs = new Set(mainJobs.filter((j) => j.conclusion === "failure").map((j) => j.name));
+              }
+            } catch (e) {
+              core.info(`main-side check skipped: ${e.message}`);
+            }
+
+            const flakes = JSON.parse(fs.readFileSync("tests/flake-ledger.json", "utf8")).flakes || [];
+            const uiFlakeSpecs = flakes.map((f) => f.spec).filter((s) => /ui-/.test(s));
+            const looksUi = (name) => /ui|playwright|browser|e2e/i.test(name);
+
+            const lines = failed.map((name) => {
+              if (mainFailingJobs.has(name)) return `- \`${name}\` — **main-side**: also failing on the latest \`main\` run, likely not your change.`;
+              if (looksUi(name)) return `- \`${name}\` — **possible known flake**: UI/Playwright job; check \`tests/flake-ledger.json\`${uiFlakeSpecs.length ? ` (${uiFlakeSpecs.join(", ")})` : ""} and re-run before bisecting.`;
+              return `- \`${name}\` — **needs investigation**.`;
+            });
+
+            const marker = "<!-- ci-triage -->";
+            const body = [
+              marker,
+              `### CI triage`,
+              `CI failed on this PR. Automated classification of the ${failed.length} failed job(s):`,
+              "",
+              ...lines,
+              "",
+              "_Heuristic only — a main-side or flake label is a starting point, not a verdict._",
+            ].join("\n");
+
+            // Replace a prior triage comment instead of stacking.
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+            });
+            const prior = comments.find((c) => (c.body || "").startsWith(marker));
+            if (prior) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: prior.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body,
+              });
+            }

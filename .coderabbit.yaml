@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit configuration.
+#
+# Intent: keep CodeRabbit's review as a non-blocking, advisory check. CodeRabbit
+# still reviews PRs whenever credits are available, but it must never post a
+# *failing* commit status that blocks a PR — most importantly when prepaid
+# credits are exhausted ("Prepaid credits exhausted — enable usage-based
+# reviews"). That failure previously surfaced as a red ✗ check and acted as a
+# barrier on the PR; the settings below prevent it.
+reviews:
+  # Do not post a CodeRabbit commit status check at all. This is what turns the
+  # review into a blocking check, so disabling it keeps the review advisory.
+  commit_status: false
+  # Belt-and-braces: even if a commit status were posted, never mark it as a
+  # failure when CodeRabbit cannot review a PR (e.g. credits exhausted).
+  # This is the default, but we set it explicitly to document the intent.
+  fail_commit_status: false

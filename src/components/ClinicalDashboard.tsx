@@ -124,6 +124,7 @@ const DocumentSearchResultsPanel = dynamic(
   { ssr: false },
 );
 
+import { clearLegacyRecentQueries, demoRecentQueryOwnerId } from "@/components/clinical-dashboard/recent-query-storage";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
@@ -1019,7 +1020,7 @@ export function ClinicalDashboard({
   const localNoAuthMode = isLocalNoAuthMode();
   const explicitDemoMode = demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const clientDemoMode = explicitDemoMode || browserAuthUnavailableDemoFallback || localNoAuthMode;
-  const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? "local-demo-session" : null);
+  const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
   useEffect(() => {
     const previousOwnerId = previousAnswerThreadOwnerIdRef.current;
@@ -1165,6 +1166,13 @@ export function ClinicalDashboard({
     const timeoutId = window.setTimeout(prefetchApplications, 250);
     return () => window.clearTimeout(timeoutId);
   }, [prefetchApplications]);
+
+  // The dashboard renders directly on "/" without the standalone search shell,
+  // so it must purge the legacy unscoped recent-queries key too (2026-07-13
+  // audit, finding 4).
+  useEffect(() => {
+    clearLegacyRecentQueries();
+  }, []);
 
   useEffect(() => {
     if (!answerThreadOwnerId) {
