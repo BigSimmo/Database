@@ -679,7 +679,7 @@ export function ClinicalNotesChecklistPanel({
                   <span className="truncate">{tab.label}</span>
                   <span
                     className={cn(
-                      "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-3xs",
+                      "nums grid h-5 min-w-5 place-items-center rounded-full px-1 text-2xs",
                       selected
                         ? "bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)]"
                         : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
@@ -737,7 +737,7 @@ export function ClinicalNotesChecklistPanel({
                     {row.title}
                   </p>
                   {!isWarnRow ? (
-                    <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", toneSuccess)}>
+                    <span className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs", toneSuccess)}>
                       {activeTab === "actions" ? "Action" : "Source"}
                     </span>
                   ) : null}
@@ -748,7 +748,7 @@ export function ClinicalNotesChecklistPanel({
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
                 {isWarnRow ? (
-                  <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", toneWarning)}>Review</span>
+                  <span className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs", toneWarning)}>Review</span>
                 ) : (
                   <span className="nums grid h-6 min-w-7 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-1.5 text-2xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]">
                     S{row.sourceIndex}
@@ -872,7 +872,7 @@ export function SafetyFindingsListContent({ findings }: { findings: SafetyFindin
           </span>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", safetyFindingKindTone(finding.kind))}>
+              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs", safetyFindingKindTone(finding.kind))}>
                 {finding.label}
               </span>
               <Link

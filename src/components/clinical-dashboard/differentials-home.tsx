@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Activity,
-  ArrowUpDown,
   BrainCircuit,
   Check,
   ChevronRight,
@@ -27,6 +26,7 @@ import {
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
+import { useResultSort } from "@/components/use-result-sort";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
@@ -37,6 +37,7 @@ import {
   type DifferentialSearchResultItem,
 } from "@/lib/differentials";
 import type { DocumentMatch } from "@/lib/types";
+import { sortResultItems } from "@/lib/result-sort";
 
 type DifferentialAction = {
   label: string;
@@ -302,7 +303,7 @@ function ResultTypeTabs({
             {tab.label}
             <span
               className={cn(
-                "nums rounded-full px-1.5 text-3xs leading-tight",
+                "nums rounded-full px-1.5 text-2xs leading-tight",
                 active
                   ? "bg-[color:var(--clinical-accent-contrast)]/15 text-[color:var(--clinical-accent-contrast)]"
                   : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
@@ -314,54 +315,6 @@ function ResultTypeTabs({
         );
       })}
     </div>
-  );
-}
-
-type SortMode = "relevance" | "urgency" | "alpha";
-
-const statusSortPriority: Record<DifferentialRecord["status"], number> = {
-  emergent: 0,
-  urgent: 1,
-  routine: 2,
-};
-
-function sortResults(items: DifferentialResult[], mode: SortMode) {
-  if (mode === "relevance") return items;
-  // Array.prototype.sort is stable, so ties keep their relevance order.
-  return [...items].sort((a, b) =>
-    mode === "alpha" ? a.title.localeCompare(b.title) : statusSortPriority[a.status] - statusSortPriority[b.status],
-  );
-}
-
-function SortSelect({
-  value,
-  onChange,
-  className,
-}: {
-  value: SortMode;
-  onChange: (value: SortMode) => void;
-  className?: string;
-}) {
-  return (
-    <label
-      className={cn(
-        "inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]",
-        className,
-      )}
-    >
-      <ArrowUpDown className="h-3.5 w-3.5 shrink-0" aria-hidden />
-      Sort
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as SortMode)}
-        aria-label="Sort results"
-        className="bg-transparent text-xs font-bold text-[color:var(--text)] outline-none"
-      >
-        <option value="relevance">Relevance</option>
-        <option value="urgency">Urgency first</option>
-        <option value="alpha">A–Z</option>
-      </select>
-    </label>
   );
 }
 
@@ -832,6 +785,7 @@ function SearchResultsView({
   evidenceQuery?: string | null;
   onRunSearch?: (query: string) => void;
 }) {
+  const [sortValue, setSortValue] = useResultSort();
   const catalog = useDifferentialSearch(query);
   const results = useMemo(
     () =>
@@ -841,7 +795,6 @@ function SearchResultsView({
     [catalog.matches],
   );
   const [kindFilter, setKindFilter] = useState<"all" | "presentation" | "diagnosis">("all");
-  const [sortMode, setSortMode] = useState<SortMode>("relevance");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   // Selection, filter, and sort follow the ranked result set: seed the top two
   // for comparison and drop stale ids whenever a new query changes the results
@@ -851,7 +804,6 @@ function SearchResultsView({
   if (lastResultSignature !== resultSignature) {
     setLastResultSignature(resultSignature);
     setKindFilter("all");
-    setSortMode("relevance");
     setSelectedIds(
       new Set(
         results
@@ -864,9 +816,14 @@ function SearchResultsView({
 
   const presentationCount = results.filter((result) => result.kind === "presentation").length;
   const diagnosisCount = results.length - presentationCount;
-  const visibleResults = sortResults(
-    kindFilter === "all" ? results : results.filter((result) => result.kind === kindFilter),
-    sortMode,
+  const visibleResults = useMemo(
+    () =>
+      sortResultItems(
+        kindFilter === "all" ? results : results.filter((result) => result.kind === kindFilter),
+        sortValue,
+        (result) => result.title,
+      ),
+    [kindFilter, results, sortValue],
   );
   const best = results[0] ?? null;
   // Same lead the desktop interpretation rail uses for its safety card.
@@ -922,6 +879,8 @@ function SearchResultsView({
         query={query}
         matchCount={results.length}
         loading={loading || catalogLoading}
+        sortValue={sortValue}
+        onSortChange={setSortValue}
       />
       <p
         data-testid="differentials-catalogue-notice"
@@ -1004,9 +963,11 @@ function SearchResultsView({
                     Catalogue ranking
                   </span>
                   <span className="hidden sm:inline">
-                    {hasSourceEvidence
-                      ? "Source matches available. Review before use."
-                      : "Run source search to validate against indexed local documents."}
+                    {sortValue === "alpha"
+                      ? "Sorted A–Z. Best-match evidence remains marked."
+                      : hasSourceEvidence
+                        ? "Source matches available. Review before use."
+                        : "Run source search to validate against indexed local documents."}
                   </span>
                 </div>
                 <h2 className="mt-3 text-base font-extrabold uppercase tracking-[0.09em] text-[color:var(--text-heading)]">
@@ -1030,7 +991,6 @@ function SearchResultsView({
                     No source matches found
                   </p>
                 ) : null}
-                <SortSelect value={sortMode} onChange={setSortMode} className="min-h-10" />
               </div>
             </div>
 
@@ -1062,9 +1022,13 @@ function SearchResultsView({
                   <strong className="text-[color:var(--text-heading)]">
                     {visibleResults.length} result{visibleResults.length === 1 ? "" : "s"}
                   </strong>{" "}
-                  · {hasSourceEvidence ? "Source-backed" : "Catalogue ranking"}
+                  ·{" "}
+                  {sortValue === "alpha"
+                    ? "Sorted A–Z"
+                    : hasSourceEvidence
+                      ? "Ranked by relevance"
+                      : "Catalogue ranking"}
                 </span>
-                <SortSelect value={sortMode} onChange={setSortMode} />
               </div>
               {!hasSourceEvidence && !sourcesChecked ? (
                 <section
@@ -1098,11 +1062,9 @@ function SearchResultsView({
             </div>
 
             <div className="grid gap-2">
-              {visibleResults.map((result) => {
-                // Rank number and "best" styling follow the overall ranked
-                // list, not whichever row happens to be first in a
-                // kind-filtered view.
-                const globalIndex = results.findIndex((entry) => entry.kind === result.kind && entry.id === result.id);
+              {visibleResults.map((result, displayIndex) => {
+                // Best-match styling remains tied to relevance while the row
+                // number follows the user's chosen presentation order.
                 const isBest = result.kind === best.kind && result.id === best.id;
                 return (
                   // The best answer is already featured above the phone list,
@@ -1112,7 +1074,7 @@ function SearchResultsView({
                     <div className="hidden lg:block">
                       <DesktopResultRow
                         result={result}
-                        index={globalIndex}
+                        index={displayIndex}
                         isBest={isBest}
                         selected={selectedIds.has(result.id)}
                         onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
@@ -1122,7 +1084,7 @@ function SearchResultsView({
                       <div className="lg:hidden">
                         <MobileResultCard
                           result={result}
-                          index={globalIndex}
+                          index={displayIndex}
                           selected={selectedIds.has(result.id)}
                           onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
                         />
