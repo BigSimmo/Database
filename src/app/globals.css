@@ -648,7 +648,6 @@ summary::-webkit-details-marker {
       0 1px 2px rgb(16 24 40 / 4%),
       0 8px 24px rgb(16 24 40 / 8%);
     backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
     transition:
       border-color 180ms ease,
       box-shadow 180ms ease,
@@ -656,13 +655,19 @@ summary::-webkit-details-marker {
   }
 }
 
-/* Top progressive-blur scrim behind the glass header — the vertical mirror of
-   the bottom dock's .answer-footer-search-backdrop three-pass blur below.
-   Strongest blur/tint hugs the physical top edge (status-bar/notch band via
-   safe-area-inset-top) and fades downward into content, so scrolling text
-   frosts as it slides under the bar. Lives INSIDE <header> (first child) so it
-   translates away with the header on scroll-hide. Unlayered on purpose, like
-   the rest of the positioning chrome (see the layering note above). */
+/* Top progressive-blur scrim behind the glass header — the SINGLE source of the
+   bar's frost. The <header> itself must NOT carry a backdrop-filter: per Filter
+   Effects L2 an element with backdrop-filter forms a backdrop root, and these
+   nested passes would then sample the header's own paint instead of the page
+   (redundant in Chromium, historically inert in WebKit). With the bar left as a
+   pure translucent tint, the three masked passes below sample the real page in
+   every engine: strongest at the physical top edge (status-bar/notch band via
+   safe-area-inset-top), still firm across the bar, then a short fade that
+   reaches TRUE ZERO before content rests (~85% of the scrim) so no veil sits on
+   the first line at rest — mirroring how the bottom dock zeroes its
+   content-facing edge. Lives INSIDE <header> (first child) so it translates
+   away with the header on scroll-hide. Unlayered on purpose, like the rest of
+   the positioning chrome (see the layering note above). */
 .edge-glass-header-backdrop {
   pointer-events: none;
   position: absolute;
@@ -675,14 +680,13 @@ summary::-webkit-details-marker {
     180deg,
     color-mix(in srgb, var(--background) 42%, transparent) 0%,
     color-mix(in srgb, var(--background) 32%, transparent) 12%,
-    color-mix(in srgb, var(--background) 18%, transparent) 32%,
-    color-mix(in srgb, var(--background) 8%, transparent) 62%,
-    transparent 100%
+    color-mix(in srgb, var(--background) 18%, transparent) 34%,
+    color-mix(in srgb, var(--background) 8%, transparent) 64%,
+    transparent 88%
   );
-  backdrop-filter: blur(2px) saturate(130%);
-  -webkit-backdrop-filter: blur(2px) saturate(130%);
-  mask-image: linear-gradient(180deg, black 0%, black 45%, rgb(0 0 0 / 45%) 72%, rgb(0 0 0 / 20%) 100%);
-  -webkit-mask-image: linear-gradient(180deg, black 0%, black 45%, rgb(0 0 0 / 45%) 72%, rgb(0 0 0 / 20%) 100%);
+  backdrop-filter: blur(14px) saturate(135%);
+  mask-image: linear-gradient(180deg, black 0%, black 64%, rgb(0 0 0 / 45%) 74%, transparent 86%);
+  -webkit-mask-image: linear-gradient(180deg, black 0%, black 64%, rgb(0 0 0 / 45%) 74%, transparent 86%);
 }
 
 .edge-glass-header-backdrop::before,
@@ -694,31 +698,15 @@ summary::-webkit-details-marker {
 }
 
 .edge-glass-header-backdrop::before {
-  backdrop-filter: blur(8px) saturate(130%);
-  -webkit-backdrop-filter: blur(8px) saturate(130%);
-  mask-image: linear-gradient(
-    180deg,
-    black 0%,
-    black 20%,
-    rgb(0 0 0 / 55%) 45%,
-    rgb(0 0 0 / 35%) 65%,
-    transparent 100%
-  );
-  -webkit-mask-image: linear-gradient(
-    180deg,
-    black 0%,
-    black 20%,
-    rgb(0 0 0 / 55%) 45%,
-    rgb(0 0 0 / 35%) 65%,
-    transparent 100%
-  );
+  backdrop-filter: blur(20px) saturate(135%);
+  mask-image: linear-gradient(180deg, black 0%, black 45%, transparent 72%);
+  -webkit-mask-image: linear-gradient(180deg, black 0%, black 45%, transparent 72%);
 }
 
 .edge-glass-header-backdrop::after {
-  backdrop-filter: blur(22px) saturate(140%);
-  -webkit-backdrop-filter: blur(22px) saturate(140%);
-  mask-image: linear-gradient(180deg, black 0%, black 32%, transparent 50%, transparent 100%);
-  -webkit-mask-image: linear-gradient(180deg, black 0%, black 32%, transparent 50%, transparent 100%);
+  backdrop-filter: blur(26px) saturate(140%);
+  mask-image: linear-gradient(180deg, black 0%, black 26%, transparent 48%);
+  -webkit-mask-image: linear-gradient(180deg, black 0%, black 26%, transparent 48%);
 }
 
 .answer-footer-search-backdrop {
@@ -736,7 +724,6 @@ summary::-webkit-details-marker {
     color-mix(in srgb, var(--background) 46%, transparent) 100%
   );
   backdrop-filter: blur(14px) saturate(130%);
-  -webkit-backdrop-filter: blur(14px) saturate(130%);
   mask-image: linear-gradient(180deg, transparent 0%, black 32%, black 100%);
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 32%, black 100%);
 }
@@ -794,7 +781,6 @@ summary::-webkit-details-marker {
     color-mix(in srgb, var(--background) 42%, transparent) 100%
   );
   backdrop-filter: blur(2px) saturate(130%);
-  -webkit-backdrop-filter: blur(2px) saturate(130%);
   mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 45%) 28%, black 55%, black 100%);
   -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 45%) 28%, black 55%, black 100%);
 }
@@ -809,7 +795,6 @@ summary::-webkit-details-marker {
 
 .answer-footer-search-dock .answer-footer-search-backdrop::before {
   backdrop-filter: blur(8px) saturate(130%);
-  -webkit-backdrop-filter: blur(8px) saturate(130%);
   mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 35%) 20%, black 45%, black 80%, transparent 100%);
   -webkit-mask-image: linear-gradient(
     180deg,
@@ -823,7 +808,6 @@ summary::-webkit-details-marker {
 
 .answer-footer-search-dock .answer-footer-search-backdrop::after {
   backdrop-filter: blur(22px) saturate(140%);
-  -webkit-backdrop-filter: blur(22px) saturate(140%);
   mask-image: linear-gradient(180deg, transparent 0%, transparent 50%, black 68%, black 100%);
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, transparent 50%, black 68%, black 100%);
 }
@@ -833,7 +817,6 @@ summary::-webkit-details-marker {
   .answer-footer-search-dock .answer-footer-search-backdrop::before,
   .answer-footer-search-dock .answer-footer-search-backdrop::after {
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 
   .answer-footer-search-dock .answer-footer-search-backdrop {
@@ -852,7 +835,6 @@ summary::-webkit-details-marker {
   .edge-glass-header-backdrop::before,
   .edge-glass-header-backdrop::after {
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 
   .edge-glass-header-backdrop {
@@ -865,9 +847,13 @@ summary::-webkit-details-marker {
     );
   }
 
-  .edge-glass-header,
-  .universal-header {
-    background: var(--surface);
+  /* Layered so call-site utilities keep winning (the header-chrome layering
+     contract above); same-layer source order beats the translucent base. */
+  @layer components {
+    .edge-glass-header,
+    .universal-header {
+      background: var(--surface);
+    }
   }
 }
 
@@ -876,7 +862,6 @@ summary::-webkit-details-marker {
   .answer-footer-search-dock .answer-footer-search-backdrop::before,
   .answer-footer-search-dock .answer-footer-search-backdrop::after {
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 
   .answer-footer-search-dock .answer-footer-search-backdrop {
@@ -894,7 +879,6 @@ summary::-webkit-details-marker {
   .edge-glass-header-backdrop::before,
   .edge-glass-header-backdrop::after {
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 
   .edge-glass-header-backdrop {
@@ -907,9 +891,14 @@ summary::-webkit-details-marker {
     );
   }
 
-  .edge-glass-header,
-  .universal-header {
-    background: var(--surface);
+  /* Layered so call-site utilities keep winning (the header-chrome layering
+     contract above); the fallback only needs to beat the layered translucent
+     base, which same-layer source order gives it. */
+  @layer components {
+    .edge-glass-header,
+    .universal-header {
+      background: var(--surface);
+    }
   }
 }
 
@@ -997,7 +986,6 @@ summary::-webkit-details-marker {
 .mode-action-panel {
   max-height: var(--mode-action-max-height);
   backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
 .mode-action-surface[data-placement="up"] .mode-action-panel {
@@ -1172,7 +1160,6 @@ summary::-webkit-details-marker {
   font-weight: 700;
   box-shadow: 0 2px 10px rgb(16 24 40 / 6%);
   backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   transition:
     border-color 160ms ease,
     background-color 160ms ease,
@@ -1626,7 +1613,6 @@ summary::-webkit-details-marker {
   .answer-footer-search-dock .answer-footer-search-chip {
     background: var(--surface);
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 
   .answer-footer-search-dock .answer-footer-search-pill:hover {
@@ -2109,7 +2095,9 @@ summary::-webkit-details-marker {
   }
 
   /* Glass header: color-mix(Canvas, transparent) would thin system-color
-     contrast, so force a solid Canvas bar and drop the scrim blur entirely. */
+     contrast, so force a solid Canvas bar and drop the scrim blur entirely.
+     Deliberately UNLAYERED (unlike the other fallbacks): in forced-colors
+     mode even call-site utilities must not restore a translucent bar. */
   .edge-glass-header,
   .universal-header {
     background: Canvas;
@@ -2120,7 +2108,6 @@ summary::-webkit-details-marker {
   .edge-glass-header-backdrop::after {
     background: Canvas;
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
     mask-image: none;
     -webkit-mask-image: none;
   }

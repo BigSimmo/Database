@@ -1421,7 +1421,10 @@ export function MasterSearchHeader({
         id="search"
         data-scroll-hidden={hideStrategy === "overlay" && headerChromeHidden ? "true" : undefined}
         className={cn(
-          "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl backdrop-saturate-150",
+          // No backdrop-filter on the header itself: it would form a backdrop
+          // root and starve the .edge-glass-header-backdrop scrim (the single
+          // source of the bar's frost) of the real page behind it.
+          "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)]",
           // Collapse hosts keep the header above an internally scrolling <main>, so
           // sticky is unnecessary on phones and fights the 0fr grid collapse by
           // pinning the bar inside the viewport. All-breakpoints overlay hosts take
