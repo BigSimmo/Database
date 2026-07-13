@@ -9,7 +9,9 @@ export const Info = () => (
 );
 
 export const Warning = () => (
-  <InlineNotice tone="warning">This source is past its scheduled review date — verify before relying on doses.</InlineNotice>
+  <InlineNotice tone="warning">
+    This source is past its scheduled review date — verify before relying on doses.
+  </InlineNotice>
 );
 
 export const DangerDismissable = () => (

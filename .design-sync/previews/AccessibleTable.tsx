@@ -8,7 +8,11 @@ const doseRows = [
 const doseColumns = ["Antibiotic", "Dose", "Frequency", "Route", "Duration"];
 
 export const ClinicalDoseTable = () => (
-  <AccessibleTable caption="Community-acquired pneumonia — empirical therapy (adult)" rows={doseRows} columns={doseColumns} />
+  <AccessibleTable
+    caption="Community-acquired pneumonia — empirical therapy (adult)"
+    rows={doseRows}
+    columns={doseColumns}
+  />
 );
 
 export const CompactPreview = () => (

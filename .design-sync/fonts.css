@@ -2,7 +2,7 @@
  * .ds-sync/ — parsed by design-sync's extraFonts, which copies the woff2s
  * into the uploaded bundle's fonts/ directory. */
 @font-face {
-  font-family: "Geist";
+  font-family: Geist;
   src: url("../.ds-sync/node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
   font-weight: 100 900;
   font-style: normal;
