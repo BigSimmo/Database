@@ -16,9 +16,18 @@ export type AnswerSloSnapshot = {
   totalQueries: number;
   hybridRpcErrorQueries: number;
   degradedQueries: number;
+  // Subsets of degradedQueries broken out by the two dominant answer-generation waste
+  // classes: reasoning/answer token starvation (fallback_reason contains
+  // "max_output_tokens") and generation timeouts (contains "timeout"). These are exactly
+  // the failure modes the OPENAI_MAX_OUTPUT_TOKENS raise + reasoning-effort drop target,
+  // surfaced as scrapeable counters so a regression is visible without hand-running SQL.
+  truncationFallbackQueries: number;
+  timeoutFallbackQueries: number;
   // 0..1; 0 when there were no queries in the window (avoid divide-by-zero noise).
   hybridRpcErrorRate: number;
   degradedRate: number;
+  truncationFallbackRate: number;
+  timeoutFallbackRate: number;
 };
 
 type CountResult = { count: number | null; error: unknown };
@@ -30,6 +39,7 @@ type SloCountBuilder = PromiseLike<CountResult> & {
   gt(column: string, value: string): SloCountBuilder;
   is(column: string, value: null): SloCountBuilder;
   not(column: string, operator: string, value: null): SloCountBuilder;
+  ilike(column: string, pattern: string): SloCountBuilder;
 };
 
 export type SloProbeClient = {
@@ -60,13 +70,17 @@ export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 
       // discriminator without hiding normal production answers from the SLO.
       .is("metadata->>event_type", null);
 
-  const [total, hybrid, degraded] = await Promise.all([
+  const [total, hybrid, degraded, truncation, timeout] = await Promise.all([
     base(),
     base().not("metadata->hybrid_rpc_errors", "is", null),
     base().not("metadata->>fallback_reason", "is", null),
+    // fallback_reason values look like "...generation_fallback:provider_incomplete_max_output_tokens"
+    // and "...generation_fallback:provider_timeout" (confirmed in live rag_queries).
+    base().ilike("metadata->>fallback_reason", "%max_output_tokens%"),
+    base().ilike("metadata->>fallback_reason", "%timeout%"),
   ]);
 
-  for (const result of [total, hybrid, degraded]) {
+  for (const result of [total, hybrid, degraded, truncation, timeout]) {
     if (result.error) {
       if (result.error instanceof Error) throw result.error;
       // Supabase surfaces a plain PostgrestError object ({ message, code, ... }),
@@ -82,13 +96,19 @@ export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 
   const totalQueries = total.count ?? 0;
   const hybridRpcErrorQueries = hybrid.count ?? 0;
   const degradedQueries = degraded.count ?? 0;
+  const truncationFallbackQueries = truncation.count ?? 0;
+  const timeoutFallbackQueries = timeout.count ?? 0;
 
   return {
     windowMinutes,
     totalQueries,
     hybridRpcErrorQueries,
     degradedQueries,
+    truncationFallbackQueries,
+    timeoutFallbackQueries,
     hybridRpcErrorRate: rate(hybridRpcErrorQueries, totalQueries),
     degradedRate: rate(degradedQueries, totalQueries),
+    truncationFallbackRate: rate(truncationFallbackQueries, totalQueries),
+    timeoutFallbackRate: rate(timeoutFallbackQueries, totalQueries),
   };
 }

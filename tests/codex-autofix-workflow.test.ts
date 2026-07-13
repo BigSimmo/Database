@@ -35,8 +35,14 @@ type CreateCommentRequest = {
   repo: string;
 };
 
+type GraphqlCall = {
+  query: string;
+  variables: Record<string, unknown>;
+};
+
 type WorkflowFunction = (
   github: {
+    graphql: (query: string, variables: Record<string, unknown>) => Promise<unknown>;
     paginate: (...args: unknown[]) => Promise<ExistingComment[]>;
     rest: {
       issues: {
@@ -88,12 +94,15 @@ const workflowFunction = new AsyncFunction("github", "context", "core", extractW
 async function runWorkflowScript(options?: {
   createError?: unknown;
   existingComments?: ExistingComment[];
+  graphqlError?: unknown;
+  graphqlResults?: unknown[];
   paginateError?: unknown;
   pullRequestHeadSha?: string;
   reviewComment?: Partial<ReviewComment>;
 }) {
   const createdComments: CreateCommentRequest[] = [];
   const failures: string[] = [];
+  const graphqlCalls: GraphqlCall[] = [];
   const notices: string[] = [];
   const warnings: string[] = [];
   let paginateCalls = 0;
@@ -106,6 +115,11 @@ async function runWorkflowScript(options?: {
 
   await workflowFunction(
     {
+      graphql: async (query, variables) => {
+        graphqlCalls.push({ query, variables });
+        if (options?.graphqlError !== undefined) throw options.graphqlError;
+        return options?.graphqlResults?.[graphqlCalls.length - 1] ?? {};
+      },
       paginate: async () => {
         paginateCalls += 1;
         if (options?.paginateError !== undefined) throw options.paginateError;
@@ -135,7 +149,7 @@ async function runWorkflowScript(options?: {
     },
   );
 
-  return { createdComments, failures, notices, paginateCalls, warnings };
+  return { createdComments, failures, graphqlCalls, notices, paginateCalls, warnings };
 }
 
 function runGuard(workflow: string) {
@@ -239,6 +253,16 @@ describe("Codex auto-resolve workflow guard", () => {
     expect(result.output).toContain("models: read");
   });
 
+  it("rejects workflows without pull-request write permission for thread closure", () => {
+    const workflow = originalWorkflow.replace("  pull-requests: write\n", "  pull-requests: read\n");
+    expect(workflow).not.toBe(originalWorkflow);
+
+    const result = runGuard(workflow);
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("pull-requests: write");
+  });
+
   it("allows findings to quote marker text without being mistaken for requests", () => {
     const workflow = originalWorkflow.replace(
       `            const sourceBody = (reviewComment.body || "").trimStart();
@@ -278,21 +302,21 @@ describe("Codex auto-resolve workflow script", () => {
     const result = await runWorkflowScript({
       existingComments: [
         {
-          body: "<!-- codex-autoresolve:head-sha-4 -->",
+          body: "<!-- codex-autoresolve-pr:42 -->",
           user: { login: "attacker", type: "User" },
         },
       ],
     });
 
     expect(result.createdComments).toHaveLength(1);
-    expect(result.createdComments[0]?.body).toContain("<!-- codex-autoresolve:head-sha-4 -->");
+    expect(result.createdComments[0]?.body).toContain("<!-- codex-autoresolve-pr:42 -->");
   });
 
   it("honors a deduplication marker posted by GitHub Actions", async () => {
     const result = await runWorkflowScript({
       existingComments: [
         {
-          body: "<!-- codex-autoresolve:head-sha-4 -->",
+          body: "<!-- codex-autoresolve-pr:42 -->",
           user: { login: "github-actions[bot]", type: "Bot" },
         },
       ],
@@ -302,30 +326,41 @@ describe("Codex auto-resolve workflow script", () => {
     expect(result.notices).toContainEqual(expect.stringContaining("Skipping duplicate"));
   });
 
-  it("creates a follow-up request when Codex reviews a new pull request head", async () => {
+  it("does not create a follow-up repair pass when Codex reviews a new pull request head", async () => {
     const result = await runWorkflowScript({
       existingComments: [
         {
-          body: "<!-- codex-autoresolve:head-sha-3 -->",
+          body: "<!-- codex-autoresolve-pr:42 -->\n\n<!-- codex-autoresolve-head:head-sha-3 -->",
           user: { login: "github-actions[bot]", type: "Bot" },
         },
       ],
     });
 
-    expect(result.createdComments).toHaveLength(1);
-    expect(result.createdComments[0]?.body).toContain("<!-- codex-autoresolve:head-sha-4 -->");
+    expect(result.createdComments).toHaveLength(0);
+    expect(result.notices).toContainEqual(expect.stringContaining("Skipping duplicate"));
   });
 
-  it("stops automatic repair after three trusted head-specific requests", async () => {
+  it("stops automatic repair after one trusted legacy request", async () => {
     const result = await runWorkflowScript({
-      existingComments: ["head-sha-1", "head-sha-2", "head-sha-3"].map((sha) => ({
-        body: `<!-- codex-autoresolve:${sha} -->`,
-        user: { login: "github-actions[bot]", type: "Bot" },
-      })),
+      existingComments: [
+        {
+          body: "<!-- codex-autoresolve:legacy-head-sha -->",
+          user: { login: "github-actions[bot]", type: "Bot" },
+        },
+      ],
     });
 
     expect(result.createdComments).toHaveLength(0);
-    expect(result.warnings).toContainEqual(expect.stringContaining("automatic repair limit"));
+    expect(result.warnings).toContainEqual(expect.stringContaining("single automatic repair pass"));
+  });
+
+  it("emits a single-pass prompt with the thread disposition marker", async () => {
+    const result = await runWorkflowScript();
+
+    expect(result.createdComments).toHaveLength(1);
+    expect(result.createdComments[0]?.body).toContain("single automatic repair pass");
+    expect(result.createdComments[0]?.body).toContain("<!-- codex-thread-disposition:resolved -->");
+    expect(result.createdComments[0]?.body).toContain("do not perform a fresh review");
   });
 
   it("does not skip a finding that merely quotes the marker and command", async () => {
@@ -339,6 +374,85 @@ describe("Codex auto-resolve workflow script", () => {
     });
 
     expect(result.createdComments).toHaveLength(1);
+  });
+
+  it("ignores review-thread replies without the resolved disposition marker", async () => {
+    const result = await runWorkflowScript({
+      reviewComment: { body: "Fixed in the latest commit.", in_reply_to_id: 41 },
+    });
+
+    expect(result.graphqlCalls).toHaveLength(0);
+    expect(result.createdComments).toHaveLength(0);
+    expect(result.notices).toContainEqual(expect.stringContaining("without the trusted resolved disposition marker"));
+  });
+
+  it("resolves the exact review thread after a trusted disposition reply", async () => {
+    const result = await runWorkflowScript({
+      graphqlResults: [
+        {
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                nodes: [
+                  {
+                    comments: { nodes: [{ databaseId: 41 }, { databaseId: 99 }] },
+                    id: "thread-1",
+                    isResolved: false,
+                  },
+                ],
+                pageInfo: { endCursor: null, hasNextPage: false },
+              },
+            },
+          },
+        },
+        { resolveReviewThread: { thread: { id: "thread-1", isResolved: true } } },
+      ],
+      reviewComment: {
+        body: "<!-- codex-thread-disposition:resolved -->\n\nFixed and verified.",
+        in_reply_to_id: 41,
+      },
+    });
+
+    expect(result.graphqlCalls).toHaveLength(2);
+    expect(result.graphqlCalls[1]?.query).toContain("resolveReviewThread");
+    expect(result.graphqlCalls[1]?.variables).toEqual({ threadId: "thread-1" });
+    expect(result.notices).toContainEqual(expect.stringContaining("Resolved the Codex review thread"));
+  });
+
+  it("fails visibly when a disposition reply cannot be mapped to a review thread", async () => {
+    const result = await runWorkflowScript({
+      graphqlResults: [
+        {
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                nodes: [],
+                pageInfo: { endCursor: null, hasNextPage: false },
+              },
+            },
+          },
+        },
+      ],
+      reviewComment: {
+        body: "<!-- codex-thread-disposition:resolved -->\n\nDispositioned.",
+        in_reply_to_id: 41,
+      },
+    });
+
+    expect(result.failures).toContainEqual(expect.stringContaining("could not find the review thread"));
+  });
+
+  it("fails visibly when GitHub rejects direct review-thread resolution", async () => {
+    const result = await runWorkflowScript({
+      graphqlError: new Error("permission denied"),
+      reviewComment: {
+        body: "<!-- codex-thread-disposition:resolved -->\n\nFixed.",
+        in_reply_to_id: 41,
+      },
+    });
+
+    expect(result.failures).toContainEqual(expect.stringContaining("permission denied"));
+    expect(result.warnings).toContainEqual(expect.stringContaining("permission denied"));
   });
 
   it("fails visibly on a permission failure while listing comments", async () => {

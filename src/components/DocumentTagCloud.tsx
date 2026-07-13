@@ -76,7 +76,7 @@ function DocumentTagChip({
   const Icon = groupIcon[tag.group];
   const tagClassName = cn(
     "inline-flex max-w-full items-center gap-1 rounded-md border font-semibold shadow-[var(--shadow-inset)]",
-    compact ? "min-h-6 px-2 text-3xs" : "min-h-7 px-2 text-2xs",
+    compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
     groupToneClass(tag.group),
     tag.queryMatched && "ring-2 ring-[color:var(--focus)]/25",
     selected && "ring-2 ring-[color:var(--primary)]/35",
@@ -161,7 +161,7 @@ export function DocumentTagCloud({
             onClick={() => setExpanded(true)}
             className={cn(
               "w-fit rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-              compact ? "min-h-6 px-2 text-3xs" : "min-h-7 px-2 text-2xs",
+              compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
             )}
             aria-label={`Show ${hiddenCount} more document tags`}
           >
@@ -189,7 +189,7 @@ export function DocumentTagCloud({
           onClick={() => setExpanded(true)}
           className={cn(
             "inline-flex items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-            compact ? "min-h-6 px-2 text-3xs" : "min-h-7 px-2 text-2xs",
+            compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
           )}
           aria-label={`Show ${hiddenCount} more document tags`}
         >
@@ -199,7 +199,7 @@ export function DocumentTagCloud({
         <span
           className={cn(
             "inline-flex items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]",
-            compact ? "min-h-6 px-2 text-3xs" : "min-h-7 px-2 text-2xs",
+            compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
           )}
         >
           +{hiddenCount}

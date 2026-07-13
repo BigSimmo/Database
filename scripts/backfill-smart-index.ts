@@ -26,6 +26,13 @@ type SimpleSupabaseReader = {
   };
 };
 
+/**
+ * Parses command-line arguments into document repair options.
+ *
+ * @param argv - Command-line argument tokens.
+ * @returns The validated repair options.
+ * @throws Error if a required flag value is missing, no scope selector is provided, or the limit is not a positive integer.
+ */
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     allOwners: false,
@@ -65,6 +72,10 @@ function parseArgs(argv: string[]): Args {
     throw new Error("Provide --owner-id, --document-id, --all-owners, or LOCAL_NO_AUTH_OWNER_ID/RAG_EVAL_OWNER_ID.");
   }
   if (!Number.isInteger(args.limit) || args.limit <= 0) throw new Error("--limit must be a positive integer.");
+  // A document id is already an exact, service-role scoped selector. Keeping
+  // the ambient local owner default here made public corpus repairs match zero
+  // rows even when the requested document existed.
+  if (args.documentId) args.ownerId = undefined;
   return args;
 }
 

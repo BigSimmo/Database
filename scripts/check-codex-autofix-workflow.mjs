@@ -10,7 +10,8 @@ const reviewProtocol = fs.readFileSync(reviewProtocolPath, "utf8");
 const failures = [];
 const githubScriptPin = "3a2844b7e9c422d3c10d287c895573f7108da1b3";
 const scopedResolveCommand = "@codex resolve actionable Codex review findings for this pull request and current head";
-const scopedResolvePrompt = `\${scopedResolveCommand} using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit unless explicitly asked. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`;
+const resolvedDispositionMarker = "<!-- codex-thread-disposition:resolved -->";
+const scopedResolvePrompt = `\${scopedResolveCommand} using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. After fixing or dispositioning a thread, reply in that thread with \${resolvedDispositionMarker} as the first line, followed by a concise summary; that marker authorizes the workflow to close that exact thread. If human input or new authorization is required, do not use the marker and leave the thread open with the blocker. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`;
 
 const forbiddenPatterns = [
   {
@@ -44,8 +45,8 @@ const forbiddenPatterns = [
       "Do not apply Codex auto-resolve concurrency to the whole workflow; unrelated review comments must not displace an authorized pending job.",
   },
   {
-    pattern: /^\s*(?:contents|pull-requests):\s*write\s*$/m,
-    message: "Do not grant content or pull-request write permission to the Codex auto-resolve bridge.",
+    pattern: /^\s*contents:\s*write\s*$/m,
+    message: "Do not grant content write permission to the Codex auto-resolve bridge.",
   },
   {
     pattern: /uses:\s*actions\/github-script@v\d+/,
@@ -82,13 +83,27 @@ if (
   failures.push(`${reviewProtocolPath} must preserve the provider confirmation boundary.`);
 }
 
+const requiredInstructionChecks = [
+  [agentInstructionsPath, agentInstructions, "one automatic repair pass per pull request lifetime"],
+  [agentInstructionsPath, agentInstructions, resolvedDispositionMarker],
+  [reviewProtocolPath, reviewProtocol, "Treat GitHub automatic review as one pass per pull request"],
+  [reviewProtocolPath, reviewProtocol, resolvedDispositionMarker],
+  [reviewProtocolPath, reviewProtocol, "Do not start a new review"],
+];
+
+for (const [path, contents, requiredCheck] of requiredInstructionChecks) {
+  if (!contents.includes(requiredCheck)) {
+    failures.push(`${path} is missing automatic review lifecycle guidance: ${requiredCheck}`);
+  }
+}
+
 const requiredTriggerAndPermissionChecks = [
   "  pull_request_review_comment:",
   "    types: [created]",
   "  contents: read",
   "  issues: write",
   "  models: read",
-  "  pull-requests: read",
+  "  pull-requests: write",
   `uses: actions/github-script@${githubScriptPin} # v9.0.0`,
   "github.event.pull_request.state == 'open'",
 ];
@@ -111,8 +126,8 @@ for (const requiredCheck of requiredConcurrencyChecks) {
   }
 }
 
-if (!workflow.includes("codex-autoresolve:${pr.head.sha}")) {
-  failures.push("Codex auto-resolve marker must be scoped to the pull request head SHA.");
+if (!workflow.includes("codex-autoresolve-pr:${pr.number}")) {
+  failures.push("Codex auto-resolve marker must be scoped to the pull request for a single lifetime pass.");
 }
 
 const requiredIdentityChecks = [
@@ -141,10 +156,25 @@ for (const requiredCheck of requiredSelfTriggerChecks) {
   }
 }
 
+const requiredThreadResolutionChecks = [
+  `const resolvedDispositionMarker = "${resolvedDispositionMarker}"`,
+  "replyBody.startsWith(resolvedDispositionMarker)",
+  "reviewThreads(first: 100, after: $cursor)",
+  "resolveReviewThread(input: { threadId: $threadId })",
+  "pull-requests: write",
+  "core.setFailed(message)",
+];
+
+for (const requiredCheck of requiredThreadResolutionChecks) {
+  if (!workflow.includes(requiredCheck)) {
+    failures.push(`Codex auto-resolve workflow is missing direct review-thread resolution: ${requiredCheck}`);
+  }
+}
+
 const requiredDedupeChecks = [
   'comment.user?.type === "Bot"',
   'comment.user.login === "github-actions[bot]"',
-  "const maxAutoResolveRequests = 3",
+  "const maxAutoResolveRequests = 1",
   "const trustedExistingRequests = existingComments.filter(",
   '.trimStart().startsWith("<!-- codex-autoresolve")',
   '(comment.body || "").includes(marker)',
@@ -164,6 +194,10 @@ if (!workflow.includes(`uses: actions/github-script@${githubScriptPin} # v9.0.0`
 
 if (!workflow.includes(`const scopedResolveCommand = "${scopedResolveCommand}";`)) {
   failures.push("Codex auto-resolve workflow must define the scoped actionable-findings command exactly once.");
+}
+
+if (!workflow.includes(`const resolvedDispositionMarker = "${resolvedDispositionMarker}";`)) {
+  failures.push("Codex auto-resolve workflow must define the resolved thread disposition marker exactly once.");
 }
 
 if (!workflow.includes(`\`${scopedResolvePrompt}\``)) {

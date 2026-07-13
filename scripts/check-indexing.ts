@@ -1,4 +1,10 @@
 import { loadEnvConfig } from "@next/env";
+import {
+  hasChunkCountMismatch,
+  isEmptyIndexedDocument,
+  isRegistryProjectionDocument,
+  metadataRecord,
+} from "./lib/indexing-health-document";
 
 loadEnvConfig(process.cwd());
 
@@ -78,16 +84,13 @@ type SchemaHealth = {
   missing?: unknown;
 };
 
-function metadataRecord(metadata: unknown): Record<string, unknown> {
-  return metadata && typeof metadata === "object" && !Array.isArray(metadata)
-    ? (metadata as Record<string, unknown>)
-    : {};
-}
+const documentIdBatchSize = 50;
 
 type DocumentHealthRow = {
   id: string;
   owner_id: string | null;
   title: string | null;
+  file_name: string | null;
   content_hash: string | null;
   status: string | null;
   page_count: number | null;
@@ -95,6 +98,12 @@ type DocumentHealthRow = {
   metadata: unknown;
 };
 
+/**
+ * Loads document health records from Supabase in ascending ID order.
+ *
+ * @param pageSize - The maximum number of documents to load per query.
+ * @returns The loaded document health records.
+ */
 async function loadAllDocuments(supabase: SupabaseLike, pageSize = 1000) {
   const documents: DocumentHealthRow[] = [];
   let cursor: string | null = null;
@@ -102,7 +111,7 @@ async function loadAllDocuments(supabase: SupabaseLike, pageSize = 1000) {
   for (;;) {
     const query = supabase
       .from("documents")
-      .select<DocumentHealthRow>("id,owner_id,title,content_hash,status,page_count,chunk_count,metadata")
+      .select<DocumentHealthRow>("id,owner_id,title,file_name,content_hash,status,page_count,chunk_count,metadata")
       .order("id", { ascending: true });
     const pagedQuery: QueryBuilder<DocumentHealthRow> = cursor ? query.gt("id", cursor) : query;
 
@@ -122,11 +131,23 @@ function hasCurrentEnrichmentVersion(metadata: unknown, expectedVersion: string)
   return metadataRecord(metadata).rag_enrichment_version === expectedVersion;
 }
 
+/**
+ * Determines whether metadata contains the expected memory or indexing version.
+ *
+ * @param metadata - Metadata to inspect.
+ * @param expectedVersion - Version that must match.
+ * @returns `true` if either the memory or indexing version matches, `false` otherwise.
+ */
 function hasCurrentMemoryVersion(metadata: unknown, expectedVersion: string) {
   const record = metadataRecord(metadata);
   return record.rag_memory_version === expectedVersion || record.rag_indexing_version === expectedVersion;
 }
 
+/**
+ * Determines whether the current enrichment version is required.
+ *
+ * @returns `true` if the strict enrichment version flag or environment variable is enabled, `false` otherwise.
+ */
 function strictEnrichmentVersionRequired() {
   return (
     process.argv.includes("--strict-enrichment-version") || process.env.RAG_REQUIRE_CURRENT_ENRICHMENT_VERSION === "1"
@@ -167,12 +188,18 @@ function readableReadinessError(error: unknown) {
   return message;
 }
 
+/**
+ * Loads enrichment summaries and labels for the specified documents.
+ *
+ * @param documentIds - The document IDs whose enrichment rows should be loaded
+ * @returns The loaded summary and label rows grouped as `summaries` and `labels`
+ */
 async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[]) {
   const summaries: MetadataRow[] = [];
   const labels: MetadataRow[] = [];
 
-  for (let start = 0; start < documentIds.length; start += 5) {
-    const ids = documentIds.slice(start, start + 5);
+  for (let start = 0; start < documentIds.length; start += documentIdBatchSize) {
+    const ids = documentIds.slice(start, start + documentIdBatchSize);
     const [summaryResult, labelResult] = await Promise.all([
       supabase.from("document_summaries").select("document_id,metadata->rag_enrichment_version").in("document_id", ids),
       supabase
@@ -214,6 +241,15 @@ async function loadEnrichmentRows(supabase: SupabaseLike, documentIds: string[])
   return { summaries, labels };
 }
 
+/**
+ * Loads document-related rows in batches and converts valid results into metadata rows.
+ *
+ * @param table - The table from which to load rows
+ * @param select - The columns to retrieve
+ * @param documentIds - The document identifiers whose rows should be loaded
+ * @param orderColumns - The columns used to order each result page
+ * @returns The valid metadata rows associated with the specified documents
+ */
 async function loadRowsForDocuments(
   supabase: SupabaseLike,
   table: string,
@@ -222,8 +258,8 @@ async function loadRowsForDocuments(
   orderColumns = ["document_id", "id"],
 ) {
   const rows: MetadataRow[] = [];
-  for (let start = 0; start < documentIds.length; start += 5) {
-    const ids = documentIds.slice(start, start + 5);
+  for (let start = 0; start < documentIds.length; start += documentIdBatchSize) {
+    const ids = documentIds.slice(start, start + documentIdBatchSize);
     for (let rangeStart = 0; ; rangeStart += 1000) {
       let query = supabase.from(table).select(select).in("document_id", ids);
       for (const column of orderColumns) {
@@ -242,44 +278,49 @@ async function loadRowsForDocuments(
   return rows;
 }
 
+/**
+ * Loads deep-memory rows and related index-quality data for the specified documents.
+ *
+ * @param documentIds - Document identifiers whose related rows should be loaded
+ * @returns The loaded sections, memory cards, chunks, table facts, embedding fields, index units, quality rows, and any missing-schema messages
+ * @throws Propagates query errors and errors unrelated to a missing `document_index_units` table
+ */
 async function loadDeepMemoryRows(supabase: SupabaseLike, documentIds: string[]) {
-  const sections = await loadRowsForDocuments(
-    supabase,
-    "document_sections",
-    "document_id,metadata->rag_memory_version,metadata->rag_indexing_version",
-    documentIds,
-  );
-  const memoryCards = await loadRowsForDocuments(
-    supabase,
-    "document_memory_cards",
-    "document_id,metadata->rag_memory_version,metadata->rag_indexing_version",
-    documentIds,
-  );
-  const chunks = await loadRowsForDocuments(
-    supabase,
-    "document_chunks",
-    "document_id,metadata->rag_memory_version,metadata->rag_indexing_version,content_hash,index_generation_id,section_path,anchor_id",
-    documentIds,
-  );
-  const tableFacts = await loadRowsForDocuments(
-    supabase,
-    "document_table_facts",
-    "document_id,metadata->rag_memory_version,metadata->rag_indexing_version",
-    documentIds,
-  );
-  const embeddingFields = await loadRowsForDocuments(
-    supabase,
-    "document_embedding_fields",
-    "document_id,metadata->rag_memory_version,metadata->rag_indexing_version",
-    documentIds,
-  );
-  const qualityRows = await loadRowsForDocuments(
-    supabase,
-    "document_index_quality",
-    "document_id,quality_score,issues",
-    documentIds,
-    ["document_id"],
-  );
+  const [sections, memoryCards, chunks, tableFacts, embeddingFields, qualityRows] = await Promise.all([
+    loadRowsForDocuments(
+      supabase,
+      "document_sections",
+      "document_id,metadata->rag_memory_version,metadata->rag_indexing_version",
+      documentIds,
+    ),
+    loadRowsForDocuments(
+      supabase,
+      "document_memory_cards",
+      "document_id,metadata->rag_memory_version,metadata->rag_indexing_version",
+      documentIds,
+    ),
+    loadRowsForDocuments(
+      supabase,
+      "document_chunks",
+      "document_id,metadata->rag_memory_version,metadata->rag_indexing_version,content_hash,index_generation_id,section_path,anchor_id",
+      documentIds,
+    ),
+    loadRowsForDocuments(
+      supabase,
+      "document_table_facts",
+      "document_id,metadata->rag_memory_version,metadata->rag_indexing_version",
+      documentIds,
+    ),
+    loadRowsForDocuments(
+      supabase,
+      "document_embedding_fields",
+      "document_id,metadata->rag_memory_version,metadata->rag_indexing_version",
+      documentIds,
+    ),
+    loadRowsForDocuments(supabase, "document_index_quality", "document_id,quality_score,issues", documentIds, [
+      "document_id",
+    ]),
+  ]);
   let indexUnits: MetadataRow[] = [];
   const missingSchema: string[] = [];
   try {
@@ -297,6 +338,11 @@ async function loadDeepMemoryRows(supabase: SupabaseLike, documentIds: string[])
   return { sections, memoryCards, chunks, tableFacts, embeddingFields, indexUnits, qualityRows, missingSchema };
 }
 
+/**
+ * Verifies indexing prerequisites, database health, document coverage, and indexing consistency.
+ *
+ * @throws If prerequisites fail, required database resources are unavailable, or readiness checks detect issues.
+ */
 async function main() {
   const [
     { env, requireOpenAIEnv, requireServerEnv },
@@ -359,14 +405,20 @@ async function main() {
   const pendingIndexedDocuments = documents.filter(
     (document) => document.status === "indexed" && metadataRecord(document.metadata).enrichment_status === "pending",
   );
-  const enrichmentRows = await loadEnrichmentRows(
-    supabaseForChecks,
-    indexedDocuments.map((document) => document.id),
-  );
-  const deepMemoryRows = await loadDeepMemoryRows(
-    supabaseForChecks,
-    indexedDocuments.map((document) => document.id),
-  );
+  // Registry projections are deliberately lightweight, one-chunk searchable
+  // documents generated from clinical_registry_records. They have content and
+  // vector embeddings, but do not need the PDF-oriented enrichment/deep-memory
+  // artifact families. Requiring those artifacts caused a healthy corpus to
+  // look 786 documents behind and would trigger an unnecessary model backfill.
+  const registryProjectionDocuments = indexedDocuments.filter(isRegistryProjectionDocument);
+  const richIndexedDocuments = indexedDocuments.filter((document) => !isRegistryProjectionDocument(document));
+  const registryProjectionIds = registryProjectionDocuments.map((document) => document.id);
+  const indexedDocumentIds = richIndexedDocuments.map((document) => document.id);
+  const [enrichmentRows, deepMemoryRows, registryChunkRows] = await Promise.all([
+    loadEnrichmentRows(supabaseForChecks, indexedDocumentIds),
+    loadDeepMemoryRows(supabaseForChecks, indexedDocumentIds),
+    loadRowsForDocuments(supabaseForChecks, "document_chunks", "document_id", registryProjectionIds, ["document_id"]),
+  ]);
   const summariesByDocument = new Map(enrichmentRows.summaries.map((row) => [row.document_id, row]));
   const labelRowsByDocument = new Map<string, MetadataRow[]>();
   const sectionRowsByDocument = new Map<string, MetadataRow[]>();
@@ -387,6 +439,9 @@ async function main() {
   for (const chunk of deepMemoryRows.chunks) {
     chunkRowsByDocument.set(chunk.document_id, [...(chunkRowsByDocument.get(chunk.document_id) ?? []), chunk]);
   }
+  for (const chunk of registryChunkRows) {
+    chunkRowsByDocument.set(chunk.document_id, [...(chunkRowsByDocument.get(chunk.document_id) ?? []), chunk]);
+  }
 
   const duplicateHashGroups = new Map<string, string[]>();
   for (const document of documents ?? []) {
@@ -395,18 +450,15 @@ async function main() {
     duplicateHashGroups.set(key, [...(duplicateHashGroups.get(key) ?? []), document.title ?? document.id]);
   }
   const duplicateGroups = Array.from(duplicateHashGroups.values()).filter((titles) => titles.length > 1);
-  const emptyIndexedDocuments = indexedDocuments.filter(
-    (document) =>
-      document.status === "indexed" && ((document.page_count ?? 0) === 0 || (document.chunk_count ?? 0) === 0),
+  const emptyIndexedDocuments = indexedDocuments.filter(isEmptyIndexedDocument);
+  const documentsWithChunkCountMismatch = indexedDocuments.filter((document) =>
+    hasChunkCountMismatch(document, (chunkRowsByDocument.get(document.id) ?? []).length),
   );
-  const documentsWithChunkCountMismatch = indexedDocuments.filter(
-    (document) => (chunkRowsByDocument.get(document.id) ?? []).length !== (document.chunk_count ?? 0),
-  );
-  const documentsMissingSummaries = indexedDocuments.filter((document) => !summariesByDocument.has(document.id));
-  const documentsMissingGeneratedLabels = indexedDocuments.filter((document) =>
+  const documentsMissingSummaries = richIndexedDocuments.filter((document) => !summariesByDocument.has(document.id));
+  const documentsMissingGeneratedLabels = richIndexedDocuments.filter((document) =>
     (labelRowsByDocument.get(document.id) ?? []).every((label) => label.source !== "generated"),
   );
-  const documentsWithCurrentEnrichmentVersion = indexedDocuments.filter((document) => {
+  const documentsWithCurrentEnrichmentVersion = richIndexedDocuments.filter((document) => {
     const summary = summariesByDocument.get(document.id);
     const generatedLabels = (labelRowsByDocument.get(document.id) ?? []).filter(
       (label) => label.source === "generated",
@@ -418,14 +470,14 @@ async function main() {
     );
   });
   const documentsMissingCurrentEnrichmentVersion =
-    indexedDocuments.length - documentsWithCurrentEnrichmentVersion.length;
-  const documentsMissingSections = indexedDocuments.filter(
+    richIndexedDocuments.length - documentsWithCurrentEnrichmentVersion.length;
+  const documentsMissingSections = richIndexedDocuments.filter(
     (document) => (sectionRowsByDocument.get(document.id) ?? []).length === 0,
   );
-  const documentsMissingMemoryCards = indexedDocuments.filter(
+  const documentsMissingMemoryCards = richIndexedDocuments.filter(
     (document) => (memoryRowsByDocument.get(document.id) ?? []).length === 0,
   );
-  const documentsWithCurrentDeepMemoryVersion = indexedDocuments.filter((document) => {
+  const documentsWithCurrentDeepMemoryVersion = richIndexedDocuments.filter((document) => {
     const sections = sectionRowsByDocument.get(document.id) ?? [];
     const memoryCards = memoryRowsByDocument.get(document.id) ?? [];
     const chunks = chunkRowsByDocument.get(document.id) ?? [];
@@ -438,24 +490,24 @@ async function main() {
     );
   });
   const documentsMissingCurrentDeepMemoryVersion =
-    indexedDocuments.length - documentsWithCurrentDeepMemoryVersion.length;
+    richIndexedDocuments.length - documentsWithCurrentDeepMemoryVersion.length;
   const chunksMissingContentHash = deepMemoryRows.chunks.filter((chunk) => !chunk.content_hash);
   const chunksMissingIndexGeneration = deepMemoryRows.chunks.filter((chunk) => !chunk.index_generation_id);
   const chunksMissingSectionPath = deepMemoryRows.chunks.filter((chunk) => !chunk.section_path?.length);
   const chunksMissingAnchors = deepMemoryRows.chunks.filter((chunk) => !chunk.anchor_id);
   const qualityByDocument = new Map(deepMemoryRows.qualityRows.map((row) => [row.document_id, row]));
-  const documentsMissingQualityRows = indexedDocuments.filter((document) => !qualityByDocument.has(document.id));
-  const documentsWithLowQualityScore = indexedDocuments.filter((document) => {
+  const documentsMissingQualityRows = richIndexedDocuments.filter((document) => !qualityByDocument.has(document.id));
+  const documentsWithLowQualityScore = richIndexedDocuments.filter((document) => {
     const score = Number(qualityByDocument.get(document.id)?.quality_score ?? 1);
     return Number.isFinite(score) && score < 0.45;
   });
-  const documentsMissingEmbeddingFields = indexedDocuments.filter(
+  const documentsMissingEmbeddingFields = richIndexedDocuments.filter(
     (document) => !deepMemoryRows.embeddingFields.some((row) => row.document_id === document.id),
   );
-  const documentsMissingIndexUnits = indexedDocuments.filter(
+  const documentsMissingIndexUnits = richIndexedDocuments.filter(
     (document) => !deepMemoryRows.indexUnits.some((row) => row.document_id === document.id),
   );
-  const documentsWithStaleIndexGeneration = indexedDocuments.filter((document) => {
+  const documentsWithStaleIndexGeneration = richIndexedDocuments.filter((document) => {
     const generation = metadataRecord(document.metadata).index_generation_id;
     const chunks = chunkRowsByDocument.get(document.id) ?? [];
     return Boolean(
@@ -585,6 +637,9 @@ async function main() {
   console.log(
     `Indexed documents: completed=${indexedDocuments.length}; pending=${pendingIndexedDocuments.length}; empty=${emptyIndexedDocuments.length}`,
   );
+  console.log(
+    `Indexing profiles: rich=${richIndexedDocuments.length}; searchable registry projections=${registryProjectionDocuments.length}`,
+  );
   if (pendingIndexedDocuments.length > 0) {
     console.log(`Pending enrichment queue: ${pendingIndexedDocuments.length}; limit=${pendingEnrichmentLimit}`);
   }
@@ -596,16 +651,16 @@ async function main() {
     `Section hierarchy coverage: chunks missing section paths=${chunksMissingSectionPath.length}; chunks missing anchors=${chunksMissingAnchors.length}`,
   );
   console.log(
-    `Structured index coverage: table facts=${deepMemoryRows.tableFacts.length}; embedding fields=${deepMemoryRows.embeddingFields.length}; index units=${deepMemoryRows.indexUnits.length}; quality rows=${deepMemoryRows.qualityRows.length}/${indexedDocuments.length}; low-quality documents=${documentsWithLowQualityScore.length}`,
+    `Structured index coverage: table facts=${deepMemoryRows.tableFacts.length}; embedding fields=${deepMemoryRows.embeddingFields.length}; index units=${deepMemoryRows.indexUnits.length}; quality rows=${deepMemoryRows.qualityRows.length}/${richIndexedDocuments.length}; low-quality documents=${documentsWithLowQualityScore.length}`,
   );
   console.log(
     `Enrichment coverage: summaries missing=${documentsMissingSummaries.length}; generated labels missing=${documentsMissingGeneratedLabels.length}`,
   );
   console.log(
-    `RAG enrichment version: ${documentsWithCurrentEnrichmentVersion.length}/${indexedDocuments.length} indexed current (${ragEnrichmentVersion}); strict=${requireCurrentEnrichmentVersion ? "yes" : "no"}`,
+    `RAG enrichment version: ${documentsWithCurrentEnrichmentVersion.length}/${richIndexedDocuments.length} rich indexed current (${ragEnrichmentVersion}); strict=${requireCurrentEnrichmentVersion ? "yes" : "no"}`,
   );
   console.log(
-    `Deep memory version: ${documentsWithCurrentDeepMemoryVersion.length}/${indexedDocuments.length} indexed current (${ragDeepMemoryVersion}); sections missing=${documentsMissingSections.length}; memory cards missing=${documentsMissingMemoryCards.length}`,
+    `Deep memory version: ${documentsWithCurrentDeepMemoryVersion.length}/${richIndexedDocuments.length} rich indexed current (${ragDeepMemoryVersion}); sections missing=${documentsMissingSections.length}; memory cards missing=${documentsMissingMemoryCards.length}`,
   );
   console.log(`Duplicate content-hash groups: ${duplicateGroups.length}`);
   console.log(`Chunks missing embeddings: ${missingEmbeddingResult.count ?? 0}`);

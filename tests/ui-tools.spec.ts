@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "playwright/test";
 import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
+import { formRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
 
@@ -124,9 +125,7 @@ async function mockAnswerDashboardApi(page: Page) {
   await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
     const kind = new URL(route.request().url()).searchParams.get("kind");
     const records =
-      kind === "form"
-        ? [{ slug: "transport-crisis-form", title: "Transport order", subtitle: "Crisis transport form" }]
-        : [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }];
+      kind === "form" ? formRecords : [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }];
     await route.fulfill({
       json: {
         records,
@@ -377,6 +376,9 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("mode toggle stays global on the services home route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    // Asserts the collapsed rail affordance below; seed the remembered
+    // preference now that new users default to the labelled sidebar.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoLauncher(page, "/?mode=answer");
 
     // Re-open + re-click on each retry: a single click can be swallowed while the
@@ -550,14 +552,15 @@ test.describe("Clinical KB tools launcher", () => {
 
       const warning = page.getByTestId("answer-composer-privacy-warning");
       await expect(warning).toBeVisible();
-      await expect(warning).toHaveText("Don't enter identifiable patient details.");
+      await expect(warning).toContainText("Do not enter patient-identifiable information.");
+      await expect(warning.getByRole("link", { name: "Privacy and data processing" })).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveAttribute(
         "aria-describedby",
         "answer-composer-privacy-warning",
       );
-      await expect(
-        page.getByTestId("answer-empty-state").getByRole("link", { name: "Privacy & data handling" }),
-      ).toBeVisible();
+      // The composer notice is the single site-wide privacy element — no other
+      // /privacy link (e.g. the old hero-footer duplicate) may render with it.
+      await expect(page.locator('a[href="/privacy"]')).toHaveCount(1);
     }
   });
 
@@ -828,6 +831,41 @@ test.describe("Clinical KB tools launcher", () => {
       page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order"),
     ).toHaveAttribute("href", "/forms/transport-crisis-form");
     await expect(page.getByTestId("service-search-results")).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("result sorting persists in the URL and restores through browser history", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
+    await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
+
+    const results = page.getByTestId("form-search-results");
+    const visibleSort = page.locator('select[aria-label="Sort results"]:visible');
+    await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
+      "data-testid",
+      "form-search-result-transport-crisis-form",
+    );
+
+    await visibleSort.selectOption("alpha");
+    await expect(page).toHaveURL(/\bsort=alpha\b/);
+    await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
+      "data-testid",
+      "form-search-result-detention-examination-movement",
+    );
+
+    await page.goBack();
+    await expect(visibleSort).toHaveValue("relevance");
+    await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
+      "data-testid",
+      "form-search-result-transport-crisis-form",
+    );
+
+    await page.goForward();
+    await expect(visibleSort).toHaveValue("alpha");
+    await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
+      "data-testid",
+      "form-search-result-detention-examination-movement",
+    );
     await expectNoPageHorizontalOverflow(page);
   });
 

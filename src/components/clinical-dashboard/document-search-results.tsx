@@ -3,7 +3,6 @@
 import { memo, useMemo, useState } from "react";
 import {
   BookOpen,
-  ChevronDown,
   Clock3,
   ExternalLink,
   FileImage,
@@ -17,7 +16,6 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
   Tag,
   Target,
@@ -30,7 +28,8 @@ import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { ResultSortControl, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { useResultSort } from "@/components/use-result-sort";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import {
   DocumentActionButton,
@@ -61,6 +60,7 @@ import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
 import type { ClinicalDocument, DocumentMatch, SearchResult } from "@/lib/types";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
+import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
 import { documentRelevancePercent } from "./relevance-score";
 
 type SearchFacet = { value: string; count: number };
@@ -191,7 +191,7 @@ function DocumentTagFacetRail({
                         )}
                       >
                         <span className="truncate">{facet.label}</span>
-                        <span className="rounded bg-[color:var(--surface)] px-1 text-3xs text-[color:var(--text-soft)]">
+                        <span className="rounded bg-[color:var(--surface)] px-1 text-2xs text-[color:var(--text-muted)]">
                           {facet.count}
                         </span>
                       </button>
@@ -348,7 +348,11 @@ function DocumentSearchHome({
       }))}
       footer={
         <div className="grid w-full gap-3">
-          <ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical document library" />
+          <ModeHomeVerificationFooter
+            icon={ShieldCheck}
+            label="Searches indexed clinical sources"
+            body="Clinical document library"
+          />
           {documentCount > 0 ? (
             <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
               {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
@@ -360,7 +364,17 @@ function DocumentSearchHome({
   );
 }
 
-function SearchResultsHeader({ resultLabel, trimmedQuery }: { resultLabel: string; trimmedQuery: string }) {
+function SearchResultsHeader({
+  resultLabel,
+  trimmedQuery,
+  sortValue,
+  onSortChange,
+}: {
+  resultLabel: string;
+  trimmedQuery: string;
+  sortValue: ResultSortValue;
+  onSortChange: (value: ResultSortValue) => void;
+}) {
   return (
     <section className="flex items-start justify-between gap-3">
       <div className="min-w-0">
@@ -381,17 +395,7 @@ function SearchResultsHeader({ resultLabel, trimmedQuery }: { resultLabel: strin
           </div>
         </div>
       </div>
-      <button
-        type="button"
-        className={cn(
-          floatingControl,
-          "min-h-11 shrink-0 gap-2 rounded-lg px-3 text-sm text-[color:var(--text-heading)]",
-        )}
-      >
-        <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
-        Best match
-        <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
-      </button>
+      <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-11 shrink-0 lg:hidden" />
     </section>
   );
 }
@@ -700,7 +704,7 @@ function SearchRecordResults({
                       key={card.id}
                       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5"
                     >
-                      <dt className="text-3xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                      <dt className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
                         {card.label ?? card.id}
                       </dt>
                       <dd className="mt-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
@@ -810,6 +814,7 @@ function DocumentSearchResultsPanelImpl({
   desktopComposerSlotId?: string;
 }) {
   void _facets;
+  const [sortValue, setSortValue] = useResultSort();
   const trimmedQuery = query.trim();
   const [activeFacetState, setActiveFacetState] = useState<{ query: string; keys: string[] }>({ query: "", keys: [] });
   const [activeResultType, setActiveResultType] = useState<ResultTypeFilter>("all");
@@ -830,8 +835,12 @@ function DocumentSearchResultsPanelImpl({
     () => filterMatchesByResultType(visibleMatches, effectiveResultType),
     [visibleMatches, effectiveResultType],
   );
+  const sortedMatches = useMemo(
+    () => sortResultItems(displayedMatches, sortValue, documentDisplayTitle),
+    [displayedMatches, sortValue],
+  );
   const selectedDocument =
-    displayedMatches.find((document) => document.document_id === selectedDocumentId) ?? displayedMatches[0] ?? null;
+    sortedMatches.find((document) => document.document_id === selectedDocumentId) ?? sortedMatches[0] ?? null;
   const recordMatchCount = recordMatches.length;
   const recordCopy = searchRecordConfig[recordMode];
   const shouldShowHome = showHome || !trimmedQuery;
@@ -863,12 +872,12 @@ function DocumentSearchResultsPanelImpl({
     }
     if (recordMatchCount > 0 && matches.length > 0) {
       return `${recordMatchCount} ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"} and ${
-        displayedMatches.length
-      } document${displayedMatches.length === 1 ? "" : "s"}`;
+        sortedMatches.length
+      } document${sortedMatches.length === 1 ? "" : "s"}`;
     }
     if (recordMatchCount > 0)
       return `${recordMatchCount} ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"}`;
-    if (matches.length) return `${displayedMatches.length} document${displayedMatches.length === 1 ? "" : "s"}`;
+    if (matches.length) return `${sortedMatches.length} document${sortedMatches.length === 1 ? "" : "s"}`;
     if (trimmedQuery) return "No matching documents";
     return `${documentCount} document${documentCount === 1 ? "" : "s"}`;
   })();
@@ -879,8 +888,10 @@ function DocumentSearchResultsPanelImpl({
           <SearchResultsHeaderBand
             modeId="documents"
             query={trimmedQuery}
-            matchCount={displayedMatches.length}
+            matchCount={sortedMatches.length}
             loading={loading}
+            sortValue={sortValue}
+            onSortChange={setSortValue}
           />
         </div>
       ) : null}
@@ -889,7 +900,12 @@ function DocumentSearchResultsPanelImpl({
       (trimmedQuery && !shouldShowHome) ||
       loading ||
       (unavailableMessage && !shouldShowHome) ? (
-        <SearchResultsHeader resultLabel={resultLabel} trimmedQuery={trimmedQuery} />
+        <SearchResultsHeader
+          resultLabel={resultLabel}
+          trimmedQuery={trimmedQuery}
+          sortValue={sortValue}
+          onSortChange={setSortValue}
+        />
       ) : null}
 
       {unavailableMessage ? (
@@ -936,7 +952,7 @@ function DocumentSearchResultsPanelImpl({
         <>
           <DocumentResultsOverview
             documentCount={Math.max(documentCount, matches.length)}
-            displayedCount={displayedMatches.length}
+            displayedCount={sortedMatches.length}
             matchCount={matches.length}
             activeFacetCount={activeFacetKeys.length}
             trimmedQuery={trimmedQuery}
@@ -976,17 +992,17 @@ function DocumentSearchResultsPanelImpl({
           ) : null}
           {activeFacetKeys.length > 0 ? (
             <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-2xs")}>
-              {displayedMatches.length} result{displayedMatches.length === 1 ? "" : "s"} after filters
+              {sortedMatches.length} result{sortedMatches.length === 1 ? "" : "s"} after filters
             </div>
           ) : null}
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="min-w-0 space-y-3">
-              {displayedMatches.length === 0 ? (
+              {sortedMatches.length === 0 ? (
                 <div className={cn(panelSubtle, "p-4 text-sm font-semibold text-[color:var(--text-muted)]")}>
                   No document matches include all selected filters.
                 </div>
               ) : null}
-              {displayedMatches.map((document, index) => {
+              {sortedMatches.map((document, index) => {
                 const relevanceDisplay = relevanceTone(document);
                 const fileKind = documentFileKind(document.file_name, "DOC");
                 const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";

@@ -5,7 +5,7 @@ import {
   buildIndexingCoverageProfile,
   selectCoverageAwarePromptChunks,
 } from "@/lib/indexing-coverage";
-import { generateStructuredTextResponse } from "@/lib/openai";
+import { generateStructuredTextResult } from "@/lib/openai";
 import { cleanClinicalSummaryText, fenceSourceEvidence, sourceTextForModelEvidence } from "@/lib/source-text-sanitizer";
 
 export const modelIndexExtractionVersion = "model-heavy-index-v1" as const;
@@ -368,8 +368,10 @@ export async function generateModelIndexProfile(args: {
 }) {
   if (args.chunks.length === 0) return emptyProfile();
   const model = env.OPENAI_INDEXING_MODEL;
-  const raw = await generateStructuredTextResponse(buildPrompt({ ...args, images: args.images ?? [] }), schema, {
+  const result = await generateStructuredTextResult(buildPrompt({ ...args, images: args.images ?? [] }), schema, {
     model,
+    // Answer-size budget; responseBody() floors the effective cap by reasoning effort so
+    // medium-effort reasoning cannot starve the model-index JSON (reasoningHeadroomFloor).
     maxOutputTokens: 3200,
     operation: "summary",
     schemaName: "clinical_model_index_profile",
@@ -377,7 +379,16 @@ export async function generateModelIndexProfile(args: {
     reasoningEffort: "medium",
     textVerbosity: "medium",
   });
-  return parseProfile(raw, args.chunks, args.images ?? [], model);
+  // Ingestion runs unattended over the whole corpus; a truncated extraction silently drops
+  // model-index coverage for the document. Warn loudly (greppable, with document identity)
+  // instead of failing silent; parsing still proceeds on the partial text.
+  if (result.truncated) {
+    console.warn("model-index extraction truncated", {
+      document: args.document.file_name ?? args.document.title,
+      reason: result.incompleteReason ?? result.status ?? "unknown",
+    });
+  }
+  return parseProfile(result.text, args.chunks, args.images ?? [], model);
 }
 
 export function fallbackModelIndexProfile() {

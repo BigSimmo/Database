@@ -682,16 +682,16 @@ export function IngestionQualityConsole({
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={cn(metadataPill, "min-h-6 px-2 text-3xs", qualityReviewTone(item.severity))}>
+                    <span className={cn(metadataPill, "min-h-6 px-2 text-2xs", qualityReviewTone(item.severity))}>
                       {qualityReviewLabels[item.type]}
                     </span>
                     {item.qualityScore !== null ? (
-                      <span className={cn(metadataPill, "nums min-h-6 px-2 text-3xs")}>
+                      <span className={cn(metadataPill, "nums min-h-6 px-2 text-2xs")}>
                         index {item.qualityScore.toFixed(2)}
                       </span>
                     ) : null}
                     {item.extractionQuality ? (
-                      <span className={cn(metadataPill, "min-h-6 px-2 text-3xs")}>
+                      <span className={cn(metadataPill, "min-h-6 px-2 text-2xs")}>
                         extraction:{item.extractionQuality}
                       </span>
                     ) : null}
@@ -842,7 +842,7 @@ export function LibraryHealthStrip({
             )}
             aria-label={item.actionLabel}
           >
-            <p className="text-3xs font-bold uppercase tracking-[0.06em] opacity-80">{item.label}</p>
+            <p className="text-2xs font-bold uppercase tracking-[0.06em]">{item.label}</p>
             <p className="mt-1 text-xs font-semibold">{item.value}</p>
           </button>
         ))}

@@ -423,12 +423,20 @@ export function verifyAnswerNumbers(
     return { answerTokens, unverifiedTokens, hasUnverifiedNumbers: unverifiedTokens.length > 0 };
   }
 
-  // Top-level citations do not identify which sentence each citation supports.
-  // Require each semantic clinical value to be present in every cited chunk,
-  // rather than allowing an unrelated citation to verify it by union membership.
-  const sourceAtomSets = citedResults.map((result) => sourceClinicalValueAtomSet([result]));
+  // A clinical value is verified when it appears verbatim in at least one chunk the
+  // answer actually cites (union over cited chunks). Multi-source answers legitimately
+  // draw different figures from different cited chunks — e.g. a dose-review interval
+  // from one chunk and a maximum daily dose from another — so requiring every atom to
+  // appear in EVERY cited chunk (intersection) flagged nearly all stitched multi-chunk
+  // answers as unverified and demoted correct grounded answers to "unsupported".
+  // Fabricated or mis-transcribed figures still fail: they appear in NO cited chunk.
+  // Cross-entity misattribution (drug A's sentence carrying drug B's cited dose) is
+  // out of reach for bare atom membership either way; that risk is owned by the
+  // claim-support verification layer (rag-claim-support.ts), and sections with their
+  // own citation_chunk_ids are still verified only against their scoped chunks.
+  const sourceAtoms = sourceClinicalValueAtomSet(citedResults);
   const unverifiedTokens = answerAtoms
-    .filter((atom) => !sourceAtomSets.every((atoms) => atoms.has(clinicalValueAtomKey(atom))))
+    .filter((atom) => !sourceAtoms.has(clinicalValueAtomKey(atom)))
     .map(clinicalValueAtomDisplay);
 
   return {
@@ -490,22 +498,37 @@ export function applyNumericVerification(answer: RagAnswer, verificationSources?
   const sources = verificationSources ?? answer.sources ?? [];
   const unverified = new Set<string>();
 
-  // B4: the model is instructed to put dose details in structured
-  // answerSections (kind medication_dose), so a top-level-only scan never sees
-  // section-body doses. Verify the top-level answer AND every section body.
-  // Each section is scoped to its own citation_chunk_ids when present, so a
-  // dose is only credited against the chunks that section actually cites;
-  // sections with no citations fall back to the answer-level citations.
-  const answerVerification = verifyAnswerNumbers(answer.answer, answer.citations, sources);
-  for (const token of answerVerification.unverifiedTokens) unverified.add(token);
+  const claimScopedValues = (answer.supportedClaims ?? []).filter(
+    (claim) => extractClinicalValueAtoms(claim.text).length > 0,
+  );
+  if (claimScopedValues.length > 0) {
+    // Claim assessment has already checked entity, polarity, clinical dimension,
+    // and exact value co-location. Verify each value against the union of chunks
+    // that directly support its claim. Checking unrelated top-level citations
+    // either rejects valid multi-source answers or permits cross-claim support.
+    for (const claim of claimScopedValues) {
+      const verification = verifyAnswerNumbers(
+        claim.text,
+        claim.supportingChunkIds.map((chunk_id) => ({ chunk_id })),
+        sources,
+      );
+      for (const token of verification.unverifiedTokens) unverified.add(token);
+    }
+  } else {
+    // B4: before claim provenance is available, verify top-level prose and every
+    // section body against their explicit citation scopes. This preserves the
+    // fail-closed parse/fallback paths as well as direct callers of this helper.
+    const answerVerification = verifyAnswerNumbers(answer.answer, answer.citations, sources);
+    for (const token of answerVerification.unverifiedTokens) unverified.add(token);
 
-  for (const section of answer.answerSections ?? []) {
-    const sectionCitations =
-      section.citation_chunk_ids.length > 0
-        ? section.citation_chunk_ids.map((chunk_id) => ({ chunk_id }))
-        : answer.citations;
-    const sectionVerification = verifyAnswerNumbers(section.body, sectionCitations, sources);
-    for (const token of sectionVerification.unverifiedTokens) unverified.add(token);
+    for (const section of answer.answerSections ?? []) {
+      const sectionCitations =
+        section.citation_chunk_ids.length > 0
+          ? section.citation_chunk_ids.map((chunk_id) => ({ chunk_id }))
+          : answer.citations;
+      const sectionVerification = verifyAnswerNumbers(section.body, sectionCitations, sources);
+      for (const token of sectionVerification.unverifiedTokens) unverified.add(token);
+    }
   }
 
   if (unverified.size === 0) return answer;

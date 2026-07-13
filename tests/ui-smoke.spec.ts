@@ -885,9 +885,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("global-search-input")).toBeEnabled();
   });
 
+  test("desktop sidebar defaults to the labelled state for new users", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=answer");
+    await waitForDemoDashboardReady(page);
+
+    // No stored preference (PT-10): eight icon-only destinations demand recall,
+    // so first-run desktop shows the labelled sidebar; collapse is remembered.
+    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
+  });
+
   test("desktop sidebar mode sync and accessibility affordances stay coherent", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
+    // This journey exercises the remembered-collapsed rail; new users now
+    // default to the labelled sidebar, so seed the stored preference.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoApp(page, "/?mode=tools");
 
     const sidebar = page.locator("#clinical-tools-sidebar");
@@ -936,14 +952,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
-    await expect(page.locator("#clinical-tools-sidebar")).toHaveCount(0);
+    // With the labelled default the expanded panel exists in the DOM but stays
+    // display:none below lg; tablet must still only present the icon rail.
+    await expect(page.locator("#clinical-tools-sidebar")).toBeHidden();
     await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
 
     for (const tool of [
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/services" },
-      { name: "Forms", href: "/forms" },
+      // The rail speaks the catalogue-maturity badge as part of the Forms name.
+      { name: "Forms (Early access)", href: "/forms" },
       { name: "Favourites", href: "/favourites" },
       { name: "Differentials", href: "/differentials" },
       { name: "Medications", href: "/?mode=prescribing" },
@@ -1018,6 +1037,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
+    // Exercises both collapsed and expanded account affordances; seed the
+    // remembered-collapsed preference now that new users default to labelled.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
@@ -1563,8 +1585,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await page.goto("/privacy", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("main")).toBeVisible();
-      await expect(page.getByRole("heading", { level: 1, name: "Privacy and data processing" })).toBeVisible();
-      await expect(page.getByText("Draft for privacy and clinical-governance approval")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Privacy & data handling" })).toBeVisible();
+      await expect(page.getByText("This is draft product information", { exact: false })).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
@@ -1639,6 +1661,102 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  // Regression for PR #563: on phones a rendered answer must be content-sized and
+  // top-aligned, NOT inherit the centred-home viewport-height floor. Otherwise a
+  // short answer stretches the section to ~full height and `main` scrolls down into
+  // the near-black shell; the fixed composer reserve must also hug the real dock.
+  test("phone short answer stays top-aligned with no phantom scroll into black", async ({ page }) => {
+    // Tall phone viewport so the deliberately short answer comfortably fits — that
+    // is the whole point: content shorter than the viewport must not scroll.
+    await page.setViewportSize({ width: 390, height: 900 });
+    await mockDemoApi(page, {
+      // Strip the section/table-bearing fields so the surface is a few hundred px.
+      answerOverride: (query, documentId, documentIds) => ({
+        ...demoAnswer(query, documentId, documentIds),
+        answer: "Verify the cited passages before using any clinical numbers.",
+        answerSections: [],
+        visualEvidence: [],
+      }),
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "lithium dosing");
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(400);
+
+    const geo = await page.evaluate(() => {
+      const main = document.querySelector("main#main-content");
+      const header = document.querySelector("header");
+      const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
+      return {
+        scrollHeight: main?.scrollHeight ?? 0,
+        clientHeight: main?.clientHeight ?? 0,
+        headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
+        surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
+      };
+    });
+    // Content-sized section => no phantom scroll (old floor made scrollHeight ≫ clientHeight).
+    expect(geo.scrollHeight - geo.clientHeight).toBeLessThanOrEqual(4);
+    // Top-aligned: the answer sits just under the header, not pushed toward the dock
+    // (a bottom-anchor regression would push surfaceTop far down the viewport).
+    expect(geo.surfaceTop - geo.headerBottom).toBeGreaterThanOrEqual(0);
+    expect(geo.surfaceTop - geo.headerBottom).toBeLessThanOrEqual(160);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone long answer stays scrollable and clear of the composer dock", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    const longBody = Array.from(
+      { length: 16 },
+      (_, index) =>
+        `Paragraph ${index + 1}: the lithium source supports baseline renal, thyroid, calcium, weight, blood pressure and interacting-medicine checks, plus escalation for vomiting, diarrhoea, dehydration, tremor, confusion or ataxia.`,
+    ).join("\n\n");
+    await mockDemoApi(page, {
+      answerOverride: (query, documentId, documentIds) => ({
+        ...demoAnswer(query, documentId, documentIds),
+        answer: longBody,
+      }),
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "lithium dosing");
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(400);
+    // Start from the top so the assertions describe the resting, top-aligned view.
+    await page.locator("main#main-content").evaluate((el) => {
+      el.scrollTop = 0;
+    });
+
+    const geo = await page.evaluate(() => {
+      const main = document.querySelector("main#main-content");
+      const header = document.querySelector("header");
+      const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
+      return {
+        scrollHeight: main?.scrollHeight ?? 0,
+        clientHeight: main?.clientHeight ?? 0,
+        mainBottom: main ? Math.round(main.getBoundingClientRect().bottom) : 0,
+        headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
+        surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
+      };
+    });
+    // A long answer overflows and scrolls, still top-aligned under the header.
+    expect(geo.scrollHeight).toBeGreaterThan(geo.clientHeight + 40);
+    expect(geo.surfaceTop - geo.headerBottom).toBeLessThanOrEqual(160);
+    // The <main> reserve keeps the opaque composer input fully below the scroll
+    // viewport, so answer content clears the composer instead of being hidden
+    // behind it. (The dock's blur scrim intentionally fades content above the
+    // input, so we anchor on the input itself, not the scrim's bounding box.)
+    const composerInputTop = await visibleQuestionInput(page).evaluate((el) =>
+      Math.round(el.getBoundingClientRect().top),
+    );
+    expect(composerInputTop).toBeGreaterThanOrEqual(geo.mainBottom - 4);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     const answerRequests: string[] = [];
@@ -1664,6 +1782,30 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("plain-answer-response")).toBeVisible();
     expect(answerRequests).toContain(recent);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("legacy unscoped recent-query storage is purged and never displayed @critical", async ({ page }) => {
+    // 2026-07-13 audit finding 4: a historical clinical query written by an
+    // older build into the unscoped localStorage key must not resurface for
+    // whoever uses the browser next, and must be deleted on load.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    const legacyQuery = "legacy cross-user clozapine query";
+    await page.addInitScript(
+      ({ storageKey, value }) => {
+        window.localStorage.setItem(storageKey, JSON.stringify([value]));
+        window.sessionStorage.setItem(storageKey, JSON.stringify([value]));
+      },
+      { storageKey: recentQueryStorageKey, value: legacyQuery },
+    );
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await expect(page.getByText(legacyQuery)).toHaveCount(0);
+    await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), recentQueryStorageKey)).toBeNull();
+    await expect
+      .poll(() => page.evaluate((key) => window.sessionStorage.getItem(key), recentQueryStorageKey))
+      .toBeNull();
   });
 
   test("answer search URL opens chat without the answer home copy", async ({ page }) => {
@@ -2059,6 +2201,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(dialog.getByRole("table")).toBeVisible();
       await expect(dialog).toContainText("FBC/ANC");
       await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
+      const modal = page.getByRole("dialog", { name: /clozapine monitoring/i });
+      await expect(modal).toBeVisible();
+      await page.keyboard.press("Shift+Tab");
+      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await page.keyboard.press("Tab");
+      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await expectNoPageHorizontalOverflow(page);
       await page.keyboard.press("Escape");
       await expect(dialog).toBeHidden();
@@ -2568,17 +2716,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("phone universal header fully hides while scrolling dashboard main on phones", async ({ page }) => {
+  test("answer glass header overlays main and fully hides while scrolling on phones", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page, "/?mode=answer");
 
     const header = page.locator("header.universal-header");
-    const collapseHost = page.getByTestId("universal-header-collapse");
     await expect(header).toBeVisible();
-    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
-    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("relative");
-
+    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+    // Answer mode takes the header out of flow (absolute over <main>) so
+    // content frosts under the glass bar; <main> must reserve the header's
+    // exact height as top padding or short answers regain phantom scroll.
+    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("absolute");
     const main = page.locator("main#main-content");
+    const reserve = await main.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingTop));
+    const headerHeight = await header.evaluate((node) => node.getBoundingClientRect().height);
+    expect(Math.abs(reserve - headerHeight)).toBeLessThanOrEqual(2);
+
     await main.evaluate((node) => {
       const spacer = document.createElement("div");
       spacer.setAttribute("data-testid", "header-hide-scroll-spacer");
@@ -2586,6 +2739,116 @@ test.describe("Clinical KB UI smoke coverage", () => {
       node.appendChild(spacer);
     });
     // Step scroll down so the dashboard main listener sees deliberate movement.
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+
+    await expect(header).toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () =>
+        header.evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          return Math.max(0, rect.bottom) - Math.max(0, rect.top);
+        }),
+      )
+      .toBe(0);
+    // The scrim tail (taller than the bar) may leave only a whisper at the top
+    // edge while hidden — bound it so it can't grow into a visible band.
+    const scrimBottom = await page
+      .locator(".edge-glass-header-backdrop")
+      .evaluate((node) => node.getBoundingClientRect().bottom);
+    expect(scrimBottom).toBeLessThanOrEqual(34);
+
+    // Any deliberate scroll up slides the glass bar back in.
+    for (const offset of [160, 120, 60]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+  });
+
+  test("private-scope alert stays reachable while the answer view scrolls", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    // An unauthenticated session with a routed private-scope ref resolves to
+    // privateScopeStatus="unavailable", which renders the recovery alert.
+    await gotoApp(page, "/?mode=answer&scopeRef=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+
+    const alert = page.getByTestId("private-scope-unavailable");
+    await expect(alert).toBeVisible({ timeout: 15000 });
+
+    const main = page.locator("main#main-content");
+    await main.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.style.height = "2000px";
+      node.appendChild(spacer);
+    });
+    for (const offset of [80, 160, 260, 380]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+
+    // Sticky inside <main>: the recovery actions must remain on-screen (they
+    // used to scroll away with content, stranding the user mid-thread).
+    await expect(alert).toBeVisible();
+    const box = await alert.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.y).toBeLessThanOrEqual(200);
+  });
+
+  test("answer glass header hides and returns on desktop widths too", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 860 });
+    await gotoApp(page, "/?mode=answer");
+
+    const header = page.locator("header.universal-header");
+    await expect(header).toBeVisible();
+    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("absolute");
+
+    const main = page.locator("main#main-content");
+    await main.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.style.height = "2400px";
+      node.appendChild(spacer);
+    });
+    for (const offset of [40, 90, 150, 220, 300]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+    await expect(header).toHaveAttribute("data-scroll-hidden", "true");
+
+    for (const offset of [250, 200, 140]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+  });
+
+  test("non-answer phone header keeps the in-flow collapse hide", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=documents");
+
+    const header = page.locator("header.universal-header");
+    const collapseHost = page.getByTestId("universal-header-collapse");
+    await expect(header).toBeVisible();
+    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
+    // Non-answer modes keep the header in flow — their sm+ composer renders
+    // beneath it, which the absolute answer-mode overlay would bury.
+    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("relative");
+
+    const main = page.locator("main#main-content");
+    await main.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.style.height = "2000px";
+      node.appendChild(spacer);
+    });
     for (const offset of [40, 80, 120, 160, 200]) {
       await main.evaluate((node, top) => {
         node.scrollTop = top;

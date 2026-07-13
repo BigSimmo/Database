@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 
 // Matches phoneSearchLayoutMediaQuery in master-search-header.tsx — the repo's
-// phone/tablet seam. Hide-on-scroll only ever runs below the sm breakpoint.
+// phone/tablet seam. Hide-on-scroll runs below the sm breakpoint unless the
+// host opts into all breakpoints (the ClinicalDashboard glass-header overlay).
 const phoneMediaQuery = "(max-width: 639px)";
 
-// Scroll offset (px) that must be passed before the chrome may hide; roughly
-// the header's own height so it never vanishes while still fully in view.
-const hideActivationOffset = 56;
+// Scroll offset (px) that must be passed before the chrome may hide; the
+// header's own height (72px borderless bar; <main> reserves the same strip)
+// so it never vanishes while its reserve is still in view.
+const hideActivationOffset = 72;
 // Offset (px) at or below which the chrome is always shown.
 const topRevealOffset = 8;
 // Minimum per-event delta (px) before we treat movement as intentional, to
@@ -50,20 +52,22 @@ function readPhoneMediaServer() {
   return false;
 }
 
-function usePhoneScrollHideActive(disabled = false) {
+function usePhoneScrollHideActive(disabled = false, allowAllBreakpoints = false) {
   const isPhone = useSyncExternalStore(subscribeToPhoneMedia, readPhoneMedia, readPhoneMediaServer);
-  return isPhone && !disabled;
+  return (allowAllBreakpoints || isPhone) && !disabled;
 }
 
 /**
  * Imperative scroll-offset reporter for hosts that already own a React `onScroll`
  * handler on the scrolling element (for example ClinicalDashboard `<main>`).
+ * Pass `allowAllBreakpoints` when the consumer hides chrome at every width
+ * (the all-breakpoints glass-header overlay) instead of phones only.
  */
-export function useScrollHideReporter(disabled = false) {
+export function useScrollHideReporter(disabled = false, allowAllBreakpoints = false) {
   const [hidden, setHidden] = useState(false);
   const hiddenRef = useRef(false);
   const lastOffsetRef = useRef(0);
-  const active = usePhoneScrollHideActive(disabled);
+  const active = usePhoneScrollHideActive(disabled, allowAllBreakpoints);
 
   const reportScroll = useCallback(
     (offset: number) => {
@@ -90,6 +94,19 @@ export function useScrollHideReporter(disabled = false) {
     const frame = window.requestAnimationFrame(() => setHidden(false));
     return () => window.cancelAnimationFrame(frame);
   }, [active]);
+
+  // The gate widening/narrowing (e.g. ClinicalDashboard toggling answer mode)
+  // changes the scroll geometry underneath us (<main> gains/loses its header
+  // reserve), so a carried-over hidden flag or last offset would produce one
+  // spurious hide/reveal on the first post-switch scroll. Reset on the change
+  // itself — `active` can stay true across it on phones, so the effect above
+  // never fires there.
+  useEffect(() => {
+    hiddenRef.current = false;
+    lastOffsetRef.current = 0;
+    const frame = window.requestAnimationFrame(() => setHidden(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [allowAllBreakpoints]);
 
   return { hidden: active && hidden, reportScroll };
 }

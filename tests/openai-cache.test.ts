@@ -149,7 +149,10 @@ describe("OpenAI query embedding cache", () => {
     expect(capturedOptions).toMatchObject({ timeout: 1234, maxRetries: 1, signal: controller.signal });
     expect(capturedBody).toMatchObject({
       model: "gpt-5.5",
-      max_output_tokens: 200,
+      // The caller's maxOutputTokens (200) is floored to the "high"-effort reasoning
+      // headroom (12000) by responseBody so reasoning tokens cannot starve the answer
+      // (reasoningHeadroomFloor). The floor only ever raises a budget.
+      max_output_tokens: 12000,
       store: false,
       prompt_cache_key: "clinical-rag-answer-v18",
       prompt_cache_retention: "24h",
@@ -429,6 +432,71 @@ describe("OpenAI query embedding cache", () => {
     expect(capturedBodies[3]).not.toHaveProperty("reasoning");
     expect(capturedBodies[3].text as Record<string, unknown>).not.toHaveProperty("verbosity");
     expect(JSON.stringify(capturedBodies)).not.toContain("minimal");
+  });
+
+  it("floors max_output_tokens by reasoning effort but never lowers a larger budget", async () => {
+    const capturedBodies: Record<string, unknown>[] = [];
+
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("OPENAI_STRONG_ANSWER_MODEL", "gpt-5.5");
+
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = { create: vi.fn() };
+        responses = {
+          create: vi.fn((body: Record<string, unknown>) => {
+            capturedBodies.push(body);
+            return {
+              withResponse: async () => ({
+                data: { status: "completed", output_text: '{"answer":"ok"}' },
+                request_id: `req_${capturedBodies.length}`,
+              }),
+            };
+          }),
+        };
+      },
+    }));
+
+    const { generateStructuredTextResult } = await import("../src/lib/openai");
+    const schema = { type: "object", properties: {}, required: [] };
+
+    // Tiny declared budget + medium effort -> floored to the medium reasoning headroom (8000).
+    await generateStructuredTextResult("Q", schema, {
+      model: "gpt-5.5",
+      operation: "answer",
+      schemaName: "clinical_test",
+      maxOutputTokens: 300,
+      reasoningEffort: "medium",
+    });
+    // Tiny budget + low effort -> floored to the low headroom (2000).
+    await generateStructuredTextResult("Q", schema, {
+      model: "gpt-5.5",
+      operation: "answer",
+      schemaName: "clinical_test",
+      maxOutputTokens: 300,
+      reasoningEffort: "low",
+    });
+    // A budget larger than the floor passes through unchanged (Math.max only raises).
+    await generateStructuredTextResult("Q", schema, {
+      model: "gpt-5.5",
+      operation: "answer",
+      schemaName: "clinical_test",
+      maxOutputTokens: 16000,
+      reasoningEffort: "medium",
+    });
+    // Non-reasoning model gets no floor (no reasoning tokens to reserve).
+    await generateStructuredTextResult("Q", schema, {
+      model: "gpt-4.1-mini",
+      operation: "answer",
+      schemaName: "clinical_test",
+      maxOutputTokens: 300,
+      reasoningEffort: "high",
+    });
+
+    expect(capturedBodies[0]).toMatchObject({ max_output_tokens: 8000 });
+    expect(capturedBodies[1]).toMatchObject({ max_output_tokens: 2000 });
+    expect(capturedBodies[2]).toMatchObject({ max_output_tokens: 16000 });
+    expect(capturedBodies[3]).toMatchObject({ max_output_tokens: 300 });
   });
 
   it("flags truncated (incomplete) responses (GEN-C1)", async () => {

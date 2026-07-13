@@ -125,6 +125,7 @@ const DocumentSearchResultsPanel = dynamic(
   { ssr: false },
 );
 
+import { clearLegacyRecentQueries, demoRecentQueryOwnerId } from "@/components/clinical-dashboard/recent-query-storage";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
@@ -674,9 +675,6 @@ export function ClinicalDashboard({
     mainRef.current = node;
     setMainScrollRoot(node);
   }, []);
-  const phoneScrollHide = useScrollHideReporter();
-  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
-  reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
@@ -702,6 +700,12 @@ export function ClinicalDashboard({
   const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
+  // Answer mode hides the glass header at every breakpoint (all-breakpoints
+  // overlay); other modes keep the phone-only collapse, so the reporter only
+  // widens past the phone media gate while in answer mode.
+  const phoneScrollHide = useScrollHideReporter(false, searchMode === "answer");
+  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
     Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
   );
@@ -975,7 +979,7 @@ export function ClinicalDashboard({
   const localNoAuthMode = isLocalNoAuthMode();
   const explicitDemoMode = demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const clientDemoMode = explicitDemoMode || browserAuthUnavailableDemoFallback || localNoAuthMode;
-  const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? "local-demo-session" : null);
+  const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
   useEffect(() => {
     const previousOwnerId = previousAnswerThreadOwnerIdRef.current;
@@ -1121,6 +1125,13 @@ export function ClinicalDashboard({
     const timeoutId = window.setTimeout(prefetchApplications, 250);
     return () => window.clearTimeout(timeoutId);
   }, [prefetchApplications]);
+
+  // The dashboard renders directly on "/" without the standalone search shell,
+  // so it must purge the legacy unscoped recent-queries key too (2026-07-13
+  // audit, finding 4).
+  useEffect(() => {
+    clearLegacyRecentQueries();
+  }, []);
 
   useEffect(() => {
     if (!answerThreadOwnerId) {
@@ -3410,7 +3421,7 @@ export function ClinicalDashboard({
         onPrefetchApplications={prefetchApplications}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
         <MasterSearchHeader
           documents={documents}
           documentTotal={indexedDocumentTotal}
@@ -3463,32 +3474,18 @@ export function ClinicalDashboard({
             differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
-          // Phone-only: the header sits above the internally scrolling <main>,
-          // so hiding must collapse its layout space to hand it to content.
-          hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
+          // Answer view: the header overlays the scrolling <main> at every width
+          // (main reserves matching top padding) so content frosts under the
+          // glass bar, and it slides away/returns with scroll direction. Other
+          // modes keep the phone-only collapse (their sm+ composer renders
+          // in-flow below the header, which an absolute header would bury).
+          hideOnScroll={
+            searchMode === "answer"
+              ? { strategy: "overlay", allBreakpoints: true, scrollHidden: phoneScrollHide.hidden }
+              : { strategy: "collapse", scrollHidden: phoneScrollHide.hidden }
+          }
           onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
         />
-
-        {privateScopeStatus === "unavailable" ? (
-          <div
-            role="alert"
-            data-testid="private-scope-unavailable"
-            className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8"
-          >
-            <p>
-              The original private document scope is unavailable. Choose the documents again or confirm a broader
-              search.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className={floatingControl} onClick={reselectUnavailablePrivateScope}>
-                Reselect documents
-              </button>
-              <button type="button" className={floatingControl} onClick={runWithoutUnavailablePrivateScope}>
-                Run without private scope
-              </button>
-            </div>
-          </div>
-        ) : null}
 
         <main
           id="main-content"
@@ -3497,6 +3494,18 @@ export function ClinicalDashboard({
           onScroll={handleMainScroll}
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none",
+            // Answer view: the glass header is absolute over this scroll container,
+            // so <main> reserves its exact height as top padding (72px borderless
+            // bar = 4rem content/padding + the max(0.5rem, safe-area) top inset —
+            // measured; must stay 1:1 with the rendered #search height so all the
+            // dvh-based section floors below keep their meaning). Padding, not
+            // margin: padding scrolls with content, which is what lets it slide
+            // up and frost beneath the bar. Kept constant when the header
+            // scroll-hides — the reserve lives at scroll-start, already off-screen
+            // whenever the header is hidden, so reclaiming it would only jump
+            // the content.
+            searchMode === "answer" &&
+              "pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]",
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
@@ -3529,6 +3538,35 @@ export function ClinicalDashboard({
           )}
         >
           <h1 className="sr-only">Clinical Guide</h1>
+          {privateScopeStatus === "unavailable" ? (
+            // Lives inside <main> (not as a header sibling): in the answer view
+            // the header is absolute, so a sibling alert would reflow to the
+            // column top and hide behind the glass bar. Sticky so the recovery
+            // actions stay reachable while the user scrolls — pinned below the
+            // overlaid glass bar in answer mode, just under the in-flow header
+            // otherwise (main is the scroll container, so sticky works here).
+            <div
+              role="alert"
+              data-testid="private-scope-unavailable"
+              className={cn(
+                "sticky z-20 mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8",
+                searchMode === "answer" ? "top-[calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]" : "top-2",
+              )}
+            >
+              <p>
+                The original private document scope is unavailable. Choose the documents again or confirm a broader
+                search.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={floatingControl} onClick={reselectUnavailablePrivateScope}>
+                  Reselect documents
+                </button>
+                <button type="button" className={floatingControl} onClick={runWithoutUnavailablePrivateScope}>
+                  Run without private scope
+                </button>
+              </div>
+            </div>
+          ) : null}
           <SearchCommandProvider value={searchCommandContextValue}>
             <div
               className={cn(
