@@ -1638,9 +1638,21 @@ function finalQualityFailure(answer: RagAnswer, query: string, queryClass: RagQu
   };
 }
 
+const crossReferenceDirectivePattern =
+  /\b(?:refer(?:red|s|ring)?\s+to|(?:please\s+)?see|consult|as\s+(?:per|outlined|described|detailed|set\s+out))\b/i;
+const crossReferenceRedirectPattern =
+  /\bfor\s+(?:further|more|additional|detailed|complete|full)\s+(?:information|detail|details|guidance|advice|reading|instruction|instructions)\b/i;
+
+/** True when the lead sentence only redirects the reader elsewhere for the answer. */
+export function isBareCrossReferenceAnswer(text: string) {
+  const lead = firstSentence(text).replace(/\*\*/g, "");
+  return Boolean(lead && crossReferenceDirectivePattern.test(lead) && crossReferenceRedirectPattern.test(lead));
+}
+
 /** Should preserve source backed generated answer. */
-function shouldPreserveSourceBackedGeneratedAnswer(answer: RagAnswer, reason: string) {
+function shouldPreserveSourceBackedGeneratedAnswer(answer: RagAnswer, reason: string, cleanedAnswer: string) {
   if (reason !== "missing_query_intent" && reason !== "missing_query_overlap") return false;
+  if (isBareCrossReferenceAnswer(cleanedAnswer)) return false;
   if (!answer.grounded || answer.confidence === "unsupported" || answer.citations.length === 0) return false;
   if (hasInvalidModelEvidenceIds(answer)) return false;
 
@@ -1784,7 +1796,7 @@ function finalizeRagAnswerQualityCore(
       : generatedAnswerQualityFailureReason(answer, query, queryClass);
 
   if (qualityFailureReason) {
-    if (shouldPreserveSourceBackedGeneratedAnswer(answer, qualityFailureReason)) {
+    if (shouldPreserveSourceBackedGeneratedAnswer(answer, qualityFailureReason, cleanedAnswer)) {
       answer = {
         ...answer,
         confidence: answer.confidence === "low" ? "medium" : answer.confidence,

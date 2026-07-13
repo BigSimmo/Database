@@ -2430,7 +2430,6 @@ export function DocumentViewer({
     : documentHomeHref;
   const documentPageHref = (page: number) => {
     const params = new URLSearchParams({ page: String(Math.max(1, Math.trunc(page))) });
-    if (chunkId) params.set("chunk", chunkId);
     return `/documents/${encodeURIComponent(documentId)}?${params.toString()}#pdf-preview-section`;
   };
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;

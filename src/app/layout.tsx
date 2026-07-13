@@ -15,11 +15,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  // Absolute base for OG/twitter image URLs (app/opengraph-image). Set
-  // NEXT_PUBLIC_SITE_URL in production; the localhost fallback only affects dev,
-  // where social unfurls aren't consumed.
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+const baseMetadata: Metadata = {
   applicationName: "Clinical KB",
   title: "Clinical KB",
   description: "Private medical guideline RAG knowledge base",
@@ -29,6 +25,30 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
 };
+
+function requestMetadataBase(requestHeaders: Headers) {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) {
+    const url = new URL(configured);
+    if (url.protocol === "http:" || url.protocol === "https:") return url;
+  }
+
+  const forwardedHost = requestHeaders.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || requestHeaders.get("host")?.trim();
+  if (!host) return undefined;
+  const forwardedProtocol = requestHeaders.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  const protocol = forwardedProtocol === "http" || forwardedProtocol === "https" ? forwardedProtocol : "https";
+  try {
+    return new URL(`${protocol}://${host}`);
+  } catch {
+    return undefined;
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  return { ...baseMetadata, metadataBase: requestMetadataBase(requestHeaders) };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

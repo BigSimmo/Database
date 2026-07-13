@@ -223,18 +223,18 @@ export async function consumeSubjectApiRateLimit(args: {
     } satisfies ApiRateLimitResult;
   };
 
-  if (args.bucket !== "answer") {
+  if (args.bucket !== "answer" && args.bucket !== "document_upload") {
     return consumeAnonymousLimit(args.subject.subjectKey, limit, windowSeconds);
   }
 
   // A stable global ceiling prevents rotated/spoofed network identities from
-  // multiplying paid provider capacity. Use the existing authenticated answer
-  // allowance as the aggregate anonymous ceiling to avoid a new magic budget.
-  const globalDefaults = apiRateLimitDefaults.answer;
+  // multiplying paid generation or upload/ingestion capacity. Reuse each
+  // bucket's authenticated allowance as the aggregate anonymous ceiling.
+  const globalDefaults = apiRateLimitDefaults[args.bucket];
   const subjectResult = await consumeAnonymousLimit(args.subject.subjectKey, limit, windowSeconds);
   if (subjectResult.limited) return subjectResult;
   const globalResult = await consumeAnonymousLimit(
-    "anon:answer:global",
+    `anon:${args.bucket}:global`,
     globalDefaults.limit,
     globalDefaults.windowSeconds,
   );

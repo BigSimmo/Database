@@ -3579,7 +3579,7 @@ describe("private document API access", () => {
     expect(client.auth.getUser).toHaveBeenCalledWith(token);
   });
 
-  it("emits a structured SSE error when authenticated streaming answers are rate limited", async () => {
+  it("returns the shared JSON error contract when streaming answers are rate limited before streaming", async () => {
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Owned evidence.",
       grounded: true,
@@ -3606,13 +3606,15 @@ describe("private document API access", () => {
         body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
       }),
     );
-    const body = await response.text();
+    const body = await payload(response);
 
     expect(response.status).toBe(429);
     expect(response.headers.get("Retry-After")).toBe("60");
-    expect(body).toContain("event: error");
-    expect(body).toContain('"status":429');
-    expect(body).toContain("Too many answer requests. Retry shortly.");
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(body).toEqual({
+      error: "Too many answer requests. Retry shortly.",
+      retryAfterSeconds: 60,
+    });
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 

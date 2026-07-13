@@ -17,7 +17,6 @@ function firstForwardedIp(value: string | null) {
 
 function requestIpSignal(request: Request) {
   return (
-    firstForwardedIp(request.headers.get("cf-connecting-ip")) ||
     firstForwardedIp(request.headers.get("x-forwarded-for")) ||
     firstForwardedIp(request.headers.get("x-real-ip")) ||
     "unknown-ip"
@@ -25,8 +24,10 @@ function requestIpSignal(request: Request) {
 }
 
 export function anonymousApiSubjectKey(request: Request) {
-  // User-Agent is caller-controlled and therefore must not partition a quota:
-  // rotating it would mint a fresh paid-answer allowance for every request.
+  // Trust only the deployment proxy's forwarding headers. Ignore the
+  // caller-controlled Cloudflare/User-Agent values: rotating either must not
+  // mint a fresh allowance. The deployment contract supplies the client as the
+  // first X-Forwarded-For address (followed by any proxy hops).
   // If no trusted proxy IP is available, every unknown caller intentionally
   // shares the same conservative quota rather than failing open.
   const source = requestIpSignal(request);
