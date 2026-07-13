@@ -104,6 +104,10 @@ const ragRemediationFunctionReconciliationMigration = readFileSync(
   new URL("../supabase/migrations/20260713083000_reconcile_rag_remediation_functions.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const deepMemoryCommitReconciliationMigration = readFileSync(
+  new URL("../supabase/migrations/20260713090500_reconcile_deep_memory_commit.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const clinicalRegistryRecordsMigration = readFileSync(
   new URL("../supabase/migrations/20260703020000_clinical_registry_records.sql", import.meta.url),
   "utf8",
@@ -956,6 +960,16 @@ describe("Supabase Preview replay guards", () => {
     );
     expect(ragRemediationFunctionReconciliationMigration).toContain("on conflict (document_id) do nothing");
     expect(ragRemediationFunctionReconciliationMigration).toContain("for update");
+    expect(deepMemoryCommitReconciliationMigration).toContain(
+      "create or replace function public.commit_document_deep_memory_generation(",
+    );
+    expect(deepMemoryCommitReconciliationMigration).toContain(
+      "Re-check producer evidence inside the transaction. Legacy NULL-generation",
+    );
+    expect(deepMemoryCommitReconciliationMigration).toContain("local-worker rows predate explicit producer metadata");
+    expect(deepMemoryCommitReconciliationMigration).toContain(
+      "and metadata->>'artifact_generation_id' = p_artifact_generation_id::text",
+    );
   });
 
   it("keeps retrieval_synopsis when adding lexical_score to match_document_chunks_text", () => {
