@@ -32,6 +32,7 @@ export type SourceIdentityAuthorityMatch = {
 export type SourceLocalityAnalysis = {
   authority: SourceAuthorityDefinition | null;
   matchedBy: "publisher_code" | "identity_code" | "publisher_alias" | "none";
+  excludedReason: "registry_record" | null;
   targetCode: string | null;
   conflicts: string[];
   unresolvedConflict: boolean;
@@ -60,8 +61,38 @@ const registeredCodes = sourceAuthorityRegistry
   .flatMap((authority) => authority.codes.map((code) => ({ code: code.toUpperCase(), authority })))
   .sort((left, right) => right.code.length - left.code.length || left.code.localeCompare(right.code));
 
-function identityFields(identity: SourceAuthorityDocumentIdentity) {
-  return [identity.file_name, identity.source_path ?? "", identity.title];
+const caseSensitiveIdentityCodes = new Set(["WHO"]);
+
+function authorityMatchesInField(field: string) {
+  return registeredCodes.filter((candidate) => {
+    const flags = caseSensitiveIdentityCodes.has(candidate.code) ? "" : "i";
+    const token = new RegExp(`(?:^|[^A-Za-z0-9])${escapeRegExp(candidate.code)}(?=$|[^A-Za-z0-9])`, flags);
+    return token.test(field);
+  });
+}
+
+function preferredIdentityMatches(identity: SourceAuthorityDocumentIdentity) {
+  const trailingParenthetical = identity.file_name.match(/\(([^()]*)\)\s*(?:\.[^./\\]+)?$/)?.[1];
+  const trailingMatches = trailingParenthetical ? authorityMatchesInField(trailingParenthetical) : [];
+  if (trailingMatches.length > 0) return trailingMatches;
+
+  const fileMatches = authorityMatchesInField(identity.file_name);
+  if (fileMatches.length > 0) return fileMatches;
+
+  const titleMatches = authorityMatchesInField(identity.title);
+  if (titleMatches.length > 0) return titleMatches;
+
+  const pathSegments = (identity.source_path ?? "")
+    .split(/[\\/]/)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .reverse();
+  for (const segment of pathSegments) {
+    const segmentMatches = authorityMatchesInField(segment);
+    if (segmentMatches.length > 0) return segmentMatches;
+  }
+
+  return [];
 }
 
 /**
@@ -71,14 +102,9 @@ function identityFields(identity: SourceAuthorityDocumentIdentity) {
 export function inferSourceAuthorityFromIdentity(
   identity: SourceAuthorityDocumentIdentity,
 ): SourceIdentityAuthorityMatch {
-  const matches: Array<{ code: string; authority: SourceAuthorityDefinition }> = [];
-
-  for (const field of identityFields(identity)) {
-    for (const candidate of registeredCodes) {
-      const token = new RegExp(`(?:^|[^A-Z0-9])${escapeRegExp(candidate.code)}(?=$|[^A-Z0-9])`, "i");
-      if (token.test(field) && !matches.some((match) => match.code === candidate.code)) matches.push(candidate);
-    }
-  }
+  const matches = preferredIdentityMatches(identity).filter(
+    (candidate, index, all) => all.findIndex((match) => match.code === candidate.code) === index,
+  );
 
   const authorityKeys = [...new Set(matches.map((match) => match.authority.key))];
   const conflict = authorityKeys.length > 1;
@@ -102,8 +128,25 @@ function valuesDiffer(current: unknown, next: string | null) {
   return metadataString(current) !== next;
 }
 
+export function isRegistryRecordSource(document: Pick<SourceAuthorityDocument, "metadata">) {
+  return metadataRecord(document.metadata).source_kind === "registry_record";
+}
+
 export function analyzeSourceLocality(document: SourceAuthorityDocument): SourceLocalityAnalysis {
   const metadata = metadataRecord(document.metadata);
+  if (isRegistryRecordSource(document)) {
+    return {
+      authority: null,
+      matchedBy: "none",
+      excludedReason: "registry_record",
+      targetCode: null,
+      conflicts: [],
+      unresolvedConflict: false,
+      missingLocalityKeys: [],
+      changes: {},
+      changedKeys: [],
+    };
+  }
   const existingCode = normalizedCode(metadata.publisher_code);
   const codeAuthority = sourceAuthorityForPublisherCode(existingCode);
   const publisherAuthority = sourceAuthorityForPublisher(metadataString(metadata.publisher));
@@ -173,6 +216,7 @@ export function analyzeSourceLocality(document: SourceAuthorityDocument): Source
   return {
     authority,
     matchedBy,
+    excludedReason: null,
     targetCode,
     conflicts: [...new Set(conflicts)],
     unresolvedConflict,
@@ -208,6 +252,8 @@ function compactAuthorityDocument(document: SourceAuthorityDocument, analysis: S
     authority_key: analysis.authority?.key ?? null,
     authority_scope: analysis.authority?.scope ?? null,
     matched_by: analysis.matchedBy,
+    source_kind: metadataString(metadata.source_kind),
+    excluded_reason: analysis.excludedReason,
   };
 }
 
@@ -224,11 +270,13 @@ export function auditSourceAuthorityDocuments(documents: SourceAuthorityDocument
     for (const conflict of analysis.conflicts) counts[conflict] = (counts[conflict] ?? 0) + 1;
     return counts;
   }, {});
+  const excludedRegistryRecords = analyses.filter(({ analysis }) => analysis.excludedReason === "registry_record");
 
   return {
     recognized_documents: recognized.length,
     australian_authority_candidates: australianCandidates.length,
     international_authority_documents: recognized.length - australianCandidates.length,
+    excluded_registry_record_count: excludedRegistryRecords.length,
     authority_conflict_count: conflicts.length,
     authority_conflict_reason_counts: Object.fromEntries(
       Object.entries(conflictReasonCounts).sort(([left], [right]) => left.localeCompare(right)),

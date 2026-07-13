@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
 import * as nextEnv from "@next/env";
-import { auditSourceAuthorityDocuments } from "@/lib/source-authority-metadata";
+import { auditSourceAuthorityDocuments, isRegistryRecordSource } from "@/lib/source-authority-metadata";
 import type { DocumentLabel } from "@/lib/types";
 
 const loadEnvConfig =
@@ -267,6 +267,8 @@ export async function main(argv = process.argv.slice(2)) {
   const labels = await fetchAll<LabelRow>(supabase, "document_labels", "id,document_id,label_type,source", (query) =>
     query.eq("source", "generated"),
   );
+  const clinicalGovernanceDocuments = documents.filter((document) => !isRegistryRecordSource(document));
+  const registryRecordsExcludedFromClinicalMetadataGate = documents.length - clinicalGovernanceDocuments.length;
 
   const statusCounts = new Map<string, number>();
   const validationCounts = new Map<string, number>();
@@ -274,7 +276,7 @@ export async function main(argv = process.argv.slice(2)) {
   const requiredMissingCounts = new Map<string, number>();
   const missingRequiredDocuments: Array<ReturnType<typeof compactDocument> & { missing_keys: string[] }> = [];
 
-  for (const document of documents) {
+  for (const document of clinicalGovernanceDocuments) {
     const metadata = metadataRecord(document.metadata);
     increment(statusCounts, stringValue(metadata.document_status));
     increment(validationCounts, stringValue(metadata.clinical_validation_status));
@@ -369,6 +371,8 @@ export async function main(argv = process.argv.slice(2)) {
   const report = {
     mode: "read-only",
     indexed_documents: documents.length,
+    clinical_governance_documents: clinicalGovernanceDocuments.length,
+    registry_records_excluded_from_clinical_metadata_gate: registryRecordsExcludedFromClinicalMetadataGate,
     required_metadata_missing_total: requiredMetadataMissingTotal,
     required_metadata_missing_counts: Object.fromEntries(
       requiredMetadataKeys.map((key) => [key, requiredMissingCounts.get(key) ?? 0]),
@@ -385,15 +389,15 @@ export async function main(argv = process.argv.slice(2)) {
       indexed_without_smart_v2_labels: missingSmartV2LabelDocuments.length,
     },
     debt_counts: debtCounts,
-    sample_review_due_documents: documents
+    sample_review_due_documents: clinicalGovernanceDocuments
       .filter((document) => metadataRecord(document.metadata).document_status === "review_due")
       .slice(0, 10)
       .map(compactDocument),
-    sample_unknown_status_documents: documents
+    sample_unknown_status_documents: clinicalGovernanceDocuments
       .filter((document) => metadataRecord(document.metadata).document_status === "unknown")
       .slice(0, 10)
       .map(compactDocument),
-    sample_unverified_documents: documents
+    sample_unverified_documents: clinicalGovernanceDocuments
       .filter((document) => metadataRecord(document.metadata).clinical_validation_status === "unverified")
       .slice(0, 10)
       .map(compactDocument),
@@ -427,6 +431,9 @@ export async function main(argv = process.argv.slice(2)) {
     console.log("[Source Governance Audit]");
     console.log(`Mode: ${report.mode}`);
     console.log(`Indexed documents: ${report.indexed_documents}`);
+    console.log(
+      `Clinical governance documents: ${report.clinical_governance_documents} (registry projections excluded: ${report.registry_records_excluded_from_clinical_metadata_gate})`,
+    );
     console.log(`Required metadata missing: ${report.required_metadata_missing_total}`);
     console.log(
       `Document status: ${Object.entries(report.document_status_counts)

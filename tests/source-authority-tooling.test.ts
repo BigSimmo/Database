@@ -6,6 +6,7 @@ import {
   assertLocalityMetadataPatch,
   auditSourceAuthorityDocuments,
   inferSourceAuthorityFromIdentity,
+  isRegistryRecordSource,
   type SourceAuthorityDocument,
 } from "@/lib/source-authority-metadata";
 import { parseBackfillSourceMetadataArgs } from "../scripts/backfill-source-metadata";
@@ -38,6 +39,59 @@ describe("source authority metadata tooling", () => {
     });
   });
 
+  it("prefers the document identity over parent health-service path segments", () => {
+    expect(
+      inferSourceAuthorityFromIdentity(
+        document({
+          file_name: "RPBG-lithium-guideline.pdf",
+          source_path: "WA Health/EMHS/Clinical resources/RPBG/RPBG-lithium-guideline.pdf",
+        }),
+      ),
+    ).toMatchObject({
+      code: "RPBG",
+      authority: { key: "royal-perth-bentley-group" },
+      conflict: false,
+    });
+
+    expect(
+      inferSourceAuthorityFromIdentity(
+        document({
+          file_name: "lithium-guideline.pdf",
+          title: "FSH lithium guideline",
+          source_path: "WA Health/SMHS/Clinical resources/FSH/lithium-guideline.pdf",
+        }),
+      ),
+    ).toMatchObject({
+      code: "FSH",
+      authority: { key: "fiona-stanley-fremantle-hospitals-group" },
+      conflict: false,
+    });
+  });
+
+  it("treats a trailing parenthetical code as publisher identity rather than subject acronyms", () => {
+    expect(
+      inferSourceAuthorityFromIdentity(
+        document({ file_name: "MDU Booking Process Pharmacy PBS and IPA Process (RPBG).pdf" }),
+      ),
+    ).toMatchObject({ code: "RPBG", authority: { key: "royal-perth-bentley-group" }, conflict: false });
+    expect(
+      inferSourceAuthorityFromIdentity(
+        document({ file_name: "Governance of ACSQHC Clinical Care Standards (PHC).pdf" }),
+      ),
+    ).toMatchObject({ code: "PHC", authority: { key: "peel-health-campus" }, conflict: false });
+  });
+
+  it("does not infer WHO from ordinary lowercase prose", () => {
+    expect(
+      inferSourceAuthorityFromIdentity(
+        document({
+          file_name: "people-who-care.pdf",
+          title: "People who care for patients",
+        }),
+      ),
+    ).toEqual({ code: null, authority: null, codes: [], authorityKeys: [], conflict: false });
+  });
+
   it("does not require locality metadata for unknown or international documents", () => {
     const report = auditSourceAuthorityDocuments([
       document({ file_name: "unknown-clinical-reference.pdf" }),
@@ -46,6 +100,37 @@ describe("source authority metadata tooling", () => {
 
     expect(report.missing_australian_locality_count).toBe(0);
     expect(report.passed).toBe(true);
+  });
+
+  it("excludes registry projections from document locality governance", () => {
+    const registryRecord = document({
+      file_name: "emhs-crisis-service.json",
+      source_path: "WA Health/EMHS/Registry/emhs-crisis-service.json",
+      metadata: {
+        source_kind: "registry_record",
+        publisher: "Clinical KB registry",
+        jurisdiction: "WA/local clinical workspace",
+      },
+    });
+    const analysis = analyzeSourceLocality(registryRecord);
+    const report = auditSourceAuthorityDocuments([registryRecord]);
+
+    expect(isRegistryRecordSource(registryRecord)).toBe(true);
+    expect(analysis).toMatchObject({
+      authority: null,
+      matchedBy: "none",
+      excludedReason: "registry_record",
+      missingLocalityKeys: [],
+      changes: {},
+      unresolvedConflict: false,
+    });
+    expect(report).toMatchObject({
+      excluded_registry_record_count: 1,
+      authority_conflict_count: 0,
+      missing_australian_locality_count: 0,
+      proposed_locality_correction_count: 0,
+      passed: true,
+    });
   });
 
   it("gates inferable Australian sources with missing locality and proposes only safe fields", () => {
@@ -143,6 +228,7 @@ describe("source authority metadata tooling", () => {
     const backfillScript = readFileSync("scripts/backfill-source-metadata.ts", "utf8");
 
     expect(auditScript).toContain('from "@/lib/source-authority-metadata"');
+    expect(auditScript).toContain("documents.filter((document) => !isRegistryRecordSource(document))");
     expect(backfillScript).toContain('from "@/lib/source-authority-metadata"');
     expect(backfillScript).not.toContain("const publisherByCode");
   });
