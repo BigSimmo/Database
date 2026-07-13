@@ -54,7 +54,7 @@ function rate(numerator: number, denominator: number) {
 
 /**
  * Count answered queries in the trailing window and how many carried a
- * `hybrid_rpc_errors` map or an explicit degraded-answer flag. Throws on
+ * `hybrid_rpc_errors` map or an explicit provider-generation fallback flag. Throws on
  * a query error so the caller can mark the probe degraded rather than report a
  * falsely-healthy zero.
  */
@@ -73,10 +73,9 @@ export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 
   const [total, hybrid, degraded, truncation, timeout] = await Promise.all([
     base(),
     base().not("metadata->hybrid_rpc_errors", "is", null),
-    // `fallback_reason` also covers correct fail-closed outcomes such as source
-    // gaps, conflicts, and unsupported queries. Count only answers that the
-    // finalized provider label explicitly marked as degraded/source-only.
-    base().eq("metadata->>degraded", "true"),
+    // Source-only/extractive answers can be intentional and healthy. Count only
+    // model-generation failures that actually forced a local fallback.
+    base().eq("metadata->>provider_generation_degraded", "true"),
     // fallback_reason values look like "...generation_fallback:provider_incomplete_max_output_tokens"
     // and "...generation_fallback:provider_timeout" (confirmed in live rag_queries).
     base().ilike("metadata->>fallback_reason", "%max_output_tokens%"),

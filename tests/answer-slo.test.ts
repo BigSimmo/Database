@@ -4,7 +4,7 @@ import { answerSloSnapshot, type SloProbeClient } from "@/lib/observability/answ
 
 // Fake PostgREST count builder: from().select().gt() is the "total" query; adding
 // .not(column,...) narrows it to the hybrid-error count, .eq(column,...) narrows it
-// to explicitly degraded answers, and .ilike(col, pattern) narrows it to the
+// to provider-generation fallbacks, and .ilike(col, pattern) narrows it to the
 // truncation or timeout fallback subset by pattern. Awaiting
 // resolves to { count, error }.
 type SloFilterKey = "total" | "hybrid" | "degraded" | "truncation" | "timeout";
@@ -73,7 +73,7 @@ describe("answerSloSnapshot", () => {
     );
   });
 
-  it("counts only answers explicitly marked degraded, not every fallback reason", async () => {
+  it("counts only provider-generation fallbacks, not intentional source-only answers", async () => {
     const observedNarrowingFilters: Array<{
       method: "eq" | "not";
       column: string;
@@ -84,7 +84,7 @@ describe("answerSloSnapshot", () => {
 
     expect(observedNarrowingFilters).toContainEqual({
       method: "eq",
-      column: "metadata->>degraded",
+      column: "metadata->>provider_generation_degraded",
       value: "true",
     });
     expect(observedNarrowingFilters).not.toContainEqual(
