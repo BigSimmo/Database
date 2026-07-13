@@ -4,12 +4,18 @@ import type { ClinicalQueryMode } from "@/lib/types";
 export type SearchNavigationContext = {
   queryMode?: ClinicalQueryMode;
   scopeFilters?: SearchScopeFilters;
+  scopeRef?: string;
 };
 
 export type SearchNavigationOptions = SearchNavigationContext & {
   query?: string;
   focus?: boolean;
   run?: boolean;
+};
+export type ResolvedSearchNavigationContext = {
+  queryMode: ClinicalQueryMode;
+  scopeFilters: SearchScopeFilters;
+  scopeRef?: string;
 };
 
 type ReadableSearchParams = Pick<URLSearchParams, "get" | "getAll">;
@@ -30,6 +36,7 @@ type FreeTextScopeKey =
   | "collections";
 
 const queryModeParam = "queryMode";
+const privateScopeRefParam = "scopeRef";
 const localityParam = "scope.locality";
 const scopeParam = (key: keyof SearchScopeFilters) => `scope.${key}`;
 
@@ -127,6 +134,7 @@ export function appendSearchNavigationContext(params: URLSearchParams, context: 
   if (context.queryMode && context.queryMode !== "auto" && queryModes.has(context.queryMode)) {
     params.set(queryModeParam, context.queryMode);
   }
+  if (context.scopeRef && uuidPattern.test(context.scopeRef)) params.set(privateScopeRefParam, context.scopeRef);
 
   const filters = context.scopeFilters;
   if (!filters) return params;
@@ -173,7 +181,7 @@ export function routedSubmissionContextChanged(
   return previousSignature?.startsWith(signaturePrefix) === true && previousSignature !== nextSignature;
 }
 
-export function readSearchNavigationContext(params: ReadableSearchParams): Required<SearchNavigationContext> {
+export function readSearchNavigationContext(params: ReadableSearchParams): ResolvedSearchNavigationContext {
   const rawQueryMode = params.get(queryModeParam);
   const queryMode =
     rawQueryMode && queryModes.has(rawQueryMode as ClinicalQueryMode) ? (rawQueryMode as ClinicalQueryMode) : "auto";
@@ -215,5 +223,7 @@ export function readSearchNavigationContext(params: ReadableSearchParams): Requi
     scopeFilters.locality = locality as NonNullable<SearchScopeFilters["locality"]>;
   }
 
-  return { queryMode, scopeFilters };
+  const rawScopeRef = params.get(privateScopeRefParam)?.trim();
+  const scopeRef = rawScopeRef && uuidPattern.test(rawScopeRef) ? rawScopeRef : undefined;
+  return { queryMode, scopeFilters, scopeRef };
 }

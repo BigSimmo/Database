@@ -1,7 +1,16 @@
 # Operator apply — July 8 ingestion & tenancy batch
 
+> **Status (2026-07-13): ✅ Verified live.** All six batch migrations are already
+> applied on production `Clinical KB Database` (`sjrfecxgysukkwxsowpy`) — confirmed
+> against the live migration history — and every batch probe passes:
+> `retrieval_owner_matches` fail-closed truth table, `jsonb_merge_deep` deep-merge,
+> `complete_ingestion_job(… p_worker_id)` lease fence, and the R17 partial-unique
+> index (`indisvalid`/`indisready` true, queue 0/0). The apply steps below are
+> retained for staging / disaster-recovery replay. **Remaining:** redeploy the
+> ingestion worker so R5 merge + `p_worker_id` fences are active end-to-end.
+
 Consolidated runbook for migrations merged to `main` in PRs **#380**, **#405**,
-**#408**, and **#409** that are **in the repo but not yet verified on live** as
+**#408**, and **#409** that were **in the repo but not yet verified on live** as
 of 2026-07-09. Companion to
 [`docs/supabase-migration-reconciliation.md`](supabase-migration-reconciliation.md)
 and [`docs/ingestion-concurrency-fix-workorder.md`](ingestion-concurrency-fix-workorder.md).

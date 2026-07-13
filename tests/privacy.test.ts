@@ -165,6 +165,32 @@ describe("query privacy storage helpers", () => {
   });
 });
 
+describe("answer persistence storage helper (PIA-3)", () => {
+  it("drops the generated answer text at rest by default", async () => {
+    vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_ANSWER_TEXT: false } }));
+    const { answerTextForStorage, answerPrivacyMetadata } = await import("../src/lib/query-privacy");
+
+    // A generated answer can restate patient specifics echoed from the query.
+    const phiAnswer = "Jane Citizen (MRN 123456) should have clozapine withheld below an ANC of 1.5.";
+    expect(answerTextForStorage(phiAnswer)).toBeNull();
+    expect(answerTextForStorage("")).toBeNull();
+    expect(answerTextForStorage(null)).toBeNull();
+    expect(answerTextForStorage(undefined)).toBeNull();
+    expect(answerPrivacyMetadata()).toEqual({ answer_retained: false });
+  });
+
+  it("retains the answer text only when answer retention is explicitly enabled", async () => {
+    vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_ANSWER_TEXT: true } }));
+    const { answerTextForStorage, answerPrivacyMetadata } = await import("../src/lib/query-privacy");
+
+    expect(answerTextForStorage("Monitor FBC weekly for the first 18 weeks.")).toBe(
+      "Monitor FBC weekly for the first 18 weeks.",
+    );
+    expect(answerTextForStorage(null)).toBeNull();
+    expect(answerPrivacyMetadata()).toEqual({ answer_retained: true });
+  });
+});
+
 describe("queryVocabularyAliasesForStorage (RET-H4-safe candidate aliases)", () => {
   it("returns only curated vocabulary canonicals matched by the query, never query text", async () => {
     vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: false } }));

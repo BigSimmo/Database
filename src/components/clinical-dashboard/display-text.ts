@@ -1,6 +1,7 @@
 import {
   normalizeExtractedGlyphs,
   normalizeInlineBulletGlyphs,
+  normalizePreformattedDisplayText,
   sourceTextForCompactDisplay,
   sourceTextForClinicalProse,
   sourceTextForClinicalProsePreservingBreaks,
@@ -16,8 +17,20 @@ export type DisplayTextSanitizeOptions = {
   minLength?: number;
   minTokens?: number;
   compactSource?: boolean;
+  // Server-`preformatted` answers (doc-support lists, table/visual references)
+  // are display-ready by construction; run only lossless normalization so their
+  // document names / facility codes are not deleted as "source noise".
+  preformatted?: boolean;
+  // Keep server high-yield bold (**…**) so <SafeBoldText> can render it.
+  preserveBold?: boolean;
 };
 
+/**
+ * Normalizes display text by trimming surrounding whitespace and collapsing internal whitespace.
+ *
+ * @param value - The display text to normalize
+ * @returns The normalized display text
+ */
 export function normalizeDisplayText(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
@@ -182,6 +195,12 @@ export function compactSourceSnippet(value: string, options: CompactSourceSnippe
   return text;
 }
 
+/**
+ * Compacts table fact fields into a deduplicated display representation.
+ *
+ * @param fact - The table fact whose fields should be compacted
+ * @returns The fact identifier and cleaned fields, or `null` when no displayable fields remain
+ */
 export function compactTableFact(fact: NonNullable<SearchResult["table_facts"]>[number]) {
   const fields = [
     { label: "Table", value: fact.table_title },
@@ -201,8 +220,22 @@ export function compactTableFact(fact: NonNullable<SearchResult["table_facts"]>[
   return cleanedFields.length ? { id: fact.id, fields: cleanedFields } : null;
 }
 
+/**
+ * Sanitizes answer text for display while removing embedded artifacts and low-information content.
+ *
+ * @param options - Controls minimum content thresholds, preformatted text handling, and bold formatting preservation.
+ * @returns The cleaned answer text, or an empty string when the input is empty, invalid, or artifact-like.
+ */
 export function sanitizeAnswerDisplayText(value: string, options: DisplayTextSanitizeOptions = {}) {
-  const normalized = polishClinicalAnswerProse(sourceTextForClinicalProsePreservingBreaks(value)).trim();
+  const normalized = (
+    options.preformatted
+      ? normalizePreformattedDisplayText(value, {
+          preserveBold: options.preserveBold,
+        })
+      : polishClinicalAnswerProse(sourceTextForClinicalProsePreservingBreaks(value), {
+          preserveBold: options.preserveBold,
+        })
+  ).trim();
   if (!normalized) return "";
   const artifactStart = normalizeDisplayText(normalized).search(
     /\{\s*"(?:answer|heading|body|grounded|confidence|citations?|answerSections?|citation_chunk_ids|source_chunk_ids|chunk_id|conflictsOrGaps|quoteCards?)\s*:/i,

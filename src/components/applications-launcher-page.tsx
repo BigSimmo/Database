@@ -176,7 +176,7 @@ function ToolIcon({ app, size = "md" }: { app: LauncherApp; size?: "sm" | "md" |
         size === "lg" && "h-14 w-14",
       )}
     >
-      <Icon className={cn(size === "sm" ? "h-4.5 w-4.5" : size === "md" ? "h-6 w-6" : "h-7 w-7")} aria-hidden />
+      <Icon className={cn(size === "sm" ? "size-icon-lg" : size === "md" ? "h-6 w-6" : "h-7 w-7")} aria-hidden />
     </span>
   );
 }
@@ -226,7 +226,7 @@ function ToolSearch({
       )}
     >
       <span className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--clinical-accent)]">
-        <Plus className="h-4.5 w-4.5" aria-hidden />
+        <Plus className="size-icon-lg" aria-hidden />
       </span>
       <label className="min-w-0">
         <span className="sr-only">{copy.searchAriaLabel}</span>
@@ -246,7 +246,7 @@ function ToolSearch({
           focusRing,
         )}
       >
-        <Search className="h-4.5 w-4.5" aria-hidden />
+        <Search className="size-icon-lg" aria-hidden />
       </button>
     </form>
   );
@@ -321,6 +321,12 @@ function QuickActions({ onSelect, mobile }: { onSelect: (id: string) => void; mo
   );
 }
 
+/**
+ * Renders responsive tabs for selecting a tool category.
+ *
+ * @param activeFilter - The currently selected tool category.
+ * @param onFilterChange - Called with the selected category when a tab is activated.
+ */
 function FilterTabs({
   activeFilter,
   onFilterChange,
@@ -498,7 +504,7 @@ function DetailSection({
       )}
     >
       <div className="flex items-center gap-2 text-sm font-extrabold text-[color:var(--text-heading)]">
-        <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden />
+        <Icon className="size-icon-lg text-[color:var(--clinical-accent)]" aria-hidden />
         {title}
       </div>
       <div className={cn("mt-2 text-sm leading-6 text-[color:var(--text-muted)]", compact && "text-xs leading-5")}>
@@ -575,7 +581,7 @@ function MobileDetailSections({ app }: { app: LauncherApp }) {
                 focusRing,
               )}
             >
-              <Icon className="h-4.5 w-4.5 text-[color:var(--clinical-accent)]" aria-hidden />
+              <Icon className="size-icon-lg text-[color:var(--clinical-accent)]" aria-hidden />
               <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{label}</span>
               <ChevronRight
                 className={cn(
@@ -748,7 +754,6 @@ export function ApplicationsLauncherWorkspace({
           subtitle={copy.description}
           icon={Grid2X2}
           headingLevel={1}
-          compact
         />
 
         {desktopComposerSlotId ? (
@@ -779,7 +784,7 @@ export function ApplicationsLauncherWorkspace({
       <section
         aria-label={copy.allSectionLabel}
         data-testid="tools-all-tools"
-        className="mx-auto mt-8 grid max-w-[86rem] gap-4 sm:mt-10"
+        className="mx-auto mt-8 grid max-w-[86rem] grid-cols-1 gap-4 sm:mt-10"
       >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="text-left">
@@ -795,7 +800,12 @@ export function ApplicationsLauncherWorkspace({
           </div>
         </div>
 
-        <div id="launcher-results-panel" role="tabpanel" aria-label={resultsPanelLabel} className="grid gap-4">
+        <div
+          id="launcher-results-panel"
+          role="tabpanel"
+          aria-label={resultsPanelLabel}
+          className="grid grid-cols-1 gap-4"
+        >
           {filteredApps.length === 0 ? (
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-10 text-center shadow-[var(--shadow-inset)]">
               <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>
@@ -808,7 +818,7 @@ export function ApplicationsLauncherWorkspace({
                   <ToolCard key={app.id} app={app} selected={effectiveSelectedId === app.id} onSelect={openTool} />
                 ))}
               </div>
-              <div className="grid gap-3 lg:hidden">
+              <div className="grid grid-cols-1 gap-3 lg:hidden">
                 {filteredApps.map((app) => (
                   <MobileToolRow key={app.id} app={app} selected={effectiveSelectedId === app.id} onSelect={openTool} />
                 ))}

@@ -59,6 +59,7 @@ export type RagQualityResult = {
   topFiles: string[];
   expectedHit: boolean;
   grounded: boolean;
+  acceptSourceOnly?: boolean;
   latencyMs: number;
   route: string;
   model: string | null;
@@ -400,7 +401,15 @@ function topResultGovernanceCounts(results: GoldenRetrievalResult[]) {
 function summarizeRagQualityResults(results: RagQualityResult[]) {
   const supported = results.filter((result) => result.supported);
   const unsupported = results.filter((result) => !result.supported);
-  const groundedSupported = supported.filter((result) => result.grounded).length;
+  // A supported case counts as grounded-supported when it grounds, OR — for
+  // acceptSourceOnly cases (diffuse questions with no single authoritative source) —
+  // when it returns a source-only answer that still cites the expected documents.
+  // Requiring expectedHit keeps the guard honest: a real retrieval regression that
+  // stops surfacing the expected docs is NOT accepted and still drags the rate below
+  // threshold, hard-failing the canary.
+  const groundedSupported = supported.filter(
+    (result) => result.grounded || (result.acceptSourceOnly && result.expectedHit && result.citations > 0),
+  ).length;
   const unsupportedCorrect = unsupported.filter((result) => !result.grounded).length;
   const citationFailures = results.filter((result) =>
     result.failures.some((failure) => qualityFailureCategory(failure) === "citation"),
@@ -672,6 +681,8 @@ ${markdownTable([
   ["Irrelevant source rate@10", retrieval.irrelevant_source_rate_at_10],
   ["Required signal coverage@10", retrieval.required_signal_coverage_at_10],
   ["Signal metric cases", retrieval.signal_metric_case_count],
+  ["Content MRR@10", retrieval.content_mrr_at_10],
+  ["Content MRR cases", retrieval.content_mrr_case_count],
   ["Median latency ms", retrieval.median_latency_ms],
   ["Failed cases", retrieval.failed_cases.length],
 ])}
@@ -847,6 +858,7 @@ async function runRagQualityCases(args: {
       topFiles: answer.sources.slice(0, 5).map((source) => source.file_name),
       expectedHit: validation.expectedHit,
       grounded: deliveredGrounded,
+      acceptSourceOnly: testCase.acceptSourceOnly,
       latencyMs: answer.latencyTimings?.total_latency_ms ?? 0,
       route: answer.routingMode ?? "none",
       model: answer.modelUsed ?? null,

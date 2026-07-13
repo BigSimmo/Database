@@ -168,12 +168,52 @@ export function SetupChecklist({ checks }: { checks: SetupCheck[] }) {
  * progress (fetch offers no request-body progress). Resolves on 2xx, rejects
  * with the server's error message otherwise.
  */
-function uploadFileWithProgress(
+export type UploadOutcome =
+  | { kind: "queued"; fileName: string; documentId: string; jobId: string }
+  | { kind: "duplicate"; fileName: string; documentId: string; message: string }
+  | { kind: "failed"; fileName: string; status: number; code: string; message: string };
+
+type UploadResponsePayload = {
+  error?: string;
+  message?: string;
+  code?: string;
+  duplicate?: boolean;
+  document?: { id?: string };
+  job?: { id?: string };
+};
+export function uploadOutcomeFromResponse(
+  fileName: string,
+  status: number,
+  payload: UploadResponsePayload,
+): UploadOutcome {
+  const documentId = payload.document?.id ?? "";
+  if (status >= 200 && status < 300 && payload.duplicate) {
+    return {
+      kind: "duplicate",
+      fileName,
+      documentId,
+      message: payload.message ?? "This exact document already exists; no indexing job was queued.",
+    };
+  }
+  if (status >= 200 && status < 300) {
+    return { kind: "queued", fileName, documentId, jobId: payload.job?.id ?? "" };
+  }
+  return {
+    kind: "failed",
+    fileName,
+    status,
+    code: payload.code ?? `http_${status}`,
+    message: payload.message ?? payload.error ?? "Upload failed",
+  };
+}
+
+export function uploadFileWithProgress(
   file: File,
   authorizationHeader: Record<string, string>,
   onProgress: (fraction: number) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
+  signal?: AbortSignal,
+): Promise<UploadOutcome> {
+  return new Promise((resolve) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/upload");
     // FormData sets its own multipart Content-Type (with boundary); only the
@@ -185,7 +225,7 @@ function uploadFileWithProgress(
       if (event.lengthComputable && event.total > 0) onProgress(event.loaded / event.total);
     };
     xhr.onload = () => {
-      let payload: { error?: string } = {};
+      let payload: UploadResponsePayload = {};
       try {
         payload = JSON.parse(xhr.responseText || "{}");
       } catch {
@@ -193,12 +233,28 @@ function uploadFileWithProgress(
       }
       if (xhr.status >= 200 && xhr.status < 300) {
         onProgress(1);
-        resolve();
+        resolve(uploadOutcomeFromResponse(file.name, xhr.status, payload));
       } else {
-        reject(new Error(payload.error || "Upload failed"));
+        resolve(uploadOutcomeFromResponse(file.name, xhr.status, payload));
       }
     };
-    xhr.onerror = () => reject(new Error(errorCopy.uploadFailed));
+    xhr.onerror = () =>
+      resolve({
+        kind: "failed",
+        fileName: file.name,
+        status: 0,
+        code: "network_error",
+        message: errorCopy.uploadFailed,
+      });
+    xhr.onabort = () =>
+      resolve({
+        kind: "failed",
+        fileName: file.name,
+        status: 0,
+        code: "upload_cancelled",
+        message: "Upload cancelled.",
+      });
+    signal?.addEventListener("abort", () => xhr.abort(), { once: true });
     const formData = new FormData();
     formData.append("file", file);
     xhr.send(formData);
@@ -210,6 +266,9 @@ export function UploadPanel({
   demoMode,
   canUpload,
   authorizationHeader,
+  registerAuthRequest,
+  isAuthEpochCurrent,
+  onSessionExpired,
   status,
   setStatus,
 }: {
@@ -217,6 +276,9 @@ export function UploadPanel({
   demoMode: boolean;
   canUpload: boolean;
   authorizationHeader: Record<string, string>;
+  registerAuthRequest?: (controller: AbortController) => { epoch: number; release: () => void };
+  isAuthEpochCurrent?: (epoch: number) => boolean;
+  onSessionExpired?: () => void;
   status?: string | null;
   setStatus?: (status: string | null) => void;
 }) {
@@ -254,7 +316,7 @@ export function UploadPanel({
       files.length === 1 ? `Uploading ${files[0].name}...` : `Uploading 1 of ${files.length}: ${files[0].name}`,
     );
 
-    const failures: string[] = [];
+    const outcomes: UploadOutcome[] = [];
     for (let index = 0; index < files.length; index++) {
       const file = files[index];
       try {
@@ -263,25 +325,53 @@ export function UploadPanel({
         );
         // Overall percent spans all files: completed files + the current file's
         // byte fraction, so the bar advances smoothly across a multi-file batch.
-        await uploadFileWithProgress(file, authorizationHeader, (fraction) => {
-          setUploadPercent(Math.min(100, Math.round(((index + fraction) / files.length) * 100)));
-        });
+        const controller = new AbortController();
+        const authRequest = registerAuthRequest?.(controller);
+        const outcome = await uploadFileWithProgress(
+          file,
+          authorizationHeader,
+          (fraction) => {
+            setUploadPercent(Math.min(100, Math.round(((index + fraction) / files.length) * 100)));
+          },
+          controller.signal,
+        );
+        authRequest?.release();
+        if (authRequest && isAuthEpochCurrent && !isAuthEpochCurrent(authRequest.epoch)) {
+          changeStatus("Upload cancelled because the signed-in session changed.");
+          setUploading(false);
+          setUploadPercent(null);
+          return;
+        }
+        outcomes.push(outcome);
+        if (outcome.kind === "failed" && outcome.status === 401) onSessionExpired?.();
       } catch (error) {
-        failures.push(`${file.name}: ${error instanceof Error ? error.message : errorCopy.uploadFailed}`);
+        outcomes.push({
+          kind: "failed",
+          fileName: file.name,
+          status: 0,
+          code: "upload_failed",
+          message: error instanceof Error ? error.message : errorCopy.uploadFailed,
+        });
       }
     }
 
+    const queued = outcomes.filter((outcome) => outcome.kind === "queued");
+    const duplicates = outcomes.filter((outcome) => outcome.kind === "duplicate");
+    const failures = outcomes.filter((outcome) => outcome.kind === "failed");
     setUploadPercent(failures.length === 0 ? 100 : null);
     if (failures.length === 0) {
-      changeStatus(
-        files.length === 1
-          ? "Successfully uploaded document to storage queue."
-          : `Successfully uploaded ${files.length} documents.`,
-      );
+      const parts = [
+        queued.length ? `${queued.length} queued for indexing` : null,
+        duplicates.length ? `${duplicates.length} already existed; no indexing job was queued` : null,
+      ].filter(Boolean);
+      changeStatus(parts.join(". ") + ".");
       if (input) input.value = "";
-      onUploaded();
+      if (queued.length) onUploaded();
     } else {
-      changeStatus(`Upload complete with failures: ${failures.join("; ")}`);
+      const successful = queued.length + duplicates.length;
+      changeStatus(
+        `Upload complete: ${successful} accepted; ${failures.length} failed. ${failures.map((outcome) => `${outcome.fileName}: ${outcome.message}`).join("; ")}`,
+      );
     }
     setUploading(false);
     setUploadPercent(null);
@@ -309,7 +399,11 @@ export function UploadPanel({
           disabled={uploading || (!demoMode && !canUpload)}
           className={cn(floatingControl, "w-full justify-center")}
         >
-          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+          {uploading ? (
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          ) : (
+            <UploadCloud aria-hidden="true" className="h-4 w-4" />
+          )}
           Upload guidelines
         </button>
       </div>
@@ -331,7 +425,11 @@ export function UploadPanel({
         </div>
       )}
       {(displayStatus || demoMode) && (
-        <p className="mt-2 text-xs leading-5 text-[color:var(--text-muted)]" data-testid="upload-status">
+        <p
+          aria-live="polite"
+          className="mt-2 text-xs leading-5 text-[color:var(--text-muted)]"
+          data-testid="upload-status"
+        >
           {displayStatus ?? demoUploadReadOnlyMessage}
         </p>
       )}
@@ -423,6 +521,9 @@ export function IndexingMonitor({
         const busy = actionId === job.id || actionId === job.document_id;
         return (
           <div key={job.id} className={cn(panelSubtle, "p-3")}>
+            <span className="sr-only" aria-live="polite" aria-atomic="true">
+              {documentTitle}: {job.status}, {job.progress}%
+            </span>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-[color:var(--text)]">{documentTitle}</p>
@@ -430,7 +531,14 @@ export function IndexingMonitor({
               </div>
               <StatusBadge status={job.status} />
             </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--surface-inset)]">
+            <div
+              role="progressbar"
+              aria-label={`${documentTitle} indexing progress`}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={job.progress}
+              className="mt-3 h-2 overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
+            >
               <div className="h-full rounded-full bg-[color:var(--primary)]" style={{ width: `${job.progress}%` }} />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -444,7 +552,11 @@ export function IndexingMonitor({
                   disabled={busy}
                   className={cn(floatingControl, "min-h-9 px-3 text-xs")}
                 >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {busy ? (
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                  )}
                   Retry
                 </button>
               )}
@@ -454,7 +566,11 @@ export function IndexingMonitor({
                 disabled={busy || job.status === "processing"}
                 className={cn(floatingControl, "min-h-9 px-3 text-xs")}
               >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {busy ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                )}
                 Reindex
               </button>
               <button
@@ -463,7 +579,11 @@ export function IndexingMonitor({
                 disabled={busy || job.status === "processing"}
                 className={cn(floatingControl, "min-h-9 px-3 text-xs")}
               >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {busy ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles aria-hidden="true" className="h-4 w-4" />
+                )}
                 Enrich
               </button>
             </div>
@@ -583,7 +703,7 @@ export function IngestionQualityConsole({
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Link href={`/documents/${item.documentId}`} className={cn(floatingControl, "min-h-9 px-3 text-xs")}>
-                    <ExternalLink className="h-4 w-4" />
+                    <ExternalLink aria-hidden="true" className="h-4 w-4" />
                     Open
                   </Link>
                   {item.jobId ? (
@@ -593,7 +713,11 @@ export function IngestionQualityConsole({
                       disabled={busy}
                       className={cn(floatingControl, "min-h-9 px-3 text-xs")}
                     >
-                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      {busy ? (
+                        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                      )}
                       Retry
                     </button>
                   ) : null}
@@ -603,7 +727,11 @@ export function IngestionQualityConsole({
                     disabled={busy}
                     className={cn(floatingControl, "min-h-9 px-3 text-xs")}
                   >
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    {busy ? (
+                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                    )}
                     Reindex
                   </button>
                   <button
@@ -612,7 +740,11 @@ export function IngestionQualityConsole({
                     disabled={busy}
                     className={cn(floatingControl, "min-h-9 px-3 text-xs")}
                   >
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {busy ? (
+                      <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles aria-hidden="true" className="h-4 w-4" />
+                    )}
                     Enrich
                   </button>
                 </div>

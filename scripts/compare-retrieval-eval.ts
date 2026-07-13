@@ -1,40 +1,137 @@
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+type EvalSummary = Record<string, unknown>;
 
 type EvalPayload = {
-  summary?: Record<string, unknown>;
+  summary?: EvalSummary;
   results?: Array<Record<string, unknown>>;
 };
 
+type MetricKind = "number" | "array" | "layer";
+
+type MetricSpec = {
+  name: string;
+  // Summary field to read, or the layer name when kind is "layer".
+  field: string;
+  kind: MetricKind;
+  // Required metrics feed the re-index gate; a missing value must fail closed rather than read
+  // as 0. Optional/context metrics are mode-dependent (latency, force-embedding, layer coverage)
+  // or superseded by content_mrr_at_10 (doc-level mrr_at_10) — absent is reported as n/a.
+  required: boolean;
+  digits: number;
+};
+
+const METRIC_SPECS: MetricSpec[] = [
+  { name: "case_count", field: "case_count", kind: "number", required: true, digits: 0 },
+  { name: "document_recall_at_5", field: "document_recall_at_5", kind: "number", required: true, digits: 4 },
+  { name: "content_recall_at_5", field: "content_recall_at_5", kind: "number", required: true, digits: 4 },
+  { name: "top_k_hit_rate", field: "top_k_hit_rate", kind: "number", required: true, digits: 4 },
+  // Passage rank is the decisive retrieval metric; its case count guards the population it is
+  // averaged over. Both are required so a missing value is surfaced, not silently zeroed.
+  { name: "content_mrr_at_10", field: "content_mrr_at_10", kind: "number", required: true, digits: 4 },
+  { name: "content_mrr_case_count", field: "content_mrr_case_count", kind: "number", required: true, digits: 0 },
+  { name: "failed_cases", field: "failed_cases", kind: "array", required: true, digits: 0 },
+  { name: "mrr_at_10", field: "mrr_at_10", kind: "number", required: false, digits: 4 },
+  { name: "median_latency_ms", field: "median_latency_ms", kind: "number", required: false, digits: 0 },
+  { name: "p90_latency_ms", field: "p90_latency_ms", kind: "number", required: false, digits: 0 },
+  {
+    name: "force_embedding_failure_count",
+    field: "force_embedding_failure_count",
+    kind: "number",
+    required: false,
+    digits: 0,
+  },
+  { name: "latency_failed_cases", field: "latency_failed_cases", kind: "array", required: false, digits: 0 },
+  { name: "index_units_layer_count", field: "index_units", kind: "layer", required: false, digits: 0 },
+  { name: "ndcg_at_10", field: "ndcg_at_10", kind: "number", required: false, digits: 4 },
+  {
+    name: "irrelevant_source_rate_at_10",
+    field: "irrelevant_source_rate_at_10",
+    kind: "number",
+    required: false,
+    digits: 4,
+  },
+  {
+    name: "required_signal_coverage_at_10",
+    field: "required_signal_coverage_at_10",
+    kind: "number",
+    required: false,
+    digits: 4,
+  },
+];
+
+type MetricValue = { present: boolean; value: number };
+
+function readNumber(summary: EvalSummary, key: string): MetricValue {
+  const value = summary[key];
+  return typeof value === "number" && Number.isFinite(value) ? { present: true, value } : { present: false, value: 0 };
+}
+
+function readArrayLength(summary: EvalSummary, key: string): MetricValue {
+  const value = summary[key];
+  return Array.isArray(value) ? { present: true, value: value.length } : { present: false, value: 0 };
+}
+
+function readLayer(summary: EvalSummary, layer: string): MetricValue {
+  const counts = summary.retrieval_layer_counts;
+  if (!counts || typeof counts !== "object") return { present: false, value: 0 };
+  const value = (counts as Record<string, unknown>)[layer];
+  return typeof value === "number" && Number.isFinite(value) ? { present: true, value } : { present: false, value: 0 };
+}
+
+function readMetric(summary: EvalSummary, spec: MetricSpec): MetricValue {
+  switch (spec.kind) {
+    case "array":
+      return readArrayLength(summary, spec.field);
+    case "layer":
+      return readLayer(summary, spec.field);
+    default:
+      return readNumber(summary, spec.field);
+  }
+}
+
+export type ComparisonRow = {
+  name: string;
+  baseline: MetricValue;
+  candidate: MetricValue;
+  digits: number;
+};
+
+export type RetrievalEvalComparison = {
+  rows: ComparisonRow[];
+  missingRequired: string[];
+};
+
+// Pure so it can be unit-tested without touching the filesystem or process exit code.
+export function compareRetrievalEval(baseline: EvalSummary, candidate: EvalSummary): RetrievalEvalComparison {
+  const rows: ComparisonRow[] = [];
+  const missingRequired: string[] = [];
+  for (const spec of METRIC_SPECS) {
+    const baselineValue = readMetric(baseline, spec);
+    const candidateValue = readMetric(candidate, spec);
+    if (spec.required) {
+      if (!baselineValue.present) missingRequired.push(`baseline.${spec.name}`);
+      if (!candidateValue.present) missingRequired.push(`candidate.${spec.name}`);
+    }
+    rows.push({ name: spec.name, baseline: baselineValue, candidate: candidateValue, digits: spec.digits });
+  }
+  return { rows, missingRequired };
+}
+
+function formatCell(row: ComparisonRow): string {
+  if (!row.baseline.present || !row.candidate.present) {
+    const candidate = row.candidate.present ? row.candidate.value.toFixed(row.digits) : "n/a";
+    const baseline = row.baseline.present ? row.baseline.value.toFixed(row.digits) : "n/a";
+    return `${candidate} (baseline ${baseline})`;
+  }
+  const delta = row.candidate.value - row.baseline.value;
+  const sign = delta > 0 ? "+" : "";
+  return `${row.candidate.value.toFixed(row.digits)} (${sign}${delta.toFixed(row.digits)})`;
+}
+
 function readPayload(path: string): EvalPayload {
   return JSON.parse(readFileSync(path, "utf8")) as EvalPayload;
-}
-
-function numberValue(summary: Record<string, unknown>, key: string) {
-  const value = summary[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function optionalNumberValue(summary: Record<string, unknown>, key: string) {
-  const value = summary[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
-function arrayLength(summary: Record<string, unknown>, key: string) {
-  const value = summary[key];
-  return Array.isArray(value) ? value.length : 0;
-}
-
-function layerCount(summary: Record<string, unknown>, layer: string) {
-  const counts = summary.retrieval_layer_counts;
-  if (!counts || typeof counts !== "object") return 0;
-  const value = (counts as Record<string, unknown>)[layer];
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function formatDelta(candidate: number, baseline: number, digits = 4) {
-  const delta = candidate - baseline;
-  const sign = delta > 0 ? "+" : "";
-  return `${candidate.toFixed(digits)} (${sign}${delta.toFixed(digits)})`;
 }
 
 function main() {
@@ -45,55 +142,25 @@ function main() {
 
   const baseline = readPayload(baselinePath).summary ?? {};
   const candidate = readPayload(candidatePath).summary ?? {};
-
-  const metrics: Array<[string, number, number, number?]> = [
-    ["case_count", numberValue(baseline, "case_count"), numberValue(candidate, "case_count"), 0],
-    [
-      "document_recall_at_5",
-      numberValue(baseline, "document_recall_at_5"),
-      numberValue(candidate, "document_recall_at_5"),
-    ],
-    [
-      "content_recall_at_5",
-      numberValue(baseline, "content_recall_at_5"),
-      numberValue(candidate, "content_recall_at_5"),
-    ],
-    ["top_k_hit_rate", numberValue(baseline, "top_k_hit_rate"), numberValue(candidate, "top_k_hit_rate")],
-    ["mrr_at_10", numberValue(baseline, "mrr_at_10"), numberValue(candidate, "mrr_at_10")],
-    ["median_latency_ms", numberValue(baseline, "median_latency_ms"), numberValue(candidate, "median_latency_ms"), 0],
-    ["p90_latency_ms", numberValue(baseline, "p90_latency_ms"), numberValue(candidate, "p90_latency_ms"), 0],
-    [
-      "force_embedding_failure_count",
-      numberValue(baseline, "force_embedding_failure_count"),
-      numberValue(candidate, "force_embedding_failure_count"),
-      0,
-    ],
-    ["failed_cases", arrayLength(baseline, "failed_cases"), arrayLength(candidate, "failed_cases"), 0],
-    [
-      "latency_failed_cases",
-      arrayLength(baseline, "latency_failed_cases"),
-      arrayLength(candidate, "latency_failed_cases"),
-      0,
-    ],
-    ["index_units_layer_count", layerCount(baseline, "index_units"), layerCount(candidate, "index_units"), 0],
-  ];
-  for (const key of ["ndcg_at_10", "irrelevant_source_rate_at_10", "required_signal_coverage_at_10"] as const) {
-    const baselineValue = optionalNumberValue(baseline, key);
-    const candidateValue = optionalNumberValue(candidate, key);
-    if (baselineValue !== undefined && candidateValue !== undefined) {
-      metrics.push([key, baselineValue, candidateValue]);
-    }
-  }
+  const { rows, missingRequired } = compareRetrievalEval(baseline, candidate);
 
   console.log("Retrieval eval comparison: candidate (delta from baseline)");
-  for (const [name, baseValue, candidateValue, digits] of metrics) {
-    console.log(`  ${name}: ${formatDelta(candidateValue, baseValue, digits ?? 4)}`);
+  for (const row of rows) {
+    console.log(`  ${row.name}: ${formatCell(row)}`);
+  }
+
+  if (missingRequired.length > 0) {
+    console.error(`\nMissing required metric(s), refusing a clean comparison: ${missingRequired.join(", ")}`);
+    console.error("A missing decision metric is not the same as 0 — regenerate the eval JSON with the full summary.");
+    process.exitCode = 1;
   }
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  }
 }

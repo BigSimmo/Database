@@ -38,10 +38,10 @@ import { DocumentFileTile, DocumentMetaRow } from "@/components/clinical-dashboa
 import { documentRelevancePercent } from "@/components/clinical-dashboard/relevance-score";
 import { cn } from "@/components/ui-primitives";
 import {
-  documentEvidenceHref,
-  documentReaderHref,
+  mockDocumentEvidenceHref,
+  mockDocumentReaderHref,
+  mockDocumentsSearchHref,
   documentSearchRequestBody,
-  documentsSearchHref,
 } from "@/lib/document-flow-routes";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { DocumentMatch } from "@/lib/types";
@@ -248,7 +248,7 @@ const monitoringTableRows = [
 ] as const;
 
 function documentHref(document: DocumentFixture, query = defaultQuery, evidence?: EvidenceFixture) {
-  return documentReaderHref({
+  return mockDocumentReaderHref({
     document: document.slug,
     query,
     page: String(evidence?.page ?? document.page),
@@ -257,7 +257,7 @@ function documentHref(document: DocumentFixture, query = defaultQuery, evidence?
 }
 
 function evidenceHref(document: DocumentFixture, evidence: EvidenceFixture, query = defaultQuery) {
-  return documentEvidenceHref({
+  return mockDocumentEvidenceHref({
     document: document.slug,
     evidence: evidence.id,
     query,
@@ -277,7 +277,7 @@ function findEvidence(document: DocumentFixture, id: string | null): EvidenceFix
 }
 
 function searchHref(query = defaultQuery) {
-  return documentsSearchHref({ query });
+  return mockDocumentsSearchHref(query);
 }
 
 function evidenceCountLabel(document: DocumentFixture, type: EvidenceType, label: string) {
@@ -296,11 +296,13 @@ function Pill({
   active = false,
   tone = "neutral",
   icon: Icon,
+  className,
 }: {
   children: ReactNode;
   active?: boolean;
   tone?: "neutral" | "teal" | "green" | "amber" | "blue" | "violet";
   icon?: LucideIcon;
+  className?: string;
 }) {
   const toneClass =
     active || tone === "teal"
@@ -319,6 +321,7 @@ function Pill({
       className={cn(
         "inline-flex min-h-7 max-w-full shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-bold shadow-[var(--shadow-inset)]",
         toneClass,
+        className,
       )}
     >
       {Icon ? <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : null}
@@ -473,7 +476,7 @@ function MonitoringRowCards({ compact = false }: { compact?: boolean }) {
         <article
           key={row[0]}
           className={cn(
-            "grid grid-cols-[4rem_minmax(0,1fr)] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
+            "grid grid-cols-[3rem_minmax(0,1fr)] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] sm:grid-cols-[4rem_minmax(0,1fr)]",
             rowIndex === 1 && "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]",
           )}
         >
@@ -482,7 +485,7 @@ function MonitoringRowCards({ compact = false }: { compact?: boolean }) {
           </div>
           <div className={cn("p-3", compact && "p-2.5")}>
             <h3 className="text-base font-extrabold text-[color:var(--text-heading)]">{row[0]}</h3>
-            <dl className="mt-2 grid grid-cols-[7.25rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+            <dl className="mt-2 grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm sm:grid-cols-[7.25rem_minmax(0,1fr)]">
               {monitoringTableHeadings.slice(1).map((heading, index) => (
                 <div key={heading} className="contents">
                   <dt className="font-bold text-[color:var(--text-muted)]">{heading}</dt>
@@ -1596,11 +1599,13 @@ function MasterEvidenceDetailContent({
             >
               <ArrowLeft className="h-6 w-6" aria-hidden="true" />
             </Link>
-            <h1 className="text-2xl font-extrabold text-[color:var(--text-heading)]">Evidence</h1>
-            <Pill icon={evidenceTypeIconFor(evidence.type)}>
-              {evidence.label} · p.{evidence.page}
-            </Pill>
-            <div className="ml-auto">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <h1 className="shrink-0 text-lg font-extrabold text-[color:var(--text-heading)] sm:text-2xl">Evidence</h1>
+              <Pill className="min-w-0 flex-1" icon={evidenceTypeIconFor(evidence.type)}>
+                {evidence.label} · p.{evidence.page}
+              </Pill>
+            </div>
+            <div className="ml-auto shrink-0">
               <IconButton label="More evidence actions" icon={MoreVertical} />
             </div>
           </div>

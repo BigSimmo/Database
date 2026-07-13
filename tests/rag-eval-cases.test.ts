@@ -5,6 +5,7 @@ import {
   loadCapturedRagEvalCases,
   mapCapturedEvalCase,
   mergeRagEvalCases,
+  ragEvalCases,
   scoreAnswerQualityEvalCase,
   scoreAnswerTargeting,
   type AnswerQualityEvalCase,
@@ -219,6 +220,50 @@ describe("captured RAG eval cases", () => {
     ]);
     expect(answerQualityEvalCases.some((testCase) => testCase.expectedIntent === "document_lookup")).toBe(true);
     expect(answerQualityEvalCases.some((testCase) => testCase.supported === false)).toBe(true);
+  });
+
+  it("marks the diffuse discharge cases as source-only-acceptable, still supported", () => {
+    const core = ragEvalCases.find((item) => item.id === "discharge-documentation");
+    expect(core?.supported).toBe(true);
+    expect(core?.acceptSourceOnly).toBe(true);
+    // The retrieval guard must remain: expected discharge docs still asserted.
+    expect(core?.expectedFiles).toEqual(["MHSP.Discharge.pdf"]);
+
+    const quality = answerQualityEvalCases.find((item) => item.id === "quality-discharge-documentation");
+    expect(quality?.supported).toBe(true);
+    expect(quality?.acceptSourceOnly).toBe(true);
+    expect(quality?.expectedFiles).toEqual(["MHSP.Discharge.pdf"]);
+  });
+
+  it("marks the diffuse duress cases as source-only-acceptable, still supported", () => {
+    // The duress-procedure query surfaces the same tangential RKPG cross-reference boilerplate as
+    // discharge, so its correct behaviour is a source-only answer citing the duress docs.
+    const core = ragEvalCases.find((item) => item.id === "duress-procedure");
+    expect(core?.supported).toBe(true);
+    expect(core?.acceptSourceOnly).toBe(true);
+    expect(core?.expectedFiles).toEqual(["MHSP.Duress.pdf"]);
+
+    const quality = answerQualityEvalCases.find((item) => item.id === "quality-duress-pathway");
+    expect(quality?.supported).toBe(true);
+    expect(quality?.acceptSourceOnly).toBe(true);
+    expect(quality?.expectedFiles).toEqual(["MHSP.Duress.pdf"]);
+  });
+
+  it("scores an acceptSourceOnly case as relevant for a clean source-only answer", () => {
+    const testCase = answerQualityEvalCases.find((item) => item.id === "quality-discharge-documentation")!;
+    const sourceOnly = {
+      answer: "No current indexed document directly supporting this request was found.",
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+      routingMode: "extractive",
+      queryClass: "document_lookup",
+      answerSections: [],
+    } satisfies RagAnswer;
+
+    const relevance = scoreAnswerQualityEvalCase(testCase, sourceOnly).find((score) => score.metric === "relevance");
+    expect(relevance?.score).toBe(1);
   });
 
   it("scores answer quality for relevance, readability, artifacts, intent coverage, and fail-closed behavior", () => {

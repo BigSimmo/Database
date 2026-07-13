@@ -1745,118 +1745,11 @@ describe("private document API access", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(upsertDocumentEnrichment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        document: expect.objectContaining({
-          id: documentId,
-          title: "Future Uploaded Protocol",
-          metadata: { existing: true },
-        }),
-        chunks,
-        images,
-      }),
-    );
+    expect(response.status).toBe(202);
+    expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
     expect(client.calls[0].selected).toContain("metadata");
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
-    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        document: expect.objectContaining({ id: documentId }),
-        chunks,
-        images,
-        summary: "Source-backed summary.",
-      }),
-    );
-  });
-
-  it("maps deep-memory ownership conflicts to 409 for single-document enrichment reindex", async () => {
-    const document = {
-      id: documentId,
-      owner_id: userId,
-      title: "Owned by agent",
-      file_name: "agent.pdf",
-      source_path: null,
-      import_batch_id: null,
-      metadata: {},
-    };
-    const client = createSupabaseMock((call) => {
-      if (call.table === "documents" && call.operation === "select") return ok(document);
-      if (call.table === "document_chunks") {
-        return ok([{ id: "chunk-1", document_id: documentId, chunk_index: 0, content: "Source content." }]);
-      }
-      if (call.table === "document_images") return ok([]);
-      return ok([]);
-    });
-    class DeepMemoryOwnershipConflictError extends Error {}
-    const upsertDocumentEnrichment = vi.fn(async () => ({ summary: { summary: "Summary" }, labels: [] }));
-    mockRuntime(client);
-    vi.doMock("@/lib/document-enrichment", () => ({
-      upsertDocumentEnrichment,
-    }));
-    vi.doMock("@/lib/deep-memory", () => ({
-      DeepMemoryOwnershipConflictError,
-      assertLocalDeepMemoryOwnership: vi.fn(async () => {
-        throw new DeepMemoryOwnershipConflictError("ownership conflict");
-      }),
-      upsertDocumentDeepMemory: vi.fn(),
-    }));
-    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
-
-    const response = await POST(
-      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
-        method: "POST",
-        body: JSON.stringify({ mode: "enrichment" }),
-      }),
-      { params: Promise.resolve({ id: documentId }) },
-    );
-
-    expect(response.status).toBe(409);
-    expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
-  });
-
-  it("maps deep-memory ownership conflicts to 409 for bulk enrichment reindex", async () => {
-    const document = {
-      id: documentId,
-      owner_id: userId,
-      title: "Owned by agent",
-      file_name: "agent.pdf",
-      source_path: null,
-      import_batch_id: null,
-      status: "indexed",
-      metadata: {},
-    };
-    const client = createSupabaseMock((call) => {
-      if (call.table === "documents" && call.operation === "select") return ok([document]);
-      if (call.table === "document_chunks") {
-        return ok([{ id: "chunk-1", document_id: documentId, chunk_index: 0, content: "Source content." }]);
-      }
-      if (call.table === "document_images") return ok([]);
-      return ok([]);
-    });
-    class DeepMemoryOwnershipConflictError extends Error {}
-    const upsertDocumentEnrichment = vi.fn(async () => ({ summary: { summary: "Summary" }, labels: [] }));
-    mockRuntime(client);
-    vi.doMock("@/lib/document-enrichment", () => ({
-      upsertDocumentEnrichment,
-    }));
-    vi.doMock("@/lib/deep-memory", () => ({
-      DeepMemoryOwnershipConflictError,
-      assertLocalDeepMemoryOwnership: vi.fn(async () => {
-        throw new DeepMemoryOwnershipConflictError("ownership conflict");
-      }),
-      upsertDocumentDeepMemory: vi.fn(),
-    }));
-    const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
-
-    const response = await POST(
-      authenticatedRequest("/api/documents/bulk/reindex", {
-        method: "POST",
-        body: JSON.stringify({ documentIds: [documentId], mode: "enrichment" }),
-      }),
-    );
-
-    expect(response.status).toBe(409);
-    expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
+    expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
   it("filters enrichment-only reindex rows to the committed document generation", async () => {
@@ -1938,19 +1831,9 @@ describe("private document API access", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(upsertDocumentEnrichment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chunks: [committedChunk],
-        images: [committedImage],
-      }),
-    );
-    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chunks: [committedChunk],
-        images: [committedImage],
-      }),
-    );
+    expect(response.status).toBe(202);
+    expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
+    expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
   it("paginates enrichment-only reindex chunks and images for deep memory rebuilds", async () => {
@@ -2040,22 +1923,10 @@ describe("private document API access", () => {
     const chunkSelects = client.calls.filter((call) => call.table === "document_chunks");
     const imageSelects = client.calls.filter((call) => call.table === "document_images");
 
-    expect(response.status).toBe(200);
-    expect(chunkSelects.map((call) => call.range)).toEqual([
-      { from: 0, to: 999 },
-      { from: 1000, to: 1999 },
-    ]);
-    expect(imageSelects.map((call) => call.range)).toEqual([
-      { from: 0, to: 999 },
-      { from: 1000, to: 1999 },
-    ]);
-    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chunks: expect.arrayContaining([expect.objectContaining({ id: "chunk-final" })]),
-        images: expect.arrayContaining([expect.objectContaining({ id: "image-final" })]),
-        summary: "Source-backed summary.",
-      }),
-    );
+    expect(response.status).toBe(202);
+    expect(chunkSelects).toEqual([]);
+    expect(imageSelects).toEqual([]);
+    expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
   it("blocks full reindex when the selected document already has active indexing work", async () => {
@@ -3434,7 +3305,7 @@ describe("private document API access", () => {
     const limited = await answerRoute.POST(anonymousAnswerRequest());
     expect(limited.status).toBe(429);
     expect(limited.headers.get("Retry-After")).toBe("60");
-    expect(await payload(limited)).toEqual({
+    expect(await payload(limited)).toMatchObject({
       error: "Too many answer requests. Retry shortly.",
       retryAfterSeconds: 60,
     });
@@ -3488,7 +3359,7 @@ describe("private document API access", () => {
     const limited = await answerRoute.POST(answerRequest());
     expect(limited.status).toBe(429);
     expect(limited.headers.get("Retry-After")).toBe("60");
-    expect(await payload(limited)).toEqual({
+    expect(await payload(limited)).toMatchObject({
       error: "Too many answer requests. Retry shortly.",
       retryAfterSeconds: 60,
     });
@@ -3550,7 +3421,7 @@ describe("private document API access", () => {
     const limited = await searchRoute.POST(searchRequest());
     expect(limited.status).toBe(429);
     expect(limited.headers.get("Retry-After")).toBe("60");
-    expect(await payload(limited)).toEqual({
+    expect(await payload(limited)).toMatchObject({
       error: "Search is temporarily rate limited because too many requests were received. Retry shortly.",
       retryAfterSeconds: 60,
     });
@@ -3961,9 +3832,11 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(429);
     expect(response.headers.get("Retry-After")).toBe("60");
-    expect(body).toContain("event: error");
-    expect(body).toContain('"status":429');
-    expect(body).toContain("Too many answer requests. Retry shortly.");
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(JSON.parse(body)).toMatchObject({
+      error: "Too many answer requests. Retry shortly.",
+      details: { retryAfterSeconds: 60 },
+    });
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 

@@ -82,9 +82,11 @@ import {
   cacheIndexingVersion,
   cloneAnswer,
   getCachedAnswer,
+  attachAdjacentContext,
   getCachedSearch,
   getSharedCachedAnswer,
   getSharedCachedSearch,
+  isSearchCacheEnabled,
   packAdjacentSourceContext,
   packedContextCacheKey,
   scopedAnswerCacheKey,
@@ -97,6 +99,7 @@ export {
   packedContextCacheKey,
   retrievalPlanCacheQuery,
 } from "@/lib/rag-cache";
+import { classifySearchCacheOutcome, recordCacheLookup } from "@/lib/observability/cache-metrics";
 import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag-source-block";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
 import {
@@ -114,7 +117,12 @@ import {
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { answerTextForStorage, queryPrivacyMetadata, queryTextForStorage } from "@/lib/query-privacy";
+import {
+  answerPrivacyMetadata,
+  answerTextForStorage,
+  queryPrivacyMetadata,
+  queryTextForStorage,
+} from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
@@ -1382,12 +1390,18 @@ async function insertRagQuery(row: RagQueryInsert) {
   const supabase = createAdminClient();
   // Redact potential-PHI raw query text centrally so every logRagQuery caller is
   // covered, and fold a stable hash + retention flag into metadata (RET-H4).
+  // The generated answer can restate patient specifics, so it is dropped at rest
+  // unless answer retention is explicitly enabled (PIA-3, default off).
   const rawQuery = typeof row.query === "string" ? row.query : "";
   const safeRow = {
     ...row,
     query: queryTextForStorage(rawQuery),
     answer: answerTextForStorage(row.answer),
-    metadata: { ...(row.metadata ?? {}), ...queryPrivacyMetadata(rawQuery) } as Json,
+    metadata: {
+      ...(row.metadata ?? {}),
+      ...queryPrivacyMetadata(rawQuery),
+      ...answerPrivacyMetadata(),
+    } as Json,
   };
   await supabase.from("rag_queries").insert(safeRow);
 }
@@ -1421,7 +1435,14 @@ function mergeSearchResults(primary: SearchResult[], secondary: SearchResult[]) 
   return Array.from(merged.values());
 }
 
-/** Search text chunk candidates. */
+/**
+ * Retrieves lexical document chunk candidates for the supplied query variants.
+ *
+ * @param queryVariants - Query variants used for strict matching and recall-oriented fallback searches.
+ * @param matchCount - Maximum number of candidates requested for the primary query.
+ * @param telemetry - Optional retrieval telemetry updated with RPC failures and text-relaxation usage.
+ * @returns Matching document chunks, using corrected or relaxed queries when strict matching produces no candidates.
+ */
 async function searchTextChunkCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   queryVariants: string[];
@@ -1445,6 +1466,10 @@ async function searchTextChunkCandidates(args: {
         ...retrievalRpcScopeArgs(accessScope),
       },
     );
+    // Report the error before returning empty so a schema drift on this
+    // most-terminal lexical layer surfaces in hybrid_rpc_errors telemetry
+    // instead of silently degrading to zero candidates. Return value unchanged.
+    if (error) recordHybridRpcError(args.telemetry, "match_document_chunks_text", error);
     return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
   };
 
@@ -1724,7 +1749,12 @@ async function fetchDocumentTitleAliasRows(args: {
   }));
 }
 
-/** Search document lookup fast path. */
+/**
+ * Retrieves and ranks document chunks for document-focused queries.
+ *
+ * @param args - Search configuration, including the required owner scope and optional document restrictions.
+ * @returns Ranked document lookup results, limited to `matchCount`.
+ */
 async function searchDocumentLookupFastPath(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -1733,6 +1763,7 @@ async function searchDocumentLookupFastPath(args: {
   accessScope?: RetrievalAccessScope;
   documentIds?: string[];
   matchCount: number;
+  telemetry?: SearchTelemetry;
 }): Promise<SearchResult[]> {
   if (!args.ownerId) return [] as SearchResult[];
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
@@ -1751,6 +1782,7 @@ async function searchDocumentLookupFastPath(args: {
           ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
         },
       );
+      if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
       if (error || !data?.length) return [] as DocumentLookupRow[];
       return data as DocumentLookupRow[];
     }),
@@ -2058,7 +2090,12 @@ export async function loadChunksForSignalMatches(args: {
     .filter(Boolean) as SearchResult[];
 }
 
-/** Search table fact candidates. */
+/**
+ * Retrieves document chunks containing table facts relevant to a query.
+ *
+ * @param args - Retrieval options, including query variants, scope filters, result limit, and optional telemetry.
+ * @returns Search results containing the highest-ranked table facts grouped by source chunk.
+ */
 async function searchTableFactCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
@@ -2068,6 +2105,7 @@ async function searchTableFactCandidates(args: {
   documentIds?: string[];
   allowGlobalSearch?: boolean;
   matchCount: number;
+  telemetry?: SearchTelemetry;
 }) {
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
     0,
@@ -2086,6 +2124,7 @@ async function searchTableFactCandidates(args: {
           ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
         },
       );
+      if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
       if (error || !data?.length) return [] as TableFactRpcRow[];
       return data as TableFactRpcRow[];
     }),
@@ -3052,11 +3091,17 @@ function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
   return queryClass === "table_threshold" || queryClass === "medication_dose_risk" || queryClass === "comparison";
 }
 
-/** Search chunks with telemetry. */
+/**
+ * Retrieves and ranks document chunks using lexical, structured, memory, and embedding-based evidence, while recording retrieval telemetry.
+ *
+ * @param args - Retrieval options, including the query, scope, search mode, and embedding preferences.
+ * @returns The ranked search results and telemetry describing the retrieval process.
+ */
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   args = { ...args, accessScope: retrievalAccessScopeForArgs(args) };
   assertGlobalSearchAllowed(args);
   throwIfAborted(args.signal);
+  const indexingVersionAtRetrievalStart = await cacheIndexingVersion(args, { forceRefresh: true });
   const supabase = createAdminClient();
   // When the provider is source-only (offline mode, or auto mode without a usable key) we must
   // never call OpenAI for embeddings; retrieval falls back to the lexical text-fast-path only.
@@ -3150,10 +3195,20 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const queryVariants = buildRetrievalQueryVariants(retrievalQuery, queryAnalysis, ragAliases);
   telemetry.retrieval_query_variant_count = queryVariants.length;
   const cached = await getCachedSearch(args, queryClassification.queryClass, queryVariants);
+  // Only consult the shared cache when the process-local cache missed (preserves
+  // the original short-circuit), then record the hit-rate counter ONCE with full
+  // knowledge of both layers: a request served by either cache is a hit, so a
+  // cold process that falls through to a warm shared cache is not miscounted as a
+  // miss (deep /api/health cache hit-rate — docs/observability-slos.md §4).
+  const sharedCached = cached ? null : await getSharedCachedSearch(args, queryClassification.queryClass, queryVariants);
+  const cacheOutcome = classifySearchCacheOutcome(isSearchCacheEnabled(args), Boolean(cached), sharedCached);
+  if (cacheOutcome !== "skip") recordCacheLookup(cacheOutcome === "hit");
+
   if (cached) return cached;
-  const sharedCached = await getSharedCachedSearch(args, queryClassification.queryClass, queryVariants);
   if (sharedCached?.kind === "hit") {
-    await setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants);
+    await setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants, {
+      indexingVersionAtRetrievalStart,
+    });
     return { results: sharedCached.results, telemetry: sharedCached.telemetry };
   }
   if (sharedCached?.kind === "miss") {
@@ -3184,7 +3239,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.embedding_skip_reason = "unsupported_short_circuit";
     telemetry.retrieval_strategy = "unsupported_short_circuit";
     recordSearchScoreTelemetry(telemetry, []);
-    await setCachedSearch(args, [], telemetry, queryVariants);
+    await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
     return { results: [] as SearchResult[], telemetry };
   }
 
@@ -3251,7 +3306,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       markEmbeddingSkippedByTextFastPath(telemetry, baseTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      await setCachedSearch(args, textFastResults, telemetry, queryVariants);
+      await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
       return { results: textFastResults, telemetry };
     }
 
@@ -3295,7 +3350,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       markEmbeddingSkippedByTextFastPath(telemetry, boostedTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      await setCachedSearch(args, textFastResults, telemetry, queryVariants);
+      await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
       return { results: textFastResults, telemetry };
     }
   }
@@ -3314,6 +3369,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       documentIds: documentFilterList,
       allowGlobalSearch: args.allowGlobalSearch,
       matchCount: Math.min(candidateCount, 48),
+      telemetry,
     });
     const tableFactLatencyMs = Date.now() - tableFactStartedAt;
     telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
@@ -3336,6 +3392,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       accessScope: args.accessScope,
       documentIds: documentFilterList,
       matchCount: candidateCount,
+      telemetry,
     });
     const documentLookupLatencyMs = Date.now() - documentLookupStartedAt;
     telemetry.supabase_rpc_latency_ms += documentLookupLatencyMs;
@@ -3407,7 +3464,9 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         );
         telemetry.retrieval_strategy = "document_lookup_fast_path";
         recordSearchScoreTelemetry(telemetry, documentLookupResults);
-        await setCachedSearch(args, documentLookupResults, telemetry, queryVariants);
+        await setCachedSearch(args, documentLookupResults, telemetry, queryVariants, {
+          indexingVersionAtRetrievalStart,
+        });
         return { results: documentLookupResults, telemetry };
       }
       textFastResults = mergeSearchResults(documentLookupResults, textFastResults);
@@ -3431,7 +3490,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     if (!args.forceEmbedding && coverageGate.accepted) {
       telemetry.retrieval_strategy = coverageGate.strategy;
       recordSearchScoreTelemetry(telemetry, coverageGateResults);
-      await setCachedSearch(args, coverageGateResults, telemetry, queryVariants);
+      await setCachedSearch(args, coverageGateResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
       return { results: coverageGateResults, telemetry };
     }
     textFastResults = mergeSearchResults(coverageGateResults, textFastResults);
@@ -3616,7 +3675,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
     telemetry.retrieval_strategy = "hybrid";
     recordSearchScoreTelemetry(telemetry, results);
-    await setCachedSearch(args, results, telemetry, queryVariants);
+    await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
     return { results, telemetry };
   }
 
@@ -3700,7 +3759,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
   telemetry.retrieval_strategy = "vector_fallback";
   recordSearchScoreTelemetry(telemetry, results);
-  await setCachedSearch(args, results, telemetry, queryVariants);
+  await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
   return { results, telemetry };
 }
 
@@ -3804,15 +3863,22 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
       message: "Waiting for an identical cited answer request already in progress.",
       reason: "answer_inflight_coalesced",
     });
-    const answer = cloneAnswer(await existing);
-    answer.routingReason = answer.routingReason
-      ? `${answer.routingReason}; answer_inflight_coalesced`
-      : "answer_inflight_coalesced";
-    answer.latencyTimings = {
-      ...answer.latencyTimings,
-      total_latency_ms: Date.now() - startedAt,
-    };
-    return answer;
+    try {
+      const answer = cloneAnswer(await existing);
+      answer.routingReason = answer.routingReason
+        ? `${answer.routingReason}; answer_inflight_coalesced`
+        : "answer_inflight_coalesced";
+      answer.latencyTimings = {
+        ...answer.latencyTimings,
+        total_latency_ms: Date.now() - startedAt,
+      };
+      return answer;
+    } catch {
+      // The in-flight request we coalesced onto failed — most often because the ORIGINATING
+      // caller aborted mid-flight (its AbortSignal is not ours) or its search phase threw. Do
+      // not propagate another caller's failure to this still-connected request: fall through to
+      // an independent, uncoalesced run so this request is decided only by its own inputs.
+    }
   }
 
   const pending = answerQuestionWithScopeUncoalesced(args, startedAt).finally(() => {
@@ -4196,6 +4262,7 @@ async function answerQuestionWithScopeUncoalesced(
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           retrieval_strategy: search.telemetry.retrieval_strategy,
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
@@ -4325,6 +4392,7 @@ async function answerQuestionWithScopeUncoalesced(
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           retrieval_strategy: search.telemetry.retrieval_strategy,
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
@@ -4878,6 +4946,11 @@ ${qualityRetryInstruction}`
     // citations from the retrieved results, so trigger recovery whenever the
     // generated answer is unusable and we have retrieved results to extract from.
     const canRecoverExtractively = !usedStrongModel && (answer.citations.length > 0 || answerInputResults.length > 0);
+    // Numeric faithfulness at finalize time must verify against the packed context the model
+    // actually generated from, not the unpacked answer.sources — otherwise a figure copied from
+    // a neighbour chunk's adjacent_context reads as unverified and blanks a correct dose/threshold
+    // answer. Only the model path needs this; the extractive branch verifies against its own sources.
+    let numericVerificationSources: SearchResult[] | undefined;
     if (canRecoverExtractively && isUnusableGeneratedAnswer(answer)) {
       answer = buildExtractiveAnswer({
         query: args.query,
@@ -4899,6 +4972,7 @@ ${qualityRetryInstruction}`
     } else {
       answer = boldRagAnswerHighYieldText(answer, args.query);
       answer.sources = answerInputResults;
+      numericVerificationSources = attachAdjacentContext(answerInputResults, packedContextResults);
       answer.quoteCards = reconcileQuoteCards(answer.quoteCards, answerInputResults, args.query);
       answer.documentBreakdown = documentBreakdown;
       answer.evidenceSummary = evidenceSummary;
@@ -4932,7 +5006,7 @@ ${qualityRetryInstruction}`
       ...retrievalDiagnostics,
       routeMode: answer.routingMode ?? retrievalDiagnostics.routeMode,
     });
-    answer = finalizeRagAnswerQuality(answer, args.query, queryClass);
+    answer = finalizeRagAnswerQuality(answer, args.query, queryClass, numericVerificationSources);
 
     if (args.logQuery !== false)
       await logRagQuery({
@@ -4976,6 +5050,7 @@ ${qualityRetryInstruction}`
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           context_pack_latency_ms: contextPackLatencyMs,
           context_pack_cache_hits: contextPackCacheHits,
           answer_retry_count: answerRetryCount,
@@ -4997,6 +5072,7 @@ ${qualityRetryInstruction}`
     await setCachedAnswer(args, answer, { indexingVersionAtRetrievalStart });
     return answer;
   } catch (error) {
+    if ((error instanceof DOMException && error.name === "AbortError") || args.signal?.aborted) throw error;
     const relatedDocuments = await relatedDocumentsPromise;
     await args.onProgress?.({
       stage: "finalizing",
@@ -5166,6 +5242,7 @@ ${qualityRetryInstruction}`
           embedding_cache_hit: search.telemetry.embedding_cache_hit,
           supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
           rerank_latency_ms: search.telemetry.rerank_latency_ms,
+          hybrid_rpc_errors: search.telemetry.hybrid_rpc_errors,
           context_pack_latency_ms: contextPackLatencyMs,
           retrieval_strategy: "generation_fallback",
           weighted_top_score: search.telemetry.weighted_top_score,

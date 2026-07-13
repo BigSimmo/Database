@@ -15,7 +15,7 @@ import { createPortal } from "react-dom";
 
 import {
   Check,
-  CheckCircle2,
+  CircleCheck,
   ChevronDown,
   FileText,
   Filter,
@@ -868,7 +868,10 @@ export function MasterSearchHeader({
         </div>
         <div className="grid gap-2.5">
           <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]" />
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]"
+            />
             <input
               ref={scopeFilterInputRef}
               value={scopeFilter}
@@ -934,7 +937,7 @@ export function MasterSearchHeader({
                       )}
                       aria-hidden
                     >
-                      {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+                      {selected ? <CircleCheck aria-hidden="true" className="h-3.5 w-3.5" /> : null}
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{documentScopeTitle(document)}</span>
@@ -988,7 +991,10 @@ export function MasterSearchHeader({
               <span className="nums rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
                 {activeQuickFilterCount ? `${activeQuickFilterCount} active` : "Optional"}
               </span>
-              <ChevronDown className="h-3.5 w-3.5 text-[color:var(--clinical-accent)] transition group-open:rotate-180" />
+              <ChevronDown
+                aria-hidden="true"
+                className="h-3.5 w-3.5 text-[color:var(--clinical-accent)] transition group-open:rotate-180"
+              />
             </span>
           </summary>
           <div className="grid gap-2.5 border-t border-[color:var(--border-lux)] p-3">
@@ -1083,7 +1089,7 @@ export function MasterSearchHeader({
             <span className={eyebrowText}>Label filters</span>
             <span className="flex items-center gap-2 text-2xs font-semibold text-[color:var(--text-soft)]">
               {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, action, intent"}
-              <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 transition group-open:rotate-180" />
             </span>
           </summary>
           <div className="mt-2 grid gap-2 border-t border-[color:var(--border)] pt-2">
@@ -1137,7 +1143,7 @@ export function MasterSearchHeader({
           isDesktopHomeComposer
             ? "universal-home-search-edge mx-auto w-full"
             : usesAnswerFooterStyle
-              ? "floating-composer-edge dashboard-composer-edge z-40 mx-auto max-w-3xl max-sm:fixed max-sm:bottom-0 sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))] sm:z-20 lg:fixed lg:bottom-0 lg:top-auto lg:max-w-4xl"
+              ? "floating-composer-edge dashboard-composer-edge fixed bottom-0 z-40 mx-auto max-w-3xl lg:max-w-4xl"
               : usesMobileBottomStyle
                 ? cn(
                     usesPhoneFooterDock
@@ -1281,7 +1287,7 @@ export function MasterSearchHeader({
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
                   aria-label="Clear search question"
                 >
-                  <X className="h-4 w-4" />
+                  <X aria-hidden="true" className="h-4 w-4" />
                 </button>
               )}
             </label>
@@ -1300,13 +1306,13 @@ export function MasterSearchHeader({
               aria-label={selectedSearch.submitAriaLabel}
             >
               {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
               ) : usesSendAffordance ? (
-                <Send className="h-4 w-4" />
+                <Send aria-hidden="true" className="h-4 w-4" />
               ) : usesModeIdentityAffordance ? (
-                <ModeIdentityIcon className="h-4.5 w-4.5" />
+                <ModeIdentityIcon className="size-icon-lg" />
               ) : (
-                <Search className="h-4.5 w-4.5" />
+                <Search aria-hidden="true" className="size-icon-lg" />
               )}
               <span className="sr-only">{submitLabel}</span>
             </button>
@@ -1428,7 +1434,11 @@ export function MasterSearchHeader({
               )}
               aria-label={useMobileBackControl ? "Back to differentials home" : "Open Clinical Guide menu"}
             >
-              {useMobileBackControl ? <ArrowLeft className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {useMobileBackControl ? (
+                <ArrowLeft aria-hidden="true" className="h-5 w-5" />
+              ) : (
+                <Menu aria-hidden="true" className="h-5 w-5" />
+              )}
             </button>
             {isServicesMode ? (
               <div className="hidden min-w-0 items-center gap-3 lg:flex">
@@ -1481,6 +1491,7 @@ export function MasterSearchHeader({
                 </span>
               </span>
               <ChevronDown
+                aria-hidden="true"
                 className={cn(
                   "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
                   modeMenuOpen && "rotate-180",
@@ -1536,7 +1547,9 @@ export function MasterSearchHeader({
                           {mode.description}
                         </span>
                       </span>
-                      {active ? <Check className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
+                      {active ? (
+                        <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" />
+                      ) : null}
                     </button>
                   );
                 })}
@@ -1575,7 +1588,7 @@ export function MasterSearchHeader({
                 aria-label="Start a new chat"
                 title="New chat"
               >
-                <MessageSquarePlus className="h-5 w-5 xl:h-4 xl:w-4" />
+                <MessageSquarePlus aria-hidden="true" className="h-5 w-5 xl:h-4 xl:w-4" />
                 <span className="hidden whitespace-nowrap xl:inline">New chat</span>
               </button>
             ) : null}

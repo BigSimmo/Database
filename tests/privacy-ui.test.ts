@@ -19,19 +19,20 @@ describe("privacy UI", () => {
 
     expect(markup).toContain("<main");
     expect(markup).toContain("<h1");
-    expect(markup).toContain("Privacy and data processing");
-    expect(markup).toContain("Draft for privacy and clinical-governance approval");
+    expect(markup).toContain("Privacy &amp; data handling");
+    expect(markup).toContain("This is draft product information");
     for (const heading of [
-      "Data categories",
+      "What this tool is",
+      "What is collected",
+      "How questions are handled",
+      "Where data is stored",
       "External provider processing",
-      "Storage",
       "Retention",
-      "Possible overseas processing",
       "Your responsibilities",
     ]) {
       expect(markup).toContain(heading);
     }
-    expect(markup).toContain("generated answer prose is not persisted by default");
+    expect(markup).toContain("Generated answer text is also omitted from durable query logs by default");
     expect(markup).not.toContain("approved privacy policy");
   });
 });

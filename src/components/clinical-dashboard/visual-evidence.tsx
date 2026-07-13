@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  AlertCircle,
+  CircleAlert,
   BookOpen,
-  CheckCircle2,
+  CircleCheck,
   ChevronDown,
   Copy,
   ExternalLink,
@@ -190,7 +190,7 @@ function VisualEvidenceStrip({
                   )}
                   {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
                   <Link href={item.viewer_href} className={cn(floatingControl, "min-h-11 px-4 text-xs")}>
-                    <ExternalLink className="h-4 w-4" />
+                    <ExternalLink aria-hidden="true" className="h-4 w-4" />
                     Open source
                   </Link>
                 </div>
@@ -227,7 +227,7 @@ export function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
             className={cn(chatMicroAction, "min-h-11 min-w-11 justify-center px-0")}
             aria-label="Open table source"
           >
-            <ExternalLink className="h-4 w-4" />
+            <ExternalLink aria-hidden="true" className="h-4 w-4" />
           </Link>
         </div>
       </div>
@@ -334,11 +334,11 @@ export function CanonicalAnswerTables({ tables }: { tables: CanonicalAnswerTable
 }
 
 const evidenceTabIconMap: Record<EvidenceTabName, typeof Layers> = {
-  Claims: CheckCircle2,
+  Claims: CircleCheck,
   Quotes: Quote,
   Tables: ListChecks,
   Images: FileImage,
-  Gaps: AlertCircle,
+  Gaps: CircleAlert,
 };
 
 function supportDotClass(supportLevel: string) {
@@ -429,7 +429,7 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
                 {row.detail || row.bestLinkedPassage || row.bestSourceLabel}
               </span>
             </span>
-            <ChevronDown className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+            <ChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
           </Link>
         ))}
       </div>
@@ -440,7 +440,7 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
 function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
   if (!warnings.length) {
     return (
-      <EmptyState icon={CheckCircle2} title="No evidence gaps" body="No source gaps were attached to this answer." />
+      <EmptyState icon={CircleCheck} title="No evidence gaps" body="No source gaps were attached to this answer." />
     );
   }
 
@@ -598,12 +598,12 @@ export function MobileEvidenceSheetContent({
               href={primarySourceHref}
               className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               Source
             </Link>
           ) : (
             <span className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               Source
             </span>
           )}
@@ -612,7 +612,7 @@ export function MobileEvidenceSheetContent({
             onClick={() => void copyEvidence()}
             className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text)]"
           >
-            <Copy className="h-3.5 w-3.5" />
+            <Copy aria-hidden="true" className="h-3.5 w-3.5" />
             {copiedQuotes ? "Copied" : "Copy"}
           </button>
           <button
@@ -620,7 +620,7 @@ export function MobileEvidenceSheetContent({
             onClick={() => setAdded(true)}
             className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus aria-hidden="true" className="h-3.5 w-3.5" />
             {added ? "Added" : "Add"}
           </button>
         </div>
@@ -659,7 +659,7 @@ function MobileEvidenceTabPanel({
         {tableEvidence.slice(0, 4).map((item, index) => (
           <article key={item.id} className={cn(sourceCard, "grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 p-3")}>
             <span className={iconTilePremium}>
-              <ListChecks className="h-4 w-4" />
+              <ListChecks aria-hidden="true" className="h-4 w-4" />
             </span>
             <div className="min-w-0">
               <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text-heading)]">
@@ -670,7 +670,7 @@ function MobileEvidenceTabPanel({
               </p>
             </div>
             <Link href={item.viewer_href} className={chatMicroAction} aria-label={`Open table source ${index + 1}`}>
-              <ExternalLink className="h-3.5 w-3.5" />
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
             </Link>
           </article>
         ))}

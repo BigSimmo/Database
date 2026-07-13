@@ -1,29 +1,17 @@
 import { NextResponse } from "next/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { env, isDemoMode } from "@/lib/env";
-import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
-import {
-  assertLocalDeepMemoryOwnership,
-  DeepMemoryOwnershipConflictError,
-  upsertDocumentDeepMemory,
-} from "@/lib/deep-memory";
 import { jsonError } from "@/lib/http";
 import {
   activeIngestionJobColumns,
   buildActiveJobsSafetyResult,
   checkIngestionMutationSafety,
-  hasActiveAgentEnrichmentJob,
   ingestionMutationSafetyPayload,
   ingestionRollbackFenceStamp,
   type IngestionJobRow,
 } from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
-import {
-  committedIndexGeneration,
-  isAtomicReindexCandidate,
-  isCommittedGenerationMetadata,
-} from "@/lib/reindex-pipeline";
+import { isAtomicReindexCandidate } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBodyOrDefault } from "@/lib/validation/body";
@@ -31,7 +19,6 @@ import { parseRouteParams } from "@/lib/validation/params";
 
 export const runtime = "nodejs";
 
-const reindexPageSize = 1000;
 const reindexModeSchema = z
   .object({
     mode: z.preprocess((value) => (value === "enrichment" ? "enrichment" : "full"), z.enum(["full", "enrichment"])),
@@ -41,71 +28,9 @@ const reindexRouteParamsSchema = z.object({
   id: z.string().uuid(),
 });
 
-type ReindexChunk = {
-  id: string;
-  document_id: string;
-  page_number: number | null;
-  chunk_index: number;
-  section_heading: string | null;
-  content: string;
-  image_ids?: string[] | null;
-  metadata?: Record<string, unknown> | null;
-};
-
-type ReindexImage = {
-  id: string;
-  page_number: number | null;
-  caption: string | null;
-  image_type: string | null;
-  labels?: string[] | null;
-  source_kind?: string | null;
-  clinical_relevance_score?: number | null;
-  metadata?: Record<string, unknown> | null;
-};
-
-function committedReindexRows<T extends { metadata?: unknown }>(document: { metadata?: unknown }, rows: T[]) {
-  const committedGeneration = committedIndexGeneration(document.metadata);
-  return rows.filter((row) =>
-    isCommittedGenerationMetadata({
-      rowMetadata: row.metadata,
-      committedGeneration,
-    }),
-  );
-}
-
 async function readMode(request: Request) {
   const parsed = await parseJsonBodyOrDefault(request, reindexModeSchema, { mode: "full" });
   return parsed.mode;
-}
-
-async function selectReindexRowsInPages<T>(args: {
-  supabase: ReturnType<typeof createAdminClient>;
-  table: "document_chunks" | "document_images";
-  select: string;
-  documentId: string;
-  searchableOnly?: boolean;
-}) {
-  const rows: T[] = [];
-  if (args.searchableOnly && args.table !== "document_images") {
-    throw new Error("searchableOnly reindex paging only supports the document_images table.");
-  }
-  for (let offset = 0; ; offset += reindexPageSize) {
-    const dynamicSupabase = args.supabase as unknown as SupabaseClient;
-    const query = args.searchableOnly
-      ? dynamicSupabase
-          .from("document_images")
-          .select(args.select)
-          .eq("document_id", args.documentId)
-          .eq("searchable", true)
-      : dynamicSupabase.from(args.table).select(args.select).eq("document_id", args.documentId);
-    const { data, error } = await query.range(offset, offset + reindexPageSize - 1);
-    if (error) throw new Error(error.message);
-
-    const page = (data ?? []) as T[];
-    rows.push(...page);
-    if (page.length < reindexPageSize) break;
-  }
-  return rows;
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -143,75 +68,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
 
     if (mode === "enrichment") {
-      // Audit R24d: route-mode enrichment and the enrichment agent both
-      // delete-then-insert the same artifact families with no shared lock. If
-      // the agent is mid-pass, the interleaved deletes can strand a
-      // "completed/good" document with zero enrichment artifacts (no repair
-      // path exists). Refuse to run while a live agent pass holds the document.
-      const agentBusy = await hasActiveAgentEnrichmentJob({
-        supabase,
-        documentId: id,
-        staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
+      const { data: queued, error: queueError } = await supabase.rpc("request_indexing_v3_enrichment", {
+        p_document_id: id,
+        p_owner_id: user.id,
       });
-      if (agentBusy) {
+      if (queueError) {
         return NextResponse.json(
-          {
-            error:
-              "The enrichment agent is currently processing this document. Wait for it to finish before re-running enrichment.",
-          },
+          { error: "Enrichment is already active or could not be queued safely." },
           { status: 409 },
         );
       }
-
-      const [chunks, images] = await Promise.all([
-        selectReindexRowsInPages<ReindexChunk>({
-          supabase,
-          table: "document_chunks",
-          select: "id,document_id,page_number,chunk_index,section_heading,content,image_ids,metadata",
-          documentId: id,
-        }),
-        selectReindexRowsInPages<ReindexImage>({
-          supabase,
-          table: "document_images",
-          select: "id,page_number,caption,image_type,labels,source_kind,clinical_relevance_score,metadata",
-          documentId: id,
-          searchableOnly: true,
-        }),
-      ]);
-
-      const committedChunks = committedReindexRows(document, chunks);
-      const committedImages = committedReindexRows(document, images);
-
-      committedChunks.sort((a, b) => Number(a.chunk_index ?? 0) - Number(b.chunk_index ?? 0));
-      committedImages.sort((a, b) => Number(b.clinical_relevance_score ?? 0) - Number(a.clinical_relevance_score ?? 0));
-
-      if (!committedChunks.length) {
-        return NextResponse.json({ error: "Document has no indexed chunks to enrich." }, { status: 400 });
-      }
-
-      await assertLocalDeepMemoryOwnership(supabase, id);
-      const enrichment = await upsertDocumentEnrichment({
-        supabase,
-        document: document as Parameters<typeof upsertDocumentEnrichment>[0]["document"],
-        chunks: committedChunks,
-        images: committedImages,
-      });
-      const deepMemory = await upsertDocumentDeepMemory({
-        supabase,
-        document: document as Parameters<typeof upsertDocumentDeepMemory>[0]["document"],
-        chunks: committedChunks,
-        images: committedImages,
-        summary: enrichment.summary.summary,
-      });
-      return NextResponse.json({
-        mode,
-        enrichment,
-        deepMemory: {
-          sectionCount: deepMemory.sections.length,
-          memoryCardCount: deepMemory.memoryCards.length,
-          indexUnitCount: deepMemory.indexUnits.length,
-        },
-      });
+      return NextResponse.json({ mode, queued }, { status: 202 });
     }
 
     const atomicReindex = isAtomicReindexCandidate(document);
@@ -313,9 +180,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ job }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
-    if (error instanceof DeepMemoryOwnershipConflictError) {
-      return NextResponse.json({ error: error.message }, { status: 409 });
-    }
     return jsonError(error);
   }
 }

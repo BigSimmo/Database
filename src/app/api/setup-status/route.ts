@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { env, isDemoMode } from "@/lib/env";
+import { env, isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { AuthenticationError, requireAuthenticatedUser } from "@/lib/supabase/auth";
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
@@ -162,7 +164,7 @@ async function readSearchSchemaStatus(supabase: AdminClient | null) {
     if (!supabase) throw new Error("Supabase admin client is unavailable.");
     const { data, error } = await supabase.rpc("search_schema_health");
     if (error) {
-      return check("search", label, "needs_setup", `Search health RPC is unavailable or failed: ${error.message}`);
+      return check("search", label, "needs_setup", "Search health checks are temporarily unavailable.");
     }
     const health = (data ?? {}) as SearchSchemaHealth;
     const missing = Array.isArray(health.missing) ? health.missing : [];
@@ -282,6 +284,24 @@ function setupStatusResponse(payload: SetupStatusPayload) {
       "X-Poll-After-Ms": String(payload.pollAfterMs ?? ""),
     },
   });
+}
+
+// Coarse per-check detail for anonymous production callers. The full `detail` strings can carry
+// raw Supabase error text and project-config specifics (schema/search/worker fan-out errors,
+// formatSupabaseProjectCheck), which must not leak to unauthenticated internet clients. Status
+// and label are preserved so the polled setup UI still renders; operators fetch full detail with
+// the shared deep-probe secret.
+const COARSE_SETUP_DETAIL: Record<SetupCheckStatus, string> = {
+  ready: "Ready.",
+  needs_setup: "Setup incomplete. Operators can see specifics via the health deep probe or server logs.",
+  unknown: "Status unavailable. Operators can see specifics via the health deep probe or server logs.",
+};
+
+function coarseSetupStatusPayload(payload: SetupStatusPayload): SetupStatusPayload {
+  return {
+    ...payload,
+    checks: payload.checks.map((item) => ({ ...item, detail: COARSE_SETUP_DETAIL[item.status] })),
+  };
 }
 
 async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
@@ -418,5 +438,22 @@ export async function GET(request: Request) {
     return unsafeLocalProjectResponse(identity);
   }
 
-  return setupStatusResponse(await readSetupStatusPayload());
+  const payload = await readSetupStatusPayload();
+  // Whether the caller may see raw per-check detail (raw Supabase error text / project posture).
+  // Gate on trusted server-side signals, never request.url's client-controlled host.
+  const requiresAuthorization = process.env.NODE_ENV === "production" && !isDemoMode() && !isLocalNoAuthMode();
+  let authorizedForDetail = !requiresAuthorization || allowDeepHealthProbe(request);
+
+  if (!authorizedForDetail && request.headers.has("authorization")) {
+    try {
+      await requireAuthenticatedUser(request, createAdminClient());
+      authorizedForDetail = true;
+    } catch (error) {
+      if (!(error instanceof AuthenticationError)) throw error;
+      // Invalid or expired credentials receive the same coarse posture as an
+      // anonymous caller; setup status is not an authentication oracle.
+    }
+  }
+
+  return setupStatusResponse(authorizedForDetail ? payload : coarseSetupStatusPayload(payload));
 }

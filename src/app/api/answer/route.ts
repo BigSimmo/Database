@@ -142,6 +142,20 @@ export async function POST(request: Request) {
       // (refused) sources/smartPanel/smartApiPlan would still reach the client and
       // defeat the refusal. Keep only the safe "unsupported" contract fields, matching
       // the empty-scope branch above.
+      void logAnswerDiagnostics({
+        supabase,
+        query: answerBody.query,
+        ownerId: access.ownerId,
+        answer: {
+          ...answer,
+          grounded: false,
+          confidence: "unsupported",
+          sources: [],
+          responseMode: "evidence_gap",
+          fallbackReason: "source_governance_refusal",
+          routingReason: [answer.routingReason, "source_governance_refusal"].filter(Boolean).join("; "),
+        },
+      });
       return NextResponse.json({
         answer: sourceGovernanceRefusalAnswer,
         grounded: false,

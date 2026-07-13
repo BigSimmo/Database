@@ -1,10 +1,10 @@
 "use client";
 
-import { CheckCircle2, ListChecks } from "lucide-react";
+import { CircleCheck, ListChecks } from "lucide-react";
 
 import { AccessibleTable } from "@/components/AccessibleTable";
 import { SafeBoldText } from "@/components/SafeBoldText";
-import { plainAnswerText } from "@/components/clinical-dashboard/answer-content";
+import { isPreformattedGroundedAnswer, plainAnswerText } from "@/components/clinical-dashboard/answer-content";
 import { SectionHeading, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import {
   AnswerViewModeControl,
@@ -26,6 +26,16 @@ import {
   buildHighYieldClinicalOutputSections,
 } from "@/lib/ward-output";
 
+/**
+ * Renders a source-backed clinical answer with structured details, lead content, or an evidence map.
+ *
+ * @param answer - The clinical answer to display
+ * @param collapsed - Whether to wrap the content in a collapsed utility drawer
+ * @param showLead - Whether to display the concise lead section
+ * @param viewMode - The presentation mode for the clinical output
+ * @param onViewModeChange - Callback invoked when the presentation mode changes
+ * @param evidenceMapRows - Evidence map rows to display instead of computing them from the answer
+ */
 export function ClinicalOutputPanel({
   answer,
   collapsed = false,
@@ -46,7 +56,7 @@ export function ClinicalOutputPanel({
   const rows = evidenceMapRows ?? buildAnswerEvidenceMap(answer);
   if (sections.length === 0 && (viewMode !== "evidence_map" || rows.length === 0)) return null;
   const leadSection = sections.find((section) => section.id === "bottom-line") ?? sections[0];
-  const primaryAnswer = plainAnswerText(answer.answer);
+  const primaryAnswer = plainAnswerText(answer.answer, { preformatted: isPreformattedGroundedAnswer(answer) });
   const detailSections = sections
     .filter((section) => section.id !== "verify-source")
     .filter((section) => (showLead ? section.id !== leadSection?.id : section.id !== "bottom-line"))
@@ -110,7 +120,7 @@ export function ClinicalOutputPanel({
         <div className="mt-3 rounded-md border border-[color:var(--primary)]/15 bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]">
           <div className="flex items-start gap-2.5">
             <span className={cn(iconTilePremium, "h-8 w-8 text-[color:var(--primary)]")}>
-              <CheckCircle2 className="h-4 w-4" />
+              <CircleCheck aria-hidden="true" className="h-4 w-4" />
             </span>
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">

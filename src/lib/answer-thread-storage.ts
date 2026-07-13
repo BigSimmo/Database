@@ -66,10 +66,14 @@ function normalizePersistedAnswerThread(value: unknown): PersistedAnswerThread |
   };
 }
 
-export function loadPersistedAnswerThread(): PersistedAnswerThread | null {
-  if (typeof window === "undefined") return null;
+function scopedStorageKey(ownerId: string) {
+  return `${answerThreadStorageKey}:${ownerId}`;
+}
+
+export function loadPersistedAnswerThread(ownerId: string): PersistedAnswerThread | null {
+  if (typeof window === "undefined" || !ownerId) return null;
   try {
-    const raw = window.localStorage.getItem(answerThreadStorageKey);
+    const raw = window.sessionStorage.getItem(scopedStorageKey(ownerId));
     if (!raw) return null;
     return normalizePersistedAnswerThread(JSON.parse(raw));
   } catch {
@@ -77,8 +81,8 @@ export function loadPersistedAnswerThread(): PersistedAnswerThread | null {
   }
 }
 
-export function savePersistedAnswerThread(thread: PersistedAnswerThread): boolean {
-  if (typeof window === "undefined") return false;
+export function savePersistedAnswerThread(ownerId: string, thread: PersistedAnswerThread): boolean {
+  if (typeof window === "undefined" || !ownerId) return false;
   try {
     const payload: PersistedAnswerThread = {
       version: 1,
@@ -88,7 +92,7 @@ export function savePersistedAnswerThread(thread: PersistedAnswerThread): boolea
     };
     const serialized = JSON.stringify(payload);
     if (serialized.length > maxStorageBytes) return false;
-    window.localStorage.setItem(answerThreadStorageKey, serialized);
+    window.sessionStorage.setItem(scopedStorageKey(ownerId), serialized);
     return true;
   } catch {
     return false;
@@ -99,6 +103,12 @@ export function clearPersistedAnswerThread() {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(answerThreadStorageKey);
+    for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.sessionStorage.key(index);
+      if (key === answerThreadStorageKey || key?.startsWith(`${answerThreadStorageKey}:`)) {
+        window.sessionStorage.removeItem(key);
+      }
+    }
   } catch {
     // Thread persistence is a convenience only.
   }

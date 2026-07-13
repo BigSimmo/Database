@@ -103,7 +103,7 @@ export function AuthPanel() {
     return (
       <div className={cn(panelSubtle, "p-3")}>
         <div className="flex items-start gap-3">
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
+          <ShieldAlert aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" />
           <div>
             <p className="text-sm font-semibold text-[color:var(--text)]">Real-data sign-in unavailable</p>
             <p className={cn("mt-1 text-base-minus leading-6", textMuted)}>
@@ -121,7 +121,7 @@ export function AuthPanel() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-              <ShieldCheck className="h-4 w-4" />
+              <ShieldCheck aria-hidden="true" className="h-4 w-4" />
             </span>
             <span className="min-w-0">
               <p className="text-sm font-semibold text-[color:var(--text)]">Signed in for private documents</p>
@@ -131,7 +131,7 @@ export function AuthPanel() {
             </span>
           </div>
           <button type="button" onClick={signOut} className={cn(floatingControl, "px-3 text-xs")}>
-            <LogOut className="h-4 w-4" />
+            <LogOut aria-hidden="true" className="h-4 w-4" />
             Sign out
           </button>
         </div>
@@ -147,7 +147,7 @@ export function AuthPanel() {
       <div className="border-b border-[color:var(--border)]/70 p-4 sm:p-5">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] ring-1 ring-[color:var(--border)]">
-            <UserRound className="h-5 w-5" />
+            <UserRound aria-hidden="true" className="h-5 w-5" />
           </span>
           <div className="min-w-0">
             <p className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
@@ -166,7 +166,7 @@ export function AuthPanel() {
         <label className="block" htmlFor={emailInputId}>
           <span className={fieldLabel}>Email address</span>
           <div className="relative">
-            <Mail className={fieldIcon} />
+            <Mail aria-hidden="true" className={fieldIcon} />
             <input
               id={emailInputId}
               type="email"
@@ -208,7 +208,11 @@ export function AuthPanel() {
           )}
         </label>
         <button type="submit" disabled={busy || !email.trim()} className={cn(primaryControl, "w-full")}>
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+          {busy ? (
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          ) : (
+            <Mail aria-hidden="true" className="h-4 w-4" />
+          )}
           {isExpired ? "Send fresh link" : "Continue with email"}
         </button>
 
@@ -231,7 +235,7 @@ export function AuthPanel() {
         </div>
 
         <p className="flex items-start gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
+          <ShieldCheck aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
           Accounts save preferences and search history. No PHI is required.
         </p>
 
@@ -252,7 +256,7 @@ function ProviderButton({ provider, onClick }: { provider: "Apple" | "Google" | 
     >
       <ProviderMark provider={provider} />
       <span className="min-w-0 flex-1 truncate">Continue with {provider}</span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
     </button>
   );
 }

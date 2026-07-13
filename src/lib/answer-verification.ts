@@ -33,7 +33,7 @@ import type {
 // a trailing \b after it can never match (it would require a word char to its
 // right), which previously dropped every percentage token.
 const NUMERIC_TOKEN_PATTERN =
-  /\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:×10\^?\d*\/?l?|x10\^?\d*\/?l?|mg\/(?:day|kg|m2|dose)?|mg|mcg|microgram(?:s)?|micrograms?|μg|g\b|kg|ml|mL|l\b|mmol\/l|mmol\/L|mmol|mol\/l|umol\/l|µmol\/l|ng\/ml|units?\/?\w*|iu\b|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b|\b\d+(?:[.,]\d+)?\s*%/giu;
+  /\b\d+\s*:\s*\d+\b|\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:×10\^?\d*\/?l?|x10\^?\d*\/?l?|mg\/(?:day|hour|hr|h|kg|m2|dose)|mg|mcg|ug|microgram(?:s)?|micrograms?|μg|g\b|kg|ml\/(?:day|hour|hr|h)|ml|mL|l\b|mmol\/l|mmol\/L|mmol|mol\/l|umol\/l|µmol\/l|ng\/ml|units?\/?\w*|iu\b|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b|\b\d+(?:[.,]\d+)?\s*%/giu;
 
 // Decimal numbers and ranges that, while not unit-bearing, are very likely
 // clinical thresholds in context (e.g. "ANC 2.0", "INR 2-3"). We only treat a
@@ -69,6 +69,7 @@ function normalizeNumericToken(raw: string): string {
     .replace(/[–—]/g, "-")
     .replace(/,/g, ".")
     .replace(/µ/g, "μ")
+    .replace(/ug\b/g, "mcg")
     .replace(/×10\^?(\d+)/g, "x10^$1")
     .replace(/x10(\d)/g, "x10^$1")
     .trim();
@@ -422,9 +423,12 @@ export function verifyAnswerNumbers(
     return { answerTokens, unverifiedTokens, hasUnverifiedNumbers: unverifiedTokens.length > 0 };
   }
 
-  const sourceAtoms = sourceClinicalValueAtomSet(citedResults);
+  // Top-level citations do not identify which sentence each citation supports.
+  // Require each semantic clinical value to be present in every cited chunk,
+  // rather than allowing an unrelated citation to verify it by union membership.
+  const sourceAtomSets = citedResults.map((result) => sourceClinicalValueAtomSet([result]));
   const unverifiedTokens = answerAtoms
-    .filter((atom) => !sourceAtoms.has(clinicalValueAtomKey(atom)))
+    .filter((atom) => !sourceAtomSets.every((atoms) => atoms.has(clinicalValueAtomKey(atom))))
     .map(clinicalValueAtomDisplay);
 
   return {
@@ -478,8 +482,12 @@ function hasActionableNumericContext(answer: RagAnswer) {
   return actionableNumericAnswerPattern.test(text);
 }
 
-export function applyNumericVerification(answer: RagAnswer): RagAnswer {
-  const sources = answer.sources ?? [];
+// `verificationSources` overrides the corpus numbers are checked against. The model path
+// passes the packed context it actually generated from (answer.sources stays the unpacked
+// answer-input set for the client/eval boundary); other callers omit it and verify against
+// answer.sources as before.
+export function applyNumericVerification(answer: RagAnswer, verificationSources?: SearchResult[]): RagAnswer {
+  const sources = verificationSources ?? answer.sources ?? [];
   const unverified = new Set<string>();
 
   // B4: the model is instructed to put dose details in structured

@@ -70,7 +70,10 @@ afterEach(() => {
 });
 
 function mockEnv(overrides: Record<string, unknown> = {}) {
-  return { isDemoMode: () => false, env: { RAG_PERSIST_RAW_QUERY_TEXT: false, ...overrides } };
+  return {
+    isDemoMode: () => false,
+    env: { RAG_PERSIST_RAW_QUERY_TEXT: false, RAG_PERSIST_ANSWER_TEXT: false, ...overrides },
+  };
 }
 
 describe("/api/eval-cases", () => {
@@ -163,8 +166,43 @@ describe("/api/eval-cases", () => {
     expect(serialized).not.toContain("clozapine");
   });
 
-  it("retains raw query and answer when RAG_PERSIST_RAW_QUERY_TEXT is true", async () => {
+  it("retains raw query and answer when both retention flags are enabled", async () => {
     const { client, insert } = createInsertMock();
+    vi.doMock("@/lib/env", () => mockEnv({ RAG_PERSIST_RAW_QUERY_TEXT: true, RAG_PERSIST_ANSWER_TEXT: true }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/eval-cases/route");
+
+    const response = await POST(
+      request({
+        query: "What monitoring is needed for clozapine?",
+        rating: "good",
+        answer: "Monitor FBC.",
+        queryMode: "auto",
+        queryClass: "table_threshold",
+        sourceChunkIds: [],
+        citedChunkIds: [],
+      }),
+    );
+    const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
+
+    expect(response.status).toBe(201);
+    expect(payload).toMatchObject({ query: "What monitoring is needed for clozapine?" });
+    expect(payload.metadata).toMatchObject({
+      answer: "Monitor FBC.",
+      raw_query_retained: true,
+      answer_retained: true,
+    });
+  });
+
+  it("gates answer retention on RAG_PERSIST_ANSWER_TEXT independently of the raw-query flag (PIA-3)", async () => {
+    const { client, insert } = createInsertMock();
+    // Raw query retention on, answer retention off: the query text is kept but the
+    // generated answer is still dropped — the two are decoupled.
     vi.doMock("@/lib/env", () => mockEnv({ RAG_PERSIST_RAW_QUERY_TEXT: true }));
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
     vi.doMock("@/lib/supabase/auth", () => ({
@@ -189,7 +227,12 @@ describe("/api/eval-cases", () => {
 
     expect(response.status).toBe(201);
     expect(payload).toMatchObject({ query: "What monitoring is needed for clozapine?" });
-    expect(payload.metadata).toMatchObject({ answer: "Monitor FBC.", raw_query_retained: true });
+    expect(payload.metadata).toMatchObject({
+      answer: null,
+      raw_query_retained: true,
+      answer_retained: false,
+    });
+    expect(JSON.stringify(payload.metadata)).not.toContain("Monitor FBC.");
   });
 
   it("captures a needs-fixing answer without requiring expected UUID fields", async () => {

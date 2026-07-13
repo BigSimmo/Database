@@ -194,6 +194,26 @@ describe("answer-verification (GEN-C2 / GEN-H2)", () => {
     expect(tokens).toContain("2.0");
   });
 
+  it("preserves rate denominators, dilution ratios, and ASCII microgram aliases", () => {
+    expect(extractNumericTokens("Infuse 30 mL/day, not 30 mL/hr.")).toEqual(
+      expect.arrayContaining(["30ml/day", "30ml/hr"]),
+    );
+    expect(extractNumericTokens("Use 1:1000 rather than 1:10000.")).toEqual(
+      expect.arrayContaining(["1:1000", "1:10000"]),
+    );
+    expect(extractNumericTokens("Give 100 ug.")).toContain("100mcg");
+  });
+
+  it("rejects a rate or dilution that differs from the cited source", () => {
+    const result = source({ content: "Infuse at 30 mL/day using a 1:1000 dilution." });
+    const verification = verifyAnswerNumbers(
+      "Infuse at 30 mL/hr using a 1:10000 dilution.",
+      [{ chunk_id: "chunk-1" }],
+      [result],
+    );
+    expect(verification.unverifiedTokens).toEqual(expect.arrayContaining(["30ml/hr", "1:10000"]));
+  });
+
   it("passes when every numeric token appears in a cited chunk", () => {
     const result = source();
     const verification = verifyAnswerNumbers(
@@ -223,6 +243,17 @@ describe("answer-verification (GEN-C2 / GEN-H2)", () => {
     const verification = verifyAnswerNumbers("Give 12.5 mg.", [{ chunk_id: "chunk-1" }], [cited, uncited]);
     expect(verification.hasUnverifiedNumbers).toBe(true);
     expect(verification.unverifiedTokens).toContain("12.5mg");
+  });
+
+  it("does not let an unrelated answer citation verify a clinical number", () => {
+    const drugA = source({ id: "chunk-a", content: "Drug A requires renal monitoring." });
+    const drugB = source({ id: "chunk-b", content: "Drug B is given at 30 mg daily." });
+    const verification = verifyAnswerNumbers(
+      "Give drug A at 30 mg daily.",
+      [{ chunk_id: "chunk-a" }, { chunk_id: "chunk-b" }],
+      [drugA, drugB],
+    );
+    expect(verification.unverifiedTokens).toContain("30mg");
   });
 
   // B1: substring matching previously let a wrong dose verify against a longer

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent } from "react";
 import Link from "next/link";
 import {
-  CheckCircle2,
+  CircleCheck,
   Crosshair,
   Filter,
   GitCompareArrows,
@@ -324,7 +324,7 @@ function NodeDetails({
       <div className="grid gap-3">
         <div className="rounded-lg border border-[color:var(--success)]/20 bg-[color:var(--success-soft)]/65 p-3">
           <p className="flex items-center gap-2 text-sm font-bold text-[color:var(--success)]">
-            <CheckCircle2 className="h-4 w-4" aria-hidden />
+            <CircleCheck className="h-4 w-4" aria-hidden />
             Why it fits
           </p>
           <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">

@@ -76,18 +76,28 @@ class EmptyQuery implements PromiseLike<{ data: unknown[]; error: null }> {
   }
 }
 
-async function answerOffline(query: string, textSources: SearchResult[]) {
+type RpcResult = { data: unknown; error: unknown };
+
+async function answerOffline(
+  query: string,
+  textSources: SearchResult[],
+  rpcHandler?: (name: string) => RpcResult | Promise<RpcResult>,
+) {
   // offline provider mode forces source-only behaviour regardless of key presence.
   vi.stubEnv("RAG_PROVIDER_MODE", "offline");
   vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
   vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
 
-  const rpc = vi.fn(async (name: string) => {
-    if (name === "match_document_chunks_text_v2" || name === "match_document_chunks_text") {
-      return { data: textSources, error: null };
-    }
-    return { data: [], error: null };
-  });
+  const rpc = vi.fn(
+    rpcHandler
+      ? async (name: string) => rpcHandler(name)
+      : async (name: string) => {
+          if (name === "match_document_chunks_text_v2" || name === "match_document_chunks_text") {
+            return { data: textSources, error: null };
+          }
+          return { data: [], error: null };
+        },
+  );
   vi.doMock("@/lib/supabase/admin", () => ({
     createAdminClient: () => ({ rpc, from: vi.fn(() => new EmptyQuery()) }),
   }));
@@ -152,6 +162,27 @@ describe("source-only / offline answers", () => {
     expect(answer.answerQualityTier).toBe("source_only");
     expect(answer.providerMode).toBe("offline");
     expect(answer.fallbackReason).toContain("source_only");
+  });
+
+  it("stays fail-closed (does not throw) when a lexical retrieval RPC errors", async () => {
+    // F8: the terminal lexical layer now records the RPC error in retrieval
+    // telemetry via recordHybridRpcError before returning empty. The return
+    // value is unchanged, so the path must still degrade to a source-gap answer
+    // rather than throw.
+    const rpcError = {
+      code: "42P01",
+      message: "relation match_document_chunks_text does not exist",
+      hint: null,
+    };
+    const { answer, generateStructuredTextResult } = await answerOffline(
+      "What ANC threshold should withhold clozapine?",
+      [],
+      (name) => (name === "match_document_chunks_text" ? { data: null, error: rpcError } : { data: [], error: null }),
+    );
+
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
   });
 
   it("fails closed to a source-gap answer when there is no usable evidence", async () => {

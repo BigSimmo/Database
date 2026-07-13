@@ -27,7 +27,7 @@ export function SourceActionRow({
   return (
     <div className={cn("flex flex-wrap gap-2", divider && "border-t border-[color:var(--border)] pt-3")}>
       <Link href={viewerHref} className={cn(primaryControl, "min-h-tap px-4 text-xs")}>
-        <FileText className="h-4 w-4" />
+        <FileText aria-hidden="true" className="h-4 w-4" />
         Open source
       </Link>
       {onFollowUp && (
@@ -37,7 +37,7 @@ export function SourceActionRow({
           className={cn(floatingControl, "px-3 text-xs")}
           aria-label={`Ask a follow-up from ${sourceTitle}`}
         >
-          <Search className="h-4 w-4" />
+          <Search aria-hidden="true" className="h-4 w-4" />
           <span className="sm:hidden">Follow-up</span>
           <span className="hidden sm:inline">Ask follow-up</span>
         </button>
@@ -48,7 +48,7 @@ export function SourceActionRow({
         className={cn(floatingControl, "px-3 text-xs")}
         aria-label={`Search only ${sourceTitle}`}
       >
-        <Filter className="h-4 w-4" />
+        <Filter aria-hidden="true" className="h-4 w-4" />
         <span className="sm:hidden">Scope</span>
         <span className="hidden sm:inline">Add scope</span>
       </button>
@@ -129,7 +129,7 @@ export function SourcePassageLinks({
           title={`${source.title} · page ${source.page_number ?? "n/a"} · chunk ${source.chunk_index}`}
           aria-label={`Open source passage #${index + 1}`}
         >
-          <ExternalLink className="h-3.5 w-3.5" />
+          <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
           <span>p.{source.page_number ?? "n/a"}</span>
           <span className="hidden sm:inline">chunk {source.chunk_index}</span>
           {source.source_strength ? <span className="hidden sm:inline">· {source.source_strength}</span> : null}

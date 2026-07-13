@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { VERIFY_AGAINST_SOURCE_NOTE } from "../src/lib/answer-verification";
 import { applyNumericVerification, truncateForModel, unboldUnverifiedNumbers } from "../src/lib/rag";
+import { attachAdjacentContext } from "../src/lib/rag-cache";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 describe("truncateForModel — boundary-aware, number-safe source truncation (P7)", () => {
@@ -116,5 +117,83 @@ describe("applyNumericVerification — single faithfulness caveat even when the 
     expect(gated.confidence).toBe("unsupported");
     expect(gated.routingReason).toContain("numeric_faithfulness_gate_source_gap");
     expect(gated.answer).not.toContain("500 mg");
+  });
+
+  // Regression: the model generates from the PACKED context (adjacent_context carries neighbour
+  // -chunk text), but answer.sources is the UNPACKED answer-input set. Re-verifying finalize-time
+  // against the unpacked sources blanked correct dose answers whose figure lived only in the packed
+  // adjacent_context. Passing the packed corpus as verificationSources keeps the number verified.
+  it("does not suppress a dose the model saw only in the packed adjacent_context (corpus-parity fix)", () => {
+    const packedCorpus: SearchResult[] = [
+      {
+        id: "c1",
+        document_id: "d1",
+        title: "Service Overview",
+        file_name: "service-overview.pdf",
+        page_number: 1,
+        chunk_index: 0,
+        section_heading: "Overview",
+        content: "The service supports patients through their recovery journey with structured input.",
+        image_ids: [],
+        similarity: 0.9,
+        hybrid_score: 0.9,
+        images: [],
+        adjacent_context: "Adults: the usual therapeutic dose is 500 mg daily.",
+      },
+    ];
+
+    // Bug repro: verifying against the unpacked sources (no adjacent_context) fails the answer closed.
+    const suppressed = applyNumericVerification(unverifiedAnswer("The usual therapeutic dose is **500 mg** daily."));
+    expect(suppressed.grounded).toBe(false);
+    expect(suppressed.confidence).toBe("unsupported");
+
+    // Fix: verifying against the packed corpus the model actually saw keeps the answer intact.
+    const verified = applyNumericVerification(
+      unverifiedAnswer("The usual therapeutic dose is **500 mg** daily."),
+      packedCorpus,
+    );
+    expect(verified.grounded).toBe(true);
+    expect(verified.confidence).toBe("high");
+    expect(verified.answer).toContain("500 mg");
+    expect(verified.routingReason ?? "").not.toContain("numeric_faithfulness_gate_source_gap");
+  });
+});
+
+describe("attachAdjacentContext — rebuild the packed verification corpus by chunk id", () => {
+  const base: SearchResult = {
+    id: "c1",
+    document_id: "d1",
+    title: "Doc",
+    file_name: "doc.pdf",
+    page_number: 1,
+    chunk_index: 0,
+    section_heading: null,
+    content: "See the neighbouring row.",
+    image_ids: [],
+    similarity: 0.9,
+    images: [],
+  };
+
+  it("overlays adjacent_context from the packed set onto matching ids", () => {
+    const unpacked: SearchResult[] = [base];
+    const packed: SearchResult[] = [{ ...base, adjacent_context: "Dose is 500 mg daily." }];
+    const merged = attachAdjacentContext(unpacked, packed);
+    expect(merged[0]!.adjacent_context).toBe("Dose is 500 mg daily.");
+    // Does not mutate the input source object.
+    expect(base.adjacent_context).toBeUndefined();
+  });
+
+  it("returns the original array reference when the packed set adds nothing", () => {
+    const unpacked: SearchResult[] = [base];
+    expect(attachAdjacentContext(unpacked, [])).toBe(unpacked);
+    expect(attachAdjacentContext(unpacked, [{ ...base, adjacent_context: undefined }])).toBe(unpacked);
+  });
+
+  it("leaves non-matching ids untouched", () => {
+    const unpacked: SearchResult[] = [base, { ...base, id: "c2" }];
+    const packed: SearchResult[] = [{ ...base, id: "c1", adjacent_context: "neighbour text" }];
+    const merged = attachAdjacentContext(unpacked, packed);
+    expect(merged[0]!.adjacent_context).toBe("neighbour text");
+    expect(merged[1]!.adjacent_context).toBeUndefined();
   });
 });

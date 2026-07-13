@@ -875,12 +875,18 @@ describe("RAG structured-output fallback", () => {
     expect(answer.openAIRequestIds).toEqual(["req_fast_template", "req_strong_template", "req_strong_quality"]);
     expect(insert).toHaveBeenCalledTimes(1);
     const insertCalls = insert.mock.calls as unknown as Array<
-      [{ answer?: string | null; metadata?: Record<string, unknown> }]
+      [{ answer?: unknown; metadata?: Record<string, unknown> }]
     >;
-    expect(insertCalls[0]?.[0]?.answer).toBeNull();
-    const loggedMetadata = insertCalls[0]?.[0]?.metadata ?? {};
+    const loggedRow = insertCalls[0]?.[0] ?? {};
+    const loggedMetadata = loggedRow.metadata ?? {};
     expect(loggedMetadata.answer_retry_count).toBe(2);
     expect(loggedMetadata.answer_retry_reasons).toEqual(["fast_template_retry_strong", "strong_quality_retry"]);
+    // PIA-3: the generated answer text must not be persisted to rag_queries.answer
+    // unless RAG_PERSIST_ANSWER_TEXT is enabled (default off), and the row records
+    // that the answer was not retained.
+    expect(loggedRow.answer).toBeNull();
+    expect(loggedMetadata.answer_retained).toBe(false);
+    expect(JSON.stringify(loggedRow)).not.toContain("review intervals");
   });
 
   it("filters table-caption metadata from extractive answer points", async () => {
@@ -1290,6 +1296,72 @@ describe("RAG structured-output fallback", () => {
     expect(firstAnswer.openAIRequestIds).toEqual(["req_coalesced"]);
     expect(secondAnswer.openAIRequestIds).toEqual(["req_coalesced"]);
     expect(secondAnswer.routingReason).toContain("answer_inflight_coalesced");
+  });
+
+  it("does not propagate an originating request's abort to a coalesced concurrent caller", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "300000");
+    vi.stubEnv("RAG_ANSWER_CACHE_SIZE", "100");
+
+    const sources = [source()];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn(async () => ({
+      text: JSON.stringify({
+        answer: "Use a stepwise agitation and arousal approach based on rating and route.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [],
+        citations: [{ chunk_id: "agitation-chunk-1" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      }),
+      model: "gpt-4.1-mini",
+      operation: "answer",
+      latencyMs: 12,
+      requestId: "req_independent",
+      usage: { input_tokens: 100, output_tokens: 120, total_tokens: 220 },
+    }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({ rpc, from: vi.fn(() => new EmptyQuery()) }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    // Originating request aborts before it can produce an answer; its shared in-flight promise rejects.
+    const controller = new AbortController();
+    controller.abort();
+    const first = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-1",
+      logQuery: false,
+      signal: controller.signal,
+    });
+    // A second identical request coalesces onto the (now-doomed) in-flight promise.
+    const second = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-1",
+      logQuery: false,
+    });
+
+    // The originator's failure stays with the originator...
+    await expect(first).rejects.toBeTruthy();
+    // ...and the coalesced caller still gets a real, independently generated answer rather than a 500.
+    const secondAnswer = await second;
+    expect(secondAnswer.openAIRequestIds).toEqual(["req_independent"]);
+    expect(secondAnswer.routingReason ?? "").not.toContain("answer_inflight_coalesced");
+    // It ran its OWN pipeline (search + generation once) instead of cloning the failed one.
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls.filter(([name]) => name === "match_document_chunks_text_v2")).toHaveLength(1);
   });
 
   it("retries fast model output that cites evidence IDs outside retrieved chunks", async () => {

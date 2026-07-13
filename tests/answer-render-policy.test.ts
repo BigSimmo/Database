@@ -354,6 +354,36 @@ describe("answer render policy", () => {
     expect(model.bestSource?.chunk_id).toBe("chunk-2");
   });
 
+  it("copies the displayed table values, units, and canonical provenance", () => {
+    const model = buildAnswerRenderModel(
+      answer({
+        visualEvidence: [
+          visual({
+            tableTitle: "ANC action thresholds",
+            tableColumns: ["ANC", "Action"],
+            tableRows: [["0.49 ×10^9/L", "Stop and escalate"]],
+          }),
+        ],
+      }),
+    );
+    expect(model.copyText).toContain("ANC action thresholds");
+    expect(model.copyText).toContain("0.49 ×10^9/L");
+    expect(model.copyText).toContain("Stop and escalate");
+    expect(model.copyText).toContain("/documents/doc-1?page=4&chunk=chunk-1");
+  });
+
+  it("strips high-yield bold markers from the copy/paste clinical draft", () => {
+    const model = buildAnswerRenderModel(
+      answer({
+        answer: "For red-range results, **withhold clozapine** and recheck ANC **within 24 hours**.",
+      }),
+    );
+    // The pasted draft is plain text for clinical notes — no literal "**".
+    expect(model.copyText).not.toContain("**");
+    expect(model.copyText).toContain("withhold clozapine");
+    expect(model.copyText).toContain("within 24 hours");
+  });
+
   it("limits unsupported answers to source review and warnings even when raw extras are present", () => {
     const model = buildAnswerRenderModel(
       answer({

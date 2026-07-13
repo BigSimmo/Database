@@ -1,19 +1,22 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-function mockEnv(options: { configured: boolean; demoMode?: boolean }) {
+const DEEP_TOKEN = "deep-probe-secret";
+
+function mockEnv(options: { configured: boolean; demoMode?: boolean; deepSecret?: boolean }) {
   vi.resetModules();
   vi.doMock("@/lib/env", () => ({
     env: {
       NEXT_PUBLIC_SUPABASE_URL: options.configured ? "https://sjrfecxgysukkwxsowpy.supabase.co" : undefined,
       SUPABASE_SERVICE_ROLE_KEY: options.configured ? "service-role-key" : undefined,
       OPENAI_API_KEY: options.configured ? "openai-key" : undefined,
+      HEALTH_DEEP_PROBE_SECRET: options.deepSecret ? DEEP_TOKEN : undefined,
     },
     isDemoMode: () => Boolean(options.demoMode),
   }));
 }
 
-function healthRequest(query = "") {
-  return new Request(`http://localhost/api/health${query}`);
+function healthRequest(query = "", headers?: HeadersInit) {
+  return new Request(`http://localhost/api/health${query}`, headers ? { headers } : undefined);
 }
 
 async function payload(response: Response) {
@@ -52,6 +55,39 @@ describe("GET /api/health", () => {
     expect(body.checks).toMatchObject({ supabaseConfig: "missing", openaiConfig: "missing" });
   });
 
+  it("gates the deep probe without a token and omits the slo/cache snapshots", async () => {
+    mockEnv({ configured: true, deepSecret: true });
+    const { GET } = await import("../src/app/api/health/route");
+
+    const response = await GET(healthRequest("?deep=1"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(503);
+    expect(body.checks).toMatchObject({ supabase: "unauthorized" });
+    expect(body.slo).toBeUndefined();
+    expect(body.cache).toBeUndefined();
+  });
+
+  it("exposes the in-process cache hit-rate counter on an authorized deep probe", async () => {
+    // Demo mode skips the Supabase-backed slo query, so no admin mock is needed;
+    // the cache counter is in-process and must still be reported.
+    mockEnv({ configured: true, demoMode: true, deepSecret: true });
+    const { GET } = await import("../src/app/api/health/route");
+
+    const response = await GET(healthRequest("?deep=1", { "x-health-deep-token": DEEP_TOKEN }));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    const cache = body.cache as Record<string, number>;
+    // Counters are process-cumulative, so assert shape/invariants, not exact counts.
+    expect(typeof cache.lookups).toBe("number");
+    expect(typeof cache.hits).toBe("number");
+    expect(cache.misses).toBe(cache.lookups - cache.hits);
+    expect(cache.hitRate).toBeGreaterThanOrEqual(0);
+    expect(cache.hitRate).toBeLessThanOrEqual(1);
+    expect(body.slo).toBeUndefined();
+  });
+
   it("does not leak secret values in the payload", async () => {
     mockEnv({ configured: true });
     const { GET } = await import("../src/app/api/health/route");
@@ -61,5 +97,31 @@ describe("GET /api/health", () => {
 
     expect(raw).not.toContain("service-role-key");
     expect(raw).not.toContain("openai-key");
+  });
+});
+
+describe("GET /api/health/ready", () => {
+  it("runs the Supabase readiness branch without requiring the diagnostic probe token", async () => {
+    mockEnv({ configured: true, demoMode: true });
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    const response = await GET(new Request("http://localhost/api/health/ready"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.checks).toMatchObject({ supabaseConfig: "ok", openaiConfig: "ok", supabase: "skipped" });
+  });
+
+  it("exposes no diagnostic details (slo/cache) even to a token-bearing caller", async () => {
+    mockEnv({ configured: true, demoMode: true, deepSecret: true });
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    const response = await GET(
+      new Request("http://localhost/api/health/ready", { headers: { "x-health-deep-token": DEEP_TOKEN } }),
+    );
+    const body = await payload(response);
+
+    expect(body.slo).toBeUndefined();
+    expect(body.cache).toBeUndefined();
   });
 });

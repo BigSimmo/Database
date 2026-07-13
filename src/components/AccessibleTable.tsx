@@ -115,7 +115,13 @@ function AccessibleTableMarkup({
         <table
           aria-label={caption ?? undefined}
           className={cn(
-            "w-full border-separate border-spacing-0 text-left md:table-fixed",
+            // Non-dense tables use auto layout so columns size to their content
+            // (min-content = longest word) and wrap at word boundaries; a table
+            // too wide for its container scrolls via the overflow-x-auto wrapper
+            // above rather than squeezing columns until words break mid-character.
+            // The dense preview keeps a fixed layout (re-added below) for its
+            // ellipsised single-line cells.
+            "w-full border-separate border-spacing-0 text-left",
             renderDensePreview ? "min-w-full table-fixed text-2xs" : expanded ? "text-base-minus" : "text-sm",
           )}
         >
@@ -135,7 +141,7 @@ function AccessibleTableMarkup({
                     "nums border-b border-[color:var(--border)] align-top font-semibold leading-5 text-[color:var(--text)]",
                     renderDensePreview
                       ? "overflow-hidden text-ellipsis whitespace-nowrap"
-                      : "whitespace-normal break-words [overflow-wrap:anywhere]",
+                      : "whitespace-normal break-words",
                     index > 0 && "border-l border-[color:var(--border)]/70",
                     renderDensePreview
                       ? "px-2 py-1.5 text-3xs uppercase tracking-[0.06em]"
@@ -152,7 +158,9 @@ function AccessibleTableMarkup({
                   scope="col"
                   className={cn(
                     "nums border-b border-l border-[color:var(--border)]/70 align-top font-semibold leading-5 text-[color:var(--text)]",
-                    "whitespace-normal break-words [overflow-wrap:anywhere]",
+                    renderDensePreview
+                      ? "overflow-hidden text-ellipsis whitespace-nowrap"
+                      : "whitespace-normal break-words",
                     renderDensePreview
                       ? "px-2 py-1.5 text-3xs uppercase tracking-[0.06em]"
                       : expanded
@@ -190,9 +198,7 @@ function AccessibleTableMarkup({
                         className={cn(
                           "nums align-top text-[color:var(--text)]",
                           renderDensePreview ? "table-cell" : "block md:table-cell",
-                          renderDensePreview
-                            ? "overflow-hidden whitespace-nowrap"
-                            : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                          renderDensePreview ? "overflow-hidden whitespace-nowrap" : "whitespace-pre-wrap break-words",
                           renderDensePreview
                             ? "border-t border-[color:var(--border)]/70 px-2 py-1.5 leading-4"
                             : "border-b border-[color:var(--border)]/60 pb-2 last:border-b-0 md:border-b-0 md:border-t md:border-[color:var(--border)]/70 md:last:border-b-0",
@@ -288,6 +294,29 @@ function useMobileTableExpansion(enabledByDefault: boolean) {
   return enabledByDefault && isMobile;
 }
 
+// Mirrors the component's `normalized` computation so callers can decide layout
+// (e.g. whether to collapse a source image) using the exact same parse/normalize
+// rules AccessibleTable renders with. Returns false when the table would render
+// nothing — columns-only input, unparseable markdown, or an all-metadata grid.
+export function hasRenderableAccessibleTable({
+  markdown,
+  rows,
+  columns,
+  clinicalOnly = false,
+}: {
+  markdown?: string | null;
+  rows?: string[][] | null;
+  columns?: string[] | null;
+  clinicalOnly?: boolean;
+}): boolean {
+  const hasExplicitRows = Boolean(rows?.length);
+  const parsed = hasExplicitRows ? rows : parseMarkdownTable(markdown);
+  if (!parsed?.length) return false;
+  const table = normalizeAccessibleTable(parsed, hasExplicitRows ? columns : null);
+  if (!table) return false;
+  return Boolean(clinicalOnly ? clinicalOnlyTable(table) : table);
+}
+
 export function AccessibleTable({
   caption,
   markdown,
@@ -328,8 +357,8 @@ export function AccessibleTable({
   lowConfidenceFallback?: ReactNode;
 }) {
   const dialogId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
   const canExpand = useMobileTableExpansion(expandOnMobile);
@@ -366,7 +395,6 @@ export function AccessibleTable({
         return;
       }
       if (event.key !== "Tab") return;
-
       const focusable = Array.from(
         dialogRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',

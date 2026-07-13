@@ -183,7 +183,7 @@ function DocumentLabelReviewPanel({
       <summary className="flex min-h-[42px] cursor-pointer list-none items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
           <span className={cn(iconTilePremium, "h-8 w-8")}>
-            <ClipboardCheck className="h-4 w-4" />
+            <ClipboardCheck aria-hidden="true" className="h-4 w-4" />
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-[color:var(--text)]">Label review</span>
@@ -192,7 +192,10 @@ function DocumentLabelReviewPanel({
             </span>
           </span>
         </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
+        <ChevronDown
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180"
+        />
       </summary>
       <div className="mt-3 grid gap-3 border-t border-[color:var(--border)] pt-3">
         {items.map((item) => {
@@ -360,9 +363,9 @@ function DocumentLabelReviewPanel({
                   className={cn(primaryControl, "justify-center text-xs")}
                 >
                   {busyAction === `override:${item.document.id}` ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Plus className="h-4 w-4" />
+                    <Plus aria-hidden="true" className="h-4 w-4" />
                   )}
                   Override
                 </button>
@@ -387,7 +390,7 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
           <span className={cn(iconTilePremium, "h-8 w-8")}>
-            <Tag className="h-4 w-4" />
+            <Tag aria-hidden="true" className="h-4 w-4" />
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-[color:var(--text)]">Tag quality review</span>
@@ -398,7 +401,10 @@ function DocumentTagQualityPanel({ documents }: { documents: ClinicalDocument[] 
             </span>
           </span>
         </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
+        <ChevronDown
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180"
+        />
       </summary>
       <div className="mt-3 space-y-3">
         <div className="flex flex-wrap gap-1.5">
@@ -479,7 +485,7 @@ function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[]
       <summary className="flex min-h-[42px] cursor-pointer list-none items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
           <span className={cn(iconTilePremium, "h-8 w-8")}>
-            <ShieldAlert className="h-4 w-4" />
+            <ShieldAlert aria-hidden="true" className="h-4 w-4" />
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-[color:var(--text)]">Index repair queue</span>
@@ -488,7 +494,10 @@ function DocumentIndexRepairPanel({ documents }: { documents: ClinicalDocument[]
             </span>
           </span>
         </span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180" />
+        <ChevronDown
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180"
+        />
       </summary>
       <div className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3">
         {items.map((item) => (
@@ -721,7 +730,7 @@ export function DocumentDrawer({
         </div>
       </div>
       <label className="relative block">
-        <Search className={fieldIcon} />
+        <Search aria-hidden="true" className={fieldIcon} />
         <input
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
@@ -867,7 +876,11 @@ export function DocumentDrawer({
                 onClick={() => onBulkReindex("enrichment")}
                 className={cn(floatingControl, "px-3 text-xs")}
               >
-                {bulkActionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {bulkActionBusy ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles aria-hidden="true" className="h-4 w-4" />
+                )}
                 Regenerate summaries
               </button>
               <button
@@ -876,7 +889,7 @@ export function DocumentDrawer({
                 onClick={() => onBulkReindex("full")}
                 className={cn(floatingControl, "px-3 text-xs")}
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw aria-hidden="true" className="h-4 w-4" />
                 Full reindex
               </button>
               <button
@@ -885,7 +898,7 @@ export function DocumentDrawer({
                 onClick={() => onBulkReindex("retry_failed")}
                 className={cn(floatingControl, "px-3 text-xs")}
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw aria-hidden="true" className="h-4 w-4" />
                 Retry failed
               </button>
             </div>
@@ -1028,7 +1041,7 @@ export function DocumentDrawer({
                     className="flex min-h-11 min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                   >
                     <span className="truncate">{documentDisplayTitle(document)}</span>
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
+                    <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
                   </Link>
                   <DocumentOrganizationBadges document={document} compact className="mt-1" />
                   <p className={cn("mt-1 truncate text-xs", textMuted)}>
@@ -1085,7 +1098,11 @@ export function DocumentDrawer({
           disabled={loadingMoreDocuments}
           className={cn(floatingControl, "w-full justify-center")}
         >
-          {loadingMoreDocuments ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}
+          {loadingMoreDocuments ? (
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          ) : (
+            <ChevronDown aria-hidden="true" className="h-4 w-4" />
+          )}
           Load more documents
         </button>
       ) : null}

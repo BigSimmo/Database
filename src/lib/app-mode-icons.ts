@@ -4,7 +4,7 @@ import {
   FileText,
   Heart,
   Pill,
-  ShieldCheck,
+  Route,
   Sparkles,
   Wrench,
   type LucideIcon,
@@ -16,7 +16,7 @@ import type { AppModeId } from "@/lib/app-modes";
 export const appModeIcons: Record<AppModeId, LucideIcon> = {
   answer: Sparkles,
   documents: FileText,
-  services: ShieldCheck,
+  services: Route,
   forms: FileSignature,
   favourites: Heart,
   differentials: BrainCircuit,

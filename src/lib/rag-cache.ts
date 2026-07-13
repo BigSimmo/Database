@@ -188,12 +188,20 @@ function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelem
   };
 }
 
+// Single source of truth for whether the process-local search cache is active
+// for a request. Shared with the observability counter so a size-0 (or TTL-0 /
+// skipCache) deployment records the lookup as neither hit nor miss rather than a
+// false miss (the shared-cache lookup does not itself short-circuit on size).
+export function isSearchCacheEnabled(args: Pick<SearchChunksArgs, "skipCache">): boolean {
+  return !args.skipCache && env.RAG_SEARCH_CACHE_TTL_MS > 0 && env.RAG_SEARCH_CACHE_SIZE > 0;
+}
+
 export async function getCachedSearch(
   args: SearchChunksArgs,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
 ): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
-  if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return null;
+  if (!isSearchCacheEnabled(args)) return null;
 
   const key = scopedSearchCacheKey(args, queryClass, queryVariants);
   const cached = searchCache.get(key);
@@ -230,11 +238,13 @@ export async function setCachedSearch(
   results: SearchResult[],
   telemetry: SearchTelemetry,
   queryVariants: string[] = [],
+  options?: { indexingVersionAtRetrievalStart?: string | null },
 ): Promise<void> {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
   const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
 
-  const indexingVersion = await cacheIndexingVersion(args);
+  const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
+  if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
@@ -289,8 +299,10 @@ function sharedCacheSelector(
 
 export async function cacheIndexingVersion(
   args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId" | "accessScope">,
+  options?: { forceRefresh?: boolean },
 ) {
   const cacheKey = cacheIndexingVersionCacheKey(args);
+  if (options?.forceRefresh) cacheIndexingVersionCache.delete(cacheKey);
   const cached = readExpiringCacheEntry(cacheIndexingVersionCache, cacheKey);
   if (cached) return cached.value;
 
@@ -710,4 +722,25 @@ export async function packAdjacentSourceContext(
   } catch {
     return results;
   }
+}
+
+// The numeric-faithfulness gate must verify answer figures against the SAME text
+// the model was shown. Generation runs on the packed context (packAdjacentSourceContext
+// merges neighbour-chunk text into adjacent_context), but answer.sources is the
+// unpacked answer-input set — so a dose/threshold the model faithfully copied from a
+// neighbour chunk would be absent from the finalize-time verification corpus and wrongly
+// flagged unverified, blanking a correct answer. Overlay the packed adjacent_context onto
+// the answer-input results (by chunk id) to rebuild the exact verification corpus, WITHOUT
+// mutating answer.sources itself (the route-boundary client trim and eval byte-identity
+// both depend on answer.sources staying unpacked — see answer-client-payload.ts).
+export function attachAdjacentContext(results: SearchResult[], packed: SearchResult[]): SearchResult[] {
+  const adjacentById = new Map<string, string>();
+  for (const source of packed) {
+    if (source.adjacent_context) adjacentById.set(source.id, source.adjacent_context);
+  }
+  if (adjacentById.size === 0) return results;
+  return results.map((result) => {
+    const adjacent = adjacentById.get(result.id);
+    return adjacent && adjacent !== result.adjacent_context ? { ...result, adjacent_context: adjacent } : result;
+  });
 }

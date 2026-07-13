@@ -1,0 +1,51 @@
+-- capture-live-retrieval-rpcs.sql  (READ-ONLY)
+--
+-- Captures the VERBATIM live bodies of retrieval RPCs still flagged
+-- "LIVE IS AHEAD" in supabase/drift-allowlist.json. The target set is currently
+-- empty because the 20260712 live-ahead definitions have been forward-codified.
+-- If drift reappears, add only the newly allowlisted signatures between the
+-- guard markers below so the test and capture query stay synchronized.
+--
+-- Definitions are forward-codified into a migration + supabase/schema.sql without
+-- forward-codified into a migration + supabase/schema.sql WITHOUT hand-authoring
+-- them. These bodies are complex, have diverged in both directions (e.g. the
+-- fail-closed retrieval_owner_matches predicate was applied to live while live
+-- also grew richer multi-strategy candidate sets), and are under active
+-- concurrent multi-session editing — so only a verbatim capture is correct. A
+-- hand-written body is exactly what got migration 20260705210000 neutralized.
+--
+-- SCOPE: this covers ONLY the allowlist "LIVE IS AHEAD" retrieval subset — the
+-- guard-tested set (tests/forward-codify-retrieval-targets.test.ts). It is NOT
+-- the complete codification set. The runbook also codifies live-only
+-- (unexpected_live) and "verify" functions — get_visual_evidence_cards,
+-- run_visual_eval_case, run_all_visual_eval_cases, repair_enrichment_quality_batch,
+-- match_document_index_units_hybrid, match_document_memory_cards_hybrid[_v2].
+-- Capture those from the fingerprint table in
+-- docs/forward-codify-retrieval-rpcs-workorder.md, not here.
+--
+-- Full procedure: docs/forward-codify-retrieval-rpcs-workorder.md
+-- Backlog item 0: docs/database-drift-detection.md#reconciliation-backlog
+--
+-- HOW TO RUN — this is a provider action (it reads the live project); get
+-- explicit approval first and run it only when the live DB is QUIESCENT (no
+-- concurrent edits to these functions). It changes nothing — it only reads
+-- pg_proc. Run it via the Supabase Dashboard SQL editor, an approved
+-- service-role SQL path, or the Supabase MCP execute_sql tool.
+--
+-- Expect zero rows while the drift allowlist has no LIVE IS AHEAD targets.
+--
+-- search_path is pinned to '' so oid::regprocedure renders fully-qualified and
+-- matches the allowlist keys / schema_drift_snapshot() signatures exactly, and
+-- so pg_get_functiondef emits fully-qualified, replay-safe text (the same style
+-- as migrations 20260701140631 / 20260707000000). This is cosmetic, not
+-- correctness-critical: check:drift hashes pg_get_functiondef under search_path
+-- '' on both live and the schema.sql replay, so a verbatim body always hashes
+-- equal regardless of how it was rendered at capture time.
+
+set search_path = '';
+
+-- >>> forward-codify targets >>> (kept in lockstep with the LIVE IS AHEAD
+-- retrieval entries in supabase/drift-allowlist.json; currently empty)
+-- <<< forward-codify targets <<<
+select null::text as signature, null::text as definition
+where false;
