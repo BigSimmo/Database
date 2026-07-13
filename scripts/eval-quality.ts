@@ -127,6 +127,8 @@ export function deliveredGroundedAfterSourceGovernancePolicy(
   return answer.grounded;
 }
 
+const crossRegionRunnerLatencyContext = process.env.EVAL_LATENCY_CONTEXT === "cross-region-runner";
+
 const qualityThresholds = {
   retrievalTopKHitRate: 0.8,
   retrievalDocumentRecallAt5: 0.8,
@@ -137,32 +139,33 @@ const qualityThresholds = {
   numericGroundingFailureRate: 0,
   staleTopResultRate: 0.25,
   reviewRequiredTopResultRate: 0.25,
-  // Latency budgets are measured from the eval runner (GitHub-hosted, cross-region to the
-  // Sydney Supabase project + OpenAI), not from production. The pre-2026-07-13 budgets were
-  // calibrated when confidence_gate_blocked refusals dominated the subset — refusals return in
-  // ~1-2s, so the canary was timing fast wrong answers. After #606 restored grounded answering,
-  // p95 reflects real generation: the fast->extractive fallback chain spends the full 30s
-  // answer timeout before extracting, and #580's strong truncation self-heal can run two
-  // generations. Post-fix observed subset p95: 48.3s with every quality metric green.
-  // These budgets exist to catch latency REGRESSIONS from that honest baseline, not to encode
-  // a production UX target (production SLOs live in answer-slo.ts / docs/observability-slos.md).
-  ragP95LatencyMs: 60_000,
+  // Latency gates default to the strict near-region ceilings that release and
+  // local runs are held to. The Eval Canary measures from cross-region GitHub
+  // runners → Sydney Supabase + OpenAI, where a real grounded answer pays full
+  // generation time (issue #459 post-#606: quality metrics perfect, p95
+  // measured 48,256ms) — that workflow opts into the wider allowance by setting
+  // EVAL_LATENCY_CONTEXT=cross-region-runner, so eval:quality:release keeps the
+  // strict gate. User-facing latency is enforced separately by the answer SLO
+  // deep probe, not this eval.
+  ragP95LatencyMs: crossRegionRunnerLatencyContext ? 60_000 : 25_000,
   ragRouteP95LatencyMs: {
     // Refusals must stay fast — a slow refusal means the pipeline burned generation time
     // before giving up, which is exactly the waste mode #580 eliminated.
     unsupported: 4_000,
-    // Direct source-stitching with no model generation: keep the tight budget so a
-    // no-model extraction slowdown (search/stitching regression) cannot hide inside the
-    // fallback allowance below.
-    extractive: 12_000,
+    // Direct source-stitching with no model generation. Generation-fallback chains no
+    // longer land in this bucket (see "fallback" below), so the runner allowance only
+    // needs cross-region RPC headroom — not the blanket 60s that pre-fallback-bucket
+    // calibration required — and a no-model extraction slowdown stays visible.
+    extractive: crossRegionRunnerLatencyContext ? 35_000 : 12_000,
     fast: 25_000,
     // Generation-fallback chains (latencyRouteForAnswer buckets any answer whose routing
     // reason records a generation_fallback here): the failed generation spends up to
-    // OPENAI_ANSWER_TIMEOUT_MS (30s) before the source-backed fallback stitches an answer.
+    // OPENAI_ANSWER_TIMEOUT_MS (30s) before the source-backed fallback stitches an
+    // answer. Timeout-dominated, so the budget is region-insensitive.
     fallback: 50_000,
     // Strong may retry a truncated generation at a larger budget (self-heal) = up to two
-    // sequential generations.
-    strong: 60_000,
+    // sequential generations; near-region runs keep the strict single-generation gate.
+    strong: crossRegionRunnerLatencyContext ? 60_000 : 35_000,
   } as Record<string, number>,
 };
 
