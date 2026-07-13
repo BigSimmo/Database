@@ -99,6 +99,24 @@ describe("privacy-safe logging helpers", () => {
 });
 
 describe("query privacy storage helpers", () => {
+  it("drops answer text by default", async () => {
+    vi.doMock("@/lib/env", () => ({
+      env: { RAG_PERSIST_RAW_QUERY_TEXT: false, RAG_PERSIST_ANSWER_TEXT: false },
+    }));
+    const { answerTextForStorage } = await import("../src/lib/query-privacy");
+
+    expect(answerTextForStorage("Patient-specific generated answer")).toBeNull();
+  });
+
+  it("retains answer text only when explicitly enabled", async () => {
+    vi.doMock("@/lib/env", () => ({
+      env: { RAG_PERSIST_RAW_QUERY_TEXT: false, RAG_PERSIST_ANSWER_TEXT: true },
+    }));
+    const { answerTextForStorage } = await import("../src/lib/query-privacy");
+
+    expect(answerTextForStorage("Generated answer")).toBe("Generated answer");
+  });
+
   it("stores only hash-derived placeholders for PHI-capable query text by default", async () => {
     vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: false } }));
     const {

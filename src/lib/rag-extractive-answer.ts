@@ -39,6 +39,7 @@ import type {
   RagQueryClass,
   SearchResult,
 } from "@/lib/types";
+import { assessAndEnforceClaimSupport } from "@/lib/rag-claim-support";
 
 type AnswerIntent =
   | "dose"
@@ -1227,7 +1228,7 @@ export function buildExtractiveAnswer(args: {
     0,
     10,
   );
-  const citations = compactCitations(args.results).slice(0, Math.max(quoteCards.length, 1));
+  const citations = compactCitations(args.results, 6, "deterministic_support").slice(0, Math.max(quoteCards.length, 1));
   const citationIds = new Set(citations.map((citation) => citation.chunk_id));
   const resultById = new Map(args.results.map((result) => [result.id, result]));
   for (const card of memoryCards) {
@@ -1235,7 +1236,7 @@ export function buildExtractiveAnswer(args: {
       if (citationIds.has(chunkId)) continue;
       const source = resultById.get(chunkId);
       if (!source) continue;
-      citations.push(resultCitation(source));
+      citations.push(resultCitation(source, "deterministic_support"));
       citationIds.add(chunkId);
     }
   }
@@ -1244,7 +1245,7 @@ export function buildExtractiveAnswer(args: {
       // Guard the lookup: a quote card whose chunk_id was filtered out of results
       // would make find() return undefined and resultCitation(undefined) throw.
       const source = args.results.find((result) => result.id === quote.chunk_id);
-      if (source) citations.push(resultCitation(source));
+      if (source) citations.push(resultCitation(source, "exact_quote"));
     }
     citationIds.add(quote.chunk_id);
   }
@@ -1271,7 +1272,7 @@ export function buildExtractiveAnswer(args: {
     if (!citationIds.has(chunkId)) {
       const source = args.results.find((result) => result.id === chunkId);
       if (source) {
-        citations.push(resultCitation(source));
+        citations.push(resultCitation(source, "deterministic_support"));
         citationIds.add(chunkId);
       }
     }
@@ -1769,7 +1770,9 @@ export function finalizeRagAnswerQuality(
   queryClass: RagQueryClass,
   verificationSources?: SearchResult[],
 ): RagAnswer {
-  return applyProviderLabels(finalizeRagAnswerQualityCore(answer, query, queryClass, verificationSources));
+  return applyProviderLabels(
+    assessAndEnforceClaimSupport(finalizeRagAnswerQualityCore(answer, query, queryClass, verificationSources)),
+  );
 }
 
 /** Finalize rag answer quality core. */

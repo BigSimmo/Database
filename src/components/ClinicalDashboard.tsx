@@ -709,9 +709,6 @@ export function ClinicalDashboard({
     mainRef.current = node;
     setMainScrollRoot(node);
   }, []);
-  const phoneScrollHide = useScrollHideReporter();
-  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
-  reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
@@ -737,6 +734,12 @@ export function ClinicalDashboard({
   const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
+  // Answer mode hides the glass header at every breakpoint (all-breakpoints
+  // overlay); other modes keep the phone-only collapse, so the reporter only
+  // widens past the phone media gate while in answer mode.
+  const phoneScrollHide = useScrollHideReporter(false, searchMode === "answer");
+  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
     Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
   );
@@ -3465,7 +3468,7 @@ export function ClinicalDashboard({
         onPrefetchApplications={prefetchApplications}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
         <MasterSearchHeader
           documents={documents}
           documentTotal={indexedDocumentTotal}
@@ -3518,32 +3521,18 @@ export function ClinicalDashboard({
             differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
-          // Phone-only: the header sits above the internally scrolling <main>,
-          // so hiding must collapse its layout space to hand it to content.
-          hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
+          // Answer view: the header overlays the scrolling <main> at every width
+          // (main reserves matching top padding) so content frosts under the
+          // glass bar, and it slides away/returns with scroll direction. Other
+          // modes keep the phone-only collapse (their sm+ composer renders
+          // in-flow below the header, which an absolute header would bury).
+          hideOnScroll={
+            searchMode === "answer"
+              ? { strategy: "overlay", allBreakpoints: true, scrollHidden: phoneScrollHide.hidden }
+              : { strategy: "collapse", scrollHidden: phoneScrollHide.hidden }
+          }
           onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
         />
-
-        {privateScopeStatus === "unavailable" ? (
-          <div
-            role="alert"
-            data-testid="private-scope-unavailable"
-            className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8"
-          >
-            <p>
-              The original private document scope is unavailable. Choose the documents again or confirm a broader
-              search.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className={floatingControl} onClick={reselectUnavailablePrivateScope}>
-                Reselect documents
-              </button>
-              <button type="button" className={floatingControl} onClick={runWithoutUnavailablePrivateScope}>
-                Run without private scope
-              </button>
-            </div>
-          </div>
-        ) : null}
 
         <main
           id="main-content"
@@ -3552,6 +3541,18 @@ export function ClinicalDashboard({
           onScroll={handleMainScroll}
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none",
+            // Answer view: the glass header is absolute over this scroll container,
+            // so <main> reserves its exact height as top padding (72px borderless
+            // bar = 4rem content/padding + the max(0.5rem, safe-area) top inset —
+            // measured; must stay 1:1 with the rendered #search height so all the
+            // dvh-based section floors below keep their meaning). Padding, not
+            // margin: padding scrolls with content, which is what lets it slide
+            // up and frost beneath the bar. Kept constant when the header
+            // scroll-hides — the reserve lives at scroll-start, already off-screen
+            // whenever the header is hidden, so reclaiming it would only jump
+            // the content.
+            searchMode === "answer" &&
+              "pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]",
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
@@ -3559,11 +3560,14 @@ export function ClinicalDashboard({
                   // bottom, so <main> reserves room for it. When that dock hides on
                   // scroll, reclaim the reserved strip too — otherwise the near-black
                   // shell background shows through as an empty band. (sm+ is inert:
-                  // bottomSearchScrollHidden only ever goes true on phones.)
+                  // bottomSearchScrollHidden only ever goes true on phones.) The
+                  // reserve hugs the real dock height (follow-up scroll row + composer
+                  // pill ≈ 6rem measured); the old 18rem reserve just painted extra
+                  // shell background as a black band above the dock.
                   bottomSearchScrollHidden
                   ? "mb-0 sm:mb-24"
                   : answerFollowUpSuggestions.length > 0
-                    ? "mb-[calc(18rem+env(safe-area-inset-bottom))] sm:mb-24"
+                    ? "mb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:mb-24"
                     : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? bottomSearchScrollHidden
@@ -3581,6 +3585,29 @@ export function ClinicalDashboard({
           )}
         >
           <h1 className="sr-only">Clinical Guide</h1>
+          {privateScopeStatus === "unavailable" ? (
+            // Lives inside <main> (not as a header sibling): in the answer view
+            // the header is absolute, so a sibling alert would reflow to the
+            // column top and hide behind the glass bar.
+            <div
+              role="alert"
+              data-testid="private-scope-unavailable"
+              className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8"
+            >
+              <p>
+                The original private document scope is unavailable. Choose the documents again or confirm a broader
+                search.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={floatingControl} onClick={reselectUnavailablePrivateScope}>
+                  Reselect documents
+                </button>
+                <button type="button" className={floatingControl} onClick={runWithoutUnavailablePrivateScope}>
+                  Run without private scope
+                </button>
+              </div>
+            </div>
+          ) : null}
           <SearchCommandProvider value={searchCommandContextValue}>
             <div
               className={cn(
@@ -3596,7 +3623,12 @@ export function ClinicalDashboard({
                 searchMode === "answer"
                   ? compactMobileModeHome
                     ? "pb-4"
-                    : "pb-32 sm:pb-36 lg:pb-40"
+                    : // The <main> reserve already clears the fixed composer dock on
+                      // phones, so the old large mobile bottom padding only floated a
+                      // long answer's last line high above the dock (and padded a short
+                      // answer's empty space further). Keep it small here; sm+/desktop
+                      // keep the original generous padding.
+                      "pb-4 sm:pb-36 lg:pb-40"
                   : hasMobileBottomSearch
                     ? compactMobileModeHome
                       ? "pb-4 sm:pb-10 lg:pb-12"
@@ -3624,7 +3656,16 @@ export function ClinicalDashboard({
                         "max-sm:flex max-sm:min-h-[calc(100dvh-12.5rem)] max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
                         centeredModeHome && "max-sm:justify-center",
                       )
-                    : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
+                    : // A rendered answer is content-sized and top-aligned on phones:
+                      // it must NOT inherit the viewport-height floor (that floor exists
+                      // to give the centred home block room). With the floor, a short
+                      // answer stretches the section to ~full height and you can scroll
+                      // down into a black void; content-sized keeps the answer under the
+                      // question with calm space below and no phantom scroll. Other
+                      // result kinds keep the floor; sm+/desktop is unchanged.
+                      activeModeResultKind === "answer" && answer
+                      ? "sm:min-h-[calc(100dvh-11rem)]"
+                      : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                   centeredModeHome || showAnswerHome
                     ? // Phones centre the home block mid-screen, matching the
                       // standalone-route homes; the pop-up action surface picks

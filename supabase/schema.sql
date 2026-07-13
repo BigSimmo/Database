@@ -6,7 +6,6 @@
 -- EMBEDDING_DIMENSIONS env var (default 1536) and the OPENAI_EMBEDDING_MODEL. If you change
 -- the embedding model, update EMBEDDING_DIMENSIONS AND every vector(N) below together; the
 -- worker hard-fails at startup (checkEmbeddingDimension) when they disagree.
-
 create schema if not exists extensions;
 set search_path = public, extensions;
 
@@ -223,11 +222,21 @@ create table if not exists public.document_sections (
   extraction_quality text not null default 'unknown'
     check (extraction_quality in ('good', 'partial', 'poor', 'unknown')),
   index_generation_id uuid,
+  producer text,
+  artifact_generation_id uuid,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (document_id, section_index)
+  updated_at timestamptz not null default now()
 );
+
+create unique index if not exists document_sections_legacy_section_index_key
+  on public.document_sections(document_id, section_index)
+  where artifact_generation_id is null;
+create unique index if not exists document_sections_producer_generation_section_index_key
+  on public.document_sections(document_id, producer, artifact_generation_id, section_index)
+  where producer is not null and artifact_generation_id is not null;
+create index if not exists document_sections_producer_generation_idx
+  on public.document_sections(document_id, producer, artifact_generation_id);
 
 create table if not exists public.document_memory_cards (
   id uuid primary key default gen_random_uuid(),
@@ -254,6 +263,8 @@ create table if not exists public.document_memory_cards (
   source_image_ids uuid[] not null default '{}',
   confidence real not null default 0.5 check (confidence >= 0 and confidence <= 1),
   index_generation_id uuid,
+  producer text,
+  artifact_generation_id uuid,
   metadata jsonb not null default '{}'::jsonb,
   embedding extensions.vector(1536) not null,
   search_tsv tsvector generated always as (
@@ -265,6 +276,9 @@ create table if not exists public.document_memory_cards (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create index if not exists document_memory_cards_producer_generation_idx
+  on public.document_memory_cards(document_id, producer, artifact_generation_id);
 
 create table if not exists public.document_chunks (
   id uuid primary key default gen_random_uuid(),
@@ -387,6 +401,8 @@ create table if not exists public.document_index_units (
   quality_score real not null default 0.7 check (quality_score >= 0 and quality_score <= 1),
   extraction_mode text not null default 'deterministic' check (extraction_mode in ('deterministic', 'model_heavy', 'hybrid')),
   index_generation_id uuid,
+  producer text,
+  artifact_generation_id uuid,
   embedding extensions.vector(1536) not null,
   metadata jsonb not null default '{}'::jsonb,
   search_tsv tsvector generated always as (to_tsvector('english', coalesce(unit_type, '') || ' ' || coalesce(title, '') || ' ' || coalesce(content, ''))) stored,
@@ -395,6 +411,8 @@ create table if not exists public.document_index_units (
 );
 
 create index if not exists document_index_units_document_idx on public.document_index_units(document_id, unit_type, page_start);
+create index if not exists document_index_units_producer_generation_idx
+  on public.document_index_units(document_id, producer, artifact_generation_id);
 create index if not exists document_index_units_owner_type_idx on public.document_index_units(owner_id, unit_type, quality_score desc);
 create index if not exists document_index_units_owner_chunk_type_idx
   on public.document_index_units(owner_id, source_chunk_id, unit_type)
@@ -1564,6 +1582,397 @@ begin
 end;
 $$;
 
+create or replace function public.commit_document_deep_memory_generation(
+  p_document_id uuid,
+  p_producer text,
+  p_artifact_generation_id uuid,
+  p_rag_memory_version text,
+  p_document_intelligence_version text,
+  p_section_count integer,
+  p_memory_card_count integer,
+  p_index_unit_counts_by_type jsonb,
+  p_repaired_anchor_count integer default 0
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_document_metadata jsonb;
+  v_document_owner_id uuid;
+  v_committed_index_generation uuid;
+  v_total_section_count integer;
+  v_total_memory_card_count integer;
+  v_total_index_unit_count integer;
+  v_section_count integer;
+  v_memory_card_count integer;
+  v_index_unit_count integer;
+  v_expected_index_unit_count integer;
+  v_index_unit_counts_by_type jsonb;
+begin
+  if nullif(btrim(p_producer), '') is null
+    or nullif(btrim(p_rag_memory_version), '') is null
+    or nullif(btrim(p_document_intelligence_version), '') is null
+  then
+    raise exception 'Deep-memory producer must be non-empty.' using errcode = '22023';
+  end if;
+  if p_artifact_generation_id is null then
+    raise exception 'Deep-memory artifact generation must be set.' using errcode = '22023';
+  end if;
+  if p_section_count is null or p_memory_card_count is null or p_repaired_anchor_count is null
+    or p_section_count < 0 or p_memory_card_count < 0 or p_repaired_anchor_count < 0
+  then
+    raise exception 'Deep-memory counts cannot be negative.' using errcode = '22023';
+  end if;
+  if p_index_unit_counts_by_type is null or jsonb_typeof(p_index_unit_counts_by_type) <> 'object' then
+    raise exception 'Deep-memory index-unit counts must be an object.' using errcode = '22023';
+  end if;
+  if exists (
+    select 1
+    from jsonb_each(p_index_unit_counts_by_type) item
+    where jsonb_typeof(item.value) <> 'number'
+      or (item.value #>> '{}')::numeric < 0
+      or trunc((item.value #>> '{}')::numeric) <> (item.value #>> '{}')::numeric
+      or (item.value #>> '{}')::numeric > 2147483647
+  ) then
+    raise exception 'Deep-memory index-unit counts must be nonnegative integers.' using errcode = '22023';
+  end if;
+
+  select coalesce(d.metadata, '{}'::jsonb), d.owner_id
+  into v_document_metadata, v_document_owner_id
+  from public.documents d
+  where d.id = p_document_id
+  for update;
+
+  if not found then
+    raise exception 'Document % does not exist.', p_document_id using errcode = 'P0002';
+  end if;
+
+  begin
+    v_committed_index_generation := nullif(v_document_metadata->>'index_generation_id', '')::uuid;
+  exception when invalid_text_representation then
+    raise exception 'Document % has an invalid committed index generation.', p_document_id using errcode = '22023';
+  end;
+  if v_committed_index_generation is null then
+    raise exception 'Document % has no committed index generation.', p_document_id using errcode = '23514';
+  end if;
+  if v_committed_index_generation = p_artifact_generation_id then
+    raise exception 'Staged deep-memory generation must differ from the committed index generation.' using errcode = '23514';
+  end if;
+
+  -- A generation UUID is a single-producer staging boundary. Reject collisions
+  -- rather than interpreting another producer's rows as part of this commit.
+  if exists (
+    select 1 from public.document_sections
+    where document_id = p_document_id
+      and artifact_generation_id = p_artifact_generation_id
+      and producer is distinct from p_producer
+  ) or exists (
+    select 1 from public.document_memory_cards
+    where document_id = p_document_id
+      and artifact_generation_id = p_artifact_generation_id
+      and producer is distinct from p_producer
+  ) or exists (
+    select 1 from public.document_index_units
+    where document_id = p_document_id
+      and artifact_generation_id = p_artifact_generation_id
+      and producer is distinct from p_producer
+  ) then
+    raise exception 'Deep-memory artifact generation belongs to another producer.' using errcode = '23514';
+  end if;
+
+  -- Re-check producer evidence inside the transaction. Legacy NULL-generation
+  -- local-worker rows predate explicit producer metadata and are the only
+  -- unlabelled shape eligible for producer-scoped replacement.
+  if exists (
+    select 1 from public.document_sections
+    where document_id = p_document_id
+      and (
+        (producer is not null and nullif(metadata->>'generated_by', '') is distinct from producer)
+        or (producer is null and nullif(metadata->>'generated_by', '') is not null and metadata->>'generated_by' <> p_producer)
+        or (producer is null and artifact_generation_id is not null)
+        or (
+          producer is null
+          and nullif(metadata->>'generated_by', '') is null
+          and not (
+            p_producer = 'local-worker'
+            and artifact_generation_id is null
+            and metadata->>'rag_indexing_version' = 'rag-deep-memory-v1'
+          )
+        )
+      )
+  ) or exists (
+    select 1 from public.document_memory_cards
+    where document_id = p_document_id
+      and (
+        (producer is not null and nullif(metadata->>'generated_by', '') is distinct from producer)
+        or (producer is null and nullif(metadata->>'generated_by', '') is not null and metadata->>'generated_by' <> p_producer)
+        or (producer is null and artifact_generation_id is not null)
+        or (
+          producer is null
+          and nullif(metadata->>'generated_by', '') is null
+          and not (p_producer = 'local-worker' and artifact_generation_id is null)
+        )
+      )
+  ) or exists (
+    select 1 from public.document_index_units
+    where document_id = p_document_id
+      and (
+        (producer is not null and nullif(metadata->>'generated_by', '') is distinct from producer)
+        or (producer is null and nullif(metadata->>'generated_by', '') is not null and metadata->>'generated_by' <> p_producer)
+        or (producer is null and artifact_generation_id is not null)
+        or (
+          producer is null
+          and nullif(metadata->>'generated_by', '') is null
+          and not (p_producer = 'local-worker' and artifact_generation_id is null)
+        )
+      )
+  ) then
+    raise exception 'Deep-memory artifact producer evidence is contradictory or ambiguous.' using errcode = '23514';
+  end if;
+
+  select count(*) into v_total_section_count
+  from public.document_sections
+  where document_id = p_document_id
+    and artifact_generation_id = p_artifact_generation_id;
+
+  select count(*) into v_total_memory_card_count
+  from public.document_memory_cards
+  where document_id = p_document_id
+    and artifact_generation_id = p_artifact_generation_id;
+
+  select count(*) into v_total_index_unit_count
+  from public.document_index_units
+  where document_id = p_document_id
+    and artifact_generation_id = p_artifact_generation_id;
+
+  select count(*) into v_section_count
+  from public.document_sections
+  where document_id = p_document_id
+    and producer = p_producer
+    and artifact_generation_id = p_artifact_generation_id
+    and index_generation_id = p_artifact_generation_id
+    and owner_id is not distinct from v_document_owner_id
+    and metadata->>'generated_by' = p_producer
+    and metadata->>'artifact_generation_id' = p_artifact_generation_id::text
+    and metadata->>'index_generation_id' = p_artifact_generation_id::text;
+
+  select count(*) into v_memory_card_count
+  from public.document_memory_cards
+  where document_id = p_document_id
+    and producer = p_producer
+    and artifact_generation_id = p_artifact_generation_id
+    and index_generation_id = p_artifact_generation_id
+    and owner_id is not distinct from v_document_owner_id
+    and metadata->>'generated_by' = p_producer
+    and metadata->>'artifact_generation_id' = p_artifact_generation_id::text
+    and metadata->>'index_generation_id' = p_artifact_generation_id::text;
+
+  select coalesce(sum(unit_count), 0)::integer, coalesce(jsonb_object_agg(unit_type, unit_count), '{}'::jsonb)
+  into v_index_unit_count, v_index_unit_counts_by_type
+  from (
+    select unit_type, count(*)::integer as unit_count
+    from public.document_index_units
+    where document_id = p_document_id
+      and producer = p_producer
+      and artifact_generation_id = p_artifact_generation_id
+      and index_generation_id = p_artifact_generation_id
+      and owner_id is not distinct from v_document_owner_id
+      and metadata->>'generated_by' = p_producer
+      and metadata->>'artifact_generation_id' = p_artifact_generation_id::text
+      and metadata->>'index_generation_id' = p_artifact_generation_id::text
+    group by unit_type
+  ) staged_index_units;
+
+  select coalesce(sum(value::integer), 0)
+  into v_expected_index_unit_count
+  from jsonb_each_text(coalesce(p_index_unit_counts_by_type, '{}'::jsonb));
+
+  if v_total_section_count <> v_section_count
+    or v_total_memory_card_count <> v_memory_card_count
+    or v_total_index_unit_count <> coalesce(v_index_unit_count, 0)
+    or v_section_count <> p_section_count
+    or v_memory_card_count <> p_memory_card_count
+    or coalesce(v_index_unit_count, 0) <> v_expected_index_unit_count
+    or v_index_unit_counts_by_type <> coalesce(p_index_unit_counts_by_type, '{}'::jsonb)
+  then
+    raise exception 'Staged deep-memory artifact counts do not match the commit contract.' using errcode = '23514';
+  end if;
+
+  if exists (
+    select 1
+    from public.document_memory_cards card
+    left join public.document_sections section
+      on section.id = card.section_id
+      and section.document_id = p_document_id
+      and section.producer = p_producer
+      and section.artifact_generation_id = p_artifact_generation_id
+    where card.document_id = p_document_id
+      and card.producer = p_producer
+      and card.artifact_generation_id = p_artifact_generation_id
+      and card.section_id is not null
+      and section.id is null
+  ) then
+    raise exception 'Staged memory cards reference a section outside the staged generation.' using errcode = '23514';
+  end if;
+
+  -- Refuse to null another producer's section reference through ON DELETE SET
+  -- NULL. This keeps the "other producers untouched" guarantee literal.
+  if exists (
+    select 1
+    from public.document_memory_cards card
+    join public.document_sections section on section.id = card.section_id
+    where section.document_id = p_document_id
+      and section.artifact_generation_id is distinct from p_artifact_generation_id
+      and (
+        section.producer = p_producer
+        or (
+          section.producer is null
+          and (
+            section.metadata->>'generated_by' = p_producer
+            or (
+              p_producer = 'local-worker'
+              and nullif(section.metadata->>'generated_by', '') is null
+              and section.metadata->>'rag_indexing_version' = 'rag-deep-memory-v1'
+            )
+          )
+        )
+      )
+      and not (
+        (card.producer = p_producer and card.metadata->>'generated_by' = p_producer)
+        or (card.producer is null and card.metadata->>'generated_by' = p_producer)
+        or (
+          p_producer = 'local-worker'
+          and card.producer is null
+          and card.artifact_generation_id is null
+          and nullif(card.metadata->>'generated_by', '') is null
+        )
+      )
+  ) then
+    raise exception 'Another producer references an older section owned by this producer.' using errcode = '23514';
+  end if;
+
+  update public.document_sections
+  set
+    index_generation_id = v_committed_index_generation,
+    metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+      'generated_by', p_producer,
+      'artifact_generation_id', p_artifact_generation_id,
+      'index_generation_id', v_committed_index_generation
+    ),
+    updated_at = now()
+  where document_id = p_document_id
+    and producer = p_producer
+    and artifact_generation_id = p_artifact_generation_id;
+
+  update public.document_memory_cards
+  set
+    index_generation_id = v_committed_index_generation,
+    metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+      'generated_by', p_producer,
+      'artifact_generation_id', p_artifact_generation_id,
+      'index_generation_id', v_committed_index_generation
+    ),
+    updated_at = now()
+  where document_id = p_document_id
+    and producer = p_producer
+    and artifact_generation_id = p_artifact_generation_id;
+
+  update public.document_index_units
+  set
+    index_generation_id = v_committed_index_generation,
+    metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+      'generated_by', p_producer,
+      'artifact_generation_id', p_artifact_generation_id,
+      'index_generation_id', v_committed_index_generation
+    ),
+    updated_at = now()
+  where document_id = p_document_id
+    and producer = p_producer
+    and artifact_generation_id = p_artifact_generation_id;
+
+  delete from public.document_memory_cards
+  where document_id = p_document_id
+    and artifact_generation_id is distinct from p_artifact_generation_id
+    and (
+      (producer = p_producer and metadata->>'generated_by' = p_producer)
+      or (producer is null and metadata->>'generated_by' = p_producer)
+      or (
+        p_producer = 'local-worker'
+        and producer is null
+        and artifact_generation_id is null
+        and nullif(metadata->>'generated_by', '') is null
+      )
+    );
+
+  delete from public.document_index_units
+  where document_id = p_document_id
+    and artifact_generation_id is distinct from p_artifact_generation_id
+    and (
+      (producer = p_producer and metadata->>'generated_by' = p_producer)
+      or (producer is null and metadata->>'generated_by' = p_producer)
+      or (
+        p_producer = 'local-worker'
+        and producer is null
+        and artifact_generation_id is null
+        and nullif(metadata->>'generated_by', '') is null
+      )
+    );
+
+  delete from public.document_sections
+  where document_id = p_document_id
+    and artifact_generation_id is distinct from p_artifact_generation_id
+    and (
+      (producer = p_producer and metadata->>'generated_by' = p_producer)
+      or (
+        producer is null
+        and (
+          metadata->>'generated_by' = p_producer
+          or (
+            p_producer = 'local-worker'
+            and nullif(metadata->>'generated_by', '') is null
+            and metadata->>'rag_indexing_version' = 'rag-deep-memory-v1'
+          )
+        )
+      )
+    );
+
+  -- This is deliberately the final logical mutation. Any error above rolls
+  -- back both activation and producer-scoped cleanup before metadata advertises
+  -- the new deep-memory generation.
+  perform public.apply_document_metadata_patch(
+    p_document_id,
+    jsonb_build_object(
+      'rag_indexing_version', p_rag_memory_version,
+      'rag_memory_version', p_rag_memory_version,
+      'rag_memory_updated_at', now(),
+      'document_intelligence_version', p_document_intelligence_version,
+      'document_intelligence_updated_at', now(),
+      'section_count', p_section_count,
+      'memory_card_count', p_memory_card_count,
+      'index_unit_count', v_expected_index_unit_count,
+      'index_unit_counts_by_type', coalesce(p_index_unit_counts_by_type, '{}'::jsonb),
+      'repaired_anchor_count', p_repaired_anchor_count,
+      'deep_memory_generations', jsonb_build_object(p_producer, p_artifact_generation_id)
+    )
+  );
+
+  return jsonb_build_object(
+    'document_id', p_document_id,
+    'producer', p_producer,
+    'artifact_generation_id', p_artifact_generation_id,
+    'index_generation_id', v_committed_index_generation,
+    'section_count', p_section_count,
+    'memory_card_count', p_memory_card_count,
+    'index_unit_count', v_expected_index_unit_count
+  );
+end;
+$$;
+
+revoke execute on function public.commit_document_deep_memory_generation(uuid, text, uuid, text, text, integer, integer, jsonb, integer) from public, anon, authenticated;
+grant execute on function public.commit_document_deep_memory_generation(uuid, text, uuid, text, text, integer, integer, jsonb, integer) to service_role;
+
 create or replace function public.commit_document_index_generation(
   p_job_id uuid,
   p_worker_id text,
@@ -1614,7 +2023,6 @@ revoke execute on function public.commit_document_index_generation(
 grant execute on function public.commit_document_index_generation(
   uuid, text, uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb
 ) to service_role;
-
 
 create or replace function public.cleanup_abandoned_document_index_generations(
   p_document_id uuid default null,
@@ -4826,8 +5234,7 @@ revoke execute on function public.jsonb_merge_deep(jsonb, jsonb) from public, an
 grant execute on function public.jsonb_merge_deep(jsonb, jsonb) to service_role;
 revoke execute on function public.apply_document_metadata_patch(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.apply_document_metadata_patch(uuid, jsonb) to service_role;
-revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated;
-grant execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) to service_role;
+revoke execute on function public.commit_document_index_generation(uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb) from public, anon, authenticated, service_role;
 revoke execute on function public.cleanup_abandoned_document_index_generations(uuid, integer, boolean) from public, anon, authenticated;
 grant execute on function public.cleanup_abandoned_document_index_generations(uuid, integer, boolean) to service_role;
 revoke execute on function public.is_committed_document_generation(uuid, jsonb) from public, anon, authenticated;
@@ -4977,7 +5384,39 @@ set search_path = public, extensions, pg_temp
 as $$
 declare
   v_job_id uuid;
+  v_job_status text;
 begin
+  -- Validate without taking the document lock. The job row is created/locked
+  -- first below so request and claim paths share one lock order.
+  perform 1
+  from public.documents
+  where id = p_document_id and owner_id = p_owner_id and status = 'indexed';
+  if not found then
+    raise exception using errcode = 'P0001', message = 'document_not_available_for_enrichment';
+  end if;
+
+  insert into public.indexing_v3_agent_jobs (
+    document_id, status, enrichment_status, attempt_count, max_attempts, version, metadata
+  ) values (
+    p_document_id, 'pending', 'pending', 0, 3, 'visual-core-v3', '{}'::jsonb
+  )
+  on conflict (document_id) do nothing
+  returning id, status into v_job_id, v_job_status;
+
+  if v_job_id is null then
+    select id, status into v_job_id, v_job_status
+    from public.indexing_v3_agent_jobs
+    where document_id = p_document_id
+    for update;
+  end if;
+
+  if v_job_id is null then
+    raise exception using errcode = 'P0001', message = 'enrichment_job_unavailable';
+  end if;
+  if v_job_status = 'processing' then
+    raise exception using errcode = 'P0001', message = 'enrichment_active';
+  end if;
+
   perform 1
   from public.documents
   where id = p_document_id and owner_id = p_owner_id and status = 'indexed'
@@ -5002,29 +5441,13 @@ begin
       next_run_at = null,
       last_error = null,
       updated_at = now()
-  where document_id = p_document_id
-    and status <> 'processing'
-  returning id into v_job_id;
-
-  if v_job_id is null then
-    if exists (
-      select 1 from public.indexing_v3_agent_jobs
-      where document_id = p_document_id and status = 'processing'
-    ) then
-      raise exception using errcode = 'P0001', message = 'enrichment_active';
-    end if;
-    insert into public.indexing_v3_agent_jobs (
-      document_id, status, enrichment_status, attempt_count, max_attempts, version, metadata
-    ) values (
-      p_document_id, 'pending', 'pending', 0, 3, 'visual-core-v3', '{}'::jsonb
-    )
-    returning id into v_job_id;
-  end if;
+  where id = v_job_id;
 
   update public.documents
   set metadata = (coalesce(metadata, '{}'::jsonb)
       - 'indexing_v3_agent_locked_by' - 'indexing_v3_agent_locked_at'
-      - 'indexing_v3_agent_last_error' - 'indexing_v3_agent_next_run_at')
+      - 'indexing_v3_agent_last_error' - 'indexing_v3_agent_next_run_at'
+      - 'indexing_v3_agent_attempt_count' - 'indexing_v3_agent_max_attempts')
       || jsonb_build_object(
         'enrichment_status', 'pending',
         'indexing_v3_agent_status', 'pending',
@@ -6411,3 +6834,308 @@ grant execute on function public.run_all_visual_eval_cases(integer) to service_r
 revoke execute on function public.run_visual_eval_case(uuid, integer)
   from public, anon, authenticated;
 grant execute on function public.run_visual_eval_case(uuid, integer) to service_role;
+
+-- Owner-plus-public retrieval wrappers. Kept in the canonical schema snapshot
+-- so fresh environments and drift detection reproduce migration 20260713020000.
+-- Additive owner-plus-public retrieval wrappers. They delegate to the current
+-- stable signatures and do not replace live-ahead retrieval bodies.
+
+create or replace function public.retrieval_owner_matches_v2(
+  owner_filter uuid,
+  row_owner_id uuid,
+  include_public boolean default true
+)
+returns boolean language sql immutable as $$
+  select owner_filter is not null and (
+    row_owner_id = owner_filter
+    or (coalesce(include_public, false) and row_owner_id is null)
+    or (owner_filter = '00000000-0000-0000-0000-000000000000'::uuid and row_owner_id is null)
+  );
+$$;
+
+create or replace function public.corpus_topic_term_stats_v2(
+  terms text[],
+  owner_filter uuid default '00000000-0000-0000-0000-000000000000'::uuid,
+  include_public boolean default true
+) returns table (
+  term text, has_ts_signal boolean, title_doc_count integer, chunk_present boolean, total_doc_count integer
+) language sql stable set search_path = public, extensions, pg_temp as $$
+  with combined as (
+    select * from public.corpus_topic_term_stats($1, $2)
+    union all
+    select * from public.corpus_topic_term_stats($1, '00000000-0000-0000-0000-000000000000'::uuid)
+    where $3 and $2 <> '00000000-0000-0000-0000-000000000000'::uuid
+  )
+  select term, bool_or(has_ts_signal), sum(title_doc_count)::integer,
+    bool_or(chunk_present), sum(total_doc_count)::integer
+  from combined group by term order by term;
+$$;
+
+create or replace function public.match_document_chunks_text_v2(
+  query_text text, match_count integer default 12, document_filters uuid[] default null,
+  owner_filter uuid default '00000000-0000-0000-0000-000000000000'::uuid,
+  include_public boolean default true
+) returns table (
+  id uuid, document_id uuid, title text, file_name text, page_number integer,
+  chunk_index integer, section_heading text, content text, retrieval_synopsis text,
+  image_ids uuid[], source_metadata jsonb, document_labels jsonb, document_summary text,
+  similarity double precision, text_rank double precision, hybrid_score double precision,
+  lexical_score double precision, images jsonb
+) language sql stable set search_path = public, extensions, pg_temp as $$
+  with combined as (
+    select hit.id, hit.document_id, hit.title, hit.file_name, hit.page_number, hit.chunk_index,
+      hit.section_heading, hit.content, hit.retrieval_synopsis, hit.image_ids, hit.source_metadata,
+      hit.document_labels, hit.document_summary, hit.similarity, hit.text_rank, hit.hybrid_score,
+      coalesce(nullif(to_jsonb(hit)->>'lexical_score', '')::double precision, hit.hybrid_score) as lexical_score,
+      hit.images
+    from public.match_document_chunks_text($1, $2, $3, $4) hit
+    union all
+    select hit.id, hit.document_id, hit.title, hit.file_name, hit.page_number, hit.chunk_index,
+      hit.section_heading, hit.content, hit.retrieval_synopsis, hit.image_ids, hit.source_metadata,
+      hit.document_labels, hit.document_summary, hit.similarity, hit.text_rank, hit.hybrid_score,
+      coalesce(nullif(to_jsonb(hit)->>'lexical_score', '')::double precision, hit.hybrid_score) as lexical_score,
+      hit.images
+    from public.match_document_chunks_text($1, $2, $3, '00000000-0000-0000-0000-000000000000'::uuid) hit
+    where $5 and $4 <> '00000000-0000-0000-0000-000000000000'::uuid
+  ), deduped as (
+    select *, row_number() over (partition by id order by hybrid_score desc, text_rank desc) as access_rank
+    from combined
+  )
+  select id, document_id, title, file_name, page_number, chunk_index, section_heading, content,
+    retrieval_synopsis, image_ids, source_metadata, document_labels, document_summary,
+    similarity, text_rank, hybrid_score, lexical_score, images
+  from deduped where access_rank = 1
+  order by hybrid_score desc, text_rank desc, id
+  limit greatest(1, least($2, 100));
+$$;
+
+create or replace function public.match_document_chunks_hybrid_v2(
+  query_embedding extensions.vector(1536), query_text text, match_count integer default 12,
+  min_similarity double precision default 0.12, document_filters uuid[] default null,
+  owner_filter uuid default '00000000-0000-0000-0000-000000000000'::uuid,
+  include_public boolean default true
+) returns table (
+  id uuid, document_id uuid, title text, file_name text, page_number integer,
+  chunk_index integer, section_heading text, content text, retrieval_synopsis text,
+  image_ids uuid[], source_metadata jsonb, similarity double precision,
+  text_rank double precision, hybrid_score double precision, rrf_score double precision, images jsonb
+) language sql stable set search_path = public, extensions, pg_temp as $$
+  with combined as (
+    select * from public.match_document_chunks_hybrid($1, $2, $3, $4, $5, $6)
+    union all
+    select * from public.match_document_chunks_hybrid($1, $2, $3, $4, $5, '00000000-0000-0000-0000-000000000000'::uuid)
+    where $7 and $6 <> '00000000-0000-0000-0000-000000000000'::uuid
+  ), deduped as (
+    select *, row_number() over (partition by id order by hybrid_score desc, rrf_score desc) as access_rank
+    from combined
+  )
+  select id, document_id, title, file_name, page_number, chunk_index, section_heading, content,
+    retrieval_synopsis, image_ids, source_metadata, similarity, text_rank, hybrid_score, rrf_score, images
+  from deduped where access_rank = 1
+  order by hybrid_score desc, rrf_score desc, id
+  limit greatest(1, least($3, 100));
+$$;
+
+create or replace function public.match_document_chunks_v2(
+  query_embedding extensions.vector(1536), match_count integer default 8,
+  min_similarity double precision default 0.15, document_filter uuid default null,
+  owner_filter uuid default '00000000-0000-0000-0000-000000000000'::uuid,
+  include_public boolean default true
+) returns table (
+  id uuid, document_id uuid, title text, file_name text, page_number integer,
+  chunk_index integer, section_heading text, content text, retrieval_synopsis text,
+  image_ids uuid[], source_metadata jsonb, document_labels jsonb, document_summary text,
+  similarity double precision, images jsonb
+) language sql stable set search_path = public, extensions, pg_temp as $$
+  with combined as (
+    select * from public.match_document_chunks($1, $2, $3, $4, $5)
+    union all
+    select * from public.match_document_chunks($1, $2, $3, $4, '00000000-0000-0000-0000-000000000000'::uuid)
+    where $6 and $5 <> '00000000-0000-0000-0000-000000000000'::uuid
+  ), deduped as (
+    select *, row_number() over (partition by id order by similarity desc) as access_rank
+    from combined
+  )
+  select id, document_id, title, file_name, page_number, chunk_index, section_heading, content,
+    retrieval_synopsis, image_ids, source_metadata, document_labels, document_summary, similarity, images
+  from deduped where access_rank = 1
+  order by similarity desc, id
+  limit greatest(1, least($2, 100));
+$$;
+
+create or replace function public.get_related_document_metadata_v2(
+  document_ids uuid[],
+  owner_filter uuid default '00000000-0000-0000-0000-000000000000'::uuid,
+  include_public boolean default true
+) returns table (document_id uuid, labels jsonb, summary text)
+language sql stable set search_path = public, extensions, pg_temp as $$
+  with combined as (
+    select * from public.get_related_document_metadata($1, $2)
+    union all
+    select * from public.get_related_document_metadata($1, '00000000-0000-0000-0000-000000000000'::uuid)
+    where $3 and $2 <> '00000000-0000-0000-0000-000000000000'::uuid
+  ), deduped as (
+    select *, row_number() over (partition by document_id order by document_id) as access_rank from combined
+  )
+  select document_id, labels, summary from deduped where access_rank = 1 order by document_id;
+$$;
+
+create or replace function public.match_document_lookup_chunks_text_v2(
+  query_text text, document_filters uuid[], match_count integer default 24,
+  owner_filter uuid default '00000000-0000-0000-0000-000000000000'::uuid,
+  include_public boolean default true
+) returns table (
+  id uuid, document_id uuid, page_number integer, chunk_index integer, section_heading text,
+  section_path text[], heading_level integer, parent_heading text, anchor_id text, content text,
+  retrieval_synopsis text, image_ids uuid[], text_rank double precision
+) language sql stable set search_path = public, extensions, pg_temp as $$
+  with combined as (
+    select * from public.match_document_lookup_chunks_text($1, $2, $3, $4)
+    union all
+    select * from public.match_document_lookup_chunks_text($1, $2, $3, '00000000-0000-0000-0000-000000000000'::uuid)
+    where $5 and $4 <> '00000000-0000-0000-0000-000000000000'::uuid
+  ), ranked as (select *, row_number() over (partition by id order by text_rank desc) access_rank from combined)
+  select id, document_id, page_number, chunk_index, section_heading, section_path, heading_level,
+    parent_heading, anchor_id, content, retrieval_synopsis, image_ids, text_rank
+  from ranked where access_rank = 1 order by text_rank desc, id limit greatest(1, least($3, 100));
+$$;
+
+create or replace function public.match_documents_for_query_v2(
+  query_text text, match_count integer default 12,
+  owner_filter uuid default '00000000-0000-0000-0000-000000000000'::uuid,
+  include_public boolean default true
+) returns table (
+  id uuid, owner_id uuid, title text, file_name text, status text, page_count integer,
+  chunk_count integer, image_count integer, metadata jsonb, text_rank double precision, match_reason text
+) language sql stable set search_path = public, extensions, pg_temp as $$
+  with combined as (
+    select * from public.match_documents_for_query($1, $2, $3)
+    union all
+    select * from public.match_documents_for_query($1, $2, '00000000-0000-0000-0000-000000000000'::uuid)
+    where $4 and $3 <> '00000000-0000-0000-0000-000000000000'::uuid
+  ), ranked as (select *, row_number() over (partition by id order by text_rank desc) access_rank from combined)
+  select id, owner_id, title, file_name, status, page_count, chunk_count, image_count, metadata, text_rank, match_reason
+  from ranked where access_rank = 1 order by text_rank desc, id limit greatest(1, least($2, 100));
+$$;
+
+create or replace function public.match_document_table_facts_text_v2(
+  query_text text, match_count integer default 16, document_filters uuid[] default null,
+  owner_filter uuid default '00000000-0000-0000-0000-000000000000'::uuid,
+  include_public boolean default true
+) returns table (
+  id uuid, document_id uuid, source_chunk_id uuid, source_image_id uuid, page_number integer,
+  table_title text, row_label text, clinical_parameter text, threshold_value text, action text,
+  text_rank double precision, match_reason text, metadata jsonb
+) language sql stable set search_path = public, extensions, pg_temp as $$
+  with combined as (
+    select fact.id, fact.document_id, fact.source_chunk_id, fact.source_image_id, fact.page_number,
+      fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action,
+      fact.text_rank, fact.match_reason, coalesce(to_jsonb(fact)->'metadata', '{}'::jsonb) as metadata
+    from public.match_document_table_facts_text($1, $2, $3, $4) fact
+    union all
+    select fact.id, fact.document_id, fact.source_chunk_id, fact.source_image_id, fact.page_number,
+      fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action,
+      fact.text_rank, fact.match_reason, coalesce(to_jsonb(fact)->'metadata', '{}'::jsonb) as metadata
+    from public.match_document_table_facts_text($1, $2, $3, '00000000-0000-0000-0000-000000000000'::uuid) fact
+    where $5 and $4 <> '00000000-0000-0000-0000-000000000000'::uuid
+  ), ranked as (select *, row_number() over (partition by id order by text_rank desc) access_rank from combined)
+  select id, document_id, source_chunk_id, source_image_id, page_number, table_title, row_label,
+    clinical_parameter, threshold_value, action, text_rank, match_reason, metadata
+  from ranked where access_rank = 1 order by text_rank desc, id limit greatest(1, least($2, 100));
+$$;
+
+create or replace function public.match_document_embedding_fields_hybrid_v2(
+  query_embedding extensions.vector(1536), query_text text, match_count integer default 16,
+  min_similarity double precision default 0.5, document_filters uuid[] default null,
+  owner_filter uuid default '00000000-0000-0000-0000-000000000000'::uuid,
+  include_public boolean default true
+) returns table (
+  id uuid, document_id uuid, source_chunk_id uuid, field_type text, content text,
+  similarity double precision, text_rank double precision, hybrid_score double precision
+) language sql stable set search_path = public, extensions, pg_temp as $$
+  with combined as (
+    select * from public.match_document_embedding_fields_hybrid($1, $2, $3, $4, $5, $6)
+    union all
+    select * from public.match_document_embedding_fields_hybrid($1, $2, $3, $4, $5, '00000000-0000-0000-0000-000000000000'::uuid)
+    where $7 and $6 <> '00000000-0000-0000-0000-000000000000'::uuid
+  ), ranked as (select *, row_number() over (partition by id order by hybrid_score desc) access_rank from combined)
+  select id, document_id, source_chunk_id, field_type, content, similarity, text_rank, hybrid_score
+  from ranked where access_rank = 1 order by hybrid_score desc, id limit greatest(1, least($3, 100));
+$$;
+
+create or replace function public.match_document_index_units_hybrid_v2(
+  query_embedding extensions.vector(1536), query_text text, match_count integer default 24,
+  min_similarity double precision default 0.1, document_filters uuid[] default null,
+  owner_filter uuid default '00000000-0000-0000-0000-000000000000'::uuid,
+  include_public boolean default true
+) returns table (
+  id uuid, document_id uuid, source_chunk_id uuid, source_image_id uuid, unit_type text, title text,
+  content text, page_start integer, page_end integer, heading_path text[], normalized_terms text[],
+  source_span jsonb, quality_score real, extraction_mode text, similarity double precision,
+  text_rank double precision, hybrid_score double precision, metadata jsonb
+) language sql stable set search_path = public, extensions, pg_temp as $$
+  with combined as (
+    select * from public.match_document_index_units_hybrid($1, $2, $3, $4, $5, $6)
+    union all
+    select * from public.match_document_index_units_hybrid($1, $2, $3, $4, $5, '00000000-0000-0000-0000-000000000000'::uuid)
+    where $7 and $6 <> '00000000-0000-0000-0000-000000000000'::uuid
+  ), ranked as (select *, row_number() over (partition by id order by hybrid_score desc) access_rank from combined)
+  select id, document_id, source_chunk_id, source_image_id, unit_type, title, content, page_start, page_end,
+    heading_path, normalized_terms, source_span, quality_score, extraction_mode, similarity, text_rank, hybrid_score, metadata
+  from ranked where access_rank = 1 order by hybrid_score desc, id limit greatest(1, least($3, 100));
+$$;
+
+create or replace function public.match_document_memory_cards_hybrid_v3(
+  query_embedding extensions.vector(1536), query_text text, match_count integer default 32,
+  min_similarity double precision default 0.1, document_filters uuid[] default null,
+  owner_filter uuid default '00000000-0000-0000-0000-000000000000'::uuid,
+  include_public boolean default true
+) returns table (
+  id uuid, document_id uuid, owner_id uuid, section_id uuid, card_type text, title text, content text,
+  normalized_terms text[], page_number integer, source_chunk_ids uuid[], source_image_ids uuid[], confidence real,
+  metadata jsonb, similarity double precision, text_rank double precision, hybrid_score double precision, rrf_score double precision
+) language sql stable set search_path = public, extensions, pg_temp as $$
+  with combined as (
+    select * from public.match_document_memory_cards_hybrid_v2($1, $2, $3, $4, $5, $6)
+    union all
+    select * from public.match_document_memory_cards_hybrid_v2($1, $2, $3, $4, $5, '00000000-0000-0000-0000-000000000000'::uuid)
+    where $7 and $6 <> '00000000-0000-0000-0000-000000000000'::uuid
+  ), ranked as (select *, row_number() over (partition by id order by hybrid_score desc, rrf_score desc) access_rank from combined)
+  select id, document_id, owner_id, section_id, card_type, title, content, normalized_terms, page_number,
+    source_chunk_ids, source_image_ids, confidence, metadata, similarity, text_rank, hybrid_score, rrf_score
+  from ranked where access_rank = 1 order by hybrid_score desc, rrf_score desc, id limit greatest(1, least($3, 100));
+$$;
+
+revoke all on function public.retrieval_owner_matches_v2(uuid, uuid, boolean) from public, anon, authenticated;
+revoke all on function public.corpus_topic_term_stats_v2(text[], uuid, boolean) from public, anon, authenticated;
+revoke all on function public.match_document_chunks_text_v2(text, integer, uuid[], uuid, boolean) from public, anon, authenticated;
+revoke all on function public.match_document_chunks_hybrid_v2(extensions.vector, text, integer, double precision, uuid[], uuid, boolean) from public, anon, authenticated;
+revoke all on function public.match_document_chunks_v2(extensions.vector, integer, double precision, uuid, uuid, boolean) from public, anon, authenticated;
+revoke all on function public.get_related_document_metadata_v2(uuid[], uuid, boolean) from public, anon, authenticated;
+revoke all on function public.match_document_lookup_chunks_text_v2(text, uuid[], integer, uuid, boolean) from public, anon, authenticated;
+revoke all on function public.match_documents_for_query_v2(text, integer, uuid, boolean) from public, anon, authenticated;
+revoke all on function public.match_document_table_facts_text_v2(text, integer, uuid[], uuid, boolean) from public, anon, authenticated;
+revoke all on function public.match_document_embedding_fields_hybrid_v2(extensions.vector, text, integer, double precision, uuid[], uuid, boolean) from public, anon, authenticated;
+revoke all on function public.match_document_index_units_hybrid_v2(extensions.vector, text, integer, double precision, uuid[], uuid, boolean) from public, anon, authenticated;
+revoke all on function public.match_document_memory_cards_hybrid_v3(extensions.vector, text, integer, double precision, uuid[], uuid, boolean) from public, anon, authenticated;
+grant execute on function public.retrieval_owner_matches_v2(uuid, uuid, boolean) to service_role;
+grant execute on function public.corpus_topic_term_stats_v2(text[], uuid, boolean) to service_role;
+grant execute on function public.match_document_chunks_text_v2(text, integer, uuid[], uuid, boolean) to service_role;
+grant execute on function public.match_document_chunks_hybrid_v2(extensions.vector, text, integer, double precision, uuid[], uuid, boolean) to service_role;
+grant execute on function public.match_document_chunks_v2(extensions.vector, integer, double precision, uuid, uuid, boolean) to service_role;
+grant execute on function public.get_related_document_metadata_v2(uuid[], uuid, boolean) to service_role;
+grant execute on function public.match_document_lookup_chunks_text_v2(text, uuid[], integer, uuid, boolean) to service_role;
+grant execute on function public.match_documents_for_query_v2(text, integer, uuid, boolean) to service_role;
+grant execute on function public.match_document_table_facts_text_v2(text, integer, uuid[], uuid, boolean) to service_role;
+grant execute on function public.match_document_embedding_fields_hybrid_v2(extensions.vector, text, integer, double precision, uuid[], uuid, boolean) to service_role;
+grant execute on function public.match_document_index_units_hybrid_v2(extensions.vector, text, integer, double precision, uuid[], uuid, boolean) to service_role;
+grant execute on function public.match_document_memory_cards_hybrid_v3(extensions.vector, text, integer, double precision, uuid[], uuid, boolean) to service_role;
+
+do $$
+begin
+  if public.retrieval_owner_matches_v2(null, null, true)
+    or not public.retrieval_owner_matches_v2('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', null, true)
+    or not public.retrieval_owner_matches_v2('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true)
+    or public.retrieval_owner_matches_v2('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', true)
+  then raise exception 'retrieval_owner_matches_v2 truth table failed'; end if;
+end $$;

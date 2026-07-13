@@ -1,6 +1,13 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { CorpusGroundingVerdict } from "@/lib/types";
 import { normalizedClinicalSearchTokens } from "@/lib/clinical-search";
+import { isMissingRetrievalRpcError } from "@/lib/retrieval-rpc-rollout";
+import {
+  PUBLIC_OWNER_FILTER_SENTINEL,
+  resolveRetrievalAccessScope,
+  retrievalAccessScopeKey,
+  type RetrievalAccessScope,
+} from "@/lib/owner-scope";
 
 // Finding #11 (corpus-grounded relevance): the deterministic query analyzer cannot tell an
 // in-corpus bare topic ("bipolar disorder") from an invented one ("florbizone syndrome
@@ -113,11 +120,17 @@ export async function classifyCorpusGrounding(args: {
   query: string;
   // The exact owner_filter retrieval will use (null = unscoped, zero-UUID = public docs only).
   ownerFilter: string | null;
+  accessScope?: RetrievalAccessScope;
 }): Promise<CorpusGroundingResult> {
   const terms = corpusGroundingTerms(args.query);
   if (terms.length === 0) return { verdict: "inconclusive", anchorTerms: [], absentTerms: [] };
 
-  const ownerScopeKey = args.ownerFilter ?? "unscoped";
+  const accessScope =
+    args.accessScope ??
+    resolveRetrievalAccessScope(
+      args.ownerFilter && args.ownerFilter !== PUBLIC_OWNER_FILTER_SENTINEL ? args.ownerFilter : undefined,
+    );
+  const ownerScopeKey = retrievalAccessScopeKey(accessScope);
   const stats: CorpusTopicTermStats[] = [];
   const missing: string[] = [];
   for (const term of terms) {
@@ -128,12 +141,44 @@ export async function classifyCorpusGrounding(args: {
 
   if (missing.length > 0) {
     try {
-      const { data, error } = await args.supabase.rpc("corpus_topic_term_stats", {
+      const ownerFilter = accessScope.ownerId ?? PUBLIC_OWNER_FILTER_SENTINEL;
+      const versioned = await args.supabase.rpc("corpus_topic_term_stats_v2", {
         terms: missing,
-        owner_filter: args.ownerFilter,
+        owner_filter: ownerFilter,
+        include_public: accessScope.includePublic,
       });
-      if (error) throw error;
-      const rows = (data ?? []) as CorpusTopicTermStats[];
+      const calls =
+        !versioned || isMissingRetrievalRpcError(versioned.error)
+          ? await Promise.all([
+              args.supabase.rpc("corpus_topic_term_stats", { terms: missing, owner_filter: ownerFilter }),
+              accessScope.ownerId && accessScope.includePublic
+                ? args.supabase.rpc("corpus_topic_term_stats", {
+                    terms: missing,
+                    owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+                  })
+                : Promise.resolve({ data: [], error: null }),
+            ])
+          : [versioned];
+      if (calls.some((call) => call.error)) throw calls.find((call) => call.error)?.error;
+      const byTerm = new Map<string, CorpusTopicTermStats>();
+      for (const call of calls) {
+        for (const row of (call.data ?? []) as CorpusTopicTermStats[]) {
+          const current = byTerm.get(row.term);
+          byTerm.set(
+            row.term,
+            current
+              ? {
+                  term: row.term,
+                  has_ts_signal: current.has_ts_signal || row.has_ts_signal,
+                  title_doc_count: current.title_doc_count + row.title_doc_count,
+                  chunk_present: current.chunk_present || row.chunk_present,
+                  total_doc_count: current.total_doc_count + row.total_doc_count,
+                }
+              : row,
+          );
+        }
+      }
+      const rows = [...byTerm.values()];
       // A term the RPC did not echo back got dropped SQL-side (blank after trim); treat the
       // whole classification as inconclusive rather than guessing.
       if (rows.length !== missing.length) return { verdict: "inconclusive", anchorTerms: [], absentTerms: [] };

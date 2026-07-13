@@ -359,6 +359,18 @@ describe("private RAG API access", () => {
     expect(mocks.answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
+  it("silently strips legacy public skipCache from answer requests", async () => {
+    const mocks = mockRuntime();
+    const { POST } = await import("../src/app/api/answer/route");
+
+    const response = await POST(jsonRequest("/api/answer", { query: "clozapine monitoring", skipCache: true }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.answerQuestionWithScope).toHaveBeenCalledWith(
+      expect.not.objectContaining({ skipCache: expect.anything() }),
+    );
+  });
+
   it("scopes authenticated real answer requests to the authenticated owner", async () => {
     const mocks = mockRuntime();
     const { POST } = await import("../src/app/api/answer/route");
@@ -406,6 +418,19 @@ describe("private RAG API access", () => {
     expect(response.status).toBe(200);
     expect(mocks.answerQuestionWithScope).toHaveBeenCalledWith(
       expect.objectContaining({ ownerId, query: "clozapine monitoring" }),
+    );
+  });
+
+  it("silently strips legacy public skipCache from streamed answer requests", async () => {
+    const mocks = mockRuntime();
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(jsonRequest("/api/answer/stream", { query: "clozapine monitoring", skipCache: true }));
+    await response.text();
+
+    expect(response.status).toBe(200);
+    expect(mocks.answerQuestionWithScope).toHaveBeenCalledWith(
+      expect.not.objectContaining({ skipCache: expect.anything() }),
     );
   });
 });

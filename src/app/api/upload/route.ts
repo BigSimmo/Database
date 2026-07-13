@@ -6,17 +6,14 @@ import { env, publicUploadsEnabled, publicWorkspaceOwnerId } from "@/lib/env";
 import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
-import {
-  allowRateLimitInMemoryFallbackOnUnavailable,
-  consumeSubjectApiRateLimit,
-  rateLimitJsonResponse,
-} from "@/lib/api-rate-limit";
+import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
 import { optionalFormText, parseFormDataFields } from "@/lib/validation/form-data";
+import { acquireUploadAdmission, parseUploadContentLength } from "@/lib/upload-admission";
 
 export const runtime = "nodejs";
 
@@ -38,6 +35,12 @@ function isContentHashDuplicateError(error: unknown) {
     /duplicate key value violates unique constraint/i.test(message) &&
     /content_hash|documents_owner_content_hash/i.test(message)
   );
+}
+
+function assertUploadNotAborted(request: Request) {
+  if (request.signal.aborted) {
+    throw new PublicApiError("Upload cancelled by client.", 499, { code: "client_cancelled" });
+  }
 }
 
 async function duplicateUploadResponse(args: {
@@ -86,6 +89,7 @@ export async function POST(request: Request) {
   let uploadedPath: string | null = null;
   let insertedDocumentId: string | null = null;
   let insertedDocumentOwnerId: string | null = null;
+  let releaseAdmission: (() => void) | null = null;
 
   try {
     supabase = createAdminClient();
@@ -106,7 +110,7 @@ export async function POST(request: Request) {
       supabase: adminSupabase,
       subject: access.rateLimitSubject,
       bucket: "document_upload",
-      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+      allowInMemoryFallbackOnUnavailable: false,
     });
     if (rateLimit.limited) {
       return rateLimitJsonResponse(
@@ -115,11 +119,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const declaredLength = Number(request.headers.get("content-length"));
-    const multipartBudget = env.MAX_UPLOAD_MB * 1024 * 1024 + 1024 * 1024;
-    if (Number.isFinite(declaredLength) && declaredLength > multipartBudget) {
-      throw new PublicApiError("Upload request is too large.", 413, { code: "payload_too_large" });
+    const multipartOverheadBytes = 1024 * 1024;
+    const maximumBodyBytes = env.MAX_UPLOAD_MB * 1024 * 1024 + multipartOverheadBytes;
+    const contentLength = parseUploadContentLength(request.headers.get("content-length"));
+    if (contentLength !== null && contentLength > maximumBodyBytes) {
+      throw new PublicApiError("Upload body exceeds the configured size limit.", 413, {
+        code: "upload_body_too_large",
+      });
     }
+    const admission = acquireUploadAdmission({
+      bytes: contentLength ?? maximumBodyBytes,
+      maxConcurrent: env.MAX_CONCURRENT_UPLOADS,
+      maxBytes: env.MAX_IN_FLIGHT_UPLOAD_MB * 1024 * 1024,
+    });
+    if (!admission.ok) {
+      throw new PublicApiError("Upload capacity is temporarily exhausted. Retry shortly.", 503, {
+        code: admission.reason === "bytes" ? "upload_byte_budget_exhausted" : "upload_capacity_exhausted",
+      });
+    }
+    releaseAdmission = admission.release;
+    assertUploadNotAborted(request);
 
     const formData = await request.formData().catch((cause) => {
       throw new PublicApiError("Invalid upload form data.", 400, {
@@ -144,6 +163,7 @@ export async function POST(request: Request) {
     const documentId = randomUUID();
     const safeName = file.name.replace(/[^\w.\-() ]+/g, "_");
     const storagePath = `${uploadOwnerId}/documents/${documentId}/${safeName}`;
+    assertUploadNotAborted(request);
     const buffer = Buffer.from(await file.arrayBuffer());
     // The declared MIME type is client-supplied; verify the real byte signature
     // before persisting a clinical document.
@@ -170,6 +190,7 @@ export async function POST(request: Request) {
     const health = await probeSupabaseHealth(adminSupabase);
     if (!health.ok) return NextResponse.json({ error: `Upload is paused. ${health.message}` }, { status: 503 });
 
+    assertUploadNotAborted(request);
     const upload = await adminSupabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, buffer, {
       contentType: file.type,
       upsert: false,
@@ -192,6 +213,7 @@ export async function POST(request: Request) {
     const description = uploadMetadata.description;
     const uploadedAt = new Date().toISOString();
 
+    assertUploadNotAborted(request);
     const { data: document, error: documentError } = await supabase
       .from("documents")
       .insert({
@@ -248,6 +270,7 @@ export async function POST(request: Request) {
     insertedDocumentId = documentId;
     insertedDocumentOwnerId = uploadOwnerId;
 
+    assertUploadNotAborted(request);
     const { data: job, error: jobError } = await supabase
       .from("ingestion_jobs")
       .insert({
@@ -336,5 +359,7 @@ export async function POST(request: Request) {
     }
 
     return jsonError(error);
+  } finally {
+    releaseAdmission?.();
   }
 }

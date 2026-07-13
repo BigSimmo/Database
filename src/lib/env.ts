@@ -130,6 +130,8 @@ const envSchema = z.object({
   SUPABASE_DOCUMENT_BUCKET: z.string().default("clinical-documents"),
   SUPABASE_IMAGE_BUCKET: z.string().default("clinical-images"),
   MAX_UPLOAD_MB: z.coerce.number().int().positive().max(150).default(150),
+  MAX_CONCURRENT_UPLOADS: z.coerce.number().int().positive().default(1),
+  MAX_IN_FLIGHT_UPLOAD_MB: z.coerce.number().int().positive().default(151),
   MAX_IMPORT_JOBS_PER_RUN: z.coerce.number().int().positive().default(5),
   MAX_IMPORT_BYTES_PER_RUN: z.coerce.number().int().positive().default(157286400),
   CHUNK_SIZE: z.coerce.number().int().positive().default(2000),
