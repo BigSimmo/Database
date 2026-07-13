@@ -348,7 +348,11 @@ function DocumentSearchHome({
       }))}
       footer={
         <div className="grid w-full gap-3">
-          <ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical document library" />
+          <ModeHomeVerificationFooter
+            icon={ShieldCheck}
+            label="Searches indexed clinical sources"
+            body="Clinical document library"
+          />
           {documentCount > 0 ? (
             <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
               {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
