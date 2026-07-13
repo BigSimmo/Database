@@ -35,8 +35,12 @@ jobs:
         run: |
           set -euo pipefail
           body="$(curl -sSL --fail --max-time 30 --retry 2 --retry-delay 10 --retry-all-errors "$LIVE_DOMAIN_URL/")"
-          echo "$body" | grep -q "Clinical Guide" || {
-            echo "::error::Root responded but does not render the Clinical Guide shell"
+          # The dashboard hydrates client-side (ssr:false), so assert on the
+          # server-rendered document title, not client-rendered brand text.
+          echo "$body" | grep -q "<title>Clinical KB</title>" || {
+            echo "::error::Root responded but does not serve the Clinical KB document"
+            echo "First 300 bytes of response for diagnosis:"
+            echo "$body" | head -c 300
             exit 1
           }
 
