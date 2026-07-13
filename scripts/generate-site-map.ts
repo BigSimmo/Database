@@ -48,6 +48,7 @@ const routeDescriptions: Record<string, string> = {
   "/forms/[slug]": "Registry-backed form detail.",
   "/medications": "Medication index redirect.",
   "/medications/[slug]": "Medication detail.",
+  "/privacy": "Privacy and data-processing governance draft.",
   "/services": "Services home and search surface.",
   "/services/[slug]": "Registry-backed service detail.",
 };

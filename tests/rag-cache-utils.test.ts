@@ -14,8 +14,23 @@ describe("ragCacheKeyMatchesOwner", () => {
     expect(ragCacheKeyMatchesOwner(key, ownerId)).toBe(true);
   });
 
+  it("matches owner-plus-public cache keys", () => {
+    const key = `rag-cache-v12|owner:${ownerId}+public|scope:all|plan:hybrid`;
+    expect(ragCacheKeyMatchesOwner(key, ownerId)).toBe(true);
+  });
+
+  it("matches owner-plus-public indexing-version keys", () => {
+    const key = `owner:${ownerId}+public|scope:all`;
+    expect(ragCacheKeyMatchesOwner(key, ownerId)).toBe(true);
+  });
+
   it("does not match a different owner", () => {
     const key = `rag-cache-v12|bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb|scope:all`;
+    expect(ragCacheKeyMatchesOwner(key, ownerId)).toBe(false);
+  });
+
+  it("does not match an owner id prefix", () => {
+    const key = `rag-cache-v12|owner:${ownerId}0+public|scope:all`;
     expect(ragCacheKeyMatchesOwner(key, ownerId)).toBe(false);
   });
 });
