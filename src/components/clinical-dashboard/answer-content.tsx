@@ -2,16 +2,7 @@
 
 import Link from "next/link";
 import { memo, useEffect, useRef, useState } from "react";
-import {
-  CircleAlert,
-  CircleCheck,
-  ChevronDown,
-  Copy,
-  ExternalLink,
-  Layers,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import { CircleAlert, CircleCheck, ChevronDown, Copy, ExternalLink, Layers, ShieldCheck, Sparkles } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";

@@ -445,12 +445,7 @@ export function PdfCanvasViewer({
             <Maximize2 aria-hidden="true" className="h-4 w-4" />
             <span className="hidden sm:inline">Fit</span>
           </button>
-          <button
-            onClick={() => zoomBy(ZOOM_STEP)}
-            disabled={!pagesReady}
-            className={iconButton}
-            aria-label="Zoom in"
-          >
+          <button onClick={() => zoomBy(ZOOM_STEP)} disabled={!pagesReady} className={iconButton} aria-label="Zoom in">
             <Plus aria-hidden="true" className="h-4 w-4" />
           </button>
           <button
@@ -555,15 +550,7 @@ function nativePdfEmbedUrl(url: string, initialPage: number) {
   return `${url.split("#")[0]}#page=${page}`;
 }
 
-export function NativePdfEmbed({
-  url,
-  title,
-  initialPage,
-}: {
-  url: string;
-  title: string;
-  initialPage: number;
-}) {
+export function NativePdfEmbed({ url, title, initialPage }: { url: string; title: string; initialPage: number }) {
   return (
     <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]">
       <iframe

@@ -28,9 +28,7 @@ describe("SignedImage", () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
 
-    const markup = renderToStaticMarkup(
-      createElement(SignedImage, { endpoint: ENDPOINT, alt: "Airway diagram" }),
-    );
+    const markup = renderToStaticMarkup(createElement(SignedImage, { endpoint: ENDPOINT, alt: "Airway diagram" }));
 
     expect(markup).toContain("Image preview will load when visible");
     expect(markup).not.toContain("<img");
@@ -46,9 +44,7 @@ describe("SignedImage", () => {
     clearSignedUrlCache();
     setCachedSignedUrl(ENDPOINT, { url: "/demo-documents/airway.png", caption: "Airway" });
 
-    const markup = renderToStaticMarkup(
-      createElement(SignedImage, { endpoint: ENDPOINT, alt: "Airway diagram" }),
-    );
+    const markup = renderToStaticMarkup(createElement(SignedImage, { endpoint: ENDPOINT, alt: "Airway diagram" }));
 
     expect(markup).toContain("<img");
     expect(markup).toContain('src="/demo-documents/airway.png"');
