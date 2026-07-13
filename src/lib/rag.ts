@@ -60,6 +60,7 @@ import {
   assertGlobalSearchAllowed,
   buildRetrievalQueryVariants,
   fetchEnabledRagAliases,
+  firstVariantPoolIsStrong,
   maxTextRpcQueryVariants,
   normalizeRetrievalVariant,
   ownerScopeForDocumentFilteredRetrieval,
@@ -578,6 +579,21 @@ function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc: strin
       [rpc]: code,
     };
   }
+}
+
+/** Record how many variant RPCs a lexical surface actually issued (PT-02 early-exit). */
+function recordTextVariantFanout(
+  telemetry: SearchTelemetry | undefined,
+  rpc: string,
+  calls: number,
+  earlyExit: boolean,
+) {
+  if (!telemetry) return;
+  telemetry.text_variant_rpc_calls = {
+    ...(telemetry.text_variant_rpc_calls ?? {}),
+    [rpc]: calls,
+  };
+  if (earlyExit) telemetry.text_variant_early_exit = true;
 }
 
 /** Record search score telemetry. */
@@ -1478,11 +1494,19 @@ async function searchTextChunkCandidates(args: {
   };
 
   const variants = args.queryVariants.slice(0, maxTextRpcQueryVariants);
-  const resultSets = await Promise.all(
-    variants.map((variant, index) =>
-      runChunkText(variant, index === 0 ? args.matchCount : Math.min(args.matchCount, 32)),
-    ),
-  );
+  const [primaryVariant, ...siblingVariants] = variants;
+  const primaryResults = primaryVariant === undefined ? [] : await runChunkText(primaryVariant, args.matchCount);
+  // PT-02: skip the near-duplicate sibling variants when the primary pool is
+  // already deep and anchored by a precise hit; weak/empty pools keep the full
+  // fan-out (one extra sequential hop) so recall is unchanged where it matters.
+  const skipSiblings = siblingVariants.length > 0 && firstVariantPoolIsStrong(primaryResults, args.matchCount);
+  const resultSets = skipSiblings
+    ? [primaryResults]
+    : [
+        primaryResults,
+        ...(await Promise.all(siblingVariants.map((variant) => runChunkText(variant, Math.min(args.matchCount, 32))))),
+      ];
+  recordTextVariantFanout(args.telemetry, "match_document_chunks_text", resultSets.length, skipSiblings);
   const merged = resultSets.reduce(
     (accumulated, resultSet) => mergeSearchResults(resultSet, accumulated),
     [] as SearchResult[],
@@ -1774,23 +1798,28 @@ async function searchDocumentLookupFastPath(args: {
     0,
     maxTextRpcQueryVariants,
   );
-  const documentSets = await Promise.all(
-    variants.map(async (variant, index) => {
-      const { data, error } = await callVersionedRetrievalRpc(
-        args.supabase,
-        "match_documents_for_query_v2",
-        "match_documents_for_query",
-        {
-          query_text: variant,
-          match_count: index === 0 ? 12 : 8,
-          ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
-        },
-      );
-      if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
-      if (error || !data?.length) return [] as DocumentLookupRow[];
-      return data as DocumentLookupRow[];
-    }),
-  );
+  const runDocumentLookup = async (variant: string, matchCount: number) => {
+    const { data, error } = await callVersionedRetrievalRpc(
+      args.supabase,
+      "match_documents_for_query_v2",
+      "match_documents_for_query",
+      {
+        query_text: variant,
+        match_count: matchCount,
+        ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+      },
+    );
+    if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
+    if (error || !data?.length) return [] as DocumentLookupRow[];
+    return data as DocumentLookupRow[];
+  };
+  const [primaryVariant, ...siblingVariants] = variants;
+  const primaryDocuments = primaryVariant === undefined ? [] : await runDocumentLookup(primaryVariant, 12);
+  const skipSiblings = siblingVariants.length > 0 && firstVariantPoolIsStrong(primaryDocuments, 12);
+  const documentSets = skipSiblings
+    ? [primaryDocuments]
+    : [primaryDocuments, ...(await Promise.all(siblingVariants.map((variant) => runDocumentLookup(variant, 8))))];
+  recordTextVariantFanout(args.telemetry, "match_documents_for_query", documentSets.length, skipSiblings);
   const titleAliasDocuments = await fetchDocumentTitleAliasRows({
     supabase: args.supabase,
     query: args.query,
@@ -2115,24 +2144,32 @@ async function searchTableFactCandidates(args: {
     0,
     maxTextRpcQueryVariants,
   );
-  const factSets = await Promise.all(
-    variants.map(async (variant, index) => {
-      const { data, error } = await callVersionedRetrievalRpc(
-        args.supabase,
-        "match_document_table_facts_text_v2",
-        "match_document_table_facts_text",
-        {
-          query_text: variant,
-          match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
-          document_filters: args.documentIds ?? undefined,
-          ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
-        },
-      );
-      if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
-      if (error || !data?.length) return [] as TableFactRpcRow[];
-      return data as TableFactRpcRow[];
-    }),
-  );
+  const runTableFacts = async (variant: string, matchCount: number) => {
+    const { data, error } = await callVersionedRetrievalRpc(
+      args.supabase,
+      "match_document_table_facts_text_v2",
+      "match_document_table_facts_text",
+      {
+        query_text: variant,
+        match_count: matchCount,
+        document_filters: args.documentIds ?? undefined,
+        ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+      },
+    );
+    if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
+    if (error || !data?.length) return [] as TableFactRpcRow[];
+    return data as TableFactRpcRow[];
+  };
+  const [primaryVariant, ...siblingVariants] = variants;
+  const primaryFacts = primaryVariant === undefined ? [] : await runTableFacts(primaryVariant, args.matchCount);
+  const skipSiblings = siblingVariants.length > 0 && firstVariantPoolIsStrong(primaryFacts, args.matchCount);
+  const factSets = skipSiblings
+    ? [primaryFacts]
+    : [
+        primaryFacts,
+        ...(await Promise.all(siblingVariants.map((variant) => runTableFacts(variant, Math.min(args.matchCount, 24))))),
+      ];
+  recordTextVariantFanout(args.telemetry, "match_document_table_facts_text", factSets.length, skipSiblings);
   const data = factSets.flat();
   if (!data.length) return [] as SearchResult[];
 
