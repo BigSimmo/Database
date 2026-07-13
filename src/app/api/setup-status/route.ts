@@ -3,6 +3,7 @@ import { env, isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { AuthenticationError, requireAuthenticatedUser } from "@/lib/supabase/auth";
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
@@ -163,7 +164,7 @@ async function readSearchSchemaStatus(supabase: AdminClient | null) {
     if (!supabase) throw new Error("Supabase admin client is unavailable.");
     const { data, error } = await supabase.rpc("search_schema_health");
     if (error) {
-      return check("search", label, "needs_setup", `Search health RPC is unavailable or failed: ${error.message}`);
+      return check("search", label, "needs_setup", "Search health checks are temporarily unavailable.");
     }
     const health = (data ?? {}) as SearchSchemaHealth;
     const missing = Array.isArray(health.missing) ? health.missing : [];
@@ -439,11 +440,20 @@ export async function GET(request: Request) {
 
   const payload = await readSetupStatusPayload();
   // Whether the caller may see raw per-check detail (raw Supabase error text / project posture).
-  // Gate on a TRUSTED server-side runtime signal, never on request.url's host — behind a proxy the
-  // Host header is client-controlled, so a spoofed `localhost:<managed-port>` must not unlock
-  // detail. In a real production runtime, only the operator deep-probe token unlocks it; local dev
-  // and single-instance local-no-auth keep full detail (their `detail` is not an internet leak).
-  const requiresOperatorToken = process.env.NODE_ENV === "production" && !isDemoMode() && !isLocalNoAuthMode();
-  const authorizedForDetail = !requiresOperatorToken || allowDeepHealthProbe(request);
+  // Gate on trusted server-side signals, never request.url's client-controlled host.
+  const requiresAuthorization = process.env.NODE_ENV === "production" && !isDemoMode() && !isLocalNoAuthMode();
+  let authorizedForDetail = !requiresAuthorization || allowDeepHealthProbe(request);
+
+  if (!authorizedForDetail && request.headers.has("authorization")) {
+    try {
+      await requireAuthenticatedUser(request, createAdminClient());
+      authorizedForDetail = true;
+    } catch (error) {
+      if (!(error instanceof AuthenticationError)) throw error;
+      // Invalid or expired credentials receive the same coarse posture as an
+      // anonymous caller; setup status is not an authentication oracle.
+    }
+  }
+
   return setupStatusResponse(authorizedForDetail ? payload : coarseSetupStatusPayload(payload));
 }

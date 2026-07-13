@@ -355,8 +355,8 @@ export function AccessibleTable({
   lowConfidenceFallback?: ReactNode;
 }) {
   const dialogId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
   const canExpand = useMobileTableExpansion(expandOnMobile);
@@ -392,7 +392,6 @@ export function AccessibleTable({
         return;
       }
       if (event.key !== "Tab") return;
-
       const focusable = Array.from(
         dialogRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',

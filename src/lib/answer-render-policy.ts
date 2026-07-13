@@ -145,7 +145,7 @@ function deriveTrust(answer: RagAnswer): AnswerRenderTrust {
 
 function sourceStrengthFor(candidate: SourceCandidate) {
   if (candidate.sourceStrength) return candidate.sourceStrength;
-  return candidate.citation.source_metadata?.document_status === "current" ? "strong" : "none";
+  return "none";
 }
 
 function sourceLinkFromCandidate(candidate: SourceCandidate): SourceLink {
@@ -230,12 +230,20 @@ function candidateFromCoreSourceLink(link: CoreSourceLink, triggerField: string)
 
 function collectSourceCandidates(answer: RagAnswer, sources: SearchResult[]) {
   const candidates: SourceCandidate[] = [];
+  const supportingChunkIds = new Set([
+    ...(answer.citations ?? []).map((citation) => citation.chunk_id),
+    ...(answer.quoteCards ?? answer.smartPanel?.quotes ?? []).map((quote) => quote.chunk_id),
+    ...(answer.answerSections ?? []).flatMap((section) => section.citation_chunk_ids ?? []),
+    ...(answer.smartApiPlan?.coreSourceLinks ?? []).map((link) => link.chunk_id).filter(Boolean),
+  ]);
   for (const link of answer.smartApiPlan?.coreSourceLinks ?? []) {
     const candidate = candidateFromCoreSourceLink(link, "smartApiPlan.coreSourceLinks");
     if (candidate) candidates.push(candidate);
   }
   const bestSource = answer.bestSource ?? answer.smartPanel?.bestSource ?? null;
-  if (bestSource) candidates.push(candidateFromBestSource(bestSource, "bestSource"));
+  if (bestSource && supportingChunkIds.has(bestSource.chunk_id)) {
+    candidates.push(candidateFromBestSource(bestSource, "bestSource"));
+  }
   for (const citation of answer.citations ?? []) candidates.push(candidateFromCitation(citation, "citations"));
   for (const quote of answer.quoteCards ?? answer.smartPanel?.quotes ?? []) {
     candidates.push({
@@ -245,7 +253,9 @@ function collectSourceCandidates(answer: RagAnswer, sources: SearchResult[]) {
       sourceStrength: quote.source_strength,
     });
   }
-  for (const source of sources) candidates.push(candidateFromSearchResult(source, "sources"));
+  for (const source of sources) {
+    if (supportingChunkIds.has(source.id)) candidates.push(candidateFromSearchResult(source, "sources"));
+  }
 
   const sourceById = new Map(sources.map((source) => [source.id, source]));
   for (const section of answer.answerSections ?? []) {

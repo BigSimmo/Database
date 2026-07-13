@@ -422,6 +422,8 @@ function RightRail({
       <button
         className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         type="button"
+        disabled
+        title="Select services before comparing"
       >
         Compare selected ({selected.length})
       </button>
@@ -565,6 +567,8 @@ export function ServicesNavigatorPage() {
                   className="inline-flex min-h-10 w-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-11 sm:w-auto sm:px-4"
                   type="button"
                   aria-label="Open service filters"
+                  disabled
+                  title="Advanced filters are not available yet"
                 >
                   <SlidersHorizontal className="h-4 w-4" aria-hidden />
                   <span className="hidden sm:inline">Filters</span>
@@ -572,6 +576,8 @@ export function ServicesNavigatorPage() {
                 <button
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-11 sm:px-4"
                   type="button"
+                  disabled
+                  title="Alternative sorting is not available yet"
                 >
                   Sort <ChevronDown className="h-4 w-4" aria-hidden />
                 </button>

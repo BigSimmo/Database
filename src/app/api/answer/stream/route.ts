@@ -201,6 +201,22 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
           if (shouldUseSourceGovernanceRefusal && hasDangerSourceGovernanceWarning(warnings)) {
             // Explicit refusal payload — do not spread ...answer (see /api/answer):
             // the refused sources/smartPanel/smartApiPlan must not reach the client.
+            if (!isDemoMode()) {
+              void logAnswerDiagnostics({
+                supabase: createAdminClient(),
+                query: body.query,
+                ownerId,
+                answer: {
+                  ...answer,
+                  grounded: false,
+                  confidence: "unsupported",
+                  sources: [],
+                  responseMode: "evidence_gap",
+                  fallbackReason: "source_governance_refusal",
+                  routingReason: [answer.routingReason, "source_governance_refusal"].filter(Boolean).join("; "),
+                },
+              });
+            }
             send("final", {
               answer: sourceGovernanceRefusalAnswer,
               grounded: false,

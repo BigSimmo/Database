@@ -36,8 +36,10 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain('indexing_v3_agent_status: "completed"');
   });
 
-  it("keeps atomic reindex fallback rows and image uploads generation-scoped", () => {
-    expect(workerSource).toContain("await replacePageRows(args.documentId, args.pages)");
+  it("fails closed when the lease-fenced commit RPC is unavailable and keeps image uploads generation-scoped", () => {
+    expect(workerSource).toContain("p_job_id: args.jobId");
+    expect(workerSource).toContain("p_worker_id: workerId");
+    expect(workerSource).not.toContain("await replacePageRows(args.documentId, args.pages)");
     expect(workerSource).toContain("await deleteStaleIndexGenerationRows(args.documentId, args.indexGenerationId)");
     expect(workerSource).toContain("async function deleteStaleIndexGenerationRows");
     expect(workerSource).toContain("`${imagePrefix}/${indexGenerationId}/image-${index + 1}${ext}`");

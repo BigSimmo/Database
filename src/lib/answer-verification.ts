@@ -33,7 +33,7 @@ import type {
 // a trailing \b after it can never match (it would require a word char to its
 // right), which previously dropped every percentage token.
 const NUMERIC_TOKEN_PATTERN =
-  /\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:×10\^?\d*\/?l?|x10\^?\d*\/?l?|mg\/(?:day|kg|m2|dose)?|mg|mcg|microgram(?:s)?|micrograms?|μg|g\b|kg|ml|mL|l\b|mmol\/l|mmol\/L|mmol|mol\/l|umol\/l|µmol\/l|ng\/ml|units?\/?\w*|iu\b|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b|\b\d+(?:[.,]\d+)?\s*%/giu;
+  /\b\d+\s*:\s*\d+\b|\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:×10\^?\d*\/?l?|x10\^?\d*\/?l?|mg\/(?:day|hour|hr|h|kg|m2|dose)|mg|mcg|ug|microgram(?:s)?|micrograms?|μg|g\b|kg|ml\/(?:day|hour|hr|h)|ml|mL|l\b|mmol\/l|mmol\/L|mmol|mol\/l|umol\/l|µmol\/l|ng\/ml|units?\/?\w*|iu\b|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b|\b\d+(?:[.,]\d+)?\s*%/giu;
 
 // Decimal numbers and ranges that, while not unit-bearing, are very likely
 // clinical thresholds in context (e.g. "ANC 2.0", "INR 2-3"). We only treat a
@@ -69,6 +69,7 @@ function normalizeNumericToken(raw: string): string {
     .replace(/[–—]/g, "-")
     .replace(/,/g, ".")
     .replace(/µ/g, "μ")
+    .replace(/ug\b/g, "mcg")
     .replace(/×10\^?(\d+)/g, "x10^$1")
     .replace(/x10(\d)/g, "x10^$1")
     .trim();
@@ -177,8 +178,11 @@ export function verifyAnswerNumbers(
     return { answerTokens, unverifiedTokens: answerTokens, hasUnverifiedNumbers: answerTokens.length > 0 };
   }
 
-  const sourceTokens = sourceNumericTokenSet(citedResults);
-  const unverifiedTokens = answerTokens.filter((token) => !sourceTokens.has(token));
+  // Top-level citations do not identify which sentence each citation supports.
+  // Require a numeric claim to be present in every cited chunk rather than
+  // allowing an unrelated citation to verify a number by union membership.
+  const sourceTokenSets = citedResults.map((result) => sourceNumericTokenSet([result]));
+  const unverifiedTokens = answerTokens.filter((token) => !sourceTokenSets.every((tokens) => tokens.has(token)));
 
   return {
     answerTokens,

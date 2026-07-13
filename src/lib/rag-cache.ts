@@ -229,11 +229,13 @@ export async function setCachedSearch(
   results: SearchResult[],
   telemetry: SearchTelemetry,
   queryVariants: string[] = [],
+  options?: { indexingVersionAtRetrievalStart?: string | null },
 ): Promise<void> {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
   const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
 
-  const indexingVersion = await cacheIndexingVersion(args);
+  const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
+  if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
@@ -283,8 +285,12 @@ function sharedCacheSelector(
   return query;
 }
 
-export async function cacheIndexingVersion(args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId">) {
+export async function cacheIndexingVersion(
+  args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId">,
+  options?: { forceRefresh?: boolean },
+) {
   const cacheKey = cacheIndexingVersionCacheKey(args);
+  if (options?.forceRefresh) cacheIndexingVersionCache.delete(cacheKey);
   const cached = readExpiringCacheEntry(cacheIndexingVersionCache, cacheKey);
   if (cached) return cached.value;
 

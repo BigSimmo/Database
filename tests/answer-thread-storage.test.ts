@@ -52,6 +52,23 @@ describe("answer thread storage", () => {
           storage.delete(key);
         },
       },
+      sessionStorage: {
+        get length() {
+          return storage.size;
+        },
+        key(index: number) {
+          return [...storage.keys()][index] ?? null;
+        },
+        getItem(key: string) {
+          return storage.get(key) ?? null;
+        },
+        setItem(key: string, value: string) {
+          storage.set(key, value);
+        },
+        removeItem(key: string) {
+          storage.delete(key);
+        },
+      },
     });
   });
 
@@ -60,19 +77,20 @@ describe("answer thread storage", () => {
   });
 
   it("round-trips a stored thread", () => {
-    expect(savePersistedAnswerThread(sampleThread)).toBe(true);
-    expect(loadPersistedAnswerThread()).toEqual(sampleThread);
+    expect(savePersistedAnswerThread("user-a", sampleThread)).toBe(true);
+    expect(loadPersistedAnswerThread("user-a")).toEqual(sampleThread);
+    expect(loadPersistedAnswerThread("user-b")).toBeNull();
   });
 
   it("clears stored thread state", () => {
-    savePersistedAnswerThread(sampleThread);
+    savePersistedAnswerThread("user-a", sampleThread);
     clearPersistedAnswerThread();
-    expect(storage.has(answerThreadStorageKey)).toBe(false);
-    expect(loadPersistedAnswerThread()).toBeNull();
+    expect([...storage.keys()].some((key) => key.startsWith(answerThreadStorageKey))).toBe(false);
+    expect(loadPersistedAnswerThread("user-a")).toBeNull();
   });
 
   it("rejects invalid persisted payloads", () => {
-    storage.set(answerThreadStorageKey, JSON.stringify({ version: 2 }));
-    expect(loadPersistedAnswerThread()).toBeNull();
+    storage.set(`${answerThreadStorageKey}:user-a`, JSON.stringify({ version: 2 }));
+    expect(loadPersistedAnswerThread("user-a")).toBeNull();
   });
 });

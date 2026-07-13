@@ -805,38 +805,6 @@ export function ClinicalDashboard({
     if (answer === null) latestAnswerTurnRef.current = null;
   }, [answer]);
   useEffect(() => {
-    queueMicrotask(() => {
-      const persisted = loadPersistedAnswerThread();
-      if (persisted) {
-        restoredThreadFromStorageRef.current = true;
-        setPriorAnswerTurns(persisted.priorTurns);
-        setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
-        if (persisted.latestTurn) {
-          latestAnswerTurnRef.current = persisted.latestTurn;
-          setAnswer(persisted.latestTurn.answer);
-          setSources(persisted.latestTurn.sources);
-          setModeSearchSubmitted(true);
-          setQuery("");
-          const restoredQuery = persisted.latestTurn.query.trim();
-          if (restoredQuery) {
-            autoRunSearchSignatureRef.current = `answer:${restoredQuery}`;
-          }
-        }
-        answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
-          const match = /^answer-turn-(\d+)$/.exec(turn.id);
-          return match ? Math.max(max, Number(match[1])) : max;
-        }, 0);
-        setCollapsedTurnIds(
-          persisted.collapsedTurnIds.length
-            ? new Set(persisted.collapsedTurnIds)
-            : new Set(persisted.priorTurns.map((turn) => turn.id)),
-        );
-      }
-      answerThreadBootstrappedRef.current = true;
-      setAnswerThreadBootstrapped(true);
-    });
-  }, []);
-  useEffect(() => {
     if (
       !answerThreadBootstrappedRef.current ||
       !answer ||
@@ -909,7 +877,19 @@ export function ClinicalDashboard({
   const [apiUnavailable, setApiUnavailable] = useState(false);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
-  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const routedDocumentId = searchParams.get("documentId");
+  const scopedDocumentIds = useMemo(
+    () =>
+      routedDocumentId &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(routedDocumentId)
+        ? [routedDocumentId]
+        : [],
+    [routedDocumentId],
+  );
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>(scopedDocumentIds);
+  useEffect(() => {
+    queueMicrotask(() => setSelectedDocumentIds(scopedDocumentIds));
+  }, [scopedDocumentIds]);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const [pendingFeedback, setPendingFeedback] = useState<AnswerFeedbackType | null>(null);
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
@@ -1036,6 +1016,56 @@ export function ClinicalDashboard({
   const localNoAuthMode = isLocalNoAuthMode();
   const explicitDemoMode = demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const clientDemoMode = explicitDemoMode || browserAuthUnavailableDemoFallback || localNoAuthMode;
+  const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? "local-demo-session" : null);
+  const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
+  useEffect(() => {
+    const previousOwnerId = previousAnswerThreadOwnerIdRef.current;
+    previousAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
+    if (!previousOwnerId || previousOwnerId === answerThreadOwnerId) return;
+    answerThreadBootstrappedRef.current = false;
+    queueMicrotask(() => {
+      setPriorAnswerTurns([]);
+      setLatestAnswerQuery(null);
+      setCollapsedTurnIds(new Set());
+      setAnswer(null);
+      setSources([]);
+      latestAnswerTurnRef.current = null;
+      setAnswerThreadBootstrapped(false);
+    });
+  }, [answerThreadOwnerId]);
+  useEffect(() => {
+    if (authStatus === "loading" || answerThreadBootstrappedRef.current) return;
+    queueMicrotask(() => {
+      const persisted = answerThreadOwnerId ? loadPersistedAnswerThread(answerThreadOwnerId) : null;
+      if (persisted) {
+        restoredThreadFromStorageRef.current = true;
+        setPriorAnswerTurns(persisted.priorTurns);
+        setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
+        if (persisted.latestTurn) {
+          latestAnswerTurnRef.current = persisted.latestTurn;
+          setAnswer(persisted.latestTurn.answer);
+          setSources(persisted.latestTurn.sources);
+          setModeSearchSubmitted(true);
+          setQuery("");
+          const restoredQuery = persisted.latestTurn.query.trim();
+          if (restoredQuery) autoRunSearchSignatureRef.current = `answer:${restoredQuery}`;
+        }
+        answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
+          const match = /^answer-turn-(\d+)$/.exec(turn.id);
+          return match ? Math.max(max, Number(match[1])) : max;
+        }, 0);
+        setCollapsedTurnIds(
+          persisted.collapsedTurnIds.length
+            ? new Set(persisted.collapsedTurnIds)
+            : new Set(persisted.priorTurns.map((turn) => turn.id)),
+        );
+      } else if (!answerThreadOwnerId) {
+        clearPersistedAnswerThread();
+      }
+      answerThreadBootstrappedRef.current = true;
+      setAnswerThreadBootstrapped(true);
+    });
+  }, [answerThreadOwnerId, authStatus]);
   const uploadReadOnlyMode =
     demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
@@ -1134,10 +1164,16 @@ export function ClinicalDashboard({
   }, [prefetchApplications]);
 
   useEffect(() => {
+    if (!answerThreadOwnerId) {
+      queueMicrotask(() => setRecentQueries([]));
+      return;
+    }
     let cancelled = false;
     const frame = window.requestAnimationFrame(() => {
       try {
-        const stored = JSON.parse(window.localStorage.getItem(recentQueryStorageKey) ?? "[]");
+        const stored = JSON.parse(
+          window.sessionStorage.getItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`) ?? "[]",
+        );
         if (Array.isArray(stored) && !cancelled) {
           setRecentQueries(
             stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5),
@@ -1151,24 +1187,29 @@ export function ClinicalDashboard({
       cancelled = true;
       window.cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [answerThreadOwnerId]);
 
-  const rememberRecentQuery = useCallback((value: string) => {
-    const trimmedValue = value.trim();
-    if (!trimmedValue) return;
-    setRecentQueries((current) => {
-      const next = [trimmedValue, ...current.filter((item) => item.toLowerCase() !== trimmedValue.toLowerCase())].slice(
-        0,
-        5,
-      );
-      try {
-        window.localStorage.setItem(recentQueryStorageKey, JSON.stringify(next));
-      } catch {
-        // Recent questions are a convenience only; ignore storage failures.
-      }
-      return next;
-    });
-  }, []);
+  const rememberRecentQuery = useCallback(
+    (value: string) => {
+      const trimmedValue = value.trim();
+      if (!trimmedValue) return;
+      setRecentQueries((current) => {
+        const next = [
+          trimmedValue,
+          ...current.filter((item) => item.toLowerCase() !== trimmedValue.toLowerCase()),
+        ].slice(0, 5);
+        try {
+          if (answerThreadOwnerId) {
+            window.sessionStorage.setItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`, JSON.stringify(next));
+          }
+        } catch {
+          // Recent questions are a convenience only; ignore storage failures.
+        }
+        return next;
+      });
+    },
+    [answerThreadOwnerId],
+  );
 
   useEffect(() => {
     if (!answerThreadBootstrapped) return;
@@ -1177,13 +1218,22 @@ export function ClinicalDashboard({
       clearPersistedAnswerThread();
       return;
     }
-    savePersistedAnswerThread({
+    if (!answerThreadOwnerId) return;
+    savePersistedAnswerThread(answerThreadOwnerId, {
       version: 1,
       priorTurns: priorAnswerTurns,
       latestTurn: latestAnswerTurnRef.current,
       collapsedTurnIds: [...collapsedTurnIds],
     });
-  }, [searchMode, answer, priorAnswerTurns, collapsedTurnIds, latestAnswerQuery, answerThreadBootstrapped]);
+  }, [
+    searchMode,
+    answer,
+    priorAnswerTurns,
+    collapsedTurnIds,
+    latestAnswerQuery,
+    answerThreadBootstrapped,
+    answerThreadOwnerId,
+  ]);
 
   useEffect(() => {
     jobsRef.current = jobs;
@@ -1237,6 +1287,7 @@ export function ClinicalDashboard({
         if (includeSetup) {
           const setupResponse = await fetch("/api/setup-status", {
             cache: "no-store",
+            headers: authorizationHeader,
             signal: controller.signal,
           }).catch(() => null);
           if (!canCommit()) return;

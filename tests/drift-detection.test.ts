@@ -61,7 +61,7 @@ describe("drift allowlist hygiene", () => {
   };
 
   it("every entry is well-formed with a real reason", () => {
-    expect(allowlist.entries.length).toBeGreaterThan(0);
+    expect(Array.isArray(allowlist.entries)).toBe(true);
     for (const entry of allowlist.entries) {
       expect([
         "extensions",

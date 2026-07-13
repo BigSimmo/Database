@@ -2140,7 +2140,7 @@ export function DocumentViewer({
           return null;
         }
         setLocalProjectReady(true);
-        return fetch("/api/setup-status");
+        return fetch("/api/setup-status", { headers: authorizationHeader });
       })
       .then((response) => (response?.ok ? response.json() : null))
       .then((payload) => {
@@ -2150,7 +2150,7 @@ export function DocumentViewer({
     return () => {
       active = false;
     };
-  }, [isConfigured]);
+  }, [authorizationHeader, isConfigured]);
 
   useEffect(() => {
     if (!canViewSourceDocuments && authStatus === "loading") {
@@ -2451,7 +2451,7 @@ export function DocumentViewer({
       : (effectiveViewerError ?? "Source unavailable");
   const documentHomeHref = "/?mode=documents";
   const scopedDocumentHref = readyDocument
-    ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}`
+    ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}&documentId=${encodeURIComponent(documentId)}`
     : documentHomeHref;
   const documentPageHref = (page: number) => {
     const params = new URLSearchParams({ page: String(Math.max(1, Math.trunc(page))) });

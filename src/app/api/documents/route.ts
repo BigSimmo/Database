@@ -13,17 +13,14 @@ export const runtime = "nodejs";
 
 const PUBLIC_DOCUMENT_LIST_COLUMNS = [
   "id",
-  "owner_id",
   "title",
   "description",
   "file_name",
   "file_type",
-  "file_size",
   "status",
   "page_count",
   "chunk_count",
   "image_count",
-  "metadata",
   "created_at",
   "updated_at",
 ].join(",");
@@ -57,7 +54,6 @@ const PUBLIC_LABEL_LIST_COLUMNS = [
   "label_type",
   "source",
   "confidence",
-  "metadata",
   "created_at",
   "updated_at",
 ].join(",");

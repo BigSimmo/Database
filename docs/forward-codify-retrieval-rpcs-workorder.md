@@ -1,7 +1,11 @@
 # Work-order — forward-codify live-ahead retrieval RPC bodies (drift backlog #0)
 
-**Status: staged, not executed.** This is plan task 1.2. It is deliberately **not** shipped as a
-migration yet because the two safety preconditions were unavailable at authoring time (2026-07-12):
+**Status: reconciled in source on 2026-07-13; live apply remains pending explicit write approval.**
+The production-current definitions were captured read-only, preserved under their actual migration
+versions, replayed successfully in scratch PostgreSQL, and removed from the drift allowlist. The
+four forward remediation migrations remain unapplied to live.
+
+Historical blockers at authoring time (2026-07-12):
 
 1. **Byte-faithful Docker-replay validation is required and Docker was down.** The established method
    (see [supabase-migration-reconciliation.md](supabase-migration-reconciliation.md) and the
