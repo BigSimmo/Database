@@ -9,6 +9,10 @@ export const NoDocuments = () => (
   />
 );
 
+export const NoIcon = () => (
+  <EmptyState title="Nothing pinned yet" body="Pin an answer or document to keep it one tap away." />
+);
+
 export const NoResults = () => (
   <EmptyState
     icon={SearchX}

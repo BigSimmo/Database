@@ -358,15 +358,17 @@ export function PanelHeading({
   title,
   description,
 }: {
-  icon: IconComponent;
+  icon?: IconComponent;
   title: string;
   description?: string;
 }) {
   return (
     <div className="flex items-start gap-3">
-      <span className={iconTile}>
-        <Icon className="size-icon-md sm:size-icon-lg" />
-      </span>
+      {Icon && (
+        <span className={iconTile}>
+          <Icon className="size-icon-md sm:size-icon-lg" />
+        </span>
+      )}
       <div className="min-w-0">
         <h2 className="text-base font-semibold text-[color:var(--text-heading)]">{title}</h2>
         {description && <p className={cn("mt-1 text-sm leading-6", textMuted)}>{description}</p>}
@@ -417,13 +419,15 @@ export function LoadingPanel({
   );
 }
 
-export function EmptyState({ icon: Icon, title, body }: { icon: IconComponent; title: string; body: string }) {
+export function EmptyState({ icon: Icon, title, body }: { icon?: IconComponent; title: string; body: string }) {
   return (
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-          <Icon className="size-icon-md sm:size-icon-lg" />
-        </span>
+        {Icon && (
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--text-muted)]">
+            <Icon className="size-icon-md sm:size-icon-lg" />
+          </span>
+        )}
         <div className="min-w-0">
           <p className="font-semibold text-[color:var(--text)]">{title}</p>
           <p className={cn("mt-1 leading-6", textMuted)}>{body}</p>

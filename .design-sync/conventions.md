@@ -40,8 +40,7 @@ Join with the exported `cn(...)` helper.
 ## Example
 
 ```tsx
-import { PanelHeading, quietPanel, primaryControl, cn } from "<pkg>";
-import { FileText } from "lucide-react";
+import { PanelHeading, quietPanel, primaryControl, cn, FileText } from "<pkg>";
 
 <section className={cn(quietPanel, "p-4 space-y-3")}>
   <PanelHeading icon={FileText} title="Document library" description="Indexed guidelines and protocols." />
@@ -49,8 +48,19 @@ import { FileText } from "lucide-react";
 </section>;
 ```
 
+## Icons
+
+The bundle ships a curated lucide icon set — import icons from the package
+itself, never from `lucide-react` (it is not available to designs): `Search`,
+`SearchX`, `FileText`, `File`, `Inbox`, `Upload`, `Download`, `ShieldCheck`,
+`ShieldAlert`, `TriangleAlert`, `AlertCircle`, `Ban`, `X`, `Check`,
+`CheckCircle2`, `Info`, `Loader2`, `ChevronDown`, `ChevronRight`, `ArrowLeft`,
+`ArrowRight`, `Plus`, `Trash2`, `Pencil`, `Filter`, `Settings`, `Database`,
+`BookOpen`, `Stethoscope`, `HeartPulse`, `Pill`, `Calendar`, `Clock`,
+`ExternalLink`, `Copy`, `Maximize2`. The `icon` prop on `PanelHeading` /
+`EmptyState` is optional — omit it rather than inventing an icon.
+
 ## Where the truth lives
 
 Read `styles.css` for the full token set (`:root` and `.dark` blocks) and each
-component's `.d.ts` + `.prompt.md` for its API. Icons are `lucide-react`
-components passed as the `icon` prop where accepted.
+component's `.d.ts` + `.prompt.md` for its API.

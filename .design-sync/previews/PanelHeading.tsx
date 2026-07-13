@@ -10,3 +10,5 @@ export const WithDescription = () => (
 );
 
 export const TitleOnly = () => <PanelHeading icon={ShieldCheck} title="Source governance" />;
+
+export const NoIcon = () => <PanelHeading title="Recent searches" description="Last 7 days across the workspace." />;

@@ -1,17 +1,14 @@
 import { AccessibleTable } from "prompt-for-codex-medical-knowledge-base";
 
-const doseRows = [
-  ["Amoxicillin", "500 mg", "8-hourly", "Oral", "5 days"],
-  ["Doxycycline", "100 mg", "12-hourly", "Oral", "7 days"],
-  ["Benzylpenicillin", "1.2 g", "6-hourly", "IV", "Until stable"],
-];
-const doseColumns = ["Antibiotic", "Dose", "Frequency", "Route", "Duration"];
-
 export const ClinicalDoseTable = () => (
   <AccessibleTable
     caption="Community-acquired pneumonia — empirical therapy (adult)"
-    rows={doseRows}
-    columns={doseColumns}
+    rows={[
+      ["Amoxicillin", "500 mg", "8-hourly", "Oral", "5 days"],
+      ["Doxycycline", "100 mg", "12-hourly", "Oral", "7 days"],
+      ["Benzylpenicillin", "1.2 g", "6-hourly", "IV", "Until stable"],
+    ]}
+    columns={["Antibiotic", "Dose", "Frequency", "Route", "Duration"]}
   />
 );
 

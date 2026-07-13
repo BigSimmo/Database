@@ -16,6 +16,18 @@
     "docs/redesign/09-ui-primitives-recipes.md",
     "docs/redesign/permanent-colour-direction.md"
   ],
+  "dtsPropsFor": {
+    "InlineNotice": "tone: \"success\" | \"info\" | \"warning\" | \"danger\" | \"neutral\"; children?: React.ReactNode; onDismiss?: () => void; dismissLabel?: string; animated?: boolean; className?: string;",
+    "ToggleSwitch": "enabled: boolean; onToggle?: () => void; disabled?: boolean; className?: string; \"aria-label\"?: string;",
+    "SourceStatusBadge": "metadata?: { document_status?: \"current\" | \"review_due\" | \"outdated\" | \"unknown\" }; className?: string; showTitle?: boolean;",
+    "SourceProvenance": "metadata?: { clinical_validation_status?: \"unverified\" | \"locally_reviewed\" | \"approved\"; review_date?: string; jurisdiction?: string; extraction_quality?: \"good\" | \"partial\" | \"poor\" | \"unknown\" };",
+    "PanelHeading": "icon?: React.ComponentType<{ className?: string }>; title: string; description?: string;",
+    "LoadingPanel": "label: string; variant?: \"spinner\" | \"skeleton\"; lines?: number;",
+    "EmptyState": "icon?: React.ComponentType<{ className?: string }>; title: string; body: string;",
+    "Sheet": "open: boolean; onClose: () => void; title?: string; description?: string; children?: React.ReactNode; footer?: React.ReactNode; closeLabel?: string; headerActions?: React.ReactNode; placement?: \"default\" | \"left\"; mobilePlacement?: \"bottom\" | \"top\" | \"fullscreen\"; mobileSize?: \"content\" | \"viewport\"; portal?: boolean; contentClassName?: string; bodyClassName?: string;",
+    "SafeBoldText": "text: string;",
+    "AccessibleTable": "caption?: string | null; markdown?: string | null; rows?: string[][] | null; columns?: string[] | null; compact?: boolean; expandOnMobile?: boolean; previewRows?: number; hidePreviewCaption?: boolean; hidePreviewRowCount?: boolean; densePreview?: boolean; dialogTitle?: string | null; clinicalOnly?: boolean; rowActions?: Array<React.ReactNode | null>; actionsHeader?: string; lowConfidenceFallback?: React.ReactNode;"
+  },
   "overrides": {
     "Sheet": { "cardMode": "single", "primaryStory": "OpenDialog", "viewport": "480x640" },
     "AccessibleTable": { "cardMode": "column" }
