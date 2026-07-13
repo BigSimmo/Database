@@ -8,13 +8,13 @@ import { answerSloSnapshot, type SloProbeClient } from "@/lib/observability/answ
 function fakeClient(
   counts: { total: number; hybrid: number; degraded: number },
   error?: unknown,
-  observedBaseFilters: string[] = [],
+  observedBaseFilters: Array<{ column: string; value: null }> = [],
 ): SloProbeClient {
   const build = (filter: "total" | "hybrid" | "degraded") => {
     const builder = {
       gt: () => builder,
-      is: (column: string) => {
-        observedBaseFilters.push(column);
+      is: (column: string, value: null) => {
+        observedBaseFilters.push({ column, value });
         return builder;
       },
       not: (column: string) => build(column.includes("hybrid_rpc_errors") ? "hybrid" : "degraded"),
@@ -40,13 +40,15 @@ describe("answerSloSnapshot", () => {
   });
 
   it("counts privacy-redacted answer rows while excluding search observations by event type", async () => {
-    const observedBaseFilters: string[] = [];
+    const observedBaseFilters: Array<{ column: string; value: null }> = [];
     const snapshot = await answerSloSnapshot(
       fakeClient({ total: 7, hybrid: 1, degraded: 2 }, undefined, observedBaseFilters),
     );
 
     expect(snapshot.totalQueries).toBe(7);
-    expect(observedBaseFilters).toEqual(["metadata->>event_type", "metadata->>event_type", "metadata->>event_type"]);
+    expect(observedBaseFilters).toEqual(
+      Array.from({ length: 3 }, () => ({ column: "metadata->>event_type", value: null })),
+    );
   });
 
   it("reports zero rates (not NaN) when there are no queries in the window", async () => {
