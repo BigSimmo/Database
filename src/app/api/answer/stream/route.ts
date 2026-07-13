@@ -24,6 +24,7 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { captureServerException } from "@/lib/observability/error-capture";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -97,8 +98,13 @@ function streamErrorPayload(error: unknown) {
   };
 }
 
-function logStreamError(error: unknown) {
+function logStreamError(error: unknown, signal?: AbortSignal) {
   logger.error("Search stream failed", safeErrorLogDetails(error));
+  // Report only server-fault failures: client aborts (Stop button / watchdog) and
+  // expected sub-500 degradations are operational noise, not incidents.
+  if ((error instanceof DOMException && error.name === "AbortError") || signal?.aborted) return;
+  if (error instanceof PublicApiError && error.status < 500) return;
+  void captureServerException(error, { route: "api/answer/stream", source: "stream" });
 }
 
 function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
@@ -248,7 +254,6 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
             interactionId,
           });
         } catch (error) {
-          logStreamError(error);
           // Parity with /api/answer (PR #315): outside production, a misconfigured
           // Supabase API key degrades to a visible demo answer instead of a stream
           // error — the UI's answer search uses this route, not /api/answer.
@@ -257,6 +262,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
             send("final", { ...buildDemoStreamAnswer(body, fallbackReason), interactionId });
             return;
           }
+          logStreamError(error, signal);
           const streamError = streamErrorPayload(error);
           send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
         } finally {
@@ -305,11 +311,21 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
     }
+    const clientAborted = (error instanceof DOMException && error.name === "AbortError") || request.signal.aborted;
     if (error instanceof PublicApiError) {
+      if (error.status >= 500 && !clientAborted) {
+        void captureServerException(error, { route: "api/answer/stream", status: error.status });
+      }
       return jsonError(error, error.status);
     }
     if (error instanceof Error) {
+      if (!clientAborted) {
+        void captureServerException(error, { route: "api/answer/stream", status: 500 });
+      }
       return jsonError(new PublicApiError("Answer processing failed.", 500, { code: error.name }), 500);
+    }
+    if (!clientAborted) {
+      void captureServerException(error, { route: "api/answer/stream", status: 500 });
     }
     return jsonError("Answer processing failed.", 500);
   }

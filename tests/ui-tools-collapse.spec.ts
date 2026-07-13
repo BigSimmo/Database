@@ -16,7 +16,7 @@ function mockupSearch(page: Page) {
   return page.locator("#main-content").getByRole("searchbox").first();
 }
 
-test.describe("Tools mockups collapse the primary region when filtering", () => {
+test.describe("Tools mockups collapse the primary region when filtering @mockup", () => {
   test.describe.configure({ timeout: 60_000 });
 
   test("command center hides Start here and avoids a populated grid over an empty state", async ({ page }) => {

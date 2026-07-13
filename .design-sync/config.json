@@ -1,0 +1,35 @@
+{
+  "projectId": "08d6f126-3fd0-4764-aedf-0062a467280a",
+  "pkg": "prompt-for-codex-medical-knowledge-base",
+  "globalName": "ClinicalKB",
+  "shape": "package",
+  "srcDir": "src",
+  "tsconfig": "tsconfig.json",
+  "buildCmd": "node .ds-sync/node_modules/@tailwindcss/cli/dist/index.mjs -i src/app/globals.css -o .design-sync/.cache/compiled.css && cat .design-sync/font-vars.css >> .design-sync/.cache/compiled.css",
+  "cssEntry": ".design-sync/.cache/compiled.css",
+  "extraFonts": [".design-sync/fonts.css"],
+  "readmeHeader": ".design-sync/conventions.md",
+  "guidelinesGlob": [
+    "docs/design-system.md",
+    "docs/clinical-badge-system-guide.md",
+    "docs/redesign/02-design-direction.md",
+    "docs/redesign/09-ui-primitives-recipes.md",
+    "docs/redesign/permanent-colour-direction.md"
+  ],
+  "overrides": {
+    "Sheet": { "cardMode": "single", "primaryStory": "OpenDialog", "viewport": "480x640" },
+    "AccessibleTable": { "cardMode": "column" }
+  },
+  "componentSrcMap": {
+    "InlineNotice": "src/components/ui-primitives.tsx",
+    "ToggleSwitch": "src/components/ui-primitives.tsx",
+    "SourceStatusBadge": "src/components/ui-primitives.tsx",
+    "SourceProvenance": "src/components/ui-primitives.tsx",
+    "PanelHeading": "src/components/ui-primitives.tsx",
+    "LoadingPanel": "src/components/ui-primitives.tsx",
+    "EmptyState": "src/components/ui-primitives.tsx",
+    "Sheet": "src/components/ui/sheet.tsx",
+    "SafeBoldText": "src/components/SafeBoldText.tsx",
+    "AccessibleTable": "src/components/AccessibleTable.tsx"
+  }
+}

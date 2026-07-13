@@ -49,4 +49,48 @@ describe("production metadata origin", () => {
 
     expect(resolveMetadataBase(requestHeaders)).toBeUndefined();
   });
+
+  it("uses the trusted deployment domain as-is when it already carries an explicit scheme", () => {
+    expect(resolveMetadataBase(new Headers(), { trustedDeploymentDomain: "http://staging.up.railway.app" })?.href).toBe(
+      "http://staging.up.railway.app/",
+    );
+  });
+
+  it("rejects a configured origin with a non-HTTP(S) protocol and falls through", () => {
+    expect(
+      resolveMetadataBase(new Headers(), {
+        configuredSiteUrl: "ftp://clinical.test",
+        trustedDeploymentDomain: "clinical-kb.up.railway.app",
+      })?.href,
+    ).toBe("https://clinical-kb.up.railway.app/");
+  });
+
+  it("treats a whitespace-only configured site URL as absent", () => {
+    expect(
+      resolveMetadataBase(new Headers(), {
+        configuredSiteUrl: "   ",
+        trustedDeploymentDomain: "clinical-kb.up.railway.app",
+      })?.href,
+    ).toBe("https://clinical-kb.up.railway.app/");
+  });
+
+  it("falls back to the bare host header when x-forwarded-host is absent", () => {
+    const requestHeaders = new Headers({ host: "clinical.example.org" });
+
+    expect(resolveMetadataBase(requestHeaders, { allowRequestOrigin: true })?.href).toBe(
+      "https://clinical.example.org/",
+    );
+  });
+
+  it("defaults to https when x-forwarded-proto is missing or not http/https", () => {
+    const missingProto = new Headers({ host: "clinical.example.org" });
+    const invalidProto = new Headers({ host: "clinical.example.org", "x-forwarded-proto": "ws" });
+
+    expect(resolveMetadataBase(missingProto, { allowRequestOrigin: true })?.href).toBe("https://clinical.example.org/");
+    expect(resolveMetadataBase(invalidProto, { allowRequestOrigin: true })?.href).toBe("https://clinical.example.org/");
+  });
+
+  it("returns undefined when the dev fallback is allowed but no host header is present", () => {
+    expect(resolveMetadataBase(new Headers(), { allowRequestOrigin: true })).toBeUndefined();
+  });
 });
