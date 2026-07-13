@@ -38,6 +38,8 @@
     "check:github-actions": "node scripts/check-github-action-pins.mjs",
     "check:client-bundle-secrets": "node scripts/check-client-bundle-secrets.mjs",
     "check:ci-scope": "node scripts/ci-change-scope.mjs --self-test",
+    "check:env-parity": "node scripts/check-env-parity.mjs",
+    "sweep:branch-ledger": "node scripts/sweep-branch-ledger.mjs",
     "docs:check-links": "node scripts/check-docs-links.mjs",
     "sitemap:update": "node scripts/run-tsx.mjs scripts/generate-site-map.ts",
     "sitemap:check": "node scripts/run-tsx.mjs scripts/generate-site-map.ts --check",
