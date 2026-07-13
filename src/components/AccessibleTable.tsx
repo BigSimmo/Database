@@ -1,8 +1,9 @@
 "use client";
 
-import { Maximize2, X } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Maximize2 } from "lucide-react";
+import { type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
+import { Sheet } from "@/components/ui/sheet";
 import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
 import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
 
@@ -144,7 +145,7 @@ function AccessibleTableMarkup({
                       : "whitespace-normal break-words",
                     index > 0 && "border-l border-[color:var(--border)]/70",
                     renderDensePreview
-                      ? "px-2 py-1.5 text-3xs uppercase tracking-[0.06em]"
+                      ? "px-2 py-1.5 text-2xs uppercase tracking-[0.06em]"
                       : expanded
                         ? "px-4 py-3 text-sm"
                         : "px-3 py-2 text-xs",
@@ -162,7 +163,7 @@ function AccessibleTableMarkup({
                       ? "overflow-hidden text-ellipsis whitespace-nowrap"
                       : "whitespace-normal break-words",
                     renderDensePreview
-                      ? "px-2 py-1.5 text-3xs uppercase tracking-[0.06em]"
+                      ? "px-2 py-1.5 text-2xs uppercase tracking-[0.06em]"
                       : expanded
                         ? "px-4 py-3 text-sm"
                         : "px-3 py-2 text-xs",
@@ -215,7 +216,7 @@ function AccessibleTableMarkup({
                           className={cn(
                             renderDensePreview
                               ? "sr-only"
-                              : "mb-1 block text-3xs font-bold uppercase tracking-[0.08em] md:hidden",
+                              : "mb-1 block text-2xs font-bold uppercase tracking-[0.08em] md:hidden",
                             textMuted,
                           )}
                         >
@@ -249,7 +250,7 @@ function AccessibleTableMarkup({
                         className={cn(
                           renderDensePreview
                             ? "sr-only"
-                            : "mb-1 block text-3xs font-bold uppercase tracking-[0.08em] md:hidden",
+                            : "mb-1 block text-2xs font-bold uppercase tracking-[0.08em] md:hidden",
                           textMuted,
                         )}
                       >
@@ -356,9 +357,6 @@ export function AccessibleTable({
   // can pass it here to show the real table screenshot instead of that grid.
   lowConfidenceFallback?: ReactNode;
 }) {
-  const dialogId = useId();
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
   const canExpand = useMobileTableExpansion(expandOnMobile);
@@ -382,47 +380,6 @@ export function AccessibleTable({
   }, [clinicalOnly, columns, hasExplicitRows, normalizedTable, parsed]);
 
   const dialogOpen = open;
-
-  useEffect(() => {
-    if (!dialogOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setOpen(false);
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusable = Array.from(
-        dialogRef.current?.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
-        ) ?? [],
-      ).filter((element) => element.getAttribute("aria-hidden") !== "true");
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!dialogRef.current?.contains(document.activeElement)) {
-        event.preventDefault();
-        (event.shiftKey ? last : first).focus();
-      } else if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
-      restoreFocusRef.current?.focus();
-    };
-  }, [dialogOpen]);
 
   if (!normalized) return null;
 
@@ -479,7 +436,6 @@ export function AccessibleTable({
             aria-label={`Open ${title} full screen`}
             aria-haspopup="dialog"
             aria-expanded={dialogOpen}
-            aria-controls={dialogOpen ? dialogId : undefined}
             onClick={(event) => {
               event.stopPropagation();
               openDialog(event.currentTarget);
@@ -491,56 +447,42 @@ export function AccessibleTable({
           </button>
         ) : null}
       </div>
-      {dialogOpen ? (
-        <div
-          ref={dialogRef}
-          id={dialogId}
-          data-testid="table-fullscreen-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={`${dialogId}-title`}
-          className="fixed inset-0 z-[85] bg-[color:var(--background)] text-[color:var(--text)]"
-          onClick={() => setOpen(false)}
-        >
-          <div className="flex h-full min-w-0 flex-col" onClick={(event) => event.stopPropagation()}>
-            <div className="flex min-h-[64px] shrink-0 items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[var(--shadow-tight)]">
-              <div className="min-w-0">
-                <p className={cn("text-2xs font-bold uppercase tracking-[0.08em]", textMuted)}>Clinical table</p>
-                <h2
-                  id={`${dialogId}-title`}
-                  className="truncate text-base font-semibold text-[color:var(--text-heading)]"
-                >
-                  {title}
-                </h2>
-              </div>
-              <button
-                type="button"
-                ref={closeButtonRef}
-                aria-label="Close full-screen table"
-                onClick={() => setOpen(false)}
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
-              >
-                <X className="h-5 w-5" aria-hidden />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              {showFallback ? (
-                <div data-testid="table-source-image-fallback">{lowConfidenceFallback}</div>
-              ) : (
-                <AccessibleTableMarkup
-                  caption={displayCaption}
-                  header={header}
-                  body={body}
-                  compact={false}
-                  expanded
-                  rowActions={rowActions}
-                  actionsHeader={actionsHeader}
-                />
-              )}
-            </div>
-          </div>
+      <Sheet
+        open={dialogOpen}
+        onClose={() => setOpen(false)}
+        title={title}
+        description="Clinical table"
+        closeLabel="Close full-screen table"
+        returnFocusRef={restoreFocusRef}
+        mobilePlacement="fullscreen"
+        portal
+        testId="table-fullscreen-dialog"
+        contentClassName="sm:max-w-none"
+        bodyClassName="p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-3"
+      >
+        <div>
+          {lowConfidence ? (
+            <p data-testid="table-low-confidence-note" className={cn("mb-1 text-xs", textMuted)}>
+              {showFallback
+                ? "Table structure could not be confidently reconstructed — showing the source document image instead."
+                : "Table structure could not be confidently reconstructed — verify values against the source document."}
+            </p>
+          ) : null}
+          {showFallback ? (
+            <div data-testid="table-source-image-fallback">{lowConfidenceFallback}</div>
+          ) : (
+            <AccessibleTableMarkup
+              caption={displayCaption}
+              header={header}
+              body={body}
+              compact={false}
+              expanded
+              rowActions={rowActions}
+              actionsHeader={actionsHeader}
+            />
+          )}
         </div>
-      ) : null}
+      </Sheet>
     </>
   );
 }

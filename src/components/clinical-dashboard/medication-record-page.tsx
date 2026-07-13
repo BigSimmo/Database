@@ -59,7 +59,7 @@ function DetailTile({
         danger ? "border-[color:var(--danger-border)]/60" : "border-[color:var(--border)]",
       )}
     >
-      <p className="text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{label}</p>
+      <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">{label}</p>
       <p
         className={cn(
           "mt-1 text-sm-minus font-semibold leading-5",
@@ -69,7 +69,7 @@ function DetailTile({
         {value}
       </p>
       {meta ? (
-        <p className="mt-0.5 text-3xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+        <p className="mt-0.5 text-2xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
           {meta}
         </p>
       ) : null}
@@ -260,7 +260,7 @@ function MedicationRecordDetail({
             <div className="divide-y divide-[color:var(--border)]">
               {record.quick.map((row) => (
                 <div key={row.label} className="px-3 py-2.5">
-                  <p className="text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                     {row.label}
                   </p>
                   <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
@@ -289,7 +289,7 @@ function MedicationRecordDetail({
                         clinicalBadgeToneClass(tone),
                       )}
                     >
-                      <p className="text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                      <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                         {stat.label}
                       </p>
                       <p className="mt-1 text-sm-minus font-semibold">{stat.value}</p>
@@ -334,7 +334,7 @@ export function MedicationRecordPage({ slug }: { slug: string }) {
           <MedicationRecordDetail record={data.record} governance={data.governance} />
         )}
       </div>
-      <footer className="mx-auto max-w-7xl px-4 pb-4 text-center text-3xs font-medium text-[color:var(--text-soft)] opacity-70">
+      <footer className="mx-auto max-w-7xl px-4 pb-4 text-center text-2xs font-medium text-[color:var(--text-muted)]">
         Clinical KB provides evidence summaries, not medical advice. Verify clinical decisions.
       </footer>
     </main>

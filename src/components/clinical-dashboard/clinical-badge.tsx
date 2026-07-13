@@ -73,8 +73,8 @@ export function ClinicalBadge({
     <span
       title={label}
       className={cn(
-        "inline-flex h-[1.375rem] max-w-full shrink-0 items-center gap-1 rounded-md border px-1.5 text-3xs font-semibold leading-none shadow-[var(--shadow-inset)]",
-        compact && "h-5 px-1.5 text-3xs",
+        "inline-flex h-[1.375rem] max-w-full shrink-0 items-center gap-1 rounded-md border px-1.5 text-2xs font-semibold leading-none shadow-[var(--shadow-inset)]",
+        compact && "h-5 px-1.5 text-2xs",
         clinicalBadgeToneClass(tone),
       )}
     >

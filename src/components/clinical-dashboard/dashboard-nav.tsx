@@ -254,7 +254,7 @@ export function MobileSectionFab({
           <span
             aria-hidden="true"
             className={cn(
-              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-3xs font-bold leading-4 shadow-[var(--shadow-tight)]",
+              "absolute right-0 top-0 grid min-h-5 min-w-5 translate-x-1/4 -translate-y-1/4 place-items-center rounded-full border px-1 text-2xs font-bold leading-4 shadow-[var(--shadow-tight)]",
               fabToneClassName(state.badgeTone),
             )}
           >

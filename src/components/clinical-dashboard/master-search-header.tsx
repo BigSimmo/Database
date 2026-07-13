@@ -839,7 +839,7 @@ export function MasterSearchHeader({
       <div className={cn("grid gap-2", compact ? "grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3")}>
         {labelScopeFilterFields.map((field) => (
           <label key={field.key} className="grid min-w-0 gap-1">
-            <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+            <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
               {field.label}
             </span>
             <input
@@ -1006,7 +1006,7 @@ export function MasterSearchHeader({
           </summary>
           <div className="grid gap-2.5 border-t border-[color:var(--border-lux)] p-3">
             <label className="grid gap-1">
-              <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                 Search intent
               </span>
               <select
@@ -1024,7 +1024,7 @@ export function MasterSearchHeader({
             </label>
             <div className="grid grid-cols-2 gap-2">
               <label className="grid gap-1">
-                <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                   Status
                 </span>
                 <select
@@ -1048,7 +1048,7 @@ export function MasterSearchHeader({
                 </select>
               </label>
               <label className="grid gap-1">
-                <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                   Locality
                 </span>
                 <select
@@ -1517,7 +1517,7 @@ export function MasterSearchHeader({
                 <SelectedAppModeIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
-                <span className="hidden truncate text-3xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-soft)] sm:block">
+                <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-muted)] sm:block">
                   Mode
                 </span>
                 <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">

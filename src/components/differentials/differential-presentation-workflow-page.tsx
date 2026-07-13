@@ -224,7 +224,7 @@ function DesktopComparisonTable({
             <tr>
               <th className="sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] px-3.5 py-3 align-top text-xs font-extrabold uppercase text-[color:var(--text-muted)]">
                 Criteria
-                <span className="mt-1.5 block text-3xs font-bold normal-case text-[color:var(--text-soft)]">
+                <span className="mt-1.5 block text-2xs font-bold normal-case text-[color:var(--text-muted)]">
                   Reorder
                 </span>
               </th>
@@ -251,7 +251,7 @@ function DesktopComparisonTable({
                   <td
                     key={`${candidate.record.slug}-${criterion.id}`}
                     className={cn(
-                      "w-[8.5rem] border-b border-r border-[color:var(--border)] px-3 py-3 align-top text-3xs font-semibold leading-[1.45] text-[color:var(--text-muted)]",
+                      "w-[8.5rem] border-b border-r border-[color:var(--border)] px-3 py-3 align-top text-2xs font-semibold leading-[1.45] text-[color:var(--text-muted)]",
                       !candidate.selected && "text-[color:var(--text-muted)]",
                     )}
                   >

@@ -31,11 +31,14 @@ import {
   ToggleSwitch,
 } from "@/components/ui-primitives";
 import {
+  ResultSortControl,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
+import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
+import { useResultSort } from "@/components/use-result-sort";
 
 type FormsSearchResultsPageProps = {
   query: string;
@@ -231,7 +234,15 @@ function RefinePanel({ open, panelId }: { open: boolean; panelId: string }) {
 
 const resultsGridColumns = "md:grid-cols-[64px_minmax(0,1.35fr)_minmax(0,0.85fr)_minmax(0,1.35fr)_minmax(88px,auto)]";
 
-function ResultsTable({ matches, query }: { matches: FormSearchMatch[]; query: string }) {
+function ResultsTable({
+  matches,
+  query,
+  sortValue,
+}: {
+  matches: FormSearchMatch[];
+  query: string;
+  sortValue: ResultSortValue;
+}) {
   return (
     <section
       data-testid="form-search-results"
@@ -241,7 +252,8 @@ function ResultsTable({ matches, query }: { matches: FormSearchMatch[]; query: s
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 p-5 pb-3">
         <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Best matches</h2>
         <span className="text-sm font-semibold text-[color:var(--text-muted)]">
-          {matches.length} {matches.length === 1 ? "form" : "forms"} · ranked by relevance
+          {matches.length} {matches.length === 1 ? "form" : "forms"} ·{" "}
+          {sortValue === "alpha" ? "sorted A–Z" : "ranked by relevance"}
         </span>
       </div>
       <div
@@ -281,7 +293,7 @@ function ResultsTable({ matches, query }: { matches: FormSearchMatch[]; query: s
                     <span
                       key={`${chipLabel}-${chipIndex}`}
                       className={cn(
-                        "rounded-full px-2 py-1 text-3xs font-extrabold uppercase",
+                        "rounded-full px-2 py-1 text-2xs font-extrabold uppercase",
                         tagToneClass(chipLabel),
                       )}
                     >
@@ -473,7 +485,7 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
                       <span
                         key={`${chipLabel}-${chipIndex}`}
                         className={cn(
-                          "rounded-full px-2 py-0.5 text-4xs font-extrabold uppercase leading-none",
+                          "rounded-full px-2 py-0.5 text-2xs font-extrabold uppercase leading-none",
                           tagToneClass(chipLabel),
                         )}
                       >
@@ -531,9 +543,9 @@ function MobilePathway() {
                   {code}
                 </p>
               ) : null}
-              <p className="mt-0.5 text-4xs font-bold leading-[10px] text-[color:var(--text-muted)]">{label}</p>
+              <p className="mt-0.5 text-2xs font-bold leading-4 text-[color:var(--text-muted)]">{label}</p>
               {index === 1 ? (
-                <p className="mt-0.5 rounded-full bg-[color:var(--clinical-accent-soft)] px-1 py-0.5 text-4xs font-extrabold leading-[10px] text-[color:var(--clinical-accent)]">
+                <p className="mt-0.5 rounded-full bg-[color:var(--clinical-accent-soft)] px-1 py-0.5 text-2xs font-extrabold leading-4 text-[color:var(--clinical-accent)]">
                   You are here
                 </p>
               ) : null}
@@ -612,6 +624,7 @@ export function FormsSearchResultsPage(props: FormsSearchResultsPageProps) {
 
 function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const router = useRouter();
+  const [sortValue, setSortValue] = useResultSort();
   const command = useSearchCommand();
   const registry = useRegistryRecords("form");
   const registryReady = registry.status === "ready";
@@ -626,6 +639,10 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
     if (!scopes.length) return matches;
     return matches.filter((match) => recordMatchesCommandScopes(match.service, scopes, "forms"));
   }, [command?.commandScopes, matches]);
+  const displayedMatches = useMemo(
+    () => sortResultItems(scopedMatches, sortValue, (match) => match.service.title),
+    [scopedMatches, sortValue],
+  );
 
   return (
     <div className={cn("overflow-x-hidden", searchPageCanvas)}>
@@ -634,9 +651,15 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
         {registryReady ? (
           <>
             <div className="hidden md:block">
-              <SearchResultsHeaderBand modeId="forms" query={query} matchCount={scopedMatches.length} />
+              <SearchResultsHeaderBand
+                modeId="forms"
+                query={query}
+                matchCount={displayedMatches.length}
+                sortValue={sortValue}
+                onSortChange={setSortValue}
+              />
             </div>
-            {query.trim() && scopedMatches.length === 0 ? (
+            {query.trim() && displayedMatches.length === 0 ? (
               <SearchResultsEmptyState
                 modeId="forms"
                 query={query}
@@ -649,9 +672,10 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
               <>
                 <div className="flex min-w-0 items-end gap-3 border-b border-[color:var(--border)]">
                   <div className="min-w-0 flex-1 overflow-x-auto">
-                    <ResultTabs formsCount={scopedMatches.length} />
+                    <ResultTabs formsCount={displayedMatches.length} />
                   </div>
-                  <div className="pb-1.5">
+                  <div className="flex items-center gap-2 pb-1.5">
+                    <ResultSortControl value={sortValue} onChange={setSortValue} className="md:hidden" />
                     <RefineBar
                       open={refineOpen}
                       onToggle={() => setRefineOpen((open) => !open)}
@@ -661,10 +685,10 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 </div>
                 <RefinePanel open={refineOpen} panelId={refinePanelId} />
                 <div className="hidden md:block">
-                  <ResultsTable matches={scopedMatches} query={query} />
+                  <ResultsTable matches={displayedMatches} query={query} sortValue={sortValue} />
                 </div>
                 <div className="md:hidden">
-                  <MobileCards matches={scopedMatches} query={query} />
+                  <MobileCards matches={displayedMatches} query={query} />
                 </div>
               </>
             )}

@@ -1131,6 +1131,10 @@ const genericMedicationDoseQueryTokens = new Set([
   "usual",
   "im",
   "po",
+  "patient",
+  "recommend",
+  "recommendation",
+  "recommended",
   "sc",
   "sl",
 ]);
@@ -1138,6 +1142,13 @@ const genericMedicationDoseQueryTokens = new Set([
 /** Require dose evidence to carry the medication question's clinical subject. */
 export function medicationDoseQuerySubjectTokens(query: string) {
   return normalizedClinicalSearchTokens(query).filter((token) => !genericMedicationDoseQueryTokens.has(token));
+}
+
+/** Whether the query explicitly asks for dose, route, or frequency evidence. */
+export function isMedicationDoseEvidenceQuery(query: string) {
+  return /\b(?:dose|doses|dosage|dosages|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|im|po|sc|sl|frequency|mg|mcg|microgram|maximum|minimum|prn)\b/i.test(
+    query,
+  );
 }
 
 /** Require dose evidence to carry the medication question's clinical subject. */
