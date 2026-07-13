@@ -111,6 +111,7 @@ import {
   hasDoseEvidenceSupport,
   hasStructuredThresholdEvidence,
   isMedicationDoseEvidenceQuery,
+  medicationDoseEvidenceQueryIntent,
   medicationDoseQueryContext,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
@@ -2761,12 +2762,19 @@ function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], 
 
 /** Has dose amount evidence for gate. */
 function hasDoseAmountEvidenceForGate(result: SearchResult) {
-  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(evidenceTextForGate(result));
+  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|micrograms?|milligrams?|ug|[µμ]g)\b/i.test(evidenceTextForGate(result));
 }
 
 /** Has route evidence for gate. */
 function hasRouteEvidenceForGate(result: SearchResult) {
   return /\b(?:oral|orally|intramuscular|intramuscularly|subcutaneous|subcutaneously|subcut|sublingual|sublingually|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(
+    evidenceTextForGate(result),
+  );
+}
+
+/** Has administration frequency evidence for gate. */
+function hasFrequencyEvidenceForGate(result: SearchResult) {
+  return /\b(?:once|twice|daily|nightly|weekly|monthly|hourly|prn|bd|tds|qds|qid|every\s+\d+(?:\.\d+)?\s*(?:hours?|days?|weeks?)|\d+\s+times?\s+(?:a|per)\s+(?:day|week|hour))\b/i.test(
     evidenceTextForGate(result),
   );
 }
@@ -2926,9 +2934,7 @@ export function evaluateEvidenceCoverageGate(
   }
 
   if (queryClass === "medication_dose_risk") {
-    const asksDoseAmount = /\b(?:dose|doses|dosage|dosages|dosing|mg|mcg|microgram|maximum|minimum)\b/i.test(query);
-    const asksRoute =
-      /\b(?:route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(query);
+    const { asksAmount, asksRoute, asksFrequency } = medicationDoseEvidenceQueryIntent(query);
     const agitationOk = !/\bagitation|arousal\b/i.test(query) || /\bagitation|arousal\b/i.test(evidenceText);
     const hasContextualDoseEvidence = top.some(
       (result) => hasDoseEvidenceSupport(result) && medicationDoseQueryContext(query, result).matched,
@@ -2945,24 +2951,39 @@ export function evaluateEvidenceCoverageGate(
         hasRouteEvidenceForGate(result) &&
         medicationDoseQueryContext(query, result).matched,
     );
-    const accepted =
-      hasContextualDoseEvidence &&
-      (!asksDoseAmount || hasContextualDoseAmount) &&
-      (!asksRoute || hasContextualRoute) &&
-      agitationOk;
+    const hasContextualFrequency = top.some(
+      (result) =>
+        hasDoseEvidenceSupport(result) &&
+        hasFrequencyEvidenceForGate(result) &&
+        medicationDoseQueryContext(query, result).matched,
+    );
+    const hasCoLocatedRequestedEvidence = top.some(
+      (result) =>
+        hasDoseEvidenceSupport(result) &&
+        medicationDoseQueryContext(query, result).matched &&
+        (!asksAmount || hasDoseAmountEvidenceForGate(result)) &&
+        (!asksRoute || hasRouteEvidenceForGate(result)) &&
+        (!asksFrequency || hasFrequencyEvidenceForGate(result)),
+    );
+    const requestedAttributeCount = Number(asksAmount) + Number(asksRoute) + Number(asksFrequency);
+    const accepted = hasCoLocatedRequestedEvidence && agitationOk;
     return {
       accepted,
       reason: accepted
         ? "dose_route_amount_evidence_gate"
-        : !hasDoseAmount
+        : asksAmount && !hasDoseAmount
           ? "missing_dose_amount_evidence"
-          : !hasContextualDoseEvidence || (asksDoseAmount && !hasContextualDoseAmount)
+          : !hasContextualDoseEvidence || (asksAmount && !hasContextualDoseAmount)
             ? "missing_dose_query_context"
             : !hasContextualRoute && asksRoute
               ? "missing_route_evidence"
-              : !agitationOk
-                ? "missing_agitation_context"
-                : "missing_dose_evidence",
+              : !hasContextualFrequency && asksFrequency
+                ? "missing_frequency_evidence"
+                : requestedAttributeCount > 1 && !hasCoLocatedRequestedEvidence
+                  ? "missing_co_located_medication_evidence"
+                  : !agitationOk
+                    ? "missing_agitation_context"
+                    : "missing_dose_evidence",
       strategy: "text_fast_path",
       sourceImageRequired,
       sourceImageSatisfied,
