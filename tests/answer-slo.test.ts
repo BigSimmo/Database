@@ -5,12 +5,19 @@ import { answerSloSnapshot, type SloProbeClient } from "@/lib/observability/answ
 // Fake PostgREST count builder: from().select().gt() is the "total" query; adding
 // .not(column,...) narrows it to the hybrid-error or degraded count based on the
 // filtered column. Awaiting resolves to { count, error }.
-function fakeClient(counts: { total: number; hybrid: number; degraded: number }, error?: unknown): SloProbeClient {
+function fakeClient(
+  counts: { total: number; hybrid: number; degraded: number },
+  error?: unknown,
+  observedBaseFilters: string[] = [],
+): SloProbeClient {
   const build = (filter: "total" | "hybrid" | "degraded") => {
     const builder = {
       gt: () => builder,
-      not: (column: string) =>
-        column === "answer" ? builder : build(column.includes("hybrid_rpc_errors") ? "hybrid" : "degraded"),
+      is: (column: string) => {
+        observedBaseFilters.push(column);
+        return builder;
+      },
+      not: (column: string) => build(column.includes("hybrid_rpc_errors") ? "hybrid" : "degraded"),
       then: (resolve: (value: { count: number | null; error: unknown }) => unknown) =>
         resolve({ count: error ? null : counts[filter], error: error ?? null }),
     };
@@ -30,6 +37,16 @@ describe("answerSloSnapshot", () => {
     });
     expect(snapshot.hybridRpcErrorRate).toBeCloseTo(0.15, 5);
     expect(snapshot.degradedRate).toBeCloseTo(0.1, 5);
+  });
+
+  it("counts privacy-redacted answer rows while excluding search observations by event type", async () => {
+    const observedBaseFilters: string[] = [];
+    const snapshot = await answerSloSnapshot(
+      fakeClient({ total: 7, hybrid: 1, degraded: 2 }, undefined, observedBaseFilters),
+    );
+
+    expect(snapshot.totalQueries).toBe(7);
+    expect(observedBaseFilters).toEqual(["metadata->>event_type", "metadata->>event_type", "metadata->>event_type"]);
   });
 
   it("reports zero rates (not NaN) when there are no queries in the window", async () => {

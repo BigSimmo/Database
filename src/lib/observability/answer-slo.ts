@@ -28,6 +28,7 @@ type CountResult = { count: number | null; error: unknown };
 // route passes it directly and tests pass a small fake.
 type SloCountBuilder = PromiseLike<CountResult> & {
   gt(column: string, value: string): SloCountBuilder;
+  is(column: string, value: null): SloCountBuilder;
   not(column: string, operator: string, value: null): SloCountBuilder;
 };
 
@@ -54,7 +55,10 @@ export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 
       .from("rag_queries")
       .select("*", { count: "exact", head: true })
       .gt("created_at", sinceIso)
-      .not("answer", "is", null);
+      // Search observations share rag_queries but carry a dedicated event_type.
+      // Answer text is privacy-redacted to null by default, so it cannot be the
+      // discriminator without hiding normal production answers from the SLO.
+      .is("metadata->>event_type", null);
 
   const [total, hybrid, degraded] = await Promise.all([
     base(),
