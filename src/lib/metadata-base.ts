@@ -4,6 +4,7 @@ export type MetadataBaseOptions = {
   allowRequestOrigin?: boolean;
 };
 
+/** Parse an absolute HTTP(S) URL without allowing invalid configuration to escape. */
 function httpUrl(value: string | undefined) {
   const candidate = value?.trim();
   if (!candidate) return undefined;

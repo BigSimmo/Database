@@ -11,6 +11,7 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 
 export type RateLimitSubject = { kind: "owner"; ownerId: string } | { kind: "anonymous"; subjectKey: string };
 
+/** Read the deployment proxy's appended address from a forwarded IP chain. */
 function trustedProxyIp(value: string | null) {
   const forwarded = value
     ?.split(",")
@@ -19,6 +20,7 @@ function trustedProxyIp(value: string | null) {
   return forwarded?.at(-1) ?? "";
 }
 
+/** Select the strongest deployment-owned request identity signal available. */
 function requestIpSignal(request: Request) {
   return (
     trustedProxyIp(request.headers.get("x-forwarded-for")) ||
@@ -27,6 +29,7 @@ function requestIpSignal(request: Request) {
   );
 }
 
+/** Derive a stable, non-reversible quota subject for an anonymous caller. */
 export function anonymousApiSubjectKey(request: Request) {
   // Trust only the deployment proxy's appended forwarding entry. Ignore the
   // caller-controlled Cloudflare/User-Agent values and any leading XFF entries:
