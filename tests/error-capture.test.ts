@@ -51,7 +51,17 @@ describe("captureServerException", () => {
     expect(captured).not.toBe(error);
     expect(captured.message).toBe("Server request failed");
     expect(captured.stack).not.toContain("boom");
-    expect(hint).toEqual({ extra: { route: "api/answer", status: 500, errorType: "Error" } });
+    expect(hint).toEqual({ extra: { route: "api/answer", status: 500 } });
+  });
+
+  it("does not forward a mutable error name", async () => {
+    const { captureServerException } = await loadCapture(TEST_DSN);
+    const error = new Error("private message");
+    error.name = "lithium query from document 123";
+    await captureServerException(error, { route: "api/answer" });
+
+    const [, hint] = sentryMocks.captureException.mock.calls[0];
+    expect(JSON.stringify(hint)).not.toContain(error.name);
   });
 
   it("never propagates a failure inside the SDK", async () => {

@@ -183,7 +183,6 @@ describe("instrumentation onRequestError", () => {
     expect(captured.stack).not.toContain("boom");
     expect(hint.extra.path).toBe("/api/documents");
     expect(hint.extra.routeType).toBe("route");
-    expect(hint.extra.errorType).toBe("Error");
     expect(JSON.stringify(hint)).not.toContain("lithium");
   });
 });
