@@ -37,18 +37,31 @@ function providerRetryNumber(value: string | undefined, fallback: number) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function isProviderRateLimitError(error: unknown) {
+function providerErrorText(error: unknown) {
   const maybeRecord = error && typeof error === "object" ? (error as Record<string, unknown>) : {};
-  const message = [
+  const maybeDetails =
+    maybeRecord.details && typeof maybeRecord.details === "object"
+      ? (maybeRecord.details as Record<string, unknown>)
+      : {};
+  return [
     error instanceof Error ? error.name : "",
     error instanceof Error ? error.message : String(error),
     maybeRecord.status,
     maybeRecord.code,
     maybeRecord.type,
+    maybeDetails.code,
   ]
     .filter(Boolean)
     .join(" ");
-  return /\b(?:429|rate[_\s-]?limit(?:ed)?|too many requests)\b/i.test(message);
+}
+
+export function isProviderQuotaError(error: unknown) {
+  return /\b(?:insufficient[_\s-]?quota|quota|billing)\b/i.test(providerErrorText(error));
+}
+
+export function isProviderRateLimitError(error: unknown) {
+  const message = providerErrorText(error);
+  return !isProviderQuotaError(error) && /\b(?:429|rate[_\s-]?limit(?:ed)?|too many requests)\b/i.test(message);
 }
 
 export async function withProviderBackoff<T>(
