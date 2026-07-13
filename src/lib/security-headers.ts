@@ -73,10 +73,11 @@ export function buildContentSecurityPolicy({
     // img-src/media-src are scoped to the Supabase Storage origin that serves the
     // signed-URL images (document pages) — the app loads no other cross-origin
     // media, so a bare `https:` would needlessly widen the exfil surface. connect-src
-    // must include *.supabase.co for the signed-URL/API fetches.
+    // must include *.supabase.co for the signed-URL/API fetches. OpenAI calls are
+    // server-side only, so the browser gets no provider origin (2026-07-13 audit).
     "img-src 'self' data: blob: https://*.supabase.co; " +
     "media-src 'self' https://*.supabase.co; " +
-    "connect-src 'self' https://*.supabase.co https://api.openai.com; " +
+    "connect-src 'self' https://*.supabase.co; " +
     scriptSrc +
     "style-src 'self' 'unsafe-inline'"
   );
