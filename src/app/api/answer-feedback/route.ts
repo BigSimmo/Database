@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       provider_request_ids: [...new Set(body.providerRequestIds)],
     });
     if (error) {
-      if (/duplicate|unique/i.test(error.message)) {
+      if (error.code === "23505") {
         return NextResponse.json({ error: "Feedback has already been recorded for this answer." }, { status: 409 });
       }
       throw new PublicApiError("Answer feedback could not be saved.", 500, { code: "feedback_insert_failed" });

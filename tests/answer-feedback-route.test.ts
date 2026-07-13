@@ -53,4 +53,39 @@ describe("answer feedback route", () => {
       }),
     );
   });
+
+  it("maps PostgreSQL unique violations to a duplicate-feedback response", async () => {
+    const insert = vi.fn(async () => ({ error: { code: "23505", message: "localized constraint failure" } }));
+    vi.doMock("@/lib/env", () => ({ isDemoMode: () => false }));
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({ from: vi.fn(() => ({ insert })) }),
+    }));
+    vi.doMock("@/lib/public-api-access", () => ({
+      publicAccessContext: vi.fn(async () => ({
+        authenticated: false,
+        ownerId: undefined,
+        rateLimitSubject: { kind: "anonymous", subjectKey: "anon:test" },
+      })),
+    }));
+    vi.doMock("@/lib/api-rate-limit", () => ({
+      allowRateLimitInMemoryFallbackOnUnavailable: () => true,
+      consumeSubjectApiRateLimit: vi.fn(async () => ({ limited: false })),
+      rateLimitJsonResponse: vi.fn(),
+    }));
+
+    const { POST } = await import("../src/app/api/answer-feedback/route");
+    const response = await POST(
+      new Request("http://localhost/api/answer-feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          interactionId,
+          feedbackCategory: "verified",
+          answerHash: "b".repeat(64),
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+  });
 });

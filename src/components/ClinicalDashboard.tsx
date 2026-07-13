@@ -2584,7 +2584,7 @@ export function ClinicalDashboard({
           citedSourceIds: citedChunkIds,
           route: answer.routingMode ?? null,
           model: answer.modelUsed ?? null,
-          providerRequestIds: answer.openAIRequestIds ?? [],
+          providerRequestIds: Array.from(new Set(answer.openAIRequestIds ?? [])).slice(0, 10),
         }),
       });
 

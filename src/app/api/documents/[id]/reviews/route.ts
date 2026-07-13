@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
-import { isDemoMode } from "@/lib/env";
+import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
+import {
+  checkIngestionMutationSafety,
+  hasActiveAgentEnrichmentJob,
+  ingestionMutationSafetyPayload,
+} from "@/lib/ingestion-mutation-safety";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
-import { sourceReviewDecisionSchema } from "@/lib/source-review";
+import { isValidReviewDate, sourceReviewDecisionSchema } from "@/lib/source-review";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -21,6 +26,7 @@ const bodySchema = z
     reviewDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .refine(isValidReviewDate, "Review date must be a valid date that is not in the future.")
       .nullable()
       .optional()
       .default(null),
@@ -52,6 +58,39 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const body = await parseJsonBody(request, bodySchema, "Invalid source review.");
     const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "source_review" });
     if (rateLimit.limited) return rateLimitJsonResponse("Too many source review requests. Retry shortly.", rateLimit);
+
+    const promotesSource = body.decision === "approved" || body.decision === "locally_reviewed";
+    if (promotesSource) {
+      const { data: document, error: documentError } = await supabase
+        .from("documents")
+        .select("id,status")
+        .eq("id", id)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+      if (documentError) throw new Error(documentError.message);
+      if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+      if (document.status !== "indexed") {
+        return NextResponse.json({ error: "Source promotion requires completed document indexing." }, { status: 409 });
+      }
+
+      const safety = await checkIngestionMutationSafety({
+        supabase,
+        documentIds: [id],
+        action: "Source promotion",
+        checkActiveJobs: true,
+        staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
+      });
+      if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
+
+      const enrichmentActive = await hasActiveAgentEnrichmentJob({
+        supabase,
+        documentId: id,
+        staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
+      });
+      if (enrichmentActive) {
+        return NextResponse.json({ error: "Source promotion is paused while enrichment is active." }, { status: 409 });
+      }
+    }
 
     const { data, error } = await supabase.rpc("record_source_review", {
       p_document_id: id,
