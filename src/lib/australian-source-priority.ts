@@ -80,11 +80,17 @@ function isSupplementaryPadding(args: {
  */
 export function selectAustralianClinicalContext(
   results: SearchResult[],
-  options: { limit?: number; maxPerDocument?: number; sufficientAustralianChunks?: number } = {},
+  options: {
+    limit?: number;
+    maxPerDocument?: number;
+    sufficientAustralianChunks?: number;
+    omitSupplementaryPadding?: boolean;
+  } = {},
 ) {
   const limit = options.limit ?? 6;
   const maxPerDocument = options.maxPerDocument ?? 2;
   const sufficientAustralianChunks = options.sufficientAustralianChunks ?? 4;
+  const omitSupplementaryPadding = options.omitSupplementaryPadding ?? true;
   const ranked = results
     .map((result, index) => ({ result, index, tier: australianSourceTier(result) }))
     .filter(({ result }) => result.relevance?.verdict !== "none")
@@ -93,9 +99,9 @@ export function selectAustralianClinicalContext(
       const rightRelevance = resultRelevanceRank(right.result);
       return leftRelevance - rightRelevance || tierRank[left.tier] - tierRank[right.tier] || left.index - right.index;
     });
-  const withoutSupplementaryPadding = ranked.filter(
-    (candidate) => !isSupplementaryPadding({ candidate, ranked, sufficientAustralianChunks }),
-  );
+  const withoutSupplementaryPadding = omitSupplementaryPadding
+    ? ranked.filter((candidate) => !isSupplementaryPadding({ candidate, ranked, sufficientAustralianChunks }))
+    : ranked;
   const capped = capClinicalContextPerDocument(
     withoutSupplementaryPadding.map(({ result }) => result),
     maxPerDocument,

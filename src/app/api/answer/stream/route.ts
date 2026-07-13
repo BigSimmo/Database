@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { demoAnswer } from "@/lib/demo-data";
+import { demoAnswer, demoSummary } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
 import {
@@ -10,19 +10,19 @@ import {
   type ApiRateLimitResult,
 } from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
-import { toClientAnswerPayload } from "@/lib/answer-client-payload";
-import { answerQuestionWithScope, type AnswerProgressEvent } from "@/lib/rag";
+import {
+  answerDegradedModeSignal,
+  buildGovernedAnswerClientResponse,
+  buildGovernedDemoAnswerClientResponse,
+} from "@/lib/answer-response";
+import { answerQuestionWithScope, summarizeDocument, type AnswerProgressEvent } from "@/lib/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope, type RetrievalAccessScope } from "@/lib/owner-scope";
-import {
-  hasDangerSourceGovernanceWarning,
-  sourceGovernanceRefusalAnswer,
-  sourceGovernanceWarnings,
-} from "@/lib/source-governance";
+import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { captureServerException } from "@/lib/observability/error-capture";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
@@ -33,31 +33,32 @@ import { safeErrorLogDetails } from "@/lib/privacy";
 import { startSseHeartbeat } from "@/lib/sse-heartbeat";
 import { parseJsonBody } from "@/lib/validation/body";
 import { toPublicAnswerProgressEvent } from "@/lib/answer-progress-public";
-import type { RagAnswer } from "@/lib/types";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 
 export const runtime = "nodejs";
 
-const answerSchema = z.object({
-  query: z.string().trim().min(1).max(2000),
-  documentId: z.string().uuid().optional(),
-  documentIds: z.array(z.string().uuid()).max(25).optional(),
-  filters: searchScopeFiltersSchema.optional(),
-  queryMode: clinicalQueryModeSchema.optional().default("auto"),
-});
+const answerSchema = z
+  .object({
+    query: z.string().trim().min(1).max(2000),
+    documentId: z.string().uuid().optional(),
+    documentIds: z.array(z.string().uuid()).max(25).optional(),
+    filters: searchScopeFiltersSchema.optional(),
+    queryMode: clinicalQueryModeSchema.optional().default("auto"),
+    summaryMode: z.boolean().optional().default(false),
+  })
+  .superRefine((value, context) => {
+    if (value.summaryMode && !value.documentId) {
+      context.addIssue({
+        code: "custom",
+        path: ["documentId"],
+        message: "Document summary mode requires a document id.",
+      });
+    }
+  });
 
 type AnswerBody = z.infer<typeof answerSchema>;
 const emptyScopeAnswer =
   "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.";
-
-function answerDegradedModeSignal(answer?: Pick<RagAnswer, "degradedMode" | "answerQualityTier" | "fallbackReason">) {
-  if (answer?.degradedMode) return answer.degradedMode;
-  const active = answer?.answerQualityTier === "source_only";
-  return {
-    active,
-    reason: active ? (answer?.fallbackReason ?? "source_only") : null,
-  };
-}
 
 function encodeSse(event: string, data: unknown) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -65,6 +66,10 @@ function encodeSse(event: string, data: unknown) {
 
 function rateLimitStream(rateLimit: ApiRateLimitResult) {
   return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
+}
+
+function documentSummaryRateLimitStream(rateLimit: ApiRateLimitResult) {
+  return rateLimitJsonResponse("Too many document summary requests. Retry shortly.", rateLimit);
 }
 
 function streamErrorPayload(error: unknown) {
@@ -116,26 +121,29 @@ function logStreamError(error: unknown, signal?: AbortSignal) {
 }
 
 function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
-  const demo = demoAnswer(body.query, body.documentId, body.documentIds);
+  const demo =
+    body.summaryMode && body.documentId
+      ? demoSummary(body.documentId)
+      : demoAnswer(body.query, body.documentId, body.documentIds);
   const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const sources = annotateSearchResults(answerFocusQuery, demo.sources);
   const relevance = buildEvidenceRelevance(answerFocusQuery, sources);
-  return {
-    ...demo,
-    sources,
-    relevance,
-    smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
-    smartApiPlan: buildSmartRagApiPlan({
-      query: answerFocusQuery,
-      queryClass: queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
-      results: sources,
-      routeMode: demo.routingMode,
-      retrievalStrategy: "hybrid",
-    }),
-    demoMode: true,
-    degradedMode: fallbackReason ? { active: true, reason: fallbackReason } : answerDegradedModeSignal(demo),
-    ...(fallbackReason ? { fallbackMode: "non_production_demo", fallbackReason } : {}),
-  };
+  return buildGovernedDemoAnswerClientResponse(
+    {
+      ...demo,
+      sources,
+      relevance,
+      smartPanel: demo.smartPanel ? { ...demo.smartPanel, relevance } : demo.smartPanel,
+      smartApiPlan: buildSmartRagApiPlan({
+        query: answerFocusQuery,
+        queryClass: queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(answerFocusQuery).queryClass,
+        results: sources,
+        routeMode: demo.routingMode,
+        retrievalStrategy: "hybrid",
+      }),
+    },
+    fallbackReason,
+  );
 }
 
 function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signal?: AbortSignal) {
@@ -204,77 +212,49 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
             });
             return;
           }
-          const singleDocumentScope = Boolean(
-            body.documentId && !body.documentIds?.length && scope?.activeFilterCount === 0,
-          );
-          const answer = isDemoMode()
-            ? buildDemoStreamAnswer(body)
-            : await answerQuestionWithScope({
-                query: body.query,
-                documentId: singleDocumentScope ? body.documentId : undefined,
-                documentIds: singleDocumentScope
-                  ? undefined
-                  : (scope?.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
-                ownerId,
-                accessScope,
-                allowGlobalSearch: !ownerId,
-                queryMode: body.queryMode,
-                onProgress,
-                onToken,
-                onRevising,
-                signal,
-              });
-          const warnings = sourceGovernanceWarnings({
-            results: answer.sources ?? [],
-            relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
-          });
-          const shouldUseSourceGovernanceRefusal =
-            answer.grounded !== false && answer.confidence !== "unsupported" && answer.responseMode !== "evidence_gap";
-          if (shouldUseSourceGovernanceRefusal && hasDangerSourceGovernanceWarning(warnings)) {
-            // Explicit refusal payload — do not spread ...answer (see /api/answer):
-            // the refused sources/smartPanel/smartApiPlan must not reach the client.
-            if (!isDemoMode()) {
-              void logAnswerDiagnostics({
-                supabase: createAdminClient(),
-                query: body.query,
-                ownerId,
-                answer: {
-                  ...answer,
-                  grounded: false,
-                  confidence: "unsupported",
-                  sources: [],
-                  responseMode: "evidence_gap",
-                  fallbackReason: "source_governance_refusal",
-                  routingReason: [answer.routingReason, "source_governance_refusal"].filter(Boolean).join("; "),
-                },
-              });
-            }
-            sendFinal({
-              answer: sourceGovernanceRefusalAnswer,
-              grounded: false,
-              confidence: "unsupported",
-              citations: [],
-              sources: [],
-              degradedMode: answerDegradedModeSignal(answer),
-              scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
-              sourceGovernanceWarnings: warnings,
-              ...streamAnswerFeedbackMetadata(interactionId, sourceGovernanceRefusalAnswer),
-            });
+          if (isDemoMode()) {
+            sendFinal({ ...buildDemoStreamAnswer(body), interactionId });
             return;
           }
 
-          if (!isDemoMode()) {
-            logAnswerDiagnostics({ supabase: createAdminClient(), query: body.query, ownerId, answer });
+          const singleDocumentScope = Boolean(
+            body.documentId && !body.documentIds?.length && scope?.activeFilterCount === 0,
+          );
+          if (body.summaryMode) {
+            sendProgress({ stage: "analyzing", message: "Reading the committed document sections." });
+            sendProgress({ stage: "generating", message: "Building the governed clinical summary." });
           }
+          const answer =
+            body.summaryMode && body.documentId
+              ? await summarizeDocument(body.documentId, ownerId, { signal })
+              : await answerQuestionWithScope({
+                  query: body.query,
+                  documentId: singleDocumentScope ? body.documentId : undefined,
+                  documentIds: singleDocumentScope
+                    ? undefined
+                    : (scope?.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
+                  ownerId,
+                  accessScope,
+                  allowGlobalSearch: !ownerId,
+                  queryMode: body.queryMode,
+                  onProgress,
+                  onToken,
+                  onRevising,
+                  signal,
+                });
+          const governedResponse = buildGovernedAnswerClientResponse(answer);
+
+          logAnswerDiagnostics({
+            supabase: createAdminClient(),
+            query: body.query,
+            ownerId,
+            answer: governedResponse.telemetryAnswer,
+          });
 
           sendFinal({
-            // Boundary trim only — governance warnings and diagnostics above
-            // consumed the full answer (see answer-client-payload.ts).
-            ...toClientAnswerPayload(answer),
-            degradedMode: answerDegradedModeSignal(answer),
+            ...governedResponse.payload,
             scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
-            sourceGovernanceWarnings: warnings,
-            ...streamAnswerFeedbackMetadata(interactionId, answer.answer),
+            ...streamAnswerFeedbackMetadata(interactionId, governedResponse.payload.answer),
           });
         } catch (error) {
           // Parity with /api/answer (PR #315): outside production, a misconfigured
@@ -325,6 +305,18 @@ export async function POST(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
+
+    if (body.summaryMode) {
+      // Streamed full-document summaries use the same paid provider path as the
+      // legacy summary endpoint. Preserve the general answer ceiling, then also
+      // enforce the stricter summary quota before the SSE stream can start.
+      const summaryRateLimit = await consumeSubjectApiRateLimit({
+        supabase,
+        subject: access.rateLimitSubject,
+        bucket: "document_summarize",
+      });
+      if (summaryRateLimit.limited) return documentSummaryRateLimitStream(summaryRateLimit);
+    }
 
     return streamAnswer(body, resolveRetrievalAccessScope(access.ownerId), request.signal);
   } catch (error) {

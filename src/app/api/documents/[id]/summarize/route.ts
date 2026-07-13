@@ -1,8 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { demoSummary, getDemoDocument } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
+import { documentSummaryQuestion } from "@/lib/answer-contract";
 import { summarizeDocument } from "@/lib/rag";
+import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
+import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
+import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 import { jsonError } from "@/lib/http";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,7 +28,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (!getDemoDocument(id)) {
         return NextResponse.json({ error: "Demo document not found." }, { status: 404 });
       }
-      return NextResponse.json({ ...demoSummary(id), demoMode: true });
+      return NextResponse.json({
+        ...buildGovernedDemoAnswerClientResponse(demoSummary(id)),
+        interactionId: randomUUID(),
+      });
     }
 
     const supabase = createAdminClient();
@@ -31,7 +39,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "document_summarize" });
     if (rateLimit.limited)
       return rateLimitJsonResponse("Too many document summary requests. Retry shortly.", rateLimit);
-    return NextResponse.json(await summarizeDocument(id, user.id));
+    const answer = await summarizeDocument(id, user.id);
+    const governedResponse = buildGovernedAnswerClientResponse(answer);
+    logAnswerDiagnostics({
+      supabase,
+      query: documentSummaryQuestion,
+      ownerId: user.id,
+      answer: governedResponse.telemetryAnswer,
+    });
+    const interactionId = randomUUID();
+    return NextResponse.json({
+      ...governedResponse.payload,
+      ...answerFeedbackMetadata(interactionId, governedResponse.payload.answer),
+    });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
