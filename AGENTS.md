@@ -323,9 +323,11 @@ These instructions apply to Codex GitHub pull request reviews and Codex tasks st
 - Prioritize high-confidence findings that affect correctness, security, privacy, data loss, auth/permissions, migrations, API contracts, production reliability, clinical behavior, source governance, or user-facing behavior.
 - Do not comment on formatting, naming, style, minor cleanup, or speculative refactors unless they create a real bug or maintainability risk.
 - Prefer fewer, stronger findings over exhaustive low-value review comments.
+- An automatic review may emit at most three inline findings total. Use inline comments only for P0/P1 issues; put non-blocking P2 context in one summary and omit P3 feedback.
 - A finding must cite concrete changed code and explain the failure mode.
 - Do not suggest broad rewrites during review. Recommend the smallest change that resolves the issue.
 - Do not propose or start fixes unless explicitly asked with an `@codex fix...` or `@codex resolve...` comment, or when the repository's Codex auto-resolve workflow posts that command.
+- Treat automatic review as single-pass per pull request. Do not re-review a later head, repeat a prior finding, or create another review during an auto-resolve task unless a human explicitly requests a fresh review.
 
 ### Severity calibration
 
@@ -355,7 +357,7 @@ If a high-risk area is touched, review more carefully for regressions, missing t
 
 ### Cost and usage control
 
-Avoid broad repeated review passes. Do not request exhaustive review behavior unless the PR touches security, auth, data loss, migrations, billing, production reliability, clinical output, source governance, or private document access. Prefer targeted validation and targeted review comments.
+Avoid broad repeated review passes. Do not request exhaustive review behavior unless the PR touches security, auth, data loss, migrations, billing, production reliability, clinical output, source governance, or private document access. Prefer targeted validation and targeted review comments. A new commit from the automatic repair task is not permission for another automatic review.
 
 ### Fix behavior
 
@@ -381,8 +383,9 @@ When explicitly asked to fix or resolve review findings:
 - After fixing a P0 or P1 finding, reply with the fix summary and resolve the review conversation when supported by GitHub permissions/tooling.
 - After fixing an approved P2 or lower finding, reply with the fix summary and resolve the review conversation when supported.
 - After deciding not to fix a P2 or lower finding, reply with the reason, note whether it is deferred or not actionable, and resolve the review conversation when supported.
-- Do not leave a review conversation open after it has been fixed or explicitly dispositioned.
-- If GitHub permissions/tooling do not allow resolving a review conversation, leave a clear reply that says the issue is fixed or dispositioned and that the conversation is ready for a human to resolve.
+- For every fixed or fully dispositioned thread, start the thread reply with `<!-- codex-thread-disposition:resolved -->`. The workflow uses this trusted marker to close that exact thread.
+- Do not use the marker when human input or new authorization is required; explain the blocker and leave that thread open.
+- Do not leave a review conversation open after it has been fixed or fully dispositioned. If direct resolution is unavailable, the marker reply is the required fallback and the workflow performs the closure.
 
 ### Automatic resolve trigger
 
@@ -392,18 +395,20 @@ Automatic Codex review is review-only by default. This repository includes `.git
 - Match the trusted Codex connector bot by exact login and bot type; do not use substring login checks.
 - Keep per-pull-request concurrency on the authorized job, not the whole workflow, so unrelated review comments cannot displace a pending Codex request.
 - Pin the supported Node 24-based `actions/github-script` release to its reviewed immutable commit SHA.
-- The workflow must skip review-thread replies and auto-resolve request comments so Codex fix summaries do not re-trigger the workflow.
-- The workflow must ask Codex to resolve only actionable Codex review findings for the triggering pull request and current head using these repository instructions.
-- The workflow may request one repair per pull-request head SHA, capped at three automatic repair cycles per pull request.
+- The workflow must skip auto-resolve request comments and must never turn review-thread replies into new repair requests.
+- The workflow must treat unmarked review-thread replies as inert. A trusted Codex reply beginning with `<!-- codex-thread-disposition:resolved -->` may only resolve the exact containing thread.
+- The workflow must ask Codex to resolve only existing actionable Codex review findings for the triggering pull request and current head using these repository instructions; the resolve task must not perform a new review or create new findings.
+- The workflow may request one automatic repair pass per pull request lifetime. Later heads require an explicit human request.
 - Only trust a pull-request deduplication marker when it was posted by the GitHub Actions bot.
 - Permission failures while reading or creating pull-request comments must fail the workflow visibly, not return a successful soft-skip.
+- Grant `pull-requests: write` only to the narrow marker-driven thread-resolution workflow; retain read-only repository contents and do not approve reviews or alter code.
 - The workflow must not run Codex directly with API credentials.
 - P0 and P1 findings should always be fixed.
 - P2 and lower findings should be fixed only when clear, scoped, low-risk, and testable; otherwise explain the decision and resolve or mark ready for human resolution.
 
 ### Primary PR command
 
-`@codex resolve actionable Codex review findings for this pull request and current head using the repository instructions. Always fix P0 and P1 findings. For P2 and lower findings, decide whether each is worth fixing automatically. Fix clear, scoped, low-risk issues with the best minimal change; otherwise reply explaining why the issue is deferred or not actionable. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit unless explicitly asked. After each fix or decision, resolve the review conversation if supported. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`
+`@codex resolve actionable Codex review findings for this pull request and current head using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. After fixing or dispositioning a thread, reply in that thread with <!-- codex-thread-disposition:resolved --> as the first line, followed by a concise summary; that marker authorizes the workflow to close that exact thread. If human input or new authorization is required, do not use the marker and leave the thread open with the blocker. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`
 
 ## Cursor Cloud specific instructions
 
