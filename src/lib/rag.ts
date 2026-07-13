@@ -987,11 +987,7 @@ function hasValidatedGenericLaiManagementExtractiveAnswer(args: {
   sourceBacked: boolean;
 }) {
   const genericLaiManagementQuery =
-    /\blong[- ]acting injectables?\b/i.test(args.query) &&
-    /\b(?:manage|managed|management)\b/i.test(args.query) &&
-    !/\b(?:adolescen\w*|administer|child(?:ren)?|compare|contraindicat|dose|dosing|elderly|escalat\w*|frequency|geriatric|hepatic|initiat\w*|interval|missed|monitor\w*|observation|older adult|overdue|paediatric|pediatric|pregnan\w*|prescrib\w*|renal|risk\w*|route|side effect|stop|switch|versus|withhold|young people|youth)\b/i.test(
-      args.query,
-    );
+    /^\s*how (?:are|should) long[- ]acting injectables? (?:be )?managed\??\s*$/i.test(args.query);
 
   if (
     !genericLaiManagementQuery ||
