@@ -222,7 +222,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
           }
           const answer =
             body.summaryMode && body.documentId
-              ? await summarizeDocument(body.documentId, ownerId)
+              ? await summarizeDocument(body.documentId, ownerId, { signal })
               : await answerQuestionWithScope({
                   query: body.query,
                   documentId: singleDocumentScope ? body.documentId : undefined,

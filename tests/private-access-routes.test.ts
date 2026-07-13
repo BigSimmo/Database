@@ -4074,7 +4074,9 @@ describe("private document API access", () => {
       interactionId: expect.any(String),
       feedbackToken: expect.any(String),
     });
-    expect(summarizeDocument).toHaveBeenCalledWith(documentId, userId);
+    expect(summarizeDocument).toHaveBeenCalledWith(documentId, userId, {
+      signal: expect.any(AbortSignal),
+    });
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 

@@ -5700,7 +5700,7 @@ ${qualityRetryInstruction}`
 }
 
 /** Summarize the committed document context; the route applies the shared client-response governance contract. */
-export async function summarizeDocument(documentId: string, ownerId?: string) {
+export async function summarizeDocument(documentId: string, ownerId?: string, options?: { signal?: AbortSignal }) {
   const supabase = createAdminClient();
   let documentQuery = supabase.from("documents").select("id,title,file_name,metadata").eq("id", documentId);
 
@@ -5770,6 +5770,7 @@ ${buildRagSourceBlock(results)}`;
     instructions: summaryInstructions,
     promptCacheKey: "clinical-document-summary-v2",
     reasoningEffort: env.OPENAI_SUMMARY_REASONING_EFFORT,
+    signal: options?.signal,
   });
   const answer = parseAnswerJson(generated.text, results, "summary");
   answer.answer = cleanClinicalSummaryText(answer.answer);

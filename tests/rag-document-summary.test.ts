@@ -57,33 +57,38 @@ describe("document summary context", () => {
       createAdminClient: () => ({ from, rpc }),
     }));
 
-    const generateStructuredTextResult = vi.fn(async (input: string) => {
-      void input;
-      return {
-        text: JSON.stringify({
-          answer:
-            "The document provides practical psychiatric guidance across the full indexed source, including the final committed section.",
-          grounded: true,
-          confidence: "high",
-          answerSections: [],
-          citations: [{ chunk_id: "summary-chunk-40" }],
-          quoteCards: [],
-          conflictsOrGaps: [],
-        }),
-        model: "gpt-4.1-mini",
-        operation: "summary",
-        latencyMs: 12,
-        requestId: "req_document_summary",
-        usage: { input_tokens: 400, output_tokens: 60, total_tokens: 460 },
-      };
-    });
+    const generateStructuredTextResult = vi.fn(
+      async (input: string, schema?: Record<string, unknown>, options?: { signal?: AbortSignal }) => {
+        void input;
+        void schema;
+        void options;
+        return {
+          text: JSON.stringify({
+            answer:
+              "The document provides practical psychiatric guidance across the full indexed source, including the final committed section.",
+            grounded: true,
+            confidence: "high",
+            answerSections: [],
+            citations: [{ chunk_id: "summary-chunk-40" }],
+            quoteCards: [],
+            conflictsOrGaps: [],
+          }),
+          model: "gpt-4.1-mini",
+          operation: "summary",
+          latencyMs: 12,
+          requestId: "req_document_summary",
+          usage: { input_tokens: 400, output_tokens: 60, total_tokens: 460 },
+        };
+      },
+    );
     vi.doMock("@/lib/openai", () => ({
       embedTextWithTelemetry: vi.fn(),
       generateStructuredTextResult,
     }));
 
     const { summarizeDocument } = await import("../src/lib/rag");
-    const answer = await summarizeDocument(documentId, ownerId);
+    const controller = new AbortController();
+    const answer = await summarizeDocument(documentId, ownerId, { signal: controller.signal });
 
     expect(documentQuery.eq).toHaveBeenCalledWith("owner_id", ownerId);
     expect(chunkQuery.order).toHaveBeenCalledWith("chunk_index", { ascending: true });
@@ -91,6 +96,9 @@ describe("document summary context", () => {
     expect(rpc).not.toHaveBeenCalled();
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
     const summaryInput = generateStructuredTextResult.mock.calls[0]?.[0] ?? "";
+    expect(generateStructuredTextResult.mock.calls[0]?.[2]).toEqual(
+      expect.objectContaining({ signal: controller.signal }),
+    );
     expect(summaryInput).toContain("Committed summary evidence 1.");
     expect(summaryInput).toContain("Committed summary evidence 40.");
     expect(summaryInput).not.toContain("Committed summary evidence 41.");
