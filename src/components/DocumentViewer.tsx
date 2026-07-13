@@ -61,7 +61,7 @@ import {
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
 import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pdf-canvas-viewer";
-import { getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { documentPageHref } from "@/lib/document-viewer-navigation";
 import { formatClinicalDate } from "@/lib/source-metadata";
@@ -1511,6 +1511,9 @@ export function DocumentViewer({
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [previewAttempt, setPreviewAttempt] = useState(0);
+  // Bounds auto-refresh of an expired PDF signed URL so a persistently failing
+  // URL can't loop. Reset when the document changes (see effect below).
+  const signedUrlRefreshCountRef = useRef(0);
   const [sourceSearch, setSourceSearch] = useState("");
   const [documentSearchResults, setDocumentSearchResults] = useState<DocumentSearchResult[]>([]);
   const [searchingDocument, setSearchingDocument] = useState(false);
@@ -1994,6 +1997,20 @@ export function DocumentViewer({
     setLoadingDocument(true);
     setPreviewAttempt((current) => current + 1);
   };
+  useEffect(() => {
+    signedUrlRefreshCountRef.current = 0;
+  }, [documentId]);
+  // The PDF signed URL has a 10-min TTL and pdf.js holds a dead reference once it
+  // expires. When the canvas reports an expiry, drop the cached URLs and re-run
+  // the fetch pipeline to mint fresh ones (bounded so a broken URL can't loop).
+  const handleSignedUrlExpired = () => {
+    if (signedUrlRefreshCountRef.current >= 2) return;
+    signedUrlRefreshCountRef.current += 1;
+    const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
+    clearCachedSignedUrl(signedUrlEndpoint);
+    clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`);
+    setPreviewAttempt((current) => current + 1);
+  };
   const handleDocumentRenamed = (updatedDocument: ClinicalDocument) => {
     setDocument((current) => (current?.id === updatedDocument.id ? { ...current, ...updatedDocument } : current));
   };
@@ -2350,6 +2367,7 @@ export function DocumentViewer({
                       url={signedUrl}
                       title={documentDisplayTitle(document)}
                       initialPage={initialPage}
+                      onUrlExpired={handleSignedUrlExpired}
                     />
                   )}
                 </>

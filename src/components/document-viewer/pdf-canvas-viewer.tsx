@@ -30,14 +30,31 @@ const ZOOM_STEP = 0.15;
 
 const clampZoom = (value: number) => Math.min(MAX_ZOOM_SCALE, Math.max(MIN_ZOOM_SCALE, value));
 
+// A signed URL that has passed its (10-min) TTL fails pdf.js with an auth/HTTP
+// error rather than a parse error. Detect those so the parent can re-issue a
+// fresh URL, without mistaking a genuinely corrupt PDF for an expiry.
+function isLikelyExpiredUrl(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const status = (error as { status?: number }).status;
+  if (status === 400 || status === 401 || status === 403) return true;
+  return (
+    error.name === "UnexpectedResponseException" ||
+    /\b(400|401|403)\b/.test(error.message) ||
+    /unexpected server response|forbidden|expired/i.test(error.message)
+  );
+}
+
 export function PdfCanvasViewer({
   url,
   title,
   initialPage,
+  onUrlExpired,
 }: {
   url: string;
   title: string;
   initialPage: number;
+  /** Called when a load/render fails in a way consistent with an expired signed URL. */
+  onUrlExpired?: () => void;
 }) {
   const fullscreenRootRef = useRef<HTMLDivElement>(null);
   const holderRef = useRef<HTMLDivElement>(null);
@@ -62,6 +79,25 @@ export function PdfCanvasViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenFallback, setFullscreenFallback] = useState(false);
 
+  const onUrlExpiredRef = useRef(onUrlExpired);
+  const urlRef = useRef(url);
+  const reportedExpiredUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    onUrlExpiredRef.current = onUrlExpired;
+  }, [onUrlExpired]);
+  useEffect(() => {
+    urlRef.current = url;
+  }, [url]);
+
+  // Report an expired URL at most once per URL, so a load failure and a
+  // subsequent render failure don't both fire a refresh for the same URL.
+  const reportUrlExpired = useCallback(() => {
+    const current = urlRef.current;
+    if (reportedExpiredUrlRef.current === current) return;
+    reportedExpiredUrlRef.current = current;
+    onUrlExpiredRef.current?.();
+  }, []);
+
   useEffect(() => {
     let active = true;
     let loadTask: PDFDocumentLoadingTask | null = null;
@@ -85,6 +121,7 @@ export function PdfCanvasViewer({
         setPage((current) => Math.min(Math.max(current, 1), loadedPdf?.numPages ?? current));
       } catch (loadError) {
         if (active) {
+          if (isLikelyExpiredUrl(loadError)) reportUrlExpired();
           setError(loadError instanceof Error ? loadError.message : "Could not load PDF preview.");
         }
       } finally {
@@ -98,7 +135,7 @@ export function PdfCanvasViewer({
       setPdf(null);
       void loadTask?.destroy();
     };
-  }, [loadAttempt, url]);
+  }, [loadAttempt, reportUrlExpired, url]);
 
   useEffect(() => {
     const nextPage = Math.max(1, initialPage || 1);
@@ -206,6 +243,7 @@ export function PdfCanvasViewer({
         await renderTask.promise;
       } catch (renderError) {
         if (!cancelled && renderError instanceof Error && renderError.name !== "RenderingCancelledException") {
+          if (isLikelyExpiredUrl(renderError)) reportUrlExpired();
           setError(renderError.message);
         }
       } finally {
@@ -218,7 +256,7 @@ export function PdfCanvasViewer({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [fitWidth, holderWidth, page, pdf, renderZoom, rotation]);
+  }, [fitWidth, holderWidth, page, pdf, renderZoom, reportUrlExpired, rotation]);
 
   function jumpToPage(nextPage: number) {
     const bounded = Math.min(Math.max(nextPage, 1), totalPages || nextPage);
