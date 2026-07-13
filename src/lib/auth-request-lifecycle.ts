@@ -10,6 +10,10 @@ export type AuthRequestLifecycle = {
   invalidate: () => number;
 };
 
+export function authSessionFingerprint(status: string, userId?: string | null) {
+  return `${status}:${userId ?? "anonymous"}`;
+}
+
 /**
  * Keeps user-scoped browser work tied to the authentication state that started it.
  * Invalidating the lifecycle aborts every registered request before advancing the
