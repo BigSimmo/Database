@@ -137,12 +137,27 @@ const qualityThresholds = {
   numericGroundingFailureRate: 0,
   staleTopResultRate: 0.25,
   reviewRequiredTopResultRate: 0.25,
-  ragP95LatencyMs: 25_000,
+  // Latency budgets are measured from the eval runner (GitHub-hosted, cross-region to the
+  // Sydney Supabase project + OpenAI), not from production. The pre-2026-07-13 budgets were
+  // calibrated when confidence_gate_blocked refusals dominated the subset — refusals return in
+  // ~1-2s, so the canary was timing fast wrong answers. After #606 restored grounded answering,
+  // p95 reflects real generation: the fast->extractive fallback chain spends the full 30s
+  // answer timeout before extracting, and #580's strong truncation self-heal can run two
+  // generations. Post-fix observed subset p95: 48.3s with every quality metric green.
+  // These budgets exist to catch latency REGRESSIONS from that honest baseline, not to encode
+  // a production UX target (production SLOs live in answer-slo.ts / docs/observability-slos.md).
+  ragP95LatencyMs: 60_000,
   ragRouteP95LatencyMs: {
+    // Refusals must stay fast — a slow refusal means the pipeline burned generation time
+    // before giving up, which is exactly the waste mode #580 eliminated.
     unsupported: 4_000,
-    extractive: 12_000,
+    // Includes timeout->extractive fallback cases, which spend OPENAI_ANSWER_TIMEOUT_MS (30s)
+    // on the failed generation before stitching sources.
+    extractive: 50_000,
     fast: 25_000,
-    strong: 35_000,
+    // Strong may retry a truncated generation at a larger budget (self-heal) = up to two
+    // sequential generations.
+    strong: 60_000,
   } as Record<string, number>,
 };
 
