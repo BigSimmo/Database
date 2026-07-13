@@ -3547,11 +3547,16 @@ export function ClinicalDashboard({
                   // bottom, so <main> reserves room for it. When that dock hides on
                   // scroll, reclaim the reserved strip too — otherwise the near-black
                   // shell background shows through as an empty band. (sm+ is inert:
-                  // bottomSearchScrollHidden only ever goes true on phones.)
+                  // bottomSearchScrollHidden only ever goes true on phones.) The
+                  // reserve hugs the real dock height (follow-up scroll row + composer
+                  // pill ≈ 6rem measured); a larger reserve just paints extra shell
+                  // background above the dock. The answer section fills the remaining
+                  // space and bottom-anchors its content, so short answers sit against
+                  // the dock instead of floating under a half-screen black void.
                   bottomSearchScrollHidden
                   ? "mb-0 sm:mb-24"
                   : answerFollowUpSuggestions.length > 0
-                    ? "mb-[calc(18rem+env(safe-area-inset-bottom))] sm:mb-24"
+                    ? "mb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:mb-24"
                     : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
                 ? bottomSearchScrollHidden
@@ -3584,7 +3589,10 @@ export function ClinicalDashboard({
                 searchMode === "answer"
                   ? compactMobileModeHome
                     ? "pb-4"
-                    : "pb-32 sm:pb-36 lg:pb-40"
+                    : // Phones bottom-anchor the answer against the dock (the <main>
+                      // reserve already clears it), so the large mobile bottom padding
+                      // would only add a scrollable black strip under a short answer.
+                      "pb-4 sm:pb-36 lg:pb-40"
                   : hasMobileBottomSearch
                     ? compactMobileModeHome
                       ? "pb-4 sm:pb-10 lg:pb-12"
@@ -3612,7 +3620,17 @@ export function ClinicalDashboard({
                         "max-sm:flex max-sm:min-h-[calc(100dvh-12.5rem)] max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
                         centeredModeHome && "max-sm:justify-center",
                       )
-                    : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
+                    : // A rendered answer bottom-anchors on phones: the section fills
+                      // the space left above the fixed composer dock and pushes its
+                      // content to the bottom, so a SHORT answer sits just above the
+                      // dock instead of top-hugging with a half-screen black void
+                      // below it. The floor subtracts the safe-area insets so it tracks
+                      // the real header/dock height across notched devices. Long answers
+                      // exceed the floor, so justify-end is inert and they scroll
+                      // normally. sm+/desktop keeps the original block + floor.
+                      activeModeResultKind === "answer" && answer
+                      ? "flex min-h-[calc(100dvh-13rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex-col justify-end sm:block sm:min-h-[calc(100dvh-11rem)]"
+                      : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                   centeredModeHome || showAnswerHome
                     ? // Phones centre the home block mid-screen, matching the
                       // standalone-route homes; the pop-up action surface picks
