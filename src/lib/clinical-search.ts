@@ -1250,6 +1250,9 @@ export function buildClinicalTextSearchQuery(query: string) {
     /\b(?:dose|dosing|guidance|inpatient|psychiatric|route|oral|intramuscular|\bim\b|\bpo\b|chart|table|pharmacolog)/i.test(
       correctedQueryText,
     );
+  const wantsAgitationDoseRouteEvidence =
+    wantsAgitationArousal &&
+    /\b(?:dose|dosing|route|oral|intramuscular|\bim\b|\bpo\b|chart|table)\b/i.test(correctedQueryText);
 
   if (wantsClozapineMissedDose) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "missed", "dose", "monitoring", "table");
@@ -1269,12 +1272,7 @@ export function buildClinicalTextSearchQuery(query: string) {
       "arousal",
       "pharmacological",
       "management",
-      "medication",
-      "chart",
-      "dose",
-      "route",
-      "im",
-      "po",
+      ...(wantsAgitationDoseRouteEvidence ? ["medication", "chart", "dose", "route", "im", "po"] : []),
     );
   } else if (/\badmission\b/i.test(query) && /\bcommunity patients?\b/i.test(query)) {
     normalizedTokens.unshift("admission", "community", "patients", "pts");
