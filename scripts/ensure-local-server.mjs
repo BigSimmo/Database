@@ -27,7 +27,7 @@ const printUrlOnly = process.argv.slice(2).includes("--print-url");
 const debugEnabled = process.env.ENSURE_DEBUG === "1";
 const startupLockStaleMs = 3 * 60 * 1000;
 const readyStableMs = 5 * 1000;
-const readinessPaths = ["/", "/applications"];
+const readinessPaths = ["/", "/applications", "/tools"];
 
 function debug(message) {
   if (debugEnabled) console.error(`[ensure-local-server] ${message}`);

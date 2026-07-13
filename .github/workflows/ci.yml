@@ -47,7 +47,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: ".nvmrc"
 
@@ -228,7 +228,7 @@ jobs:
         run: npm ci
 
       - name: Restore Chromium browser cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -241,7 +241,7 @@ jobs:
 
       - name: Upload UI diagnostics
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: critical-ui-diagnostics-${{ github.run_id }}
           path: |
@@ -249,6 +249,9 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
 
+  # Production-journey regression suite. Blocking (PT-05): a red production
+  # journey must fail pr-required instead of normalising as an advisory red.
+  # Prototype /mockups specs run separately in ui-mockups below.
   ui-regression:
     name: UI regression
     needs: changes
@@ -333,6 +336,53 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: quarantine-ui-diagnostics-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+
+  # Prototype /mockups specs live in their own advisory lane so a red mockup
+  # can never mask (or block on) a production-journey regression (PT-05).
+  ui-mockups:
+    name: Advisory mockup UI
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore Chromium browser cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Chromium mockup regression
+        run: npm run test:e2e:mockups
+
+      - name: Upload mockup UI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mockup-ui-diagnostics-${{ github.run_id }}
           path: |
             test-results/
             playwright-report/
