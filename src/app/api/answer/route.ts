@@ -16,20 +16,19 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope } from "@/lib/owner-scope";
-import {
-  hasDangerSourceGovernanceWarning,
-  sourceGovernanceRefusalAnswer,
-  sourceGovernanceWarnings,
-} from "@/lib/source-governance";
+import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { parseJsonBody } from "@/lib/validation/body";
-import { toClientAnswerPayload } from "@/lib/answer-client-payload";
+import {
+  answerDegradedModeSignal,
+  buildGovernedAnswerClientResponse,
+  buildGovernedDemoAnswerClientResponse,
+} from "@/lib/answer-response";
 import { answerServerTimingEntries, buildServerTimingHeader } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { captureServerException } from "@/lib/observability/error-capture";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
-import type { RagAnswer } from "@/lib/types";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 
 export const runtime = "nodejs";
@@ -46,15 +45,6 @@ type AnswerRequestBody = z.infer<typeof answerSchema>;
 const emptyScopeAnswer =
   "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.";
 
-function answerDegradedModeSignal(answer?: Pick<RagAnswer, "degradedMode" | "answerQualityTier" | "fallbackReason">) {
-  if (answer?.degradedMode) return answer.degradedMode;
-  const active = answer?.answerQualityTier === "source_only";
-  return {
-    active,
-    reason: active ? (answer?.fallbackReason ?? "source_only") : null,
-  };
-}
-
 function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string) {
   const answer = demoAnswer(body.query, body.documentId, body.documentIds);
   const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
@@ -65,14 +55,14 @@ function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string
     routeMode: answer.routingMode,
     retrievalStrategy: "hybrid",
   });
-  return {
-    ...answer,
-    responseMode: smartApiPlan.displayMode,
-    smartApiPlan,
-    demoMode: true,
-    degradedMode: fallbackReason ? { active: true, reason: fallbackReason } : answerDegradedModeSignal(answer),
-    ...(fallbackReason ? { fallbackMode: "non_production_demo", fallbackReason } : {}),
-  };
+  return buildGovernedDemoAnswerClientResponse(
+    {
+      ...answer,
+      responseMode: smartApiPlan.displayMode,
+      smartApiPlan,
+    },
+    fallbackReason,
+  );
 }
 
 export async function POST(request: Request) {
@@ -137,45 +127,13 @@ export async function POST(request: Request) {
       queryMode: answerBody.queryMode,
       signal: request.signal,
     });
-    const warnings = sourceGovernanceWarnings({
-      results: answer.sources ?? [],
-      relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
+    const governedResponse = buildGovernedAnswerClientResponse(answer);
+    logAnswerDiagnostics({
+      supabase,
+      query: answerBody.query,
+      ownerId: access.ownerId,
+      answer: governedResponse.telemetryAnswer,
     });
-    const shouldUseSourceGovernanceRefusal =
-      answer.grounded !== false && answer.confidence !== "unsupported" && answer.responseMode !== "evidence_gap";
-    if (shouldUseSourceGovernanceRefusal && hasDangerSourceGovernanceWarning(warnings)) {
-      // Build the refusal explicitly — never spread ...answer here, or the original
-      // (refused) sources/smartPanel/smartApiPlan would still reach the client and
-      // defeat the refusal. Keep only the safe "unsupported" contract fields, matching
-      // the empty-scope branch above.
-      void logAnswerDiagnostics({
-        supabase,
-        query: answerBody.query,
-        ownerId: access.ownerId,
-        answer: {
-          ...answer,
-          grounded: false,
-          confidence: "unsupported",
-          sources: [],
-          responseMode: "evidence_gap",
-          fallbackReason: "source_governance_refusal",
-          routingReason: [answer.routingReason, "source_governance_refusal"].filter(Boolean).join("; "),
-        },
-      });
-      return NextResponse.json({
-        answer: sourceGovernanceRefusalAnswer,
-        grounded: false,
-        confidence: "unsupported",
-        citations: [],
-        sources: [],
-        degradedMode: answerDegradedModeSignal(answer),
-        scope: { ...scope, queryMode: answerBody.queryMode },
-        sourceGovernanceWarnings: warnings,
-        ...answerFeedbackMetadata(interactionId, sourceGovernanceRefusalAnswer),
-      });
-    }
-
-    logAnswerDiagnostics({ supabase, query: answerBody.query, ownerId: access.ownerId, answer });
 
     // Durations only — see server-timing.ts for the trust-boundary constraint.
     const serverTiming = buildServerTimingHeader(
@@ -183,13 +141,9 @@ export async function POST(request: Request) {
     );
     return NextResponse.json(
       {
-        // Boundary trim only — governance warnings and diagnostics above
-        // consumed the full answer (see answer-client-payload.ts).
-        ...toClientAnswerPayload(answer),
-        degradedMode: answerDegradedModeSignal(answer),
+        ...governedResponse.payload,
         scope: { ...scope, queryMode: answerBody.queryMode },
-        sourceGovernanceWarnings: warnings,
-        ...answerFeedbackMetadata(interactionId, answer.answer),
+        ...answerFeedbackMetadata(interactionId, governedResponse.payload.answer),
       },
       serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
     );

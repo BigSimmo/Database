@@ -330,6 +330,38 @@ describe("RAG model context budgeting", () => {
     expect(selected.map((result) => result.id)).toEqual(["chunk-2", "chunk-3", "chunk-4", "chunk-5"]);
   });
 
+  it.each(["document_lookup", "comparison", "broad_summary", "unsupported_or_general"] as const)(
+    "prefers equally relevant Australian passages for %s answers without dropping supplementary evidence",
+    (queryClass) => {
+      const selected = selectModelContextResults({
+        routeMode: "strong",
+        queryClass,
+        crossDocument: queryClass === "comparison",
+        results: [
+          withRelevance(bmjSupplementarySource(1), "direct"),
+          withRelevance(waGovernedSource(2, "wa-doc-1"), "direct"),
+          withRelevance(waGovernedSource(3, "wa-doc-2"), "direct"),
+        ],
+      });
+
+      expect(selected.map((result) => result.id)).toEqual(["chunk-2", "chunk-3", "chunk-1"]);
+    },
+  );
+
+  it("keeps a more relevant international passage ahead of weaker Australian evidence", () => {
+    const selected = selectModelContextResults({
+      routeMode: "strong",
+      queryClass: "broad_summary",
+      crossDocument: false,
+      results: [
+        withRelevance(waGovernedSource(1, "wa-doc-1"), "partial"),
+        withRelevance(bmjSupplementarySource(2), "direct"),
+      ],
+    });
+
+    expect(selected.map((result) => result.id)).toEqual(["chunk-2", "chunk-1"]);
+  });
+
   it("uses a stable context pack cache key for matching retry inputs", () => {
     const key = packedContextCacheKey(results, "broad_summary", { crossDocument: true });
     const sameInputs = packedContextCacheKey([...results], "broad_summary", { crossDocument: true });

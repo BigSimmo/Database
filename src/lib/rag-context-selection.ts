@@ -31,10 +31,21 @@ export function selectModelContextResults(args: {
   crossDocument: boolean;
   results: SearchResult[];
 }) {
-  if (args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold") {
+  const highRiskNumericQuery = args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold";
+  if (highRiskNumericQuery) {
     return selectAustralianClinicalContext(args.results);
   }
-  const results = capPerDocumentCrowding(args.results);
+
+  // All answer classes should prefer authoritative Australian guidance when it
+  // is equally relevant. For non-numeric questions this is an order-only
+  // preference: retain supplementary evidence so a local source cannot hide a
+  // stronger or uniquely relevant international passage. Numeric/high-risk
+  // queries keep the stricter bounded Australian-first policy above.
+  const results = selectAustralianClinicalContext(args.results, {
+    limit: args.results.length,
+    maxPerDocument: maxContextChunksPerDocument,
+    omitSupplementaryPadding: false,
+  });
   if (args.routeMode !== "fast") return results;
   if (args.crossDocument || args.queryClass === "comparison" || args.queryClass === "broad_summary") {
     return results;

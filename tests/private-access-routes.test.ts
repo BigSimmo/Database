@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -6,6 +7,14 @@ const documentId = "11111111-1111-4111-8111-111111111111";
 const otherDocumentId = "22222222-2222-4222-8222-222222222222";
 const imageId = "33333333-3333-4333-8333-333333333333";
 const token = "valid-token";
+
+function expectFeedbackTokenBoundToAnswer(payload: Record<string, unknown>) {
+  expect(payload.interactionId).toEqual(expect.any(String));
+  expect(payload.feedbackToken).toEqual(expect.any(String));
+  const [encodedClaims] = String(payload.feedbackToken).split(".");
+  const claims = JSON.parse(Buffer.from(encodedClaims!, "base64url").toString("utf8")) as { answerHash?: string };
+  expect(claims.answerHash).toBe(createHash("sha256").update(String(payload.answer), "utf8").digest("hex"));
+}
 
 type QueryError = { message: string };
 type QueryResult = { data: unknown; error: QueryError | null };
@@ -4172,6 +4181,7 @@ describe("private document API access", () => {
     expect(finalPayload.sourceGovernanceWarnings).toEqual([
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
     ]);
+    expectFeedbackTokenBoundToAnswer(finalPayload);
   });
 
   it("refuses answer responses backed by danger-class source governance warnings", async () => {
@@ -4236,6 +4246,7 @@ describe("private document API access", () => {
     expect(body.sourceGovernanceWarnings).toEqual([
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
     ]);
+    expectFeedbackTokenBoundToAnswer(body);
   });
 
   it("rate limits document summarization before OpenAI work", async () => {
@@ -4319,6 +4330,65 @@ describe("private document API access", () => {
     expect(response.status).toBe(404);
     expect(await payload(response)).toMatchObject({ error: "Document not found." });
     expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId);
+  });
+
+  it("applies the shared danger-governance refusal to the legacy document summary endpoint", async () => {
+    const summarizeDocument = vi.fn(async () => ({
+      answer: "Use the old pathway.",
+      grounded: true,
+      confidence: "high",
+      citations: [{ chunk_id: "summary-chunk", document_id: documentId, page_number: 1 }],
+      smartPanel: { query: "summary" },
+      smartApiPlan: { displayMode: "direct" },
+      sources: [
+        {
+          id: "summary-chunk",
+          document_id: documentId,
+          title: "Outdated summary source",
+          file_name: "outdated-summary.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: "Summary",
+          content: "Use the old pathway.",
+          image_ids: [],
+          images: [],
+          similarity: 0.9,
+          source_metadata: {
+            source_title: "Outdated summary source",
+            publisher: "WA Health",
+            publisher_code: "WA_HEALTH",
+            jurisdiction: "Australia/WA",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "outdated",
+            clinical_validation_status: "approved",
+            extraction_quality: "good",
+          },
+        },
+      ],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { summarizeDocument });
+    const { POST } = await import("../src/app/api/documents/[id]/summarize/route");
+
+    const response = await POST(authenticatedRequest(`/api/documents/${documentId}/summarize`, { method: "POST" }), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ grounded: false, confidence: "unsupported", citations: [], sources: [] });
+    expect(body.smartPanel).toBeUndefined();
+    expect(body.smartApiPlan).toBeUndefined();
+    expect(body.sourceGovernanceWarnings).toEqual([
+      expect.objectContaining({ code: "outdated_source", severity: "danger" }),
+    ]);
+    expect(body.interactionId).toMatch(/^[0-9a-f-]{36}$/i);
+    expectFeedbackTokenBoundToAnswer(body);
   });
 
   it("passes owner scope into retrieval RPCs", async () => {
