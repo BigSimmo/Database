@@ -308,6 +308,7 @@ function mockRuntime(
       RAG_ANSWER_CACHE_TTL_MS: 0,
       RAG_ANSWER_CACHE_SIZE: 0,
       RAG_AWAIT_QUERY_LOGS: false,
+      RAG_QUERY_HASH_SECRET: "test-query-hash-secret-at-least-16-chars",
       // A key is present and provider mode is "auto" by default, so retrieval uses the online
       // embedding/hybrid path; tests can override to exercise the source-only path.
       OPENAI_API_KEY: options.openAiKey ?? "sk-test",
@@ -3303,6 +3304,10 @@ describe("private document API access", () => {
 
     expect(searchResponse.status).toBe(200);
     expect(answerResponse.status).toBe(200);
+    expect(await payload(answerResponse)).toMatchObject({
+      interactionId: expect.any(String),
+      feedbackToken: expect.any(String),
+    });
     expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
       expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
     );
@@ -3948,6 +3953,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expectSingleCompletionBeforeFinal(body);
     expect(ssePayload(body, "final")).toMatchObject({ demoMode: true });
+    expect(ssePayload(body, "final")).not.toHaveProperty("feedbackToken");
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
@@ -3984,6 +3990,10 @@ describe("private document API access", () => {
     expect(body).toContain('"message":"Loading a recent cited answer."');
     expect(body).not.toContain("private-cache");
     expectSingleCompletionBeforeFinal(body);
+    expect(ssePayload(body, "final")).toMatchObject({
+      interactionId: expect.any(String),
+      feedbackToken: expect.any(String),
+    });
   });
 
   it("emits a structured SSE error when authenticated streaming answers are rate limited", async () => {

@@ -31,8 +31,12 @@ import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
 import type { RagAnswer } from "@/lib/types";
 import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
+import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 
 export const runtime = "nodejs";
+
+const emptyScopeAnswer =
+  "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.";
 
 function answerDegradedModeSignal(answer?: Pick<RagAnswer, "degradedMode" | "answerQualityTier" | "fallbackReason">) {
   if (answer?.degradedMode) return answer.degradedMode;
@@ -96,8 +100,7 @@ export async function POST(request: Request) {
     });
     if (scope.documentIds?.length === 0) {
       return NextResponse.json({
-        answer:
-          "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.",
+        answer: emptyScopeAnswer,
         grounded: false,
         confidence: "unsupported",
         citations: [],
@@ -105,7 +108,7 @@ export async function POST(request: Request) {
         degradedMode: answerDegradedModeSignal(),
         scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
-        interactionId,
+        ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
       });
     }
 
@@ -160,7 +163,7 @@ export async function POST(request: Request) {
         degradedMode: answerDegradedModeSignal(answer),
         scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: warnings,
-        interactionId,
+        ...answerFeedbackMetadata(interactionId, sourceGovernanceRefusalAnswer),
       });
     }
 
@@ -178,7 +181,7 @@ export async function POST(request: Request) {
         degradedMode: answerDegradedModeSignal(answer),
         scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: warnings,
-        interactionId,
+        ...answerFeedbackMetadata(interactionId, answer.answer),
       },
       serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
     );
