@@ -17,6 +17,7 @@ export function normalizedDocumentName(value: string) {
 }
 
 const clinicalDocumentAliases: Record<string, string[]> = {
+  Acamprosate: ["Acamprosate"],
   ActiveCommunityPtED: [
     "Active Community Patients in the Emergency Department",
     "Active Community Patients Emergency Department",
@@ -29,6 +30,7 @@ const clinicalDocumentAliases: Record<string, string[]> = {
     "Mental Health Pharmacological Management of Agitation and Arousal",
   ],
   AssessmentDocumentation: ["Assessment Documentation", "Clinical Assessment", "Mental Health Assessment"],
+  ADHD: ["ADHD", "Attention Deficit Hyperactivity Disorder"],
   BestPracticePrescription: ["Best Practice Prescription", "Best Practice Prescribing", "Prescription"],
   ClozapinePresAdminMonitor: [
     "Clozapine Prescribing Administration Monitoring",
@@ -65,11 +67,15 @@ const clinicalDocumentAliases: Record<string, string[]> = {
     "Olanzapine LAI",
     "Long Acting Injectable Antipsychotic",
   ],
+  Lithium: ["Lithium", "Lithium Clinical Guideline", "Lithium CAMHS"],
+  Metformin: ["Metformin"],
   MetabolicScreening: ["Metabolic Screening", "Metabolic Monitoring", "Physical Health Monitoring"],
   MHATMHCTTreatmentTeamProcess: ["Mental Health Treatment Team Process", "Treatment Team Process", "MHAT", "MHCT"],
   NeurolepticSideEffect: ["Neuroleptic Side Effects", "Neuroleptic Side Effect", "Neuroleptic Effects"],
   NOCC: ["NOCC", "National Outcomes and Casemix Collection", "Outcome Measures Completion"],
+  Naltrexone: ["Naltrexone"],
   PtSafetyPlan: ["Patient Safety Plan", "Safety Planning", "Safety Plan"],
+  Sertraline: ["Sertraline"],
 };
 
 export function documentExpectationAlternatives(expectation: string) {

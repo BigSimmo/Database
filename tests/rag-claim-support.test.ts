@@ -130,6 +130,29 @@ describe("deterministic claim support", () => {
     expect(result.confidence).toBe("medium");
   });
 
+  it("assesses newline-delimited claims independently instead of merging their evidence scopes", () => {
+    const admission = source("admission", "Admission requires referral and bed allocation.");
+    const followUp = source("follow-up", "Follow-up review should occur within 72 hours.");
+    const input = answer(
+      "Admission requires referral and bed allocation.\nFollow-up review should occur within 72 hours.",
+      [admission, followUp],
+    );
+
+    const assessment = assessClaimSupport(input);
+    expect(assessment.claims).toHaveLength(2);
+    expect(assessment.claims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ text: "Admission requires referral and bed allocation.", supportStatus: "direct" }),
+        expect.objectContaining({
+          text: "Follow-up review should occur within 72 hours.",
+          riskClass: "high_risk",
+          supportStatus: "direct",
+        }),
+      ]),
+    );
+    expect(assessAndEnforceClaimSupport(input).responseMode).not.toBe("evidence_gap");
+  });
+
   it("ignores incidental outdated or poor retrieval-only sources but fails closed when direct support is dangerous", () => {
     const direct = source("direct", "Stop clozapine below ANC 1.0 x10^9/L.");
     const incidental = source("incidental", "An old unrelated administrative note.", {

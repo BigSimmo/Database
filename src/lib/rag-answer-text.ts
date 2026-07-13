@@ -33,7 +33,11 @@ const orphanSourceHeadingPattern =
 const sourceInventoryWordingPattern =
   /\b(?:the\s+(?:strongest\s+)?retrieved\s+(?:source|sources|passages|excerpts)\s+(?:support|supports|show|shows|indicate|indicates)|retrieved\s+(?:source|sources|passages|excerpts)|indexed\s+source\s+passages\s+matched|no\s+concise\s+source\s+sentence|source-backed|based\s+on\s+(?:the\s+)?(?:provided\s+)?(?:sources|excerpts|passages|retrieved\s+sources)|dose evidence|monitoring evidence|table evidence|direct source-backed answer)\b/i;
 const clippedClinicalFragmentPattern =
-  /\b(?:stabili[sz]e\s+the\s+do|the\s+do\b|liver\s+functi\b|respiratio\b|if\s+a\s+60%\s+decrease\s+in\s+b\b)\b/i;
+  /\b(?:stabili[sz]e\s+the\s+do|the\s+do\b|liver\s+functi\b|respiratio\b|if\s+a\s+60%\s+decrease\s+in\s+b\b|guidance(?:\s+for\s+[^.!?]{1,60})?\s+is\s+that\s+(?:adjust|monitoring|higher\s+doses?\s+than|lower\s+doses?\s+than))\b/i;
+const danglingClinicalClausePattern =
+  /(?:^|[.!?]\s+)[^.!?]*\b(?:before|after|with|than|for|to|of|and|or|when\s+compared\s+with)\s*[.!?](?:\s|$)/i;
+const extractiveAnswerArtifactPattern =
+  /^(?:»|›|→)|(?:^|[.!?]\s+)(?:mg|mcg|micrograms?|g|ml|units?|iu)\b|\b(?:Best Uses|Bottom Line|clinical Focus)\b/i;
 const genericMedicationCasePatterns: Array<[RegExp, string]> = [
   [/\bLithium Carbonate\b/g, "lithium carbonate"],
   [/\bClozapine\b/g, "clozapine"],
@@ -286,15 +290,20 @@ export function hasClinicalAnswerQualityIssue(value: string) {
   sourceFormCodePattern.lastIndex = 0;
   bracketedCitationMarkerPattern.lastIndex = 0;
   clinicalAbbreviationCitationDigitPattern.lastIndex = 0;
+  const bareDoseFigurePattern =
+    /\b(?:maximum(?:\s+(?:recommended|daily))?(?:\s+dose)?|dose(?:\s+(?:of|is|to))?|increase(?:d)?\s+to)\s*:?\s*\d+(?:\.\d+)?(?!\d|\.\d|\s*(?:mg|mcg|micrograms?|g|ml|units?|iu)\b)/i;
   return (
     sourceInventoryWordingPattern.test(normalized) ||
     clippedClinicalFragmentPattern.test(normalized) ||
+    danglingClinicalClausePattern.test(normalized) ||
+    extractiveAnswerArtifactPattern.test(normalized) ||
     productCatalogueFragmentPattern.test(normalized) ||
     brandOrFormularyFragmentPattern.test(normalized) ||
     allCapsSourceHeadingPattern.test(normalized) ||
     sourceFormCodePattern.test(normalized) ||
     bracketedCitationMarkerPattern.test(normalized) ||
     clinicalAbbreviationCitationDigitPattern.test(normalized) ||
+    bareDoseFigurePattern.test(normalized) ||
     /(?<=[a-z)])\d+(?=\.?(?:\s|$))/.test(normalized)
   );
 }

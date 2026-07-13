@@ -395,7 +395,7 @@ function resultCoversAnswerIntent(result: SearchResult, query: string, intent: A
   if (intent === "red_result_action" && requiresBloodCountEvidence(query) && !hasBloodCountEvidence(text)) return false;
   if (intent === "red_result_action" && asksForWithholdAction(query) && !hasWithholdActionEvidence(text)) return false;
   if (/\brenal\b/i.test(query) && !/\b(?:renal|kidney|eGFR|creatinine)\b/i.test(text)) return false;
-  if (/\bmax(?:imum)?\b/i.test(query) && !/\b(?:max(?:imum)?|\d+(?:\.\d+)?\s?(?:mg|mcg))\b/i.test(text)) {
+  if (/\bmax(?:imum)?\b/i.test(query) && !/\bmax(?:imum)?\b/i.test(text)) {
     return false;
   }
   return true;
@@ -413,7 +413,7 @@ const extractiveAllowedLowercaseStarterPattern =
 const extractiveConcreteDosePattern =
   /\b(?:\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms|mmol\/?l)|mmol\/l|daily|bd|tds|mane|nocte|target|range|serum|levels?|titration|titrate|titrated|adjust(?:ed|ment)?|dose\s+(?:adjust|reduc|increas)|reduce(?:d)?\s+doses?|doses?\s+(?:in|for|when|with|based|according)|max(?:imum)?|renal|eGFR|CrCl|creatinine|elderly|impairment|conventional tablets?)\b/i;
 const extractiveMedicationEntityPattern =
-  /\b(?:acamprosate|aripiprazole|baclofen|citalopram|clozapine|diazepam|disulfiram|droperidol|escitalopram|fluoxetine|haloperidol|lithium|lorazepam|naltrexone|olanzapine|promethazine|quetiapine|risperidone|sertraline|valproate)\b/gi;
+  /\b(?:acamprosate|aripiprazole|baclofen|benzodiazepine|citalopram|clozapine|diazepam|disulfiram|droperidol|escitalopram|fluoxetine|haloperidol|lithium|lorazepam|naltrexone|olanzapine|promethazine|quetiapine|risperidone|sertraline|valproate)\b/gi;
 
 /** Extractive query tokens. */
 function extractiveQueryTokens(query: string) {
@@ -687,7 +687,7 @@ function factSupportsAnswerIntent(
         }
       }
       if (/\brenal\b/i.test(query) && !/\b(?:renal|kidney|eGFR|creatinine|CrCl)\b/i.test(text)) return false;
-      if (/\bmax(?:imum)?\b/i.test(query) && !/\b(?:max(?:imum)?|\d+(?:\.\d+)?\s?(?:mg|mcg))\b/i.test(text)) {
+      if (/\bmax(?:imum)?\b/i.test(query) && !/\bmax(?:imum)?\b/i.test(text)) {
         return false;
       }
       return extractiveConcreteDosePattern.test(text);
@@ -759,6 +759,19 @@ function factSentenceMatchesQueryFromResult(
 
   const resultText = evidenceTextForGate(result);
   const entityTokens = queryEntityTokens(query, intent);
+  const queryMedicationEntities = medicationEntitiesInText(query);
+  const sentenceMedicationEntities = medicationEntitiesInText(sentence);
+  const resultMedicationEntities = medicationEntitiesInText(resultText);
+  if (
+    intent === "dose" &&
+    queryMedicationEntities.length > 0 &&
+    sentenceMedicationEntities.length === 0 &&
+    resultMedicationEntities.length > 1
+  ) {
+    // A bare dose row from a multi-drug table cannot safely inherit the query's
+    // medication/class label. Require the row itself to name its medication.
+    return false;
+  }
   const entityCoveredByResult =
     entityTokens.length === 0 || entityTokens.some((token) => queryTokenMatchesText(token, resultText));
   if (!entityCoveredByResult) return false;
@@ -899,6 +912,7 @@ export function sentenceFromFact(
 /** Lower first. */
 function lowerFirst(value: string) {
   if (!value) return value;
+  if (/^[A-Z][A-Z0-9&+-]{1,}\b/.test(value)) return value;
   return `${value.charAt(0).toLowerCase()}${value.slice(1)}`;
 }
 
@@ -1323,8 +1337,13 @@ function sourceBackedFallbackSubject(query: string) {
     .replace(/^summari[sz]e\s+(?:the\s+)?/i, "")
     .replace(/^what\s+(?:is|are)\s+(?:the\s+)?(?:process|requirements?)\s+for\s+/i, "")
     .replace(/^what\s+(?:is|are)\s+required\s+(?:for|when)\s+/i, "")
+    .replace(/^what\s+(.+?)\s+should\s+((?:withhold|cease|stop)\s+.+)$/i, "$1 for the decision to $2")
+    .replace(/^what\s+(.+?)\s+(?:is|are)\s+(?:used|required|recommended|needed)\s+for\s+(.+)$/i, "$1 for $2")
+    .replace(/^what\s+(.+?)\s+(?:apply|applies)$/i, "$1")
     .replace(/^what\s+(.+?)\s+is\s+required$/i, "$1")
     .replace(/^what\s+does\s+(?:the\s+)?/i, "")
+    .replace(/^what\s+(?:is|are)\s+(?:the\s+)?/i, "")
+    .replace(/^what\s+/i, "")
     .replace(/\s+(?:document|procedure|guideline)\s+require$/i, "")
     .replace(/^how\s+(?:is|are)\s+/i, "")
     .replace(/\s+managed$/i, " management")
@@ -1337,7 +1356,7 @@ function sourceBackedFallbackSubject(query: string) {
 /** Source backed generation timeout answer. */
 export function sourceBackedGenerationTimeoutAnswer(query: string) {
   const subject = sourceBackedFallbackSubject(query);
-  return `The uploaded documents contain relevant guidance on ${subject}, but a full written answer could not be completed just now. The key source passages are cited below — please review them directly.`;
+  return `The uploaded documents contain relevant guidance on ${subject}, but a full written answer could not be completed just now. Relevant document passages are cited below — please review them directly.`;
 }
 
 const reasoningEffortRank: Record<OpenAIReasoningEffort, number> = {
@@ -1627,6 +1646,15 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
     return "missing_query_overlap";
   }
   if (hasInvalidModelEvidenceIds(answer)) return "invalid_model_evidence_ids";
+  const broadDocumentCoverageRequested =
+    queryClass === "document_lookup" &&
+    /(?:\b(?:what|which)\b.{0,100}\b(?:include|included|require|required|requirements?)\b|\b(?:process|procedure)\b|\bhow\b.{0,80}\b(?:handled|managed|performed|completed)\b)/i.test(
+      query,
+    );
+  const distinctAvailableSources = new Set((answer.sources ?? []).map((source) => source.id)).size;
+  if (broadDocumentCoverageRequested && distinctAvailableSources >= 2 && answer.citations.length < 2) {
+    return "insufficient_broad_citation_coverage";
+  }
   if (isUnusableGeneratedAnswer(answer)) return "unusable_generated_answer";
   if (isTemplateLikeGeneratedAnswer(answer)) return "template_like_answer";
   if (isOverExpandedSimpleGeneratedAnswer(query, queryClass, answer)) return "overexpanded_simple_answer";

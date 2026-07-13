@@ -4467,40 +4467,43 @@ async function answerQuestionWithScopeUncoalesced(
       generation_latency_ms: 0,
       total_latency_ms: Date.now() - startedAt,
     };
-    const answer: RagAnswer = annotateAnswerWithDiagnostics(
+    const sourceSafeExtractiveAnswer = buildExtractiveAnswer({
+      query: args.query,
+      queryClass,
+      results: answerInputResults,
+      quoteCards,
+      documentBreakdown,
+      evidenceSummary,
+      sourceCoverage,
+      conflictsOrGaps,
+      visualEvidence,
+      bestSource,
+      smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+      relatedDocuments,
+      routeReason:
+        queryClass === "comparison" ? `${route.reason}; comparison_source_extractive_fallback` : route.reason,
+      timings: extractiveTimings,
+    });
+    const sourceSafeComparisonAnswer =
       queryClass === "comparison"
         ? (buildComparisonAnswer({
             query: args.query,
             results: answerInputResults,
-            selectedDocuments: explicitlySelectedComparisonDocuments,
             routeReason: route.reason,
+            selectedDocuments: explicitlySelectedComparisonDocuments,
             timings: extractiveTimings,
           }) ??
-            buildComparisonEvidenceGapAnswer({
-              query: args.query,
-              results: answerInputResults,
-              selectedDocuments: explicitlySelectedComparisonDocuments,
-              routeReason: `${route.reason}; comparison_evidence_gap`,
-              timings: extractiveTimings,
-            }))
-        : buildExtractiveAnswer({
-            query: args.query,
-            queryClass,
-            results: answerInputResults,
-            quoteCards,
-            documentBreakdown,
-            evidenceSummary,
-            sourceCoverage,
-            conflictsOrGaps,
-            visualEvidence,
-            bestSource,
-            smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
-            relatedDocuments,
-            routeReason: route.reason,
-            timings: extractiveTimings,
-          }),
-      retrievalDiagnostics,
-    );
+          (sourceSafeExtractiveAnswer.grounded
+            ? sourceSafeExtractiveAnswer
+            : buildComparisonEvidenceGapAnswer({
+                query: args.query,
+                results: answerInputResults,
+                selectedDocuments: explicitlySelectedComparisonDocuments,
+                routeReason: `${route.reason}; comparison_evidence_gap`,
+                timings: extractiveTimings,
+              })))
+        : sourceSafeExtractiveAnswer;
+    const answer: RagAnswer = annotateAnswerWithDiagnostics(sourceSafeComparisonAnswer, retrievalDiagnostics);
     answer.quoteCards ??= quoteCards;
     answer.documentBreakdown ??= documentBreakdown;
     answer.evidenceSummary ??= evidenceSummary;
@@ -4515,7 +4518,32 @@ async function answerQuestionWithScopeUncoalesced(
     answer.smartPanel = answer.smartPanel ? { ...answer.smartPanel, relevance } : answer.smartPanel;
     answer.smartApiPlan = smartApiPlan;
     answer.scoreExplanations = answerScoreExplanations;
-    const finalizedAnswer = finalizeRagAnswerQuality(answer, args.query, queryClass);
+    let finalizedAnswer = finalizeRagAnswerQuality(answer, args.query, queryClass);
+    const extractiveReviewCitations = answer.citations.length
+      ? answer.citations
+      : compactCitations(answerInputResults, 5, "deterministic_support");
+    const extractiveNeedsReviewFallback = !finalizedAnswer.grounded && extractiveReviewCitations.length > 0;
+    if (extractiveNeedsReviewFallback) {
+      const reviewRouteReason = `${answer.routingReason ?? route.reason}; source_backed_review_fallback`;
+      const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
+      finalizedAnswer = finalizeRagAnswerQuality(
+        {
+          ...answer,
+          answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
+          grounded: true,
+          confidence: deriveConfidence(answerInputResults, extractiveReviewCitations),
+          citations: extractiveReviewCitations,
+          modelUsed: null,
+          routingMode: "extractive",
+          routingReason: reviewRouteReason,
+          responseMode: reviewPlan.displayMode,
+          smartApiPlan: reviewPlan,
+          answerSections: [],
+        },
+        args.query,
+        queryClass,
+      );
+    }
 
     if (args.logQuery !== false)
       await logRagQuery({
@@ -4599,7 +4627,8 @@ async function answerQuestionWithScopeUncoalesced(
 - Never state unsupported numbers, doses, frequencies, thresholds, routes, or medication names. If a number or dose is not clearly in the evidence, leave it out.
 - Copy every dose, level, threshold, cut-off, frequency, and duration EXACTLY as written in a cited excerpt — digit for digit, with its unit. Never supply a number from general clinical knowledge (including "typical" therapeutic levels or well-known reference ranges) that is not verbatim in the excerpts, and never round, infer, or complete a partial figure.
 - Do not merge separate values into a range. If the excerpts list discrete dose steps (for example 0.25 mg, 0.5 mg, 1 mg), present them as discrete steps — never as "0.25–1 mg" or any range the excerpt does not itself state.
-- Use only citation_chunk_id values from the supplied source block — never invent, transform, abbreviate, or reuse IDs from outside the retrieved evidence. Cite only the strongest 3-5, not every source.
+- Use only citation_chunk_id values from the supplied source block — never invent, transform, abbreviate, or reuse IDs from outside the retrieved evidence. Cite only the strongest 3-5 that collectively support every claim you retain; if five chunks cannot cover a lower-priority claim, omit that claim instead of leaving it uncited.
+- For every number, dose, threshold, frequency, or timing, include the exact supporting chunk ID in the containing section's citation_chunk_ids (and in the top-level citations when the figure appears in the answer field). Do not combine independently sourced requirements into one sentence unless all supporting chunk IDs are attached to that sentence's citation scope.
 - If the excerpts contain only headings, partial table fragments, or disconnected text that cannot support a logical answer, say the uploaded documents do not contain enough information — do not fill from general knowledge.
 - Integrate relevant sources: merge overlapping guidance once; when several documents are relevant, synthesise by clinical theme/action and reconcile conflicts explicitly rather than silently choosing one; call out weak, nearby-only, or missing support when the evidence is partial or conflicting. Prefer Australian or WA-specific guidance when present. Sources are ordered by relevance — prioritise earlier ones unless a later source resolves a conflict or gap. The fused source brief and structured memory lines are orientation only; verify every claim against the raw excerpts below them and cite the original chunks.
 - Do not give patient-specific medical advice.
@@ -5048,6 +5077,12 @@ ${qualityRetryInstruction}`
     const strongQualityFailureReason = usedStrongModel
       ? generatedAnswerQualityFailureReason(answer, args.query, queryClass)
       : null;
+    if (route.mode === "strong" && queryClass === "comparison" && strongQualityFailureReason) {
+      // A second strong-model pass is expensive and pushes comparison requests beyond the
+      // latency target. The catch path can rebuild these answers deterministically from the
+      // same attributed sources, so prefer that bounded recovery over another generation.
+      throw new Error(`OpenAI generation quality gate failed: ${strongQualityFailureReason}`);
+    }
     const answerNeedsStrongQualityRepair = usedStrongModel && Boolean(strongQualityFailureReason);
     if (answerNeedsStrongQualityRepair && generationLatencyMs >= generationTotalBudgetMs) {
       // A4 tail-latency guard: out of the cumulative generation time budget, so keep the
@@ -5182,6 +5217,22 @@ ${qualityRetryInstruction}`
     });
     answer = finalizeRagAnswerQuality(answer, args.query, queryClass, numericVerificationSources);
 
+    // A provider response can be schema-valid yet still fail the deterministic claim/numeric
+    // provenance gates after its citations are scoped to individual claims. Reuse the existing
+    // source-safe comparison/extractive recovery path instead of returning an empty unsupported
+    // model answer. The fallback is finalized through the same gates in the catch block, so weak
+    // or unsafe source evidence still fails closed.
+    const sourceSafeFallbackReason = answer.routingReason?.includes("claim_support_high_risk_gap")
+      ? "claim_support_high_risk_gap"
+      : answer.routingReason?.includes("material_source_governance_gap")
+        ? "material_source_governance_gap"
+        : answer.unverifiedNumericTokens?.length
+          ? "numeric_faithfulness_gap"
+          : null;
+    if (sourceSafeFallbackReason) {
+      throw new Error(`OpenAI generation quality gate failed: ${sourceSafeFallbackReason}`);
+    }
+
     if (args.logQuery !== false)
       await logRagQuery({
         owner_id: args.ownerId ?? null,
@@ -5256,23 +5307,48 @@ ${qualityRetryInstruction}`
     });
     const baseFallbackAnswer = await buildGenerationFallbackAnswer(error, relatedDocuments);
     const sanitizedReason = summarizeGenerationFailureReason(error);
-    const comparisonFallbackAnswer =
+    const comparisonMatrixFallbackAnswer =
       queryClass === "comparison"
-        ? (buildComparisonAnswer({
+        ? buildComparisonAnswer({
             query: args.query,
             results: answerInputResults,
             selectedDocuments: explicitlySelectedComparisonDocuments,
             routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_source_safe_fallback`,
             timings: baseFallbackAnswer.latencyTimings,
-          }) ??
-          buildComparisonEvidenceGapAnswer({
-            query: args.query,
-            results: answerInputResults,
-            selectedDocuments: explicitlySelectedComparisonDocuments,
-            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_evidence_gap`,
-            timings: baseFallbackAnswer.latencyTimings,
-          }))
+          })
         : null;
+    const comparisonExtractiveFallbackAnswer =
+      queryClass === "comparison" && !comparisonMatrixFallbackAnswer
+        ? buildExtractiveAnswer({
+            query: args.query,
+            queryClass,
+            results: answerInputResults,
+            quoteCards,
+            documentBreakdown,
+            evidenceSummary,
+            sourceCoverage,
+            conflictsOrGaps,
+            visualEvidence,
+            bestSource,
+            smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+            relatedDocuments,
+            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_source_extractive_fallback`,
+            timings: baseFallbackAnswer.latencyTimings,
+          })
+        : null;
+    const comparisonFallbackAnswer =
+      comparisonMatrixFallbackAnswer ??
+      (comparisonExtractiveFallbackAnswer?.grounded
+        ? comparisonExtractiveFallbackAnswer
+        : queryClass === "comparison"
+          ? buildComparisonEvidenceGapAnswer({
+              query: args.query,
+              results: answerInputResults,
+              selectedDocuments: explicitlySelectedComparisonDocuments,
+              routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_evidence_gap`,
+              timings: baseFallbackAnswer.latencyTimings,
+            })
+          : null);
     const canRecoverGenerationErrorExtractively =
       queryClass !== "comparison" &&
       answerInputResults.length > 0 &&
@@ -5368,11 +5444,46 @@ ${qualityRetryInstruction}`
             } satisfies RagAnswer;
           })()
         : (extractiveFallbackAnswer ?? baseFallbackAnswer);
-    const fallbackAnswer = finalizeRagAnswerQuality(
+    let fallbackAnswer = finalizeRagAnswerQuality(
       annotateAnswerWithDiagnostics(generationFallbackAnswer, retrievalDiagnostics),
       args.query,
       queryClass,
     );
+    const finalizedFallbackNeedsReview =
+      fallbackAnswer.responseMode === "evidence_gap" &&
+      /(?:claim_support_high_risk_gap|material_source_governance_gap)/.test(fallbackAnswer.routingReason ?? "") &&
+      baseFallbackAnswer.citations.length > 0;
+    if (finalizedFallbackNeedsReview) {
+      const reviewRouteReason = [
+        route.reason,
+        `generation_fallback:${sanitizedReason}`,
+        "source_backed_review_fallback",
+        "post_generation_claim_quality_gate",
+      ].join("; ");
+      const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
+      fallbackAnswer = finalizeRagAnswerQuality(
+        annotateAnswerWithDiagnostics(
+          {
+            ...baseFallbackAnswer,
+            answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
+            grounded: true,
+            confidence: deriveConfidence(answerInputResults, baseFallbackAnswer.citations),
+            modelUsed: null,
+            routingMode: "extractive",
+            routingReason: reviewRouteReason,
+            responseMode: reviewPlan.displayMode,
+            smartApiPlan: reviewPlan,
+            answerSections: [],
+            queryAnalysis,
+            relevance,
+            scoreExplanations: answerScoreExplanations,
+          },
+          retrievalDiagnostics,
+        ),
+        args.query,
+        queryClass,
+      );
+    }
     if (args.logQuery !== false)
       await logRagQuery({
         owner_id: args.ownerId ?? null,

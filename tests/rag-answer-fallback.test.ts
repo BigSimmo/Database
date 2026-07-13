@@ -187,6 +187,55 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).not.toContain("source_backed_extractive_fallback");
   });
 
+  it("recovers a generated comparison with an uncited high-risk value through the source-safe fallback", async () => {
+    const comparisonFact = (documentId: string, chunkId: string, value: string) => ({
+      id: `${documentId}-threshold`,
+      document_id: documentId,
+      source_chunk_id: chunkId,
+      source_image_id: null,
+      page_number: 2,
+      table_title: "ANC thresholds",
+      row_label: "Red range",
+      clinical_parameter: "ANC",
+      threshold_value: value,
+      action: "Withhold and repeat FBC",
+    });
+    const answer = await answerFromTextSources(
+      "Compare and reconcile the clinical implications of these ANC thresholds",
+      [
+        source({
+          id: "chunk-a",
+          document_id: "doc-a",
+          title: "Protocol A",
+          table_facts: [comparisonFact("doc-a", "chunk-a", "below 1.5 x 10^9/L")],
+        }),
+        source({
+          id: "chunk-b",
+          document_id: "doc-b",
+          title: "Protocol B",
+          table_facts: [comparisonFact("doc-b", "chunk-b", "below 1.0 x 10^9/L")],
+        }),
+      ],
+      {
+        answer: "Protocol A uses below 1.5 x 10^9/L, while Protocol B uses below 1.0 x 10^9/L; both require action.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [],
+        citations: [{ chunk_id: "chunk-a" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("generation_fallback:generation_quality_failed");
+    expect(answer.routingReason).toContain("comparison_source_safe_fallback");
+    expect(answer.answer).toContain("Protocol A: below 1.5 x 10^9/L");
+    expect(answer.answer).toContain("Protocol B: below 1.0 x 10^9/L");
+    expect(answer.unverifiedNumericTokens).toBeUndefined();
+  });
+
   it("keeps table-threshold questions on fact synthesis instead of source lookup", async () => {
     const answer = await answerFromTextSources("What ANC threshold does the clozapine table show?", [
       source({

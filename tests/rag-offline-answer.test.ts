@@ -131,8 +131,8 @@ describe("source-only / offline answers", () => {
     expect(answer.routingReason).toContain("source_only");
     expect(answer).toMatchObject({
       answer: expect.any(String),
-      grounded: false,
-      confidence: "unsupported",
+      grounded: true,
+      confidence: "medium",
       citations: [
         expect.objectContaining({
           chunk_id: "clozapine-chunk-1",
@@ -158,6 +158,10 @@ describe("source-only / offline answers", () => {
     expect(new Set(answer.sources.map((item) => item.id))).toEqual(
       new Set(answer.citations.map((citation) => citation.chunk_id)),
     );
+    expect(answer.answer.replaceAll("**", "")).toContain(
+      "guidance on ANC threshold for the decision to withhold clozapine",
+    );
+    expect(answer.answer).toContain("review them directly");
     // quality signalling for the UI disclosure
     expect(answer.answerQualityTier).toBe("source_only");
     expect(answer.providerMode).toBe("offline");

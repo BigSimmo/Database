@@ -70,6 +70,38 @@ describe("responsiveness gate — model-answer core-term overlap (P3)", () => {
   });
 });
 
+describe("broad document-answer citation coverage", () => {
+  it("rejects a one-citation synthesis when a broad requirements question has multiple source chunks", () => {
+    const reason = generatedAnswerQualityFailureReason(
+      modelAnswer({
+        answer:
+          "A patient safety plan should identify warning signs, agreed crisis actions, and the people responsible for those actions.",
+        citations: [{ chunk_id: "safety-plan-actions" }] as RagAnswer["citations"],
+        sources: [{ id: "safety-plan-actions" }, { id: "safety-plan-review" }] as RagAnswer["sources"],
+      }),
+      "What should a patient safety plan include?",
+      "document_lookup" satisfies RagQueryClass,
+    );
+
+    expect(reason).toBe("insufficient_broad_citation_coverage");
+  });
+
+  it("allows a single directly supporting chunk when no second source chunk is available", () => {
+    const reason = generatedAnswerQualityFailureReason(
+      modelAnswer({
+        answer:
+          "A patient safety plan should identify warning signs, agreed crisis actions, and the people responsible for those actions.",
+        citations: [{ chunk_id: "safety-plan-actions" }] as RagAnswer["citations"],
+        sources: [{ id: "safety-plan-actions" }] as RagAnswer["sources"],
+      }),
+      "What should a patient safety plan include?",
+      "document_lookup" satisfies RagQueryClass,
+    );
+
+    expect(reason).toBeNull();
+  });
+});
+
 describe("isBareDefinitionQuestion (P3 guard)", () => {
   it("recognises definitional phrasings", () => {
     expect(isBareDefinitionQuestion("What is akathisia?")).toBe(true);
@@ -90,6 +122,7 @@ describe("generation-timeout fallback wording (P2)", () => {
     const text = sourceBackedGenerationTimeoutAnswer("What is the clozapine ANC threshold?");
     expect(text).toContain("cited below");
     expect(text).toMatch(/review them directly/i);
+    expect(text).toContain("document passages");
     // The wording the task explicitly wants eliminated.
     expect(text).not.toMatch(/source status/i);
     expect(text).not.toMatch(/source-backed/i);
