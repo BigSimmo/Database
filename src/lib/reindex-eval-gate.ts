@@ -87,7 +87,14 @@ export const defaultReindexGateConfig: ReindexGateConfig = {
     expectedDangerWarningMissingCountCeiling: 0,
     staleReviewUnknownRateCeiling: 0.25,
     reviewRequiredRateCeiling: 0.25,
-    p95LatencyMsCeiling: 25000,
+    // Matches the eval-canary answer budget (scripts/eval-quality.ts ragP95LatencyMs).
+    // Recalibrated 2026-07-13: with grounded answering restored (#606), honest answer p95
+    // from eval runners is ~48s (real generation + cross-region + timeout->fallback
+    // chains); the old 25s ceiling was calibrated when fast confidence-gate refusals
+    // dominated the subset. Latency REGRESSION detection is unchanged — it stays with
+    // latencyRegressionMs against the baseline run, so a no-regression reindex at the
+    // honest baseline passes while a genuine slowdown still fails.
+    p95LatencyMsCeiling: 60000,
     rateRegressionTolerance: 0.02,
     latencyRegressionMs: 4000,
   },

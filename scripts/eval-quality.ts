@@ -151,10 +151,15 @@ const qualityThresholds = {
     // Refusals must stay fast — a slow refusal means the pipeline burned generation time
     // before giving up, which is exactly the waste mode #580 eliminated.
     unsupported: 4_000,
-    // Includes timeout->extractive fallback cases, which spend OPENAI_ANSWER_TIMEOUT_MS (30s)
-    // on the failed generation before stitching sources.
-    extractive: 50_000,
+    // Direct source-stitching with no model generation: keep the tight budget so a
+    // no-model extraction slowdown (search/stitching regression) cannot hide inside the
+    // fallback allowance below.
+    extractive: 12_000,
     fast: 25_000,
+    // Generation-fallback chains (latencyRouteForAnswer buckets any answer whose routing
+    // reason records a generation_fallback here): the failed generation spends up to
+    // OPENAI_ANSWER_TIMEOUT_MS (30s) before the source-backed fallback stitches an answer.
+    fallback: 50_000,
     // Strong may retry a truncated generation at a larger budget (self-heal) = up to two
     // sequential generations.
     strong: 60_000,
@@ -655,6 +660,11 @@ function latencyRouteForAnswer(answer: RagAnswer) {
   ) {
     return "strong";
   }
+  // A generation ran and failed before a source-backed answer was assembled (e.g.
+  // provider_timeout -> extractive fallback). These chains structurally cost the failed
+  // generation's timeout PLUS the fallback work, so they get their own latency budget
+  // instead of inflating the plain fast budget or hiding inside the no-model extractive one.
+  if (/\bgeneration_fallback:/i.test(answer.routingReason ?? "")) return "fallback";
   return "fast";
 }
 
