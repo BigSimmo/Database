@@ -885,9 +885,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("global-search-input")).toBeEnabled();
   });
 
+  test("desktop sidebar defaults to the labelled state for new users", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=answer");
+    await waitForDemoDashboardReady(page);
+
+    // No stored preference (PT-10): eight icon-only destinations demand recall,
+    // so first-run desktop shows the labelled sidebar; collapse is remembered.
+    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
+  });
+
   test("desktop sidebar mode sync and accessibility affordances stay coherent", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
+    // This journey exercises the remembered-collapsed rail; new users now
+    // default to the labelled sidebar, so seed the stored preference.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoApp(page, "/?mode=tools");
 
     const sidebar = page.locator("#clinical-tools-sidebar");
@@ -1018,6 +1034,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
+    // Exercises both collapsed and expanded account affordances; seed the
+    // remembered-collapsed preference now that new users default to labelled.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 

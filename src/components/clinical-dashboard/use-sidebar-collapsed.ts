@@ -8,14 +8,16 @@ const changeEvent = "clinical-kb-sidebar-collapsed-change";
 function getSnapshot() {
   try {
     const storedValue = window.localStorage.getItem(storageKey);
-    return storedValue === null ? true : storedValue === "1";
+    // New users get the labelled (expanded) sidebar: eight icon-only
+    // destinations demand recall/hover; collapsing stays a remembered choice.
+    return storedValue === null ? false : storedValue === "1";
   } catch {
-    return true;
+    return false;
   }
 }
 
 function getServerSnapshot() {
-  return true;
+  return false;
 }
 
 function subscribe(onChange: () => void) {
