@@ -403,6 +403,7 @@ export function verifyAnswerNumbers(
   answerText: string,
   citations: Array<Pick<Citation, "chunk_id">>,
   results: SearchResult[],
+  options: { collectiveCitationSupport?: boolean } = {},
 ): NumericVerification {
   const answerAtoms = extractClinicalValueAtoms(answerText);
   const answerTokens = Array.from(
@@ -428,7 +429,12 @@ export function verifyAnswerNumbers(
   // rather than allowing an unrelated citation to verify it by union membership.
   const sourceAtomSets = citedResults.map((result) => sourceClinicalValueAtomSet([result]));
   const unverifiedTokens = answerAtoms
-    .filter((atom) => !sourceAtomSets.every((atoms) => atoms.has(clinicalValueAtomKey(atom))))
+    .filter((atom) => {
+      const key = clinicalValueAtomKey(atom);
+      return options.collectiveCitationSupport
+        ? !sourceAtomSets.some((atoms) => atoms.has(key))
+        : !sourceAtomSets.every((atoms) => atoms.has(key));
+    })
     .map(clinicalValueAtomDisplay);
 
   return {
@@ -490,22 +496,39 @@ export function applyNumericVerification(answer: RagAnswer, verificationSources?
   const sources = verificationSources ?? answer.sources ?? [];
   const unverified = new Set<string>();
 
-  // B4: the model is instructed to put dose details in structured
-  // answerSections (kind medication_dose), so a top-level-only scan never sees
-  // section-body doses. Verify the top-level answer AND every section body.
-  // Each section is scoped to its own citation_chunk_ids when present, so a
-  // dose is only credited against the chunks that section actually cites;
-  // sections with no citations fall back to the answer-level citations.
-  const answerVerification = verifyAnswerNumbers(answer.answer, answer.citations, sources);
-  for (const token of answerVerification.unverifiedTokens) unverified.add(token);
+  const claimScopedValues = (answer.supportedClaims ?? []).filter(
+    (claim) => extractClinicalValueAtoms(claim.text).length > 0,
+  );
+  if (claimScopedValues.length > 0) {
+    // Claim assessment has already checked entity, polarity, clinical dimension,
+    // and exact value co-location. Verify each value only against the chunks that
+    // directly support its claim. Requiring a value to appear in every top-level
+    // citation incorrectly rejects valid multi-source answers (for example, a
+    // step number supported by one cited agitation-management passage).
+    for (const claim of claimScopedValues) {
+      const verification = verifyAnswerNumbers(
+        claim.text,
+        claim.supportingChunkIds.map((chunk_id) => ({ chunk_id })),
+        sources,
+        { collectiveCitationSupport: answer.responseMode === "comparison_matrix" },
+      );
+      for (const token of verification.unverifiedTokens) unverified.add(token);
+    }
+  } else {
+    // B4: before claim provenance is available, verify top-level prose and every
+    // section body against their explicit citation scopes. This preserves the
+    // fail-closed parse/fallback paths as well as direct callers of this helper.
+    const answerVerification = verifyAnswerNumbers(answer.answer, answer.citations, sources);
+    for (const token of answerVerification.unverifiedTokens) unverified.add(token);
 
-  for (const section of answer.answerSections ?? []) {
-    const sectionCitations =
-      section.citation_chunk_ids.length > 0
-        ? section.citation_chunk_ids.map((chunk_id) => ({ chunk_id }))
-        : answer.citations;
-    const sectionVerification = verifyAnswerNumbers(section.body, sectionCitations, sources);
-    for (const token of sectionVerification.unverifiedTokens) unverified.add(token);
+    for (const section of answer.answerSections ?? []) {
+      const sectionCitations =
+        section.citation_chunk_ids.length > 0
+          ? section.citation_chunk_ids.map((chunk_id) => ({ chunk_id }))
+          : answer.citations;
+      const sectionVerification = verifyAnswerNumbers(section.body, sectionCitations, sources);
+      for (const token of sectionVerification.unverifiedTokens) unverified.add(token);
+    }
   }
 
   if (unverified.size === 0) return answer;

@@ -437,6 +437,42 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).toMatch(/IM medication|oral medication|agitation/i);
   });
 
+  it("keeps source-backed agitation step numbers grounded across multiple citations", async () => {
+    const answer = await answerFromTextSources(
+      "What should be considered for agitation and arousal pharmacological management?",
+      [
+        source({
+          id: "agitation-step-table",
+          document_id: "agitation-doc",
+          title: "Agitation and Arousal Pharmacological Management",
+          file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+          section_heading: "Stepwise management",
+          content:
+            "Step 1: agitation and arousal pharmacological management should assess severity and use oral medication when the patient is willing. Step 2: monitor the agitation response and consider intramuscular medication when oral medication is refused.",
+        }),
+        source({
+          id: "agitation-clinical-review",
+          document_id: "agitation-doc",
+          title: "Agitation and Arousal Pharmacological Management",
+          file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+          section_heading: "Clinical review",
+          content:
+            "Review physical causes, medicine-related risks, observations, and the least restrictive management option.",
+          similarity: 0.94,
+          hybrid_score: 0.94,
+          text_rank: 1,
+        }),
+      ],
+    );
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.length).toBeGreaterThanOrEqual(2);
+    expect(answer.answer).toMatch(/step [12]/i);
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    expect(answer.faithfulnessWarning).toBeUndefined();
+  });
+
   it("returns a grounded document-support fallback for procedure queries when no clean fact can be synthesized", async () => {
     const answer = await answerFromTextSources(
       "What is the process for ECT procedure?",
@@ -1652,6 +1688,78 @@ describe("RAG structured-output fallback", () => {
     });
     expect(answer.grounded).toBe(false);
     expect(answer.citations).toHaveLength(0);
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+  });
+
+  it("recovers a directly supported routine document-content answer without model generation", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [
+      source({
+        id: "safety-plan-reference",
+        document_id: "safety-plan-doc",
+        title: "Patient Safety Planning Guideline",
+        file_name: "patient-safety-planning.pdf",
+        section_heading: "Related procedures",
+        content:
+          "Related procedures and guidelines. Women's and Perinatal Mental Health Referral and Management Guideline.",
+        similarity: 0.48,
+        hybrid_score: 0.48,
+        text_rank: 0.12,
+      }),
+      source({
+        id: "safety-plan-requirements",
+        document_id: "safety-plan-doc",
+        title: "Patient Safety Planning Guideline",
+        file_name: "patient-safety-planning.pdf",
+        section_heading: "Safety planning for identified risks",
+        content:
+          "The Consumer Safety Plan must be developed in collaboration with the consumer, involve carers and family where appropriate, identify actions for a crisis and who is responsible, and be reviewed when clinical status changes.",
+        similarity: 0.48,
+        hybrid_score: 0.48,
+        text_rank: 0.11,
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const answer = await answerQuestionWithScope({
+      query: "What should a patient safety plan include?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("validated_routine_extractive_recovery");
+    expect(answer.retrievalDiagnostics).toMatchObject({
+      gateStatus: "blocked",
+      routeMode: "extractive",
+      topScore: 0.48,
+    });
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.answer).toContain("developed in collaboration with the consumer");
+    expect(answer.answer).not.toContain("Perinatal Mental Health Referral");
+    expect(answer.citations.some((citation) => citation.chunk_id === "safety-plan-requirements")).toBe(true);
     expect(generateStructuredTextResult).not.toHaveBeenCalled();
   });
 
