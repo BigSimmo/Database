@@ -38,4 +38,14 @@ describe("private search scope", () => {
       reason: "invalid",
     });
   });
+
+  it("continues without a scope reference when session storage is unavailable", () => {
+    const blockedStorage = {
+      setItem: () => {
+        throw new DOMException("Storage blocked", "SecurityError");
+      },
+    };
+
+    expect(persistPrivateSearchScope(blockedStorage, "owner-a", [documentId], 100, () => scopeRef)).toBeNull();
+  });
 });

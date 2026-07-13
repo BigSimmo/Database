@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { yamlBlock } from "./yaml-contract.mjs";
 
 const workflowDir = path.join(process.cwd(), ".github", "workflows");
 
@@ -35,6 +36,7 @@ const usesPattern = /^\s*uses:\s*([^@\s]+)@v(\d+)\s*(?:#.*)?$/;
 const runsOnLatestPattern = /^\s*runs-on:\s*ubuntu-latest\s*(?:#.*)?$/;
 const failures = [];
 const expectedSupabaseCliVersion = "2.108.0";
+const expectedSupabaseCliVersionPattern = expectedSupabaseCliVersion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 for (const fileName of readdirSync(workflowDir)
   .filter((name) => /\.ya?ml$/i.test(name))
@@ -67,18 +69,26 @@ for (const fileName of readdirSync(workflowDir)
 
 const ciWorkflowPath = path.join(workflowDir, "ci.yml");
 const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");
-const requiredCiFragments = [
-  `SUPABASE_CLI_VERSION: ${expectedSupabaseCliVersion}`,
-  "version: ${{ env.SUPABASE_CLI_VERSION }}",
-  "id: supabase-docker-cache",
-  "supabase-docker-${{ runner.os }}-cli-${{ env.SUPABASE_CLI_VERSION }}-",
-  "if: success() && steps.supabase-docker-cache.outputs.cache-hit != 'true'",
-];
-
-for (const fragment of requiredCiFragments) {
-  if (!ciWorkflow.includes(fragment)) {
-    failures.push(`ci.yml: missing required pinned Supabase/cache contract: ${fragment}`);
-  }
+const migrationJob = yamlBlock(ciWorkflow, "db-reset-verify:", 2);
+const setupSupabaseStep = yamlBlock(migrationJob, "- name: Setup Supabase CLI", 6);
+const restoreSupabaseStep = yamlBlock(migrationJob, "- name: Restore Supabase Docker image cache", 6);
+const saveSupabaseStep = yamlBlock(migrationJob, "- name: Save Supabase Docker images", 6);
+if (!new RegExp(`^  SUPABASE_CLI_VERSION: ${expectedSupabaseCliVersionPattern}$`, "m").test(ciWorkflow)) {
+  failures.push(`ci.yml: global SUPABASE_CLI_VERSION must remain pinned to ${expectedSupabaseCliVersion}.`);
+}
+if (!/^          version: \$\{\{ env\.SUPABASE_CLI_VERSION \}\}$/m.test(setupSupabaseStep)) {
+  failures.push("ci.yml: db-reset-verify Setup Supabase CLI must use the pinned env version.");
+}
+if (
+  !/^        id: supabase-docker-cache$/m.test(restoreSupabaseStep) ||
+  !restoreSupabaseStep.includes("supabase-docker-${{ runner.os }}-cli-${{ env.SUPABASE_CLI_VERSION }}-")
+) {
+  failures.push("ci.yml: db-reset-verify cache step must own the pinned Supabase cache id/key.");
+}
+if (
+  !/^        if: success\(\) && steps\.supabase-docker-cache\.outputs\.cache-hit != 'true'$/m.test(saveSupabaseStep)
+) {
+  failures.push("ci.yml: db-reset-verify save step must be gated by its own cache-hit output.");
 }
 
 if (/\bversion:\s*latest\b/.test(ciWorkflow)) {
@@ -87,11 +97,16 @@ if (/\bversion:\s*latest\b/.test(ciWorkflow)) {
 
 const sastWorkflowPath = path.join(workflowDir, "sast.yml");
 const sastWorkflow = readFileSync(sastWorkflowPath, "utf8");
-if (!/^\s{4}continue-on-error:\s*true\s*$/m.test(sastWorkflow)) {
-  failures.push("sast.yml: Semgrep must remain advisory while it depends on mutable registry rules.");
+const semgrepJob = yamlBlock(sastWorkflow, "semgrep:", 2);
+const semgrepScanStep = yamlBlock(semgrepJob, "- name: Semgrep scan", 6);
+if (/^    continue-on-error:\s*true\s*$/m.test(semgrepJob)) {
+  failures.push("sast.yml: only the Semgrep scan step may be advisory; job setup failures must block.");
 }
-if (!/src worker scripts supabase\/functions/.test(sastWorkflow)) {
-  failures.push("sast.yml: Semgrep must scan Supabase Edge Function source.");
+if (!/^        continue-on-error:\s*true\s*$/m.test(semgrepScanStep)) {
+  failures.push("sast.yml: the Semgrep scan step must remain advisory while registry rules are mutable.");
+}
+if (!/^          src worker scripts supabase\/functions\s*$/m.test(semgrepScanStep)) {
+  failures.push("sast.yml: the Semgrep scan command must target src, worker, scripts, and supabase/functions.");
 }
 
 if (failures.length > 0) {

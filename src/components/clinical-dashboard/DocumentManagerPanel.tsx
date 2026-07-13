@@ -20,6 +20,7 @@ import {
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
+import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import type { ClinicalDocument, IngestionJob, ImportBatch } from "@/lib/types";
 
 // Setup and quality types
@@ -171,6 +172,19 @@ export type UploadOutcome =
   | { kind: "queued"; fileName: string; documentId: string; jobId: string }
   | { kind: "duplicate"; fileName: string; documentId: string; message: string }
   | { kind: "failed"; fileName: string; status: number; code: string; message: string };
+
+export function uploadBatchCompletion(outcomes: UploadOutcome[]) {
+  const queued = outcomes.filter((outcome) => outcome.kind === "queued");
+  const duplicates = outcomes.filter((outcome) => outcome.kind === "duplicate");
+  const failures = outcomes.filter((outcome) => outcome.kind === "failed");
+  return {
+    queued,
+    duplicates,
+    failures,
+    shouldClearInput: queued.length + duplicates.length > 0,
+    shouldRefreshDocuments: queued.length > 0,
+  };
+}
 
 type UploadResponsePayload = {
   error?: string;
@@ -354,9 +368,7 @@ export function UploadPanel({
       }
     }
 
-    const queued = outcomes.filter((outcome) => outcome.kind === "queued");
-    const duplicates = outcomes.filter((outcome) => outcome.kind === "duplicate");
-    const failures = outcomes.filter((outcome) => outcome.kind === "failed");
+    const { queued, duplicates, failures, shouldClearInput, shouldRefreshDocuments } = uploadBatchCompletion(outcomes);
     setUploadPercent(failures.length === 0 ? 100 : null);
     if (failures.length === 0) {
       const parts = [
@@ -364,20 +376,21 @@ export function UploadPanel({
         duplicates.length ? `${duplicates.length} already existed; no indexing job was queued` : null,
       ].filter(Boolean);
       changeStatus(parts.join(". ") + ".");
-      if (input) input.value = "";
-      if (queued.length) onUploaded();
     } else {
       const successful = queued.length + duplicates.length;
       changeStatus(
         `Upload complete: ${successful} accepted; ${failures.length} failed. ${failures.map((outcome) => `${outcome.fileName}: ${outcome.message}`).join("; ")}`,
       );
     }
+    if (input && shouldClearInput) input.value = "";
+    if (shouldRefreshDocuments) onUploaded();
     setUploading(false);
     setUploadPercent(null);
   }
 
   return (
     <form onSubmit={handleFormSubmit} className={cn(panelSubtle, "p-3")}>
+      <PrivacyInputNotice className="mb-2" />
       <label className="block text-xs font-semibold text-[color:var(--text)]">
         Guideline PDF files
         <input

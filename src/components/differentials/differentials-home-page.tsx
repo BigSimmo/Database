@@ -72,6 +72,21 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
     }
   }, [autoRunSearch, trimmedQuery, runSearch]);
 
+  const navigateToSearch = useCallback(
+    (nextQuery: string) => {
+      router.push(
+        appModeHomeHref("differentials", {
+          query: nextQuery,
+          run: true,
+          focus: true,
+          queryMode: routedSearchContext.queryMode,
+          scopeFilters: routedSearchContext.scopeFilters,
+        }),
+      );
+    },
+    [router, routedSearchContext.queryMode, routedSearchContext.scopeFilters],
+  );
+
   return (
     <ModeHomeMain>
       <DifferentialsHome
@@ -80,17 +95,8 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
         documentMatches={documentMatches}
         evidenceQuery={evidenceQuery}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
-        onRunSearch={(nextQuery) => {
-          router.push(
-            appModeHomeHref("differentials", {
-              query: nextQuery,
-              run: true,
-              focus: true,
-              queryMode: routedSearchContext.queryMode,
-              scopeFilters: routedSearchContext.scopeFilters,
-            }),
-          );
-        }}
+        onRunSearch={navigateToSearch}
+        onSuggestedSearch={navigateToSearch}
       />
     </ModeHomeMain>
   );

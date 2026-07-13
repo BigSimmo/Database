@@ -92,7 +92,9 @@ async function answerOffline(
     rpcHandler
       ? async (name: string) => rpcHandler(name)
       : async (name: string) => {
-          if (name === "match_document_chunks_text") return { data: textSources, error: null };
+          if (name === "match_document_chunks_text_v2" || name === "match_document_chunks_text") {
+            return { data: textSources, error: null };
+          }
           return { data: [], error: null };
         },
   );
@@ -199,5 +201,38 @@ describe("source-only / offline answers", () => {
       citations: [],
       sources: [],
     });
+  });
+
+  it("uses the dedicated comparison builder and keeps provider-unavailable output source-safe", async () => {
+    const protocolB = source({
+      id: "clozapine-chunk-2",
+      document_id: "clozapine-doc-b",
+      title: "Clozapine Protocol B",
+      file_name: "clozapine-b.pdf",
+      table_facts: [
+        {
+          ...source().table_facts![0],
+          id: "clozapine-anc-threshold-b",
+          document_id: "clozapine-doc-b",
+          source_chunk_id: "clozapine-chunk-2",
+          threshold_value: "below 1.0 x 10^9/L",
+          action: "Stop clozapine and repeat FBC.",
+        },
+      ],
+    });
+
+    const { answer, generateStructuredTextResult } = await answerOffline("Compare the ANC thresholds", [
+      source(),
+      protocolB,
+    ]);
+
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+    expect(answer.routingReason).toContain("structured_comparison_matrix");
+    expect(answer.routingReason).toContain("source_only");
+    expect(answer.comparisonEvaluationState).toBe("evaluated");
+    expect(answer.comparisonMatrix?.rows[0]?.status).toBe("conflict");
+    expect(answer.answer).toContain("below 1.5 x 10^9/L");
+    expect(answer.answer).toContain("below 1.0 x 10^9/L");
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(["clozapine-chunk-1", "clozapine-chunk-2"]);
   });
 });

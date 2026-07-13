@@ -26,6 +26,11 @@ const nextConfig: NextConfig = {
   experimental: {
     cpus: 1,
     optimizePackageImports: ["lucide-react"],
+    // Proxy is on every API route. Bound its buffered client body so a
+    // chunked multipart upload cannot grow without limit before route code
+    // reaches request.formData(). MAX_UPLOAD_MB is capped at 150 below this
+    // 151 MiB transport envelope (1 MiB reserved for multipart framing).
+    proxyClientMaxBodySize: "151mb",
   },
   poweredByHeader: false,
   turbopack: {

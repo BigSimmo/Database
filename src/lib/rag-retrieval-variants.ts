@@ -1,6 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readExpiringCacheEntry, writeBoundedExpiringCacheEntry } from "@/lib/bounded-ttl-cache";
-import { retrievalOwnerFilter } from "@/lib/owner-scope";
+import {
+  retrievalAccessScopeForArgs,
+  retrievalAccessScopeKey,
+  retrievalOwnerFilter,
+  type RetrievalAccessScope,
+} from "@/lib/owner-scope";
 import { buildClinicalTextSearchQuery, normalizedClinicalSearchTokens, queriedZoneColour } from "@/lib/clinical-search";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import type { SearchChunksArgs } from "@/lib/rag-contracts";
@@ -103,8 +108,10 @@ export function shouldApplyUnsupportedSearchShortCircuit(
 export async function fetchEnabledRagAliases(
   supabase: ReturnType<typeof createAdminClient>,
   ownerId?: string,
+  accessScope?: RetrievalAccessScope,
 ): Promise<RagAliasInput[]> {
-  const cacheKey = ownerId ? `owner:${ownerId}` : "global";
+  const scope = retrievalAccessScopeForArgs({ ownerId, accessScope });
+  const cacheKey = retrievalAccessScopeKey(scope);
   const cached = readExpiringCacheEntry(ragAliasCache, cacheKey);
   if (cached) return cached.aliases;
 
@@ -125,7 +132,7 @@ export async function fetchEnabledRagAliases(
   try {
     const [globalAliases, ownerAliases] = await Promise.all([
       readScope(null),
-      ownerId ? readScope(ownerId) : Promise.resolve([] as RagAliasInput[]),
+      scope.ownerId ? readScope(scope.ownerId) : Promise.resolve([] as RagAliasInput[]),
     ]);
     const merged: RagAliasInput[] = [];
     const seen = new Set<string>();

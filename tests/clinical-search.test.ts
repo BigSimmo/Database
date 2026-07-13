@@ -95,6 +95,23 @@ describe("clinical search query normalization", () => {
     expect(classifyRagQuery("What are the risks of high-dose clozapine?").queryClass).toBe("medication_dose_risk");
   });
 
+  it("requires medication context before monitoring becomes drug-dosing intent", () => {
+    for (const query of ["ECT monitoring requirements", "suicide-risk observation monitoring"]) {
+      expect(classifyRagQuery(query).queryClass).not.toBe("medication_dose_risk");
+      expect(classifyQueryIntent(query).intent).not.toBe("drug_dosing");
+    }
+    for (const query of ["lithium monitoring", "maximum lithium dose"]) {
+      expect(classifyRagQuery(query).queryClass).toBe("medication_dose_risk");
+      expect(classifyQueryIntent(query).intent).toBe("drug_dosing");
+    }
+    expect(["medication_dose_risk", "table_threshold"]).toContain(
+      classifyRagQuery("clozapine monitoring table").queryClass,
+    );
+    expect(classifyQueryIntent("clozapine monitoring table").intent).toBe("drug_dosing");
+    expect(classifyRagQuery("lithium monitoring protocol").queryClass).toBe("medication_dose_risk");
+    expect(classifyQueryIntent("lithium monitoring protocol").intent).toBe("drug_dosing");
+  });
+
   it("keeps high-yield clinical terms and removes question filler", () => {
     expect(normalizedClinicalSearchTokens("What safety monitoring is required for clozapine?")).toEqual([
       "safety",

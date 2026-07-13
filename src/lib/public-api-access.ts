@@ -11,22 +11,29 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 
 export type RateLimitSubject = { kind: "owner"; ownerId: string } | { kind: "anonymous"; subjectKey: string };
 
-function firstForwardedIp(value: string | null) {
-  return value?.split(",")[0]?.trim() || "";
+/** Read the deployment proxy's appended address from a forwarded IP chain. */
+function trustedProxyIp(value: string | null) {
+  const forwarded = value
+    ?.split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return forwarded?.at(-1) ?? "";
 }
 
+/** Select the strongest deployment-owned request identity signal available. */
 function requestIpSignal(request: Request) {
   return (
-    firstForwardedIp(request.headers.get("cf-connecting-ip")) ||
-    firstForwardedIp(request.headers.get("x-forwarded-for")) ||
-    firstForwardedIp(request.headers.get("x-real-ip")) ||
+    trustedProxyIp(request.headers.get("x-forwarded-for")) ||
+    trustedProxyIp(request.headers.get("x-real-ip")) ||
     "unknown-ip"
   );
 }
 
+/** Derive a stable, non-reversible quota subject for an anonymous caller. */
 export function anonymousApiSubjectKey(request: Request) {
-  // User-Agent is caller-controlled and therefore must not partition a quota:
-  // rotating it would mint a fresh paid-answer allowance for every request.
+  // Trust only the deployment proxy's appended forwarding entry. Ignore the
+  // caller-controlled Cloudflare/User-Agent values and any leading XFF entries:
+  // Railway appends the trusted client address at the right edge of the chain.
   // If no trusted proxy IP is available, every unknown caller intentionally
   // shares the same conservative quota rather than failing open.
   const source = requestIpSignal(request);

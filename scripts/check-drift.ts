@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { loadEnvConfig } from "@next/env";
 
 loadEnvConfig(process.cwd());
@@ -229,7 +229,9 @@ async function main() {
     postgres_image: string;
     snapshot: Snapshot;
   };
-  const allowlistFile = JSON.parse(read("supabase/drift-allowlist.json")) as { entries: AllowlistEntry[] };
+  const allowlistFile = JSON.parse(read("supabase/drift-allowlist.json")) as Record<string, unknown> & {
+    entries: AllowlistEntry[];
+  };
   const allowlist = allowlistFile.entries ?? [];
 
   const schemaSha = normalizedSchemaSha256(read("supabase/schema.sql"));
@@ -260,6 +262,20 @@ async function main() {
   const expected = manifestFile.snapshot;
 
   const { findings: remaining, allowed, staleEntries, infos } = compareDriftSnapshots(expected, live, allowlist);
+
+  if (process.argv.includes("--prune-stale") && remaining.length === 0 && staleEntries.length > 0) {
+    const staleSet = new Set(staleEntries);
+    const nextAllowlist = {
+      ...allowlistFile,
+      entries: allowlist.filter((entry) => !staleSet.has(entry)),
+    };
+    writeFileSync(
+      new URL("../supabase/drift-allowlist.json", import.meta.url),
+      `${JSON.stringify(nextAllowlist, null, 2)}\n`,
+      "utf8",
+    );
+    console.log(`Pruned ${staleEntries.length} stale allowlist entr${staleEntries.length === 1 ? "y" : "ies"}.`);
+  }
 
   console.log(`Drift manifest: generated ${manifestFile.generated_at} from schema.sql ${schemaSha.slice(0, 12)}…`);
   console.log(
