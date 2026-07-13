@@ -10,7 +10,10 @@ const MAX_STRING_LENGTH = 512;
 const MAX_DEPTH = 5;
 
 // Keys whose values may carry secrets or PII. Matched case-insensitively as substrings.
-const SENSITIVE_KEY =
+// Exported so other redaction surfaces (e.g. the Sentry event scrubber in
+// src/lib/observability/sentry-scrub.ts) share ONE source of truth for the
+// clinical PII key list rather than drifting a hand-copied duplicate.
+export const SENSITIVE_KEY =
   /authorization|cookie|token|secret|api[-_]?key|password|service[-_]?role|email|\bquery\b|prompt|\bcontent\b|\banswer\b|patient|\bmrn\b/i;
 
 function redactValue(value: unknown, depth: number): unknown {

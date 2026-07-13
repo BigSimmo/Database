@@ -1,0 +1,8 @@
+[
+  {
+    "name": "Client JS — all route/chunk bundles (gzip)",
+    "path": ".next/static/chunks/**/*.js",
+    "limit": "1300 KB",
+    "gzip": true
+  }
+]

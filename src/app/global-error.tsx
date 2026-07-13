@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { captureClientException } from "@/lib/observability/sentry-client";
+
 /**
  * Last-resort boundary for the App Router. Unlike `app/error.tsx`, this replaces
  * the root layout entirely, so it is the ONLY thing that can recover from an
@@ -13,6 +15,8 @@ import { useEffect } from "react";
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error("Fatal error captured by global-error boundary:", error);
+    // No-op unless Sentry was initialized (NEXT_PUBLIC_SENTRY_DSN set at build).
+    captureClientException(error);
   }, [error]);
 
   return (

@@ -13,6 +13,11 @@ const forbiddenMarkers = [
   "sb_secret_",
   "sk-proj-",
   "sk-svcacct-",
+  // Sentry source-map upload token — build-time/server-only. The public DSN is
+  // fine in the client bundle; this token must never be, so fail the build if it
+  // ever leaks into client output.
+  "SENTRY_AUTH_TOKEN",
+  "sntrys_",
 ];
 
 function textFiles(root) {

@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "playwright/test";
 
 const readySetupChecks = [
@@ -69,6 +70,51 @@ async function openScopeControl(page: Page) {
     timeout: uiAssertionTimeoutMs,
   });
 }
+
+// Rule ids intentionally excluded from the automated axe gate, each with a
+// documented rationale. Keep this list SHORT — every entry is a known, triaged
+// issue, not a blanket silence. Prefer fixing the markup over adding an entry.
+const axeBaselineDisabledRules: string[] = [];
+
+// Fails only on critical/serious violations (the impact tiers that block real
+// users). moderate/minor axe findings are surfaced in the attached report but do
+// not gate, matching the advisory posture of this spec's lane.
+async function expectNoBlockingAxeViolations(page: Page, context: string) {
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .disableRules(axeBaselineDisabledRules)
+    .analyze();
+
+  const blocking = results.violations.filter((v) => v.impact === "critical" || v.impact === "serious");
+  const summary = blocking
+    .map((v) => `  • ${v.id} (${v.impact}) ×${v.nodes.length}: ${v.help} — ${v.helpUrl}`)
+    .join("\n");
+
+  expect(blocking, `Axe critical/serious violations [${context}]:\n${summary}`).toEqual([]);
+}
+
+test.describe("Clinical KB automated accessibility (axe)", () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test("dashboard has no critical/serious axe violations", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+    await expectDashboardUsable(page);
+
+    await expectNoBlockingAxeViolations(page, "dashboard default");
+  });
+
+  test("scope control has no critical/serious axe violations", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+    await expectDashboardUsable(page);
+    await openScopeControl(page);
+
+    await expectNoBlockingAxeViolations(page, "scope control open");
+  });
+});
 
 test.describe("Clinical KB accessibility media smoke", () => {
   test.describe.configure({ timeout: 60_000 });
