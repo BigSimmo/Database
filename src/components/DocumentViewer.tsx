@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -66,7 +64,8 @@ import {
   toolbarButton,
 } from "@/components/ui-primitives";
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
-import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import { SignedImage } from "@/components/clinical-dashboard/signed-image";
+import { getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { documentPageHref } from "@/lib/document-viewer-navigation";
 import { formatClinicalDate } from "@/lib/source-metadata";
@@ -353,89 +352,6 @@ function looksLikeTableText(value?: string | null) {
 
 function DocumentImage({ image }: { image: ImageRow }) {
   const endpoint = `/api/images/${image.id}/signed-url`;
-  const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
-  const [loaded, setLoaded] = useState(false);
-  const figureRef = useRef<HTMLElement | null>(null);
-  const { authorizationHeader, markSessionExpired } = useAuthSession();
-
-  useEffect(() => {
-    if (shouldLoad) return () => undefined;
-
-    const element = figureRef.current;
-    if (!element || !("IntersectionObserver" in window)) {
-      setShouldLoad(true);
-      return () => undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setShouldLoad(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "640px 0px" },
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [shouldLoad]);
-
-  useEffect(() => {
-    if (!shouldLoad) return () => undefined;
-
-    const cached = getCachedSignedUrl(endpoint);
-    if (cached) {
-      let active = true;
-      window.requestAnimationFrame(() => {
-        if (!active) return;
-        setUrl(cached.url);
-        setFailed(false);
-      });
-      return () => {
-        active = false;
-      };
-    }
-
-    let active = true;
-    fetch(endpoint, { headers: authorizationHeader })
-      .then((response) => {
-        if (response.status === 401) markSessionExpired();
-        return response.ok ? response.json() : null;
-      })
-      .then((data) => {
-        if (active && data?.url) {
-          setCachedSignedUrl(endpoint, data);
-          setUrl(data.url);
-          setFailed(false);
-        } else if (active) {
-          setFailed(true);
-        }
-      })
-      .catch(() => {
-        if (active) setFailed(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt, authorizationHeader, endpoint, markSessionExpired, shouldLoad]);
-
-  function retryImage() {
-    clearCachedSignedUrl(endpoint);
-    setUrl(null);
-    setFailed(false);
-    setLoaded(false);
-    setShouldLoad(true);
-    setAttempt((current) => current + 1);
-  }
-
-  function handleImageError() {
-    clearCachedSignedUrl(endpoint);
-    setLoaded(false);
-    setFailed(true);
-  }
 
   const tableHeading = sourceTextForCompactDisplay([image.tableLabel, image.tableTitle].filter(Boolean).join(": "));
   const cleanCaption = image.caption ? sourceTextForCompactDisplay(image.caption) : "";
@@ -468,52 +384,13 @@ function DocumentImage({ image }: { image: ImageRow }) {
   // image is the only representation, so it stays inline and prominent.
   const imageBlock = (
     <div className="rounded-lg bg-[color:var(--surface-inset)] p-3">
-      {failed ? (
-        <div className="grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-3 text-center text-xs font-semibold text-[color:var(--warning)]">
-          <div>
-            <CircleAlert aria-hidden="true" className="mx-auto mb-2 h-4 w-4" />
-            Image preview failed.
-            <button
-              type="button"
-              onClick={retryImage}
-              className="mt-2 inline-flex min-h-11 items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      ) : (
-        // Fixed-aspect frame: placeholder and image share one reserved box so
-        // the loaded image never resizes the layout (no content shift on load).
-        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg">
-          {url ? (
-            <img
-              src={url}
-              alt={cleanCaption || tableHeading || "Document image"}
-              loading="lazy"
-              decoding="async"
-              onLoad={() => setLoaded(true)}
-              onError={handleImageError}
-              className={cn(
-                "absolute inset-0 h-full w-full rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
-                loaded ? "opacity-100" : "opacity-0",
-              )}
-            />
-          ) : null}
-          {!url || !loaded ? (
-            <div className="absolute inset-0 grid place-items-center gap-1 rounded-lg text-center text-xs font-semibold text-[color:var(--text-muted)]">
-              {shouldLoad ? (
-                <>
-                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                  Loading image
-                </>
-              ) : (
-                "Image preview will load when visible"
-              )}
-            </div>
-          ) : null}
-        </div>
-      )}
+      <SignedImage
+        endpoint={endpoint}
+        alt={cleanCaption || tableHeading || "Document image"}
+        failureLabel="Image preview failed."
+        retryLabel="Retry"
+        className="w-full"
+      />
     </div>
   );
 
@@ -539,7 +416,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
     </figcaption>
   );
   return (
-    <figure ref={figureRef} className={cn(sourceCard, "overflow-hidden p-3")}>
+    <figure className={cn(sourceCard, "overflow-hidden p-3")}>
       <p className={cn("text-xs font-semibold uppercase tracking-[0.08em]", textMuted)}>
         page {image.page_number ?? "n/a"}
         {image.image_type ? ` · ${image.image_type.replaceAll("_", " ")}` : ""}
