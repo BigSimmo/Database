@@ -109,9 +109,7 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
 test("keeps the base diagnosis severity-neutral when applying a severity descriptor", async ({ page }) => {
   await gotoApp(page, "/specifiers/builder?specifier=mild-severity");
 
-  await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue(
-    "Major depressive disorder, recurrent",
-  );
+  await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("mdd-recurrent");
   await expect(page.getByText("Major depressive disorder, recurrent, mild", { exact: true })).toBeVisible();
   await expect(page.getByText(/severe, mild|moderate, mild/i)).toHaveCount(0);
 
@@ -121,4 +119,20 @@ test("keeps the base diagnosis severity-neutral when applying a severity descrip
   await expect(
     page.getByText("Major depressive disorder, recurrent, with anxious distress, mild", { exact: true }),
   ).toBeVisible();
+});
+
+test("blocks incompatible specifiers and preserves severe psychotic-features wording", async ({ page }) => {
+  await gotoApp(page, "/specifiers/builder?specifier=with-rapid-cycling&specifier=with-psychotic-features");
+
+  const rapidCycling = page.getByRole("checkbox", { name: /Rapid cycling/ });
+  await expect(rapidCycling).toBeDisabled();
+  await expect(rapidCycling).not.toBeChecked();
+  await expect(
+    page.getByText("Major depressive disorder, recurrent, severe with psychotic features", { exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Diagnostic phrase" }).selectOption("bipolar-i-manic");
+  await expect(rapidCycling).toBeEnabled();
+  await page.getByText("Rapid cycling", { exact: true }).click();
+  await expect(rapidCycling).toBeChecked();
 });

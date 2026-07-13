@@ -14,18 +14,20 @@ import {
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import {
   normalizeSpecifierSelection,
+  specifierAppliesToBuilderDiagnosis,
   specifierFamilies,
   specifierRecords,
+  type SpecifierBuilderDiagnosis,
   type SpecifierFamily,
   type SpecifierRecord,
 } from "@/lib/specifiers";
 
-const diagnosisPresets = [
-  "Major depressive disorder, recurrent",
-  "Major depressive disorder, single episode",
-  "Bipolar I disorder, current episode depressed",
-  "Bipolar I disorder, current episode manic",
-  "Bipolar II disorder, current episode depressed",
+const diagnosisPresets: Array<{ id: SpecifierBuilderDiagnosis; label: string }> = [
+  { id: "mdd-recurrent", label: "Major depressive disorder, recurrent" },
+  { id: "mdd-single", label: "Major depressive disorder, single episode" },
+  { id: "bipolar-i-depressed", label: "Bipolar I disorder, current episode depressed" },
+  { id: "bipolar-i-manic", label: "Bipolar I disorder, current episode manic" },
+  { id: "bipolar-ii-depressed", label: "Bipolar II disorder, current episode depressed" },
 ];
 
 const specifierFamilyOrder: Record<SpecifierFamily, number> = {
@@ -34,15 +36,21 @@ const specifierFamilyOrder: Record<SpecifierFamily, number> = {
   "severity-remission": 2,
 };
 
-function wordingSegment(name: string) {
-  if (name === "Mild severity") return "mild";
-  return name.charAt(0).toLowerCase() + name.slice(1);
+function wordingSegment(record: SpecifierRecord) {
+  if (record.slug === "mild-severity") return "mild";
+  if (record.slug === "with-psychotic-features") return "severe with psychotic features";
+  return record.name.charAt(0).toLowerCase() + record.name.slice(1);
 }
 
 export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecifiers?: string[] }) {
-  const validInitial = normalizeSpecifierSelection(initialSpecifiers);
-  const [diagnosis, setDiagnosis] = useState(diagnosisPresets[0]);
+  const initialDiagnosis = diagnosisPresets[0];
+  const validInitial = normalizeSpecifierSelection(initialSpecifiers).filter((slug) => {
+    const record = specifierRecords.find((candidate) => candidate.slug === slug);
+    return record ? specifierAppliesToBuilderDiagnosis(record, initialDiagnosis.id) : false;
+  });
+  const [diagnosisId, setDiagnosisId] = useState<SpecifierBuilderDiagnosis>(initialDiagnosis.id);
   const [selected, setSelected] = useState<string[]>(validInitial);
+  const diagnosis = diagnosisPresets.find((preset) => preset.id === diagnosisId) ?? initialDiagnosis;
   const selectedRecords = useMemo(
     () =>
       selected
@@ -51,7 +59,17 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
         .sort((left, right) => specifierFamilyOrder[left.family] - specifierFamilyOrder[right.family]),
     [selected],
   );
-  const wording = [diagnosis, ...selectedRecords.map((record) => wordingSegment(record.name))].join(", ");
+  const wording = [diagnosis.label, ...selectedRecords.map((record) => wordingSegment(record))].join(", ");
+
+  function changeDiagnosis(nextDiagnosis: SpecifierBuilderDiagnosis) {
+    setDiagnosisId(nextDiagnosis);
+    setSelected((current) =>
+      current.filter((slug) => {
+        const record = specifierRecords.find((candidate) => candidate.slug === slug);
+        return record ? specifierAppliesToBuilderDiagnosis(record, nextDiagnosis) : false;
+      }),
+    );
+  }
 
   function toggle(slug: string) {
     setSelected((current) => {
@@ -95,13 +113,13 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
             <label className="grid gap-1.5">
               <span className="text-xs font-bold text-[color:var(--text-muted)]">Diagnostic phrase</span>
               <select
-                value={diagnosis}
-                onChange={(event) => setDiagnosis(event.target.value)}
+                value={diagnosisId}
+                onChange={(event) => changeDiagnosis(event.target.value as SpecifierBuilderDiagnosis)}
                 className="min-h-12 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
               >
                 {diagnosisPresets.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
+                  <option key={item.id} value={item.id}>
+                    {item.label}
                   </option>
                 ))}
               </select>
@@ -127,6 +145,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                   <div className="grid sm:grid-cols-2">
                     {records.map((record, index) => {
                       const checked = selected.includes(record.slug);
+                      const compatible = specifierAppliesToBuilderDiagnosis(record, diagnosisId);
                       return (
                         <label
                           key={record.slug}
@@ -134,11 +153,13 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                             "group grid cursor-pointer grid-cols-[2rem_minmax(0,1fr)] gap-3 border-b border-[color:var(--border)] px-4 py-3.5 transition hover:bg-[color:var(--surface-subtle)] sm:px-5",
                             index % 2 === 1 && "sm:border-l",
                             checked && "bg-[color:var(--clinical-accent-soft)]/55",
+                            !compatible && "cursor-not-allowed opacity-50",
                           )}
                         >
                           <input
                             type="checkbox"
                             checked={checked}
+                            disabled={!compatible}
                             onChange={() => toggle(record.slug)}
                             className="peer sr-only"
                           />
@@ -157,7 +178,7 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                               {record.shortName}
                             </span>
                             <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                              {record.clinicalSignal}
+                              {compatible ? record.clinicalSignal : "Not applicable to the selected diagnosis."}
                             </span>
                           </span>
                         </label>

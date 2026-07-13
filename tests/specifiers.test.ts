@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { findSpecifier, normalizeSpecifierSelection, searchSpecifiers, specifierRecords } from "@/lib/specifiers";
+import {
+  findSpecifier,
+  normalizeSpecifierSelection,
+  searchSpecifiers,
+  specifierAppliesToBuilderDiagnosis,
+  specifierRecords,
+} from "@/lib/specifiers";
 
 describe("psychiatric specifier catalogue", () => {
   it("keeps slugs unique and related links valid", () => {
@@ -57,6 +63,23 @@ describe("psychiatric specifier catalogue", () => {
         "with-anxious-distress",
       ]),
     ).toEqual(["with-anxious-distress", "in-full-remission"]);
+
+    expect(normalizeSpecifierSelection(["mild-severity", "with-psychotic-features"])).toEqual([
+      "with-psychotic-features",
+    ]);
+    expect(normalizeSpecifierSelection(["with-psychotic-features", "mild-severity"])).toEqual(["mild-severity"]);
+  });
+
+  it("matches builder specifiers to the selected diagnosis and episode", () => {
+    const rapidCycling = findSpecifier("with-rapid-cycling");
+    const melancholic = findSpecifier("with-melancholic-features");
+    expect(rapidCycling).toBeDefined();
+    expect(melancholic).toBeDefined();
+
+    expect(specifierAppliesToBuilderDiagnosis(rapidCycling!, "mdd-recurrent")).toBe(false);
+    expect(specifierAppliesToBuilderDiagnosis(rapidCycling!, "bipolar-i-manic")).toBe(true);
+    expect(specifierAppliesToBuilderDiagnosis(melancholic!, "bipolar-i-manic")).toBe(false);
+    expect(specifierAppliesToBuilderDiagnosis(melancholic!, "bipolar-i-depressed")).toBe(true);
   });
 
   it("does not expose provenance columns in the specifier search records", () => {

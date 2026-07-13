@@ -1,5 +1,8 @@
 export type SpecifierFamily = "episode-features" | "course-onset" | "severity-remission";
 
+export type SpecifierBuilderDiagnosis =
+  "mdd-recurrent" | "mdd-single" | "bipolar-i-depressed" | "bipolar-i-manic" | "bipolar-ii-depressed";
+
 export type SpecifierRecord = {
   slug: string;
   name: string;
@@ -556,6 +559,10 @@ export function findSpecifier(slug: string) {
 
 export function normalizeSpecifierSelection(slugs: string[]) {
   const selected: string[] = [];
+  const conflictsBySlug: Record<string, readonly string[]> = {
+    "mild-severity": ["with-psychotic-features"],
+    "with-psychotic-features": ["mild-severity"],
+  };
 
   for (const slug of slugs) {
     const record = findSpecifier(slug);
@@ -563,6 +570,12 @@ export function normalizeSpecifierSelection(slugs: string[]) {
 
     if (record.family === "severity-remission") {
       const retained = selected.filter((selectedSlug) => findSpecifier(selectedSlug)?.family !== "severity-remission");
+      selected.splice(0, selected.length, ...retained);
+    }
+
+    const conflicts = new Set(conflictsBySlug[slug] ?? []);
+    if (conflicts.size) {
+      const retained = selected.filter((selectedSlug) => !conflicts.has(selectedSlug));
       selected.splice(0, selected.length, ...retained);
     }
 
@@ -632,6 +645,24 @@ const diagnosisFiltersByApplicability: Record<string, readonly string[]> = {
   "Bipolar II disorder": ["bipolar", "mood"],
   "Other specified diagnoses": [],
 };
+
+const builderDiagnosesByApplicability: Record<string, readonly SpecifierBuilderDiagnosis[]> = {
+  "Depressive disorders": ["mdd-recurrent", "mdd-single"],
+  "Bipolar disorders": ["bipolar-i-depressed", "bipolar-i-manic", "bipolar-ii-depressed"],
+  "Major depressive episodes": ["mdd-recurrent", "mdd-single", "bipolar-i-depressed", "bipolar-ii-depressed"],
+  "Bipolar depressive episodes": ["bipolar-i-depressed", "bipolar-ii-depressed"],
+  "Mood disorders": ["mdd-recurrent", "mdd-single", "bipolar-i-depressed", "bipolar-i-manic", "bipolar-ii-depressed"],
+  "Psychotic disorders": [],
+  "Medical conditions": [],
+  "Recurrent depressive disorder": ["mdd-recurrent"],
+  "Bipolar I disorder": ["bipolar-i-depressed", "bipolar-i-manic"],
+  "Bipolar II disorder": ["bipolar-ii-depressed"],
+  "Other specified diagnoses": [],
+};
+
+export function specifierAppliesToBuilderDiagnosis(record: SpecifierRecord, diagnosis: SpecifierBuilderDiagnosis) {
+  return record.appliesTo.some((applicability) => builderDiagnosesByApplicability[applicability]?.includes(diagnosis));
+}
 
 const knownDiagnosisFilters = new Set(["depressive", "bipolar", "psychotic", "mood"]);
 
