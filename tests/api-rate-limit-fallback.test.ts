@@ -148,4 +148,119 @@ describe("document_upload fail-closed limiter", () => {
     // document_read degrades to the per-instance limiter instead of failing closed.
     expect(result.limited).toBe(false);
   });
+
+  it("enforces a global anonymous upload quota as well as the caller quota", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
+    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => ({
+      data: {
+        limited: false,
+        limit_value: args.p_limit,
+        remaining: Number(args.p_limit) - 1,
+        retry_after_seconds: 60,
+        reset_at: new Date(Date.now() + 60_000).toISOString(),
+      },
+      error: null,
+    }));
+
+    await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:caller" },
+      bucket: "document_upload",
+    });
+
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls.map(([, args]) => args.p_subject_key)).toEqual(
+      expect.arrayContaining(["anon:caller", "anon:document_upload:global"]),
+    );
+  });
+
+  it("does not consume the global upload quota after the caller quota denies the request", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
+    const rpc = vi.fn(async () => ({
+      data: {
+        limited: true,
+        limit_value: 3,
+        remaining: 0,
+        retry_after_seconds: 60,
+        reset_at: new Date(Date.now() + 60_000).toISOString(),
+      },
+      error: null,
+    }));
+
+    const result = await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:caller" },
+      bucket: "document_upload",
+    });
+
+    expect(result.limited).toBe(true);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_subject_key: "anon:caller" });
+  });
+
+  it("reports the smaller of the caller and global remaining counts when both allow the request", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
+    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => {
+      const isGlobal = args.p_subject_key === "anon:document_upload:global";
+      return {
+        data: {
+          limited: false,
+          limit_value: args.p_limit,
+          // Global ceiling is nearly exhausted while the per-caller quota still has headroom.
+          remaining: isGlobal ? 1 : 2,
+          retry_after_seconds: 60,
+          reset_at: new Date(Date.now() + 60_000).toISOString(),
+        },
+        error: null,
+      };
+    });
+
+    const result = await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:caller" },
+      bucket: "document_upload",
+    });
+
+    expect(result.limited).toBe(false);
+    expect(result.remaining).toBe(1);
+  });
+
+  it("does not apply a global ceiling to buckets other than answer and document_upload", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
+    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => ({
+      data: {
+        limited: false,
+        limit_value: args.p_limit,
+        remaining: Number(args.p_limit) - 1,
+        retry_after_seconds: 60,
+        reset_at: new Date(Date.now() + 60_000).toISOString(),
+      },
+      error: null,
+    }));
+
+    await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:caller" },
+      bucket: "document_read",
+    });
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_subject_key: "anon:caller" });
+  });
 });
