@@ -73,7 +73,12 @@ import {
   ScopeAndGovernanceNotice,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
-import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+import { AnswerEmptyState, AnswerProgressStepper, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+import {
+  normalizeAnswerProgressEvent,
+  type AnswerProgressUpdate,
+  type TimedAnswerProgressUpdate,
+} from "@/components/clinical-dashboard/answer-progress";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
@@ -338,12 +343,6 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-function answerStreamProgressMessage(data: unknown) {
-  if (!data || typeof data !== "object") return null;
-  const message = (data as { message?: unknown }).message;
-  return typeof message === "string" && message.trim() ? message.trim() : null;
-}
-
 function findSseSeparator(buffer: string) {
   const match = /\r?\n\r?\n/.exec(buffer);
   return match ? { index: match.index, length: match[0].length } : null;
@@ -351,7 +350,7 @@ function findSseSeparator(buffer: string) {
 
 async function readAnswerStream(
   response: Response,
-  onProgress: (message: string) => void,
+  onProgress: (progress: AnswerProgressUpdate) => void,
   onToken?: (delta: string) => void,
   onRevising?: () => void,
   onActivity?: () => void,
@@ -361,6 +360,7 @@ async function readAnswerStream(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let pendingCompletion: AnswerProgressUpdate | null = null;
 
   function processEvent(block: string) {
     const lines = block.split(/\r?\n/);
@@ -376,8 +376,15 @@ async function readAnswerStream(
     const data = parseSseData(dataLines);
     if (data === null) return;
     if (event === "progress") {
-      const message = answerStreamProgressMessage(data);
-      if (message) onProgress(message);
+      const progress = normalizeAnswerProgressEvent(data);
+      if (progress) {
+        if (progress.stage === "complete") {
+          pendingCompletion = progress;
+        } else {
+          onProgress(progress);
+          if (progress.stage === "fallback") onRevising?.();
+        }
+      }
       return;
     }
     if (event === "token") {
@@ -390,6 +397,7 @@ async function readAnswerStream(
       return;
     }
     if (event === "error") {
+      pendingCompletion = null;
       const message = data && typeof data === "object" ? (data as { error?: unknown }).error : null;
       const details =
         data && typeof data === "object" ? (data as { details?: { message?: unknown } | unknown }).details : null;
@@ -413,7 +421,12 @@ async function readAnswerStream(
     }
     if (event === "final") {
       if (!isAnswerPayload(data)) {
+        pendingCompletion = null;
         throw makeSearchError("Answer stream returned an invalid final payload.", 502, true);
+      }
+      if (pendingCompletion) {
+        onProgress(pendingCompletion);
+        pendingCompletion = null;
       }
       return data;
     }
@@ -445,6 +458,7 @@ async function readAnswerStream(
 
   const finalPayload = buffer.trim() ? processEvent(buffer.trim()) : null;
   if (finalPayload) return finalPayload;
+  pendingCompletion = null;
   throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
 }
 
@@ -862,6 +876,8 @@ export function ClinicalDashboard({
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
+  const [answerProgressEvents, setAnswerProgressEvents] = useState<TimedAnswerProgressUpdate[]>([]);
+  const [answerProgressStartedAt, setAnswerProgressStartedAt] = useState<number | null>(null);
   // In-progress streamed answer prose (content-preserving — the final committed answer still comes
   // from the parsed `final` payload). null between searches; `{ text, revising }` while generating.
   // `revising` = the quality gates dropped a provisional answer and are re-generating, so a
@@ -1989,7 +2005,7 @@ export function ClinicalDashboard({
     queryText: string,
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
-    onProgress: (message: string) => void = setAnswerProgress,
+    onProgress: (progress: AnswerProgressUpdate) => void,
     signal?: AbortSignal,
     onStreamActivity?: () => void,
   ) {
@@ -2100,6 +2116,8 @@ export function ClinicalDashboard({
     setStreamingAnswer(null);
     setLoading(false);
     setAnswerProgress(null);
+    setAnswerProgressEvents([]);
+    setAnswerProgressStartedAt(null);
     dispatchAnswerLifecycle({ type: "cancel" });
   }
 
@@ -2172,6 +2190,7 @@ export function ClinicalDashboard({
         ? (persistPrivateSearchScope(window.sessionStorage, auth.session.user.id, selectedDocumentIds) ?? undefined)
         : undefined);
     const isDifferentialsMode = modeSearch.resultKind === "differentials";
+    const isAnswerRequest = modeSearch.resultKind === "answer";
     // Note: no automatic mode-default label scope for Services/Forms. Applying
     // one on every search routed resolveSearchScope's label path over the whole
     // library, whose single `document_labels.in(<all ids>)` request produces an
@@ -2241,6 +2260,28 @@ export function ClinicalDashboard({
     const onProgress = (message: string | null) => {
       if (requestIsCurrent()) setAnswerProgress(message);
     };
+    const onAnswerProgress = (progress: AnswerProgressUpdate) => {
+      if (!requestIsCurrent()) return;
+      setAnswerProgress(progress.message);
+      setAnswerProgressEvents((current) => {
+        const latest = current.at(-1);
+        if (
+          latest?.stage === progress.stage &&
+          latest.message === progress.message &&
+          latest.resultCount === progress.resultCount &&
+          latest.selectedContextCount === progress.selectedContextCount &&
+          latest.australianSourceCount === progress.australianSourceCount &&
+          latest.waSourceCount === progress.waSourceCount
+        ) {
+          return current;
+        }
+        return [...current, { ...progress, receivedAt: Date.now() }].slice(-16);
+      });
+    };
+    const onRetryProgress = (message: string) => {
+      if (isAnswerRequest) onAnswerProgress({ stage: "retrying", message });
+      else onProgress(message);
+    };
     // A newer search already invalidated any prior request via requestId; abort
     // its network work too so the server stops generating, then own the signal.
     searchAbortRef.current?.abort();
@@ -2258,14 +2299,28 @@ export function ClinicalDashboard({
     setSearchScope(null);
     setSourceGovernanceWarnings([]);
     setAnswerViewMode("high_yield");
-    onProgress(modeSearch.progressLabel);
+    if (isAnswerRequest) {
+      const startedAt = Date.now();
+      setAnswerProgressStartedAt(startedAt);
+      setAnswerProgressEvents([
+        {
+          stage: "scoping",
+          message: "Preparing the clinical search scope.",
+          receivedAt: startedAt,
+        },
+      ]);
+      setAnswerProgress("Preparing the clinical search scope.");
+    } else {
+      setAnswerProgressStartedAt(null);
+      setAnswerProgressEvents([]);
+      onProgress(modeSearch.progressLabel);
+    }
     rememberRecentQuery(trimmedQuery);
 
     // Answer-mode follow-ups: the API takes a single query string, so a short
     // ambiguous follow-up ("what about renal impairment?") is wrapped with the
     // previous turn's question before retrieval. The raw text the user typed
     // is what the thread displays (via displayQuery below).
-    const isAnswerRequest = modeSearch.resultKind === "answer";
     if (isAnswerRequest) dispatchAnswerLifecycle({ type: "start", query: trimmedQuery });
     const priorTurnQuery = isAnswerRequest && !replaceExistingAnswer ? latestAnswerTurnRef.current?.query : undefined;
     const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
@@ -2301,7 +2356,10 @@ export function ClinicalDashboard({
       let emptyDifferentialsPayload: SearchResultModePayload | null = null;
 
       for (const entry of queryPlan) {
-        if (entry.isKeyword) onProgress("Trying keyword-based search...");
+        if (entry.isKeyword) {
+          if (isAnswerRequest) onAnswerProgress({ stage: "retrieving", message: "Trying keyword-based search..." });
+          else onProgress("Trying keyword-based search...");
+        }
 
         try {
           const payload =
@@ -2324,11 +2382,11 @@ export function ClinicalDashboard({
                       entry.query,
                       filtersOverride,
                       targetQueryMode,
-                      onProgress,
+                      onAnswerProgress,
                       abortController.signal,
                       answerWatchdog.touch,
                     ),
-                  onProgress,
+                  onRetryProgress,
                   abortController.signal,
                 );
 
@@ -3252,6 +3310,11 @@ export function ClinicalDashboard({
   const showAnswerHome = activeModeResultKind === "answer" && !answer && !loading && !submittedAnswerSearchActive;
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
+  const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
+  const showAnswerProgress =
+    activeModeResultKind === "answer" &&
+    answerProgressEvents.length > 0 &&
+    (loading || (Boolean(answer) && answerProgressCompleted));
   const showDesktopHomeComposer =
     !error &&
     (activeModeResultKind === "tools" ||
@@ -3788,41 +3851,15 @@ export function ClinicalDashboard({
                 ) : null}
 
                 {searchMode !== "prescribing" &&
-                  (activeModeResultKind === "answer" && (loading || answer) ? (
-                    // Answer result view keeps this status slot mounted through the
-                    // whole loading→answer swap so its height never collapses and the
-                    // answer below it doesn't jump up (CLS). The accent chrome only
-                    // appears while a progress message is live; otherwise it's a
-                    // height-reserved, visually empty spacer.
-                    <div
-                      role="status"
-                      aria-live="polite"
-                      className={cn(
-                        "flex min-h-[44px] items-center gap-2 rounded-lg px-3 text-sm font-medium",
-                        loading && answerProgress
-                          ? "border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--text-heading)]"
-                          : "border border-transparent",
-                      )}
-                    >
-                      {loading && answerProgress ? (
-                        <>
-                          <Loader2
-                            aria-hidden="true"
-                            className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]"
-                          />
-                          <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
-                          <button
-                            type="button"
-                            onClick={stopSearch}
-                            data-testid="stop-answer"
-                            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                          >
-                            <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
-                            Stop
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
+                  (activeModeResultKind === "answer" ? (
+                    showAnswerProgress ? (
+                      <AnswerProgressStepper
+                        events={answerProgressEvents}
+                        startedAt={answerProgressStartedAt}
+                        active={loading}
+                        onStop={stopSearch}
+                      />
+                    ) : null
                   ) : loading && answerProgress ? (
                     <div
                       role="status"

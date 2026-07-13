@@ -1627,15 +1627,96 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).not.toMatch(/^Dosage and monitoring/i);
   });
 
-  it("treats max-output truncation as a distinct retry and fallback reason", async () => {
+  it("recovers lithium dosing from validated WA evidence when both generated drafts hit max output", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
 
-    const sources = [
+    const waSource = (overrides: Partial<SearchResult>, publisherCode: "FSH" | "EMHS") =>
       source({
-        content:
-          "Inpatient approach details for agitation and arousal management include a stepwise approach based on rating severity, route, oral options, and intramuscular options.",
+        ...overrides,
+        source_metadata: {
+          source_title: overrides.title ?? "Lithium guideline",
+          publisher:
+            publisherCode === "FSH" ? "Fiona Stanley Fremantle Hospitals Group" : "East Metropolitan Health Service",
+          publisher_code: publisherCode,
+          jurisdiction: "Australia/WA",
+          version: "1",
+          publication_date: null,
+          review_date: null,
+          uploaded_at: null,
+          indexed_at: null,
+          uploaded_by: null,
+          document_status: "current",
+          clinical_validation_status: "locally_reviewed",
+          extraction_quality: "good",
+        },
+      });
+    const sources = [
+      waSource(
+        {
+          id: "fsh-lithium-1",
+          document_id: "fsh-lithium",
+          title: "Lithium Therapy - Initiation and Continuation Guideline",
+          section_heading: "Initiation",
+          content:
+            "For lithium initiation in adults, start lithium carbonate at 250 mg at night and titrate according to the serum lithium concentration.",
+        },
+        "FSH",
+      ),
+      waSource(
+        {
+          id: "emhs-lithium-1",
+          document_id: "emhs-lithium",
+          title: "Lithium Clinical Guideline",
+          section_heading: "Target range",
+          content:
+            "The usual target serum lithium concentration is 0.6 to 0.8 mmol/L for maintenance treatment in adults.",
+        },
+        "EMHS",
+      ),
+      waSource(
+        {
+          id: "fsh-lithium-2",
+          document_id: "fsh-lithium",
+          title: "Lithium Therapy - Initiation and Continuation Guideline",
+          section_heading: "Monitoring after dose changes",
+          content:
+            "Measure the serum lithium concentration 12 hours after the previous dose and repeat it 5 to 7 days after a dose change.",
+        },
+        "FSH",
+      ),
+      waSource(
+        {
+          id: "emhs-lithium-2",
+          document_id: "emhs-lithium",
+          title: "Lithium Clinical Guideline",
+          section_heading: "Dose adjustment",
+          content:
+            "Use a lower lithium starting dose in older adults and people with impaired renal function, with closer serum monitoring.",
+        },
+        "EMHS",
+      ),
+      source({
+        id: "bmj-paediatric-depression",
+        document_id: "bmj-paediatric-depression",
+        title: "Depression in children",
+        content: "Psychological therapy is considered for depression in children and young people.",
+        source_metadata: {
+          source_title: "Depression in children",
+          publisher: "BMJ Best Practice",
+          publisher_code: "BMJ",
+          jurisdiction: "International",
+          version: null,
+          publication_date: null,
+          review_date: null,
+          uploaded_at: null,
+          indexed_at: null,
+          uploaded_by: null,
+          document_status: "current",
+          clinical_validation_status: "unverified",
+          extraction_quality: "good",
+        },
       }),
     ];
     const rpc = vi.fn(async (name: string) => {
@@ -1645,7 +1726,7 @@ describe("RAG structured-output fallback", () => {
     });
     let requestIndex = 0;
     const generateStructuredTextResult = vi.fn(async () => ({
-      text: '{"answer":"Use a stepwise approach',
+      text: '{"answer":"Lithium dosing requires',
       model: "gpt-5.4-mini",
       operation: "answer",
       latencyMs: 12,
@@ -1667,23 +1748,42 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope, isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+    const progressEvents: Array<{
+      stage: string;
+      selectedContextCount?: number;
+      australianSourceCount?: number;
+      waSourceCount?: number;
+      usedSupplementaryFallback?: boolean;
+    }> = [];
     const answer = await answerQuestionWithScope({
-      query: "Summarize inpatient approach",
+      query: "Lithium dosing",
       ownerId: undefined,
       logQuery: false,
       skipCache: true,
+      onProgress: (event) => {
+        progressEvents.push(event);
+      },
     });
 
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
-    expect(answer.routingMode).toBe("unsupported");
+    const generationCalls = generateStructuredTextResult.mock.calls as unknown as Array<[string]>;
+    expect(generationCalls.every((call) => call[0].includes("start lithium carbonate at 250 mg"))).toBe(true);
+    expect(generationCalls.every((call) => !call[0].includes("Psychological therapy is considered"))).toBe(true);
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.citations.length).toBeGreaterThan(0);
     expect(answer.routingReason).toContain("generation_fallback:provider_incomplete_max_output_tokens");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
     expect(answer.routingReason).not.toContain("OpenAI generation incomplete");
     expect(answer.answerQualityTier).toBe("source_only");
-    expect(answer.degradedMode).toMatchObject({
-      active: true,
-      reason: "generation_fallback:provider_incomplete_max_output_tokens",
-    });
+    expect(answer.answer.replace(/\*\*/g, "")).toMatch(/lithium|250 mg/i);
+    expect(answer.answer).not.toContain("could not generate a finalized answer");
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    // Numeric fallback intentionally narrows the returned support to one complete
+    // claim/citation when a multi-source synthesis would mix figures across chunks.
+    expect(new Set(answer.sources.map((result) => result.document_id))).toEqual(new Set(["fsh-lithium"]));
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);
     expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
       "fast_max_output_tokens_retry_strong",
@@ -1691,6 +1791,92 @@ describe("RAG structured-output fallback", () => {
     ]);
     expect(answer.openAIRequestIds).toEqual(["req_truncated_1", "req_truncated_2"]);
     expect(answer.openAIUsage).toMatchObject({ output_tokens: 1300, total_tokens: 1500 });
+    expect(isCacheableGroundedGenerationFallback(answer)).toBe(true);
+    expect(progressEvents).toContainEqual(
+      expect.objectContaining({
+        stage: "ranking",
+        selectedContextCount: 4,
+        australianSourceCount: 4,
+        waSourceCount: 4,
+        usedSupplementaryFallback: false,
+      }),
+    );
+    expect(progressEvents).toContainEqual(
+      expect.objectContaining({
+        stage: "fallback",
+        selectedContextCount: 4,
+        australianSourceCount: 4,
+        waSourceCount: 4,
+        usedSupplementaryFallback: false,
+      }),
+    );
+    expect(progressEvents).toContainEqual(expect.objectContaining({ stage: "verifying" }));
+  });
+
+  it("fails closed instead of leaking another medication's numeric dose after generation failure", async () => {
+    const answer = await answerFromTextSources(
+      "What is the maximum sertraline dose?",
+      [
+        source({
+          id: "sertraline-source-gap",
+          document_id: "sertraline-source-gap-doc",
+          title: "Antidepressant Dose Overview",
+          file_name: "antidepressant-dose-overview.pdf",
+          section_heading: "Maximum doses",
+          content:
+            "The table lists fluoxetine 60 mg and citalopram 40 mg, but it does not state a maximum sertraline dose.",
+          similarity: 0.96,
+          hybrid_score: 0.96,
+          text_rank: 1.3,
+        }),
+      ],
+      new Error("OpenAI generation incomplete: max_output_tokens"),
+    );
+    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+
+    expect(answer.answer).not.toMatch(/fluoxetine|citalopram|60 mg|40 mg/i);
+    expect(answer.answer).toMatch(/source|guidance|support|evidence/i);
+    expect(answer.routingReason).toContain("generation_fallback:provider_incomplete_max_output_tokens");
+    expect(answer.routingReason).toContain("source_backed_review_fallback");
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    expect(isCacheableGroundedGenerationFallback(answer)).toBe(false);
+  });
+
+  it("never marks the generic source-review fallback as cacheable", async () => {
+    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+
+    expect(
+      isCacheableGroundedGenerationFallback({
+        routingMode: "unsupported",
+        routingReason: "strong_generation; generation_fallback:provider_timeout",
+        grounded: false,
+        confidence: "low",
+        citations: [],
+        unverifiedNumericTokens: [],
+      }),
+    ).toBe(false);
+    expect(
+      isCacheableGroundedGenerationFallback({
+        routingMode: "extractive",
+        routingReason:
+          "strong_generation; generation_fallback:provider_timeout; source_backed_review_fallback; extractive_quality_gate:weak",
+        grounded: true,
+        confidence: "low",
+        citations: [
+          {
+            chunk_id: "source-1",
+            document_id: "document-1",
+            title: "Source",
+            file_name: "source.pdf",
+            page_number: 1,
+            chunk_index: 0,
+            source_metadata: null,
+            provenance: "deterministic_support",
+          },
+        ],
+        unverifiedNumericTokens: [],
+      }),
+    ).toBe(false);
   });
 
   it("keeps the confidence gate active for weak ambiguous retrieval", async () => {

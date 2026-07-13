@@ -26,8 +26,12 @@ import {
 } from "@/lib/rag-quote-verification";
 import { applyNumericVerification } from "@/lib/answer-verification";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
-import { capPerDocumentCrowding, selectModelContextResults } from "@/lib/rag-context-selection";
-export { capPerDocumentCrowding, selectModelContextResults } from "@/lib/rag-context-selection";
+import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag-context-selection";
+export {
+  capPerDocumentCrowding,
+  selectModelContextResults,
+  summarizeAustralianSourceSelection,
+} from "@/lib/rag-context-selection";
 import {
   buildExtractiveAnswer,
   cleanAnswerSectionHeading,
@@ -402,9 +406,23 @@ function throwIfAborted(signal?: AbortSignal) {
 }
 
 export type AnswerProgressEvent = {
-  stage: "retrieved" | "routing" | "generating" | "retrying" | "finalizing" | "cached";
+  stage:
+    | "retrieved"
+    | "ranking"
+    | "routing"
+    | "generating"
+    | "retrying"
+    | "fallback"
+    | "verifying"
+    | "finalizing"
+    | "cached"
+    | "complete";
   message: string;
   resultCount?: number;
+  selectedContextCount?: number;
+  australianSourceCount?: number;
+  waSourceCount?: number;
+  usedSupplementaryFallback?: boolean;
   visibleSourceCount?: number;
   directSourceCount?: number;
   weakSourceCount?: number;
@@ -4044,6 +4062,42 @@ function annotateAnswerWithDiagnostics<T extends RagAnswer>(
   };
 }
 
+function buildContextDerivedArtifacts(query: string, results: SearchResult[]) {
+  const quoteCards = extractQuoteCards(results, query);
+  const memoryCardsUsed = collectMemoryCards(results);
+  return {
+    relevance: buildEvidenceRelevance(query, results),
+    quoteCards,
+    documentBreakdown: buildDocumentBreakdown(results, quoteCards),
+    smartPanel: buildSmartPanel(query, results),
+    evidenceSummary: buildEvidenceSummary(results, quoteCards),
+    sourceCoverage: buildSourceCoverage(results),
+    conflictsOrGaps: detectConflictsOrGaps(results),
+    visualEvidence: buildVisualEvidence(results),
+    bestSource: selectBestSourceRecommendation(results, quoteCards),
+    memoryCardsUsed,
+    indexingQuality: buildIndexingQuality(results, memoryCardsUsed),
+    scoreExplanations: buildAnswerScoreExplanations(results),
+  };
+}
+
+export function isCacheableGroundedGenerationFallback(
+  answer: Pick<
+    RagAnswer,
+    "routingMode" | "routingReason" | "grounded" | "confidence" | "citations" | "unverifiedNumericTokens"
+  >,
+) {
+  return (
+    answer.routingMode === "extractive" &&
+    answer.grounded &&
+    answer.confidence !== "unsupported" &&
+    answer.citations.length > 0 &&
+    (answer.unverifiedNumericTokens?.length ?? 0) === 0 &&
+    /(?:source_backed_extractive_fallback|comparison_source_safe_fallback)/.test(answer.routingReason ?? "") &&
+    !/source_backed_review_fallback/.test(answer.routingReason ?? "")
+  );
+}
+
 /** Answer question. */
 export async function answerQuestion(query: string, documentId?: string) {
   return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
@@ -4195,7 +4249,6 @@ async function answerQuestionWithScopeUncoalesced(
   const results = annotateSearchResults(answerFocusQuery, answerRanking.rankedResults);
   const crossDocumentPlan = buildCrossDocumentSynthesisPlan(answerFocusQuery, results, queryClass);
   const answerInputResults = crossDocumentPlan.enabled ? crossDocumentPlan.results : results;
-  const relevance = buildEvidenceRelevance(answerFocusQuery, answerInputResults);
   const crossDocumentFusionBrief = crossDocumentPlan.enabled
     ? buildCrossDocumentFusionBrief(answerFocusQuery, answerInputResults)
     : null;
@@ -4213,16 +4266,20 @@ async function answerQuestionWithScopeUncoalesced(
     cross_document_fusion_source_chunk_ids: crossDocumentFusionBrief?.sourceChunkIds ?? [],
   };
   const searchLatencyMs = Date.now() - searchStartedAt;
-  const quoteCards = extractQuoteCards(answerInputResults, answerFocusQuery);
-  const documentBreakdown = buildDocumentBreakdown(answerInputResults, quoteCards);
-  const smartPanel = buildSmartPanel(answerFocusQuery, answerInputResults);
-  const evidenceSummary = buildEvidenceSummary(answerInputResults, quoteCards);
-  const sourceCoverage = buildSourceCoverage(answerInputResults);
-  const conflictsOrGaps = detectConflictsOrGaps(answerInputResults);
-  const visualEvidence = buildVisualEvidence(answerInputResults);
-  const bestSource = selectBestSourceRecommendation(answerInputResults, quoteCards);
-  const memoryCardsUsed = collectMemoryCards(answerInputResults);
-  const indexingQuality = buildIndexingQuality(answerInputResults, memoryCardsUsed);
+  const {
+    relevance,
+    quoteCards,
+    documentBreakdown,
+    smartPanel,
+    evidenceSummary,
+    sourceCoverage,
+    conflictsOrGaps,
+    visualEvidence,
+    bestSource,
+    memoryCardsUsed,
+    indexingQuality,
+    scoreExplanations: answerScoreExplanations,
+  } = buildContextDerivedArtifacts(answerFocusQuery, answerInputResults);
   const memoryLogMetadata = {
     memory_card_count: memoryCardsUsed.length,
     memory_top_score: Number(
@@ -4236,7 +4293,6 @@ async function answerQuestionWithScopeUncoalesced(
     indexing_extraction_quality: indexingQuality.extractionQuality,
     indexing_stale: indexingQuality.stale,
   };
-  const answerScoreExplanations = buildAnswerScoreExplanations(answerInputResults);
   const scoreLogMetadata = scoreExplanationLogMetadata(answerScoreExplanations);
   const emptyPanel = buildSmartPanel(answerFocusQuery, []);
   const relatedDocumentsPromise = buildRelatedDocumentsSafe({
@@ -4922,16 +4978,21 @@ ${qualityRetryInstruction}`
   async function buildGenerationFallbackAnswer(
     error: unknown,
     relatedDocuments: RelatedDocument[],
+    fallbackResults: SearchResult[],
+    fallbackArtifacts: ReturnType<typeof buildContextDerivedArtifacts>,
   ): Promise<RagAnswer> {
-    const hasSources = answerInputResults.length > 0;
-    const fallbackCitations = compactCitations(answerInputResults);
+    const hasSources = fallbackResults.length > 0;
+    const fallbackCitations = compactCitations(fallbackResults);
     const sanitizedReason = summarizeGenerationFailureReason(error);
-    const fallbackBestSource = hasSources
-      ? (selectBestSourceRecommendation(answerInputResults, quoteCards) ?? bestSource)
-      : null;
+    const fallbackBestSource = hasSources ? fallbackArtifacts.bestSource : null;
     const fallbackSmartPanel = hasSources
-      ? { ...smartPanel, relevance, bestSource: fallbackBestSource, relatedDocuments }
-      : { ...emptyPanel, relevance, relatedDocuments };
+      ? {
+          ...fallbackArtifacts.smartPanel,
+          relevance: fallbackArtifacts.relevance,
+          bestSource: fallbackBestSource,
+          relatedDocuments,
+        }
+      : { ...emptyPanel, relevance: fallbackArtifacts.relevance, relatedDocuments };
 
     return {
       answer: boldHighYieldClinicalText(
@@ -4941,9 +5002,9 @@ ${qualityRetryInstruction}`
         args.query,
       ),
       grounded: false,
-      confidence: hasSources ? deriveConfidence(answerInputResults, fallbackCitations) : "unsupported",
+      confidence: hasSources ? deriveConfidence(fallbackResults, fallbackCitations) : "unsupported",
       citations: hasSources ? fallbackCitations : [],
-      sources: answerInputResults,
+      sources: fallbackResults,
       modelUsed: null,
       openAIRequestIds,
       openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,
@@ -4951,7 +5012,8 @@ ${qualityRetryInstruction}`
       routingReason: `${route.reason}; generation_fallback:${sanitizedReason}`,
       queryClass,
       queryAnalysis,
-      responseMode: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`).displayMode,
+      responseMode: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`, fallbackResults)
+        .displayMode,
       latencyTimings: {
         search_cache_hit: search.telemetry.search_cache_hit,
         shared_cache_hit: search.telemetry.shared_cache_hit,
@@ -4981,21 +5043,21 @@ ${qualityRetryInstruction}`
         total_latency_ms: Date.now() - startedAt,
       },
       answerSections: [],
-      quoteCards: hasSources ? reconcileQuoteCards(quoteCards, answerInputResults, args.query) : [],
-      visualEvidence: hasSources ? visualEvidence : [],
+      quoteCards: hasSources ? reconcileQuoteCards(fallbackArtifacts.quoteCards, fallbackResults, args.query) : [],
+      visualEvidence: hasSources ? fallbackArtifacts.visualEvidence : [],
       bestSource: hasSources ? fallbackBestSource : null,
-      documentBreakdown: hasSources ? documentBreakdown : [],
-      evidenceSummary: hasSources ? evidenceSummary : emptyPanel.evidenceSummary,
-      sourceCoverage: hasSources ? sourceCoverage : emptyPanel.sourceCoverage,
-      conflictsOrGaps: hasSources ? conflictsOrGaps : [],
+      documentBreakdown: hasSources ? fallbackArtifacts.documentBreakdown : [],
+      evidenceSummary: hasSources ? fallbackArtifacts.evidenceSummary : emptyPanel.evidenceSummary,
+      sourceCoverage: hasSources ? fallbackArtifacts.sourceCoverage : emptyPanel.sourceCoverage,
+      conflictsOrGaps: hasSources ? fallbackArtifacts.conflictsOrGaps : [],
       smartPanel: fallbackSmartPanel,
       relatedDocuments,
-      relevance,
-      memoryCardsUsed: hasSources ? memoryCardsUsed : [],
+      relevance: fallbackArtifacts.relevance,
+      memoryCardsUsed: hasSources ? fallbackArtifacts.memoryCardsUsed : [],
       indexingVersion: ragDeepMemoryVersion,
-      indexingQuality,
-      smartApiPlan: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`),
-      scoreExplanations: answerScoreExplanations,
+      indexingQuality: fallbackArtifacts.indexingQuality,
+      smartApiPlan: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`, fallbackResults),
+      scoreExplanations: fallbackArtifacts.scoreExplanations,
     } satisfies RagAnswer;
   }
 
@@ -5004,6 +5066,22 @@ ${qualityRetryInstruction}`
     queryClass,
     crossDocument: crossDocumentPlan.enabled,
     results: answerInputResults,
+  });
+  const strongRetryContextResults = selectModelContextResults({
+    routeMode: "strong",
+    queryClass,
+    crossDocument: crossDocumentPlan.enabled,
+    results: answerInputResults,
+  });
+  const generationFallbackResults = strongRetryContextResults;
+  const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
+  await args.onProgress?.({
+    stage: "ranking",
+    message: "Selected governed source passages for answer generation.",
+    selectedContextCount: modelContextSelectionSummary.selectedCount,
+    australianSourceCount: modelContextSelectionSummary.australianSelectedCount,
+    waSourceCount: modelContextSelectionSummary.waSelectedCount,
+    usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
   });
   try {
     await args.onProgress?.({
@@ -5043,7 +5121,7 @@ ${qualityRetryInstruction}`
       args.onRevising?.(retryReason);
       // Widen the retry context from the trimmed fast set to the full result set, but keep the P9
       // per-document crowding cap — the strong-initial route is capped, so the retry must be too.
-      packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
+      packedContextResults = await packContextForGeneration(strongRetryContextResults);
       // Boost the cap: a max_output_tokens truncation retried on the SAME budget with MORE
       // reasoning (strong) just re-truncates. This is the truncation self-heal.
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
@@ -5125,7 +5203,7 @@ ${qualityRetryInstruction}`
       });
       args.onRevising?.(retryReason);
       // Same as the truncation retry above: widen but keep the P9 per-document crowding cap.
-      packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
+      packedContextResults = await packContextForGeneration(strongRetryContextResults);
       // Strong spends more reasoning tokens than the fast attempt it is replacing, so it needs
       // the boosted cap to avoid truncating (and degrading to unsupported) on the escalation.
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
@@ -5186,7 +5264,7 @@ ${qualityRetryInstruction}`
         retrievalDiagnostics,
       );
     }
-    await args.onProgress?.({ stage: "finalizing", message: "Checking citations and source metadata." });
+    await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
 
     const relatedDocuments = await relatedDocumentsPromise;
     const answerTimings = {
@@ -5352,13 +5430,27 @@ ${qualityRetryInstruction}`
   } catch (error) {
     if ((error instanceof DOMException && error.name === "AbortError") || args.signal?.aborted) throw error;
     const relatedDocuments = await relatedDocumentsPromise;
+    const generationFallbackArtifacts = buildContextDerivedArtifacts(answerFocusQuery, generationFallbackResults);
+    const generationFallbackSelectionSummary = summarizeAustralianSourceSelection(
+      answerInputResults,
+      generationFallbackResults,
+    );
     await args.onProgress?.({
-      stage: "finalizing",
+      stage: "fallback",
       message: "Generation failed, returning source-based fallback answer.",
       mode: "unsupported",
       reason: "generation_fallback",
+      selectedContextCount: generationFallbackSelectionSummary.selectedCount,
+      australianSourceCount: generationFallbackSelectionSummary.australianSelectedCount,
+      waSourceCount: generationFallbackSelectionSummary.waSelectedCount,
+      usedSupplementaryFallback: generationFallbackSelectionSummary.usedSupplementaryFallback,
     });
-    const baseFallbackAnswer = await buildGenerationFallbackAnswer(error, relatedDocuments);
+    const baseFallbackAnswer = await buildGenerationFallbackAnswer(
+      error,
+      relatedDocuments,
+      generationFallbackResults,
+      generationFallbackArtifacts,
+    );
     const sanitizedReason = summarizeGenerationFailureReason(error);
     // This degradation is invisible to route-level capture (the request still
     // succeeds with a source-only answer), so report it here. The token-starvation
@@ -5372,60 +5464,91 @@ ${qualityRetryInstruction}`
       queryClass === "comparison"
         ? (buildComparisonAnswer({
             query: args.query,
-            results: answerInputResults,
+            results: generationFallbackResults,
             selectedDocuments: explicitlySelectedComparisonDocuments,
             routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_source_safe_fallback`,
             timings: baseFallbackAnswer.latencyTimings,
           }) ??
           buildComparisonEvidenceGapAnswer({
             query: args.query,
-            results: answerInputResults,
+            results: generationFallbackResults,
             selectedDocuments: explicitlySelectedComparisonDocuments,
             routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_evidence_gap`,
             timings: baseFallbackAnswer.latencyTimings,
           }))
         : null;
     const canRecoverGenerationErrorExtractively =
-      queryClass !== "comparison" &&
-      answerInputResults.length > 0 &&
-      baseFallbackAnswer.citations.length > 0 &&
-      !/(?:max_output_tokens|incomplete)/i.test(sanitizedReason);
-    const extractiveFallbackAnswer = canRecoverGenerationErrorExtractively
-      ? {
-          ...buildExtractiveAnswer({
-            query: args.query,
-            queryClass,
-            results: answerInputResults,
-            quoteCards,
-            documentBreakdown,
-            evidenceSummary,
-            sourceCoverage,
-            conflictsOrGaps,
-            visualEvidence,
-            bestSource,
-            smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+      queryClass !== "comparison" && generationFallbackResults.length > 0 && baseFallbackAnswer.citations.length > 0;
+    const extractiveFallbackRouteReason = `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`;
+    const buildExtractiveFallbackCandidate = (candidateResults: SearchResult[]) => {
+      const candidateArtifacts =
+        candidateResults === generationFallbackResults
+          ? generationFallbackArtifacts
+          : buildContextDerivedArtifacts(answerFocusQuery, candidateResults);
+      const candidatePlan = buildCurrentSmartApiPlan("extractive", extractiveFallbackRouteReason, candidateResults);
+      return {
+        ...buildExtractiveAnswer({
+          query: args.query,
+          queryClass,
+          results: candidateResults,
+          quoteCards: candidateArtifacts.quoteCards,
+          documentBreakdown: candidateArtifacts.documentBreakdown,
+          evidenceSummary: candidateArtifacts.evidenceSummary,
+          sourceCoverage: candidateArtifacts.sourceCoverage,
+          conflictsOrGaps: candidateArtifacts.conflictsOrGaps,
+          visualEvidence: candidateArtifacts.visualEvidence,
+          bestSource: candidateArtifacts.bestSource,
+          smartPanel: {
+            ...candidateArtifacts.smartPanel,
+            relevance: candidateArtifacts.relevance,
+            bestSource: candidateArtifacts.bestSource,
             relatedDocuments,
-            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`,
-            timings: baseFallbackAnswer.latencyTimings,
-          }),
-          openAIRequestIds,
-          openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,
-          queryAnalysis,
-          memoryCardsUsed,
-          indexingVersion: ragDeepMemoryVersion,
-          indexingQuality,
-          smartApiPlan: buildCurrentSmartApiPlan(
-            "extractive",
-            `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`,
-          ),
-          responseMode: buildCurrentSmartApiPlan(
-            "extractive",
-            `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`,
-          ).displayMode,
-          relevance,
-          scoreExplanations: answerScoreExplanations,
-        }
+          },
+          relatedDocuments,
+          routeReason: extractiveFallbackRouteReason,
+          timings: baseFallbackAnswer.latencyTimings,
+        }),
+        openAIRequestIds,
+        openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,
+        queryAnalysis,
+        memoryCardsUsed: candidateArtifacts.memoryCardsUsed,
+        indexingVersion: ragDeepMemoryVersion,
+        indexingQuality: candidateArtifacts.indexingQuality,
+        smartApiPlan: candidatePlan,
+        responseMode: candidatePlan.displayMode,
+        relevance: candidateArtifacts.relevance,
+        scoreExplanations: candidateArtifacts.scoreExplanations,
+      } satisfies RagAnswer;
+    };
+    const isSafeExtractiveFallbackCandidate = (candidate: RagAnswer) => {
+      if (!candidate.grounded || candidate.confidence === "unsupported") return false;
+      if (generatedAnswerQualityFailureReason(candidate, args.query, queryClass)) return false;
+      const verified = applyNumericVerification(cloneAnswer(candidate));
+      return (
+        verified.grounded &&
+        verified.confidence !== "unsupported" &&
+        (verified.unverifiedNumericTokens?.length ?? 0) === 0
+      );
+    };
+    const retainCitedExtractiveFallbackEvidence = <T extends RagAnswer>(candidate: T): T => {
+      const citedChunkIds = new Set(candidate.citations.map((citation) => citation.chunk_id));
+      return {
+        ...candidate,
+        sources: candidate.sources.filter((source) => citedChunkIds.has(source.id)),
+      };
+    };
+    let extractiveFallbackAnswer = canRecoverGenerationErrorExtractively
+      ? buildExtractiveFallbackCandidate(generationFallbackResults)
       : null;
+    // Generated synthesis has already failed, so do not stitch dose or threshold figures
+    // across fallback chunks. Prefer the first individually complete candidate that passes
+    // every extractive and numeric safety gate.
+    if (extractiveFallbackAnswer && (queryClass === "medication_dose_risk" || queryClass === "table_threshold")) {
+      extractiveFallbackAnswer =
+        generationFallbackResults
+          .map((result) => retainCitedExtractiveFallbackEvidence(buildExtractiveFallbackCandidate([result])))
+          .find(isSafeExtractiveFallbackCandidate) ?? extractiveFallbackAnswer;
+    }
     const extractiveFallbackQualityReason = extractiveFallbackAnswer
       ? generatedAnswerQualityFailureReason(extractiveFallbackAnswer, args.query, queryClass)
       : null;
@@ -5437,23 +5560,28 @@ ${qualityRetryInstruction}`
     const generationFallbackAnswer = comparisonFallbackAnswer
       ? {
           ...comparisonFallbackAnswer,
-          quoteCards,
-          documentBreakdown,
-          evidenceSummary,
-          sourceCoverage,
-          conflictsOrGaps,
-          visualEvidence,
-          bestSource,
+          quoteCards: generationFallbackArtifacts.quoteCards,
+          documentBreakdown: generationFallbackArtifacts.documentBreakdown,
+          evidenceSummary: generationFallbackArtifacts.evidenceSummary,
+          sourceCoverage: generationFallbackArtifacts.sourceCoverage,
+          conflictsOrGaps: generationFallbackArtifacts.conflictsOrGaps,
+          visualEvidence: generationFallbackArtifacts.visualEvidence,
+          bestSource: generationFallbackArtifacts.bestSource,
           relatedDocuments,
-          smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+          smartPanel: {
+            ...generationFallbackArtifacts.smartPanel,
+            relevance: generationFallbackArtifacts.relevance,
+            bestSource: generationFallbackArtifacts.bestSource,
+            relatedDocuments,
+          },
           openAIRequestIds,
           openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,
           queryAnalysis,
-          memoryCardsUsed,
+          memoryCardsUsed: generationFallbackArtifacts.memoryCardsUsed,
           indexingVersion: ragDeepMemoryVersion,
-          indexingQuality,
-          relevance,
-          scoreExplanations: answerScoreExplanations,
+          indexingQuality: generationFallbackArtifacts.indexingQuality,
+          relevance: generationFallbackArtifacts.relevance,
+          scoreExplanations: generationFallbackArtifacts.scoreExplanations,
         }
       : extractiveFallbackAnswer && sourceBackedReviewReason
         ? (() => {
@@ -5468,15 +5596,15 @@ ${qualityRetryInstruction}`
               ...baseFallbackAnswer,
               answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
               grounded: true,
-              confidence: deriveConfidence(answerInputResults, baseFallbackAnswer.citations),
+              confidence: deriveConfidence(generationFallbackResults, baseFallbackAnswer.citations),
               routingMode: "extractive",
               routingReason: reviewRouteReason,
               queryAnalysis,
               responseMode: reviewPlan.displayMode,
               smartApiPlan: reviewPlan,
               answerSections: [],
-              relevance,
-              scoreExplanations: answerScoreExplanations,
+              relevance: generationFallbackArtifacts.relevance,
+              scoreExplanations: generationFallbackArtifacts.scoreExplanations,
             } satisfies RagAnswer;
           })()
         : (extractiveFallbackAnswer ?? baseFallbackAnswer);
@@ -5485,12 +5613,13 @@ ${qualityRetryInstruction}`
       args.query,
       queryClass,
     );
+    await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
     if (args.logQuery !== false)
       await logRagQuery({
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: fallbackAnswer.answer,
-        source_chunk_ids: answerInputResults.map((result) => result.id),
+        source_chunk_ids: generationFallbackResults.map((result) => result.id),
         model: null,
         metadata: {
           document_id: args.documentId ?? null,
@@ -5516,6 +5645,12 @@ ${qualityRetryInstruction}`
           ...memoryLogMetadata,
           ...scoreLogMetadata,
           ...searchTelemetryDecisionMetadata(),
+          source_authority_candidate_count: generationFallbackSelectionSummary.candidateCount,
+          source_authority_selected_count: generationFallbackSelectionSummary.selectedCount,
+          australian_source_count: generationFallbackSelectionSummary.australianSelectedCount,
+          wa_source_count: generationFallbackSelectionSummary.waSelectedCount,
+          source_authority_conflict_count: generationFallbackSelectionSummary.authorityConflictCount,
+          used_supplementary_fallback: generationFallbackSelectionSummary.usedSupplementaryFallback,
           cited_chunk_count: fallbackAnswer.citations.length,
           quote_count: fallbackAnswer.quoteCards?.length ?? 0,
           visual_evidence_count: fallbackAnswer.visualEvidence?.length ?? 0,
@@ -5543,7 +5678,9 @@ ${qualityRetryInstruction}`
         },
       });
 
-    await setCachedAnswer(args, fallbackAnswer, { indexingVersionAtRetrievalStart });
+    if (isCacheableGroundedGenerationFallback(fallbackAnswer)) {
+      await setCachedAnswer(args, fallbackAnswer, { indexingVersionAtRetrievalStart });
+    }
     return fallbackAnswer;
   }
 }

@@ -288,6 +288,7 @@ function mockRuntime(
     publicWorkspaceOwnerId?: string;
     maxConcurrentUploads?: number;
     maxInFlightUploadMb?: number;
+    demoMode?: boolean;
   } = {},
 ) {
   vi.resetModules();
@@ -317,7 +318,7 @@ function mockRuntime(
       WORKER_STALE_AFTER_MINUTES: 10,
       WORKER_MAX_ATTEMPTS: 3,
     },
-    isDemoMode: () => false,
+    isDemoMode: () => Boolean(options.demoMode),
     isLocalNoAuthMode: () => Boolean(options.localNoAuth),
     publicWorkspaceOwnerId: () => options.publicWorkspaceOwnerId ?? null,
     publicUploadsEnabled: () => Boolean(options.publicUploadsEnabled),
@@ -395,6 +396,15 @@ function ssePayload(body: string, eventName: string) {
   const dataLine = block?.split("\n").find((line) => line.startsWith("data: "));
   expect(dataLine).toBeTruthy();
   return JSON.parse(dataLine!.slice("data: ".length)) as Record<string, unknown>;
+}
+
+function expectSingleCompletionBeforeFinal(body: string) {
+  const blocks = body.split("\n\n").filter(Boolean);
+  const completions = blocks.filter(
+    (block) => block.includes("event: progress\n") && block.includes('"stage":"complete"'),
+  );
+  expect(completions).toHaveLength(1);
+  expect(body.indexOf(completions[0]!)).toBeLessThan(body.indexOf("event: final\n"));
 }
 
 afterEach(() => {
@@ -3834,11 +3844,129 @@ describe("private document API access", () => {
     expect(secondPayload.telemetry).toMatchObject({ coalesced: true });
   });
 
-  it("streams answer progress before the final answer for authenticated users", async () => {
+  it("streams only public progress details and exactly one completion before the final answer", async () => {
+    const answerQuestionWithScope = vi.fn(
+      async (args: {
+        onProgress?: (event: unknown) => void | Promise<void>;
+        onRevising?: (reason: string) => void;
+      }) => {
+        await args.onProgress?.({
+          stage: "routing",
+          message: "private-message-marker",
+          resultCount: 2,
+          visibleSourceCount: 1,
+          timingMs: 42,
+          selectedContextCount: 4.9,
+          australianSourceCount: 4,
+          waSourceCount: 3,
+          usedSupplementaryFallback: true,
+          model: "private-model-marker",
+          mode: "private-mode-marker",
+          reason: "private-reason-marker",
+          smartApiPlan: { marker: "private-plan-marker" },
+          relevance: { marker: "private-relevance-marker" },
+          privateMarker: "private-direct-marker",
+        });
+        args.onRevising?.("private-revising-marker");
+        await args.onProgress?.({ stage: "complete", message: "private-complete-marker" });
+        await args.onProgress?.({ stage: "complete", message: "private-duplicate-complete-marker" });
+        return {
+          answer: "Owned evidence.",
+          grounded: true,
+          confidence: "medium",
+          citations: [],
+          sources: [],
+        };
+      },
+    );
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
+      }),
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    const eventBlocks = body.split("\n\n").filter(Boolean);
+    const progressBlocks = eventBlocks.filter((block) => block.includes("event: progress\n"));
+    const completionBlocks = progressBlocks.filter((block) => block.includes('"stage":"complete"'));
+    const rankingBlock = progressBlocks.find((block) => block.includes('"stage":"ranking"'));
+    const rankingPayload = JSON.parse(
+      rankingBlock!
+        .split("\n")
+        .find((line) => line.startsWith("data: "))!
+        .slice("data: ".length),
+    );
+
+    expect(body.indexOf("event: progress")).toBeGreaterThanOrEqual(0);
+    expect(body.indexOf("event: final")).toBeGreaterThan(body.lastIndexOf('"stage":"complete"'));
+    expect(completionBlocks).toHaveLength(1);
+    expectSingleCompletionBeforeFinal(body);
+    expect(rankingPayload).toEqual({
+      stage: "ranking",
+      message: "Selecting the most relevant source passages.",
+      resultCount: 2,
+      selectedContextCount: 4,
+      australianSourceCount: 4,
+      waSourceCount: 3,
+    });
+    expect(body).not.toContain("usedSupplementaryFallback");
+    expect(body).toContain("event: revising\ndata: {}");
+    for (const privateMarker of [
+      "private-message-marker",
+      "private-model-marker",
+      "private-mode-marker",
+      "private-reason-marker",
+      "private-plan-marker",
+      "private-relevance-marker",
+      "private-direct-marker",
+      "private-revising-marker",
+      "private-complete-marker",
+      "private-duplicate-complete-marker",
+    ]) {
+      expect(body).not.toContain(privateMarker);
+    }
+    expect(answerQuestionWithScope).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerId: userId, documentId: otherDocumentId, onProgress: expect.any(Function) }),
+    );
+    expect(client.auth.getUser).toHaveBeenCalledWith(token);
+  });
+
+  it("completes demo answers before their successful final event", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope }, { demoMode: true });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      request("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "Lithium dosing" }),
+      }),
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expectSingleCompletionBeforeFinal(body);
+    expect(ssePayload(body, "final")).toMatchObject({ demoMode: true });
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("completes cached answers after safe cached progress and before final", async () => {
     const answerQuestionWithScope = vi.fn(async (args: { onProgress?: (event: unknown) => void | Promise<void> }) => {
-      await args.onProgress?.({ stage: "retrieved", message: "Retrieved 2 candidate sources." });
+      await args.onProgress?.({
+        stage: "cached",
+        message: "private-cache-message-marker",
+        model: "private-cache-model-marker",
+        reason: "private-cache-reason-marker",
+      });
       return {
-        answer: "Owned evidence.",
+        answer: "Cached owned evidence.",
         grounded: true,
         confidence: "medium",
         citations: [],
@@ -3858,13 +3986,10 @@ describe("private document API access", () => {
     const body = await response.text();
 
     expect(response.status).toBe(200);
-    expect(body.indexOf("event: progress")).toBeGreaterThanOrEqual(0);
-    expect(body.indexOf("event: final")).toBeGreaterThan(body.indexOf("event: progress"));
-    expect(body).toContain("Retrieved 2 candidate sources.");
-    expect(answerQuestionWithScope).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: userId, documentId: otherDocumentId, onProgress: expect.any(Function) }),
-    );
-    expect(client.auth.getUser).toHaveBeenCalledWith(token);
+    expect(body.indexOf('"stage":"cached"')).toBeLessThan(body.indexOf('"stage":"complete"'));
+    expect(body).toContain('"message":"Loading a recent cited answer."');
+    expect(body).not.toContain("private-cache");
+    expectSingleCompletionBeforeFinal(body);
   });
 
   it("emits a structured SSE error when authenticated streaming answers are rate limited", async () => {
@@ -4021,9 +4146,11 @@ describe("private document API access", () => {
         body: JSON.stringify({ query: "monitoring", documentId }),
       }),
     );
-    const finalPayload = ssePayload(await response.text(), "final");
+    const responseBody = await response.text();
+    const finalPayload = ssePayload(responseBody, "final");
 
     expect(response.status).toBe(200);
+    expectSingleCompletionBeforeFinal(responseBody);
     expect(finalPayload.grounded).toBe(false);
     expect(finalPayload.confidence).toBe("unsupported");
     expect(finalPayload.citations).toEqual([]);

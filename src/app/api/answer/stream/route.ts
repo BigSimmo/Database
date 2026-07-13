@@ -32,6 +32,7 @@ import { logger } from "@/lib/logger";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import { startSseHeartbeat } from "@/lib/sse-heartbeat";
 import { parseJsonBody } from "@/lib/validation/body";
+import { toPublicAnswerProgressEvent } from "@/lib/answer-progress-public";
 import type { RagAnswer } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -138,6 +139,8 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
   return new Response(
     new ReadableStream({
       async start(controller) {
+        const streamStartedAt = Date.now();
+        let completionSent = false;
         const send = (event: string, data: unknown) => {
           try {
             controller.enqueue(encoder.encode(encodeSse(event, data)));
@@ -146,18 +149,31 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
             // stream is closed there is no remaining consumer for this frame.
           }
         };
+        const sendProgress = (event: unknown) => {
+          const publicEvent = toPublicAnswerProgressEvent(event);
+          if (!publicEvent || (publicEvent.stage === "complete" && completionSent)) return;
+          if (publicEvent.stage === "complete") completionSent = true;
+          send("progress", publicEvent);
+        };
+        const sendComplete = () => {
+          sendProgress({ stage: "complete", elapsedMs: Date.now() - streamStartedAt });
+        };
+        const sendFinal = (data: unknown) => {
+          sendComplete();
+          send("final", data);
+        };
         // Generation can go silent for long stretches (strong-route reasoning
         // before the first output token); heartbeat comments keep the
         // connection visibly alive for proxies and the client's stall watchdog.
         const stopHeartbeat = startSseHeartbeat((frame) => controller.enqueue(encoder.encode(frame)));
-        const onProgress = (event: AnswerProgressEvent) => send("progress", event);
+        const onProgress = (event: AnswerProgressEvent) => sendProgress(event);
         // Stream the answer prose as it generates (content-preserving) and signal a reset when a
         // provisional answer is being revised by the quality gates.
         const onToken = (delta: string) => send("token", { delta });
-        const onRevising = (reason: string) => send("revising", { reason });
+        const onRevising = () => send("revising", {});
 
         try {
-          send("progress", { stage: "retrieving", message: "Searching indexed documents." });
+          sendProgress({ stage: "scoping" });
           const scope = isDemoMode()
             ? null
             : await resolveSearchScope({
@@ -166,8 +182,9 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
                 documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
                 filters: body.filters,
               });
+          sendProgress({ stage: "retrieving" });
           if (scope?.documentIds?.length === 0) {
-            send("final", {
+            sendFinal({
               answer:
                 "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.",
               grounded: false,
@@ -226,7 +243,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
                 },
               });
             }
-            send("final", {
+            sendFinal({
               answer: sourceGovernanceRefusalAnswer,
               grounded: false,
               confidence: "unsupported",
@@ -244,7 +261,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
             logAnswerDiagnostics({ supabase: createAdminClient(), query: body.query, ownerId, answer });
           }
 
-          send("final", {
+          sendFinal({
             // Boundary trim only — governance warnings and diagnostics above
             // consumed the full answer (see answer-client-payload.ts).
             ...toClientAnswerPayload(answer),
@@ -259,7 +276,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
           // error — the UI's answer search uses this route, not /api/answer.
           const fallbackReason = nonProductionSupabaseDemoFallbackReason(error);
           if (fallbackReason) {
-            send("final", { ...buildDemoStreamAnswer(body, fallbackReason), interactionId });
+            sendFinal({ ...buildDemoStreamAnswer(body, fallbackReason), interactionId });
             return;
           }
           logStreamError(error, signal);
