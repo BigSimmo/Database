@@ -350,7 +350,5 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
 - **Session skills** (`.claude/skills/{newtask,handoff,prlanded}`): the first repo-local skills, encoding
   the clean-worktree, upload, and post-merge-verification rituals.
 - **CI guards (warn/advisory):** `check:bundle-budget` (warn-only client-JS size gate after Build until a
-  baseline is captured in `bundle-budget.json` and `enforce:true` is set), `docs:check-scripts` (advisory —
-  validates `npm run` refs in docs against `package.json`), and `deps:report` — a **dispatch-only**
-  fortnightly dependency-report workflow that digests outdated/audit findings; report-only, never
-  auto-bumps.
+  baseline is captured in `bundle-budget.json` and `enforce:true` is set) and `docs:check-scripts`
+  (advisory — validates `npm run` refs in docs against `package.json`).
