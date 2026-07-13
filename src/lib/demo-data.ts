@@ -591,7 +591,7 @@ export function demoAnswer(query: string, documentId?: string, documentIds?: str
     answer: `${answer}\n\nSynthetic demo only: this is not clinical guidance.`,
     grounded: supportedQuestion && sources.length > 0,
     confidence: supportedQuestion && sources.length > 0 ? "high" : "unsupported",
-    citations: sources.slice(0, 4).map(citationFromResult),
+    citations: sources.slice(0, 4).map((source) => citationFromResult(source, "deterministic_support")),
     sources,
     answerSections: sources.length
       ? broadMultiDocumentQuery
@@ -683,7 +683,7 @@ export function demoSummary(documentId: string): RagAnswer {
     answer: `${answer}\n\nSynthetic demo only: this is not clinical guidance.`,
     grounded: true,
     confidence: "high",
-    citations: sources.slice(0, 4).map(citationFromResult),
+    citations: sources.slice(0, 4).map((source) => citationFromResult(source, "deterministic_support")),
     sources,
     answerSections: [
       {

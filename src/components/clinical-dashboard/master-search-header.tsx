@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
+import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
@@ -67,6 +68,7 @@ import { appModeIcons } from "@/lib/app-mode-icons";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
+import { privacyCopy } from "@/lib/ui-copy";
 
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
@@ -1183,6 +1185,9 @@ export function MasterSearchHeader({
             className="answer-suggestion-row-composer-followups relative z-10 w-full sm:hidden"
           />
         ) : null}
+        {searchMode === "answer" ? (
+          <PrivacyInputNotice className="px-2 text-left sm:justify-center sm:text-center" />
+        ) : null}
         <UniversalSearchCommandSurface
           modeId={searchMode}
           query={query}
@@ -1265,6 +1270,7 @@ export function MasterSearchHeader({
                 aria-expanded={commandDropdownOpen}
                 aria-controls={commandDropdownOpen ? commandListboxId : undefined}
                 aria-autocomplete="list"
+                aria-describedby={searchMode === "answer" ? "answer-composer-privacy-warning" : undefined}
                 // React's onChange already fires on every input event; a duplicate
                 // onInput called onQueryChange twice per keystroke, doubling the
                 // controlled-state work on a large parent tree.
@@ -1314,6 +1320,15 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
+        {searchMode === "answer" ? (
+          <p
+            id="answer-composer-privacy-warning"
+            data-testid="answer-composer-privacy-warning"
+            className="relative z-10 mt-1.5 w-full px-3 text-center text-2xs leading-4 text-[color:var(--text-muted)]"
+          >
+            {privacyCopy.composerWarning}
+          </p>
+        ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
             open it even when the footer chip row is not shown. */}
         {hasScopeFooterChip && !usesScopeSheet && scopeOpen ? (

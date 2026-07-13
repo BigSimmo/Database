@@ -1,8 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { classifyDocumentOrganization } from "@/lib/document-organization";
 import { env } from "@/lib/env";
-import { retrievalOwnerFilter } from "@/lib/owner-scope";
+import {
+  PUBLIC_OWNER_FILTER_SENTINEL,
+  retrievalAccessScopeForArgs,
+  retrievalRpcScopeArgs,
+  type RetrievalAccessScope,
+} from "@/lib/owner-scope";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
+import { isMissingRetrievalRpcError } from "@/lib/retrieval-rpc-rollout";
 import {
   buildCoveragePromptNote,
   buildIndexingCoverageProfile,
@@ -715,12 +721,36 @@ type RelatedDocumentMetadataRow = {
 export async function fetchRelatedDocumentMetadata(args: {
   supabase: SupabaseClient;
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   documentIds: string[];
 }) {
-  const { data: rpcData, error: rpcError } = await args.supabase.rpc("get_related_document_metadata", {
+  const accessScope = retrievalAccessScopeForArgs(args);
+  const versionedResult = await args.supabase.rpc("get_related_document_metadata_v2", {
     document_ids: args.documentIds,
-    owner_filter: retrievalOwnerFilter({ ownerId: args.ownerId, documentIds: args.documentIds }),
+    ...retrievalRpcScopeArgs(accessScope),
   });
+  let rpcData = versionedResult?.data;
+  let rpcError = versionedResult?.error;
+  if (!versionedResult || isMissingRetrievalRpcError(versionedResult.error)) {
+    const ownerFilter = accessScope.ownerId ?? PUBLIC_OWNER_FILTER_SENTINEL;
+    const ownerResult = await args.supabase.rpc("get_related_document_metadata", {
+      document_ids: args.documentIds,
+      owner_filter: ownerFilter,
+    });
+    const publicResult =
+      accessScope.ownerId && accessScope.includePublic
+        ? await args.supabase.rpc("get_related_document_metadata", {
+            document_ids: args.documentIds,
+            owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+          })
+        : { data: [], error: null };
+    rpcError = ownerResult.error ?? publicResult.error;
+    const merged = new Map<string, RelatedDocumentMetadataRow>();
+    for (const row of [...(ownerResult.data ?? []), ...(publicResult.data ?? [])] as RelatedDocumentMetadataRow[]) {
+      if (!merged.has(row.document_id)) merged.set(row.document_id, row);
+    }
+    rpcData = [...merged.values()];
+  }
 
   if (!rpcError) {
     return ((rpcData ?? []) as RelatedDocumentMetadataRow[]).map((row) => ({
@@ -739,9 +769,15 @@ export async function fetchRelatedDocumentMetadata(args: {
     .select("document_id,owner_id,summary")
     .in("document_id", args.documentIds);
 
-  if (args.ownerId) {
-    labelsQuery = labelsQuery.eq("owner_id", args.ownerId);
-    summariesQuery = summariesQuery.eq("owner_id", args.ownerId);
+  if (accessScope.ownerId && accessScope.includePublic) {
+    labelsQuery = labelsQuery.or(`owner_id.eq.${accessScope.ownerId},owner_id.is.null`);
+    summariesQuery = summariesQuery.or(`owner_id.eq.${accessScope.ownerId},owner_id.is.null`);
+  } else if (accessScope.ownerId) {
+    labelsQuery = labelsQuery.eq("owner_id", accessScope.ownerId);
+    summariesQuery = summariesQuery.eq("owner_id", accessScope.ownerId);
+  } else {
+    labelsQuery = labelsQuery.is("owner_id", null);
+    summariesQuery = summariesQuery.is("owner_id", null);
   }
 
   const [labelsResult, summariesResult] = await Promise.all([labelsQuery, summariesQuery]);
@@ -767,6 +803,7 @@ export async function fetchRelatedDocumentMetadata(args: {
 export async function fetchRelatedDocuments(args: {
   supabase: SupabaseClient;
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   query: string;
   results: SearchResult[];
   limit?: number;
@@ -813,6 +850,7 @@ export async function fetchRelatedDocuments(args: {
     fetchRelatedDocumentMetadata({
       supabase: args.supabase,
       ownerId: args.ownerId,
+      accessScope: args.accessScope,
       documentIds,
     }),
     fetchDocumentVisualCounts(args.supabase, documentIds),

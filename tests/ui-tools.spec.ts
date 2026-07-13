@@ -538,6 +538,29 @@ test.describe("Clinical KB tools launcher", () => {
     }
   });
 
+  test("answer composer keeps the PHI warning visible before submission @critical", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
+
+    for (const viewport of [
+      { width: 390, height: 820 },
+      { width: 1280, height: 900 },
+    ] as const) {
+      await page.setViewportSize(viewport);
+      await gotoLauncher(page, "/?mode=answer");
+
+      const warning = page.getByTestId("answer-composer-privacy-warning");
+      await expect(warning).toBeVisible();
+      await expect(warning).toHaveText("Don't enter identifiable patient details.");
+      await expect(visibleGlobalSearchInput(page)).toHaveAttribute(
+        "aria-describedby",
+        "answer-composer-privacy-warning",
+      );
+      await expect(
+        page.getByTestId("answer-empty-state").getByRole("link", { name: "Privacy & data handling" }),
+      ).toBeVisible();
+    }
+  });
+
   test("all mode home heroes share identical sizing on mobile", async ({ page }) => {
     test.setTimeout(150_000);
     await mockAnswerDashboardApi(page);
