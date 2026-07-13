@@ -3588,11 +3588,17 @@ export function ClinicalDashboard({
           {privateScopeStatus === "unavailable" ? (
             // Lives inside <main> (not as a header sibling): in the answer view
             // the header is absolute, so a sibling alert would reflow to the
-            // column top and hide behind the glass bar.
+            // column top and hide behind the glass bar. Sticky so the recovery
+            // actions stay reachable while the user scrolls — pinned below the
+            // overlaid glass bar in answer mode, just under the in-flow header
+            // otherwise (main is the scroll container, so sticky works here).
             <div
               role="alert"
               data-testid="private-scope-unavailable"
-              className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8"
+              className={cn(
+                "sticky z-20 mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8",
+                searchMode === "answer" ? "top-[calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]" : "top-2",
+              )}
             >
               <p>
                 The original private document scope is unavailable. Choose the documents again or confirm a broader
