@@ -2,6 +2,9 @@ import type { RagAnswer, SearchResult } from "@/lib/types";
 
 export const answerThreadStorageKey = "clinical-kb-answer-thread";
 export const maxStoredAnswerTurns = 12;
+// sessionStorage already dies with the tab, but long-lived clinical-workstation
+// tabs can idle for days; bound how long raw query/answer text stays restorable.
+export const answerThreadTtlMs = 12 * 60 * 60 * 1000;
 
 export type StoredAnswerTurn = {
   id: string;
@@ -16,6 +19,12 @@ export type PersistedAnswerThread = {
   latestTurn: Omit<StoredAnswerTurn, "id"> | null;
   collapsedTurnIds: string[];
 };
+
+// Stored envelope = the thread plus a write timestamp. savedAt stays internal to
+// this module: loads strip it after the TTL check so callers round-trip the
+// plain PersistedAnswerThread shape. Payloads written before the TTL existed
+// have no savedAt and are accepted once; the next save stamps them.
+type PersistedAnswerThreadEnvelope = PersistedAnswerThread & { savedAt?: number };
 
 const maxStorageBytes = 4_500_000;
 
@@ -35,8 +44,15 @@ function isStoredAnswerTurn(value: unknown): value is StoredAnswerTurn {
 
 function normalizePersistedAnswerThread(value: unknown): PersistedAnswerThread | null {
   if (!value || typeof value !== "object") return null;
-  const record = value as Partial<PersistedAnswerThread>;
+  const record = value as Partial<PersistedAnswerThreadEnvelope>;
   if (record.version !== 1) return null;
+  if (
+    typeof record.savedAt === "number" &&
+    Number.isFinite(record.savedAt) &&
+    Date.now() - record.savedAt > answerThreadTtlMs
+  ) {
+    return null;
+  }
   const priorTurns = Array.isArray(record.priorTurns)
     ? record.priorTurns.filter(isStoredAnswerTurn).slice(-maxStoredAnswerTurns)
     : [];
@@ -84,11 +100,12 @@ export function loadPersistedAnswerThread(ownerId: string): PersistedAnswerThrea
 export function savePersistedAnswerThread(ownerId: string, thread: PersistedAnswerThread): boolean {
   if (typeof window === "undefined" || !ownerId) return false;
   try {
-    const payload: PersistedAnswerThread = {
+    const payload: PersistedAnswerThreadEnvelope = {
       version: 1,
       priorTurns: thread.priorTurns.slice(-maxStoredAnswerTurns),
       latestTurn: thread.latestTurn,
       collapsedTurnIds: thread.collapsedTurnIds,
+      savedAt: Date.now(),
     };
     const serialized = JSON.stringify(payload);
     if (serialized.length > maxStorageBytes) return false;

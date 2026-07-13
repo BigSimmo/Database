@@ -1527,6 +1527,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      rag_answer_feedback: {
+        Row: {
+          answer_hash: string;
+          cited_source_ids: string[];
+          created_at: string;
+          feedback_category: string;
+          id: string;
+          interaction_id: string;
+          model: string | null;
+          owner_id: string | null;
+          provider_request_ids: string[];
+          route: string | null;
+          source_ids: string[];
+        };
+        Insert: {
+          answer_hash: string;
+          cited_source_ids?: string[];
+          created_at?: string;
+          feedback_category: string;
+          id?: string;
+          interaction_id: string;
+          model?: string | null;
+          owner_id?: string | null;
+          provider_request_ids?: string[];
+          route?: string | null;
+          source_ids?: string[];
+        };
+        Update: {
+          answer_hash?: string;
+          cited_source_ids?: string[];
+          created_at?: string;
+          feedback_category?: string;
+          id?: string;
+          interaction_id?: string;
+          model?: string | null;
+          owner_id?: string | null;
+          provider_request_ids?: string[];
+          route?: string | null;
+          source_ids?: string[];
+        };
+        Relationships: [];
+      };
       rag_queries: {
         Row: {
           answer: string | null;
@@ -1925,6 +1967,54 @@ export type Database = {
           },
         ];
       };
+      source_review_events: {
+        Row: {
+          created_at: string;
+          decision: string;
+          document_id: string;
+          evidence_references: string[];
+          id: string;
+          new_document_status: string;
+          new_validation_status: string;
+          prior_document_status: string;
+          prior_validation_status: string;
+          reason: string;
+          replacement_document_id: string | null;
+          review_date: string | null;
+          reviewer_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          decision: string;
+          document_id: string;
+          evidence_references?: string[];
+          id?: string;
+          new_document_status: string;
+          new_validation_status: string;
+          prior_document_status: string;
+          prior_validation_status: string;
+          reason: string;
+          replacement_document_id?: string | null;
+          review_date?: string | null;
+          reviewer_id: string;
+        };
+        Update: {
+          created_at?: string;
+          decision?: string;
+          document_id?: string;
+          evidence_references?: string[];
+          id?: string;
+          new_document_status?: string;
+          new_validation_status?: string;
+          prior_document_status?: string;
+          prior_validation_status?: string;
+          reason?: string;
+          replacement_document_id?: string | null;
+          review_date?: string | null;
+          reviewer_id?: string;
+        };
+        Relationships: [];
+      };
       storage_cleanup_jobs: {
         Row: {
           attempts: number;
@@ -2016,6 +2106,22 @@ export type Database = {
           p_metadata_patch?: Json;
         };
         Returns: undefined;
+      };
+      record_source_review: {
+        Args: {
+          p_decision: string;
+          p_document_id: string;
+          p_evidence_references?: string[];
+          p_reason: string;
+          p_replacement_document_id?: string | null;
+          p_review_date?: string | null;
+          p_reviewer_id: string;
+        };
+        Returns: Json;
+      };
+      purge_expired_rag_response_cache: {
+        Args: { p_limit?: number };
+        Returns: number;
       };
       consume_api_subject_rate_limit: {
         Args: {

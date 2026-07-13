@@ -113,7 +113,14 @@ export function AnswerEmptyState({
           </div>
           {/* No privacy link here: the composer's PrivacyInputNotice is the
               single site-wide notice, so the hero footer must not repeat it. */}
-          <ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical Guide library" />
+          {/* Pre-query copy must describe what the search does, not assert that
+              every indexed source is verified/current (PT-06): validation status
+              varies per document and is surfaced on the results themselves. */}
+          <ModeHomeVerificationFooter
+            icon={ShieldCheck}
+            label="Searches indexed clinical sources"
+            body="Clinical Guide library"
+          />
         </div>
       }
     />

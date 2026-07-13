@@ -18,10 +18,12 @@
 
 FROM node:24-bookworm-slim AS deps
 WORKDIR /app
-# check-node-engine.cjs runs as the npm preinstall hook, so it must be in
-# place before `npm ci`.
+# check-node-engine.cjs runs as the npm preinstall hook and
+# install-git-hooks.mjs as the postinstall hook, so both must be in place
+# before `npm ci`.
 COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
+COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
 RUN npm ci
 
 FROM node:24-bookworm-slim AS build
@@ -40,6 +42,7 @@ FROM node:24-bookworm-slim AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
+COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
 RUN npm ci --omit=dev
 
 FROM node:24-bookworm-slim AS runner

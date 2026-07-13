@@ -437,6 +437,42 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).toMatch(/IM medication|oral medication|agitation/i);
   });
 
+  it("keeps source-backed agitation step numbers grounded across multiple citations", async () => {
+    const answer = await answerFromTextSources(
+      "What should be considered for agitation and arousal pharmacological management?",
+      [
+        source({
+          id: "agitation-step-table",
+          document_id: "agitation-doc",
+          title: "Agitation and Arousal Pharmacological Management",
+          file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+          section_heading: "Stepwise management",
+          content:
+            "Step 1: agitation and arousal pharmacological management should assess severity and use oral medication when the patient is willing. Step 2: monitor the agitation response and consider intramuscular medication when oral medication is refused.",
+        }),
+        source({
+          id: "agitation-clinical-review",
+          document_id: "agitation-doc",
+          title: "Agitation and Arousal Pharmacological Management",
+          file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+          section_heading: "Clinical review",
+          content:
+            "Review physical causes, medicine-related risks, observations, and the least restrictive management option.",
+          similarity: 0.94,
+          hybrid_score: 0.94,
+          text_rank: 1,
+        }),
+      ],
+    );
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.length).toBeGreaterThanOrEqual(2);
+    expect(answer.answer).toMatch(/step [12]/i);
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    expect(answer.faithfulnessWarning).toBeUndefined();
+  });
+
   it("returns a grounded document-support fallback for procedure queries when no clean fact can be synthesized", async () => {
     const answer = await answerFromTextSources(
       "What is the process for ECT procedure?",
@@ -1841,6 +1877,119 @@ describe("RAG structured-output fallback", () => {
     expect(generateStructuredTextResult).not.toHaveBeenCalled();
   });
 
+  it("recovers a directly supported routine document-content answer without model generation", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [
+      source({
+        id: "safety-plan-reference",
+        document_id: "safety-plan-doc",
+        title: "Patient Safety Planning Guideline",
+        file_name: "patient-safety-planning.pdf",
+        section_heading: "Related procedures",
+        content:
+          "Related procedures and guidelines. Women's and Perinatal Mental Health Referral and Management Guideline.",
+        similarity: 0.48,
+        hybrid_score: 0.48,
+        text_rank: 0.12,
+      }),
+      source({
+        id: "safety-plan-requirements",
+        document_id: "safety-plan-doc",
+        title: "Patient Safety Planning Guideline",
+        file_name: "patient-safety-planning.pdf",
+        section_heading: "Safety planning for identified risks",
+        content:
+          "The Consumer Safety Plan must be developed in collaboration with the consumer, involve carers and family where appropriate, identify actions for a crisis and who is responsible, and be reviewed when clinical status changes.",
+        similarity: 0.48,
+        hybrid_score: 0.48,
+        text_rank: 0.11,
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const answer = await answerQuestionWithScope({
+      query: "What should a patient safety plan include?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("validated_routine_extractive_recovery");
+    expect(answer.retrievalDiagnostics).toMatchObject({
+      gateStatus: "blocked",
+      routeMode: "extractive",
+      topScore: 0.48,
+    });
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.answer).toContain("developed in collaboration with the consumer");
+    expect(answer.answer).not.toContain("Perinatal Mental Health Referral");
+    expect(answer.citations.some((citation) => citation.chunk_id === "safety-plan-requirements")).toBe(true);
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+  });
+
+  it("keeps gate-passed routine document-content queries on model synthesis", async () => {
+    const answer = await answerFromTextSources(
+      "How is patient safety planning handled?",
+      [
+        source({
+          id: "safety-plan-requirements",
+          document_id: "safety-plan-doc",
+          title: "Patient Safety Planning Guideline",
+          file_name: "patient-safety-planning.pdf",
+          section_heading: "Safety planning for identified risks",
+          content:
+            "Patient safety planning must be developed collaboratively with the consumer and reviewed when clinical status changes.",
+          similarity: 0.9,
+          hybrid_score: 0.9,
+          text_rank: 0.4,
+        }),
+      ],
+      {
+        answer:
+          "Patient safety planning is handled collaboratively with the consumer and reviewed when clinical status changes.",
+        grounded: true,
+        confidence: "medium",
+        answerSections: [],
+        citations: [{ chunk_id: "safety-plan-requirements" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    );
+
+    expect(answer.retrievalDiagnostics).toMatchObject({
+      gateStatus: "passed",
+      routeMode: "fast",
+      topScore: 0.9,
+    });
+    expect(answer.routingMode).toBe("fast");
+    expect(answer.routingReason).toBe("strong_routine_retrieval");
+    expect(answer.modelUsed).not.toBeNull();
+    expect(answer.openAIRequestIds).toEqual(["req_answer_from_text_sources"]);
+    expect(answer.grounded).toBe(true);
+  });
+
   it("does not gate-block a moderate score clustered across several distinct documents", async () => {
     // Regression: a topic with rich coverage (e.g. clozapine) returns many relevant
     // documents whose scores cluster tightly at a moderate value. A tiny spread there
@@ -1896,6 +2045,127 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).not.toContain("confidence_gate_blocked");
     // The gate passed, so generation is attempted rather than short-circuited to a refusal.
     expect(generateStructuredTextResult).toHaveBeenCalled();
+  });
+
+  it("does not gate-block strong lexical-only evidence under the truthful score contract", async () => {
+    // Regression (canary #459 family A): migration 20260713062107 made lexical-only
+    // retrieval honest — similarity 0, hybrid_score hard-capped at 0.48, with the real
+    // signal in lexical_score (0.4..0.99). Reading hybrid_score alone made
+    // topScore < 0.5 unconditional for every text-fast-path answer, so well-supported
+    // documentation lookups ("What does the metabolic screening document require?",
+    // expected document at rank 1) were refused as confidence_gate_blocked. The gate
+    // must read the lexical evidence.
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [1, 2, 3].map((n) =>
+      source({
+        id: `lexical-${n}`,
+        document_id: n <= 2 ? "metabolic-doc" : `doc-${n}`,
+        title: "Metabolic Screening",
+        file_name: "metabolic-screening.pdf",
+        content: "Metabolic screening requires baseline observations and scheduled physical health monitoring.",
+        similarity: 0,
+        hybrid_score: 0.48,
+        text_rank: 1.2,
+        lexical_score: 0.99,
+      }),
+    );
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+    const embedTextWithTelemetry = vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "What does the metabolic screening document require?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.retrievalDiagnostics).toMatchObject({ gateStatus: "passed" });
+    expect(answer.routingReason).not.toContain("confidence_gate_blocked");
+  });
+
+  it("still gate-blocks weak lexical-only evidence", async () => {
+    // Control for the lexical-aware gate: a marginal keyword hit (lexical_score at its
+    // 0.4 floor) must stay below the 0.5 evidence bar and refuse, preserving
+    // unsupported_correct behaviour for junk/near-miss lexical rows.
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [
+      source({
+        id: "weak-lexical-1",
+        document_id: "doc-1",
+        title: "Unrelated Process",
+        file_name: "unrelated.pdf",
+        content: "A passing mention of screening in an unrelated administrative document.",
+        similarity: 0,
+        hybrid_score: 0.19,
+        text_rank: 0.02,
+        lexical_score: 0.41,
+      }),
+      source({
+        id: "weak-lexical-2",
+        document_id: "doc-2",
+        title: "General Overview",
+        file_name: "overview.pdf",
+        content: "General notes without specific screening guidance.",
+        similarity: 0,
+        hybrid_score: 0.18,
+        text_rank: 0.01,
+        lexical_score: 0.4,
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+    const embedTextWithTelemetry = vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "How is discharge planning handled?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.retrievalDiagnostics).toMatchObject({ gateStatus: "blocked" });
+    expect(answer.routingMode).toBe("unsupported");
   });
 
   it("returns document names for source-support questions instead of clinical advice", async () => {
