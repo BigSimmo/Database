@@ -756,17 +756,24 @@ async function openUploadSurface(page: Page) {
     .filter({ hasText: /^Upload\b/ })
     .first();
   await expect(uploadButton).toBeVisible();
-  await uploadButton.click();
-
-  await expect
-    .poll(async () => {
-      return (
-        (await uploadDialog.isVisible().catch(() => false)) ||
-        (await inlineUploadPanel.isVisible().catch(() => false)) ||
-        (await visibleUploadTab.isVisible().catch(() => false))
-      );
-    })
-    .toBe(true);
+  await expect(async () => {
+    if (
+      (await uploadDialog.isVisible().catch(() => false)) ||
+      (await inlineUploadPanel.isVisible().catch(() => false)) ||
+      (await visibleUploadTab.isVisible().catch(() => false))
+    ) {
+      return;
+    }
+    await uploadButton.click();
+    await expect
+      .poll(
+        async () =>
+          (await uploadDialog.isVisible().catch(() => false)) ||
+          (await inlineUploadPanel.isVisible().catch(() => false)) ||
+          (await visibleUploadTab.isVisible().catch(() => false)),
+      )
+      .toBe(true);
+  }).toPass({ timeout: 8_000 });
 
   if (await uploadDialog.isVisible().catch(() => false)) {
     const uploadTab = uploadDialog.getByRole("tab", { name: /^Upload\b/ });

@@ -5,6 +5,8 @@ import { PublicApiError } from "@/lib/http";
 type AdmissionState = { active: number; bytes: number };
 type GlobalWithUploadAdmission = typeof globalThis & { __clinicalKbUploadAdmission?: AdmissionState };
 
+// Best-effort load shedding per Node process/instance. A shared atomic store is
+// required if deployment-wide concurrency or byte ceilings become necessary.
 const state = ((globalThis as GlobalWithUploadAdmission).__clinicalKbUploadAdmission ??= { active: 0, bytes: 0 });
 
 export function parseUploadContentLength(value: string | null) {
