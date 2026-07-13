@@ -1008,7 +1008,10 @@ function buildFactSynthesizedAnswer(args: {
 }) {
   const facts = extractClinicalFactsFromResults(args.results, args.query, args.intent);
   if (!facts.length) {
-    if (sourceBackedDocumentFallbackIntent(args.query, args.queryClass, args.intent, args.results)) {
+    if (
+      sourceBackedDocumentFallbackIntent(args.query, args.queryClass, args.intent, args.results) ||
+      sourceBackedManagementReviewIntent(args.query, args.queryClass, args.intent, args.results)
+    ) {
       return buildDocumentSupportListAnswer({ query: args.query, results: args.results });
     }
     const gapAnswer = finalQualityGapAnswer(args.query, args.queryClass, args.intent);
@@ -1070,6 +1073,24 @@ function sourceBackedDocumentFallbackIntent(
     intent === "pathway_referral" ||
     queryClass === "document_lookup" ||
     queryClass === "broad_summary"
+  );
+}
+
+/** Source-backed review intent for broad medication-management evidence that cannot be safely collapsed into facts. */
+function sourceBackedManagementReviewIntent(
+  query: string,
+  queryClass: RagQueryClass,
+  intent: AnswerIntent,
+  results: SearchResult[],
+) {
+  if (queryClass !== "medication_dose_risk" || intent !== "general" || results.length === 0) return false;
+  if (!/\bpharmacological management\b/i.test(query)) return false;
+  if (/\b(?:compare|contraindicat\w*|dose|dosing|frequency|monitor\w*|route|threshold|withhold)\b/i.test(query)) {
+    return false;
+  }
+  return (
+    Math.max(...results.map(scoreValue)) >= 0.45 &&
+    results.some((result) => hasRelevantQueryOverlap(evidenceTextForGate(result), query, intent))
   );
 }
 

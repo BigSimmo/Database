@@ -159,6 +159,37 @@ describe("RAG eval source identity matching", () => {
     expect(validation.failures).toContain("expected document not in retrieved sources");
   });
 
+  it("requires an expected document citation when the canary opts in", () => {
+    const testCase: RagEvalCase = {
+      id: "patient-safety-plan",
+      question: "What should a patient safety plan include?",
+      category: "routine",
+      supported: true,
+      expectedFiles: ["CG.MHSP.PtSafetyPlan.pdf"],
+      allowedRoutes: ["extractive", "fast"],
+      minCitations: 1,
+      requireExpectedFileCitation: true,
+      latencyTargetMs: 2000,
+    };
+    const answer = {
+      answer: "Create a collaborative safety plan.",
+      grounded: true,
+      confidence: "high",
+      citations: [{ chunk_id: "other", document_id: "other", title: "Other", file_name: "Other.pdf" }],
+      sources: [
+        { title: "Patient Safety Plan", file_name: "CG.MHSP.PtSafetyPlan.pdf" },
+        { title: "Other", file_name: "Other.pdf" },
+      ],
+      routingMode: "fast",
+      visualEvidence: [],
+      latencyTimings: { total_latency_ms: 800 },
+    } as unknown as RagAnswer;
+
+    const validation = validateRagAnswer(testCase, answer);
+
+    expect(validation.failures).toContain("expected documents missing from citations: CG.MHSP.PtSafetyPlan.pdf");
+  });
+
   it("retries transient provider rate-limit errors for eval operations", async () => {
     let attempts = 0;
 

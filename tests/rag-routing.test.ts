@@ -248,6 +248,23 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("high_confidence_extractive_retrieval");
   });
 
+  it("keeps broad pharmacological-management questions on source-backed extractive review", () => {
+    const selected = route("What should be considered for agitation and arousal pharmacological management?", [
+      source({
+        title: "Agitation and Arousal Pharmacological Management",
+        file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+        content: "The guideline covers pharmacological management of agitation and arousal.",
+        similarity: 0.9,
+        hybrid_score: 0.92,
+        text_rank: 0.2,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.model).toBeNull();
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
   it("keeps broad summaries on the fast synthesis path", () => {
     const selected = route("Summarize the admission information guidance", [source()]);
 

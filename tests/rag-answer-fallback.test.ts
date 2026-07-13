@@ -400,6 +400,81 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).not.toMatch(/not enough source evidence|No current source/i);
   });
 
+  it("skips the model tail for a generic LAI-management question only after extractive validation", async () => {
+    const answer = await answerFromTextSources(
+      "How are long acting injectables managed?",
+      [
+        source({
+          id: "lai-management-1",
+          document_id: "lai-doc",
+          title: "Long Acting Injectable Medication",
+          file_name: "MHSP.LongActingInjectable.pdf",
+          section_heading: "Management process",
+          content:
+            "Long acting injectables are managed through a documented medication pathway covering prescribing, administration, observation, follow-up, and clinical review.",
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["title", "content"] },
+        }),
+        source({
+          id: "lai-management-2",
+          document_id: "lai-doc",
+          title: "Long Acting Injectable Medication",
+          file_name: "MHSP.LongActingInjectable.pdf",
+          section_heading: "Follow-up",
+          content:
+            "The long acting injectable medication record documents the prescription and administration, with follow-up and review arranged through the treating team.",
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["title", "content"] },
+        }),
+      ],
+      new Error("model generation must not run for a validated generic LAI answer"),
+    );
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("validated_generic_lai_management_extractive_answer");
+    expect(answer.routingReason).not.toContain("generation_fallback");
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.latencyTimings?.generation_latency_ms).toBe(0);
+  });
+
+  it("keeps special-population LAI management questions on model synthesis", async () => {
+    const answer = await answerFromTextSources(
+      "How are long acting injectables managed in adolescents?",
+      [
+        source({
+          id: "lai-management-adolescent",
+          document_id: "lai-doc",
+          title: "Long Acting Injectable Medication",
+          content: "Long acting injectables require prescribing, administration, follow-up, and clinical review.",
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["title", "content"] },
+        }),
+      ],
+      new Error("model generation attempted"),
+    );
+
+    expect(answer.routingReason).not.toContain("validated_generic_lai_management_extractive_answer");
+    expect(answer.routingReason).toContain("generation_fallback");
+  });
+
+  it("keeps lactation-scoped LAI management questions on model synthesis", async () => {
+    const answer = await answerFromTextSources(
+      "How are long acting injectables managed during breastfeeding?",
+      [
+        source({
+          id: "lai-management-lactation",
+          document_id: "lai-doc",
+          title: "Long Acting Injectable Medication",
+          content: "Long acting injectables require prescribing, administration, follow-up, and clinical review.",
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["title", "content"] },
+        }),
+      ],
+      new Error("model generation attempted"),
+    );
+
+    expect(answer.routingReason).not.toContain("validated_generic_lai_management_extractive_answer");
+    expect(answer.routingReason).toContain("generation_fallback");
+  });
+
   it("recovers generation timeouts with an extractive source-backed answer when sources are strong", async () => {
     const answer = await answerFromTextSources(
       "How should agitation be managed when oral medication is refused?",
@@ -439,7 +514,7 @@ describe("RAG structured-output fallback", () => {
 
   it("keeps source-backed agitation step numbers grounded across multiple citations", async () => {
     const answer = await answerFromTextSources(
-      "What should be considered for agitation and arousal pharmacological management?",
+      "What steps are listed for agitation and arousal pharmacological management?",
       [
         source({
           id: "agitation-step-table",

@@ -206,6 +206,12 @@ describe("clinical search query normalization", () => {
     );
   });
 
+  it("does not over-expand broad agitation management queries into medication-chart terms", () => {
+    expect(
+      buildClinicalTextSearchQuery("What should be considered for agitation and arousal pharmacological management?"),
+    ).toBe("agitation arousal pharmacological management");
+  });
+
   it("keeps typo-heavy agitation dosing queries anchored to the local pharmacological chart", () => {
     expect(
       buildClinicalTextSearchQuery("What agitaton and arousl dosing guidance applies to psychiatric inpatients?"),

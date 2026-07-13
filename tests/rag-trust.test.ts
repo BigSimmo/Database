@@ -101,6 +101,54 @@ describe("RAG trust validation", () => {
     expect(finalized.citations.some((citation) => citation.chunk_id === "direct-requirements")).toBe(true);
   });
 
+  it("returns a truthful source-review answer when broad pharmacological facts cannot be safely collapsed", () => {
+    const results = [
+      source({
+        id: "agitation-guideline",
+        document_id: "agitation-guideline-doc",
+        title: "Mental Health Pharmacological Management of Agitation and Arousal Guideline",
+        file_name: "EMHS.AgitationArousal.pdf",
+        section_heading: "Purpose",
+        content:
+          "To guide clinicians in the pharmacological management of agitation and arousal in inpatient settings.",
+      }),
+      source({
+        id: "agitation-chart",
+        document_id: "agitation-chart-doc",
+        title: "Agitation and Arousal Pharmacological Management",
+        file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+        section_heading: "Appendix V",
+        content: "Appendix V: Agitation and Arousal PRN Medication Chart example.",
+      }),
+    ];
+    const query = "What should be considered for agitation and arousal pharmacological management?";
+    const candidate = buildExtractiveAnswer({
+      query,
+      queryClass: "medication_dose_risk",
+      results,
+      quoteCards: [],
+      documentBreakdown: [],
+      evidenceSummary: undefined,
+      sourceCoverage: undefined,
+      conflictsOrGaps: [],
+      visualEvidence: [],
+      bestSource: null,
+      smartPanel: undefined,
+      relatedDocuments: [],
+      routeReason: "high_confidence_extractive_retrieval",
+      timings: undefined,
+    });
+    const finalized = finalizeRagAnswerQuality(candidate, query, "medication_dose_risk");
+
+    expect(finalized.grounded).toBe(true);
+    expect(finalized.confidence).not.toBe("unsupported");
+    expect(finalized.answer).toContain("indexed documents that support this query");
+    expect(finalized.answer).not.toContain("No current source");
+    expect(finalized.citations.map((citation) => citation.chunk_id)).toEqual(
+      expect.arrayContaining(["agitation-guideline", "agitation-chart"]),
+    );
+  });
+
   it("verifies a clinical value against its claim-supporting citation in a multi-source answer", () => {
     const doseSource = source({
       id: "clozapine-dose",
