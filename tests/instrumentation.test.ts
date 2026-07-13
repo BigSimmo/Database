@@ -8,6 +8,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const MATCHING_URL = "https://sjrfecxgysukkwxsowpy.supabase.co";
 
+const sentryMocks = vi.hoisted(() => ({
+  init: vi.fn(),
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}));
+
+vi.mock("@sentry/node", () => sentryMocks);
+
 const ENV_KEYS = [
   "NEXT_RUNTIME",
   "NODE_ENV",
@@ -20,22 +28,38 @@ const ENV_KEYS = [
   "RAG_QUERY_HASH_SECRET",
   "NEXT_PUBLIC_LOCAL_NO_AUTH",
   "LOCAL_NO_AUTH",
+  "SENTRY_DSN",
 ] as const;
 
-async function loadRegister(overrides: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>>) {
+async function loadInstrumentation(overrides: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>>) {
   vi.resetModules();
   for (const key of ENV_KEYS) {
     vi.stubEnv(key, overrides[key]);
   }
-  const mod = await import("../src/instrumentation");
+  return import("../src/instrumentation");
+}
+
+async function loadRegister(overrides: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>>) {
+  const mod = await loadInstrumentation(overrides);
   return mod.register;
 }
 
 const PRODUCTION_NODE = { NEXT_RUNTIME: "nodejs", NODE_ENV: "production" } as const;
 
+const FULLY_CONFIGURED = {
+  ...PRODUCTION_NODE,
+  NEXT_PUBLIC_SUPABASE_URL: MATCHING_URL,
+  SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+  OPENAI_API_KEY: "openai-key",
+  RAG_QUERY_HASH_SECRET: "test-secret-at-least-16-chars",
+} as const;
+
+const TEST_DSN = "https://publickey@o0.ingest.sentry.io/0";
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.resetModules();
+  vi.clearAllMocks();
 });
 
 describe("instrumentation boot guard", () => {
@@ -92,5 +116,73 @@ describe("instrumentation boot guard", () => {
   it("is a no-op on the Edge runtime", async () => {
     const register = await loadRegister({ NEXT_RUNTIME: "edge", NODE_ENV: "production" });
     await expect(register()).resolves.toBeUndefined();
+  });
+});
+
+describe("instrumentation Sentry init", () => {
+  it("does not initialize Sentry without a DSN", async () => {
+    const register = await loadRegister(FULLY_CONFIGURED);
+    await expect(register()).resolves.toBeUndefined();
+    expect(sentryMocks.init).not.toHaveBeenCalled();
+  });
+
+  it("initializes Sentry with privacy scrubbing when a DSN is configured", async () => {
+    const register = await loadRegister({ ...FULLY_CONFIGURED, SENTRY_DSN: TEST_DSN });
+    await expect(register()).resolves.toBeUndefined();
+
+    expect(sentryMocks.init).toHaveBeenCalledTimes(1);
+    const options = sentryMocks.init.mock.calls[0][0];
+    expect(options.dsn).toBe(TEST_DSN);
+    expect(options.sendDefaultPii).toBe(false);
+
+    // The scrubbers must strip request payloads/headers and breadcrumbs so
+    // clinical query text can never ride along on an event.
+    const event = {
+      request: { url: "https://x/api/answer", headers: { cookie: "secret" }, data: "clinical query" },
+      breadcrumbs: [{ message: "console line" }],
+      exception: {},
+    };
+    const scrubbed = options.beforeSend(event);
+    expect(scrubbed.request).toBeUndefined();
+    expect(scrubbed.breadcrumbs).toBeUndefined();
+    expect(options.beforeBreadcrumb()).toBeNull();
+  });
+});
+
+describe("instrumentation onRequestError", () => {
+  const REQUEST = { path: "/api/documents?q=lithium", method: "GET", headers: {} };
+  const CONTEXT = {
+    routerKind: "App Router",
+    routePath: "/api/documents",
+    routeType: "route",
+    revalidateReason: undefined,
+  } as const;
+
+  it("is a no-op without a DSN", async () => {
+    const mod = await loadInstrumentation({ ...PRODUCTION_NODE });
+    await expect(mod.onRequestError(new Error("boom"), REQUEST, CONTEXT)).resolves.toBeUndefined();
+    expect(sentryMocks.captureException).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op outside the Node.js runtime", async () => {
+    const mod = await loadInstrumentation({ NEXT_RUNTIME: "edge", NODE_ENV: "production", SENTRY_DSN: TEST_DSN });
+    await expect(mod.onRequestError(new Error("boom"), REQUEST, CONTEXT)).resolves.toBeUndefined();
+    expect(sentryMocks.captureException).not.toHaveBeenCalled();
+  });
+
+  it("captures uncaught request errors with query strings stripped", async () => {
+    const mod = await loadInstrumentation({ ...PRODUCTION_NODE, SENTRY_DSN: TEST_DSN });
+    const error = new Error("boom");
+    await mod.onRequestError(error, REQUEST, CONTEXT);
+
+    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
+    const [captured, hint] = sentryMocks.captureException.mock.calls[0];
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBe(error);
+    expect(captured.message).toBe("Server request failed");
+    expect(captured.stack).not.toContain("boom");
+    expect(hint.extra.path).toBe("/api/documents");
+    expect(hint.extra.routeType).toBe("route");
+    expect(JSON.stringify(hint)).not.toContain("lithium");
   });
 });
