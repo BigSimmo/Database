@@ -1,4 +1,5 @@
 import { loadEnvConfig } from "@next/env";
+import { isEmptyIndexedDocument, isRegistryProjectionDocument } from "./lib/indexing-health-document";
 
 loadEnvConfig(process.cwd());
 
@@ -147,21 +148,6 @@ function hasCurrentEnrichmentVersion(metadata: unknown, expectedVersion: string)
 function hasCurrentMemoryVersion(metadata: unknown, expectedVersion: string) {
   const record = metadataRecord(metadata);
   return record.rag_memory_version === expectedVersion || record.rag_indexing_version === expectedVersion;
-}
-
-/**
- * Determines whether a document is a registry projection.
- *
- * @param document - The document to classify
- * @returns `true` if the document is a `.registry.json` registry record with a registry record identifier, `false` otherwise.
- */
-function isRegistryProjectionDocument(document: DocumentHealthRow) {
-  const metadata = metadataRecord(document.metadata);
-  return (
-    document.file_name?.endsWith(".registry.json") === true &&
-    metadata.source_kind === "registry_record" &&
-    typeof metadata.registry_record_id === "string"
-  );
 }
 
 /**
@@ -466,10 +452,7 @@ async function main() {
     duplicateHashGroups.set(key, [...(duplicateHashGroups.get(key) ?? []), document.title ?? document.id]);
   }
   const duplicateGroups = Array.from(duplicateHashGroups.values()).filter((titles) => titles.length > 1);
-  const emptyIndexedDocuments = indexedDocuments.filter(
-    (document) =>
-      document.status === "indexed" && ((document.page_count ?? 0) === 0 || (document.chunk_count ?? 0) === 0),
-  );
+  const emptyIndexedDocuments = indexedDocuments.filter(isEmptyIndexedDocument);
   const documentsWithChunkCountMismatch = richIndexedDocuments.filter(
     (document) => (chunkRowsByDocument.get(document.id) ?? []).length !== (document.chunk_count ?? 0),
   );
