@@ -4598,7 +4598,7 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
   async function generateWithModel(
     model: string,
     contextResults: SearchResult[],
-    options?: { strong?: boolean; qualityRetryInstruction?: string },
+    options?: { strong?: boolean; qualityRetryInstruction?: string; maxOutputTokensOverride?: number },
   ): Promise<OpenAITextResult> {
     const qualityRetryInstruction = options?.qualityRetryInstruction;
     // Fast vs strong is differentiated by reasoning effort, not model identity, so the
@@ -4619,7 +4619,7 @@ ${qualityRetryInstruction}`
     try {
       const result = await generateStructuredTextResult(input, answerJsonOutputSchemaForResults(contextResults), {
         model,
-        maxOutputTokens: env.OPENAI_MAX_OUTPUT_TOKENS,
+        maxOutputTokens: options?.maxOutputTokensOverride ?? env.OPENAI_MAX_OUTPUT_TOKENS,
         operation: "answer",
         schemaName: "clinical_rag_answer",
         instructions: answerInstructions,
@@ -4646,6 +4646,18 @@ ${qualityRetryInstruction}`
       generationLatencyMs += Date.now() - generationStartedAt;
     }
   }
+
+  // Truncation self-heal budget: a max_output_tokens truncation means reasoning+answer
+  // exhausted the cap, not that the model failed. The strong retries below spend MORE
+  // reasoning than the first attempt, so they get a boosted cap — escalating to strong on
+  // the SAME budget is what previously burned a second full generation and still fell
+  // through to "unsupported". Billed per token actually used, so this is free unless hit.
+  const strongRetryMaxOutputTokens = Math.max(env.OPENAI_MAX_OUTPUT_TOKENS * 2, 24000);
+  // Cap cumulative generation wall-clock so a fast -> strong -> quality-repair chain can't
+  // stack three ~timeout-length calls into a ~90s tail. The quality-repair is a polish pass
+  // over an already-valid, cited strong answer, so once this budget is spent we keep the
+  // strong answer rather than risk a third generation (and a truncation -> unsupported tail).
+  const generationTotalBudgetMs = env.OPENAI_ANSWER_TIMEOUT_MS * 2;
 
   /** Generation incomplete reason. */
   function generationIncompleteReason(result: OpenAITextResult) {
@@ -4808,7 +4820,10 @@ ${qualityRetryInstruction}`
       retriedWithStrong = true;
       await args.onProgress?.({
         stage: "retrying",
-        message: "Fast answer hit the output limit, retrying with the strong model.",
+        message:
+          route.mode === "fast"
+            ? "Fast answer hit the output limit, retrying with the strong model and a larger output budget."
+            : "Answer hit the output limit, retrying with a larger output budget.",
         mode: "strong",
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
@@ -4819,7 +4834,12 @@ ${qualityRetryInstruction}`
       // Widen the retry context from the trimmed fast set to the full result set, but keep the P9
       // per-document crowding cap — the strong-initial route is capped, so the retry must be too.
       packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
-      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, { strong: true });
+      // Boost the cap: a max_output_tokens truncation retried on the SAME budget with MORE
+      // reasoning (strong) just re-truncates. This is the truncation self-heal.
+      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
+        strong: true,
+        maxOutputTokensOverride: strongRetryMaxOutputTokens,
+      });
       retrievalDiagnostics.routeMode = "strong";
     }
     if (generated.truncated) {
@@ -4896,7 +4916,12 @@ ${qualityRetryInstruction}`
       args.onRevising?.(retryReason);
       // Same as the truncation retry above: widen but keep the P9 per-document crowding cap.
       packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
-      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, { strong: true });
+      // Strong spends more reasoning tokens than the fast attempt it is replacing, so it needs
+      // the boosted cap to avoid truncating (and degrading to unsupported) on the escalation.
+      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
+        strong: true,
+        maxOutputTokensOverride: strongRetryMaxOutputTokens,
+      });
       retrievalDiagnostics.routeMode = "strong";
       if (generated.truncated) {
         const truncatedReason = generationRetryReason("strong", generated);
@@ -4917,7 +4942,12 @@ ${qualityRetryInstruction}`
       ? generatedAnswerQualityFailureReason(answer, args.query, queryClass)
       : null;
     const answerNeedsStrongQualityRepair = usedStrongModel && Boolean(strongQualityFailureReason);
-    if (answerNeedsStrongQualityRepair) {
+    if (answerNeedsStrongQualityRepair && generationLatencyMs >= generationTotalBudgetMs) {
+      // A4 tail-latency guard: out of the cumulative generation time budget, so keep the
+      // valid (if imperfect) cited strong answer instead of spending a third generation
+      // and risking a truncation -> unsupported tail. Recorded for observability.
+      answerRetryReasons.push(`strong_quality_repair_skipped_time_budget:${strongQualityFailureReason}`);
+    } else if (answerNeedsStrongQualityRepair) {
       routingReason = `${routingReason}; strong_quality_retry`;
       answerRetryCount += 1;
       answerRetryReasons.push("strong_quality_retry");
@@ -4931,6 +4961,7 @@ ${qualityRetryInstruction}`
       args.onRevising?.("strong_quality_retry");
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
         strong: true,
+        maxOutputTokensOverride: strongRetryMaxOutputTokens,
         qualityRetryInstruction: `The previous answer failed deterministic validation (${strongQualityFailureReason}). Return schema-valid output only, with a complete natural clinical synthesis in the answer field. The first sentence must directly answer the question as a full sentence. Every clinical claim must be supported by valid retrieved citation_chunk_id values; do not invent citation IDs. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the evidence cannot support the requested clinical answer, return a concise source-gap answer instead. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.`,
       });
       retrievalDiagnostics.routeMode = "strong";
