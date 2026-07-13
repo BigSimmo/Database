@@ -14,6 +14,7 @@ import { publicAccessContext } from "@/lib/public-api-access";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
 import { optionalFormText, parseFormDataFields } from "@/lib/validation/form-data";
 import { acquireUploadAdmission, parseUploadContentLength } from "@/lib/upload-admission";
+import { assertUploadStructure } from "@/lib/upload-structure";
 
 export const runtime = "nodejs";
 
@@ -166,8 +167,9 @@ export async function POST(request: Request) {
     assertUploadNotAborted(request);
     const buffer = Buffer.from(await file.arrayBuffer());
     // The declared MIME type is client-supplied; verify the real byte signature
-    // before persisting a clinical document.
+    // and the actual document structure before persisting a clinical document.
     assertFileContentSignature(file.type, buffer);
+    await assertUploadStructure(file.type, buffer);
     const contentHash = createHash("sha256").update(buffer).digest("hex");
 
     const { data: duplicate, error: duplicateError } = await adminSupabase

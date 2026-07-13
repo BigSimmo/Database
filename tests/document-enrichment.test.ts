@@ -10,8 +10,16 @@ vi.mock("@/lib/env", () => ({
   },
 }));
 
+// The source now calls generateStructuredTextResult (object result) so it can observe
+// truncation; wrap the string-returning inner mock so the existing
+// .mockResolvedValue(JSON.stringify(...)) setups and .mock.calls assertions keep working.
 vi.mock("@/lib/openai", () => ({
-  generateStructuredTextResponse: mocks.generateStructuredTextResponse,
+  generateStructuredTextResult: vi.fn(async (...args: unknown[]) => ({
+    text: await mocks.generateStructuredTextResponse(...args),
+    truncated: false,
+    status: "completed" as const,
+    incompleteReason: undefined,
+  })),
 }));
 
 import { generateDocumentEnrichment, ragEnrichmentVersion, upsertDocumentEnrichment } from "@/lib/document-enrichment";
