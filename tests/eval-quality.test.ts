@@ -83,6 +83,10 @@ function ragResult(overrides: Partial<RagQualityResult> = {}): RagQualityResult 
     expectedHit: true,
     grounded: true,
     latencyMs: 900,
+    searchLatencyMs: 200,
+    generationLatencyMs: 650,
+    rpcLatencyMs: 150,
+    embeddingLatencyMs: 25,
     route: "fast",
     model: "test-model",
     citations: 2,
@@ -554,6 +558,8 @@ describe("eval quality reporting", () => {
     expect(markdown).toContain("## Retrieval Decision Metrics");
     expect(markdown).toContain("## Source Governance");
     expect(markdown).toContain("## Answer Metrics");
+    expect(markdown).toContain("## Answer Case Diagnostics");
+    expect(markdown).toContain("| rag-1 | fast | 900 | 200 | 650 | 150 | 25 | test-model | passed |");
     expect(markdown).toContain("| Hit@K | 1 |");
     expect(markdown).toContain("Policy: unknown, unverified");
   });

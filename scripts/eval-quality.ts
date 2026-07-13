@@ -61,6 +61,10 @@ export type RagQualityResult = {
   grounded: boolean;
   acceptSourceOnly?: boolean;
   latencyMs: number;
+  searchLatencyMs?: number;
+  generationLatencyMs?: number;
+  rpcLatencyMs?: number;
+  embeddingLatencyMs?: number;
   route: string;
   model: string | null;
   citations: number;
@@ -591,6 +595,38 @@ function markdownTable(rows: Array<[string, string | number | null]>) {
   ].join("\n");
 }
 
+function markdownCell(value: string | number | null | undefined) {
+  return String(value ?? "n/a")
+    .replace(/\|/g, "\\|")
+    .replace(/[\r\n]+/g, " ");
+}
+
+function ragCaseDiagnosticsTable(results: RagQualityResult[]) {
+  if (results.length === 0) return "- None";
+  const rows = [...results]
+    .sort((left, right) => right.latencyMs - left.latencyMs)
+    .map((result) =>
+      [
+        result.id,
+        result.route,
+        result.latencyMs,
+        result.searchLatencyMs,
+        result.generationLatencyMs,
+        result.rpcLatencyMs,
+        result.embeddingLatencyMs,
+        result.model,
+        result.failures.length > 0 ? `failed (${result.failures.length})` : "passed",
+      ]
+        .map(markdownCell)
+        .join(" | "),
+    );
+  return [
+    "| Case | Route | Total ms | Search ms | Generation ms | RPC ms | Embedding ms | Model | Result |",
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+    ...rows.map((row) => `| ${row} |`),
+  ].join("\n");
+}
+
 export function renderEvalQualityMarkdown(report: EvalQualityReport) {
   const retrieval = report.retrieval.summary;
   const governance = report.retrieval.source_governance;
@@ -733,6 +769,10 @@ ${markdownTable([
   ["Estimated cost USD", rag.estimated_cost_usd],
 ])}
 
+## Answer Case Diagnostics
+
+${ragCaseDiagnosticsTable(report.rag.results)}
+
 ## Failing Retrieval Cases
 
 ${failedRetrieval || "- None"}
@@ -860,6 +900,10 @@ async function runRagQualityCases(args: {
       grounded: deliveredGrounded,
       acceptSourceOnly: testCase.acceptSourceOnly,
       latencyMs: answer.latencyTimings?.total_latency_ms ?? 0,
+      searchLatencyMs: answer.latencyTimings?.search_latency_ms,
+      generationLatencyMs: answer.latencyTimings?.generation_latency_ms,
+      rpcLatencyMs: answer.latencyTimings?.supabase_rpc_latency_ms,
+      embeddingLatencyMs: answer.latencyTimings?.embedding_latency_ms,
       route: answer.routingMode ?? "none",
       model: answer.modelUsed ?? null,
       citations: answer.citations.length,
