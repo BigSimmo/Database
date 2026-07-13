@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { answerSloSnapshot, type SloProbeClient } from "@/lib/observability/answer-slo";
 
 // Fake PostgREST count builder: from().select().gt() is the "total" query; adding
-// .not(column,...) narrows it to the hybrid-error count, .eq(column,...) narrows it
+// .not(column,...) narrows it to the hybrid-error count, .or(filters) narrows it
 // to provider-generation fallbacks, and .ilike(col, pattern) narrows it to the
 // truncation or timeout fallback subset by pattern. Awaiting
 // resolves to { count, error }.
@@ -13,7 +13,7 @@ function fakeClient(
   counts: { total: number; hybrid: number; degraded: number; truncation?: number; timeout?: number },
   error?: unknown,
   observedBaseFilters: Array<{ column: string; value: null }> = [],
-  observedNarrowingFilters: Array<{ method: "eq" | "not"; column: string; value: unknown }> = [],
+  observedNarrowingFilters: Array<{ method: "eq" | "not" | "or"; column: string; value: unknown }> = [],
 ): SloProbeClient {
   const build = (filter: SloFilterKey) => {
     const builder = {
@@ -29,6 +29,10 @@ function fakeClient(
       not: (column: string, _operator: string, value: null) => {
         observedNarrowingFilters.push({ method: "not", column, value });
         return build("hybrid");
+      },
+      or: (filters: string) => {
+        observedNarrowingFilters.push({ method: "or", column: "", value: filters });
+        return build("degraded");
       },
       ilike: (_column: string, pattern: string) =>
         build(pattern.includes("max_output_tokens") ? "truncation" : "timeout"),
@@ -75,7 +79,7 @@ describe("answerSloSnapshot", () => {
 
   it("counts only provider-generation fallbacks, not intentional source-only answers", async () => {
     const observedNarrowingFilters: Array<{
-      method: "eq" | "not";
+      method: "eq" | "not" | "or";
       column: string;
       value: unknown;
     }> = [];
@@ -83,9 +87,9 @@ describe("answerSloSnapshot", () => {
     await answerSloSnapshot(fakeClient({ total: 7, hybrid: 1, degraded: 2 }, undefined, [], observedNarrowingFilters));
 
     expect(observedNarrowingFilters).toContainEqual({
-      method: "eq",
-      column: "metadata->>provider_generation_degraded",
-      value: "true",
+      method: "or",
+      column: "",
+      value: "metadata->>provider_generation_degraded.eq.true,metadata->>fallback_reason.ilike.%generation_fallback:%",
     });
     expect(observedNarrowingFilters).not.toContainEqual(
       expect.objectContaining({ method: "not", column: "metadata->>fallback_reason" }),

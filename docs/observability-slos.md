@@ -119,7 +119,9 @@ means the OpenAI path is broken while users still get 200s.
   effectively down).
 
 Measure provider-generation degradation via the explicit
-`metadata->>'provider_generation_degraded' = 'true'` flag. Keep `degraded` for
+`metadata->>'provider_generation_degraded' = 'true'` flag. During rollout, the
+probe also counts legacy `fallback_reason ILIKE '%generation_fallback:%'` rows so
+recent pre-flag provider failures remain visible until they age out. Keep `degraded` for
 the broader source-only UI state and `fallback_reason` as diagnostic detail;
 neither is narrow enough for provider health on its own.
 

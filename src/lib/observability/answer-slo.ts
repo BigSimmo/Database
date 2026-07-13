@@ -40,6 +40,7 @@ type SloCountBuilder = PromiseLike<CountResult> & {
   is(column: string, value: null): SloCountBuilder;
   not(column: string, operator: string, value: null): SloCountBuilder;
   ilike(column: string, pattern: string): SloCountBuilder;
+  or(filters: string): SloCountBuilder;
 };
 
 export type SloProbeClient = {
@@ -74,8 +75,11 @@ export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 
     base(),
     base().not("metadata->hybrid_rpc_errors", "is", null),
     // Source-only/extractive answers can be intentional and healthy. Count only
-    // model-generation failures that actually forced a local fallback.
-    base().eq("metadata->>provider_generation_degraded", "true"),
+    // model-generation failures that actually forced a local fallback. Keep the
+    // legacy reason match until pre-flag rows have aged out of every SLO window.
+    base().or(
+      "metadata->>provider_generation_degraded.eq.true,metadata->>fallback_reason.ilike.%generation_fallback:%",
+    ),
     // fallback_reason values look like "...generation_fallback:provider_incomplete_max_output_tokens"
     // and "...generation_fallback:provider_timeout" (confirmed in live rag_queries).
     base().ilike("metadata->>fallback_reason", "%max_output_tokens%"),
