@@ -12,7 +12,13 @@ import {
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
-import { normalizeSpecifierSelection, specifierFamilies, specifierRecords } from "@/lib/specifiers";
+import {
+  normalizeSpecifierSelection,
+  specifierFamilies,
+  specifierRecords,
+  type SpecifierFamily,
+  type SpecifierRecord,
+} from "@/lib/specifiers";
 
 const diagnosisPresets = [
   "Major depressive disorder, recurrent",
@@ -21,6 +27,12 @@ const diagnosisPresets = [
   "Bipolar I disorder, current episode manic",
   "Bipolar II disorder, current episode depressed",
 ];
+
+const specifierFamilyOrder: Record<SpecifierFamily, number> = {
+  "episode-features": 0,
+  "course-onset": 1,
+  "severity-remission": 2,
+};
 
 function wordingSegment(name: string) {
   if (name === "Mild severity") return "mild";
@@ -32,10 +44,14 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
   const [diagnosis, setDiagnosis] = useState(diagnosisPresets[0]);
   const [selected, setSelected] = useState<string[]>(validInitial);
   const selectedRecords = useMemo(
-    () => selected.map((slug) => specifierRecords.find((record) => record.slug === slug)).filter(Boolean),
+    () =>
+      selected
+        .map((slug) => specifierRecords.find((record) => record.slug === slug))
+        .filter((record): record is SpecifierRecord => Boolean(record))
+        .sort((left, right) => specifierFamilyOrder[left.family] - specifierFamilyOrder[right.family]),
     [selected],
   );
-  const wording = [diagnosis, ...selectedRecords.map((record) => wordingSegment(record!.name))].join(", ");
+  const wording = [diagnosis, ...selectedRecords.map((record) => wordingSegment(record.name))].join(", ");
 
   function toggle(slug: string) {
     setSelected((current) => {
@@ -172,16 +188,16 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                   <ul className="grid gap-2">
                     {selectedRecords.map((record) => (
                       <li
-                        key={record!.slug}
+                        key={record.slug}
                         className="flex items-center justify-between gap-2 text-sm font-semibold text-[color:var(--text-muted)]"
                       >
                         <span className="inline-flex items-center gap-2">
                           <Tags className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
-                          {record!.shortName}
+                          {record.shortName}
                         </span>
                         <Link
-                          href={`/specifiers/${record!.slug}`}
-                          aria-label={`Review ${record!.shortName}`}
+                          href={`/specifiers/${record.slug}`}
+                          aria-label={`Review ${record.shortName}`}
                           className="grid h-tap w-tap place-items-center rounded-md text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
                         >
                           <ArrowRight className="h-4 w-4" aria-hidden />

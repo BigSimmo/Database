@@ -114,4 +114,11 @@ test("keeps the base diagnosis severity-neutral when applying a severity descrip
   );
   await expect(page.getByText("Major depressive disorder, recurrent, mild", { exact: true })).toBeVisible();
   await expect(page.getByText(/severe, mild|moderate, mild/i)).toHaveCount(0);
+
+  const anxiousDistress = page.getByRole("checkbox", { name: /Anxious distress/ });
+  await page.getByText("Anxious distress", { exact: true }).click();
+  await expect(anxiousDistress).toBeChecked();
+  await expect(
+    page.getByText("Major depressive disorder, recurrent, with anxious distress, mild", { exact: true }),
+  ).toBeVisible();
 });
