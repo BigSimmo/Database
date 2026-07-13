@@ -379,7 +379,7 @@ function CriteriaGroup({
                 </div>
                 <span
                   className={cn(
-                    "inline-flex min-h-6 shrink-0 items-center rounded-full border px-2.5 text-3xs font-bold lowercase",
+                    "inline-flex min-h-6 shrink-0 items-center rounded-full border px-2.5 text-2xs font-bold lowercase",
                     pill.className,
                   )}
                 >

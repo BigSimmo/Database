@@ -164,7 +164,7 @@ function VisualEvidenceStrip({
                   {displayLabels.length ? (
                     <div className="flex flex-wrap gap-1.5">
                       {displayLabels.map((label) => (
-                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-3xs")}>
+                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-2xs")}>
                           {label}
                         </span>
                       ))}
@@ -382,7 +382,7 @@ function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
           key={`${warning}:${index}`}
           className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2"
         >
-          <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-3xs font-bold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
+          <span className="nums grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-[color:var(--surface-raised)] text-2xs font-bold text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
             {index + 1}
           </span>
           <p className="line-clamp-2 text-xs leading-5 text-[color:var(--text)]">{warning}</p>

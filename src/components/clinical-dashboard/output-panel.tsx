@@ -178,7 +178,7 @@ export function ClinicalOutputPanel({
                       </h3>
                     </div>
                   </div>
-                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-3xs")}>{itemCount}</span>
+                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-2xs")}>{itemCount}</span>
                 </div>
                 {section.tables?.length ? (
                   <div className="mt-3 grid gap-3">

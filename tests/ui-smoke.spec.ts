@@ -1868,6 +1868,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(dialog.getByRole("table")).toBeVisible();
       await expect(dialog).toContainText("FBC/ANC");
       await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
+      const modal = page.getByRole("dialog", { name: /clozapine monitoring/i });
+      await expect(modal).toBeVisible();
+      await page.keyboard.press("Shift+Tab");
+      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await page.keyboard.press("Tab");
+      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await expectNoPageHorizontalOverflow(page);
       await page.keyboard.press("Escape");
       await expect(dialog).toBeHidden();
