@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { analyzeClinicalQuery, buildClinicalTextSearchQuery, rankClinicalResults } from "../src/lib/clinical-search";
+import {
+  analyzeClinicalQuery,
+  buildClinicalTextSearchQuery,
+  isMedicationDoseEvidenceQuery,
+  medicationDoseEvidenceQueryIntent,
+  rankClinicalResults,
+} from "../src/lib/clinical-search";
 import { expandClinicalVocabularyText } from "../src/lib/clinical-vocabulary";
 import { selectRetrievalEvidence } from "../src/lib/retrieval-selection";
 import {
@@ -284,6 +290,77 @@ describe("retrieval query variants", () => {
         "medication_dose_risk",
       ),
     ).toEqual({ returnFastPath: true, reason: "dose_evidence_text_match" });
+
+    expect(
+      decideTextFastPath(
+        "How should agitation be managed when oral medication is refused?",
+        [
+          result({
+            content: "For agitation, use IM medication when oral medication is refused, with review and monitoring.",
+            similarity: 0.67,
+          }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "dose_evidence_text_match" });
+
+    expect(
+      decideTextFastPath(
+        "What medication doses are used for opioid withdrawal?",
+        [
+          result({ content: "Opioid withdrawal management guidance.", similarity: 0.9 }),
+          result({ content: "For agitation, lorazepam 1 mg IM may be used.", similarity: 0.88 }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "missing_dose_query_context" });
+  });
+
+  it.each([
+    ["How much lorazepam should be given?", { asksAmount: true, asksRoute: false, asksFrequency: false }],
+    ["How many micrograms of clonidine are used?", { asksAmount: true, asksRoute: false, asksFrequency: false }],
+    ["Is clonidine 100 µg listed?", { asksAmount: true, asksRoute: false, asksFrequency: false }],
+    ["How often should lorazepam be administered?", { asksAmount: false, asksRoute: false, asksFrequency: true }],
+    ["Is olanzapine administered intramuscularly?", { asksAmount: false, asksRoute: true, asksFrequency: false }],
+  ])("detects explicit medication evidence intent in %s", (query, expected) => {
+    expect(isMedicationDoseEvidenceQuery(query)).toBe(true);
+    expect(medicationDoseEvidenceQueryIntent(query)).toEqual(expected);
+  });
+
+  it("routes natural amount and frequency questions through the contextual gate", () => {
+    expect(
+      decideTextFastPath(
+        "How much lorazepam should be given?",
+        [result({ content: "Lorazepam may be used with clinical review.", similarity: 0.9 })],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "missing_dose_amount_evidence" });
+
+    expect(
+      decideTextFastPath(
+        "How often should lorazepam be administered?",
+        [result({ content: "Lorazepam 1 mg may be used with clinical review.", similarity: 0.9 })],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "missing_frequency_evidence" });
+
+    expect(
+      decideTextFastPath(
+        "How often should lorazepam be administered?",
+        [result({ content: "Lorazepam 1 mg may be administered every 6 hours.", similarity: 0.9 })],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "dose_evidence_text_match" });
+  });
+
+  it("accepts microgram-symbol dose evidence when it is co-located with the subject", () => {
+    expect(
+      evaluateEvidenceCoverageGate(
+        "How many micrograms of clonidine are used?",
+        [result({ content: "Clonidine 100 µg may be used with monitoring.", similarity: 0.9 })],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
   });
 
   it("keeps flowchart zone-action fast paths gated on action evidence", () => {
@@ -664,6 +741,29 @@ describe("retrieval query variants", () => {
         "medication_dose_risk",
       ),
     ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
+  });
+
+  it("requires requested dose and route evidence to be co-located", () => {
+    expect(
+      evaluateEvidenceCoverageGate(
+        "How much lorazepam is administered intramuscularly?",
+        [
+          result({ id: "amount", content: "Lorazepam 1 mg may be used with monitoring.", similarity: 0.9 }),
+          result({ id: "route", content: "Lorazepam may be administered intramuscularly.", similarity: 0.88 }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: false, reason: "missing_co_located_medication_evidence" });
+  });
+
+  it("reports missing route evidence for route-only questions", () => {
+    expect(
+      evaluateEvidenceCoverageGate(
+        "Which route is listed for lorazepam?",
+        [result({ content: "Lorazepam is recommended with clinical monitoring.", similarity: 0.9 })],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: false, reason: "missing_route_evidence" });
   });
 
   it("accepts SC and SL route evidence for dose-route fast gates", () => {

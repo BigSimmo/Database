@@ -215,7 +215,7 @@ export function FavouritesHub({
                 <SelectedTabIcon className="h-3.5 w-3.5" />
               </span>
               <span className="grid min-w-0 gap-0.5">
-                <span className="text-3xs font-bold uppercase leading-none tracking-[0.08em] text-[color:var(--text-soft)]">
+                <span className="text-2xs font-bold uppercase leading-none tracking-[0.08em] text-[color:var(--text-muted)]">
                   View
                 </span>
                 <span className="truncate text-xs font-bold leading-none text-[color:var(--text-heading)]">

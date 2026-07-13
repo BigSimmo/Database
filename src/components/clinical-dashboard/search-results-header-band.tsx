@@ -6,6 +6,7 @@ import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { cn } from "@/components/ui-primitives";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import type { AppModeId } from "@/lib/app-modes";
+import { readResultSort, type ResultSortValue } from "@/lib/result-sort";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -28,8 +29,8 @@ export function SearchResultsHeaderBand({
   loading?: boolean;
   view?: "table" | "list";
   onViewChange?: (view: "table" | "list") => void;
-  sortValue?: string;
-  onSortChange?: (value: string) => void;
+  sortValue?: ResultSortValue;
+  onSortChange?: (value: ResultSortValue) => void;
   onSaveSearch?: () => void;
   className?: string;
 }) {
@@ -71,21 +72,7 @@ export function SearchResultsHeaderBand({
         );
       })}
       <div className="ml-auto flex items-center gap-1.5">
-        {onSortChange ? (
-          <label className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-muted)]">
-            Sort
-            <select
-              value={sortValue}
-              onChange={(event) => onSortChange(event.target.value)}
-              className="bg-transparent text-xs font-bold text-[color:var(--text)] outline-none"
-              aria-label="Sort results"
-            >
-              <option value="relevance">Relevance</option>
-              <option value="recent">Last used</option>
-              <option value="alpha">A–Z</option>
-            </select>
-          </label>
-        ) : null}
+        {onSortChange ? <ResultSortControl value={sortValue} onChange={onSortChange} /> : null}
         {onViewChange ? (
           <div
             className="inline-flex overflow-hidden rounded-lg border border-[color:var(--border)]"
@@ -139,6 +126,37 @@ export function SearchResultsHeaderBand({
         ) : null}
       </div>
     </div>
+  );
+}
+
+export function ResultSortControl({
+  value,
+  onChange,
+  className,
+}: {
+  value: ResultSortValue;
+  onChange: (value: ResultSortValue) => void;
+  className?: string;
+}) {
+  return (
+    <label
+      className={cn(
+        "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-muted)]",
+        "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
+        className,
+      )}
+    >
+      Sort
+      <select
+        value={value}
+        onChange={(event) => onChange(readResultSort(event.target.value))}
+        className="bg-transparent text-xs font-bold text-[color:var(--text)] outline-none"
+        aria-label="Sort results"
+      >
+        <option value="relevance">Relevance</option>
+        <option value="alpha">A–Z</option>
+      </select>
+    </label>
   );
 }
 

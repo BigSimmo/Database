@@ -26,6 +26,13 @@ type SimpleSupabaseReader = {
   };
 };
 
+/**
+ * Parses command-line arguments into document repair options.
+ *
+ * @param argv - Command-line argument tokens.
+ * @returns The validated repair options.
+ * @throws Error if a required flag value is missing, no scope selector is provided, or the limit is not a positive integer.
+ */
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     allOwners: false,

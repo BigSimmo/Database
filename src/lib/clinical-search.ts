@@ -749,7 +749,7 @@ function evidenceDensityBoost(result: SearchResult, tokens: string[]) {
 /** Has dose evidence support. */
 export function hasDoseEvidenceSupport(result: SearchResult) {
   const haystack = clinicalResultEvidenceHaystack(result);
-  return /\b(?:dose|dosage|dosing|mg|mcg|microgram|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer\w*|titration|titrate|frequency|maximum|tablet|injection|antipsychotic|benzodiazepine|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b/i.test(
+  return /\b(?:dose|dosage|dosing|mg|mcg|micrograms?|milligrams?|ug|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer\w*|titration|titrate|frequency|maximum|tablet|injection|antipsychotic|benzodiazepine|olanzapine|lorazepam|haloperidol|droperidol|promethazine|diazepam)\b|[µμ]g/i.test(
     haystack,
   );
 }
@@ -757,7 +757,7 @@ export function hasDoseEvidenceSupport(result: SearchResult) {
 /** Has medication dose amount evidence. */
 function hasMedicationDoseAmountEvidence(result: SearchResult) {
   const haystack = clinicalResultEvidenceHaystack(result);
-  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(haystack);
+  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|micrograms?|milligrams?|ug|[µμ]g)\b/i.test(haystack);
 }
 
 // A passage carrying a real dose/threshold figure (a numeric table row, or a
@@ -1105,32 +1105,75 @@ export function normalizedClinicalSearchTokens(query: string) {
 
 const genericMedicationDoseQueryTokens = new Set([
   "administer",
+  "administered",
+  "administering",
   "administration",
+  "amount",
   "chart",
   "dose",
   "dosage",
   "dosing",
   "drug",
   "frequency",
+  "frequent",
+  "frequently",
+  "given",
   "guidance",
   "listed",
   "management",
+  "many",
+  "max",
   "maximum",
   "medication",
   "medicine",
+  "mcg",
+  "mg",
+  "microgram",
+  "milligram",
+  "min",
+  "minimum",
+  "much",
+  "often",
   "oral",
+  "orally",
   "intramuscular",
+  "intramuscularly",
   "subcutaneous",
+  "subcutaneously",
   "subcut",
   "sublingual",
+  "sublingually",
   "route",
   "shown",
   "table",
   "used",
   "using",
   "usual",
+  "ug",
+  "once",
+  "twice",
+  "daily",
+  "nightly",
+  "weekly",
+  "monthly",
+  "hourly",
+  "prn",
+  "bd",
+  "tds",
+  "qds",
+  "qid",
+  "every",
+  "hour",
+  "day",
+  "week",
+  "time",
+  "mouth",
   "im",
   "po",
+  "patient",
+  "recommend",
+  "recommendation",
+  "recommended",
   "sc",
   "sl",
 ]);
@@ -1138,6 +1181,28 @@ const genericMedicationDoseQueryTokens = new Set([
 /** Require dose evidence to carry the medication question's clinical subject. */
 export function medicationDoseQuerySubjectTokens(query: string) {
   return normalizedClinicalSearchTokens(query).filter((token) => !genericMedicationDoseQueryTokens.has(token));
+}
+
+const medicationDoseAmountQueryPattern =
+  /\b(?:dose|doses|dosage|dosages|dosing|amount|amounts|maximum|max|min|minimum|mg|mcg|micrograms?|milligrams?|ug)\b|[µμ]g|\bhow\s+much\b/i;
+const medicationDoseRouteQueryPattern =
+  /\b(?:route|routes|oral|orally|intramuscular|intramuscularly|subcutaneous|subcutaneously|subcut|sublingual|sublingually|im|po|sc|sl|by\s+mouth)\b/i;
+const medicationDoseFrequencyQueryPattern =
+  /\b(?:frequency|frequencies|frequent|frequently|how\s+often|how\s+frequently|once|twice|daily|nightly|weekly|monthly|hourly|prn|bd|tds|qds|qid|every\s+\d+(?:\.\d+)?\s*(?:hours?|days?|weeks?)|\d+\s+times?\s+(?:a|per)\s+(?:day|week|hour))\b/i;
+
+/** Which explicit medication evidence attributes the query requests. */
+export function medicationDoseEvidenceQueryIntent(query: string) {
+  return {
+    asksAmount: medicationDoseAmountQueryPattern.test(query),
+    asksRoute: medicationDoseRouteQueryPattern.test(query),
+    asksFrequency: medicationDoseFrequencyQueryPattern.test(query),
+  };
+}
+
+/** Whether the query explicitly asks for dose, route, or frequency evidence. */
+export function isMedicationDoseEvidenceQuery(query: string) {
+  const intent = medicationDoseEvidenceQueryIntent(query);
+  return intent.asksAmount || intent.asksRoute || intent.asksFrequency;
 }
 
 /** Require dose evidence to carry the medication question's clinical subject. */

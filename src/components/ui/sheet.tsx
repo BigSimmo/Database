@@ -48,6 +48,7 @@ export function Sheet({
   mobileSize = "content",
   portal = false,
   desktopBackdropClassName,
+  testId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -74,6 +75,7 @@ export function Sheet({
   mobileSize?: SheetMobileSize;
   portal?: boolean;
   desktopBackdropClassName?: string;
+  testId?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -213,6 +215,7 @@ export function Sheet({
     >
       <div
         ref={panelRef}
+        data-testid={testId}
         role="dialog"
         aria-modal="true"
         aria-labelledby={resolvedLabelledBy}
