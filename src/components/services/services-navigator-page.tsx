@@ -643,7 +643,7 @@ export function ServicesNavigatorPage() {
                 key={service.slug}
                 service={service}
                 index={index}
-                relevanceRank={sortValue === "alpha" ? null : relevanceRankMap.get(service.slug) ?? null}
+                relevanceRank={sortValue === "alpha" ? null : (relevanceRankMap.get(service.slug) ?? null)}
                 selected={selectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
               />
