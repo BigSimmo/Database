@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { recentQueryStorageKey } from "@/components/clinical-dashboard/dashboard-contracts";
 import {
   clearLegacyRecentQueries,
+  clearRecentQueries,
   demoRecentQueryOwnerId,
   loadRecentQueries,
 } from "@/components/clinical-dashboard/recent-query-storage";
@@ -15,6 +16,12 @@ describe("recent query storage", () => {
     localStore = new Map<string, string>();
     sessionStore = new Map<string, string>();
     const storageFor = (store: Map<string, string>) => ({
+      get length() {
+        return store.size;
+      },
+      key(index: number) {
+        return [...store.keys()][index] ?? null;
+      },
       getItem(key: string) {
         return store.get(key) ?? null;
       },
@@ -74,5 +81,21 @@ describe("recent query storage", () => {
     expect(localStore.has(recentQueryStorageKey)).toBe(false);
     expect(sessionStore.has(recentQueryStorageKey)).toBe(false);
     expect(loadRecentQueries("user-a")).toEqual(["scoped query"]);
+  });
+
+  it("clearRecentQueries removes the legacy keys and every owner-scoped key", () => {
+    // Sign-out / expiry boundary: the next person on a shared workstation must
+    // not inherit anyone's recent clinical question text.
+    localStore.set(recentQueryStorageKey, JSON.stringify(["legacy"]));
+    sessionStore.set(recentQueryStorageKey, JSON.stringify(["legacy"]));
+    sessionStore.set(`${recentQueryStorageKey}:user-a`, JSON.stringify(["a"]));
+    sessionStore.set(`${recentQueryStorageKey}:user-b`, JSON.stringify(["b"]));
+    sessionStore.set("unrelated-key", "untouched");
+
+    clearRecentQueries();
+
+    expect(localStore.has(recentQueryStorageKey)).toBe(false);
+    expect([...sessionStore.keys()].some((key) => key.startsWith(recentQueryStorageKey))).toBe(false);
+    expect(sessionStore.get("unrelated-key")).toBe("untouched");
   });
 });
