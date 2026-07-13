@@ -11,6 +11,7 @@ import { publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
+import { verifyAnswerFeedbackToken } from "@/lib/answer-feedback-token";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,7 @@ const bodySchema = z
       "outdated_guidance",
     ]),
     answerHash: z.string().regex(/^[a-f0-9]{64}$/),
+    feedbackToken: z.string().trim().min(1).max(1024),
     citedSourceIds: z.array(uuid).max(80).optional().default([]),
     sourceIds: z.array(uuid).max(80).optional().default([]),
     route: z.string().trim().max(100).nullable().optional().default(null),
@@ -51,6 +53,18 @@ export async function POST(request: Request) {
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
     if (rateLimit.limited) return rateLimitJsonResponse("Too many feedback requests. Retry shortly.", rateLimit);
+
+    if (
+      !verifyAnswerFeedbackToken({
+        token: body.feedbackToken,
+        interactionId: body.interactionId,
+        answerHash: body.answerHash,
+      })
+    ) {
+      throw new PublicApiError("Answer feedback could not be verified. Run the question again.", 400, {
+        code: "invalid_feedback_token",
+      });
+    }
 
     const { error } = await supabase.from("rag_answer_feedback").insert({
       interaction_id: body.interactionId,
