@@ -28,6 +28,12 @@ describe("renderDependencyReport", () => {
     const md = renderDependencyReport({}, {});
     expect(md).toContain("audit data unavailable");
   });
+
+  it("renders 'data unavailable' (not 'none') when the outdated check failed", () => {
+    const md = renderDependencyReport(null, { metadata: { vulnerabilities: { total: 0 } } });
+    expect(md).toContain("data unavailable");
+    expect(md).not.toContain("none 🎉");
+  });
 });
 
 describe("highestSeverity", () => {

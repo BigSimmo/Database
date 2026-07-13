@@ -46,13 +46,19 @@ jobs:
 
       - name: Publish to rolling issue
         uses: actions/github-script@v9
+        env:
+          # Pass step outputs via env (not inline template expansion) to avoid the
+          # GitHub Actions template-injection pattern, even though both values are
+          # currently a fixed enum / plain integer produced by our own script.
+          OUTDATED_COUNT: ${{ steps.report.outputs.outdated }}
+          SEVERITY: ${{ steps.report.outputs.severity }}
         with:
           script: |
             const fs = require("fs");
             const label = "dependency-report";
             const body = fs.readFileSync("dependency-report.md", "utf8");
-            const outdated = Number("${{ steps.report.outputs.outdated }}" || "0");
-            const severity = "${{ steps.report.outputs.severity }}" || "none";
+            const outdated = Number(process.env.OUTDATED_COUNT || "0");
+            const severity = process.env.SEVERITY || "none";
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,

@@ -26,11 +26,14 @@ function argValue(name) {
 }
 
 // `npm outdated --json` and `npm audit --json` exit non-zero when they find
-// something; capture stdout regardless of exit code.
+// something; capture stdout regardless of exit code. But a REAL failure
+// (network/registry/auth) also lands in catch — surface its stderr so the run
+// logs show it instead of silently rendering a clean-looking report.
 function runNpmJson(args) {
   try {
-    return execFileSync("npm", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return execFileSync("npm", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   } catch (error) {
+    if (error.stderr) process.stderr.write(String(error.stderr));
     return error.stdout?.toString() ?? "";
   }
 }
@@ -39,6 +42,7 @@ function parseJsonSafe(text, fallback) {
   try {
     return text.trim() ? JSON.parse(text) : fallback;
   } catch {
+    process.stderr.write(`[dependency-report] warning: failed to parse npm JSON output: ${text.slice(0, 200)}\n`);
     return fallback;
   }
 }
@@ -50,16 +54,20 @@ function majorOf(version) {
 
 /**
  * Pure renderer. `outdated` is the `npm outdated --json` object (pkg → {current,
- * wanted, latest}); `audit` is the `npm audit --json` object. Returns Markdown.
+ * wanted, latest}), or `null` when the outdated check itself failed (rendered as
+ * "data unavailable" rather than a falsely-clean "none"). `audit` is the
+ * `npm audit --json` object. Returns Markdown.
  */
 export function renderDependencyReport(outdated, audit) {
   const stamp = new Date().toISOString();
   const lines = [`### Dependency report — ${stamp}`, ""];
 
-  const entries = Object.entries(outdated ?? {});
-  if (entries.length === 0) {
+  if (outdated == null) {
+    lines.push("**Outdated direct dependencies:** data unavailable (npm outdated failed — see run logs).");
+  } else if (Object.keys(outdated).length === 0) {
     lines.push("**Outdated direct dependencies:** none 🎉");
   } else {
+    const entries = Object.entries(outdated);
     const majors = entries.filter(([, v]) => {
       const cur = majorOf(v.current);
       const latest = majorOf(v.latest);
@@ -112,7 +120,19 @@ function main() {
     audit = payload.audit ?? {};
   } else {
     outdated = parseJsonSafe(runNpmJson(["outdated", "--json"]), {});
-    audit = parseJsonSafe(runNpmJson(["audit", "--json", "--omit=dev"]), {});
+    // Include dev dependencies: the repo's dependency-maintenance protocol covers the
+    // dev toolchain (Vitest/Playwright/ESLint), and prod-only high/critical is already
+    // gated by the CI safety job's `npm audit --omit=dev --audit-level=high`.
+    audit = parseJsonSafe(runNpmJson(["audit", "--json"]), {});
+  }
+
+  // A failed `npm outdated --json` can still emit a JSON error payload ({ error: … }) on
+  // stdout; treat that as "data unavailable" rather than counting `error` as a package.
+  if (outdated && typeof outdated === "object" && "error" in outdated) {
+    process.stderr.write(
+      `[dependency-report] warning: npm outdated failed: ${JSON.stringify(outdated.error).slice(0, 200)}\n`,
+    );
+    outdated = null;
   }
 
   const digest = renderDependencyReport(outdated, audit);
