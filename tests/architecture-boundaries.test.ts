@@ -38,20 +38,23 @@ function moduleSpecifiersFromSource(_filePath: string, sourceText: string) {
         statement.importKind === "type" ||
         Boolean(
           !statement.specifiers.some((specifier) => specifier.type === "ImportDefaultSpecifier") &&
-            statement.specifiers.some((specifier) => specifier.type === "ImportSpecifier") &&
-            statement.specifiers.every(
-              (specifier) => specifier.type === "ImportSpecifier" && specifier.importKind === "type",
-            ),
+          statement.specifiers.some((specifier) => specifier.type === "ImportSpecifier") &&
+          statement.specifiers.every(
+            (specifier) => specifier.type === "ImportSpecifier" && specifier.importKind === "type",
+          ),
         );
       if (!typeOnly) staticImports.add(statement.source.value);
     }
-    if ((statement.type === "ExportNamedDeclaration" || statement.type === "ExportAllDeclaration") && statement.source) {
+    if (
+      (statement.type === "ExportNamedDeclaration" || statement.type === "ExportAllDeclaration") &&
+      statement.source
+    ) {
       const typeOnly =
         statement.exportKind === "type" ||
         Boolean(
           statement.type === "ExportNamedDeclaration" &&
-            statement.specifiers.length > 0 &&
-            statement.specifiers.every((specifier) => "exportKind" in specifier && specifier.exportKind === "type"),
+          statement.specifiers.length > 0 &&
+          statement.specifiers.every((specifier) => "exportKind" in specifier && specifier.exportKind === "type"),
         );
       if (!typeOnly) staticImports.add(statement.source.value);
     }
@@ -61,7 +64,12 @@ function moduleSpecifiersFromSource(_filePath: string, sourceText: string) {
     if (!node || typeof node !== "object") return;
     const current = node as Record<string, unknown>;
     const argumentsList = Array.isArray(current.arguments) ? current.arguments : null;
-    if (current.type === "CallExpression" && current.callee && argumentsList && (argumentsList.length === 1 || argumentsList.length === 2)) {
+    if (
+      current.type === "CallExpression" &&
+      current.callee &&
+      argumentsList &&
+      (argumentsList.length === 1 || argumentsList.length === 2)
+    ) {
       const callee = current.callee as Record<string, unknown>;
       const moduleSpecifier = argumentsList[0] as Record<string, unknown> | undefined;
       if (callee.type === "Import" && moduleSpecifier) {
@@ -74,7 +82,8 @@ function moduleSpecifiersFromSource(_filePath: string, sourceText: string) {
           Array.isArray(moduleSpecifier.quasis) &&
           moduleSpecifier.quasis.length === 1
         ) {
-          const cooked = ((moduleSpecifier.quasis[0] as Record<string, unknown>).value as Record<string, unknown>)?.cooked;
+          const cooked = ((moduleSpecifier.quasis[0] as Record<string, unknown>).value as Record<string, unknown>)
+            ?.cooked;
           if (typeof cooked === "string") dynamicImports.add(cooked);
         }
       }

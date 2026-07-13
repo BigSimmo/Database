@@ -67,10 +67,10 @@ function localImports(file: string) {
         statement.importKind === "type" ||
         Boolean(
           !statement.specifiers.some((specifier) => specifier.type === "ImportDefaultSpecifier") &&
-            statement.specifiers.some((specifier) => specifier.type === "ImportSpecifier") &&
-            statement.specifiers.every(
-              (specifier) => specifier.type === "ImportSpecifier" && specifier.importKind === "type",
-            ),
+          statement.specifiers.some((specifier) => specifier.type === "ImportSpecifier") &&
+          statement.specifiers.every(
+            (specifier) => specifier.type === "ImportSpecifier" && specifier.importKind === "type",
+          ),
         );
       if (!isTypeOnly) specifiers.push(statement.source.value);
     }
