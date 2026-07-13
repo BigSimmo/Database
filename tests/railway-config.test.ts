@@ -73,7 +73,11 @@ describe("Railway config as code", () => {
     "src/lib/rag.ts",
     "worker/main.ts",
     "worker/python/requirements.txt",
+    "scripts/enable-server-only-stub.mjs",
+    "scripts/register-server-only.mjs",
+    "scripts/resolve-tsx-cli.mjs",
     "scripts/run-tsx.mjs",
+    "tests/stubs/server-only.ts",
   ])("deploys the worker for runtime input %s", (filePath) => {
     expect(triggersDeploy(worker, filePath)).toBe(true);
   });

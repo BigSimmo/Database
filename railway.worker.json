@@ -16,8 +16,12 @@
       "/src/**",
       "/worker/**",
       "/scripts/check-node-engine.cjs",
+      "/scripts/enable-server-only-stub.mjs",
       "/scripts/install-git-hooks.mjs",
-      "/scripts/run-tsx.mjs"
+      "/scripts/register-server-only.mjs",
+      "/scripts/resolve-tsx-cli.mjs",
+      "/scripts/run-tsx.mjs",
+      "/tests/stubs/server-only.ts"
     ]
   },
   "deploy": {
