@@ -95,6 +95,19 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     return () => window.cancelAnimationFrame(frame);
   }, [active]);
 
+  // The gate widening/narrowing (e.g. ClinicalDashboard toggling answer mode)
+  // changes the scroll geometry underneath us (<main> gains/loses its header
+  // reserve), so a carried-over hidden flag or last offset would produce one
+  // spurious hide/reveal on the first post-switch scroll. Reset on the change
+  // itself — `active` can stay true across it on phones, so the effect above
+  // never fires there.
+  useEffect(() => {
+    hiddenRef.current = false;
+    lastOffsetRef.current = 0;
+    const frame = window.requestAnimationFrame(() => setHidden(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, [allowAllBreakpoints]);
+
   return { hidden: active && hidden, reportScroll };
 }
 
