@@ -2,11 +2,11 @@
 # a stuck-queue signal is present, runs the existing recovery path. Alerts (opens/
 # updates an issue) only when Supabase is unreachable or recovery fails.
 #
-# SHIPPED DISABLED: workflow_dispatch only; the schedule is commented out. Recovery
-# is DRY-RUN unless the run is explicitly told to apply (dispatch input `apply=true`,
-# allowed only when repo variable INGESTION_AUTOPILOT_APPLY == "true"). To enable the
-# cadence: set the repo secret below, confirm one dispatch dry-run, then uncomment
-# `schedule:` and (optionally) set INGESTION_AUTOPILOT_APPLY=true.
+# ENABLED IN DRY-RUN: the 6-hourly schedule is active, but recovery only APPLIES when
+# BOTH the dispatch input `apply=true` AND repo variable INGESTION_AUTOPILOT_APPLY ==
+# "true". The variable is intentionally unset, so scheduled runs are read-only probes
+# that alert on unreachable Supabase or (with apply) failed recovery. To allow real
+# recovery after observing a clean dry-run cycle, set INGESTION_AUTOPILOT_APPLY=true.
 name: Ingestion Autopilot
 
 on:
@@ -16,9 +16,9 @@ on:
         description: "Apply recovery (requires repo var INGESTION_AUTOPILOT_APPLY=true)"
         required: false
         default: "false"
-  # schedule:
-  #   # Every 6 hours.
-  #   - cron: "0 */6 * * *"
+  schedule:
+    # Every 6 hours.
+    - cron: "0 */6 * * *"
 
 concurrency:
   group: ingestion-autopilot
