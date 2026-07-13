@@ -608,7 +608,7 @@ type DeepMemoryArtifactTable = "document_sections" | "document_memory_cards" | "
 
 function artifactOwnership(
   table: DeepMemoryArtifactTable,
-  artifact: { producer?: unknown; metadata?: unknown },
+  artifact: { producer?: unknown; artifact_generation_id?: unknown; metadata?: unknown },
 ): "local" | "agent" | "ambiguous" {
   const explicitProducer = typeof artifact.producer === "string" ? artifact.producer : null;
   const metadata = artifact.metadata;
@@ -619,6 +619,7 @@ function artifactOwnership(
   if (record.generated_by === "indexing-v3-agent") return "agent";
   if (Object.hasOwn(record, "generated_by")) return "ambiguous";
   if (table === "document_sections" && record.rag_indexing_version === ragDeepMemoryVersion) return "local";
+  if (table !== "document_sections" && artifact.artifact_generation_id == null) return "local";
   return "ambiguous";
 }
 

@@ -149,6 +149,7 @@ begin
     where document_id = p_document_id
       and (
         (producer is not null and nullif(metadata->>'generated_by', '') is distinct from producer)
+        or (producer is null and nullif(metadata->>'generated_by', '') is not null and metadata->>'generated_by' <> p_producer)
         or (producer is null and artifact_generation_id is not null)
         or (
           producer is null
@@ -165,14 +166,26 @@ begin
     where document_id = p_document_id
       and (
         (producer is not null and nullif(metadata->>'generated_by', '') is distinct from producer)
-        or (producer is null and (artifact_generation_id is not null or nullif(metadata->>'generated_by', '') is null))
+        or (producer is null and nullif(metadata->>'generated_by', '') is not null and metadata->>'generated_by' <> p_producer)
+        or (producer is null and artifact_generation_id is not null)
+        or (
+          producer is null
+          and nullif(metadata->>'generated_by', '') is null
+          and not (p_producer = 'local-worker' and artifact_generation_id is null)
+        )
       )
   ) or exists (
     select 1 from public.document_index_units
     where document_id = p_document_id
       and (
         (producer is not null and nullif(metadata->>'generated_by', '') is distinct from producer)
-        or (producer is null and (artifact_generation_id is not null or nullif(metadata->>'generated_by', '') is null))
+        or (producer is null and nullif(metadata->>'generated_by', '') is not null and metadata->>'generated_by' <> p_producer)
+        or (producer is null and artifact_generation_id is not null)
+        or (
+          producer is null
+          and nullif(metadata->>'generated_by', '') is null
+          and not (p_producer = 'local-worker' and artifact_generation_id is null)
+        )
       )
   ) then
     raise exception 'Deep-memory artifact producer evidence is contradictory or ambiguous.' using errcode = '23514';
@@ -288,6 +301,12 @@ begin
       and not (
         (card.producer = p_producer and card.metadata->>'generated_by' = p_producer)
         or (card.producer is null and card.metadata->>'generated_by' = p_producer)
+        or (
+          p_producer = 'local-worker'
+          and card.producer is null
+          and card.artifact_generation_id is null
+          and nullif(card.metadata->>'generated_by', '') is null
+        )
       )
   ) then
     raise exception 'Another producer references an older section owned by this producer.' using errcode = '23514';
@@ -353,6 +372,12 @@ begin
     and (
       (producer = p_producer and metadata->>'generated_by' = p_producer)
       or (producer is null and metadata->>'generated_by' = p_producer)
+      or (
+        p_producer = 'local-worker'
+        and producer is null
+        and artifact_generation_id is null
+        and nullif(metadata->>'generated_by', '') is null
+      )
     );
 
   delete from public.document_index_units
@@ -361,6 +386,12 @@ begin
     and (
       (producer = p_producer and metadata->>'generated_by' = p_producer)
       or (producer is null and metadata->>'generated_by' = p_producer)
+      or (
+        p_producer = 'local-worker'
+        and producer is null
+        and artifact_generation_id is null
+        and nullif(metadata->>'generated_by', '') is null
+      )
     );
 
   delete from public.document_sections

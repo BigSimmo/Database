@@ -56,6 +56,8 @@ describe("producer-scoped deep-memory transaction SQL", () => {
   it("recognises only consistent legacy ownership and never trusts the caller version for deletion", () => {
     expect(migration).toContain("card.producer is null and card.metadata->>'generated_by' = p_producer");
     expect(migration).toContain("metadata->>'rag_indexing_version' = 'rag-deep-memory-v1'");
+    expect(migration).toContain("p_producer = 'local-worker' and artifact_generation_id is null");
+    expect(migration).toContain("card.artifact_generation_id is null");
     expect(migration).not.toContain("metadata->>'rag_indexing_version' = p_rag_memory_version");
   });
 

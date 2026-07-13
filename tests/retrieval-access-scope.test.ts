@@ -40,6 +40,7 @@ describe("owner-plus-public retrieval contract", () => {
     expect(migration).toMatch(/owner_filter uuid[^]*include_public boolean/);
     expect(migration).toContain("owner_filter is not null");
     expect(migration).toContain("match_document_chunks_text_v2");
+    expect(migration).toContain("hybrid_score as lexical_score");
     expect(migration).toContain("match_document_chunks_hybrid_v2");
     expect(migration).toContain("corpus_topic_term_stats_v2");
     expect(migration).toContain("bool_or(chunk_present)");

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { rankClinicalResults } from "../src/lib/clinical-search";
 import {
   applyMemoryCardBoosts,
+  assertLocalDeepMemoryOwnership,
   buildDocumentMemoryCards,
   buildDocumentSections,
   DeepMemoryOwnershipConflictError,
@@ -691,6 +692,23 @@ describe("deep RAG memory indexing", () => {
       expect.arrayContaining(["document_sections", "document_memory_cards", "document_index_units"]),
     );
     expect(generateModelIndexProfileMock).toHaveBeenCalledOnce();
+  });
+
+  it("allows legacy local memory cards and index units without producer metadata", async () => {
+    const rowsByTable: Record<string, unknown[]> = {
+      document_sections: [{ metadata: { rag_indexing_version: "rag-deep-memory-v1" } }],
+      document_memory_cards: [{ producer: null, artifact_generation_id: null, metadata: {} }],
+      document_index_units: [{ producer: null, artifact_generation_id: null, metadata: {} }],
+    };
+    const supabase = {
+      from: vi.fn((table: string) => ({
+        select: () => ({
+          eq: async () => ({ data: rowsByTable[table] ?? [], error: null }),
+        }),
+      })),
+    };
+
+    await expect(assertLocalDeepMemoryOwnership(supabase as never, "doc-1")).resolves.toBeUndefined();
   });
 
   it.each(["document_sections", "document_memory_cards", "document_index_units"])(

@@ -1682,6 +1682,71 @@ begin
     raise exception 'Deep-memory artifact generation belongs to another producer.' using errcode = '23514';
   end if;
 
+  -- Re-check producer evidence inside the transaction. Legacy NULL-generation
+  -- local-worker rows predate explicit producer metadata and are the only
+  -- unlabelled shape eligible for producer-scoped replacement.
+  if exists (
+    select 1 from public.document_sections
+    where document_id = p_document_id
+      and (
+        (producer is not null and nullif(metadata->>'generated_by', '') is distinct from producer)
+        or (producer is null and nullif(metadata->>'generated_by', '') is not null and metadata->>'generated_by' <> p_producer)
+        or (producer is null and artifact_generation_id is not null)
+        or (
+          producer is null
+          and nullif(metadata->>'generated_by', '') is null
+          and not (
+            p_producer = 'local-worker'
+            and artifact_generation_id is null
+            and metadata->>'rag_indexing_version' = 'rag-deep-memory-v1'
+          )
+        )
+      )
+  ) or exists (
+    select 1 from public.document_memory_cards
+    where document_id = p_document_id
+      and (
+        (producer is not null and nullif(metadata->>'generated_by', '') is distinct from producer)
+        or (producer is null and nullif(metadata->>'generated_by', '') is not null and metadata->>'generated_by' <> p_producer)
+        or (producer is null and artifact_generation_id is not null)
+        or (
+          producer is null
+          and nullif(metadata->>'generated_by', '') is null
+          and not (p_producer = 'local-worker' and artifact_generation_id is null)
+        )
+      )
+  ) or exists (
+    select 1 from public.document_index_units
+    where document_id = p_document_id
+      and (
+        (producer is not null and nullif(metadata->>'generated_by', '') is distinct from producer)
+        or (producer is null and nullif(metadata->>'generated_by', '') is not null and metadata->>'generated_by' <> p_producer)
+        or (producer is null and artifact_generation_id is not null)
+        or (
+          producer is null
+          and nullif(metadata->>'generated_by', '') is null
+          and not (p_producer = 'local-worker' and artifact_generation_id is null)
+        )
+      )
+  ) then
+    raise exception 'Deep-memory artifact producer evidence is contradictory or ambiguous.' using errcode = '23514';
+  end if;
+
+  select count(*) into v_total_section_count
+  from public.document_sections
+  where document_id = p_document_id
+    and artifact_generation_id = p_artifact_generation_id;
+
+  select count(*) into v_total_memory_card_count
+  from public.document_memory_cards
+  where document_id = p_document_id
+    and artifact_generation_id = p_artifact_generation_id;
+
+  select count(*) into v_total_index_unit_count
+  from public.document_index_units
+  where document_id = p_document_id
+    and artifact_generation_id = p_artifact_generation_id;
+
   select count(*) into v_section_count
   from public.document_sections
   where document_id = p_document_id
@@ -1724,7 +1789,10 @@ begin
   into v_expected_index_unit_count
   from jsonb_each_text(coalesce(p_index_unit_counts_by_type, '{}'::jsonb));
 
-  if v_section_count <> p_section_count
+  if v_total_section_count <> v_section_count
+    or v_total_memory_card_count <> v_memory_card_count
+    or v_total_index_unit_count <> coalesce(v_index_unit_count, 0)
+    or v_section_count <> p_section_count
     or v_memory_card_count <> p_memory_card_count
     or coalesce(v_index_unit_count, 0) <> v_expected_index_unit_count
     or v_index_unit_counts_by_type <> coalesce(p_index_unit_counts_by_type, '{}'::jsonb)
@@ -1763,11 +1831,24 @@ begin
           section.producer is null
           and (
             section.metadata->>'generated_by' = p_producer
-            or (p_producer = 'local-worker' and section.metadata->>'rag_indexing_version' = p_rag_memory_version)
+            or (
+              p_producer = 'local-worker'
+              and nullif(section.metadata->>'generated_by', '') is null
+              and section.metadata->>'rag_indexing_version' = 'rag-deep-memory-v1'
+            )
           )
         )
       )
-      and card.producer is distinct from p_producer
+      and not (
+        (card.producer = p_producer and card.metadata->>'generated_by' = p_producer)
+        or (card.producer is null and card.metadata->>'generated_by' = p_producer)
+        or (
+          p_producer = 'local-worker'
+          and card.producer is null
+          and card.artifact_generation_id is null
+          and nullif(card.metadata->>'generated_by', '') is null
+        )
+      )
   ) then
     raise exception 'Another producer references an older section owned by this producer.' using errcode = '23514';
   end if;
@@ -1815,28 +1896,44 @@ begin
   where document_id = p_document_id
     and artifact_generation_id is distinct from p_artifact_generation_id
     and (
-      producer = p_producer
+      (producer = p_producer and metadata->>'generated_by' = p_producer)
       or (producer is null and metadata->>'generated_by' = p_producer)
+      or (
+        p_producer = 'local-worker'
+        and producer is null
+        and artifact_generation_id is null
+        and nullif(metadata->>'generated_by', '') is null
+      )
     );
 
   delete from public.document_index_units
   where document_id = p_document_id
     and artifact_generation_id is distinct from p_artifact_generation_id
     and (
-      producer = p_producer
+      (producer = p_producer and metadata->>'generated_by' = p_producer)
       or (producer is null and metadata->>'generated_by' = p_producer)
+      or (
+        p_producer = 'local-worker'
+        and producer is null
+        and artifact_generation_id is null
+        and nullif(metadata->>'generated_by', '') is null
+      )
     );
 
   delete from public.document_sections
   where document_id = p_document_id
     and artifact_generation_id is distinct from p_artifact_generation_id
     and (
-      producer = p_producer
+      (producer = p_producer and metadata->>'generated_by' = p_producer)
       or (
         producer is null
         and (
           metadata->>'generated_by' = p_producer
-          or (p_producer = 'local-worker' and metadata->>'rag_indexing_version' = p_rag_memory_version)
+          or (
+            p_producer = 'local-worker'
+            and nullif(metadata->>'generated_by', '') is null
+            and metadata->>'rag_indexing_version' = 'rag-deep-memory-v1'
+          )
         )
       )
     );

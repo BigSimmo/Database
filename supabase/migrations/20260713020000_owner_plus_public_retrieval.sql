@@ -44,9 +44,15 @@ create or replace function public.match_document_chunks_text_v2(
   lexical_score double precision, images jsonb
 ) language sql stable set search_path = public, extensions, pg_temp as $$
   with combined as (
-    select * from public.match_document_chunks_text($1, $2, $3, $4)
+    select id, document_id, title, file_name, page_number, chunk_index, section_heading, content,
+      retrieval_synopsis, image_ids, source_metadata, document_labels, document_summary,
+      similarity, text_rank, hybrid_score, hybrid_score as lexical_score, images
+    from public.match_document_chunks_text($1, $2, $3, $4)
     union all
-    select * from public.match_document_chunks_text($1, $2, $3, '00000000-0000-0000-0000-000000000000'::uuid)
+    select id, document_id, title, file_name, page_number, chunk_index, section_heading, content,
+      retrieval_synopsis, image_ids, source_metadata, document_labels, document_summary,
+      similarity, text_rank, hybrid_score, hybrid_score as lexical_score, images
+    from public.match_document_chunks_text($1, $2, $3, '00000000-0000-0000-0000-000000000000'::uuid)
     where $5 and $4 <> '00000000-0000-0000-0000-000000000000'::uuid
   ), deduped as (
     select *, row_number() over (partition by id order by hybrid_score desc, text_rank desc) as access_rank
