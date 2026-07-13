@@ -355,7 +355,7 @@ const clinicalDoseUnitSource = String.raw`(?:mg|milligrams?|mcg|micrograms?|g|gr
 const clinicalDoseValueSource = String.raw`\d+(?:\.\d+)?\s*${clinicalDoseUnitSource}`;
 const clinicalDoseValuePattern = new RegExp(String.raw`\b${clinicalDoseValueSource}\b`, "i");
 const maximumDoseEquivalentPattern = new RegExp(
-  String.raw`\b(?:up\s+to|(?:do\s+)?not\s+exceed|no\s+more\s+than|at\s+most|limit(?:ed)?(?:\s+the\s+dose)?\s+to)\s+${clinicalDoseValueSource}\b`,
+  String.raw`\b(?:up\s+to|(?:do\s+)?not\s+exceed|not\s+to\s+exceed|(?:no|not)\s+more\s+than|at\s+most|limit(?:ed)?(?:\s+the\s+dose)?\s+to)\s+${clinicalDoseValueSource}\b`,
   "i",
 );
 const doseIntentEvidencePattern = new RegExp(

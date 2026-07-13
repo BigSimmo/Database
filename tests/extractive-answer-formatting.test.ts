@@ -11,6 +11,8 @@ describe("maximum-dose evidence", () => {
   it("accepts equivalent numeric limit wording without accepting an unrelated dose", () => {
     expect(hasMaximumDoseEvidence("Olanzapine may be increased up to 20 mg daily.")).toBe(true);
     expect(hasMaximumDoseEvidence("The total daily dose must not exceed 20 mg.")).toBe(true);
+    expect(hasMaximumDoseEvidence("The dose is not to exceed 200 mg/day.")).toBe(true);
+    expect(hasMaximumDoseEvidence("Use not more than 200 mg daily.")).toBe(true);
     expect(hasMaximumDoseEvidence("Use no more than 2 tablets daily.")).toBe(true);
     expect(hasMaximumDoseEvidence("The total daily dose must not exceed 20 milligrams.")).toBe(true);
     expect(hasMaximumDoseEvidence("Use at most 500 micrograms daily.")).toBe(true);
