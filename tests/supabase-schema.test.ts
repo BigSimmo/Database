@@ -84,6 +84,10 @@ const indexingV3AgentJobsMigration = readFileSync(
   new URL("../supabase/migrations/20260702190000_indexing_v3_agent_jobs_table.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const routeEnrichmentThroughAgentMigration = readFileSync(
+  new URL("../supabase/migrations/20260713062139_route_enrichment_through_agent.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const clinicalRegistryRecordsMigration = readFileSync(
   new URL("../supabase/migrations/20260703020000_clinical_registry_records.sql", import.meta.url),
   "utf8",
@@ -385,6 +389,25 @@ describe("Supabase schema Data API grants", () => {
       "revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated",
     );
     expect(schema).toContain("grant execute on function public.invoke_indexing_v3_agent(integer) to service_role");
+  });
+
+  it("keeps enrichment requests conflict-safe with job-first locking and complete reset metadata", () => {
+    for (const sql of [schema, routeEnrichmentThroughAgentMigration]) {
+      const start = sql.indexOf("create or replace function public.request_indexing_v3_enrichment");
+      const end = sql.indexOf("$$;", start);
+      const body = sql.slice(start, end);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(start);
+      expect(body).toContain("on conflict (document_id) do nothing");
+      expect(body).toContain("select id, status into v_job_id, v_job_status");
+      expect(body).toContain("from public.indexing_v3_agent_jobs");
+      expect(body).toContain("for update");
+      expect(body).toContain("v_job_status = 'processing'");
+      expect(body.indexOf("from public.indexing_v3_agent_jobs")).toBeLessThan(
+        body.lastIndexOf("from public.documents"),
+      );
+      expect(body).toContain("'indexing_v3_agent_attempt_count' - 'indexing_v3_agent_max_attempts'");
+    }
   });
 
   it("drops the stale duplicate ingestion_job_stages document index", () => {

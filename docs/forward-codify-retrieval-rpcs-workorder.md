@@ -1,9 +1,9 @@
 # Work-order — forward-codify live-ahead retrieval RPC bodies (drift backlog #0)
 
-**Status: complete.** The production-current definitions were captured read-only, preserved under
-their actual migration versions, and replayed successfully in scratch PostgreSQL. The four forward
-remediation migrations were applied to live on 2026-07-13 as `20260713062107`, `20260713062125`,
-`20260713062132`, and `20260713062139`. Post-apply drift and production-readiness checks passed.
+**Status: complete.** The production-current definitions were captured read-only and preserved under
+their actual migration versions. Ran the scratch PostgreSQL replay: passed. Ran the reviewed live
+migration apply: applied `20260713062107`, `20260713062125`, `20260713062132`, and `20260713062139`
+on 2026-07-13. Ran `npm run check:drift`: passed. Ran `npm run check:production-readiness`: READY.
 
 Historical blockers at authoring time (2026-07-12):
 
