@@ -1763,6 +1763,47 @@ describe("RAG structured-output fallback", () => {
     expect(generateStructuredTextResult).not.toHaveBeenCalled();
   });
 
+  it("keeps gate-passed routine document-content queries on model synthesis", async () => {
+    const answer = await answerFromTextSources(
+      "How is patient safety planning handled?",
+      [
+        source({
+          id: "safety-plan-requirements",
+          document_id: "safety-plan-doc",
+          title: "Patient Safety Planning Guideline",
+          file_name: "patient-safety-planning.pdf",
+          section_heading: "Safety planning for identified risks",
+          content:
+            "Patient safety planning must be developed collaboratively with the consumer and reviewed when clinical status changes.",
+          similarity: 0.9,
+          hybrid_score: 0.9,
+          text_rank: 0.4,
+        }),
+      ],
+      {
+        answer:
+          "Patient safety planning is handled collaboratively with the consumer and reviewed when clinical status changes.",
+        grounded: true,
+        confidence: "medium",
+        answerSections: [],
+        citations: [{ chunk_id: "safety-plan-requirements" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    );
+
+    expect(answer.retrievalDiagnostics).toMatchObject({
+      gateStatus: "passed",
+      routeMode: "fast",
+      topScore: 0.9,
+    });
+    expect(answer.routingMode).toBe("fast");
+    expect(answer.routingReason).toBe("strong_routine_retrieval");
+    expect(answer.modelUsed).not.toBeNull();
+    expect(answer.openAIRequestIds).toEqual(["req_answer_from_text_sources"]);
+    expect(answer.grounded).toBe(true);
+  });
+
   it("does not gate-block a moderate score clustered across several distinct documents", async () => {
     // Regression: a topic with rich coverage (e.g. clozapine) returns many relevant
     // documents whose scores cluster tightly at a moderate value. A tiny spread there

@@ -4202,13 +4202,21 @@ async function answerQuestionWithScopeUncoalesced(
           selectedDocuments: explicitlySelectedComparisonDocuments,
         })
       : null;
-  const validatedRoutineExtractiveRecovery = hasValidatedRoutineExtractiveRecovery({
-    query: args.query,
+  const initialRetrievalDiagnostics = buildRetrievalDiagnostics({
     queryClass,
+    query: answerFocusQuery,
     results: answerInputResults,
-    route: routeFromRouting,
-    sourceBacked: relevance.isSourceBacked,
+    answerMode: routeFromRouting.mode,
   });
+  const validatedRoutineExtractiveRecovery =
+    initialRetrievalDiagnostics.gateStatus === "blocked" &&
+    hasValidatedRoutineExtractiveRecovery({
+      query: args.query,
+      queryClass,
+      results: answerInputResults,
+      route: routeFromRouting,
+      sourceBacked: relevance.isSourceBacked,
+    });
   const routeBeforeConfidenceGate = validatedRoutineExtractiveRecovery
     ? {
         ...routeFromRouting,
@@ -4217,12 +4225,6 @@ async function answerQuestionWithScopeUncoalesced(
         reason: `${routeFromRouting.reason}; validated_routine_extractive_recovery`,
       }
     : routeFromRouting;
-  const initialRetrievalDiagnostics = buildRetrievalDiagnostics({
-    queryClass,
-    query: answerFocusQuery,
-    results: answerInputResults,
-    answerMode: routeBeforeConfidenceGate.mode,
-  });
   const gatedRoute = validatedRoutineExtractiveRecovery
     ? { route: routeBeforeConfidenceGate }
     : applyConfidenceGate(routeBeforeConfidenceGate, queryClass, initialRetrievalDiagnostics);
