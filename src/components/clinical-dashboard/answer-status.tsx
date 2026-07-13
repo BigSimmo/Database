@@ -1,12 +1,11 @@
 "use client";
 
 import { Clipboard, ClipboardCheck, History, MessageSquareText, Search, ShieldCheck, Upload } from "lucide-react";
-import Link from "next/link";
 
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
-import { answerEmptyState, answerLoading, copyButton, privacyCopy } from "@/lib/ui-copy";
+import { answerEmptyState, answerLoading, copyButton } from "@/lib/ui-copy";
 
 export function CopyButton({
   label,
@@ -93,19 +92,16 @@ export function AnswerEmptyState({
               {answerEmptyState.starters.uploadDocument.title}
             </button>
           </div>
-          <ModeHomeVerificationFooter icon={ShieldCheck} label="Source backed" body="Clinical Guide library" />
-          {/* Keep the footer compact; the full privacy detail lives on /privacy. */}
-          <p
-            className="text-center text-2xs leading-4 text-[color:var(--text-muted)]"
-            aria-label={privacyCopy.noticeAriaLabel}
-          >
-            <Link
-              href="/privacy"
-              className="font-medium text-[color:var(--text-soft)] underline underline-offset-2 transition-colors hover:text-[color:var(--text-heading)]"
-            >
-              {privacyCopy.composerLinkLabel}
-            </Link>
-          </p>
+          {/* No privacy link here: the composer's PrivacyInputNotice is the
+              single site-wide notice, so the hero footer must not repeat it. */}
+          {/* Pre-query copy must describe what the search does, not assert that
+              every indexed source is verified/current (PT-06): validation status
+              varies per document and is surfaced on the results themselves. */}
+          <ModeHomeVerificationFooter
+            icon={ShieldCheck}
+            label="Searches indexed clinical sources"
+            body="Clinical Guide library"
+          />
         </div>
       }
     />

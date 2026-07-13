@@ -124,6 +124,7 @@ const DocumentSearchResultsPanel = dynamic(
   { ssr: false },
 );
 
+import { clearLegacyRecentQueries, demoRecentQueryOwnerId } from "@/components/clinical-dashboard/recent-query-storage";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
@@ -1019,7 +1020,7 @@ export function ClinicalDashboard({
   const localNoAuthMode = isLocalNoAuthMode();
   const explicitDemoMode = demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const clientDemoMode = explicitDemoMode || browserAuthUnavailableDemoFallback || localNoAuthMode;
-  const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? "local-demo-session" : null);
+  const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
   useEffect(() => {
     const previousOwnerId = previousAnswerThreadOwnerIdRef.current;
@@ -1165,6 +1166,13 @@ export function ClinicalDashboard({
     const timeoutId = window.setTimeout(prefetchApplications, 250);
     return () => window.clearTimeout(timeoutId);
   }, [prefetchApplications]);
+
+  // The dashboard renders directly on "/" without the standalone search shell,
+  // so it must purge the legacy unscoped recent-queries key too (2026-07-13
+  // audit, finding 4).
+  useEffect(() => {
+    clearLegacyRecentQueries();
+  }, []);
 
   useEffect(() => {
     if (!answerThreadOwnerId) {
@@ -3588,11 +3596,17 @@ export function ClinicalDashboard({
           {privateScopeStatus === "unavailable" ? (
             // Lives inside <main> (not as a header sibling): in the answer view
             // the header is absolute, so a sibling alert would reflow to the
-            // column top and hide behind the glass bar.
+            // column top and hide behind the glass bar. Sticky so the recovery
+            // actions stay reachable while the user scrolls — pinned below the
+            // overlaid glass bar in answer mode, just under the in-flow header
+            // otherwise (main is the scroll container, so sticky works here).
             <div
               role="alert"
               data-testid="private-scope-unavailable"
-              className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8"
+              className={cn(
+                "sticky z-20 mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8",
+                searchMode === "answer" ? "top-[calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]" : "top-2",
+              )}
             >
               <p>
                 The original private document scope is unavailable. Choose the documents again or confirm a broader

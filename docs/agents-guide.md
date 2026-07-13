@@ -1,40 +1,33 @@
 # Agents Guide
 
-## Purpose
+Short onboarding pointer. The authoritative, always-current rules for agents
+working in this repository live in the root [`AGENTS.md`](../AGENTS.md) —
+verification gates, provider confirmation boundaries, Supabase project safety,
+review routing, and workflow shortcuts. This page only orients you; it does not
+duplicate those rules, so it cannot drift from them.
 
-This repository contains the Clinical KB application. It is a Next.js + Supabase + OpenAI RAG knowledge base for medical guidelines. Agents working with this project should follow these guidelines.
+## Read in this order
 
-## Getting Started
+1. [`AGENTS.md`](../AGENTS.md) — agent rules, verification gates, shortcuts
+   (`upload`, `dependency`, `bug-hunter`), and safety boundaries.
+2. [`docs/codebase-index.md`](codebase-index.md) — architecture and module map.
+3. [`docs/README.md`](README.md) — index of all runbooks, governance docs, and
+   plans, with maintained vs historical classification.
+4. [`docs/site-map.md`](site-map.md) — generated route map.
 
-- Use Node 24 and npm 11; the project uses Next.js v16.
-- Copy `.env.example` to `.env.local` and populate secrets. **Never commit actual secrets**.
-- Use `npm run ensure` to start or verify the local dev server. It selects a stable port automatically.
-- Start the ingestion worker in a separate terminal using `npm run worker`.
+## Human quickstart
 
-## Development Guidelines
-
-- Avoid changing `.env.example` values other than adding placeholders. Do not commit `.env.local`.
-- When adding environment variables, update the schema in `src/lib/env.ts` and document them in `.env.example`.
-- Use TypeScript and follow existing code patterns; avoid introducing new dependencies unless necessary.
-- Run `npm run lint` and `npm run typecheck` before committing.
-- Use `npm run test` and `npm run test:e2e` to ensure critical flows remain stable.
-- Keep Supabase service role keys on the server; never expose them to the client.
-
-## Routing & Architecture
-
-- The app uses the Next.js App Router under `src/app`.
-- API routes live under `src/app/api`.
-- Client components are in `src/components`.
-- Supabase integration code is in `src/lib/supabase`.
-
-## Performance & Safety
-
-- Use `zod` for request and environment validation.
-- Enforce permissions server-side; do not rely on client-side checks.
-- Respect the existing rate-limiting and source-governance logic.
-- When adding new API endpoints, provide appropriate error handling and status codes.
-
-## Documentation
-
-- Keep the README up to date if you change setup, scripts, or environment variables.
-- Add high-level architectural changes or decisions in `docs/`.
+- Node 24.x / npm 11.x are hard requirements (`engine-strict`); the app is
+  Next.js 16 + Supabase + OpenAI.
+- Copy `.env.example` to `.env.local` and fill in values (never commit
+  secrets). Without Supabase/OpenAI values the app runs in demo mode on a
+  synthetic corpus.
+- `npm run ensure` starts or verifies the dev server on a stable
+  project-specific port (never assume `localhost:3000`).
+- `npm run worker` runs the local ingestion worker in a second terminal.
+- When adding environment variables, update the schema in `src/lib/env.ts` and
+  document them in `.env.example`.
+- Before handing off changes: `npm run verify:cheap` first, then
+  `npm run verify:pr-local` when the change is PR-ready (see
+  [`docs/process-hardening.md`](process-hardening.md) for the full
+  verification pyramid).

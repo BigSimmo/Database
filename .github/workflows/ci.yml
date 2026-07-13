@@ -247,10 +247,9 @@ jobs:
           if-no-files-found: ignore
 
   ui-regression:
-    name: Advisory UI regression
+    name: UI regression
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
-    continue-on-error: true
+    if: needs.changes.outputs.ui_changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -278,14 +277,59 @@ jobs:
       - name: Install Chromium browser
         run: npx playwright install --with-deps chromium
 
-      - name: Chromium advisory regression
-        run: npm run test:e2e:advisory
+      - name: Chromium stable regression suite
+        run: npm run test:e2e:regression
 
-      - name: Upload advisory UI diagnostics
+      - name: Upload UI regression diagnostics
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: advisory-ui-diagnostics-${{ github.run_id }}
+          name: ui-regression-diagnostics-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+
+  ui-quarantine:
+    name: Advisory quarantined UI tests
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore Chromium browser cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Chromium quarantined tests (advisory)
+        run: npm run test:e2e:quarantine
+
+      - name: Upload quarantine diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quarantine-ui-diagnostics-${{ github.run_id }}
           path: |
             test-results/
             playwright-report/
@@ -341,7 +385,7 @@ jobs:
 
   pr-required:
     name: PR required
-    needs: [changes, static-pr, safety, coverage, build, ui-critical, db-reset-verify]
+    needs: [changes, static-pr, safety, coverage, build, ui-critical, ui-regression, db-reset-verify]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -359,6 +403,7 @@ jobs:
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
+          UI_REGRESSION_RESULT: ${{ needs.ui-regression.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
         run: |
           set -euo pipefail
@@ -404,8 +449,10 @@ jobs:
 
           if [ "$UI_CHANGED" = "true" ]; then
             require_success "ui-critical" "$UI_RESULT"
+            require_success "ui-regression" "$UI_REGRESSION_RESULT"
           else
             require_skipped_or_success "ui-critical" "$UI_RESULT"
+            require_skipped_or_success "ui-regression" "$UI_REGRESSION_RESULT"
           fi
 
           if [ "$DB_CHANGED" = "true" ]; then

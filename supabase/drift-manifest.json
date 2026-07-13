@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-13T08:29:12.244Z",
+  "generated_at": "2026-07-13T09:59:28.896Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "99d5adc1f21f0c224de4bdd63f3c7475b3ca5d3eaa10da23a0772ac9ed3714e4",
-  "replay_seconds": 106,
+  "schema_sha256": "208dbd62d24ec6f851048b303a6c43746e8901781f2a84551020e3f12bb0a103",
+  "replay_seconds": 138,
   "snapshot": {
     "views": [
       {
@@ -6473,7 +6473,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "7df00b3e8e430df3a8a598fa053c7260",
+        "def_hash": "442329df8bfe935e3876aab627458e3a",
         "signature": "public.match_document_chunks_text(text,integer,uuid[],uuid)"
       },
       {
@@ -6698,7 +6698,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "c03491fa86455b3f853a705650a50377",
+        "def_hash": "1bc5c6e76cdaa83b6831b36413fb61f5",
         "signature": "public.retrieval_owner_matches_v2(uuid,uuid,boolean)"
       },
       {
@@ -6983,7 +6983,7 @@
         "table": "differential_records"
       },
       {
-        "def": "CHECK ((length(btrim(content)) > 0)) NOT VALID",
+        "def": "CHECK ((length(btrim(content)) > 0))",
         "name": "document_chunks_content_not_blank",
         "table": "document_chunks"
       },
@@ -6998,7 +6998,7 @@
         "table": "document_chunks"
       },
       {
-        "def": "CHECK ((length(btrim(content)) > 0)) NOT VALID",
+        "def": "CHECK ((length(btrim(content)) > 0))",
         "name": "document_embedding_fields_content_not_blank",
         "table": "document_embedding_fields"
       },
@@ -7068,7 +7068,7 @@
         "table": "document_index_quality"
       },
       {
-        "def": "CHECK ((length(btrim(content)) > 0)) NOT VALID",
+        "def": "CHECK ((length(btrim(content)) > 0))",
         "name": "document_index_units_content_not_blank",
         "table": "document_index_units"
       },

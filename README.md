@@ -162,33 +162,50 @@ hosted Supabase MCP server uses OAuth, not repo secrets.
 
 ## Documentation
 
+Full categorized index: `docs/README.md` (maintained docs vs point-in-time
+records vs archive). The most load-bearing entries:
+
+- `docs/codebase-index.md` — architecture and module map (start here)
+- `docs/site-map.md` — generated route map (`npm run sitemap:update`)
 - `docs/process-hardening.md` — verification gates, CI expectations, known limits
 - `docs/clinical-governance.md` — deployment and source governance checklist
-- `docs/reindex-runbook.md` — safe reindex and ingestion recovery
-- `docs/retrieval-quality-runbook.md` — RAG/retrieval eval gates
-- `docs/codex-prompt-playbook.md` — copy/paste prompts for common repo work
+- `docs/deployment-architecture.md` — app/worker/Supabase deployment topology
 - `docs/supabase-migration-reconciliation.md` — migration drift and repair policy
-- `docs/site-map.md` — generated route map (`npm run sitemap:update`)
+
+Run `npm run docs:check-links` to verify repo paths referenced from the
+maintained docs still resolve.
 
 ## Commands
 
 Verification gates (see `package.json` for the full chain):
 
 ```bash
-npm run verify:cheap   # check:runtime + sitemap:check + lint + typecheck + test
-npm run verify:ui      # check:runtime + test:e2e:chromium
-npm run verify:release # check:runtime + lint + typecheck + test + build + test:e2e
-                       # + check:production-readiness + governance:release
-                       # + eval:quality:release (needs live Supabase + OpenAI keys)
+npm run verify:cheap    # check:runtime + check:github-actions + sitemap:check
+                        # + brand:check + check:type-scale + check:icon-scale
+                        # + lint + typecheck + test
+npm run verify:pr-local # closest local mirror of the PR gate: format + verify:cheap,
+                        # plus conditional build/client-bundle scan and offline RAG
+                        # tests when changed-file scope requires them
+npm run verify:ui       # check:runtime + test:e2e:chromium
+npm run verify:release  # check:runtime + lint + typecheck + test + build + test:e2e
+                        # + check:production-readiness + governance:release
+                        # + eval:quality:release (needs live Supabase + OpenAI keys)
 ```
 
-CI runs `format:check` in the `verify` job alongside lint, typecheck,
-test:coverage, build, dependency audit, production-readiness CI mode, and
-edge-function typecheck. PRs also run Chromium `ui-smoke` and the repo-owned
-Supabase `db-reset-verify` job in parallel. The external `Supabase Preview`
-check, when enabled, is the branch-database migration replay gate. Docker image
-builds, full browser matrix, live drift, and live eval canary checks are
-path-filtered, scheduled, or manual rather than normal required checks for every
+Use `npm run verify:pr-local -- --dry-run --files <comma-separated paths>` to
+inspect which checks a change would trigger without running them.
+
+CI is risk-scoped (`.github/workflows/ci.yml`): a `changes` job classifies
+changed paths, `static-pr` always runs runtime, action-pin, CI-scope, format,
+lint, typecheck, and unit checks, and `pr-required` is the single
+always-reporting required aggregate (required PR checks are Gitleaks plus that
+aggregate). Coverage, build, safety/config checks, Chromium `ui-critical`
+smoke, and the repo-owned Supabase `db-reset-verify` migration replay run only
+when their file scopes apply; UI PRs also get a non-blocking advisory
+`ui-regression` job. The full Playwright browser matrix
+(`release-browser-matrix`) runs on `main`, `release/*`, manual dispatch, and a
+weekly schedule. Docker image builds, live drift, and live eval canary checks
+are path-filtered, scheduled, or manual rather than required checks for every
 source-only PR.
 
 ```bash
