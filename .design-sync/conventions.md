@@ -46,7 +46,7 @@ import { FileText } from "lucide-react";
 <section className={cn(quietPanel, "p-4 space-y-3")}>
   <PanelHeading icon={FileText} title="Document library" description="Indexed guidelines and protocols." />
   <button className={primaryControl}>Upload document</button>
-</section>
+</section>;
 ```
 
 ## Where the truth lives

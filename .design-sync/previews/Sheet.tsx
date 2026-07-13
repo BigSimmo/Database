@@ -18,8 +18,13 @@ export const OpenDialog = () => (
       description="Narrow the library by status and jurisdiction."
     >
       <div style={{ display: "grid", gap: "0.75rem", padding: "0.25rem 0" }}>
-        <label htmlFor="status-select" className="text-sm font-semibold">Status</label>
-        <select id="status-select" className="h-11 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm">
+        <label htmlFor="status-select" className="text-sm font-semibold">
+          Status
+        </label>
+        <select
+          id="status-select"
+          className="h-11 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm"
+        >
           <option>Current</option>
           <option>Review due</option>
           <option>Outdated</option>
