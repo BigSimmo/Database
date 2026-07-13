@@ -11,6 +11,9 @@ work actually landed and to clean up.
 
 ## Steps
 
+Note: Step 1 is a read-only, non-mutating query exempt from the explicit-confirmation
+requirement that applies to mutating provider operations (merging, closing PRs, etc.).
+
 1. **Confirm the merge:** `gh pr view <pr> --json state,mergeCommit,mergedAt` → `MERGED`.
 2. **Verify by content, not ancestry** (squash rewrites history, so `git branch --merged`
    is misleading). Diff your branch tip against merged `main`:
@@ -24,8 +27,11 @@ work actually landed and to clean up.
    those commits are in the squashed result (search the merge commit / `git log origin/main`
    for their content). If missing, fix-forward with a new PR — do not force-push.
 4. **Clean up the branch** only once the content diff is empty: the PR's
-   `--delete-branch` handles the remote; prune locally with `git worktree remove` +
-   `git branch -d <branch>` (never `-D`/force unless you have confirmed it is fully landed).
+   `--delete-branch` handles the remote; prune locally by running `git worktree remove <explicit-path>`
+   from a different worktree (not the one being removed), then use `git branch -D <branch>`
+   only after confirming the content diff is empty. For squash-merged branches, `-d` will
+   refuse (no ancestry merge) even though the content landed, so `-D` is required once
+   the empty diff confirms the work is fully landed. Do not force-delete before verification.
 5. **Update the ledger** (`docs/branch-review-ledger.md`) and any relevant memory note with
    the merged HEAD SHA and outcome.
 

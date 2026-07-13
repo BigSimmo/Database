@@ -17,8 +17,10 @@ force-push, or discard work.
 
 ## Steps
 
-1. **Inspect first (read-only):** `git status --short --branch`, `git diff`, and the
-   ahead/behind from `node scripts/check-base-freshness.mjs`.
+1. **Inspect first (read-only):** `git status --short --branch`, `git diff`, `git diff --cached`,
+   and the ahead/behind from `node scripts/check-base-freshness.mjs`. If staged paths are found
+   that aren't part of the current session's own work (leftover from other sessions' WIP),
+   unstage them with `git restore --staged <path>` before proceeding.
 2. **Stage coherent, completed changes only.** Stage explicit paths — never `git add -A`
    blindly. Do not stage `.env*`, secrets, build output, logs, or unrelated WIP; if you
    see a possible secret, report the path (never the value) and stop.
@@ -34,11 +36,12 @@ force-push, or discard work.
    (auto-merge sentinel, format, drift) — heed a block rather than overriding blindly.
 6. **Open a PR** with `gh pr create --base main`, body ending with the Claude Code
    attribution line. Enabling squash-auto-merge (`gh pr merge --squash --auto`) is the
-   repo norm; the PR lands on green.
+   repo norm but requires explicit user confirmation before enabling; the PR lands on green.
 7. **Record** the review in `docs/branch-review-ledger.md` (Date | Branch/ref | Reviewed
    HEAD | Scope | Outcome | Checks).
 
 ## Requires explicit confirmation (do not do automatically)
 
-Merging into a protected branch, force-push, rebasing a shared branch, deleting/renaming
-branches, `git reset --hard`, `git clean -fd`, or any provider-touching verification.
+Merging into a protected branch, enabling auto-merge (`gh pr merge --squash --auto`),
+force-push, rebasing a shared branch, deleting/renaming branches, `git reset --hard`,
+`git clean -fd`, or any provider-touching verification.
