@@ -16,3 +16,6 @@ b65acddaa13e69e0ad2a49783116056b3a1a3639:data/medications-snapshot.json:generic-
 # and an earlier allowlist comment that quoted the pattern are both pinned below.
 d7cfc5559f0d7a5db74eb49808f237c989b4136a:scripts/compare-retrieval-eval.ts:generic-api-key:37
 d2b7b89852a2090d56ce6aed1dd39417aedf332d:.gitleaksignore:generic-api-key:13
+# False positive: two synthetic chunk identifiers in a citation-array assertion
+# were parsed as a generic API key in the original remediation commit.
+b30bcb030edce84e2a0704a8714ee3ef1dcf642d:tests/rag-offline-answer.test.ts:generic-api-key:205
