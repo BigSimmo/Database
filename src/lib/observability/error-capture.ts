@@ -39,7 +39,12 @@ export async function captureServerException(error: unknown, context?: CaptureCo
   const sentry = await loadSentry();
   if (!sentry) return;
   try {
-    sentry.captureException(error, context ? { extra: context } : undefined);
+    // Clinical errors can embed query or document text in their message and
+    // stack. Preserve only the safe error class as operational context.
+    const errorType = error instanceof Error ? error.name : "UnknownError";
+    sentry.captureException(new Error("Server request failed"), {
+      extra: { ...(context ?? {}), errorType },
+    });
   } catch {
     // Capture is best-effort observability; the request outcome must not change.
   }

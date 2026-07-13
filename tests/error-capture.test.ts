@@ -34,15 +34,24 @@ describe("captureServerException", () => {
     expect(sentryMocks.captureException).not.toHaveBeenCalled();
   });
 
-  it("forwards the error and operational context when a DSN is set", async () => {
+  it("treats a blank DSN as disabled", async () => {
+    const { captureServerException } = await loadCapture(" ");
+    await captureServerException(new Error("boom"));
+    expect(sentryMocks.captureException).not.toHaveBeenCalled();
+  });
+
+  it("redacts the error and forwards only operational context when a DSN is set", async () => {
     const { captureServerException } = await loadCapture(TEST_DSN);
     const error = new Error("boom");
     await captureServerException(error, { route: "api/answer", status: 500 });
 
     expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
     const [captured, hint] = sentryMocks.captureException.mock.calls[0];
-    expect(captured).toBe(error);
-    expect(hint).toEqual({ extra: { route: "api/answer", status: 500 } });
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBe(error);
+    expect(captured.message).toBe("Server request failed");
+    expect(captured.stack).not.toContain("boom");
+    expect(hint).toEqual({ extra: { route: "api/answer", status: 500, errorType: "Error" } });
   });
 
   it("never propagates a failure inside the SDK", async () => {

@@ -193,15 +193,15 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
     }
+    const clientAborted = (error instanceof DOMException && error.name === "AbortError") || request.signal.aborted;
     if (error instanceof PublicApiError) {
       // Expected degradations (rate limits, provider quota/timeouts mapped < 500)
       // are operational noise; only server-fault statuses are reported.
-      if (error.status >= 500) {
+      if (error.status >= 500 && !clientAborted) {
         void captureServerException(error, { route: "api/answer", status: error.status });
       }
       return jsonError(error, error.status);
     }
-    const clientAborted = (error instanceof DOMException && error.name === "AbortError") || request.signal.aborted;
     if (error instanceof Error) {
       const fallbackBody = body;
       const fallbackReason = fallbackBody ? nonProductionSupabaseDemoFallbackReason(error) : null;

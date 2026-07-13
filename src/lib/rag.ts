@@ -5223,7 +5223,7 @@ ${qualityRetryInstruction}`
     // This degradation is invisible to route-level capture (the request still
     // succeeds with a source-only answer), so report it here. The token-starvation
     // incident (GEN-C1) lived exclusively in this branch for weeks.
-    void captureServerEvent("answer_generation_fallback", {
+    await captureServerEvent("answer_generation_fallback", {
       reason: sanitizedReason,
       queryClass,
       routeMode: route.mode ?? "unknown",

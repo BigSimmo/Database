@@ -177,9 +177,13 @@ describe("instrumentation onRequestError", () => {
 
     expect(sentryMocks.captureException).toHaveBeenCalledTimes(1);
     const [captured, hint] = sentryMocks.captureException.mock.calls[0];
-    expect(captured).toBe(error);
+    expect(captured).toBeInstanceOf(Error);
+    expect(captured).not.toBe(error);
+    expect(captured.message).toBe("Server request failed");
+    expect(captured.stack).not.toContain("boom");
     expect(hint.extra.path).toBe("/api/documents");
     expect(hint.extra.routeType).toBe("route");
+    expect(hint.extra.errorType).toBe("Error");
     expect(JSON.stringify(hint)).not.toContain("lithium");
   });
 });

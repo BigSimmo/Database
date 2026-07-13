@@ -20,7 +20,10 @@ const envSchema = z.object({
   // errors). Fully inert when unset: @sentry/node is never imported and no event
   // egress occurs. Deliberately NOT part of requireServerEnv — a missing DSN must
   // never block boot. See src/lib/observability/error-capture.ts.
-  SENTRY_DSN: z.string().url().optional(),
+  SENTRY_DSN: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().url().optional(),
+  ),
   NEXT_PUBLIC_LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
