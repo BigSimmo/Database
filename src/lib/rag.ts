@@ -827,7 +827,18 @@ function buildRetrievalDiagnostics(args: {
   answerMode: "unsupported" | "extractive" | "fast" | "strong";
   fallbackReason?: string | null;
 }) {
-  const resultScores = args.results.map(scoreValue);
+  // Lexical-only retrieval rows carry a truthful score contract since migration
+  // 20260713062107_restore_text_fallback_lexical_score: similarity is 0 (no vector
+  // ran) and hybrid_score is deliberately capped at 0.48 so a keyword hit can never
+  // masquerade as a moderate/strong cosine match downstream. The honest lexical
+  // signal lives in lexical_score (0.4..0.99). This gate must therefore read
+  // max(scoreValue, lexical_score) — reading the capped hybrid_score alone makes
+  // topScore < 0.5 unconditional for every text-fast-path answer, refusing
+  // well-supported documentation lookups whose expected document is at rank 1.
+  // Ranking/selection ordering still uses scoreValue and is unchanged.
+  const resultScores = args.results.map((result) =>
+    Math.max(scoreValue(result), Math.min(1, result.lexical_score ?? 0)),
+  );
   const sortedScores = [...resultScores].sort((a, b) => b - a);
   const topScore = sortedScores[0] ?? 0;
   const secondScore = sortedScores[1] ?? 0;
@@ -891,6 +902,61 @@ function applyConfidenceGate(
     },
     fallbackReason: `low_signal_${queryClass}_${route.mode}`,
   };
+}
+
+/**
+ * Allow a score-blocked routine document-content query to use the deterministic
+ * answer only when that answer independently passes the final safety gates.
+ *
+ * This is deliberately narrower than the normal extractive router: it cannot
+ * recover medication, threshold, comparison, broad-summary, complex, or weakly
+ * related queries. The retrieval diagnostic remains blocked so the UI still
+ * presents the recovered answer with low-trust guidance.
+ */
+function hasValidatedRoutineExtractiveRecovery(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  results: SearchResult[];
+  route: { mode: "unsupported" | "extractive" | "fast" | "strong"; reason: string };
+  sourceBacked: boolean;
+}) {
+  if (
+    args.queryClass !== "document_lookup" ||
+    args.route.mode !== "fast" ||
+    args.route.reason !== "strong_routine_retrieval" ||
+    !args.sourceBacked
+  ) {
+    return false;
+  }
+
+  const candidate = finalizeRagAnswerQuality(
+    buildExtractiveAnswer({
+      query: args.query,
+      queryClass: args.queryClass,
+      results: args.results,
+      quoteCards: [],
+      documentBreakdown: [],
+      evidenceSummary: undefined,
+      sourceCoverage: undefined,
+      conflictsOrGaps: [],
+      visualEvidence: [],
+      bestSource: null,
+      smartPanel: undefined,
+      relatedDocuments: [],
+      routeReason: `${args.route.reason}; validated_routine_extractive_recovery`,
+      timings: undefined,
+    }),
+    args.query,
+    args.queryClass,
+  );
+
+  return (
+    candidate.grounded &&
+    candidate.confidence !== "unsupported" &&
+    candidate.citations.length > 0 &&
+    candidate.responseMode !== "evidence_gap" &&
+    !/final_quality_gate:/.test(candidate.routingReason ?? "")
+  );
 }
 
 /** Clamp confidence. */
@@ -4153,7 +4219,26 @@ async function answerQuestionWithScopeUncoalesced(
     results: answerInputResults,
     answerMode: routeFromRouting.mode,
   });
-  const gatedRoute = applyConfidenceGate(routeFromRouting, queryClass, initialRetrievalDiagnostics);
+  const validatedRoutineExtractiveRecovery =
+    initialRetrievalDiagnostics.gateStatus === "blocked" &&
+    hasValidatedRoutineExtractiveRecovery({
+      query: args.query,
+      queryClass,
+      results: answerInputResults,
+      route: routeFromRouting,
+      sourceBacked: relevance.isSourceBacked,
+    });
+  const routeBeforeConfidenceGate = validatedRoutineExtractiveRecovery
+    ? {
+        ...routeFromRouting,
+        mode: "extractive" as const,
+        model: null,
+        reason: `${routeFromRouting.reason}; validated_routine_extractive_recovery`,
+      }
+    : routeFromRouting;
+  const gatedRoute = validatedRoutineExtractiveRecovery
+    ? { route: routeBeforeConfidenceGate }
+    : applyConfidenceGate(routeBeforeConfidenceGate, queryClass, initialRetrievalDiagnostics);
   // In source-only mode (offline, or auto with no usable key) we never call the model. Route to
   // the deterministic extractive path when evidence is usable, but preserve the confidence gate's
   // "unsupported" decision so weak evidence still fails closed to a source-gap answer rather than
