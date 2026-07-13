@@ -20,6 +20,13 @@ function scriptSrcOf(csp: string): string {
 }
 
 describe("proxy content-security-policy", () => {
+  it("allows dedicated document mockup source routes to render instead of redirecting them", async () => {
+    for (const path of ["/mockups/document-search/source", "/mockups/document-search/source/evidence"]) {
+      const response = await proxy(requestFor(path));
+      expect(response.headers.get("location")).toBeNull();
+    }
+  });
+
   it("emits a per-request nonce with strict-dynamic and no unsafe-inline (production shape)", async () => {
     const res = await proxy(requestFor("/"));
     const csp = res.headers.get("content-security-policy");

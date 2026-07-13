@@ -24,6 +24,11 @@ const SANCTIONED_SOURCES = [
   // corpus-grounding threads through the exact scope it was handed; documented safe because rag.ts
   // derives `args.ownerFilter` from ownerScopeForDocumentFilteredRetrieval (never a raw null in prod).
   /^args\.ownerFilter\b/,
+  // Versioned-RPC rollout adapters derive these locals from RetrievalAccessScope before
+  // issuing exact-owner and public-sentinel legacy calls.
+  /^ownerFilter\b/,
+  /^scope\.ownerId\b/,
+  /^accessScope\.ownerId\b/,
 ];
 
 const OWNER_FILTER_ARG = /\b(?:p_)?owner_filter\s*:\s*(.+?)\s*,?\s*$/;

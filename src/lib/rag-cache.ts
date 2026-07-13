@@ -6,6 +6,7 @@ import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { env } from "@/lib/env";
 import { queryCacheKeyForStorage } from "@/lib/query-privacy";
 import { ragCacheKeyMatchesOwner } from "@/lib/rag-cache-utils";
+import { retrievalAccessScopeForArgs, retrievalAccessScopeKey } from "@/lib/owner-scope";
 import { compactContextText } from "@/lib/rag-source-block";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
@@ -24,7 +25,7 @@ const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
 
-function scopeKey(args: Pick<SearchChunksArgs, "documentId" | "documentIds">) {
+function documentScopeKey(args: Pick<SearchChunksArgs, "documentId" | "documentIds">) {
   const scope = args.documentIds?.length
     ? [...args.documentIds].sort().join(",")
     : args.documentId
@@ -33,12 +34,18 @@ function scopeKey(args: Pick<SearchChunksArgs, "documentId" | "documentIds">) {
   return scope;
 }
 
+function scopeKey(args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId" | "accessScope">) {
+  return `${retrievalAccessScopeKey(retrievalAccessScopeForArgs(args))}|${documentScopeKey(args)}`;
+}
+
 function normalizedCacheQuery(query: string) {
   return buildClinicalTextSearchQuery(query).toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function cacheIndexingVersionCacheKey(args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId">) {
-  return [args.ownerId ?? "anonymous", scopeKey(args)].join("|");
+function cacheIndexingVersionCacheKey(
+  args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId" | "accessScope">,
+) {
+  return scopeKey(args);
 }
 
 function modeKey(args: Pick<SearchChunksArgs, "queryMode">) {
@@ -46,11 +53,10 @@ function modeKey(args: Pick<SearchChunksArgs, "queryMode">) {
 }
 
 export function scopedAnswerCacheKey(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode">,
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode">,
 ) {
   return [
     ragCacheDependencyVersion,
-    args.ownerId ?? "anonymous",
     scopeKey(args),
     modeKey(args),
     args.query.trim().toLowerCase().replace(/\s+/g, " "),
@@ -61,11 +67,19 @@ export function cloneAnswer(answer: RagAnswer) {
   return structuredClone(answer);
 }
 
+/** Anonymous callers share no stable identity, so their PHI-bearing answers must never be cached or coalesced. */
+export function answerCacheAllowedForOwner(ownerId?: string | null) {
+  return Boolean(ownerId);
+}
+
 export async function getCachedAnswer(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
+  args: Pick<
+    SearchChunksArgs,
+    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "skipCache" | "queryMode"
+  >,
   startedAt: number,
 ): Promise<RagAnswer | null> {
-  if (args.skipCache) return null;
+  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return null;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return null;
 
   const key = scopedAnswerCacheKey(args);
@@ -91,11 +105,14 @@ export async function getCachedAnswer(
 }
 
 export async function setCachedAnswer(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode">,
+  args: Pick<
+    SearchChunksArgs,
+    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "skipCache" | "queryMode"
+  >,
   answer: RagAnswer,
   options?: { indexingVersionAtRetrievalStart?: string | null },
 ): Promise<void> {
-  if (args.skipCache) return;
+  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return;
 
   if (options?.indexingVersionAtRetrievalStart) {
@@ -158,12 +175,9 @@ export function retrievalPlanCacheQuery(
 }
 
 function scopedSearchCacheKey(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {
-  return [
-    ragCacheDependencyVersion,
-    args.ownerId ?? "anonymous",
-    scopeKey(args),
-    retrievalPlanCacheQuery(args, queryClass, queryVariants),
-  ].join("|");
+  return [ragCacheDependencyVersion, scopeKey(args), retrievalPlanCacheQuery(args, queryClass, queryVariants)].join(
+    "|",
+  );
 }
 
 function cloneSearchResults(results: SearchResult[]) {
@@ -266,7 +280,10 @@ type SharedCacheMissReason =
 function sharedCacheSelector(
   supabase: ReturnType<typeof createAdminClient>,
   kind: SharedCacheKind,
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "forceEmbedding">,
+  args: Pick<
+    SearchChunksArgs,
+    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "forceEmbedding"
+  >,
   indexingVersion: string,
   normalizedQuery: string = queryCacheKeyForStorage(normalizedCacheQuery(`${modeKey(args)} ${args.query}`)),
 ) {
@@ -286,7 +303,7 @@ function sharedCacheSelector(
 }
 
 export async function cacheIndexingVersion(
-  args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId">,
+  args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId" | "accessScope">,
   options?: { forceRefresh?: boolean },
 ) {
   const cacheKey = cacheIndexingVersionCacheKey(args);
@@ -304,7 +321,14 @@ export async function cacheIndexingVersion(
       .eq("status", "indexed")
       .order("updated_at", { ascending: false })
       .limit(1);
-    if (args.ownerId) query = query.eq("owner_id", args.ownerId);
+    const accessScope = retrievalAccessScopeForArgs(args);
+    if (accessScope.ownerId && accessScope.includePublic) {
+      query = query.or(`owner_id.eq.${accessScope.ownerId},owner_id.is.null`);
+    } else if (accessScope.ownerId) {
+      query = query.eq("owner_id", accessScope.ownerId);
+    } else {
+      query = query.is("owner_id", null);
+    }
     if (documentFilters?.length) query = query.in("id", documentFilters);
     const { data, error } = await query;
     if (error || !data?.length) {
@@ -446,7 +470,7 @@ export async function getSharedCachedAnswer(
   >,
   startedAt: number,
 ) {
-  if (args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return null;
+  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return null;
   try {
     const indexingVersion = await cacheIndexingVersion(args);
     const { data, error } = await sharedCacheSelector(
@@ -476,7 +500,10 @@ export async function getSharedCachedAnswer(
 
 async function replaceSharedCacheRow(
   kind: SharedCacheKind,
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "queryMode" | "forceEmbedding">,
+  args: Pick<
+    SearchChunksArgs,
+    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "forceEmbedding"
+  >,
   payload: unknown,
   ttlMs: number,
   normalizedQuery: string = queryCacheKeyForStorage(normalizedCacheQuery(`${modeKey(args)} ${args.query}`)),
@@ -534,7 +561,7 @@ function setSharedCachedAnswer(
   >,
   answer: RagAnswer,
 ) {
-  if (args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return;
+  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return;
   void replaceSharedCacheRow("answer", args, { answer: cloneAnswer(answer) }, env.RAG_ANSWER_CACHE_TTL_MS);
 }
 

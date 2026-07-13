@@ -9,7 +9,39 @@ set search_path = public, extensions, pg_temp
 as $$
 declare
   v_job_id uuid;
+  v_job_status text;
 begin
+  -- Validate without taking the document lock. The job row is created/locked
+  -- first below so request and claim paths share one lock order.
+  perform 1
+  from public.documents
+  where id = p_document_id and owner_id = p_owner_id and status = 'indexed';
+  if not found then
+    raise exception using errcode = 'P0001', message = 'document_not_available_for_enrichment';
+  end if;
+
+  insert into public.indexing_v3_agent_jobs (
+    document_id, status, enrichment_status, attempt_count, max_attempts, version, metadata
+  ) values (
+    p_document_id, 'pending', 'pending', 0, 3, 'visual-core-v3', '{}'::jsonb
+  )
+  on conflict (document_id) do nothing
+  returning id, status into v_job_id, v_job_status;
+
+  if v_job_id is null then
+    select id, status into v_job_id, v_job_status
+    from public.indexing_v3_agent_jobs
+    where document_id = p_document_id
+    for update;
+  end if;
+
+  if v_job_id is null then
+    raise exception using errcode = 'P0001', message = 'enrichment_job_unavailable';
+  end if;
+  if v_job_status = 'processing' then
+    raise exception using errcode = 'P0001', message = 'enrichment_active';
+  end if;
+
   perform 1
   from public.documents
   where id = p_document_id and owner_id = p_owner_id and status = 'indexed'
@@ -34,29 +66,13 @@ begin
       next_run_at = null,
       last_error = null,
       updated_at = now()
-  where document_id = p_document_id
-    and status <> 'processing'
-  returning id into v_job_id;
-
-  if v_job_id is null then
-    if exists (
-      select 1 from public.indexing_v3_agent_jobs
-      where document_id = p_document_id and status = 'processing'
-    ) then
-      raise exception using errcode = 'P0001', message = 'enrichment_active';
-    end if;
-    insert into public.indexing_v3_agent_jobs (
-      document_id, status, enrichment_status, attempt_count, max_attempts, version, metadata
-    ) values (
-      p_document_id, 'pending', 'pending', 0, 3, 'visual-core-v3', '{}'::jsonb
-    )
-    returning id into v_job_id;
-  end if;
+  where id = v_job_id;
 
   update public.documents
   set metadata = (coalesce(metadata, '{}'::jsonb)
       - 'indexing_v3_agent_locked_by' - 'indexing_v3_agent_locked_at'
-      - 'indexing_v3_agent_last_error' - 'indexing_v3_agent_next_run_at')
+      - 'indexing_v3_agent_last_error' - 'indexing_v3_agent_next_run_at'
+      - 'indexing_v3_agent_attempt_count' - 'indexing_v3_agent_max_attempts')
       || jsonb_build_object(
         'enrichment_status', 'pending',
         'indexing_v3_agent_status', 'pending',

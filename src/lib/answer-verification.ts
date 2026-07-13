@@ -75,6 +75,240 @@ function normalizeNumericToken(raw: string): string {
     .trim();
 }
 
+export type ClinicalValueAtom = {
+  rawText: string;
+  kind: "quantity" | "ratio" | "frequency" | "route";
+  canonicalValue: string;
+  comparator?: "below" | "above" | "at_least" | "at_most";
+  range?: [string, string];
+  canonicalUnit?: string;
+  numeratorUnit?: string;
+  denominatorUnit?: string;
+  denominatorTime?: "second" | "minute" | "hour" | "day" | "week";
+  denominatorWeight?: "kg" | "m2";
+  route?: string;
+  frequency?: string;
+};
+
+const clinicalQuantityPattern =
+  /\b(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most)\s+)?(\d+(?:[.,]\d+)?)(?:\s*[-–—]\s*(\d+(?:[.,]\d+)?))?\s*(ug|µg|μg|mcg|micrograms?|mg|g|kg|ml|l|mmol|mol|umol|µmol|ng|units?|iu|hours?|hrs?|h|days?|weeks?|wk|months?|minutes?|mins?|years?|°c|mmhg|bpm|%)\b((?:\s*\/\s*(?:kg|m2|dose|seconds?|secs?|minutes?|mins?|hours?|hrs?|h|days?|weeks?|wk|ml|l)){0,3})/giu;
+const scientificQuantityPattern =
+  /(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most|<=|>=|<|>|≤|≥)\s*)?(\d+(?:[.,]\d+)?)\s*[×x]10\^?(\d+)\s*\/\s*([a-z])/giu;
+const unitlessThresholdPattern =
+  /(?:\b(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most)\s+|(<=|>=|<|>|≤|≥)\s*)(\d+(?:[.,]\d+)?)(?:\s*[-–—]\s*(\d+(?:[.,]\d+)?))?/giu;
+const ratioPattern = /\b(\d+(?:[.,]\d+)?)\s*:\s*(\d+(?:[.,]\d+)?)\b/gu;
+const routePattern =
+  /\b(oral(?:ly)?|intramuscular(?:ly)?|subcutaneous(?:ly)?|sublingual(?:ly)?|intravenous(?:ly)?|rectal(?:ly)?|\bim\b|\bpo\b|\bsc\b|\bsl\b|\biv\b)\b/giu;
+const frequencyPattern =
+  /\b(?:(\d+)\s+times?\s+)?(once\s+daily|twice\s+daily|three\s+times\s+daily|daily|weekly|hourly|nightly|fortnightly|monthly)\b/giu;
+
+function canonicalNumber(value: string) {
+  const normalized = value.replace(",", ".");
+  const [integerPart, fractionPart] = normalized.split(".");
+  const integer = integerPart.replace(/^0+(?=\d)/, "") || "0";
+  const fraction = fractionPart?.replace(/0+$/, "") ?? "";
+  return fraction ? `${integer}.${fraction}` : integer;
+}
+
+function canonicalUnit(value: string) {
+  const unit = value.toLowerCase().replace("µ", "μ");
+  if (/^(?:ug|μg|mcg|micrograms?)$/.test(unit)) return "microgram";
+  if (unit === "ml") return "mL";
+  if (/^(?:hours?|hrs?|h)$/.test(unit)) return "hour";
+  if (/^(?:days?)$/.test(unit)) return "day";
+  if (/^(?:weeks?|wk)$/.test(unit)) return "week";
+  if (/^(?:minutes?|mins?)$/.test(unit)) return "minute";
+  if (/^(?:seconds?|secs?)$/.test(unit)) return "second";
+  if (/^(?:units?)$/.test(unit)) return "units";
+  return unit;
+}
+
+function canonicalComparator(value?: string): ClinicalValueAtom["comparator"] {
+  if (!value) return undefined;
+  const normalized = value.toLowerCase().replace(/\s+/g, " ");
+  if (/^(?:below|under|less than|<)$/.test(normalized)) return "below";
+  if (/^(?:above|over|greater than|>)$/.test(normalized)) return "above";
+  if (/^(?:<=|≤)$/.test(normalized)) return "at_most";
+  if (/^(?:>=|≥)$/.test(normalized)) return "at_least";
+  return normalized === "at least" ? "at_least" : "at_most";
+}
+
+function denominatorSemantics(raw: string) {
+  const parts = raw
+    .split("/")
+    .slice(1)
+    .map((part) => part.trim().toLowerCase());
+  const timePart = parts.find((part) => /^(?:seconds?|secs?|minutes?|mins?|hours?|hrs?|h|days?|weeks?|wk)$/.test(part));
+  const weightPart = parts.find((part) => /^(?:kg|m2)$/.test(part));
+  const otherPart = parts.find((part) => part !== timePart && part !== weightPart);
+  const denominatorTime = timePart ? canonicalUnit(timePart) : undefined;
+  return {
+    denominatorTime: denominatorTime as ClinicalValueAtom["denominatorTime"],
+    denominatorWeight: weightPart as ClinicalValueAtom["denominatorWeight"],
+    denominatorUnit: otherPart ? canonicalUnit(otherPart) : undefined,
+  };
+}
+
+function canonicalRoute(value: string) {
+  const route = value.toLowerCase();
+  if (route === "im" || route.startsWith("intramuscular")) return "intramuscular";
+  if (route === "po" || route.startsWith("oral")) return "oral";
+  if (route === "sc" || route.startsWith("subcutaneous")) return "subcutaneous";
+  if (route === "sl" || route.startsWith("sublingual")) return "sublingual";
+  if (route === "iv" || route.startsWith("intravenous")) return "intravenous";
+  return "rectal";
+}
+
+function canonicalFrequency(count: string | undefined, phrase: string) {
+  const normalized = phrase.toLowerCase().replace(/\s+/g, " ");
+  if (count) {
+    if (normalized === "weekly") return `${count}/week`;
+    if (normalized === "hourly") return `${count}/hour`;
+    if (normalized === "fortnightly") return `${count}/2weeks`;
+    if (normalized === "monthly") return `${count}/month`;
+    if (normalized === "nightly") return `${count}/night`;
+    return `${count}/day`;
+  }
+  if (normalized === "once daily" || normalized === "daily") return "1/day";
+  if (normalized === "twice daily") return "2/day";
+  if (normalized === "three times daily") return "3/day";
+  if (normalized === "hourly") return "1/hour";
+  if (normalized === "weekly") return "1/week";
+  if (normalized === "fortnightly") return "1/2weeks";
+  if (normalized === "monthly") return "1/month";
+  return "1/night";
+}
+
+/** Extract meaning-preserving clinical value atoms for exact evidence matching. */
+export function extractClinicalValueAtoms(text: string): ClinicalValueAtom[] {
+  if (!text) return [];
+  const normalized = foldSuperscripts(text).normalize("NFKC");
+  const atoms: ClinicalValueAtom[] = [];
+  const occupied: Array<[number, number]> = [];
+
+  for (const match of normalized.matchAll(scientificQuantityPattern)) {
+    const rawText = match[0];
+    const start = match.index;
+    occupied.push([start, start + rawText.length]);
+    atoms.push({
+      rawText,
+      kind: "quantity",
+      canonicalValue: canonicalNumber(match[2]),
+      comparator: canonicalComparator(match[1]),
+      canonicalUnit: `x10^${match[3]}/${match[4].toUpperCase()}`,
+      numeratorUnit: `x10^${match[3]}`,
+      denominatorUnit: match[4].toUpperCase(),
+    });
+  }
+
+  for (const match of normalized.matchAll(clinicalQuantityPattern)) {
+    const rawText = match[0];
+    const start = match.index;
+    occupied.push([start, start + rawText.length]);
+    const value = canonicalNumber(match[2]);
+    const rangeEnd = match[3] ? canonicalNumber(match[3]) : undefined;
+    const unit = canonicalUnit(match[4]);
+    const denominator = denominatorSemantics(match[5] ?? "");
+    const nearby = normalized.slice(start + rawText.length, start + rawText.length + 45).split(/[.!?;\n]/, 1)[0];
+    const nearbyRoute = [...nearby.matchAll(routePattern)][0];
+    const nearbyFrequency = [...nearby.matchAll(frequencyPattern)][0];
+    atoms.push({
+      rawText,
+      kind: "quantity",
+      canonicalValue: rangeEnd ? `${value}-${rangeEnd}` : value,
+      comparator: canonicalComparator(match[1]),
+      range: rangeEnd ? [value, rangeEnd] : undefined,
+      canonicalUnit: unit,
+      numeratorUnit: unit,
+      ...denominator,
+      route: nearbyRoute ? canonicalRoute(nearbyRoute[1]) : undefined,
+      frequency: nearbyFrequency ? canonicalFrequency(nearbyFrequency[1], nearbyFrequency[2]) : undefined,
+    });
+  }
+
+  for (const match of normalized.matchAll(ratioPattern)) {
+    atoms.push({
+      rawText: match[0],
+      kind: "ratio",
+      canonicalValue: `${canonicalNumber(match[1])}:${canonicalNumber(match[2])}`,
+    });
+  }
+  for (const match of normalized.matchAll(unitlessThresholdPattern)) {
+    const start = match.index;
+    if (occupied.some(([from, to]) => start >= from && start < to)) continue;
+    const value = canonicalNumber(match[3]);
+    const rangeEnd = match[4] ? canonicalNumber(match[4]) : undefined;
+    occupied.push([start, start + match[0].length]);
+    atoms.push({
+      rawText: match[0],
+      kind: "quantity",
+      canonicalValue: rangeEnd ? `${value}-${rangeEnd}` : value,
+      comparator: canonicalComparator(match[1] ?? match[2]),
+      range: rangeEnd ? [value, rangeEnd] : undefined,
+    });
+  }
+  for (const match of normalized.matchAll(/\b\d+(?:[.,]\d+)?\s*%/gu)) {
+    atoms.push({
+      rawText: match[0],
+      kind: "quantity",
+      canonicalValue: `${canonicalNumber(match[0].replace(/\s*%$/, ""))}%`,
+    });
+  }
+  for (const match of normalized.matchAll(SIGNIFICANT_BARE_NUMBER_PATTERN)) {
+    const start = match.index;
+    if (occupied.some(([from, to]) => start >= from && start < to)) continue;
+    const canonical = normalizeNumericToken(match[0]);
+    atoms.push({
+      rawText: match[0],
+      kind: "quantity",
+      canonicalValue: canonical,
+      range: canonical.includes("-") ? (canonical.split("-") as [string, string]) : undefined,
+    });
+  }
+  for (const match of normalized.matchAll(frequencyPattern)) {
+    atoms.push({
+      rawText: match[0],
+      kind: "frequency",
+      canonicalValue: canonicalFrequency(match[1], match[2]),
+      frequency: canonicalFrequency(match[1], match[2]),
+    });
+  }
+  for (const match of normalized.matchAll(routePattern)) {
+    atoms.push({
+      rawText: match[0],
+      kind: "route",
+      canonicalValue: canonicalRoute(match[1]),
+      route: canonicalRoute(match[1]),
+    });
+  }
+
+  return atoms.filter(
+    (atom, index) =>
+      atoms.findIndex((candidate) => clinicalValueAtomKey(candidate) === clinicalValueAtomKey(atom)) === index,
+  );
+}
+
+function clinicalValueAtomKey(atom: ClinicalValueAtom) {
+  return [
+    atom.kind,
+    atom.comparator ?? "",
+    atom.canonicalValue,
+    atom.canonicalUnit ?? "",
+    atom.denominatorUnit ?? "",
+    atom.denominatorTime ?? "",
+    atom.denominatorWeight ?? "",
+    atom.route ?? "",
+    atom.frequency ?? "",
+  ].join("|");
+}
+
+function clinicalValueAtomDisplay(atom: ClinicalValueAtom) {
+  if (atom.kind !== "quantity") return atom.canonicalValue;
+  return normalizeNumericToken(
+    atom.rawText.replace(/^\s*(?:below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most)\s+/i, ""),
+  );
+}
+
 export function extractNumericTokens(text: string): string[] {
   if (!text) return [];
   const folded = foldSuperscripts(text);
@@ -86,6 +320,13 @@ export function extractNumericTokens(text: string): string[] {
   for (const match of folded.matchAll(SIGNIFICANT_BARE_NUMBER_PATTERN)) {
     const normalized = normalizeNumericToken(match[0]);
     if (normalized) tokens.add(normalized);
+  }
+  for (const atom of extractClinicalValueAtoms(text)) {
+    if (atom.kind === "quantity") {
+      tokens.add(`${atom.comparator ? `${atom.comparator}:` : ""}${atom.canonicalValue}${atom.canonicalUnit ?? ""}`);
+    } else if (atom.kind === "ratio") {
+      tokens.add(atom.canonicalValue);
+    }
   }
   return [...tokens];
 }
@@ -163,8 +404,11 @@ export function verifyAnswerNumbers(
   citations: Array<Pick<Citation, "chunk_id">>,
   results: SearchResult[],
 ): NumericVerification {
-  const answerTokens = extractNumericTokens(answerText);
-  if (answerTokens.length === 0) {
+  const answerAtoms = extractClinicalValueAtoms(answerText);
+  const answerTokens = Array.from(
+    new Set([...extractNumericTokens(answerText), ...answerAtoms.map(clinicalValueAtomDisplay)]),
+  );
+  if (answerAtoms.length === 0) {
     return { answerTokens, unverifiedTokens: [], hasUnverifiedNumbers: false };
   }
 
@@ -175,14 +419,17 @@ export function verifyAnswerNumbers(
   // matching against the full unfiltered result set (which could "verify" a
   // number that lives in a chunk the answer never cited).
   if (citedResults.length === 0) {
-    return { answerTokens, unverifiedTokens: answerTokens, hasUnverifiedNumbers: answerTokens.length > 0 };
+    const unverifiedTokens = answerAtoms.map(clinicalValueAtomDisplay);
+    return { answerTokens, unverifiedTokens, hasUnverifiedNumbers: unverifiedTokens.length > 0 };
   }
 
   // Top-level citations do not identify which sentence each citation supports.
-  // Require a numeric claim to be present in every cited chunk rather than
-  // allowing an unrelated citation to verify a number by union membership.
-  const sourceTokenSets = citedResults.map((result) => sourceNumericTokenSet([result]));
-  const unverifiedTokens = answerTokens.filter((token) => !sourceTokenSets.every((tokens) => tokens.has(token)));
+  // Require each semantic clinical value to be present in every cited chunk,
+  // rather than allowing an unrelated citation to verify it by union membership.
+  const sourceAtomSets = citedResults.map((result) => sourceClinicalValueAtomSet([result]));
+  const unverifiedTokens = answerAtoms
+    .filter((atom) => !sourceAtomSets.every((atoms) => atoms.has(clinicalValueAtomKey(atom))))
+    .map(clinicalValueAtomDisplay);
 
   return {
     answerTokens,
@@ -191,17 +438,12 @@ export function verifyAnswerNumbers(
   };
 }
 
-// Build the union of normalized numeric tokens across a set of source chunks
-// using the same extractor applied to the answer, so verification is an exact
-// token-membership test rather than a substring scan.
-function sourceNumericTokenSet(results: SearchResult[]): Set<string> {
-  const tokens = new Set<string>();
+function sourceClinicalValueAtomSet(results: SearchResult[]): Set<string> {
+  const atoms = new Set<string>();
   for (const result of results) {
-    for (const token of extractNumericTokens(sourceTextForResult(result))) {
-      tokens.add(token);
-    }
+    for (const atom of extractClinicalValueAtoms(sourceTextForResult(result))) atoms.add(clinicalValueAtomKey(atom));
   }
-  return tokens;
+  return atoms;
 }
 
 export const VERIFY_AGAINST_SOURCE_NOTE =

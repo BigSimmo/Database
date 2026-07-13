@@ -2,6 +2,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { validateOfflineContractTests } from "./rag-offline-contract.mjs";
 
 const goldenPath = "scripts/fixtures/rag-retrieval-golden.json";
 const cases = JSON.parse(readFileSync(goldenPath, "utf8"));
@@ -68,13 +69,14 @@ if (failures.length > 0) {
 
 console.log(`Offline RAG fixture schema passed (${cases.length} golden retrieval cases).`);
 
-const contractTests = [
-  "tests/rag-offline-answer.test.ts",
-  "tests/rag-answer-fallback.test.ts",
-  "tests/retrieval-selection.test.ts",
-  "tests/citations.test.ts",
-  "tests/smart-rag-api.test.ts",
-];
+const contractTestsPath = "scripts/fixtures/rag-offline-contract-tests.json";
+const contractTests = JSON.parse(readFileSync(contractTestsPath, "utf8"));
+const contractTestFailures = validateOfflineContractTests(contractTests);
+if (contractTestFailures.length > 0) {
+  console.error(`${contractTestsPath} failed the offline safety contract:`);
+  for (const failure of contractTestFailures) console.error(`- ${failure}`);
+  process.exit(1);
+}
 const vitestPath = resolve("node_modules/vitest/vitest.mjs");
 const offlineEnv = { ...process.env };
 for (const key of [

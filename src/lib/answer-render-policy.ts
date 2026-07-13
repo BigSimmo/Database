@@ -1,4 +1,5 @@
 import { citationFromResult, citationIdentity, documentCitationHref, formatCitationLabel } from "@/lib/citations";
+import { normalizeAccessibleTable } from "@/lib/accessible-table-normalization";
 import type {
   BestSourceRecommendation,
   Citation,
@@ -38,6 +39,7 @@ export type SourceLink = {
   sourceMetadata?: Citation["source_metadata"] | null;
   snippet?: string;
   score?: number;
+  provenance?: Citation["provenance"];
 };
 
 export type EvidenceRow = {
@@ -48,6 +50,20 @@ export type EvidenceRow = {
   supportLevel?: string;
   quote?: string;
   triggerFields: string[];
+};
+
+export type CanonicalAnswerTableRecord = {
+  id: string;
+  title?: string;
+  headers: Array<string | null>;
+  rows: Array<Array<string | null>>;
+  lowConfidence: boolean;
+  caveat?: string;
+  source?: {
+    label: string;
+    href: string;
+    chunkId?: string;
+  };
 };
 
 export type AnswerRenderDecision = {
@@ -68,6 +84,7 @@ export type AnswerRenderModel = {
   relatedDocuments: RelatedDocument[];
   bestSource: BestSourceRecommendation | null;
   warnings: string[];
+  tables: CanonicalAnswerTableRecord[];
   copyText: string;
   debugReasons?: Record<AnswerRenderBlock, AnswerRenderDecision>;
 };
@@ -139,6 +156,17 @@ function deriveTrust(answer: RagAnswer): AnswerRenderTrust {
   }
 
   if (retrievalBlocked || !sourceBacked || hasFaithfulnessWarning || answer.confidence === "low") return "low";
+  const highRiskSupport = (answer.supportedClaims ?? []).filter((claim) => claim.riskClass === "high_risk");
+  const highRiskAuthorityAccepted = highRiskSupport.every(
+    (claim) =>
+      claim.supportStatus === "direct" &&
+      claim.supportingChunkIds.length > 0 &&
+      claim.supportingChunkIds.every((chunkId) => {
+        const authority = answer.evidenceAssessments?.[chunkId]?.authority;
+        return authority === "approved" || authority === "locally_reviewed";
+      }),
+  );
+  if (highRiskSupport.length > 0 && !highRiskAuthorityAccepted) return "medium";
   if (answer.confidence === "high") return "high";
   return "medium";
 }
@@ -164,6 +192,7 @@ function sourceLinkFromCandidate(candidate: SourceCandidate): SourceLink {
     sourceMetadata: candidate.sourceMetadata ?? citation.source_metadata ?? null,
     snippet: candidate.snippet,
     score: candidate.score,
+    provenance: citation.provenance,
   };
 }
 
@@ -192,9 +221,21 @@ function candidateFromSearchResult(source: SearchResult, triggerField: string): 
 }
 
 function candidateFromCitation(citation: Citation, triggerField: string): SourceCandidate {
+  const reason =
+    citation.provenance === "review_only"
+      ? "Added for source review; not accepted as claim support."
+      : citation.provenance === "retrieval_only"
+        ? "Retrieved source passage; not selected as claim support."
+        : citation.provenance === "exact_quote"
+          ? "Verified exact quote support."
+          : citation.provenance === "deterministic_support"
+            ? "Deterministically matched claim support."
+            : citation.provenance === "section_selected"
+              ? "Selected for an answer section."
+              : "Cited by the generated answer.";
   return {
     citation,
-    reason: "Cited by the generated answer.",
+    reason,
     triggerField,
     score: citation.similarity,
     sourceMetadata: citation.source_metadata,
@@ -264,6 +305,7 @@ function collectSourceCandidates(answer: RagAnswer, sources: SearchResult[]) {
       if (source) {
         candidates.push({
           ...candidateFromSearchResult(source, "answerSections"),
+          citation: citationFromResult(source, "section_selected"),
           reason: `Supports answer section: ${section.heading}`,
         });
       }
@@ -388,11 +430,95 @@ function buildWarnings(answer: RagAnswer, trust: AnswerRenderTrust) {
   if (answer.unverifiedNumericTokens?.length) {
     warnings.push(`Unverified numeric tokens: ${answer.unverifiedNumericTokens.slice(0, 5).join(", ")}.`);
   }
+  for (const warning of answer.sourceGovernanceWarnings ?? []) {
+    if (warning.message) warnings.push(warning.message);
+  }
+  const materialChunkIds = new Set(
+    (answer.supportedClaims ?? [])
+      .filter((claim) => claim.supportStatus === "direct")
+      .flatMap((claim) => claim.supportingChunkIds),
+  );
+  const assessments = Object.entries(answer.evidenceAssessments ?? {});
+  const materialAssessments = assessments.filter(([chunkId]) => materialChunkIds.has(chunkId));
+  if (materialAssessments.some(([, assessment]) => assessment.currency === "review_due")) {
+    warnings.push("A supporting source is due for review.");
+  } else if (
+    materialChunkIds.size === 0 &&
+    assessments.some(([, assessment]) => assessment.currency === "review_due" && assessment.relevance !== "none")
+  ) {
+    warnings.push("A retrieved source is due for review.");
+  }
   for (const gap of answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? []) {
     if (gap.message) warnings.push(gap.message);
     if (warnings.length >= 5) break;
   }
-  return [...new Set(warnings)].slice(0, 5);
+  return [...new Set(warnings)];
+}
+
+function parseAccessibleTableMarkdown(markdown?: string | null) {
+  if (!markdown?.trim()) return null;
+  const rows = markdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.includes("|") && !/^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?$/.test(line))
+    .map((line) =>
+      line
+        .replace(/^\|/, "")
+        .replace(/\|$/, "")
+        .split("|")
+        .map((cell) => cell.replace(/\\\|/g, "|").trim()),
+    )
+    .filter((row) => row.some(Boolean));
+  return rows.length > 1 ? { headers: rows[0], rows: rows.slice(1) } : null;
+}
+
+function canonicalTableFromEvidence(item: VisualEvidenceCard): CanonicalAnswerTableRecord | null {
+  const markdownTable = parseAccessibleTableMarkdown(item.accessibleTableMarkdown);
+  const sourceHeaders = item.tableRows?.length ? (item.tableColumns ?? []) : (markdownTable?.headers ?? []);
+  const sourceRows = item.tableRows?.length ? item.tableRows : (markdownTable?.rows ?? []);
+  if (!sourceRows.length) return null;
+
+  const columnCount = Math.max(sourceHeaders.length, ...sourceRows.map((row) => row.length), 1);
+  const incompleteHeaders = sourceHeaders.length < columnCount || sourceHeaders.some((header) => !header.trim());
+  const paddedHeaders = Array.from({ length: columnCount }, (_, index) => sourceHeaders[index]?.trim() || null);
+  const paddedRows = sourceRows
+    .map((row) => Array.from({ length: columnCount }, (_, index) => row[index]?.trim() || null))
+    .filter((row) => row.some(Boolean));
+  if (!paddedRows.length) return null;
+
+  const normalized = normalizeAccessibleTable(sourceRows, sourceHeaders.length ? sourceHeaders : null);
+  const lowConfidence = incompleteHeaders || Boolean(normalized?.lowConfidence);
+  const headers = incompleteHeaders
+    ? paddedHeaders
+    : (normalized?.header.map((header) => header || null) ?? paddedHeaders);
+  const rows = incompleteHeaders
+    ? paddedRows
+    : (normalized?.body.map((row) => row.map((cell) => cell || null)) ?? paddedRows);
+  const caveats: string[] = [];
+  if (incompleteHeaders) caveats.push("Table headers are incomplete; blank headers and cells are preserved.");
+  if (normalized?.lowConfidence) {
+    caveats.push("Table structure could not be confidently reconstructed — verify values against the source.");
+  }
+  const title = item.tableTitle?.trim() || item.tableLabel?.trim() || item.caption?.trim() || undefined;
+  const sourceLabel = `${item.title || item.file_name || "Source"}, page ${item.page_number ?? "n/a"}`;
+
+  return {
+    id: item.id,
+    title,
+    headers,
+    rows,
+    lowConfidence,
+    caveat: caveats.length ? caveats.join(" ") : undefined,
+    source: item.viewer_href
+      ? { label: sourceLabel, href: item.viewer_href, chunkId: item.source_chunk_id || undefined }
+      : undefined,
+  };
+}
+
+function buildCanonicalTables(visualEvidence: VisualEvidenceCard[]) {
+  return visualEvidence
+    .map(canonicalTableFromEvidence)
+    .filter((table): table is CanonicalAnswerTableRecord => Boolean(table));
 }
 
 function buildEvidenceRows(
@@ -526,6 +652,7 @@ export function formatAnswerRenderCopyText(args: {
   trust: AnswerRenderTrust;
   primarySources: SourceLink[];
   warnings: string[];
+  tables?: CanonicalAnswerTableRecord[];
   visualEvidence?: VisualEvidenceCard[];
 }) {
   const sourceLines = args.primarySources.length
@@ -535,6 +662,18 @@ export function formatAnswerRenderCopyText(args: {
       )
     : ["No policy-approved sources were attached."];
   const warningLines = args.warnings.length ? args.warnings.map((warning) => `- ${warning}`) : ["- None"];
+  const tableLines = (args.tables ?? []).flatMap((table, index) => [
+    index === 0 ? "Clinical tables" : "",
+    table.title || `Table ${index + 1}`,
+    table.headers.map((header) => header ?? "[header missing]").join(" | "),
+    ...table.rows.map((row) => row.map((cell) => cell ?? "[blank]").join(" | ")),
+    ...(table.caveat ? [`Caveat: ${table.caveat}`] : []),
+    ...(table.source ? [`Source: ${table.source.label} | ${table.source.href}`] : []),
+    "",
+  ]);
+  const visualEvidenceLines = args.visualEvidence?.length
+    ? formatDisplayedVisualEvidenceForClipboard(args.visualEvidence)
+    : [];
 
   return [
     "Clinical answer draft",
@@ -543,6 +682,7 @@ export function formatAnswerRenderCopyText(args: {
     "Answer",
     args.answerText,
     "",
+    ...tableLines,
     "Source status",
     `Render trust: ${args.trust}`,
     "",
@@ -551,9 +691,7 @@ export function formatAnswerRenderCopyText(args: {
     "",
     "Warnings",
     ...warningLines,
-    ...(args.visualEvidence?.length
-      ? ["", "Displayed table evidence", ...formatDisplayedVisualEvidenceForClipboard(args.visualEvidence)]
-      : []),
+    ...(visualEvidenceLines.length ? ["", "Displayed table evidence", ...visualEvidenceLines] : []),
   ]
     .join("\n")
     .trim();
@@ -576,13 +714,30 @@ export function buildAnswerRenderModel(
   const candidates = collectSourceCandidates(answer, rawSources);
   const primarySources = dedupeSourceLinks(candidates, caps.sources);
   const reviewSources = prioritizedReviewSources(rawSources, primarySources, caps.sources);
-  const bestSource = trust === "unsupported" ? null : (answer.bestSource ?? answer.smartPanel?.bestSource ?? null);
+  const directlySupportingId = (answer.supportedClaims ?? [])
+    .filter((claim) => claim.supportStatus === "direct")
+    .flatMap((claim) => claim.supportingChunkIds)[0];
+  const directlySupportingSource = rawSources.find((source) => source.id === directlySupportingId);
+  const directBestSource = directlySupportingSource
+    ? {
+        ...citationFromResult(directlySupportingSource, "deterministic_support"),
+        source_strength: directlySupportingSource.source_strength ?? "limited",
+        score: directlySupportingSource.hybrid_score ?? directlySupportingSource.similarity,
+        snippet: directlySupportingSource.retrieval_synopsis ?? directlySupportingSource.content,
+        section_heading: directlySupportingSource.section_heading,
+        image_count: directlySupportingSource.image_ids.length,
+        viewer_href: documentCitationHref(citationFromResult(directlySupportingSource)),
+      }
+    : null;
+  const bestSource =
+    trust === "unsupported" ? null : (directBestSource ?? answer.bestSource ?? answer.smartPanel?.bestSource ?? null);
   const rawQuotes = answer.quoteCards ?? answer.smartPanel?.quotes ?? [];
   const rawVisualEvidence = answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? [];
   const rawRelatedDocuments = answer.relatedDocuments ?? answer.smartPanel?.relatedDocuments ?? [];
   const visualLimit = hasDirectVisualNeed(answer) || trust === "high" ? caps.visual : 0;
   const quoteCards = dedupeQuotes(rawQuotes, primarySources, caps.quotes);
   const visualEvidence = dedupeVisualEvidence(rawVisualEvidence, primarySources, visualLimit);
+  const tables = buildCanonicalTables(visualEvidence);
   const relatedDocuments = dedupeRelatedDocuments(rawRelatedDocuments, primarySources, caps.related);
   const warnings = buildWarnings(answer, trust);
   const evidenceRows = buildEvidenceRows(answer, primarySources, quoteCards, visualEvidence, caps.rows);
@@ -614,11 +769,13 @@ export function buildAnswerRenderModel(
     relatedDocuments,
     bestSource,
     warnings,
+    tables,
     copyText: formatAnswerRenderCopyText({
       answerText: copyAnswerText,
       trust,
       primarySources,
       warnings,
+      tables,
       visualEvidence,
     }),
     debugReasons: options.includeDebugReasons ? decisions : undefined,
