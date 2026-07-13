@@ -100,6 +100,10 @@ const routeEnrichmentThroughAgentMigration = readFileSync(
   new URL("../supabase/migrations/20260713062139_route_enrichment_through_agent.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const ragRemediationFunctionReconciliationMigration = readFileSync(
+  new URL("../supabase/migrations/20260713083000_reconcile_rag_remediation_functions.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const clinicalRegistryRecordsMigration = readFileSync(
   new URL("../supabase/migrations/20260703020000_clinical_registry_records.sql", import.meta.url),
   "utf8",
@@ -927,6 +931,33 @@ describe("RC9 — lexical text path must not fabricate a cosine similarity", () 
 });
 
 describe("Supabase Preview replay guards", () => {
+  it("codifies owner-plus-public RPCs and forwards the canonical remediation functions", () => {
+    for (const functionName of [
+      "retrieval_owner_matches_v2",
+      "corpus_topic_term_stats_v2",
+      "match_document_chunks_text_v2",
+      "match_document_chunks_hybrid_v2",
+      "match_document_chunks_v2",
+      "get_related_document_metadata_v2",
+      "match_document_lookup_chunks_text_v2",
+      "match_documents_for_query_v2",
+      "match_document_table_facts_text_v2",
+      "match_document_embedding_fields_hybrid_v2",
+      "match_document_index_units_hybrid_v2",
+      "match_document_memory_cards_hybrid_v3",
+    ]) {
+      expect(schema).toContain(`create or replace function public.${functionName}(`);
+    }
+    expect(ragRemediationFunctionReconciliationMigration).toContain(
+      "create or replace function public.commit_document_deep_memory_generation(",
+    );
+    expect(ragRemediationFunctionReconciliationMigration).toContain(
+      "create or replace function public.request_indexing_v3_enrichment(",
+    );
+    expect(ragRemediationFunctionReconciliationMigration).toContain("on conflict (document_id) do nothing");
+    expect(ragRemediationFunctionReconciliationMigration).toContain("for update");
+  });
+
   it("keeps retrieval_synopsis when adding lexical_score to match_document_chunks_text", () => {
     expect(lexicalScoreMigration).toContain("retrieval_synopsis text");
     expect(lexicalScoreMigration).toContain("c.retrieval_synopsis");
