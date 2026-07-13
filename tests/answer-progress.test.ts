@@ -8,26 +8,26 @@ import { toPublicAnswerProgressEvent } from "../src/lib/answer-progress-public";
 
 describe("answer progress events", () => {
   it("keeps only safe, normalized Australian source counts at the public boundary", () => {
-    expect(
-      toPublicAnswerProgressEvent({
-        stage: "ranking",
-        message: "private model route marker",
-        selectedContextCount: 4.9,
-        australianSourceCount: 4,
-        waSourceCount: 3,
-        usedSupplementaryFallback: false,
-        model: "private-model",
-        reason: "private-reason",
-        smartApiPlan: { private: true },
-      }),
-    ).toEqual({
+    const publicEvent = toPublicAnswerProgressEvent({
+      stage: "ranking",
+      message: "private model route marker",
+      selectedContextCount: 4.9,
+      australianSourceCount: 4,
+      waSourceCount: 3,
+      usedSupplementaryFallback: true,
+      model: "private-model",
+      reason: "private-reason",
+      smartApiPlan: { private: true },
+    });
+
+    expect(publicEvent).toEqual({
       stage: "ranking",
       message: "Selecting the most relevant source passages.",
       selectedContextCount: 4,
       australianSourceCount: 4,
       waSourceCount: 3,
-      usedSupplementaryFallback: false,
     });
+    expect(publicEvent).not.toHaveProperty("usedSupplementaryFallback");
   });
 
   it("accepts legacy message-only progress while rendering stable copy", () => {
@@ -45,7 +45,6 @@ describe("answer progress events", () => {
       selectedContextCount: 4,
       australianSourceCount: 4,
       waSourceCount: 4,
-      usedSupplementaryFallback: false,
     });
 
     expect(answerProgressDisplayMessage(progress!)).toBe("Prioritising 4 Australian source passages, including 4 WA.");

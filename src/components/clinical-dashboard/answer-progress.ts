@@ -63,8 +63,6 @@ export function normalizeAnswerProgressEvent(data: unknown): AnswerProgressUpdat
     selectedContextCount: finiteCount(value.selectedContextCount),
     australianSourceCount: finiteCount(value.australianSourceCount),
     waSourceCount: finiteCount(value.waSourceCount),
-    usedSupplementaryFallback:
-      typeof value.usedSupplementaryFallback === "boolean" ? value.usedSupplementaryFallback : undefined,
     elapsedMs: finiteCount(value.elapsedMs),
   };
 }

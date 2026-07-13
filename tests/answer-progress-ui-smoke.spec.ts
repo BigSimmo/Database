@@ -98,7 +98,7 @@ async function installTimedAnswerStream(page: Page) {
               selectedContextCount: 4,
               australianSourceCount: 4,
               waSourceCount: 4,
-              usedSupplementaryFallback: false,
+              usedSupplementaryFallback: true,
             },
           },
           { delay: 1_600, event: "progress", data: { stage: "generating", message: "private-draft-marker" } },
@@ -130,6 +130,59 @@ async function installTimedAnswerStream(page: Page) {
       };
     },
     { answer: finalAnswer },
+  );
+}
+
+async function installSuccessfulThenInvalidAnswerStreams(page: Page) {
+  const firstAnswer = { ...demoAnswer("Lithium dosing"), demoMode: true };
+  await page.addInitScript(
+    ({ answer }) => {
+      const originalFetch = window.fetch.bind(window);
+      let answerRequestCount = 0;
+      window.fetch = async (input, init) => {
+        const rawUrl = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+        const pathname = new URL(rawUrl, window.location.href).pathname;
+        if (pathname !== "/api/answer/stream") return originalFetch(input, init);
+
+        answerRequestCount += 1;
+        const encoder = new TextEncoder();
+        const events =
+          answerRequestCount === 1
+            ? [
+                { delay: 0, event: "progress", data: { stage: "scoping", message: "Preparing scope." } },
+                {
+                  delay: 40,
+                  event: "progress",
+                  data: { stage: "complete", message: "Answer ready.", elapsedMs: 40 },
+                },
+                { delay: 80, event: "final", data: answer },
+              ]
+            : [
+                { delay: 0, event: "progress", data: { stage: "retrieving", message: "Searching." } },
+                {
+                  delay: 40,
+                  event: "progress",
+                  data: { stage: "complete", message: "Answer ready.", elapsedMs: 40 },
+                },
+                { delay: 80, event: "final", data: { answer: 42 } },
+              ];
+
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              for (const item of events) {
+                window.setTimeout(() => {
+                  controller.enqueue(encoder.encode(`event: ${item.event}\ndata: ${JSON.stringify(item.data)}\n\n`));
+                  if (item.event === "final") controller.close();
+                }, item.delay);
+              }
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "text/event-stream; charset=utf-8" } },
+        );
+      };
+    },
+    { answer: firstAnswer },
   );
 }
 
@@ -169,4 +222,30 @@ test("answer progress remains user-safe through fallback and keeps a compact com
   await expect(page.locator("body")).not.toContainText(
     /private-(?:model|route|provider-reason|fallback|draft|check|ready)-marker/i,
   );
+});
+
+test("a completion frame cannot mark a previous answer complete when final is invalid", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockDashboardApis(page);
+  await installSuccessfulThenInvalidAnswerStreams(page);
+  await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+
+  const input = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
+  const submit = page.locator('[aria-label="Generate source-backed answer"]:visible').first();
+  await expect(input).toBeEditable({ timeout: 30_000 });
+  await input.fill("Lithium dosing");
+  await submit.click();
+
+  await expect(page.getByText(/In the synthetic lithium document/i)).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByTestId("answer-progress-stepper")).toHaveAttribute("data-progress-state", "complete");
+
+  await input.fill("What about monitoring?");
+  await submit.click();
+
+  await expect(page.getByTestId("answer-error")).toContainText("Answer stream returned an invalid final payload", {
+    timeout: 10_000,
+  });
+  await expect(page.locator('[data-progress-state="complete"]')).toHaveCount(0);
+  await expect(page.getByText(/Answer ready in/)).toHaveCount(0);
+  await expect(page.getByText(/In the synthetic lithium document/i)).toBeVisible();
 });

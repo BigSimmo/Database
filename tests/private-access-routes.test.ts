@@ -3859,7 +3859,7 @@ describe("private document API access", () => {
           selectedContextCount: 4.9,
           australianSourceCount: 4,
           waSourceCount: 3,
-          usedSupplementaryFallback: false,
+          usedSupplementaryFallback: true,
           model: "private-model-marker",
           mode: "private-mode-marker",
           reason: "private-reason-marker",
@@ -3914,8 +3914,8 @@ describe("private document API access", () => {
       selectedContextCount: 4,
       australianSourceCount: 4,
       waSourceCount: 3,
-      usedSupplementaryFallback: false,
     });
+    expect(body).not.toContain("usedSupplementaryFallback");
     expect(body).toContain("event: revising\ndata: {}");
     for (const privateMarker of [
       "private-message-marker",

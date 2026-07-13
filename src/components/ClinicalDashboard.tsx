@@ -359,6 +359,7 @@ async function readAnswerStream(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let pendingCompletion: AnswerProgressUpdate | null = null;
 
   function processEvent(block: string) {
     const lines = block.split(/\r?\n/);
@@ -376,8 +377,12 @@ async function readAnswerStream(
     if (event === "progress") {
       const progress = normalizeAnswerProgressEvent(data);
       if (progress) {
-        onProgress(progress);
-        if (progress.stage === "fallback") onRevising?.();
+        if (progress.stage === "complete") {
+          pendingCompletion = progress;
+        } else {
+          onProgress(progress);
+          if (progress.stage === "fallback") onRevising?.();
+        }
       }
       return;
     }
@@ -391,6 +396,7 @@ async function readAnswerStream(
       return;
     }
     if (event === "error") {
+      pendingCompletion = null;
       const message = data && typeof data === "object" ? (data as { error?: unknown }).error : null;
       const details =
         data && typeof data === "object" ? (data as { details?: { message?: unknown } | unknown }).details : null;
@@ -414,7 +420,12 @@ async function readAnswerStream(
     }
     if (event === "final") {
       if (!isAnswerPayload(data)) {
+        pendingCompletion = null;
         throw makeSearchError("Answer stream returned an invalid final payload.", 502, true);
+      }
+      if (pendingCompletion) {
+        onProgress(pendingCompletion);
+        pendingCompletion = null;
       }
       return data;
     }
@@ -446,6 +457,7 @@ async function readAnswerStream(
 
   const finalPayload = buffer.trim() ? processEvent(buffer.trim()) : null;
   if (finalPayload) return finalPayload;
+  pendingCompletion = null;
   throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
 }
 
@@ -2251,8 +2263,7 @@ export function ClinicalDashboard({
           latest.resultCount === progress.resultCount &&
           latest.selectedContextCount === progress.selectedContextCount &&
           latest.australianSourceCount === progress.australianSourceCount &&
-          latest.waSourceCount === progress.waSourceCount &&
-          latest.usedSupplementaryFallback === progress.usedSupplementaryFallback
+          latest.waSourceCount === progress.waSourceCount
         ) {
           return current;
         }

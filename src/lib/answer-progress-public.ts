@@ -17,7 +17,6 @@ export type PublicAnswerProgressEvent = {
   selectedContextCount?: number;
   australianSourceCount?: number;
   waSourceCount?: number;
-  usedSupplementaryFallback?: boolean;
   elapsedMs?: number;
 };
 
@@ -34,8 +33,6 @@ export function toPublicAnswerProgressEvent(event: unknown): PublicAnswerProgres
   const australianSourceCount = safeProgressNumber(value.australianSourceCount);
   const waSourceCount = safeProgressNumber(value.waSourceCount);
   const elapsedMs = safeProgressNumber(value.elapsedMs);
-  const usedSupplementaryFallback =
-    typeof value.usedSupplementaryFallback === "boolean" ? value.usedSupplementaryFallback : undefined;
 
   let stage: PublicAnswerProgressStage;
   let message: string;
@@ -96,7 +93,6 @@ export function toPublicAnswerProgressEvent(event: unknown): PublicAnswerProgres
     ...(selectedContextCount === undefined ? {} : { selectedContextCount }),
     ...(australianSourceCount === undefined ? {} : { australianSourceCount }),
     ...(waSourceCount === undefined ? {} : { waSourceCount }),
-    ...(usedSupplementaryFallback === undefined ? {} : { usedSupplementaryFallback }),
     ...(elapsedMs === undefined ? {} : { elapsedMs }),
   };
 }
