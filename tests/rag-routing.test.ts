@@ -6,7 +6,7 @@ import {
   weakRetrievalTopScoreThreshold,
 } from "../src/lib/rag-routing";
 import { ragEvalCases } from "../src/lib/rag-eval-cases";
-import type { SearchResult } from "../src/lib/types";
+import type { DocumentTableFact, SearchResult } from "../src/lib/types";
 
 function source(overrides: Partial<SearchResult> = {}): SearchResult {
   return {
@@ -22,6 +22,22 @@ function source(overrides: Partial<SearchResult> = {}): SearchResult {
     similarity: 0.84,
     hybrid_score: 0.86,
     images: [],
+    ...overrides,
+  };
+}
+
+function tableFact(overrides: Partial<DocumentTableFact> = {}): DocumentTableFact {
+  return {
+    id: "fact-1",
+    document_id: "doc-1",
+    source_chunk_id: "chunk-1",
+    source_image_id: null,
+    page_number: 1,
+    table_title: "Admission requirements",
+    row_label: "Identity check",
+    clinical_parameter: "Admission requirement",
+    threshold_value: "Confirm patient identity",
+    action: "Complete before admission",
     ...overrides,
   };
 }
@@ -256,16 +272,26 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("broad_clinical_management_synthesis");
   });
 
-  it("uses extractive retrieval for explicit multi-document comparisons with strong support", () => {
+  it("uses the dedicated deterministic path for structured multi-document comparisons", () => {
     const selected = route("Compare the admission and discharge requirements", [
-      source({ id: "chunk-1", document_id: "doc-1", title: "Admission" }),
-      source({ id: "chunk-2", document_id: "doc-2", title: "Discharge" }),
+      source({
+        id: "chunk-1",
+        document_id: "doc-1",
+        title: "Admission",
+        table_facts: [tableFact({ document_id: "doc-1", source_chunk_id: "chunk-1" })],
+      }),
+      source({
+        id: "chunk-2",
+        document_id: "doc-2",
+        title: "Discharge",
+        table_facts: [tableFact({ id: "fact-2", document_id: "doc-2", source_chunk_id: "chunk-2" })],
+      }),
       source({ id: "chunk-3", document_id: "doc-3", title: "Assessment" }),
       source({ id: "chunk-4", document_id: "doc-4", title: "Review" }),
     ]);
 
     expect(selected.mode).toBe("extractive");
-    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+    expect(selected.reason).toBe("structured_comparison_matrix");
   });
 
   it("uses the fast model for routine balanced multi-document synthesis", () => {
@@ -279,14 +305,52 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("balanced_multi_document_synthesis");
   });
 
-  it("uses extractive retrieval for simple two-document comparisons with strong support", () => {
+  it("uses the dedicated deterministic path for simple two-document comparisons with strong support", () => {
+    const selected = route("Compare admission and discharge requirements", [
+      source({
+        id: "chunk-1",
+        document_id: "doc-1",
+        title: "Admission",
+        table_facts: [tableFact({ document_id: "doc-1", source_chunk_id: "chunk-1" })],
+      }),
+      source({
+        id: "chunk-2",
+        document_id: "doc-2",
+        title: "Discharge",
+        table_facts: [tableFact({ id: "fact-2", document_id: "doc-2", source_chunk_id: "chunk-2" })],
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("structured_comparison_matrix");
+  });
+
+  it("routes complex structured comparisons to strong synthesis", () => {
+    const selected = route("Compare and reconcile the clinical implications of these ANC thresholds", [
+      source({
+        id: "chunk-1",
+        document_id: "doc-1",
+        table_facts: [tableFact({ document_id: "doc-1", source_chunk_id: "chunk-1" })],
+      }),
+      source({
+        id: "chunk-2",
+        document_id: "doc-2",
+        table_facts: [tableFact({ id: "fact-2", document_id: "doc-2", source_chunk_id: "chunk-2" })],
+      }),
+    ]);
+
+    expect(selected.mode).toBe("strong");
+    expect(selected.reason).toBe("multi_document_comparison_synthesis");
+  });
+
+  it("routes insufficiently structured comparisons to strong synthesis", () => {
     const selected = route("Compare admission and discharge requirements", [
       source({ id: "chunk-1", document_id: "doc-1", title: "Admission" }),
       source({ id: "chunk-2", document_id: "doc-2", title: "Discharge" }),
     ]);
 
-    expect(selected.mode).toBe("extractive");
-    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+    expect(selected.mode).toBe("strong");
+    expect(selected.reason).toBe("multi_document_comparison_synthesis");
   });
 
   it("skips generation when retrieval has no plausible support", () => {

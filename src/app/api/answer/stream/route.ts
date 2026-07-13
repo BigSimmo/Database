@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
-import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { isDemoMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
@@ -16,6 +16,7 @@ import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-re
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
+import { resolveRetrievalAccessScope, type RetrievalAccessScope } from "@/lib/owner-scope";
 import {
   hasDangerSourceGovernanceWarning,
   sourceGovernanceRefusalAnswer,
@@ -39,7 +40,6 @@ const answerSchema = z.object({
   documentIds: z.array(z.string().uuid()).max(25).optional(),
   filters: searchScopeFiltersSchema.optional(),
   queryMode: clinicalQueryModeSchema.optional().default("auto"),
-  skipCache: z.boolean().optional().default(false),
 });
 
 type AnswerBody = z.infer<typeof answerSchema>;
@@ -123,7 +123,8 @@ function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
   };
 }
 
-function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, publicOnly = false) {
+function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signal?: AbortSignal) {
+  const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
 
   return new Response(
@@ -153,8 +154,7 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
             ? null
             : await resolveSearchScope({
                 supabase: createAdminClient(),
-                ownerId,
-                publicOnly,
+                accessScope,
                 documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
                 filters: body.filters,
               });
@@ -184,9 +184,9 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
                   ? undefined
                   : (scope?.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
                 ownerId,
+                accessScope,
                 allowGlobalSearch: !ownerId,
                 queryMode: body.queryMode,
-                skipCache: body.skipCache,
                 onProgress,
                 onToken,
                 onRevising,
@@ -279,11 +279,10 @@ function streamAnswer(body: AnswerBody, ownerId?: string, signal?: AbortSignal, 
 export async function POST(request: Request) {
   try {
     const body = await parseJsonBody(request, answerSchema, "Invalid answer request.");
-    if (isDemoMode()) return streamAnswer(body, undefined, request.signal);
+    if (isDemoMode()) return streamAnswer(body, resolveRetrievalAccessScope(), request.signal);
 
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
-    const publicOnly = !access.authenticated && !isLocalNoAuthMode();
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -293,7 +292,7 @@ export async function POST(request: Request) {
     });
     if (rateLimit.limited) return rateLimitStream(rateLimit);
 
-    return streamAnswer(body, access.ownerId, request.signal, publicOnly);
+    return streamAnswer(body, resolveRetrievalAccessScope(access.ownerId), request.signal);
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse(error);

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ClinicalSourceMetadata, DocumentLabelType } from "@/lib/types";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
+import type { RetrievalAccessScope } from "@/lib/owner-scope";
 
 const labelTypes = [
   "site",
@@ -179,8 +180,7 @@ function metadataMatchesLocality(row: ScopeDocumentRow, filters: SearchScopeFilt
 
 export async function resolveSearchScope(args: {
   supabase: SupabaseClient;
-  ownerId?: string | null;
-  publicOnly?: boolean;
+  accessScope: RetrievalAccessScope;
   documentIds?: string[];
   filters?: SearchScopeFilters;
   maxResolvedDocuments?: number;
@@ -189,7 +189,7 @@ export async function resolveSearchScope(args: {
   const explicitIds = unique(args.documentIds ?? []);
   const activeFilterCount = activeScopeFilterCount(filters);
   const warnings: string[] = [];
-  const publicOnly = args.publicOnly ?? !args.ownerId;
+  const publicOnly = !args.accessScope.ownerId;
 
   if (activeFilterCount === 0 && publicOnly && explicitIds.length === 0) {
     return {
@@ -202,7 +202,7 @@ export async function resolveSearchScope(args: {
     };
   }
 
-  if (activeFilterCount === 0 && !publicOnly && !(args.ownerId && explicitIds.length)) {
+  if (activeFilterCount === 0 && !publicOnly && !(args.accessScope.ownerId && explicitIds.length)) {
     return {
       documentIds: explicitIds.length ? explicitIds : undefined,
       filters,
@@ -228,8 +228,11 @@ export async function resolveSearchScope(args: {
       // skipped or duplicated across pages and the resolved scope is incomplete.
       .order("id", { ascending: true })
       .range(offset, Math.min(offset + documentScopeQueryPageSize - 1, maxResolvedDocuments - 1));
-    if (args.ownerId) documentQuery = documentQuery.eq("owner_id", args.ownerId);
-    else if (publicOnly) documentQuery = documentQuery.is("owner_id", null);
+    if (args.accessScope.ownerId && args.accessScope.includePublic) {
+      documentQuery = documentQuery.or(`owner_id.eq.${args.accessScope.ownerId},owner_id.is.null`);
+    } else if (args.accessScope.ownerId) {
+      documentQuery = documentQuery.eq("owner_id", args.accessScope.ownerId);
+    } else if (publicOnly) documentQuery = documentQuery.is("owner_id", null);
     if (explicitIds.length) documentQuery = documentQuery.in("id", explicitIds);
 
     // Push metadata enum filters into SQL using JSONB text extraction. Keep

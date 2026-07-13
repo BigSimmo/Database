@@ -45,7 +45,7 @@ import {
   tableMicroActionRow,
   textMuted,
 } from "@/components/ui-primitives";
-import { type AnswerRenderModel } from "@/lib/answer-render-policy";
+import { type AnswerRenderModel, type CanonicalAnswerTableRecord } from "@/lib/answer-render-policy";
 import { formatCompactCitationLabel } from "@/lib/citations";
 import { smartEvidenceTags } from "@/lib/evidence-tags";
 import { type SourceGovernanceWarning } from "@/lib/source-governance";
@@ -260,6 +260,75 @@ export function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
           Source
         </Link>
       </div>
+    </section>
+  );
+}
+
+export function CanonicalAnswerTable({ table }: { table: CanonicalAnswerTableRecord }) {
+  const normalizedTable = {
+    header: table.headers.map((header) => header ?? ""),
+    body: table.rows.map((row) => table.headers.map((_, index) => row[index] ?? "")),
+    lowConfidence: table.lowConfidence,
+    lowConfidenceReason: table.caveat,
+  };
+  return (
+    <section className={cn(tableCard, "max-w-lg")} aria-label="Inline table preview">
+      {table.title || table.source ? (
+        <div className={cn(tableCardHeader, "flex min-h-10 items-center justify-between gap-2 py-2 text-sm")}>
+          <span className="min-w-0 truncate">{table.title || "Clinical table"}</span>
+          {table.source ? (
+            <Link
+              href={table.source.href}
+              className={cn(chatMicroAction, "min-h-11 min-w-11 shrink-0 justify-center px-0 sm:hidden")}
+              aria-label="Open table source"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden />
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+      {table.caveat ? (
+        <p data-testid="canonical-table-caveat" className={cn("px-3 pt-2 text-xs leading-5", textMuted)}>
+          {table.caveat}
+        </p>
+      ) : null}
+      <div className="p-1.5 sm:p-2">
+        <AccessibleTable
+          caption={table.title}
+          normalizedTable={normalizedTable}
+          compact
+          expandOnMobile
+          previewRows={3}
+          hidePreviewCaption
+          hidePreviewRowCount
+          densePreview
+          dialogTitle={table.title || "Clinical table"}
+        />
+      </div>
+      {table.source ? (
+        <div className={cn(tableMicroActionRow, "hidden sm:flex")}>
+          <Link href={table.source.href} className={chatMicroAction}>
+            Expand
+          </Link>
+          <Link href={table.source.href} className={chatMicroAction}>
+            Source
+          </Link>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function CanonicalAnswerTables({ tables }: { tables: CanonicalAnswerTableRecord[] }) {
+  if (!tables.length) return null;
+  return (
+    <section className="space-y-3" aria-label="Clinical tables">
+      {tables.map((table) => (
+        <CanonicalAnswerTable
+          key={`${table.id}:${table.source?.chunkId ?? table.source?.href ?? "unlinked"}`}
+          table={table}
+        />
+      ))}
     </section>
   );
 }

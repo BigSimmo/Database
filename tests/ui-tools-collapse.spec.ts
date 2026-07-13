@@ -50,6 +50,6 @@ test.describe("Tools mockups collapse the primary region when filtering", () => 
     await page.getByRole("searchbox").first().fill("medication");
     await expect(page.getByRole("heading", { name: "Launcher overview" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Results" })).toBeVisible();
-    await expect(page.getByLabel("Open Medication Prescribing")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Medication Prescribing/ })).toBeVisible();
   });
 });

@@ -425,6 +425,9 @@ export type SearchScoreExplanation = {
   strategy: "weighted_hybrid" | "weighted_hybrid_rrf_blend";
 };
 
+export type CitationProvenance =
+  "model_selected" | "section_selected" | "exact_quote" | "deterministic_support" | "review_only" | "retrieval_only";
+
 export type Citation = {
   chunk_id: string;
   document_id: string;
@@ -434,6 +437,23 @@ export type Citation = {
   chunk_index: number;
   similarity?: number;
   source_metadata?: ClinicalSourceMetadata | null;
+  provenance?: CitationProvenance;
+};
+
+export type SupportedClaim = {
+  claimId: string;
+  text: string;
+  riskClass: "routine" | "high_risk";
+  supportingChunkIds: string[];
+  supportStatus: "direct" | "partial" | "unsupported";
+};
+
+export type EvidenceAssessment = {
+  relevance: "direct" | "partial" | "nearby" | "none";
+  claimSupport: "direct" | "partial" | "unsupported";
+  authority: "approved" | "locally_reviewed" | "unverified";
+  currency: "current" | "review_due" | "outdated" | "unknown";
+  extractionQuality: "good" | "partial" | "poor" | "unknown";
 };
 
 export type QuoteCard = Citation & {
@@ -588,6 +608,9 @@ export type DocumentSectionMemory = {
   summary: string;
   tags: string[];
   extraction_quality: ClinicalSourceMetadata["extraction_quality"];
+  index_generation_id?: string | null;
+  producer?: string | null;
+  artifact_generation_id?: string | null;
   metadata?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
@@ -617,6 +640,9 @@ export type DocumentMemoryCard = {
   source_chunk_ids: string[];
   source_image_ids: string[];
   confidence: number;
+  index_generation_id?: string | null;
+  producer?: string | null;
+  artifact_generation_id?: string | null;
   metadata?: Record<string, unknown>;
   embedding?: number[];
   created_at?: string;
@@ -862,12 +888,38 @@ export type SmartRagApiPlan = {
 export type AnswerResponseMode =
   "checklist" | "comparison_matrix" | "threshold_table" | "clinical_pathway" | "document_lookup" | "evidence_gap";
 
+export type ComparisonEvaluationState = "evaluated" | "not_evaluated";
+
+export type ComparisonMatrixEntry = {
+  documentId: string;
+  chunkIds: string[];
+  value: string | null;
+  qualifiers: string[];
+};
+
+export type ComparisonMatrixRow = {
+  parameter: string;
+  entries: ComparisonMatrixEntry[];
+  status: "agreement" | "conflict" | "missing";
+};
+
+export type ComparisonMatrix = {
+  documents: Array<{
+    documentId: string;
+    title: string;
+    fileName: string;
+  }>;
+  rows: ComparisonMatrixRow[];
+};
+
 export type RagAnswer = {
   answer: string;
   grounded: boolean;
   confidence: "high" | "medium" | "low" | "unsupported";
   citations: Citation[];
   sources: SearchResult[];
+  supportedClaims?: SupportedClaim[];
+  evidenceAssessments?: Record<string, EvidenceAssessment>;
   retrievalDiagnostics?: RetrievalDiagnostics;
   modelUsed?: string | null;
   routingMode?: "unsupported" | "extractive" | "fast" | "strong";
@@ -885,6 +937,8 @@ export type RagAnswer = {
   queryClass?: RagQueryClass;
   queryAnalysis?: ClinicalQueryAnalysis;
   responseMode?: AnswerResponseMode;
+  comparisonMatrix?: ComparisonMatrix;
+  comparisonEvaluationState?: ComparisonEvaluationState;
   // True for deterministic, template-built answers (document-support lists, table/visual
   // source references) assembled from source metadata rather than model prose. These are
   // well-formed by construction, so the clinical-prose sanitizer/quality gate — which would

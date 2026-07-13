@@ -20,6 +20,7 @@ import {
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
+import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import type { ClinicalDocument, IngestionJob, ImportBatch } from "@/lib/types";
 
 // Setup and quality types
@@ -389,6 +390,7 @@ export function UploadPanel({
 
   return (
     <form onSubmit={handleFormSubmit} className={cn(panelSubtle, "p-3")}>
+      <PrivacyInputNotice className="mb-2" />
       <label className="block text-xs font-semibold text-[color:var(--text)]">
         Guideline PDF files
         <input

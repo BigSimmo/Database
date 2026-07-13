@@ -6,6 +6,32 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+describe("RetrievalAccessScope", () => {
+  it("resolves anonymous access to public-only and authenticated access to owner-plus-public", async () => {
+    const { resolveRetrievalAccessScope } = await import("../src/lib/owner-scope");
+    expect(resolveRetrievalAccessScope()).toEqual({ includePublic: true });
+    expect(resolveRetrievalAccessScope("owner-a")).toEqual({ ownerId: "owner-a", includePublic: true });
+  });
+
+  it("matches public-only or exact-owner plus public without crossing tenants", async () => {
+    const { retrievalAccessScopeMatchesOwner } = await import("../src/lib/owner-scope");
+    expect(retrievalAccessScopeMatchesOwner({ includePublic: true }, null)).toBe(true);
+    expect(retrievalAccessScopeMatchesOwner({ includePublic: true }, "owner-a")).toBe(false);
+    expect(retrievalAccessScopeMatchesOwner({ ownerId: "owner-a", includePublic: true }, null)).toBe(true);
+    expect(retrievalAccessScopeMatchesOwner({ ownerId: "owner-a", includePublic: true }, "owner-a")).toBe(true);
+    expect(retrievalAccessScopeMatchesOwner({ ownerId: "owner-a", includePublic: true }, "owner-b")).toBe(false);
+  });
+
+  it("builds collision-free public and owner-plus-public scope keys", async () => {
+    const { retrievalAccessScopeKey } = await import("../src/lib/owner-scope");
+    expect(retrievalAccessScopeKey({ includePublic: true })).toBe("public-only");
+    expect(retrievalAccessScopeKey({ ownerId: "owner-a", includePublic: true })).toBe("owner:owner-a+public");
+    expect(retrievalAccessScopeKey({ ownerId: "owner-a", includePublic: true })).not.toBe(
+      retrievalAccessScopeKey({ ownerId: "owner-b", includePublic: true }),
+    );
+  });
+});
+
 describe("requireOwnerScope (fail-closed owner scoping)", () => {
   it("returns the ownerId when present", async () => {
     const { requireOwnerScope } = await import("../src/lib/owner-scope");

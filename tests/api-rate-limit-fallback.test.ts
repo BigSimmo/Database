@@ -148,4 +148,33 @@ describe("document_upload fail-closed limiter", () => {
     // document_read degrades to the per-instance limiter instead of failing closed.
     expect(result.limited).toBe(false);
   });
+
+  it("enforces a global anonymous upload quota as well as the caller quota", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
+    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => ({
+      data: {
+        limited: false,
+        limit_value: args.p_limit,
+        remaining: Number(args.p_limit) - 1,
+        retry_after_seconds: 60,
+        reset_at: new Date(Date.now() + 60_000).toISOString(),
+      },
+      error: null,
+    }));
+
+    await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:caller" },
+      bucket: "document_upload",
+    });
+
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls.map(([, args]) => args.p_subject_key)).toEqual(
+      expect.arrayContaining(["anon:caller", "anon:document_upload:global"]),
+    );
+  });
 });
