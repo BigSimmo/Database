@@ -26,8 +26,16 @@ jobs:
     concurrency:
       group: codex-autoresolve-${{ github.event.pull_request.number }}
       cancel-in-progress: false
+    env:
+      # Assigned to job env so a step-level `if` can detect an unconfigured
+      # secret and skip gracefully instead of hard-failing the check.
+      CODEX_TRIGGER_TOKEN: ${{ secrets.CODEX_TRIGGER_TOKEN }}
     steps:
+      - name: Warn when the trigger token is not configured
+        if: ${{ env.CODEX_TRIGGER_TOKEN == '' }}
+        run: echo "::warning title=Codex auto-resolve::CODEX_TRIGGER_TOKEN secret is not configured; skipping the Codex auto-resolve request. Codex will not be asked to resolve findings until this fine-grained PAT secret is set."
       - name: Ask Codex to resolve review comments
+        if: ${{ env.CODEX_TRIGGER_TOKEN != '' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           # A fine-grained PAT from a real (non-bot) account. The Codex connector
@@ -181,8 +189,11 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    # Each reply resolves a distinct thread, so key concurrency per comment —
+    # a per-PR group would cap at one running + one pending and drop resolutions
+    # during a burst of disposition replies.
     concurrency:
-      group: codex-autoresolve-thread-${{ github.event.pull_request.number }}
+      group: codex-autoresolve-thread-${{ github.event.pull_request.number }}-${{ github.event.comment.id }}
       cancel-in-progress: false
     steps:
       - name: Resolve Codex review thread on disposition marker

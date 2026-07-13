@@ -19,21 +19,18 @@ const forbiddenPatterns = [
     message: "Do not trigger Codex auto-resolve from issue_comment events.",
   },
   {
-    pattern: /^\s*pull_request_review:/m,
-    message: "Do not trigger Codex auto-resolve from whole pull_request_review events.",
-  },
-  {
     pattern: /@codex resolve all review comments/,
     message: "Do not use the broad Codex resolve-all command; use the scoped actionable-findings command.",
   },
   {
     pattern: /contains\(\s*github\.event\.comment\.user\.login/,
     message:
-      "Do not authorize the Codex connector with a substring login match; require an exact trusted bot identity.",
+      "Do not authorize the Codex connector with a substring comment-login match; require an exact trusted bot identity.",
   },
   {
-    pattern: /sourceBody\.includes\("codex-autoresolve(?:-pr)?:"\)/,
-    message: "Do not treat an auto-resolve marker mentioned anywhere in a review finding as a self-triggered request.",
+    pattern: /contains\(\s*github\.event\.review\.user\.login/,
+    message:
+      "Do not authorize the Codex connector with a substring review-login match; require an exact trusted bot identity.",
   },
   {
     pattern: /existingComments\.some\(\(comment\) => \(comment\.body \|\| ""\)\.includes\(marker\)\)/,
@@ -42,7 +39,7 @@ const forbiddenPatterns = [
   {
     pattern: /^concurrency:/m,
     message:
-      "Do not apply Codex auto-resolve concurrency to the whole workflow; unrelated review comments must not displace an authorized pending job.",
+      "Do not apply Codex auto-resolve concurrency to the whole workflow; unrelated events must not displace an authorized pending job.",
   },
   {
     pattern: /^\s*contents:\s*write\s*$/m,
@@ -97,12 +94,14 @@ for (const [path, contents, requiredCheck] of requiredInstructionChecks) {
   }
 }
 
+// The auto-resolve request must fire only after a completed Codex review; thread
+// closure is driven separately by trusted review-comment disposition replies.
 const requiredTriggerAndPermissionChecks = [
+  "  pull_request_review:",
+  "    types: [submitted]",
   "  pull_request_review_comment:",
   "    types: [created]",
   "  contents: read",
-  "  issues: write",
-  "  models: read",
   "  pull-requests: write",
   `uses: actions/github-script@${githubScriptPin} # v9.0.0`,
   "github.event.pull_request.state == 'open'",
@@ -111,6 +110,29 @@ const requiredTriggerAndPermissionChecks = [
 for (const requiredCheck of requiredTriggerAndPermissionChecks) {
   if (!workflow.includes(requiredCheck)) {
     failures.push(`Codex auto-resolve workflow is missing trigger or permission check: ${requiredCheck}`);
+  }
+}
+
+// The two jobs must be gated by event name so the request path and the
+// thread-resolution path never handle each other's events.
+const requiredEventGateChecks = [
+  "github.event_name == 'pull_request_review'",
+  "github.event_name == 'pull_request_review_comment'",
+];
+
+for (const requiredCheck of requiredEventGateChecks) {
+  if (!workflow.includes(requiredCheck)) {
+    failures.push(`Codex auto-resolve workflow is missing an event-name gate: ${requiredCheck}`);
+  }
+}
+
+// The request must be posted by a real (non-bot) identity the Codex connector
+// will act on, and thread closure must use the workflow's own scoped token.
+const requiredTokenChecks = ["github-token: ${{ secrets.CODEX_TRIGGER_TOKEN }}", "github-token: ${{ github.token }}"];
+
+for (const requiredCheck of requiredTokenChecks) {
+  if (!workflow.includes(requiredCheck)) {
+    failures.push(`Codex auto-resolve workflow is missing a required github-token binding: ${requiredCheck}`);
   }
 }
 
@@ -130,7 +152,14 @@ if (!workflow.includes("codex-autoresolve-pr:${pr.number}")) {
   failures.push("Codex auto-resolve marker must be scoped to the pull request for a single lifetime pass.");
 }
 
+// Both the request path (submitted review author) and the thread path (review
+// comment author) must match the trusted connector by exact login and bot type.
 const requiredIdentityChecks = [
+  "github.event.review.user.type == 'Bot'",
+  "github.event.review.user.login == 'chatgpt-codex-connector'",
+  "github.event.review.user.login == 'chatgpt-codex-connector[bot]'",
+  'review.user?.type !== "Bot"',
+  "!allowedCodexBotLogins.has(review.user.login)",
   "github.event.comment.user.type == 'Bot'",
   "github.event.comment.user.login == 'chatgpt-codex-connector'",
   "github.event.comment.user.login == 'chatgpt-codex-connector[bot]'",
@@ -144,15 +173,18 @@ for (const requiredCheck of requiredIdentityChecks) {
   }
 }
 
-const requiredSelfTriggerChecks = [
-  'sourceBody.startsWith("<!-- codex-autoresolve:")',
-  'sourceBody.startsWith("<!-- codex-autoresolve-pr:")',
-  "hasAutoResolveMarker && sourceBody.includes(scopedResolveCommand)",
+// A completed review only warrants a repair pass when it actually raised
+// findings, and a non-reply review comment must never become a repair request.
+const requiredReviewGateChecks = [
+  'review.state === "approved" || review.state === "dismissed"',
+  "github.rest.pulls.listCommentsForReview",
+  "reviewComments.length === 0",
+  "!reviewComment.in_reply_to_id",
 ];
 
-for (const requiredCheck of requiredSelfTriggerChecks) {
+for (const requiredCheck of requiredReviewGateChecks) {
   if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing strict self-trigger check: ${requiredCheck}`);
+    failures.push(`Codex auto-resolve workflow is missing a completed-review findings gate: ${requiredCheck}`);
   }
 }
 
@@ -171,9 +203,11 @@ for (const requiredCheck of requiredThreadResolutionChecks) {
   }
 }
 
+// Deduplication must trust only the account that actually posts the request
+// (resolved at runtime), not a hard-coded bot login.
 const requiredDedupeChecks = [
-  'comment.user?.type === "Bot"',
-  'comment.user.login === "github-actions[bot]"',
+  "github.rest.users.getAuthenticated",
+  "comment.user?.login === triggerLogin",
   "const maxAutoResolveRequests = 1",
   "const trustedExistingRequests = existingComments.filter(",
   '.trimStart().startsWith("<!-- codex-autoresolve")',
@@ -197,7 +231,7 @@ if (!workflow.includes(`const scopedResolveCommand = "${scopedResolveCommand}";`
 }
 
 if (!workflow.includes(`const resolvedDispositionMarker = "${resolvedDispositionMarker}";`)) {
-  failures.push("Codex auto-resolve workflow must define the resolved thread disposition marker exactly once.");
+  failures.push("Codex auto-resolve workflow must define the resolved thread disposition marker.");
 }
 
 if (!workflow.includes(`\`${scopedResolvePrompt}\``)) {
