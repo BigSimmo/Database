@@ -1712,6 +1712,127 @@ describe("RAG structured-output fallback", () => {
     expect(generateStructuredTextResult).toHaveBeenCalled();
   });
 
+  it("does not gate-block strong lexical-only evidence under the truthful score contract", async () => {
+    // Regression (canary #459 family A): migration 20260713062107 made lexical-only
+    // retrieval honest — similarity 0, hybrid_score hard-capped at 0.48, with the real
+    // signal in lexical_score (0.4..0.99). Reading hybrid_score alone made
+    // topScore < 0.5 unconditional for every text-fast-path answer, so well-supported
+    // documentation lookups ("What does the metabolic screening document require?",
+    // expected document at rank 1) were refused as confidence_gate_blocked. The gate
+    // must read the lexical evidence.
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [1, 2, 3].map((n) =>
+      source({
+        id: `lexical-${n}`,
+        document_id: n <= 2 ? "metabolic-doc" : `doc-${n}`,
+        title: "Metabolic Screening",
+        file_name: "metabolic-screening.pdf",
+        content: "Metabolic screening requires baseline observations and scheduled physical health monitoring.",
+        similarity: 0,
+        hybrid_score: 0.48,
+        text_rank: 1.2,
+        lexical_score: 0.99,
+      }),
+    );
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+    const embedTextWithTelemetry = vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "What does the metabolic screening document require?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.retrievalDiagnostics).toMatchObject({ gateStatus: "passed" });
+    expect(answer.routingReason).not.toContain("confidence_gate_blocked");
+  });
+
+  it("still gate-blocks weak lexical-only evidence", async () => {
+    // Control for the lexical-aware gate: a marginal keyword hit (lexical_score at its
+    // 0.4 floor) must stay below the 0.5 evidence bar and refuse, preserving
+    // unsupported_correct behaviour for junk/near-miss lexical rows.
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [
+      source({
+        id: "weak-lexical-1",
+        document_id: "doc-1",
+        title: "Unrelated Process",
+        file_name: "unrelated.pdf",
+        content: "A passing mention of screening in an unrelated administrative document.",
+        similarity: 0,
+        hybrid_score: 0.19,
+        text_rank: 0.02,
+        lexical_score: 0.41,
+      }),
+      source({
+        id: "weak-lexical-2",
+        document_id: "doc-2",
+        title: "General Overview",
+        file_name: "overview.pdf",
+        content: "General notes without specific screening guidance.",
+        similarity: 0,
+        hybrid_score: 0.18,
+        text_rank: 0.01,
+        lexical_score: 0.4,
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+    const embedTextWithTelemetry = vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "How is discharge planning handled?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.retrievalDiagnostics).toMatchObject({ gateStatus: "blocked" });
+    expect(answer.routingMode).toBe("unsupported");
+  });
+
   it("returns document names for source-support questions instead of clinical advice", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
