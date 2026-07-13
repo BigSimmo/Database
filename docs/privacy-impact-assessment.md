@@ -19,8 +19,10 @@ generation. It is **not** a patient record system and, by design, does not ask f
 
 The dominant privacy risk is therefore **incidental PHI**: a clinician will inevitably type patient
 details into a free-text query ("42yo F on clozapine 400mg with rising WCC, next step?"). That query
-is processed by the Railway application tier in Singapore, sent to OpenAI in the United States when
-model-backed answering is used, and hash-redacted before it is written to log tables in Supabase. A secondary
+is processed by the Railway application tier in Singapore and can be sent to OpenAI in the United
+States for retrieval embedding even when the final answer is source-only. When model-backed answer
+synthesis is used, the query and selected excerpts are sent again. The query is hash-redacted before
+it is written to log tables in Supabase. A secondary
 risk is PHI inside **uploaded documents** if users upload anything other than published reference
 material.
 
@@ -57,14 +59,14 @@ material.
 
 ## 2. System overview and data classification
 
-| Data category                                                             | Where it lives                                                                                                  | Sensitivity                                | Notes                                                                                                                              |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Clinical reference corpus (documents, chunks, embeddings, images, tables) | Supabase (Sydney) + storage buckets                                                                             | Low–Medium                                 | Published guidelines are not PHI; **uploaded** docs _could_ contain PHI.                                                           |
-| Free-text clinical queries                                                | Processed by Railway (Singapore); hashed into Supabase logs (Sydney); sent to OpenAI (US) in model-backed mode  | **High (potential PHI)**                   | The primary incidental-PHI vector.                                                                                                 |
-| Generated answers                                                         | `rag_queries.answer` (not persisted unless `RAG_PERSIST_ANSWER_TEXT`); short-lived `rag_response_cache.payload` | **High (derived from PHI query + corpus)** | Durable answer log dropped at rest by default (PIA-3); expired cache rows have a bounded hourly purge when `pg_cron` is available. |
-| User identity                                                             | Supabase Auth (`auth.users`), `owner_id` foreign keys                                                           | Medium (PII)                               | Email + SSO identity; managed by Supabase Auth.                                                                                    |
-| Audit trail                                                               | `audit_logs`                                                                                                    | Medium                                     | Append-only, service-role-only, retained indefinitely by design.                                                                   |
-| Operational telemetry                                                     | `rag_retrieval_logs`, ingestion job tables                                                                      | Low–Medium                                 | Redacted query text; per-owner.                                                                                                    |
+| Data category                                                             | Where it lives                                                                                                                                         | Sensitivity                                | Notes                                                                                                                              |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Clinical reference corpus (documents, chunks, embeddings, images, tables) | Supabase (Sydney) + storage buckets                                                                                                                    | Low–Medium                                 | Published guidelines are not PHI; **uploaded** docs _could_ contain PHI.                                                           |
+| Free-text clinical queries                                                | Processed by Railway (Singapore); hashed into Supabase logs (Sydney); sent to OpenAI (US) for retrieval embedding and, when selected, answer synthesis | **High (potential PHI)**                   | The primary incidental-PHI vector; embedding egress can occur even when the final answer is source-only.                           |
+| Generated answers                                                         | `rag_queries.answer` (not persisted unless `RAG_PERSIST_ANSWER_TEXT`); short-lived `rag_response_cache.payload`                                        | **High (derived from PHI query + corpus)** | Durable answer log dropped at rest by default (PIA-3); expired cache rows have a bounded hourly purge when `pg_cron` is available. |
+| User identity                                                             | Supabase Auth (`auth.users`), `owner_id` foreign keys                                                                                                  | Medium (PII)                               | Email + SSO identity; managed by Supabase Auth.                                                                                    |
+| Audit trail                                                               | `audit_logs`                                                                                                                                           | Medium                                     | Append-only, service-role-only, retained indefinitely by design.                                                                   |
+| Operational telemetry                                                     | `rag_retrieval_logs`, ingestion job tables                                                                                                             | Low–Medium                                 | Redacted query text; per-owner.                                                                                                    |
 
 **Deployment context (from code):** the answer system prompt positions the assistant as _"an
 experienced psychiatrist in Perth"_ ([src/lib/rag.ts:7053](src/lib/rag.ts)) — i.e. a **WA psychiatry**
@@ -283,8 +285,9 @@ cache purge jobs onto the existing bounded hourly purge. The remaining retention
   a central part of the APP 8 assessment (PIA-1).
 
 **Net:** durable Supabase data is Australian; application/worker processing occurs in Singapore; and
-model-backed inference occurs in the US. The approved privacy notice and contractual record must cover
-both overseas paths and their purposes.
+OpenAI retrieval embedding plus model-backed inference occur in the US. Embedding egress can happen
+even when the final answer is source-only. The approved privacy notice and contractual record must
+cover both overseas paths and their purposes.
 
 ---
 
@@ -346,8 +349,9 @@ remaining items are compliance-posture and PHI-minimisation gaps.
 ### PIA-1 — Overseas Railway/OpenAI processing needs an approved contractual basis and notice **(High)**
 
 - **Risk:** Health/PHI in requests, queries, excerpts, and ingestion material is processed by Railway
-  in Singapore and, for model-backed answers, OpenAI in the US. OpenAI has no code-visible contractual
-  data-processing terms. A draft in-product provider disclosure now exists, reducing the
+  in Singapore. Query text can reach OpenAI in the US for retrieval embedding even when the final
+  answer is source-only; model-backed synthesis additionally sends the query and selected excerpts.
+  OpenAI has no code-visible contractual data-processing terms. A draft in-product provider disclosure now exists, reducing the
   point-of-entry visibility gap, but it is not governance-approved legal wording → APP 8 accountability
   exposure and a residual APP 5 governance gap.
 - **Evidence:** the live app and worker are recorded in Railway Singapore

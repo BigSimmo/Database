@@ -35,6 +35,8 @@ describe("privacy UI", () => {
     expect(markup).toContain("Generated answer text is also omitted from durable query logs by default");
     expect(markup).toContain("application service in Singapore");
     expect(markup).toContain("Railway in Singapore");
+    expect(markup).toContain("retrieval embedding");
+    expect(markup).toContain("even when the final response is source-only");
     expect(markup).toContain("bounded hourly purge of expired response-cache rows");
     expect(markup).not.toContain("approved privacy policy");
   });

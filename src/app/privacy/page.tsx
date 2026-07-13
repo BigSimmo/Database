@@ -53,9 +53,10 @@ const SECTIONS: Section[] = [
     heading: "External provider processing",
     body: (
       <>
-        When model-backed answering is enabled, the question and selected source excerpts are sent to the configured
-        OpenAI API. This processing may occur outside Australia. Provider mode can also return a local source-only
-        response. The operator must verify provider regions, retention terms, contracts, and cross-border obligations.
+        When external provider mode is configured, question text may be sent to the OpenAI API to create a retrieval
+        embedding, including when the final response is source-only. When model-backed answer synthesis is used, the
+        question and selected source excerpts are also sent. This processing may occur outside Australia. The operator
+        must verify provider regions, retention terms, contracts, and cross-border obligations.
       </>
     ),
   },
@@ -92,8 +93,9 @@ export default function PrivacyPage() {
               </div>
               <p className="min-w-0 text-sm leading-6 text-[color:var(--text-heading)]">
                 Do not enter identifiable patient details such as names, dates of birth, or record numbers. Requests are
-                processed by the application service in Singapore and, when model-backed answering is enabled, the
-                question and selected evidence are sent to the configured OpenAI API.
+                processed by the application service in Singapore. With external provider mode configured, question text
+                may be sent to the OpenAI API for retrieval embedding even when the final response is source-only;
+                model-backed answer synthesis also sends the question and selected evidence.
               </p>
             </div>
           </section>
