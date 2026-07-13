@@ -1,11 +1,16 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-describe("document viewer useful-page navigation", () => {
-  it("does not carry an unrelated citation chunk into a new page link", () => {
-    const source = readFileSync(new URL("../src/components/DocumentViewer.tsx", import.meta.url), "utf8");
-    const pageHrefBody = source.match(/const documentPageHref = \(page: number\) => \{([\s\S]*?)\n  \};/)?.[1] ?? "";
+import { documentPageHref } from "../src/lib/document-viewer-navigation";
 
-    expect(pageHrefBody).not.toContain('params.set("chunk", chunkId)');
+describe("document viewer useful-page navigation", () => {
+  it("creates a destination-page URL without carrying an unrelated citation chunk", () => {
+    const href = documentPageHref("document/id", 3);
+
+    expect(href).toBe("/documents/document%2Fid?page=3#pdf-preview-section");
+    expect(href).not.toContain("chunk=");
+  });
+
+  it("normalizes invalid page numbers to the first page", () => {
+    expect(documentPageHref("document-id", 0)).toBe("/documents/document-id?page=1#pdf-preview-section");
   });
 });

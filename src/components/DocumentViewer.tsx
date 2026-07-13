@@ -68,6 +68,7 @@ import {
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
+import { documentPageHref } from "@/lib/document-viewer-navigation";
 import { formatClinicalDate } from "@/lib/source-metadata";
 import { partitionViewerImages } from "@/lib/image-filtering";
 import { isLocalNoAuthMode } from "@/lib/client-env";
@@ -2453,10 +2454,7 @@ export function DocumentViewer({
   const scopedDocumentHref = readyDocument
     ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}&documentId=${encodeURIComponent(documentId)}`
     : documentHomeHref;
-  const documentPageHref = (page: number) => {
-    const params = new URLSearchParams({ page: String(Math.max(1, Math.trunc(page))) });
-    return `/documents/${encodeURIComponent(documentId)}?${params.toString()}#pdf-preview-section`;
-  };
+  const usefulPageHref = (page: number) => documentPageHref(documentId, page);
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
   const summarizeTitle = canSummarizeDocument ? "Answer from this document" : "Load a source document before answering";
   const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
@@ -2739,7 +2737,7 @@ export function DocumentViewer({
               signedUrl={signedUrl}
               downloadUrl={downloadSignedUrl}
               pages={pages}
-              pageHref={documentPageHref}
+              pageHref={usefulPageHref}
               onAskFromDocument={() => void summarize()}
               onAddToScope={() => router.push(scopedDocumentHref)}
               canSummarizeDocument={canSummarizeDocument}

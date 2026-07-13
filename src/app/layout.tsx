@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import { AuthProvider } from "@/lib/supabase/client";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
+import { resolveMetadataBase } from "@/lib/metadata-base";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,28 +27,12 @@ const baseMetadata: Metadata = {
   },
 };
 
-function requestMetadataBase(requestHeaders: Headers) {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (configured) {
-    const url = new URL(configured);
-    if (url.protocol === "http:" || url.protocol === "https:") return url;
-  }
-
-  const forwardedHost = requestHeaders.get("x-forwarded-host")?.split(",")[0]?.trim();
-  const host = forwardedHost || requestHeaders.get("host")?.trim();
-  if (!host) return undefined;
-  const forwardedProtocol = requestHeaders.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
-  const protocol = forwardedProtocol === "http" || forwardedProtocol === "https" ? forwardedProtocol : "https";
-  try {
-    return new URL(`${protocol}://${host}`);
-  } catch {
-    return undefined;
-  }
-}
-
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
-  return { ...baseMetadata, metadataBase: requestMetadataBase(requestHeaders) };
+  return {
+    ...baseMetadata,
+    metadataBase: resolveMetadataBase(requestHeaders, process.env.NEXT_PUBLIC_SITE_URL),
+  };
 }
 
 export const viewport: Viewport = {

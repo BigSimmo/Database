@@ -1,11 +1,29 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-describe("production metadata origin", () => {
-  it("derives metadata from the request instead of a localhost production fallback", () => {
-    const source = readFileSync(new URL("../src/app/layout.tsx", import.meta.url), "utf8");
+import { resolveMetadataBase } from "../src/lib/metadata-base";
 
-    expect(source).toContain("export async function generateMetadata");
-    expect(source).not.toContain('metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000")');
+describe("production metadata origin", () => {
+  it.each(["http://clinical.test", "https://clinical.test"])(
+    "uses a configured HTTP(S) origin: %s",
+    (configuredOrigin) => {
+      expect(resolveMetadataBase(new Headers(), configuredOrigin)?.href).toBe(`${configuredOrigin}/`);
+    },
+  );
+
+  it("derives the origin from forwarded request headers when configuration is absent", () => {
+    const requestHeaders = new Headers({
+      host: "internal.test:3000",
+      "x-forwarded-host": "clinical.example.org, proxy.internal",
+      "x-forwarded-proto": "https, http",
+    });
+
+    expect(resolveMetadataBase(requestHeaders)?.href).toBe("https://clinical.example.org/");
+  });
+
+  it("falls back to the request origin when the configured value is malformed", () => {
+    const requestHeaders = new Headers({ host: "clinical.example.org" });
+
+    expect(() => resolveMetadataBase(requestHeaders, "not a valid URL")).not.toThrow();
+    expect(resolveMetadataBase(requestHeaders, "not a valid URL")?.href).toBe("https://clinical.example.org/");
   });
 });
