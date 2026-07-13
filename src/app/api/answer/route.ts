@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
@@ -71,13 +72,14 @@ function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string
 }
 
 export async function POST(request: Request) {
+  const interactionId = randomUUID();
   const routeStartedAt = Date.now();
   let body: AnswerRequestBody | null = null;
   try {
     const answerBody = await parseJsonBody(request, answerSchema, "Invalid answer request.");
     body = answerBody;
     if (isDemoMode()) {
-      return NextResponse.json(buildDemoAnswerPayload(answerBody));
+      return NextResponse.json({ ...buildDemoAnswerPayload(answerBody), interactionId });
     }
 
     const supabase = createAdminClient();
@@ -111,6 +113,7 @@ export async function POST(request: Request) {
         degradedMode: answerDegradedModeSignal(),
         scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+        interactionId,
       });
     }
 
@@ -165,6 +168,7 @@ export async function POST(request: Request) {
         degradedMode: answerDegradedModeSignal(answer),
         scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: warnings,
+        interactionId,
       });
     }
 
@@ -182,6 +186,7 @@ export async function POST(request: Request) {
         degradedMode: answerDegradedModeSignal(answer),
         scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: warnings,
+        interactionId,
       },
       serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
     );
@@ -199,9 +204,10 @@ export async function POST(request: Request) {
       const fallbackBody = body;
       const fallbackReason = fallbackBody ? nonProductionSupabaseDemoFallbackReason(error) : null;
       if (fallbackBody && fallbackReason) {
-        return NextResponse.json(buildDemoAnswerPayload(fallbackBody, fallbackReason), {
-          headers: { "X-Clinical-KB-Fallback": fallbackReason },
-        });
+        return NextResponse.json(
+          { ...buildDemoAnswerPayload(fallbackBody, fallbackReason), interactionId },
+          { headers: { "X-Clinical-KB-Fallback": fallbackReason } },
+        );
       }
       return jsonError(
         new PublicApiError("Answer generation failed. Retry with a narrower question.", 500, { code: error.name }),
