@@ -1,11 +1,4 @@
-import type { Metadata } from "next";
-
-import { ApplicationsLauncherPage } from "@/components/applications-launcher-page";
-
-export const metadata: Metadata = {
-  title: "Applications - Clinical KB",
-  description: "Launch Clinical KB applications, workflows, and connected clinical tools.",
-};
+import { redirect } from "next/navigation";
 
 type ApplicationsPageProps = {
   searchParams?: Promise<{
@@ -17,9 +10,10 @@ function firstSearchParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export default async function ApplicationsRoute({ searchParams }: ApplicationsPageProps) {
+// "Tools" is the canonical name and /tools the canonical route (PT-11); this
+// legacy route only forwards old links and browser history.
+export default async function ApplicationsRedirect({ searchParams }: ApplicationsPageProps) {
   const params = searchParams ? await searchParams : {};
   const query = firstSearchParam(params.q)?.trim();
-
-  return query ? <ApplicationsLauncherPage key={query} query={query} /> : <ApplicationsLauncherPage />;
+  redirect(query ? `/tools?q=${encodeURIComponent(query)}` : "/tools");
 }
