@@ -51,9 +51,9 @@ describe("production metadata origin", () => {
   });
 
   it("uses the trusted deployment domain as-is when it already carries an explicit scheme", () => {
-    expect(
-      resolveMetadataBase(new Headers(), { trustedDeploymentDomain: "http://staging.up.railway.app" })?.href,
-    ).toBe("http://staging.up.railway.app/");
+    expect(resolveMetadataBase(new Headers(), { trustedDeploymentDomain: "http://staging.up.railway.app" })?.href).toBe(
+      "http://staging.up.railway.app/",
+    );
   });
 
   it("rejects a configured origin with a non-HTTP(S) protocol and falls through", () => {
@@ -86,12 +86,8 @@ describe("production metadata origin", () => {
     const missingProto = new Headers({ host: "clinical.example.org" });
     const invalidProto = new Headers({ host: "clinical.example.org", "x-forwarded-proto": "ws" });
 
-    expect(resolveMetadataBase(missingProto, { allowRequestOrigin: true })?.href).toBe(
-      "https://clinical.example.org/",
-    );
-    expect(resolveMetadataBase(invalidProto, { allowRequestOrigin: true })?.href).toBe(
-      "https://clinical.example.org/",
-    );
+    expect(resolveMetadataBase(missingProto, { allowRequestOrigin: true })?.href).toBe("https://clinical.example.org/");
+    expect(resolveMetadataBase(invalidProto, { allowRequestOrigin: true })?.href).toBe("https://clinical.example.org/");
   });
 
   it("returns undefined when the dev fallback is allowed but no host header is present", () => {
