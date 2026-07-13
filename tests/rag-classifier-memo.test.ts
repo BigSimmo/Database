@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { zodTextFormat } from "openai/helpers/zod";
+import type { ZodType } from "zod";
 
 // Finding #11 interim fix: the LLM classifier verdict must be deterministic per query for
 // the memo TTL window, so the unsupported short-circuit cannot flip run-to-run and return
@@ -79,6 +81,38 @@ describe("classifier verdict memoization", () => {
 
     expect(mock).toHaveBeenCalledTimes(1);
     // Rejected verdict (confidence < 0.58) leaves the deterministic analysis untouched.
+    expect(first).toBe(analysis);
+    expect(second).toBe(analysis);
+  });
+
+  it("sends only supported structural constraints to Structured Outputs", async () => {
+    const mock = vi.fn(async () => classifierResponse());
+    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+
+    await rag.analyzeQueryWithClassifierFallback(query, analysis);
+
+    const calls = mock.mock.calls as unknown as Array<[unknown, ZodType, unknown]>;
+    const format = zodTextFormat(calls[0]![1], "classifier_schema_probe");
+    const schemaJson = JSON.stringify(format);
+    expect(schemaJson).not.toMatch(/"(?:minimum|maximum|maxItems|maxLength)"/);
+  });
+
+  it("rejects out-of-bounds classifier output after parsing and keeps it retryable", async () => {
+    const mock = vi.fn(async () =>
+      classifierResponse({
+        confidence: 1.1,
+        reasons: Array.from({ length: 5 }, (_, index) => `reason-${index}`),
+        expandedTerms: Array.from({ length: 11 }, (_, index) => `term-${index}`),
+      }),
+    );
+    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+
+    const first = await rag.analyzeQueryWithClassifierFallback(query, analysis);
+    const second = await rag.analyzeQueryWithClassifierFallback(query, analysis);
+
+    expect(mock).toHaveBeenCalledTimes(2);
     expect(first).toBe(analysis);
     expect(second).toBe(analysis);
   });

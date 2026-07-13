@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   buildExtractiveAnswer,
+  hasMaximumDoseEvidence,
   sentenceFromFact,
   splitClinicalEvidenceSentences,
 } from "../src/lib/rag-extractive-answer";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
+
+describe("maximum-dose evidence", () => {
+  it("accepts equivalent numeric limit wording without accepting an unrelated dose", () => {
+    expect(hasMaximumDoseEvidence("Olanzapine may be increased up to 20 mg daily.")).toBe(true);
+    expect(hasMaximumDoseEvidence("The total daily dose must not exceed 20 mg.")).toBe(true);
+    expect(hasMaximumDoseEvidence("Use no more than 2 tablets daily.")).toBe(true);
+    expect(hasMaximumDoseEvidence("The starting dose is 5 mg daily.")).toBe(false);
+  });
+});
 
 // Regression for the live source-only answer that rendered as:
 // "For lithium, twice daily dosing should be spaced by 12 hours. The guidance

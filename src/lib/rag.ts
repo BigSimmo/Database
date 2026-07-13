@@ -143,6 +143,7 @@ import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
 import {
+  SOURCE_BACKED_REVIEW_FALLBACK_REASON,
   chooseAnswerRoute,
   hasAdversarialManipulationIntent,
   hasDirectTitleSupport,
@@ -1230,11 +1231,17 @@ const queryClassifierParseSchema = z
       "broad_summary",
       "unsupported_or_general",
     ]),
-    confidence: z.number().min(0).max(1),
-    reasons: z.array(z.string().max(80)).max(4),
-    expandedTerms: z.array(z.string().max(60)).max(10),
+    confidence: z.number(),
+    reasons: z.array(z.string()),
+    expandedTerms: z.array(z.string()),
   })
   .strict();
+
+const queryClassifierVerdictSchema = queryClassifierParseSchema.extend({
+  confidence: z.number().min(0).max(1),
+  reasons: z.array(z.string().max(80)).max(4),
+  expandedTerms: z.array(z.string().max(60)).max(10),
+});
 
 /** Unique text values. */
 function uniqueTextValues(values: Array<string | null | undefined>, limit = 32) {
@@ -1252,7 +1259,7 @@ function uniqueTextValues(values: Array<string | null | undefined>, limit = 32) 
   return output;
 }
 
-type ClassifierVerdict = z.infer<typeof queryClassifierParseSchema>;
+type ClassifierVerdict = z.infer<typeof queryClassifierVerdictSchema>;
 
 // Finding #11 interim fix (docs/process-hardening.md): the LLM classifier verdict flips
 // run-to-run for the same query, so the unsupported short-circuit downstream intermittently
@@ -1334,7 +1341,7 @@ async function requestClassifierVerdict(
       safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(ownerId) : undefined,
     },
   );
-  return result.parsed;
+  return queryClassifierVerdictSchema.parse(result.parsed);
 }
 
 /** Apply classifier verdict. */
@@ -4074,7 +4081,7 @@ export function isCacheableGroundedGenerationFallback(
     answer.citations.length > 0 &&
     (answer.unverifiedNumericTokens?.length ?? 0) === 0 &&
     /(?:source_backed_extractive_fallback|comparison_source_safe_fallback)/.test(answer.routingReason ?? "") &&
-    !/source_backed_review_fallback/.test(answer.routingReason ?? "")
+    !(answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON)
   );
 }
 
@@ -4647,7 +4654,7 @@ async function answerQuestionWithScopeUncoalesced(
       : compactCitations(answerInputResults, 5, "deterministic_support");
     const extractiveNeedsReviewFallback = !finalizedAnswer.grounded && extractiveReviewCitations.length > 0;
     if (extractiveNeedsReviewFallback) {
-      const reviewRouteReason = `${answer.routingReason ?? route.reason}; source_backed_review_fallback`;
+      const reviewRouteReason = `${answer.routingReason ?? route.reason}; ${SOURCE_BACKED_REVIEW_FALLBACK_REASON}`;
       const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
       finalizedAnswer = finalizeRagAnswerQuality(
         {
@@ -5632,7 +5639,7 @@ ${qualityRetryInstruction}`
             const reviewRouteReason = [
               route.reason,
               `generation_fallback:${sanitizedReason}`,
-              "source_backed_review_fallback",
+              SOURCE_BACKED_REVIEW_FALLBACK_REASON,
               `extractive_quality_gate:${sourceBackedReviewReason}`,
             ].join("; ");
             const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
@@ -5665,7 +5672,7 @@ ${qualityRetryInstruction}`
       const reviewRouteReason = [
         route.reason,
         `generation_fallback:${sanitizedReason}`,
-        "source_backed_review_fallback",
+        SOURCE_BACKED_REVIEW_FALLBACK_REASON,
         "post_generation_claim_quality_gate",
       ].join("; ");
       const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);

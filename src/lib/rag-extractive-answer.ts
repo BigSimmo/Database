@@ -377,6 +377,16 @@ function hasWithholdActionEvidence(text: string) {
   );
 }
 
+/** Has explicit or equivalent maximum-dose evidence. */
+export function hasMaximumDoseEvidence(text: string) {
+  return (
+    /\bmax(?:imum)?\b/i.test(text) ||
+    /\b(?:up\s+to|(?:do\s+)?not\s+exceed|no\s+more\s+than|at\s+most|limit(?:ed)?\s+to)\s+\d+(?:\.\d+)?\s*(?:mg|mcg|micrograms?|g|kg|ml|l|units?|iu|mmol(?:\/l)?|meq|tablets?|capsules?|puffs?|drops?|sprays?|patch(?:es)?)\b/i.test(
+      text,
+    )
+  );
+}
+
 /** Result covers answer intent. */
 function resultCoversAnswerIntent(result: SearchResult, query: string, intent: AnswerIntent) {
   if (intent === "unsupported") return false;
@@ -395,7 +405,7 @@ function resultCoversAnswerIntent(result: SearchResult, query: string, intent: A
   if (intent === "red_result_action" && requiresBloodCountEvidence(query) && !hasBloodCountEvidence(text)) return false;
   if (intent === "red_result_action" && asksForWithholdAction(query) && !hasWithholdActionEvidence(text)) return false;
   if (/\brenal\b/i.test(query) && !/\b(?:renal|kidney|eGFR|creatinine)\b/i.test(text)) return false;
-  if (/\bmax(?:imum)?\b/i.test(query) && !/\bmax(?:imum)?\b/i.test(text)) {
+  if (/\bmax(?:imum)?\b/i.test(query) && !hasMaximumDoseEvidence(text)) {
     return false;
   }
   return true;
@@ -687,7 +697,7 @@ function factSupportsAnswerIntent(
         }
       }
       if (/\brenal\b/i.test(query) && !/\b(?:renal|kidney|eGFR|creatinine|CrCl)\b/i.test(text)) return false;
-      if (/\bmax(?:imum)?\b/i.test(query) && !/\bmax(?:imum)?\b/i.test(text)) {
+      if (/\bmax(?:imum)?\b/i.test(query) && !hasMaximumDoseEvidence(text)) {
         return false;
       }
       return extractiveConcreteDosePattern.test(text);

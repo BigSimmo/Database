@@ -79,7 +79,7 @@ async function main() {
   const targetingByIntent = new Map<string, { applicable: number; hit: number }>();
   let targetingApplicable = 0;
   let targetingHit = 0;
-  const targetingMisses: Array<{ id: string; intent: string; reason: string; answer: string }> = [];
+  const targetingMisses: Array<{ id: string; intent: string; reason: string; answer_length: number }> = [];
   const caseResults: Array<Record<string, unknown>> = [];
 
   for (const testCase of cases) {
@@ -105,7 +105,7 @@ async function main() {
           id: testCase.id,
           intent: testCase.expectedIntent,
           reason: targeting.reason,
-          answer: (answer.answer ?? "").replace(/\s+/g, " ").slice(0, 160),
+          answer_length: answer.answer?.length ?? 0,
         });
       }
     }
@@ -123,7 +123,7 @@ async function main() {
       metrics: Object.fromEntries(metricScores.map((score) => [score.metric, score.score])),
       targeting: targeting.applicable ? targeting.score : null,
       targeting_reason: targeting.reason,
-      answer: (answer.answer ?? "").replace(/\s+/g, " ").slice(0, 240),
+      answer_length: answer.answer?.length ?? 0,
     });
   }
 
@@ -165,7 +165,7 @@ async function main() {
     if (targetingMisses.length) {
       console.log("  targeting_misses:");
       for (const miss of targetingMisses) {
-        console.log(`    [${miss.intent}] ${miss.id}: ${miss.reason} :: "${miss.answer}"`);
+        console.log(`    [${miss.intent}] ${miss.id}: ${miss.reason} :: answer_length=${miss.answer_length}`);
       }
     }
   }

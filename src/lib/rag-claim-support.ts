@@ -1,4 +1,5 @@
 import { extractClinicalValueAtoms, type ClinicalValueAtom } from "@/lib/answer-verification";
+import { SOURCE_BACKED_REVIEW_FALLBACK_REASON } from "@/lib/rag-routing";
 import type { CitationProvenance, EvidenceAssessment, RagAnswer, SearchResult, SupportedClaim } from "@/lib/types";
 
 const acceptedProvenance = new Set<CitationProvenance>([
@@ -394,7 +395,7 @@ export function assessClaimSupport(answer: RagAnswer) {
     (answer.preformatted &&
       (answer.answerSections?.length ?? 0) > 0 &&
       (answer.answerSections ?? []).every((section) => section.kind === "documentation"));
-  const sourceBackedReviewAnswer = /\bsource_backed_review_fallback\b/.test(answer.routingReason ?? "");
+  const sourceBackedReviewAnswer = (answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON);
   const inputs = claimInputs(answer);
   const claims = inputs.map((input, index) =>
     claimAssessment(input, index, sourceById, Boolean(documentLookupAnswer || sourceBackedReviewAnswer)),
