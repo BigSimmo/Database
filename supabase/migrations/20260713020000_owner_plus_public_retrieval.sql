@@ -44,15 +44,19 @@ create or replace function public.match_document_chunks_text_v2(
   lexical_score double precision, images jsonb
 ) language sql stable set search_path = public, extensions, pg_temp as $$
   with combined as (
-    select id, document_id, title, file_name, page_number, chunk_index, section_heading, content,
-      retrieval_synopsis, image_ids, source_metadata, document_labels, document_summary,
-      similarity, text_rank, hybrid_score, hybrid_score as lexical_score, images
-    from public.match_document_chunks_text($1, $2, $3, $4)
+    select hit.id, hit.document_id, hit.title, hit.file_name, hit.page_number, hit.chunk_index,
+      hit.section_heading, hit.content, hit.retrieval_synopsis, hit.image_ids, hit.source_metadata,
+      hit.document_labels, hit.document_summary, hit.similarity, hit.text_rank, hit.hybrid_score,
+      coalesce(nullif(to_jsonb(hit)->>'lexical_score', '')::double precision, hit.hybrid_score) as lexical_score,
+      hit.images
+    from public.match_document_chunks_text($1, $2, $3, $4) hit
     union all
-    select id, document_id, title, file_name, page_number, chunk_index, section_heading, content,
-      retrieval_synopsis, image_ids, source_metadata, document_labels, document_summary,
-      similarity, text_rank, hybrid_score, hybrid_score as lexical_score, images
-    from public.match_document_chunks_text($1, $2, $3, '00000000-0000-0000-0000-000000000000'::uuid)
+    select hit.id, hit.document_id, hit.title, hit.file_name, hit.page_number, hit.chunk_index,
+      hit.section_heading, hit.content, hit.retrieval_synopsis, hit.image_ids, hit.source_metadata,
+      hit.document_labels, hit.document_summary, hit.similarity, hit.text_rank, hit.hybrid_score,
+      coalesce(nullif(to_jsonb(hit)->>'lexical_score', '')::double precision, hit.hybrid_score) as lexical_score,
+      hit.images
+    from public.match_document_chunks_text($1, $2, $3, '00000000-0000-0000-0000-000000000000'::uuid) hit
     where $5 and $4 <> '00000000-0000-0000-0000-000000000000'::uuid
   ), deduped as (
     select *, row_number() over (partition by id order by hybrid_score desc, text_rank desc) as access_rank
@@ -185,9 +189,15 @@ create or replace function public.match_document_table_facts_text_v2(
   text_rank double precision, match_reason text, metadata jsonb
 ) language sql stable set search_path = public, extensions, pg_temp as $$
   with combined as (
-    select * from public.match_document_table_facts_text($1, $2, $3, $4)
+    select fact.id, fact.document_id, fact.source_chunk_id, fact.source_image_id, fact.page_number,
+      fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action,
+      fact.text_rank, fact.match_reason, coalesce(to_jsonb(fact)->'metadata', '{}'::jsonb) as metadata
+    from public.match_document_table_facts_text($1, $2, $3, $4) fact
     union all
-    select * from public.match_document_table_facts_text($1, $2, $3, '00000000-0000-0000-0000-000000000000'::uuid)
+    select fact.id, fact.document_id, fact.source_chunk_id, fact.source_image_id, fact.page_number,
+      fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action,
+      fact.text_rank, fact.match_reason, coalesce(to_jsonb(fact)->'metadata', '{}'::jsonb) as metadata
+    from public.match_document_table_facts_text($1, $2, $3, '00000000-0000-0000-0000-000000000000'::uuid) fact
     where $5 and $4 <> '00000000-0000-0000-0000-000000000000'::uuid
   ), ranked as (select *, row_number() over (partition by id order by text_rank desc) access_rank from combined)
   select id, document_id, source_chunk_id, source_image_id, page_number, table_title, row_label,
