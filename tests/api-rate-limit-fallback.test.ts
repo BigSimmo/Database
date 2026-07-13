@@ -213,7 +213,7 @@ describe("document_upload fail-closed limiter", () => {
       isLocalNoAuthMode: () => false,
     }));
     const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
-    const rpc = vi.fn(async (_functionName: string, _args: Record<string, unknown>) => ({
+    const rpc = vi.fn(async () => ({
       data: {
         limited: true,
         limit_value: 3,
@@ -232,7 +232,8 @@ describe("document_upload fail-closed limiter", () => {
 
     expect(result.limited).toBe(true);
     expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_subject_key: "anon:caller" });
+    const calls = rpc.mock.calls as unknown as Array<[string, Record<string, unknown>]>;
+    expect(calls[0]?.[1]).toMatchObject({ p_subject_key: "anon:caller" });
   });
 
   it("does not apply the dual-quota global ceiling to buckets other than answer/document_upload", async () => {
