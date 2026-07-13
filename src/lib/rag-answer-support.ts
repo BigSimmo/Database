@@ -52,6 +52,11 @@ export function fallbackReasonFromRouting(reason?: string | null) {
   );
 }
 
+/** True only when model generation failed and the answer fell back locally. */
+export function isProviderGenerationDegraded(reason?: string | null) {
+  return /(?:^|;\s*)generation_fallback(?::|$)/i.test(reason ?? "");
+}
+
 export function collectMemoryCards(results: SearchResult[], limit = 8) {
   const seen = new Set<string>();
   const cards: DocumentMemoryCard[] = [];

@@ -1,8 +1,9 @@
 # RAG Hybrid Retrieval — Findings & To-Do (2026-07-01)
 
 Living list of issues found while fixing the live-only hybrid-RPC schema drift and optimising the
-online RAG. Grouped by priority. Anything marked ✅ is done + validated this workstream; ⏳ is the
-outstanding backlog. See also the master plan
+online RAG. Grouped by priority. **Last reconciled: 2026-07-14.** `✅` is complete/closed, `🔶` is
+partially complete with an explicit remaining action, and `⏳` is genuinely open. Historical
+measurements are evidence, not instructions to repeat provider-backed work without approval. See also the master plan
 (`C:\Users\joshs\.claude\plans\please-review-the-current-synthetic-pinwheel.md`) for RC IDs and
 `docs/search-rag-master-plan.md`.
 
@@ -113,10 +114,9 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
 
 ## P2 — latency, eval coverage, data
 
-7. ⏳ **p90 retrieval ~8.6s on hybrid cases.** Multiple sequential Supabase RPC round-trips per query
-   (embedding + chunks + table_facts + embedding_fields + index_units + memory_cards + rerank). Some of
-   this is local-machine→remote-DB network latency (prod is co-located), but consider firing the
-   independent layer RPCs in parallel and/or trimming layers that don't move recall.
+7. 🔶 **Historical p90 retrieval ~8.6s; superseded by item 25.** Multiple sequential Supabase RPC
+   round-trips remain relevant, but the approved 2026-07-14 live comparison found a much wider tail
+   driven by slow hybrid RPC execution. Use item 25 for the current evidence and next action.
 8. ✅ **Golden eval set expanded 10 → 23 (2026-07-01).** Added 12 verified cases built from real
    corpus content (condition guidelines — bipolar, alcohol, opioid, schizophrenia, insomnia, suicide,
    depression — which the original EMHS-only set lacked) across broad_summary/comparison/
@@ -231,11 +231,19 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
 
 ## P2 — offline/fallback remainder (Workstream F)
 
-11. ⏳ Global **AI-status indicator** + health probe (is OpenAI reachable/degraded).
-12. ⏳ **Answer cache for true offline reuse** (`rag_response_cache` `cache_kind='answer'`), marked "cached".
-13. ⏳ Tag the **auto-degrade generation-failure** fallback (`buildGenerationFallbackAnswer` returns
-    before the labelling wrapper, so it isn't stamped `source_only`).
-14. ⏳ Playwright assertion for the `source-only-disclosure` badge (needs the running app).
+11. 🔶 **AI degradation visibility — PARTIAL.** Deep health exposes configured provider mode plus
+    trailing degraded-answer and failure counters without making a paid provider call. Remaining:
+    wire the existing thresholds/nightly canary into an operator alert channel. Do not add an active
+    OpenAI request to the ordinary health endpoint merely to report reachability.
+12. ✅ **Answer cache for offline/repeat reuse — DONE.** Process-local and owner-scoped shared
+    `rag_response_cache` `cache_kind='answer'` paths are implemented and labelled as cached. The
+    2026-07-14 retention reconciliation removes the duplicate unbounded purge job and keeps one
+    hourly purge capped at 1,000 expired rows. Applied live 2026-07-14: bounded job 16 is active, the
+    duplicate unbounded job is absent, and the cache contained no expired rows at verification time.
+13. ✅ **Auto-degrade generation fallback labelling — DONE.** Final answer quality labelling stamps
+    source-only answers with `answerQualityTier`, `fallbackReason`, and explicit `degradedMode`.
+14. ✅ **Source-only disclosure browser assertion — DONE.** `tests/ui-smoke.spec.ts` asserts the
+    `source-only-disclosure` badge and verify-against-sources guidance.
 
 ## P2 — naturalness residual
 
@@ -325,26 +333,35 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     registry `POST`/`PATCH`/`PUT` path must call `bestEffortReembedRegistryRecordAfterEdit` after the
     write commits. Remaining non-blocking UX follow-up: an answer-mode check that registry-backed
     citations render as curated registry records rather than primary source documents.
-23. ⏳ **Finding #11 full fix (RAG optimisation Phase 2)** — the classifier-verdict memo (shipped
-    2026-07-06) makes zero-result behaviour deterministic per query but does not close the gap:
-    the deterministic analyzer still cannot tell in-corpus topics from out-of-corpus ones.
-    Phase-2 spec stands (corpus-grounded relevance: IDF/corpus-frequency weighting of query
-    terms + data-driven vocabulary), with the added prerequisite that item 17's vocabulary
-    capture now supplies real miss data to seed the vocabulary from.
+23. ✅ **Finding #11 full fix — CLOSED.** The corpus-grounded relevance implementation described in
+    item 10 (2026-07-07) superseded the earlier classifier-memo-only state. In-corpus bare topics and
+    corpus-absent invented terms now follow deterministic corpus evidence; no duplicate Phase-2 task
+    remains. Item 17's broader alias-promotion privacy/design work remains separate.
 24. ⏳ **OCR dropped-letter corruption in table index units** — no reliable detector exists (82%
     false positives; guard reverted). Next viable angle: dictionary-based repair at INGESTION
     (compare table-cell tokens against the document's own clean chunk text — "p ycho ocial"
     aligns to "psychosocial" within the same page's raw text) rather than heuristic detection at
     query time. Scope to `worker/` table extraction; requires the Python OCR stack to test.
-25. ⏳ **Retrieval/RAG latency remains a performance backlog, not a current gate blocker.**
+25. 🔶 **Retrieval/RAG latency — serial-depth fixes landed locally; live tail isolated to DB RPCs.**
     Post-registry retrieval stayed quality-clean (`top_k_hit_rate=1`, `document_recall_at_5=1`,
     `content_recall_at_5=1`, `force_embedding_failure_count=0`) with local `p90_latency_ms=13145`.
     Post-routing RAG-only passed with `p95_latency_ms=20385` and no blocking threshold failures, but
-    local-machine→remote-DB latency and remaining sequential layers still justify a dedicated perf pass.
-    Next step (measure first): instrument the existing per-request `documentRankingMetadataCache` to
-    quantify incremental cache misses/fetches before changing enrichment, then test starting
-    `embedTextWithTelemetry` concurrently only when `forceEmbedding` is set or routing has already ruled
-    out an accepted lexical/document fast path. Do not preload embeddings unconditionally: preserve
-    source-only and lexical-only behavior, and record provider-call count plus whether each embedding
-    result was consumed so any p90 gain is weighed against cost. Gate with the golden eval unchanged,
-    provider usage unchanged or explicitly accepted, and p90 from `rag_retrieval_logs` before/after.
+    local-machine→remote-DB latency and remaining sequential layers still justify a measured perf pass.
+    The 2026-07-14 local fix removes the second blocking `rag_response_cache` miss-diagnostic query and
+    starts document metadata/index-quality plus page/direct-image hydration reads concurrently. Focused
+    tests prove one shared-cache read per filtered miss and both concurrency boundaries.
+
+    **Approved live comparison (2026-07-14):** a warmed repeat reported `supabase_rpc_latency_ms=0`,
+    while two cold synthesis probes spent 48.5–49.4s in Supabase RPCs and 51–53s total. A six-case
+    live-database retrieval run on the local code kept `document_recall_at_5=1`,
+    `content_recall_at_5=1`, and `top_k_hit_rate=1`, with 1.8s median / 47.3s p90. Database statement
+    statistics identify the legacy hybrid chunk/embedding-field RPC families as the tail source, with
+    material temporary I/O. Forced-embedding/model-routing evaluation stopped after the provider
+    returned quota exhaustion; no model or production configuration was changed.
+
+    **Next smallest performance work:** capture `EXPLAIN (ANALYZE, BUFFERS)` for the slow RPC shapes
+    with non-sensitive fixtures, optimise those plans, and then compare Micro versus Small primary
+    compute if the plans remain memory-bound. Do not create a Singapore read replica yet: replicas
+    require at least Small compute and would duplicate the same slow plans while adding asynchronous
+    freshness/read-routing work. Reconsider only after database execution is fast enough that network
+    RTT is again a material share.
