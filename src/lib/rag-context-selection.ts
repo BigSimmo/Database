@@ -1,4 +1,7 @@
 import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
+import { selectAustralianClinicalContext } from "@/lib/australian-source-priority";
+
+export { summarizeAustralianSourceSelection } from "@/lib/australian-source-priority";
 
 const fastRoutineModelContextLimit = 4;
 
@@ -28,15 +31,12 @@ export function selectModelContextResults(args: {
   crossDocument: boolean;
   results: SearchResult[];
 }) {
+  if (args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold") {
+    return selectAustralianClinicalContext(args.results);
+  }
   const results = capPerDocumentCrowding(args.results);
   if (args.routeMode !== "fast") return results;
-  if (
-    args.crossDocument ||
-    args.queryClass === "comparison" ||
-    args.queryClass === "broad_summary" ||
-    args.queryClass === "medication_dose_risk" ||
-    args.queryClass === "table_threshold"
-  ) {
+  if (args.crossDocument || args.queryClass === "comparison" || args.queryClass === "broad_summary") {
     return results;
   }
   return results.slice(0, fastRoutineModelContextLimit);

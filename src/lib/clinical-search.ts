@@ -1242,17 +1242,17 @@ export function buildClinicalTextSearchQuery(query: string) {
     /\bmissed\b/i.test(correctedQueryText) &&
     /\bdose\b/i.test(correctedQueryText);
   const hasAgitationArousalTypo = /\b(?:agitaton|arousl|arrousal)\b/i.test(query);
+  const hasAgitationArousalContext =
+    (hasAgitationArousalTypo && /\bagitation\b/i.test(correctedQueryText) && /\barousal\b/i.test(correctedQueryText)) ||
+    /\bagitation\b/i.test(correctedQueryText);
   const wantsAgitationArousal =
-    ((hasAgitationArousalTypo &&
-      /\bagitation\b/i.test(correctedQueryText) &&
-      /\barousal\b/i.test(correctedQueryText)) ||
-      /\bagitation\b/i.test(correctedQueryText)) &&
+    hasAgitationArousalContext &&
     /\b(?:dose|dosing|guidance|inpatient|psychiatric|route|oral|intramuscular|\bim\b|\bpo\b|chart|table|pharmacolog)/i.test(
       correctedQueryText,
     );
-  const wantsAgitationDoseRouteEvidence =
+  const wantsAgitationMedicationChart =
     wantsAgitationArousal &&
-    /\b(?:dose|dosing|route|oral|intramuscular|\bim\b|\bpo\b|chart|table)\b/i.test(correctedQueryText);
+    /\b(?:dose|dosing|route|oral|intramuscular|im|po|chart|table|options?|listed)\b/i.test(correctedQueryText);
 
   if (wantsClozapineMissedDose) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "missed", "dose", "monitoring", "table");
@@ -1264,7 +1264,7 @@ export function buildClinicalTextSearchQuery(query: string) {
     normalizedTokens.unshift(...visualTokens);
   } else if (wantsClozapineBloodMonitoring) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "monitoring");
-  } else if (wantsAgitationArousal) {
+  } else if (wantsAgitationMedicationChart) {
     normalizedTokens.splice(
       0,
       normalizedTokens.length,
@@ -1272,8 +1272,15 @@ export function buildClinicalTextSearchQuery(query: string) {
       "arousal",
       "pharmacological",
       "management",
-      ...(wantsAgitationDoseRouteEvidence ? ["medication", "chart", "dose", "route", "im", "po"] : []),
+      "medication",
+      "chart",
+      "dose",
+      "route",
+      "im",
+      "po",
     );
+  } else if (wantsAgitationArousal) {
+    normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", "pharmacological", "management");
   } else if (/\badmission\b/i.test(query) && /\bcommunity patients?\b/i.test(query)) {
     normalizedTokens.unshift("admission", "community", "patients", "pts");
   } else if (/\bdischarge\b/i.test(query) && /\b(?:summari[sz]e|summary|guidance|documentation?)\b/i.test(query)) {

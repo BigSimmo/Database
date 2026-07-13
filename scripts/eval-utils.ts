@@ -77,6 +77,25 @@ export async function withProviderBackoff<T>(
   throw new Error(`Provider retry loop exhausted for ${label}.`);
 }
 
+export async function withProviderBackoffProgress<TProgress, TResult>(
+  label: string,
+  operation: (onProgress: (event: TProgress) => void) => Promise<TResult>,
+  options: { maxAttempts?: number; initialDelayMs?: number; maxDelayMs?: number } = {},
+) {
+  let successfulProgress: TProgress[] = [];
+  const result = await withProviderBackoff(
+    label,
+    async () => {
+      const attemptProgress: TProgress[] = [];
+      const attemptResult = await operation((event) => attemptProgress.push(event));
+      successfulProgress = attemptProgress;
+      return attemptResult;
+    },
+    options,
+  );
+  return { result, progress: successfulProgress };
+}
+
 export async function findOwnerIdByEmail(supabase: SupabaseAdmin, email: string) {
   const normalized = email.trim().toLowerCase();
   const perPage = 1000;
@@ -149,6 +168,11 @@ export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
     testCase.expectedFiles.length > 1 ? 5 : 3,
   );
   const expectedHit = testCase.expectedFiles.length > 1 ? expectedCoverage.allHit : expectedCoverage.anyHit;
+  const expectedCitationCoverage = expectedFileCoverage(
+    testCase.expectedFiles,
+    answer.citations,
+    answer.citations.length,
+  );
   const route = answer.routingMode ?? "unsupported";
   const visualEvidence = answer.visualEvidence ?? [];
 
@@ -167,6 +191,9 @@ export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
   }
   if (answer.citations.length < testCase.minCitations)
     failures.push(`expected at least ${testCase.minCitations} citations`);
+  if (testCase.requireExpectedFileCitation && !expectedCitationCoverage.allHit) {
+    failures.push(`expected documents missing from citations: ${expectedCitationCoverage.missingFiles.join(", ")}`);
+  }
   if (testCase.expectedFiles.length > 1 && !expectedCoverage.allHit) {
     failures.push(`expected documents missing from top 5: ${expectedCoverage.missingFiles.join(", ")}`);
   } else if (testCase.expectedFiles.length === 1 && !expectedCoverage.anyHit) {

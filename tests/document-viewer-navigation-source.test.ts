@@ -17,4 +17,16 @@ describe("document viewer useful-page navigation", () => {
       "/documents/document-id?page=1#pdf-preview-section",
     );
   });
+
+  it("normalizes negative page numbers to the first page", () => {
+    expect(documentPageHref("document-id", -5)).toBe("/documents/document-id?page=1#pdf-preview-section");
+  });
+
+  it("truncates fractional page numbers toward zero", () => {
+    expect(documentPageHref("document-id", 3.9)).toBe("/documents/document-id?page=3#pdf-preview-section");
+  });
+
+  it("encodes documentId characters that are meaningful in a URL", () => {
+    expect(documentPageHref("doc id&value", 2)).toBe("/documents/doc%20id%26value?page=2#pdf-preview-section");
+  });
 });

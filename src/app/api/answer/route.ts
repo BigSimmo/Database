@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
@@ -24,6 +25,7 @@ import { parseJsonBody } from "@/lib/validation/body";
 import { toClientAnswerPayload } from "@/lib/answer-client-payload";
 import { answerServerTimingEntries, buildServerTimingHeader } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { captureServerException } from "@/lib/observability/error-capture";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
@@ -62,13 +64,14 @@ function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string
 }
 
 export async function POST(request: Request) {
+  const interactionId = randomUUID();
   const routeStartedAt = Date.now();
   let body: AnswerRequestBody | null = null;
   try {
     const answerBody = await parseJsonBody(request, answerRequestSchema, "Invalid answer request.");
     body = answerBody;
     if (isDemoMode()) {
-      return NextResponse.json(buildDemoAnswerPayload(answerBody));
+      return NextResponse.json({ ...buildDemoAnswerPayload(answerBody), interactionId });
     }
 
     const supabase = createAdminClient();
@@ -102,6 +105,7 @@ export async function POST(request: Request) {
         degradedMode: answerDegradedModeSignal(),
         scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+        interactionId,
       });
     }
 
@@ -156,6 +160,7 @@ export async function POST(request: Request) {
         degradedMode: answerDegradedModeSignal(answer),
         scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: warnings,
+        interactionId,
       });
     }
 
@@ -173,6 +178,7 @@ export async function POST(request: Request) {
         degradedMode: answerDegradedModeSignal(answer),
         scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: warnings,
+        interactionId,
       },
       serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
     );
@@ -183,21 +189,34 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
     }
+    const clientAborted = (error instanceof DOMException && error.name === "AbortError") || request.signal.aborted;
     if (error instanceof PublicApiError) {
+      // Expected degradations (rate limits, provider quota/timeouts mapped < 500)
+      // are operational noise; only server-fault statuses are reported.
+      if (error.status >= 500 && !clientAborted) {
+        void captureServerException(error, { route: "api/answer", status: error.status });
+      }
       return jsonError(error, error.status);
     }
     if (error instanceof Error) {
       const fallbackBody = body;
       const fallbackReason = fallbackBody ? nonProductionSupabaseDemoFallbackReason(error) : null;
       if (fallbackBody && fallbackReason) {
-        return NextResponse.json(buildDemoAnswerPayload(fallbackBody, fallbackReason), {
-          headers: { "X-Clinical-KB-Fallback": fallbackReason },
-        });
+        return NextResponse.json(
+          { ...buildDemoAnswerPayload(fallbackBody, fallbackReason), interactionId },
+          { headers: { "X-Clinical-KB-Fallback": fallbackReason } },
+        );
+      }
+      if (!clientAborted) {
+        void captureServerException(error, { route: "api/answer", status: 500 });
       }
       return jsonError(
         new PublicApiError("Answer generation failed. Retry with a narrower question.", 500, { code: error.name }),
         500,
       );
+    }
+    if (!clientAborted) {
+      void captureServerException(error, { route: "api/answer", status: 500 });
     }
     return jsonError("Answer generation failed.", 500);
   }

@@ -74,7 +74,12 @@ import {
   ScopeAndGovernanceNotice,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
-import { AnswerEmptyState, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+import { AnswerEmptyState, AnswerProgressStepper, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+import {
+  normalizeAnswerProgressEvent,
+  type AnswerProgressUpdate,
+  type TimedAnswerProgressUpdate,
+} from "@/components/clinical-dashboard/answer-progress";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
@@ -339,12 +344,6 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-function answerStreamProgressMessage(data: unknown) {
-  if (!data || typeof data !== "object") return null;
-  const message = (data as { message?: unknown }).message;
-  return typeof message === "string" && message.trim() ? message.trim() : null;
-}
-
 function findSseSeparator(buffer: string) {
   const match = /\r?\n\r?\n/.exec(buffer);
   return match ? { index: match.index, length: match[0].length } : null;
@@ -352,7 +351,7 @@ function findSseSeparator(buffer: string) {
 
 async function readAnswerStream(
   response: Response,
-  onProgress: (message: string) => void,
+  onProgress: (progress: AnswerProgressUpdate) => void,
   onActivity?: () => void,
 ): Promise<AnswerPayload> {
   if (!response.body) throw makeSearchError("Answer stream could not be opened.", undefined, true);
@@ -360,6 +359,7 @@ async function readAnswerStream(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let pendingCompletion: AnswerProgressUpdate | null = null;
 
   function processEvent(block: string) {
     const lines = block.split(/\r?\n/);
@@ -378,11 +378,18 @@ async function readAnswerStream(
     const data = parseSseData(dataLines);
     if (data === null) return;
     if (event === "progress") {
-      const message = answerStreamProgressMessage(data);
-      if (message) onProgress(message);
+      const progress = normalizeAnswerProgressEvent(data);
+      if (progress) {
+        if (progress.stage === "complete") {
+          pendingCompletion = progress;
+        } else {
+          onProgress(progress);
+        }
+      }
       return;
     }
     if (event === "error") {
+      pendingCompletion = null;
       const message = data && typeof data === "object" ? (data as { error?: unknown }).error : null;
       const details =
         data && typeof data === "object" ? (data as { details?: { message?: unknown } | unknown }).details : null;
@@ -406,7 +413,12 @@ async function readAnswerStream(
     }
     if (event === "final") {
       if (!isAnswerPayload(data)) {
+        pendingCompletion = null;
         throw makeSearchError("Answer stream returned an invalid final payload.", 502, true);
+      }
+      if (pendingCompletion) {
+        onProgress(pendingCompletion);
+        pendingCompletion = null;
       }
       return data;
     }
@@ -438,6 +450,7 @@ async function readAnswerStream(
 
   const finalPayload = buffer.trim() ? processEvent(buffer.trim()) : null;
   if (finalPayload) return finalPayload;
+  pendingCompletion = null;
   throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
 }
 
@@ -827,6 +840,8 @@ export function ClinicalDashboard({
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
+  const [answerProgressEvents, setAnswerProgressEvents] = useState<TimedAnswerProgressUpdate[]>([]);
+  const [answerProgressStartedAt, setAnswerProgressStartedAt] = useState<number | null>(null);
   const [answerLifecycle, dispatchAnswerLifecycle] = useReducer(answerLifecycleReducer, initialAnswerLifecycle);
   const [error, setError] = useState<string | null>(null);
   // Companion state for `error`, used to pick the right recovery UI (retry vs.
@@ -1948,7 +1963,7 @@ export function ClinicalDashboard({
     queryText: string,
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
-    onProgress: (message: string) => void = setAnswerProgress,
+    onProgress: (progress: AnswerProgressUpdate) => void,
     signal?: AbortSignal,
     onStreamActivity?: () => void,
   ) {
@@ -2045,6 +2060,8 @@ export function ClinicalDashboard({
     searchAbortRef.current = null;
     setLoading(false);
     setAnswerProgress(null);
+    setAnswerProgressEvents([]);
+    setAnswerProgressStartedAt(null);
     dispatchAnswerLifecycle({ type: "cancel" });
   }
 
@@ -2117,6 +2134,7 @@ export function ClinicalDashboard({
         ? (persistPrivateSearchScope(window.sessionStorage, auth.session.user.id, selectedDocumentIds) ?? undefined)
         : undefined);
     const isDifferentialsMode = modeSearch.resultKind === "differentials";
+    const isAnswerRequest = modeSearch.resultKind === "answer";
     // Note: no automatic mode-default label scope for Services/Forms. Applying
     // one on every search routed resolveSearchScope's label path over the whole
     // library, whose single `document_labels.in(<all ids>)` request produces an
@@ -2186,6 +2204,28 @@ export function ClinicalDashboard({
     const onProgress = (message: string | null) => {
       if (requestIsCurrent()) setAnswerProgress(message);
     };
+    const onAnswerProgress = (progress: AnswerProgressUpdate) => {
+      if (!requestIsCurrent()) return;
+      setAnswerProgress(progress.message);
+      setAnswerProgressEvents((current) => {
+        const latest = current.at(-1);
+        if (
+          latest?.stage === progress.stage &&
+          latest.message === progress.message &&
+          latest.resultCount === progress.resultCount &&
+          latest.selectedContextCount === progress.selectedContextCount &&
+          latest.australianSourceCount === progress.australianSourceCount &&
+          latest.waSourceCount === progress.waSourceCount
+        ) {
+          return current;
+        }
+        return [...current, { ...progress, receivedAt: Date.now() }].slice(-16);
+      });
+    };
+    const onRetryProgress = (message: string) => {
+      if (isAnswerRequest) onAnswerProgress({ stage: "retrying", message });
+      else onProgress(message);
+    };
     // A newer search already invalidated any prior request via requestId; abort
     // its network work too so the server stops generating, then own the signal.
     searchAbortRef.current?.abort();
@@ -2203,14 +2243,28 @@ export function ClinicalDashboard({
     setSearchScope(null);
     setSourceGovernanceWarnings([]);
     setAnswerViewMode("high_yield");
-    onProgress(modeSearch.progressLabel);
+    if (isAnswerRequest) {
+      const startedAt = Date.now();
+      setAnswerProgressStartedAt(startedAt);
+      setAnswerProgressEvents([
+        {
+          stage: "scoping",
+          message: "Preparing the clinical search scope.",
+          receivedAt: startedAt,
+        },
+      ]);
+      setAnswerProgress("Preparing the clinical search scope.");
+    } else {
+      setAnswerProgressStartedAt(null);
+      setAnswerProgressEvents([]);
+      onProgress(modeSearch.progressLabel);
+    }
     rememberRecentQuery(trimmedQuery);
 
     // Answer-mode follow-ups: the API takes a single query string, so a short
     // ambiguous follow-up ("what about renal impairment?") is wrapped with the
     // previous turn's question before retrieval. The raw text the user typed
     // is what the thread displays (via displayQuery below).
-    const isAnswerRequest = modeSearch.resultKind === "answer";
     if (isAnswerRequest) dispatchAnswerLifecycle({ type: "start", query: trimmedQuery });
     const priorTurnQuery = isAnswerRequest && !replaceExistingAnswer ? latestAnswerTurnRef.current?.query : undefined;
     const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
@@ -2246,7 +2300,10 @@ export function ClinicalDashboard({
       let emptyDifferentialsPayload: SearchResultModePayload | null = null;
 
       for (const entry of queryPlan) {
-        if (entry.isKeyword) onProgress("Trying keyword-based search...");
+        if (entry.isKeyword) {
+          if (isAnswerRequest) onAnswerProgress({ stage: "retrieving", message: "Trying keyword-based search..." });
+          else onProgress("Trying keyword-based search...");
+        }
 
         try {
           const payload =
@@ -2269,11 +2326,11 @@ export function ClinicalDashboard({
                       entry.query,
                       filtersOverride,
                       targetQueryMode,
-                      onProgress,
+                      onAnswerProgress,
                       abortController.signal,
                       answerWatchdog.touch,
                     ),
-                  onProgress,
+                  onRetryProgress,
                   abortController.signal,
                 );
 
@@ -2501,7 +2558,11 @@ export function ClinicalDashboard({
   async function submitAnswerFeedback(feedbackType: AnswerFeedbackType) {
     if (!answer || pendingFeedback) return;
     if (clientDemoMode) {
-      setActionNotice({ tone: "warning", message: "Answer review is available after signing in to a real library." });
+      setActionNotice({ tone: "warning", message: "Answer review is unavailable for synthetic demo answers." });
+      return;
+    }
+    if (!answer.interactionId) {
+      setActionNotice({ tone: "warning", message: "This answer predates traceable feedback. Run the question again." });
       return;
     }
 
@@ -2509,37 +2570,29 @@ export function ClinicalDashboard({
     try {
       const sourceChunkIds = Array.from(new Set(sources.map((source) => source.id).filter(Boolean)));
       const citedChunkIds = Array.from(new Set(answer.citations.map((citation) => citation.chunk_id).filter(Boolean)));
-      const sourceFiles = Array.from(
-        new Set([
-          ...sources.map((source) => source.file_name).filter(Boolean),
-          ...answer.citations.map((citation) => citation.file_name).filter(Boolean),
-        ]),
-      );
-      const response = await fetch("/api/eval-cases", {
+      const digest = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(answer.answer));
+      const answerHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+      const response = await fetch("/api/answer-feedback", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...authorizationHeader,
         },
         body: JSON.stringify({
-          query,
-          feedbackType,
-          rating: feedbackType === "verified" ? "good" : "needs_fixing",
-          answer: answer.answer,
-          queryMode,
-          queryClass: answer.queryClass,
-          filters: compactScopeFilters(scopeFilters),
-          sourceChunkIds,
-          citedChunkIds,
-          sourceFiles,
-          sourceGovernanceWarnings: sourceGovernanceWarnings.map((warning) => warning.message),
-          unverifiedNumericTokens: answer.unverifiedNumericTokens ?? [],
+          interactionId: answer.interactionId,
+          feedbackCategory: feedbackType,
+          answerHash,
+          sourceIds: sourceChunkIds,
+          citedSourceIds: citedChunkIds,
+          route: answer.routingMode ?? null,
+          model: answer.modelUsed ?? null,
+          providerRequestIds: Array.from(new Set(answer.openAIRequestIds ?? [])).slice(0, 10),
         }),
       });
 
       if (response.status === 401) {
         markSessionExpired();
-        setActionNotice({ tone: "warning", message: "Sign in again before saving answer review." });
+        setActionNotice({ tone: "warning", message: "The session could not be validated for feedback." });
         return;
       }
       if (!response.ok) {
@@ -2548,10 +2601,7 @@ export function ClinicalDashboard({
       }
       setActionNotice({
         tone: "success",
-        message:
-          feedbackType === "verified"
-            ? "Verified answer saved for eval coverage."
-            : "Answer issue saved for eval coverage.",
+        message: feedbackType === "verified" ? "Verified answer feedback saved." : "Answer issue feedback saved.",
       });
     } catch (feedbackError) {
       setActionNotice({
@@ -3204,6 +3254,11 @@ export function ClinicalDashboard({
   const showAnswerHome = activeModeResultKind === "answer" && !answer && !loading && !submittedAnswerSearchActive;
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
+  const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
+  const showAnswerProgress =
+    activeModeResultKind === "answer" &&
+    answerProgressEvents.length > 0 &&
+    (loading || (Boolean(answer) && answerProgressCompleted));
   const showDesktopHomeComposer =
     !error &&
     (activeModeResultKind === "tools" ||
@@ -3740,41 +3795,15 @@ export function ClinicalDashboard({
                 ) : null}
 
                 {searchMode !== "prescribing" &&
-                  (activeModeResultKind === "answer" && (loading || answer) ? (
-                    // Answer result view keeps this status slot mounted through the
-                    // whole loading→answer swap so its height never collapses and the
-                    // answer below it doesn't jump up (CLS). The accent chrome only
-                    // appears while a progress message is live; otherwise it's a
-                    // height-reserved, visually empty spacer.
-                    <div
-                      role="status"
-                      aria-live="polite"
-                      className={cn(
-                        "flex min-h-[44px] items-center gap-2 rounded-lg px-3 text-sm font-medium",
-                        loading && answerProgress
-                          ? "border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--text-heading)]"
-                          : "border border-transparent",
-                      )}
-                    >
-                      {loading && answerProgress ? (
-                        <>
-                          <Loader2
-                            aria-hidden="true"
-                            className="h-4 w-4 shrink-0 animate-spin text-[color:var(--clinical-accent)]"
-                          />
-                          <span className="min-w-0 flex-1 truncate">{answerProgress}</span>
-                          <button
-                            type="button"
-                            onClick={stopSearch}
-                            data-testid="stop-answer"
-                            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                          >
-                            <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
-                            Stop
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
+                  (activeModeResultKind === "answer" ? (
+                    showAnswerProgress ? (
+                      <AnswerProgressStepper
+                        events={answerProgressEvents}
+                        startedAt={answerProgressStartedAt}
+                        active={loading}
+                        onStop={stopSearch}
+                      />
+                    ) : null
                   ) : loading && answerProgress ? (
                     <div
                       role="status"

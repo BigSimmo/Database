@@ -177,4 +177,91 @@ describe("document_upload fail-closed limiter", () => {
       expect.arrayContaining(["anon:caller", "anon:document_upload:global"]),
     );
   });
+
+  it("uses the document_upload bucket's own authenticated allowance as the global ceiling", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
+    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => ({
+      data: {
+        limited: false,
+        limit_value: args.p_limit,
+        remaining: Number(args.p_limit) - 1,
+        retry_after_seconds: 60,
+        reset_at: new Date(Date.now() + 60_000).toISOString(),
+      },
+      error: null,
+    }));
+
+    await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:caller" },
+      bucket: "document_upload",
+    });
+
+    const globalCall = rpc.mock.calls.find(([, args]) => args.p_subject_key === "anon:document_upload:global");
+    // document_upload's authenticated allowance (12/60s), not answer's (30/60s), bounds the
+    // aggregate anonymous ceiling for this bucket.
+    expect(globalCall?.[1]).toMatchObject({ p_limit: 12, p_window_seconds: 60 });
+  });
+
+  it("does not consume the global upload quota after the caller quota denies the request", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
+    const rpc = vi.fn(async () => ({
+      data: {
+        limited: true,
+        limit_value: 3,
+        remaining: 0,
+        retry_after_seconds: 60,
+        reset_at: new Date(Date.now() + 60_000).toISOString(),
+      },
+      error: null,
+    }));
+
+    const result = await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:caller" },
+      bucket: "document_upload",
+    });
+
+    expect(result.limited).toBe(true);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    const calls = rpc.mock.calls as unknown as Array<[string, Record<string, unknown>]>;
+    expect(calls[0]?.[1]).toMatchObject({ p_subject_key: "anon:caller" });
+  });
+
+  it("does not apply the dual-quota global ceiling to buckets other than answer/document_upload", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
+    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => ({
+      data: {
+        limited: false,
+        limit_value: args.p_limit,
+        remaining: Number(args.p_limit) - 1,
+        retry_after_seconds: 60,
+        reset_at: new Date(Date.now() + 60_000).toISOString(),
+      },
+      error: null,
+    }));
+
+    await consumeSubjectApiRateLimit({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:caller" },
+      bucket: "registry",
+    });
+
+    // A single per-caller check is still sufficient for buckets that aren't fail-closed,
+    // expensive paid/ingestion paths.
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_subject_key: "anon:caller" });
+  });
 });

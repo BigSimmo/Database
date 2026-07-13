@@ -7,6 +7,7 @@ import {
   sourceStatusLabel,
   validationStatusLabel,
 } from "../src/lib/source-metadata";
+import { classifySourceAuthority } from "../src/lib/source-authority-registry";
 
 describe("source metadata helpers", () => {
   it("normalizes missing legacy metadata to explicit unknown labels without suppressing content", () => {
@@ -96,5 +97,176 @@ describe("source metadata helpers", () => {
     expect(line).toContain("Validation: Not locally validated");
     expect(line).toContain("Review date: Unknown");
     expect(line).toContain("Jurisdiction: Unknown");
+  });
+});
+
+describe("source authority classification", () => {
+  const usable = {
+    document_status: "current",
+    clinical_validation_status: "approved",
+    extraction_quality: "good",
+  } as const;
+
+  it.each([
+    {
+      label: "known WA code",
+      metadata: {
+        ...usable,
+        publisher_code: "FSH",
+        publisher: "Fiona Stanley Hospital",
+        jurisdiction: "Australia/WA",
+      },
+      tier: "wa_validated",
+      matchedBy: "publisher_code",
+    },
+    {
+      label: "generic WA Health alias",
+      metadata: { ...usable, publisher: "WA Health", jurisdiction: "Western Australia" },
+      tier: "wa_validated",
+      matchedBy: "publisher_alias",
+    },
+    {
+      label: "WA department alias",
+      metadata: {
+        ...usable,
+        publisher: "Western Australian Department of Health",
+        jurisdiction: "Australia/WA",
+      },
+      tier: "wa_validated",
+      matchedBy: "publisher_alias",
+    },
+    {
+      label: "WACHS alias with an unrecognised code",
+      metadata: {
+        ...usable,
+        publisher_code: "LOCAL",
+        publisher: "WA Country Health Service",
+        jurisdiction: "Australia/WA",
+      },
+      tier: "wa_validated",
+      matchedBy: "publisher_alias",
+    },
+    {
+      label: "Australian national code",
+      metadata: {
+        ...usable,
+        publisher_code: "TGA",
+        publisher: "Therapeutic Goods Administration",
+        jurisdiction: "Australia/National",
+        clinical_validation_status: "unverified",
+      },
+      tier: "australian_national",
+      matchedBy: "publisher_code",
+    },
+    {
+      label: "Australian national alias",
+      metadata: {
+        ...usable,
+        publisher: "Australian Commission on Safety and Quality in Healthcare",
+        jurisdiction: "Commonwealth of Australia",
+      },
+      tier: "australian_national",
+      matchedBy: "publisher_alias",
+    },
+    {
+      label: "other Australian state authority",
+      metadata: { ...usable, publisher: "NSW Health", jurisdiction: "Australia/NSW" },
+      tier: "australian_state",
+      matchedBy: "publisher_alias",
+    },
+    {
+      label: "international source",
+      metadata: {
+        ...usable,
+        publisher_code: "BMJ",
+        publisher: "BMJ Best Practice",
+        jurisdiction: "International",
+      },
+      tier: "supplementary",
+      matchedBy: "publisher_code",
+    },
+  ])("classifies $label from exact metadata", ({ metadata, tier, matchedBy }) => {
+    expect(classifySourceAuthority(metadata)).toMatchObject({ tier, matchedBy, conflict: false });
+  });
+
+  it.each([
+    {
+      label: "international code with WA jurisdiction",
+      metadata: {
+        ...usable,
+        publisher_code: "BMJ",
+        publisher: "BMJ Best Practice",
+        jurisdiction: "Australia/WA",
+      },
+      conflicts: ["jurisdiction_mismatch"],
+    },
+    {
+      label: "international code with a WA publisher and jurisdiction",
+      metadata: { ...usable, publisher_code: "BMJ", publisher: "WA Health", jurisdiction: "Australia/WA" },
+      conflicts: ["publisher_mismatch", "jurisdiction_mismatch"],
+    },
+    {
+      label: "WA code with a conflicting known WA publisher",
+      metadata: {
+        ...usable,
+        publisher_code: "FSH",
+        publisher: "WA Country Health Service",
+        jurisdiction: "Australia/WA",
+      },
+      conflicts: ["publisher_mismatch"],
+    },
+    {
+      label: "trusted alias with an incompatible jurisdiction",
+      metadata: { ...usable, publisher: "NSW Health", jurisdiction: "Australia/WA" },
+      conflicts: ["jurisdiction_mismatch"],
+    },
+  ])("fails closed for $label", ({ metadata, conflicts }) => {
+    const classification = classifySourceAuthority(metadata);
+
+    expect(classification.tier).toBe("supplementary");
+    expect(classification.conflict).toBe(true);
+    expect(classification.conflicts).toEqual(conflicts);
+  });
+
+  it.each([
+    {
+      label: "jurisdiction without a trusted authority",
+      metadata: { ...usable, jurisdiction: "Australia/WA" },
+      reason: "unrecognized_authority",
+    },
+    {
+      label: "authority text only in source title",
+      metadata: {
+        ...usable,
+        source_title: "WA Country Health Service lithium guideline",
+        jurisdiction: "Australia/WA",
+      },
+      reason: "unrecognized_authority",
+    },
+    {
+      label: "publisher alias without jurisdiction",
+      metadata: { ...usable, publisher: "WA Health" },
+      reason: "publisher_alias_requires_jurisdiction",
+    },
+    {
+      label: "review-due source",
+      metadata: { ...usable, publisher_code: "WACHS", document_status: "review_due" },
+      reason: "source_not_current_usable_document",
+    },
+    {
+      label: "partial extraction",
+      metadata: { ...usable, publisher_code: "WACHS", extraction_quality: "partial" },
+      reason: "source_not_current_usable_document",
+    },
+    {
+      label: "unvalidated WA source",
+      metadata: { ...usable, publisher_code: "WACHS", clinical_validation_status: "unverified" },
+      reason: "wa_source_not_locally_validated",
+    },
+  ])("does not promote $label", ({ metadata, reason }) => {
+    const classification = classifySourceAuthority(metadata);
+
+    expect(classification.tier).toBe("supplementary");
+    expect(classification.eligibilityReasons).toContain(reason);
   });
 });

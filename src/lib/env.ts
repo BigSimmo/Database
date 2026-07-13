@@ -16,6 +16,14 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_DB_URL: z.string().url().optional(),
   HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
+  // Optional server-side Sentry error capture (answer pipeline + uncaught route
+  // errors). Fully inert when unset: @sentry/node is never imported and no event
+  // egress occurs. Deliberately NOT part of requireServerEnv — a missing DSN must
+  // never block boot. See src/lib/observability/error-capture.ts.
+  SENTRY_DSN: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().url().optional(),
+  ),
   NEXT_PUBLIC_LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
@@ -190,6 +198,15 @@ const envSchema = z.object({
   WORKER_MAX_CAPTIONED_IMAGES_PER_PAGE: z.coerce.number().int().nonnegative().default(2),
   WORKER_VISION_CONCURRENCY: z.coerce.number().int().positive().default(4),
   WORKER_INLINE_ENRICHMENT: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  // Eval-gated experiment: tag chunk metadata with medspaCy ConText assertion status
+  // (negated/uncertain/family/historical) at ingestion. Default off — requires the
+  // optional medspacy Python dependency and a reviewed `npm run eval:assertions` run
+  // before enabling. Nothing consumes the annotations yet (answer-verification is
+  // deliberately NOT wired to them). See worker/assertion-tagging.ts.
+  WORKER_MEDSPACY_ASSERTION: z
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),

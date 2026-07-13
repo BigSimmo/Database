@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
@@ -23,6 +24,7 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { captureServerException } from "@/lib/observability/error-capture";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -32,6 +34,7 @@ import { startSseHeartbeat } from "@/lib/sse-heartbeat";
 import { parseJsonBody } from "@/lib/validation/body";
 import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
 import type { AnswerStreamEventMap, AnswerStreamEventName } from "@/lib/answer-stream-contract";
+import { toPublicAnswerProgressEvent } from "@/lib/answer-progress-public";
 import type { RagAnswer } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -88,8 +91,13 @@ function streamErrorPayload(error: unknown) {
   };
 }
 
-function logStreamError(error: unknown) {
+function logStreamError(error: unknown, signal?: AbortSignal) {
   logger.error("Search stream failed", safeErrorLogDetails(error));
+  // Report only server-fault failures: client aborts (Stop button / watchdog) and
+  // expected sub-500 degradations are operational noise, not incidents.
+  if ((error instanceof DOMException && error.name === "AbortError") || signal?.aborted) return;
+  if (error instanceof PublicApiError && error.status < 500) return;
+  void captureServerException(error, { route: "api/answer/stream", source: "stream" });
 }
 
 function buildDemoStreamAnswer(body: AnswerRequestBody, fallbackReason?: string) {
@@ -118,10 +126,13 @@ function buildDemoStreamAnswer(body: AnswerRequestBody, fallbackReason?: string)
 function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope, signal?: AbortSignal) {
   const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
+  const interactionId = randomUUID();
 
   return new Response(
     new ReadableStream({
       async start(controller) {
+        const streamStartedAt = Date.now();
+        let completionSent = false;
         const send = <Name extends AnswerStreamEventName>(event: Name, data: AnswerStreamEventMap[Name]) => {
           try {
             controller.enqueue(encoder.encode(encodeSse(event, data)));
@@ -130,13 +141,26 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
             // stream is closed there is no remaining consumer for this frame.
           }
         };
+        const sendProgress = (event: unknown) => {
+          const publicEvent = toPublicAnswerProgressEvent(event);
+          if (!publicEvent || (publicEvent.stage === "complete" && completionSent)) return;
+          if (publicEvent.stage === "complete") completionSent = true;
+          send("progress", publicEvent);
+        };
+        const sendComplete = () => {
+          sendProgress({ stage: "complete", elapsedMs: Date.now() - streamStartedAt });
+        };
+        const sendFinal = (data: AnswerStreamEventMap["final"]) => {
+          sendComplete();
+          send("final", data);
+        };
         // Generation can go silent for long stretches while the model reasons
-        // and deterministic gates run; heartbeat comments keep the
-        // connection visibly alive for proxies and the client's stall watchdog.
+        // and deterministic gates run; heartbeat comments keep the connection
+        // visibly alive without exposing provisional clinical prose.
         const stopHeartbeat = startSseHeartbeat((frame) => controller.enqueue(encoder.encode(frame)));
-        const onProgress = (event: AnswerProgressEvent) => send("progress", event);
+        const onProgress = (event: AnswerProgressEvent) => sendProgress(event);
         try {
-          send("progress", { stage: "retrieving", message: "Searching indexed documents." });
+          sendProgress({ stage: "scoping" });
           const scope = isDemoMode()
             ? null
             : await resolveSearchScope({
@@ -145,8 +169,9 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
                 documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
                 filters: body.filters,
               });
+          sendProgress({ stage: "retrieving" });
           if (scope?.documentIds?.length === 0) {
-            send("final", {
+            sendFinal({
               answer:
                 "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.",
               grounded: false,
@@ -156,6 +181,7 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
               degradedMode: answerDegradedModeSignal(),
               scope: { ...scope, queryMode: body.queryMode },
               sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+              interactionId,
             });
             return;
           }
@@ -202,7 +228,7 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
                 },
               });
             }
-            send("final", {
+            sendFinal({
               answer: sourceGovernanceRefusalAnswer,
               grounded: false,
               confidence: "unsupported",
@@ -211,6 +237,7 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
               degradedMode: answerDegradedModeSignal(answer),
               scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
               sourceGovernanceWarnings: warnings,
+              interactionId,
             });
             return;
           }
@@ -219,24 +246,25 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
             logAnswerDiagnostics({ supabase: createAdminClient(), query: body.query, ownerId, answer });
           }
 
-          send("final", {
+          sendFinal({
             // Boundary trim only — governance warnings and diagnostics above
             // consumed the full answer (see answer-client-payload.ts).
             ...toClientAnswerPayload(answer),
             degradedMode: answerDegradedModeSignal(answer),
             scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
             sourceGovernanceWarnings: warnings,
+            interactionId,
           });
         } catch (error) {
-          logStreamError(error);
           // Parity with /api/answer (PR #315): outside production, a misconfigured
           // Supabase API key degrades to a visible demo answer instead of a stream
           // error — the UI's answer search uses this route, not /api/answer.
           const fallbackReason = nonProductionSupabaseDemoFallbackReason(error);
           if (fallbackReason) {
-            send("final", buildDemoStreamAnswer(body, fallbackReason));
+            sendFinal({ ...buildDemoStreamAnswer(body, fallbackReason), interactionId });
             return;
           }
+          logStreamError(error, signal);
           const streamError = streamErrorPayload(error);
           send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
         } finally {
@@ -285,11 +313,21 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
     }
+    const clientAborted = (error instanceof DOMException && error.name === "AbortError") || request.signal.aborted;
     if (error instanceof PublicApiError) {
+      if (error.status >= 500 && !clientAborted) {
+        void captureServerException(error, { route: "api/answer/stream", status: error.status });
+      }
       return jsonError(error, error.status);
     }
     if (error instanceof Error) {
+      if (!clientAborted) {
+        void captureServerException(error, { route: "api/answer/stream", status: 500 });
+      }
       return jsonError(new PublicApiError("Answer processing failed.", 500, { code: error.name }), 500);
+    }
+    if (!clientAborted) {
+      void captureServerException(error, { route: "api/answer/stream", status: 500 });
     }
     return jsonError("Answer processing failed.", 500);
   }

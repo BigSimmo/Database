@@ -63,17 +63,17 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### API routes (`src/app/api/`)
 
-| Area        | Routes                                                                  | Entry files                                     |
-| ----------- | ----------------------------------------------------------------------- | ----------------------------------------------- |
-| Answers     | `/api/answer`, `/api/answer/stream`                                     | `answer/route.ts`, `answer/stream/route.ts`     |
-| Search      | `/api/search`, `/api/search/interaction`                                | `search/`                                       |
-| Upload      | `/api/upload`                                                           | `upload/route.ts`                               |
-| Documents   | CRUD, bulk, reindex, labels, search, summarize, table-facts, signed-url | `documents/`                                    |
-| Ingestion   | batches, jobs, retry, quality                                           | `ingestion/`                                    |
-| Registry    | records CRUD                                                            | `registry/records/`                             |
-| Images      | signed URLs                                                             | `images/[id]/signed-url/route.ts`               |
-| Ops         | health, setup-status, local-project-id                                  | `health/`, `setup-status/`, `local-project-id/` |
-| Eval / jobs | eval cases, job state                                                   | `eval-cases/`, `jobs/`                          |
+| Area        | Routes                                                                  | Entry files                                                     |
+| ----------- | ----------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Answers     | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`             | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
+| Search      | `/api/search`, `/api/search/interaction`                                | `search/`                                                       |
+| Upload      | `/api/upload`                                                           | `upload/route.ts`                                               |
+| Documents   | CRUD, bulk, reindex, labels, search, summarize, table-facts, signed-url | `documents/`                                                    |
+| Ingestion   | batches, jobs, retry, quality                                           | `ingestion/`                                                    |
+| Registry    | records CRUD                                                            | `registry/records/`                                             |
+| Images      | signed URLs                                                             | `images/[id]/signed-url/route.ts`                               |
+| Ops         | health, setup-status, local-project-id                                  | `health/`, `setup-status/`, `local-project-id/`                 |
+| Eval / jobs | eval cases, job state                                                   | `eval-cases/`, `jobs/`                                          |
 
 ---
 
@@ -132,6 +132,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 | Module                                                                                           | Role                                                          |
 | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
 | `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                                      | External APIs and rate limits                                 |
+| `observability/` — `answer-slo.ts`, `cache-metrics.ts`, `spend-metrics.ts`                       | Deep-health SLO / cache-hit / answer-spend snapshots          |
 | `validation/`                                                                                    | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts` |
 | `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs` | Routing and project identity                                  |
 

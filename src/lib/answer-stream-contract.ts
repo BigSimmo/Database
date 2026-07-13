@@ -1,7 +1,7 @@
-import type { AnswerProgressEvent } from "@/lib/rag";
+import type { PublicAnswerProgressEvent } from "@/lib/answer-progress-public";
 
 export type AnswerStreamEventMap = {
-  progress: AnswerProgressEvent;
+  progress: PublicAnswerProgressEvent;
   final: unknown;
   error: {
     error: string;
