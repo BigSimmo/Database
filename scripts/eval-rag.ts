@@ -1,4 +1,9 @@
 import { loadEnvConfig } from "@next/env";
+import {
+  buildRagEvaluationDiagnostics,
+  evaluateAustralianRagExpectation,
+  type RagEvalProgressDiagnosticEvent,
+} from "@/lib/rag-eval-diagnostics";
 import { selectRagEvalCases, type RagEvalCase } from "@/lib/rag-eval-cases";
 import type { RagAnswer } from "@/lib/types";
 import {
@@ -19,6 +24,7 @@ type EvalArgs = {
   question?: string;
   json: boolean;
   failOnThreshold: boolean;
+  expectAustralian: boolean;
 };
 
 type EvalResult = {
@@ -61,6 +67,8 @@ type EvalResult = {
   reasoningOutputTokens: number;
   totalTokens: number;
   estimatedCostUsd: number | null;
+  australianExpectationWarnings: string[];
+  governanceDiagnostics: ReturnType<typeof buildRagEvaluationDiagnostics>;
 };
 
 function evalSourceDiagnostics(answer: RagAnswer): EvalResult["retrievedSources"] {
@@ -85,6 +93,7 @@ function parseArgs(argv: string[]): EvalArgs {
     ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
     json: false,
     failOnThreshold: false,
+    expectAustralian: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -97,6 +106,10 @@ function parseArgs(argv: string[]): EvalArgs {
     }
     if (token === "--fail-on-threshold") {
       args.failOnThreshold = true;
+      continue;
+    }
+    if (token === "--expect-australian") {
+      args.expectAustralian = true;
       continue;
     }
 
@@ -113,6 +126,7 @@ function parseArgs(argv: string[]): EvalArgs {
   if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit <= 0)) {
     throw new Error("--limit must be a positive integer.");
   }
+  if (args.expectAustralian && !args.question) throw new Error("--expect-australian requires --question.");
 
   return args;
 }
@@ -220,16 +234,24 @@ async function main() {
   if (!args.json) console.log(`Running ${cases.length} RAG eval case(s), scope=${scope}.`);
 
   for (const testCase of cases) {
+    const progress: RagEvalProgressDiagnosticEvent[] = [];
     const answer = (await withProviderBackoff(`rag:${testCase.id}`, () =>
       answerQuestionWithScope({
         query: testCase.question,
         ownerId,
         logQuery: false,
         skipCache: true,
+        onProgress: (event) => {
+          progress.push(event);
+        },
       }),
     )) as RagAnswer;
     const latencyMs = answer.latencyTimings?.total_latency_ms ?? 0;
     const validation = validateRagAnswer(testCase, answer);
+    const governanceDiagnostics = buildRagEvaluationDiagnostics(answer, progress);
+    const australianExpectation = args.expectAustralian
+      ? evaluateAustralianRagExpectation(governanceDiagnostics)
+      : { passed: true, failures: [], warnings: [] };
     const result: EvalResult = {
       id: testCase.id,
       question: testCase.question,
@@ -245,7 +267,7 @@ async function main() {
       model: answer.modelUsed ?? null,
       citations: answer.citations.length,
       visualEvidence: answer.visualEvidence?.length ?? 0,
-      failures: validation.failures,
+      failures: [...validation.failures, ...australianExpectation.failures],
       retrievedSources: evalSourceDiagnostics(answer),
       retrievalIntent: answer.smartApiPlan?.answerPlan.retrievalIntent,
       sourceSelection: answer.smartApiPlan?.answerPlan.sourceSelection,
@@ -264,6 +286,8 @@ async function main() {
         cachedInputTokens: answer.openAIUsage?.cached_input_tokens ?? 0,
         outputTokens: answer.openAIUsage?.output_tokens ?? 0,
       }),
+      australianExpectationWarnings: australianExpectation.warnings,
+      governanceDiagnostics,
     };
     results.push(result);
 
@@ -279,6 +303,13 @@ async function main() {
       );
       console.log(`  Q: ${testCase.question}`);
       if (citationSummary) console.log(`  Sources: ${citationSummary}`);
+      if (args.expectAustralian) {
+        console.log(
+          `  Australian evidence: passages=${governanceDiagnostics.australian_candidate_passage_count}, documents=${governanceDiagnostics.australian_candidate_document_count}, valid citations=${governanceDiagnostics.valid_australian_citation_count}, conflicts=${governanceDiagnostics.authority_conflict_count}, supplementary violation=${governanceDiagnostics.supplementary_selected_despite_sufficient_australian ? "yes" : "no"}`,
+        );
+        console.log(`  Progress: ${governanceDiagnostics.progress_sequence.join(" -> ") || "none"}`);
+        for (const warning of result.australianExpectationWarnings) console.log(`  Warning: ${warning}`);
+      }
       if (result.failures.length > 0) {
         console.log(
           [
@@ -306,7 +337,13 @@ async function main() {
   const thresholdFailures = summarizeFailures(results);
 
   if (args.json) {
-    console.log(JSON.stringify({ scope, results, thresholdFailures }, null, 2));
+    console.log(
+      JSON.stringify(
+        { scope, expectations: { australian: args.expectAustralian }, results, thresholdFailures },
+        null,
+        2,
+      ),
+    );
   } else {
     printHumanSummary(results);
     if (thresholdFailures.length > 0) {

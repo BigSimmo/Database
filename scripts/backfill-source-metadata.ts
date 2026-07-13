@@ -1,12 +1,19 @@
+import { pathToFileURL } from "node:url";
+
 import { loadEnvConfig } from "@next/env";
+import {
+  analyzeSourceLocality,
+  assertLocalityMetadataPatch,
+  auditSourceAuthorityDocuments,
+  inferSourceAuthorityFromIdentity,
+} from "@/lib/source-authority-metadata";
+import { sourceAuthorityForPublisherCode } from "@/lib/source-authority-registry";
 import type { Json } from "@/lib/supabase/database.types";
 import {
   UNKNOWN_STATUS_DERIVATION_VERSION,
   deriveUnknownStatus,
   unknownStatusDerivationBasis,
 } from "@/lib/unknown-status-derivation";
-
-loadEnvConfig(process.cwd());
 
 type DocumentRow = {
   id: string;
@@ -42,38 +49,75 @@ type ClinicalValidationEvidence = {
   evidence_text: string | null;
 };
 
-const APPLY = process.argv.includes("--apply");
-const EVAL_ONLY = process.argv.includes("--eval-only");
 const BACKFILL_VERSION = "source_metadata_backfill_2026_06_30_v1";
 
-function backfillAsOfDate() {
-  const index = process.argv.indexOf("--as-of");
-  if (index < 0) return new Date();
-  const raw = process.argv[index + 1];
-  if (!raw || raw.startsWith("--")) throw new Error("Missing value for --as-of");
+export type BackfillSourceMetadataArgs = {
+  apply: boolean;
+  confirm: boolean;
+  localityOnly: boolean;
+  evalOnly: boolean;
+  help: boolean;
+  asOf: Date;
+};
+
+function parseBackfillAsOfDate(raw: string | undefined) {
+  if (!raw) return new Date();
   const date = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T00:00:00+08:00`) : new Date(raw);
   if (Number.isNaN(date.getTime())) throw new Error(`Invalid --as-of date: ${raw}`);
   return date;
 }
 
-const NOW = backfillAsOfDate();
+export function parseBackfillSourceMetadataArgs(argv: string[]): BackfillSourceMetadataArgs {
+  const parsed = {
+    apply: false,
+    confirm: false,
+    localityOnly: false,
+    evalOnly: false,
+    help: false,
+    asOfRaw: undefined as string | undefined,
+  };
 
-const publisherByCode: Record<string, { publisher: string; jurisdiction: string }> = {
-  AKG: { publisher: "Armadale Kalamunda Group", jurisdiction: "Australia/WA" },
-  BMJ: { publisher: "BMJ Best Practice", jurisdiction: "International" },
-  CAMHS: { publisher: "Child and Adolescent Mental Health Service", jurisdiction: "Australia/WA" },
-  EMHS: { publisher: "East Metropolitan Health Service", jurisdiction: "Australia/WA" },
-  FSH: { publisher: "Fiona Stanley Fremantle Hospitals Group", jurisdiction: "Australia/WA" },
-  FSFH: { publisher: "Fiona Stanley Fremantle Hospitals Group", jurisdiction: "Australia/WA" },
-  FSFHG: { publisher: "Fiona Stanley Fremantle Hospitals Group", jurisdiction: "Australia/WA" },
-  KEMH: { publisher: "King Edward Memorial Hospital", jurisdiction: "Australia/WA" },
-  KEMHS: { publisher: "King Edward Memorial Hospital", jurisdiction: "Australia/WA" },
-  NMHS: { publisher: "North Metropolitan Health Service", jurisdiction: "Australia/WA" },
-  PHC: { publisher: "Peel Health Campus", jurisdiction: "Australia/WA" },
-  RKPG: { publisher: "Rockingham Peel Group", jurisdiction: "Australia/WA" },
-  RPBG: { publisher: "Royal Perth Bentley Group", jurisdiction: "Australia/WA" },
-  SMHS: { publisher: "South Metropolitan Health Service", jurisdiction: "Australia/WA" },
-};
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (token === "--apply") parsed.apply = true;
+    else if (token === "--confirm") parsed.confirm = true;
+    else if (token === "--locality-only") parsed.localityOnly = true;
+    else if (token === "--eval-only") parsed.evalOnly = true;
+    else if (token === "--help" || token === "-h") parsed.help = true;
+    else if (token === "--as-of") {
+      const raw = argv[index + 1];
+      if (!raw || raw.startsWith("--")) throw new Error("Missing value for --as-of");
+      parsed.asOfRaw = raw;
+      index += 1;
+    } else {
+      throw new Error(`Unknown option: ${token}`);
+    }
+  }
+
+  const args: BackfillSourceMetadataArgs = { ...parsed, asOf: parseBackfillAsOfDate(parsed.asOfRaw) };
+  if (args.help) return args;
+  if (args.apply && (!args.localityOnly || !args.confirm)) {
+    throw new Error("Refusing metadata writes: --apply requires both --locality-only and --confirm.");
+  }
+  if (args.confirm && !args.apply) throw new Error("--confirm is only valid together with --apply.");
+  if (args.localityOnly && args.evalOnly) throw new Error("--locality-only cannot be combined with --eval-only.");
+  return args;
+}
+
+function usage() {
+  return [
+    "Usage: npm run backfill:source-metadata -- [options]",
+    "",
+    "Dry-run source metadata derivation by default. Production writes are restricted to deterministic locality fields.",
+    "",
+    "Options:",
+    "  --locality-only          Analyse only publisher_code, publisher, and jurisdiction.",
+    "  --apply --confirm        Apply locality-only patches after reviewing the dry-run.",
+    "  --eval-only              Restrict the legacy dry-run to retrieval eval documents.",
+    "  --as-of <date>           Set the date used by the legacy status dry-run.",
+    "  --help                   Show this help without loading provider configuration.",
+  ].join("\n");
+}
 
 function metadataRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
@@ -87,19 +131,9 @@ function titleWithoutExtension(fileName: string) {
   return fileName.replace(/\.[^.]+$/, "");
 }
 
-function publisherCodeFor(document: DocumentRow, text = "") {
-  const haystack = `${document.file_name} ${document.title} ${document.source_path ?? ""}`;
-  const parentheticalCodes = [...haystack.matchAll(/\(([A-Z]{2,8})\)/g)].map((match) => match[1]);
-  for (const code of parentheticalCodes) {
-    if (publisherByCode[code]) return code;
-  }
-  for (const code of Object.keys(publisherByCode).sort((a, b) => b.length - a.length)) {
-    if (new RegExp(`(?:^|[\\\\/\\s])${code}(?:[\\\\/\\s]|$)`, "i").test(haystack)) return code;
-  }
-  if (/\bBM[J)]\s+Best\s+Practice\b/i.test(text) || /\bStraight\s+to\s+the\s+point\s+of\s+care\b/i.test(text)) {
-    return "BMJ";
-  }
-  return null;
+function publisherCodeFor(document: DocumentRow) {
+  const identityMatch = inferSourceAuthorityFromIdentity(document);
+  return identityMatch.conflict ? null : identityMatch.code;
 }
 
 function sourceTypeFor(document: DocumentRow, text: string) {
@@ -112,7 +146,7 @@ function sourceTypeFor(document: DocumentRow, text: string) {
   if (/\bguideline\b/.test(haystack)) return "guideline";
   if (/\bshared care\b/.test(haystack)) return "shared_care_guideline";
   if (/\bform\b|\bchart\b|\bplan\b/.test(haystack)) return "form_or_plan";
-  if (publisherCodeFor(document, text) === "BMJ") return "clinical_reference";
+  if (publisherCodeFor(document) === "BMJ") return "clinical_reference";
   return "document";
 }
 
@@ -344,13 +378,13 @@ function extractDates(text: string) {
   return { review, publication, lastUpdated };
 }
 
-function documentStatusFor(dates: ReturnType<typeof extractDates>, publisherCode: string | null) {
+function documentStatusFor(dates: ReturnType<typeof extractDates>, publisherCode: string | null, now: Date) {
   if (dates.review?.date) {
-    return new Date(`${dates.review.date}T23:59:59+08:00`) >= NOW ? "current" : "review_due";
+    return new Date(`${dates.review.date}T23:59:59+08:00`) >= now ? "current" : "review_due";
   }
   if (publisherCode === "BMJ" && dates.lastUpdated?.date) {
     const updated = new Date(`${dates.lastUpdated.date}T00:00:00+08:00`);
-    const threeYearsAgo = new Date(NOW);
+    const threeYearsAgo = new Date(now);
     threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
     return updated >= threeYearsAgo ? "current" : "review_due";
   }
@@ -378,7 +412,7 @@ function clinicalValidationEvidenceFor(args: {
       evidence_text: null,
     };
   }
-  if (!args.publisherCode || publisherByCode[args.publisherCode]?.jurisdiction !== "Australia/WA") {
+  if (!args.publisherCode || sourceAuthorityForPublisherCode(args.publisherCode)?.scope !== "wa") {
     return {
       status: "unverified",
       basis: "not a local WA source",
@@ -478,14 +512,19 @@ function setIfChanged(metadata: Record<string, unknown>, key: string, value: unk
   changed.push(key);
 }
 
-function deriveMetadata(document: DocumentRow, text: string, quality: QualityRow | undefined): DerivedMetadata {
+function deriveMetadata(
+  document: DocumentRow,
+  text: string,
+  quality: QualityRow | undefined,
+  now: Date,
+): DerivedMetadata {
   const metadata = metadataRecord(document.metadata);
   const changedKeys: string[] = [];
-  const publisherCode = publisherCodeFor(document, text);
-  const publisher = publisherCode ? publisherByCode[publisherCode] : null;
+  const publisherCode = publisherCodeFor(document);
+  const publisher = sourceAuthorityForPublisherCode(publisherCode);
   const extractedDates = extractDates(text);
   const dates = publisherCode === "BMJ" ? { ...extractedDates, review: null } : extractedDates;
-  const documentStatus = documentStatusFor(dates, publisherCode);
+  const documentStatus = documentStatusFor(dates, publisherCode, now);
   // Automatic review-cycle inference: when no explicit/derivable review date
   // exists but a publication date does, infer the status from the standard
   // review cycle (same logic as `scripts/derive-unknown-status.ts`). Documents
@@ -493,7 +532,7 @@ function deriveMetadata(document: DocumentRow, text: string, quality: QualityRow
   // hidden or marked outdated.
   const inferredUnknownStatus =
     documentStatus === "unknown" && dates.publication?.date
-      ? deriveUnknownStatus(dates.publication.date, { now: NOW })
+      ? deriveUnknownStatus(dates.publication.date, { now })
       : null;
   const derivedStatus = inferredUnknownStatus?.kind === "derived" ? inferredUnknownStatus.status : documentStatus;
   const inferredReviewDate = inferredUnknownStatus?.kind === "derived" ? inferredUnknownStatus.reviewDate : null;
@@ -509,7 +548,7 @@ function deriveMetadata(document: DocumentRow, text: string, quality: QualityRow
   setIfChanged(metadata, "source_title", titleWithoutExtension(document.file_name), changedKeys);
   setIfChanged(metadata, "publisher_code", publisherCode, changedKeys);
   setIfChanged(metadata, "publisher", publisher?.publisher, changedKeys);
-  setIfChanged(metadata, "jurisdiction", publisher?.jurisdiction, changedKeys);
+  setIfChanged(metadata, "jurisdiction", publisher?.jurisdictions[0], changedKeys);
   setIfChanged(metadata, "source_type", sourceTypeFor(document, text), changedKeys);
   setIfChanged(metadata, "category", categoryFor(document), changedKeys);
   setIfChanged(metadata, "publication_date", dates.publication?.date, changedKeys);
@@ -621,8 +660,8 @@ async function loadPageText(documentIds: string[]) {
   return textByDocument;
 }
 
-async function evalDocumentIds() {
-  if (!EVAL_ONLY) return null;
+async function evalDocumentIds(evalOnly: boolean) {
+  if (!evalOnly) return null;
   const { readFileSync } = await import("node:fs");
   const report = JSON.parse(readFileSync("output/evals/retrieval-quality-2026-06-30T09-18-10-598Z.json", "utf8")) as {
     retrieval?: { results?: Array<{ topResults?: Array<{ file_name: string }> }> };
@@ -634,28 +673,68 @@ async function evalDocumentIds() {
   return topFiles;
 }
 
-async function main() {
+async function runLocalityOnlyBackfill(
+  args: BackfillSourceMetadataArgs,
+  documents: DocumentRow[],
+  supabase: Awaited<ReturnType<(typeof import("@/lib/supabase/admin"))["createAdminClient"]>>,
+) {
+  const analysed = documents.map((document) => ({ document, analysis: analyzeSourceLocality(document) }));
+  const changed = analysed.filter(({ analysis }) => !analysis.unresolvedConflict && analysis.changedKeys.length > 0);
+  const authorityAudit = auditSourceAuthorityDocuments(documents);
+  const summary = {
+    mode: args.apply ? "apply" : "dry-run",
+    scope: "locality-only",
+    allowed_metadata_keys: ["publisher_code", "publisher", "jurisdiction"],
+    documents_seen: documents.length,
+    documents_with_changes: changed.length,
+    ...authorityAudit,
+  };
+  console.log(JSON.stringify(summary, null, 2));
+
+  if (!args.apply) return;
+
+  for (const item of changed) {
+    const patch = item.analysis.changes as Record<string, unknown>;
+    assertLocalityMetadataPatch(patch);
+    const { error } = await supabase.rpc("apply_document_metadata_patch", {
+      p_document_id: item.document.id,
+      p_metadata_patch: patch as Json,
+    });
+    if (error) throw new Error(`Failed to patch ${item.document.file_name}: ${error.message}`);
+  }
+  console.log(`Applied ${changed.length} bounded locality metadata patch(es).`);
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  const args = parseBackfillSourceMetadataArgs(argv);
+  if (args.help) {
+    console.log(usage());
+    return;
+  }
+  loadEnvConfig(process.cwd());
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
-  const [documents, qualityByDocument, evalFiles] = await Promise.all([
-    loadAllDocuments(),
-    loadQualityRows(),
-    evalDocumentIds(),
-  ]);
+  const documents = await loadAllDocuments();
+  if (args.localityOnly) {
+    await runLocalityOnlyBackfill(args, documents, supabase);
+    return;
+  }
+
+  const [qualityByDocument, evalFiles] = await Promise.all([loadQualityRows(), evalDocumentIds(args.evalOnly)]);
   const targetDocuments = evalFiles ? documents.filter((document) => evalFiles.has(document.file_name)) : documents;
   const pageText = await loadPageText(targetDocuments.map((document) => document.id));
   const derived = targetDocuments.map((document) => {
     const text = normalizeWhitespace(pageText.get(document.id) ?? "");
     return {
       document,
-      ...deriveMetadata(document, text, qualityByDocument.get(document.id)),
+      ...deriveMetadata(document, text, qualityByDocument.get(document.id), args.asOf),
     };
   });
   const changed = derived.filter((item) => item.changedKeys.length > 0);
 
   const summary = {
-    mode: APPLY ? "apply" : "dry-run",
-    scope: EVAL_ONLY ? "eval-top-result-documents" : "all-documents",
+    mode: "dry-run",
+    scope: args.evalOnly ? "eval-top-result-documents" : "all-documents",
     documents_seen: targetDocuments.length,
     documents_with_changes: changed.length,
     status_counts: changed.reduce<Record<string, number>>((counts, item) => {
@@ -681,20 +760,11 @@ async function main() {
     })),
   };
   console.log(JSON.stringify(summary, null, 2));
-
-  if (!APPLY) return;
-
-  for (const item of changed) {
-    const { error } = await supabase
-      .from("documents")
-      .update({ metadata: item.metadata as Json })
-      .eq("id", item.document.id);
-    if (error) throw new Error(`Failed to update ${item.document.file_name}: ${error.message}`);
-  }
-  console.log(`Applied source metadata backfill to ${changed.length} documents.`);
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}
