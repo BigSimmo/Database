@@ -37,9 +37,7 @@ export function PatientProfileProvider({ children }: { children: React.ReactNode
   const toggleAllergy = useCallback((allergy: AllergyClass) => {
     const current = getPatientProfileSnapshot();
     const allergies = current.allergies ?? [];
-    const next = allergies.includes(allergy)
-      ? allergies.filter((item) => item !== allergy)
-      : [...allergies, allergy];
+    const next = allergies.includes(allergy) ? allergies.filter((item) => item !== allergy) : [...allergies, allergy];
     writePatientProfile({ ...current, allergies: next });
   }, []);
 

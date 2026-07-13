@@ -3,10 +3,7 @@
 import { ClipboardList } from "lucide-react";
 import { useMemo } from "react";
 
-import {
-  BadgeCluster,
-  type ClinicalBadgeItem,
-} from "@/components/clinical-dashboard/clinical-badge";
+import { BadgeCluster, type ClinicalBadgeItem } from "@/components/clinical-dashboard/clinical-badge";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import {
   evaluatePatientAlerts,
@@ -18,10 +15,7 @@ import type { SemanticTone } from "@/lib/semantic-tone";
 import { cn, InlineNotice } from "@/components/ui-primitives";
 
 /** Badge for a result row summarising how many considerations apply. */
-export function considerationSummaryBadge(
-  count: number,
-  highestTone: SemanticTone | null,
-): ClinicalBadgeItem | null {
+export function considerationSummaryBadge(count: number, highestTone: SemanticTone | null): ClinicalBadgeItem | null {
   if (!count || !highestTone) return null;
   return {
     id: "patient-alerts",

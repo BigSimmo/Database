@@ -32,7 +32,12 @@ function reasons(considerations: MedicationConsideration[]): string[] {
 
 describe("evaluatePatientAlerts — match-key gates", () => {
   it("age gte fires at the boundary and clears below it", () => {
-    const record = recordWith({ factors: ["elderly"], action: "caution", severity: "danger", match: { age: { gte: 65 } } });
+    const record = recordWith({
+      factors: ["elderly"],
+      action: "caution",
+      severity: "danger",
+      match: { age: { gte: 65 } },
+    });
     expect(reasons(evaluatePatientAlerts(record, { ageYears: 65 }).considerations)).toContain("Age 65 ≥ 65");
     expect(evaluatePatientAlerts(record, { ageYears: 64 }).considerations).toHaveLength(0);
   });

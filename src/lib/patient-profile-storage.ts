@@ -47,9 +47,7 @@ function numberOrNull(value: unknown): number | null {
 function sanitize(raw: unknown): PatientProfile {
   if (!raw || typeof raw !== "object") return { ...EMPTY_PATIENT_PROFILE };
   const value = raw as Record<string, unknown>;
-  const hepatic = HEPATIC_LEVELS.includes(value.hepatic as HepaticSeverity)
-    ? (value.hepatic as HepaticSeverity)
-    : null;
+  const hepatic = HEPATIC_LEVELS.includes(value.hepatic as HepaticSeverity) ? (value.hepatic as HepaticSeverity) : null;
   const scrUnit = SCR_UNITS.includes(value.scrUnit as ScrUnit) ? (value.scrUnit as ScrUnit) : "umol/L";
   const allergies = Array.isArray(value.allergies)
     ? value.allergies.filter((item): item is AllergyClass => ALLERGY_CLASSES.includes(item as AllergyClass))

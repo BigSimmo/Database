@@ -173,9 +173,7 @@ export function isProfileEmpty(profile: PatientProfile | null | undefined): bool
 }
 
 /** Map an engine tone to an `InlineNotice` tone (no "clinical" notice tone). */
-export function noticeToneForSemanticTone(
-  tone: SemanticTone,
-): "success" | "warning" | "danger" | "info" | "neutral" {
+export function noticeToneForSemanticTone(tone: SemanticTone): "success" | "warning" | "danger" | "info" | "neutral" {
   return tone === "clinical" ? "info" : tone;
 }
 
@@ -310,9 +308,7 @@ function dedupe(values: string[]): string[] {
 }
 
 function factorLabelsFor(patient: MedicationPatientMetadata): string[] {
-  return dedupe(
-    (patient.factors ?? []).map((factor) => MEDICATION_FACTOR_LABELS[factor] ?? capitalize(factor)),
-  );
+  return dedupe((patient.factors ?? []).map((factor) => MEDICATION_FACTOR_LABELS[factor] ?? capitalize(factor)));
 }
 
 /**
