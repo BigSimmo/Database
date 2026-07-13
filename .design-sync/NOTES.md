@@ -40,8 +40,9 @@
   stale whenever globals.css or component class usage changes — always run
   `buildCmd` before the converter.
 - The Geist fonts and Tailwind CLI live in gitignored `.ds-sync/` — a fresh
-  clone must reinstall (`npm i esbuild ts-morph @types/react @tailwindcss/cli
-geist` inside `.ds-sync/`) or the build fails on `extraFonts`/`buildCmd`.
+  clone must reinstall them with
+  `npm install --prefix .ds-sync --no-save --package-lock=false esbuild ts-morph @types/react @tailwindcss/cli geist`
+  or the build fails on `extraFonts`/`buildCmd`.
 - Preview props were sanity-checked against component sources on 2026-07-13;
   ui-primitives / sheet / AccessibleTable API changes can silently make the
   authored previews unrepresentative — the driver re-verifies changed
