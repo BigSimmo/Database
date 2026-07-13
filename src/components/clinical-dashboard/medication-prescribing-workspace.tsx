@@ -283,7 +283,7 @@ function FilterStrip({
             <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             {filter.label}
             <span
-              className={cn("nums text-3xs font-semibold", active ? "opacity-80" : "text-[color:var(--text-soft)]")}
+              className={cn("nums text-2xs font-semibold", active ? "opacity-80" : "text-[color:var(--text-muted)]")}
             >
               {counts[filter.id]}
             </span>
@@ -352,7 +352,7 @@ function HighlightedName({ text, term }: { text: string; term: string }) {
 function DoseCeiling({ value }: { value: string }) {
   return (
     <span className="inline-flex min-h-6 w-fit items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
-      <span className="rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-3xs uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+      <span className="rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
         Ceiling
       </span>
       <span className="nums break-words text-[color:var(--text-heading)] md:whitespace-nowrap">{value}</span>
@@ -474,7 +474,7 @@ function MedicationResults({
 
       {!catalog.loading && !catalog.error && resultCount > 0 ? (
         <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] md:block">
-          <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+          <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
             <span>Medication</span>
             <span>Dose</span>
             <span>Ceiling</span>
@@ -528,7 +528,7 @@ function MedicationResults({
                       aria-hidden="true"
                     />
                   ) : (
-                    <span className="justify-self-end text-3xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                    <span className="justify-self-end text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                       Soon
                     </span>
                   )}
@@ -604,7 +604,7 @@ function MedicationResults({
               {result.href ? (
                 <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
               ) : (
-                <span className="mt-1 shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <span className="mt-1 shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                   Soon
                 </span>
               )}

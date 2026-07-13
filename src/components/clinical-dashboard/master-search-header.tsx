@@ -68,7 +68,10 @@ import { appModeIcons } from "@/lib/app-mode-icons";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
-import { privacyCopy } from "@/lib/ui-copy";
+
+// Shared between the composer input's aria-describedby and the rendered
+// PrivacyInputNotice id/testId so the wiring cannot drift apart.
+const composerPrivacyWarningId = "answer-composer-privacy-warning";
 
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
@@ -839,7 +842,7 @@ export function MasterSearchHeader({
       <div className={cn("grid gap-2", compact ? "grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3")}>
         {labelScopeFilterFields.map((field) => (
           <label key={field.key} className="grid min-w-0 gap-1">
-            <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+            <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
               {field.label}
             </span>
             <input
@@ -1006,7 +1009,7 @@ export function MasterSearchHeader({
           </summary>
           <div className="grid gap-2.5 border-t border-[color:var(--border-lux)] p-3">
             <label className="grid gap-1">
-              <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                 Search intent
               </span>
               <select
@@ -1024,7 +1027,7 @@ export function MasterSearchHeader({
             </label>
             <div className="grid grid-cols-2 gap-2">
               <label className="grid gap-1">
-                <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                   Status
                 </span>
                 <select
@@ -1048,7 +1051,7 @@ export function MasterSearchHeader({
                 </select>
               </label>
               <label className="grid gap-1">
-                <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                   Locality
                 </span>
                 <select
@@ -1131,6 +1134,13 @@ export function MasterSearchHeader({
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
     const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
+    // Phone submitted non-answer result docks reserve pill-only scroll
+    // clearance (ClinicalDashboard <main> margins / global-search-shell
+    // mobileComposerReserve), so an extra notice line would push the fixed
+    // dock over the last result. Those flows already showed the notice on
+    // their entry composer; answer docks keep it (their reserves were sized
+    // for the old taller notice-above-pill stack).
+    const showsComposerPrivacyNotice = searchMode === "answer" || !usesPhoneFooterDock;
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
 
@@ -1190,9 +1200,6 @@ export function MasterSearchHeader({
             layout="scroll"
             className="answer-suggestion-row-composer-followups relative z-10 w-full sm:hidden"
           />
-        ) : null}
-        {searchMode === "answer" ? (
-          <PrivacyInputNotice className="px-2 text-left sm:justify-center sm:text-center" />
         ) : null}
         <UniversalSearchCommandSurface
           modeId={searchMode}
@@ -1276,7 +1283,7 @@ export function MasterSearchHeader({
                 aria-expanded={commandDropdownOpen}
                 aria-controls={commandDropdownOpen ? commandListboxId : undefined}
                 aria-autocomplete="list"
-                aria-describedby={searchMode === "answer" ? "answer-composer-privacy-warning" : undefined}
+                aria-describedby={showsComposerPrivacyNotice ? composerPrivacyWarningId : undefined}
                 // React's onChange already fires on every input event; a duplicate
                 // onInput called onQueryChange twice per keystroke, doubling the
                 // controlled-state work on a large parent tree.
@@ -1326,14 +1333,16 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
-        {searchMode === "answer" ? (
-          <p
-            id="answer-composer-privacy-warning"
-            data-testid="answer-composer-privacy-warning"
-            className="relative z-10 mt-1.5 w-full px-3 text-center text-2xs leading-4 text-[color:var(--text-muted)]"
-          >
-            {privacyCopy.composerWarning}
-          </p>
+        {/* Single site-wide APP-5 privacy line: every composer variant (home
+            hero, answer dock, sticky search) renders exactly one compact
+            notice below the pill; no other surface may duplicate it. Phone
+            non-answer result docks skip it — see showsComposerPrivacyNotice. */}
+        {showsComposerPrivacyNotice ? (
+          <PrivacyInputNotice
+            id={composerPrivacyWarningId}
+            testId={composerPrivacyWarningId}
+            className="mt-1.5 justify-center px-3 text-center"
+          />
         ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
             open it even when the footer chip row is not shown. */}
@@ -1421,7 +1430,10 @@ export function MasterSearchHeader({
         id="search"
         data-scroll-hidden={hideStrategy === "overlay" && headerChromeHidden ? "true" : undefined}
         className={cn(
-          "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl backdrop-saturate-150",
+          // No backdrop-filter on the header itself: it would form a backdrop
+          // root and starve the .edge-glass-header-backdrop scrim (the single
+          // source of the bar's frost) of the real page behind it.
+          "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)]",
           // Collapse hosts keep the header above an internally scrolling <main>, so
           // sticky is unnecessary on phones and fights the 0fr grid collapse by
           // pinning the bar inside the viewport. All-breakpoints overlay hosts take
@@ -1517,7 +1529,7 @@ export function MasterSearchHeader({
                 <SelectedAppModeIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
-                <span className="hidden truncate text-3xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-soft)] sm:block">
+                <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-muted)] sm:block">
                   Mode
                 </span>
                 <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">

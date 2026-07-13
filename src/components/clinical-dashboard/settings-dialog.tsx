@@ -495,7 +495,7 @@ function SettingsSummaryTile({
           <Icon className="h-4 w-4" />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-3xs font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
+          <span className="block truncate text-2xs font-semibold leading-3 text-[color:var(--text-muted)] lg:text-xs lg:leading-4">
             {label}
           </span>
           <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-heading)] lg:text-sm-minus">
