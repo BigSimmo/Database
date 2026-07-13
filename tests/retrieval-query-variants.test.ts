@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { analyzeClinicalQuery, buildClinicalTextSearchQuery, rankClinicalResults } from "../src/lib/clinical-search";
+import {
+  analyzeClinicalQuery,
+  buildClinicalTextSearchQuery,
+  isMedicationDoseEvidenceQuery,
+  medicationDoseEvidenceQueryIntent,
+  rankClinicalResults,
+} from "../src/lib/clinical-search";
 import { expandClinicalVocabularyText } from "../src/lib/clinical-vocabulary";
 import { selectRetrievalEvidence } from "../src/lib/retrieval-selection";
 import {
@@ -13,7 +19,7 @@ import {
   relaxVariantToOrQuery,
   shouldRelaxWeakTextMatches,
 } from "../src/lib/rag";
-import { maxTextRpcQueryVariants } from "../src/lib/rag-retrieval-variants";
+import { firstVariantPoolIsStrong, maxTextRpcQueryVariants } from "../src/lib/rag-retrieval-variants";
 import type { SearchResult } from "../src/lib/types";
 
 function result(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -308,6 +314,53 @@ describe("retrieval query variants", () => {
         "medication_dose_risk",
       ),
     ).toEqual({ returnFastPath: false, reason: "missing_dose_query_context" });
+  });
+
+  it.each([
+    ["How much lorazepam should be given?", { asksAmount: true, asksRoute: false, asksFrequency: false }],
+    ["How many micrograms of clonidine are used?", { asksAmount: true, asksRoute: false, asksFrequency: false }],
+    ["Is clonidine 100 µg listed?", { asksAmount: true, asksRoute: false, asksFrequency: false }],
+    ["How often should lorazepam be administered?", { asksAmount: false, asksRoute: false, asksFrequency: true }],
+    ["Is olanzapine administered intramuscularly?", { asksAmount: false, asksRoute: true, asksFrequency: false }],
+  ])("detects explicit medication evidence intent in %s", (query, expected) => {
+    expect(isMedicationDoseEvidenceQuery(query)).toBe(true);
+    expect(medicationDoseEvidenceQueryIntent(query)).toEqual(expected);
+  });
+
+  it("routes natural amount and frequency questions through the contextual gate", () => {
+    expect(
+      decideTextFastPath(
+        "How much lorazepam should be given?",
+        [result({ content: "Lorazepam may be used with clinical review.", similarity: 0.9 })],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "missing_dose_amount_evidence" });
+
+    expect(
+      decideTextFastPath(
+        "How often should lorazepam be administered?",
+        [result({ content: "Lorazepam 1 mg may be used with clinical review.", similarity: 0.9 })],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "missing_frequency_evidence" });
+
+    expect(
+      decideTextFastPath(
+        "How often should lorazepam be administered?",
+        [result({ content: "Lorazepam 1 mg may be administered every 6 hours.", similarity: 0.9 })],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "dose_evidence_text_match" });
+  });
+
+  it("accepts microgram-symbol dose evidence when it is co-located with the subject", () => {
+    expect(
+      evaluateEvidenceCoverageGate(
+        "How many micrograms of clonidine are used?",
+        [result({ content: "Clonidine 100 µg may be used with monitoring.", similarity: 0.9 })],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
   });
 
   it("keeps flowchart zone-action fast paths gated on action evidence", () => {
@@ -688,6 +741,29 @@ describe("retrieval query variants", () => {
         "medication_dose_risk",
       ),
     ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
+  });
+
+  it("requires requested dose and route evidence to be co-located", () => {
+    expect(
+      evaluateEvidenceCoverageGate(
+        "How much lorazepam is administered intramuscularly?",
+        [
+          result({ id: "amount", content: "Lorazepam 1 mg may be used with monitoring.", similarity: 0.9 }),
+          result({ id: "route", content: "Lorazepam may be administered intramuscularly.", similarity: 0.88 }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: false, reason: "missing_co_located_medication_evidence" });
+  });
+
+  it("reports missing route evidence for route-only questions", () => {
+    expect(
+      evaluateEvidenceCoverageGate(
+        "Which route is listed for lorazepam?",
+        [result({ content: "Lorazepam is recommended with clinical monitoring.", similarity: 0.9 })],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: false, reason: "missing_route_evidence" });
   });
 
   it("accepts SC and SL route evidence for dose-route fast gates", () => {
@@ -1184,5 +1260,38 @@ describe("shouldRelaxWeakTextMatches (P8b weak-augment)", () => {
   it("treats a missing text_rank as no lexical evidence", () => {
     const missing = [result({ id: "a" }), result({ id: "b" }), result({ id: "c" })];
     expect(shouldRelaxWeakTextMatches(missing)).toBe(true);
+  });
+});
+
+describe("firstVariantPoolIsStrong (PT-02 sibling-variant early-exit)", () => {
+  const pool = (count: number, topRank: number) =>
+    Array.from({ length: count }, (_, index) =>
+      result({ id: `chunk-${index}`, text_rank: index === 0 ? topRank : 0.1 }),
+    );
+
+  it("skips siblings only for a deep pool anchored by a precise hit", () => {
+    expect(firstVariantPoolIsStrong(pool(24, 0.9), 48)).toBe(true);
+    expect(firstVariantPoolIsStrong(pool(6, 0.35), 12)).toBe(true);
+  });
+
+  it("keeps the fan-out when the pool is shallow, even with a strong top hit", () => {
+    expect(firstVariantPoolIsStrong(pool(3, 1.2), 48)).toBe(false);
+    expect(firstVariantPoolIsStrong([], 12)).toBe(false);
+  });
+
+  it("keeps the fan-out when the pool is deep but imprecise", () => {
+    expect(firstVariantPoolIsStrong(pool(48, 0.2), 48)).toBe(false);
+  });
+
+  it("agrees with the weak-OR bar so both paths share one notion of a precise hit", () => {
+    // A pool that early-exits must never be one the weak-OR path considers weak.
+    const strong = pool(24, 0.35);
+    expect(firstVariantPoolIsStrong(strong, 48)).toBe(true);
+    expect(shouldRelaxWeakTextMatches(strong)).toBe(false);
+  });
+
+  it("treats missing text_rank as no lexical evidence", () => {
+    const unranked = Array.from({ length: 24 }, (_, index) => result({ id: `chunk-${index}` }));
+    expect(firstVariantPoolIsStrong(unranked, 48)).toBe(false);
   });
 });

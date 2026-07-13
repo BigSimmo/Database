@@ -60,6 +60,7 @@ import {
   assertGlobalSearchAllowed,
   buildRetrievalQueryVariants,
   fetchEnabledRagAliases,
+  firstVariantPoolIsStrong,
   maxTextRpcQueryVariants,
   normalizeRetrievalVariant,
   ownerScopeForDocumentFilteredRetrieval,
@@ -111,6 +112,7 @@ import {
   hasDoseEvidenceSupport,
   hasStructuredThresholdEvidence,
   isMedicationDoseEvidenceQuery,
+  medicationDoseEvidenceQueryIntent,
   medicationDoseQueryContext,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
@@ -579,6 +581,21 @@ function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc: strin
   }
 }
 
+/** Record how many variant RPCs a lexical surface actually issued (PT-02 early-exit). */
+function recordTextVariantFanout(
+  telemetry: SearchTelemetry | undefined,
+  rpc: string,
+  calls: number,
+  earlyExit: boolean,
+) {
+  if (!telemetry) return;
+  telemetry.text_variant_rpc_calls = {
+    ...(telemetry.text_variant_rpc_calls ?? {}),
+    [rpc]: calls,
+  };
+  if (earlyExit) telemetry.text_variant_early_exit = true;
+}
+
 /** Record search score telemetry. */
 function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
   if (!results.length) {
@@ -810,7 +827,18 @@ function buildRetrievalDiagnostics(args: {
   answerMode: "unsupported" | "extractive" | "fast" | "strong";
   fallbackReason?: string | null;
 }) {
-  const resultScores = args.results.map(scoreValue);
+  // Lexical-only retrieval rows carry a truthful score contract since migration
+  // 20260713062107_restore_text_fallback_lexical_score: similarity is 0 (no vector
+  // ran) and hybrid_score is deliberately capped at 0.48 so a keyword hit can never
+  // masquerade as a moderate/strong cosine match downstream. The honest lexical
+  // signal lives in lexical_score (0.4..0.99). This gate must therefore read
+  // max(scoreValue, lexical_score) — reading the capped hybrid_score alone makes
+  // topScore < 0.5 unconditional for every text-fast-path answer, refusing
+  // well-supported documentation lookups whose expected document is at rank 1.
+  // Ranking/selection ordering still uses scoreValue and is unchanged.
+  const resultScores = args.results.map((result) =>
+    Math.max(scoreValue(result), Math.min(1, result.lexical_score ?? 0)),
+  );
   const sortedScores = [...resultScores].sort((a, b) => b - a);
   const topScore = sortedScores[0] ?? 0;
   const secondScore = sortedScores[1] ?? 0;
@@ -1477,11 +1505,19 @@ async function searchTextChunkCandidates(args: {
   };
 
   const variants = args.queryVariants.slice(0, maxTextRpcQueryVariants);
-  const resultSets = await Promise.all(
-    variants.map((variant, index) =>
-      runChunkText(variant, index === 0 ? args.matchCount : Math.min(args.matchCount, 32)),
-    ),
-  );
+  const [primaryVariant, ...siblingVariants] = variants;
+  const primaryResults = primaryVariant === undefined ? [] : await runChunkText(primaryVariant, args.matchCount);
+  // PT-02: skip the near-duplicate sibling variants when the primary pool is
+  // already deep and anchored by a precise hit; weak/empty pools keep the full
+  // fan-out (one extra sequential hop) so recall is unchanged where it matters.
+  const skipSiblings = siblingVariants.length > 0 && firstVariantPoolIsStrong(primaryResults, args.matchCount);
+  const resultSets = skipSiblings
+    ? [primaryResults]
+    : [
+        primaryResults,
+        ...(await Promise.all(siblingVariants.map((variant) => runChunkText(variant, Math.min(args.matchCount, 32))))),
+      ];
+  recordTextVariantFanout(args.telemetry, "match_document_chunks_text", resultSets.length, skipSiblings);
   const merged = resultSets.reduce(
     (accumulated, resultSet) => mergeSearchResults(resultSet, accumulated),
     [] as SearchResult[],
@@ -1773,23 +1809,28 @@ async function searchDocumentLookupFastPath(args: {
     0,
     maxTextRpcQueryVariants,
   );
-  const documentSets = await Promise.all(
-    variants.map(async (variant, index) => {
-      const { data, error } = await callVersionedRetrievalRpc(
-        args.supabase,
-        "match_documents_for_query_v2",
-        "match_documents_for_query",
-        {
-          query_text: variant,
-          match_count: index === 0 ? 12 : 8,
-          ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
-        },
-      );
-      if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
-      if (error || !data?.length) return [] as DocumentLookupRow[];
-      return data as DocumentLookupRow[];
-    }),
-  );
+  const runDocumentLookup = async (variant: string, matchCount: number) => {
+    const { data, error } = await callVersionedRetrievalRpc(
+      args.supabase,
+      "match_documents_for_query_v2",
+      "match_documents_for_query",
+      {
+        query_text: variant,
+        match_count: matchCount,
+        ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+      },
+    );
+    if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
+    if (error || !data?.length) return [] as DocumentLookupRow[];
+    return data as DocumentLookupRow[];
+  };
+  const [primaryVariant, ...siblingVariants] = variants;
+  const primaryDocuments = primaryVariant === undefined ? [] : await runDocumentLookup(primaryVariant, 12);
+  const skipSiblings = siblingVariants.length > 0 && firstVariantPoolIsStrong(primaryDocuments, 12);
+  const documentSets = skipSiblings
+    ? [primaryDocuments]
+    : [primaryDocuments, ...(await Promise.all(siblingVariants.map((variant) => runDocumentLookup(variant, 8))))];
+  recordTextVariantFanout(args.telemetry, "match_documents_for_query", documentSets.length, skipSiblings);
   const titleAliasDocuments = await fetchDocumentTitleAliasRows({
     supabase: args.supabase,
     query: args.query,
@@ -2114,24 +2155,32 @@ async function searchTableFactCandidates(args: {
     0,
     maxTextRpcQueryVariants,
   );
-  const factSets = await Promise.all(
-    variants.map(async (variant, index) => {
-      const { data, error } = await callVersionedRetrievalRpc(
-        args.supabase,
-        "match_document_table_facts_text_v2",
-        "match_document_table_facts_text",
-        {
-          query_text: variant,
-          match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
-          document_filters: args.documentIds ?? undefined,
-          ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
-        },
-      );
-      if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
-      if (error || !data?.length) return [] as TableFactRpcRow[];
-      return data as TableFactRpcRow[];
-    }),
-  );
+  const runTableFacts = async (variant: string, matchCount: number) => {
+    const { data, error } = await callVersionedRetrievalRpc(
+      args.supabase,
+      "match_document_table_facts_text_v2",
+      "match_document_table_facts_text",
+      {
+        query_text: variant,
+        match_count: matchCount,
+        document_filters: args.documentIds ?? undefined,
+        ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+      },
+    );
+    if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
+    if (error || !data?.length) return [] as TableFactRpcRow[];
+    return data as TableFactRpcRow[];
+  };
+  const [primaryVariant, ...siblingVariants] = variants;
+  const primaryFacts = primaryVariant === undefined ? [] : await runTableFacts(primaryVariant, args.matchCount);
+  const skipSiblings = siblingVariants.length > 0 && firstVariantPoolIsStrong(primaryFacts, args.matchCount);
+  const factSets = skipSiblings
+    ? [primaryFacts]
+    : [
+        primaryFacts,
+        ...(await Promise.all(siblingVariants.map((variant) => runTableFacts(variant, Math.min(args.matchCount, 24))))),
+      ];
+  recordTextVariantFanout(args.telemetry, "match_document_table_facts_text", factSets.length, skipSiblings);
   const data = factSets.flat();
   if (!data.length) return [] as SearchResult[];
 
@@ -2761,12 +2810,19 @@ function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], 
 
 /** Has dose amount evidence for gate. */
 function hasDoseAmountEvidenceForGate(result: SearchResult) {
-  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(evidenceTextForGate(result));
+  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|micrograms?|milligrams?|ug|[µμ]g)\b/i.test(evidenceTextForGate(result));
 }
 
 /** Has route evidence for gate. */
 function hasRouteEvidenceForGate(result: SearchResult) {
   return /\b(?:oral|orally|intramuscular|intramuscularly|subcutaneous|subcutaneously|subcut|sublingual|sublingually|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(
+    evidenceTextForGate(result),
+  );
+}
+
+/** Has administration frequency evidence for gate. */
+function hasFrequencyEvidenceForGate(result: SearchResult) {
+  return /\b(?:once|twice|daily|nightly|weekly|monthly|hourly|prn|bd|tds|qds|qid|every\s+\d+(?:\.\d+)?\s*(?:hours?|days?|weeks?)|\d+\s+times?\s+(?:a|per)\s+(?:day|week|hour))\b/i.test(
     evidenceTextForGate(result),
   );
 }
@@ -2926,9 +2982,7 @@ export function evaluateEvidenceCoverageGate(
   }
 
   if (queryClass === "medication_dose_risk") {
-    const asksDoseAmount = /\b(?:dose|doses|dosage|dosages|dosing|mg|mcg|microgram|maximum|minimum)\b/i.test(query);
-    const asksRoute =
-      /\b(?:route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(query);
+    const { asksAmount, asksRoute, asksFrequency } = medicationDoseEvidenceQueryIntent(query);
     const agitationOk = !/\bagitation|arousal\b/i.test(query) || /\bagitation|arousal\b/i.test(evidenceText);
     const hasContextualDoseEvidence = top.some(
       (result) => hasDoseEvidenceSupport(result) && medicationDoseQueryContext(query, result).matched,
@@ -2945,24 +2999,39 @@ export function evaluateEvidenceCoverageGate(
         hasRouteEvidenceForGate(result) &&
         medicationDoseQueryContext(query, result).matched,
     );
-    const accepted =
-      hasContextualDoseEvidence &&
-      (!asksDoseAmount || hasContextualDoseAmount) &&
-      (!asksRoute || hasContextualRoute) &&
-      agitationOk;
+    const hasContextualFrequency = top.some(
+      (result) =>
+        hasDoseEvidenceSupport(result) &&
+        hasFrequencyEvidenceForGate(result) &&
+        medicationDoseQueryContext(query, result).matched,
+    );
+    const hasCoLocatedRequestedEvidence = top.some(
+      (result) =>
+        hasDoseEvidenceSupport(result) &&
+        medicationDoseQueryContext(query, result).matched &&
+        (!asksAmount || hasDoseAmountEvidenceForGate(result)) &&
+        (!asksRoute || hasRouteEvidenceForGate(result)) &&
+        (!asksFrequency || hasFrequencyEvidenceForGate(result)),
+    );
+    const requestedAttributeCount = Number(asksAmount) + Number(asksRoute) + Number(asksFrequency);
+    const accepted = hasCoLocatedRequestedEvidence && agitationOk;
     return {
       accepted,
       reason: accepted
         ? "dose_route_amount_evidence_gate"
-        : !hasDoseAmount
+        : asksAmount && !hasDoseAmount
           ? "missing_dose_amount_evidence"
-          : !hasContextualDoseEvidence || (asksDoseAmount && !hasContextualDoseAmount)
+          : !hasContextualDoseEvidence || (asksAmount && !hasContextualDoseAmount)
             ? "missing_dose_query_context"
             : !hasContextualRoute && asksRoute
               ? "missing_route_evidence"
-              : !agitationOk
-                ? "missing_agitation_context"
-                : "missing_dose_evidence",
+              : !hasContextualFrequency && asksFrequency
+                ? "missing_frequency_evidence"
+                : requestedAttributeCount > 1 && !hasCoLocatedRequestedEvidence
+                  ? "missing_co_located_medication_evidence"
+                  : !agitationOk
+                    ? "missing_agitation_context"
+                    : "missing_dose_evidence",
       strategy: "text_fast_path",
       sourceImageRequired,
       sourceImageSatisfied,
@@ -4598,7 +4667,7 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
   async function generateWithModel(
     model: string,
     contextResults: SearchResult[],
-    options?: { strong?: boolean; qualityRetryInstruction?: string },
+    options?: { strong?: boolean; qualityRetryInstruction?: string; maxOutputTokensOverride?: number },
   ): Promise<OpenAITextResult> {
     const qualityRetryInstruction = options?.qualityRetryInstruction;
     // Fast vs strong is differentiated by reasoning effort, not model identity, so the
@@ -4619,7 +4688,7 @@ ${qualityRetryInstruction}`
     try {
       const result = await generateStructuredTextResult(input, answerJsonOutputSchemaForResults(contextResults), {
         model,
-        maxOutputTokens: env.OPENAI_MAX_OUTPUT_TOKENS,
+        maxOutputTokens: options?.maxOutputTokensOverride ?? env.OPENAI_MAX_OUTPUT_TOKENS,
         operation: "answer",
         schemaName: "clinical_rag_answer",
         instructions: answerInstructions,
@@ -4646,6 +4715,18 @@ ${qualityRetryInstruction}`
       generationLatencyMs += Date.now() - generationStartedAt;
     }
   }
+
+  // Truncation self-heal budget: a max_output_tokens truncation means reasoning+answer
+  // exhausted the cap, not that the model failed. The strong retries below spend MORE
+  // reasoning than the first attempt, so they get a boosted cap — escalating to strong on
+  // the SAME budget is what previously burned a second full generation and still fell
+  // through to "unsupported". Billed per token actually used, so this is free unless hit.
+  const strongRetryMaxOutputTokens = Math.max(env.OPENAI_MAX_OUTPUT_TOKENS * 2, 24000);
+  // Cap cumulative generation wall-clock so a fast -> strong -> quality-repair chain can't
+  // stack three ~timeout-length calls into a ~90s tail. The quality-repair is a polish pass
+  // over an already-valid, cited strong answer, so once this budget is spent we keep the
+  // strong answer rather than risk a third generation (and a truncation -> unsupported tail).
+  const generationTotalBudgetMs = env.OPENAI_ANSWER_TIMEOUT_MS * 2;
 
   /** Generation incomplete reason. */
   function generationIncompleteReason(result: OpenAITextResult) {
@@ -4808,7 +4889,10 @@ ${qualityRetryInstruction}`
       retriedWithStrong = true;
       await args.onProgress?.({
         stage: "retrying",
-        message: "Fast answer hit the output limit, retrying with the strong model.",
+        message:
+          route.mode === "fast"
+            ? "Fast answer hit the output limit, retrying with the strong model and a larger output budget."
+            : "Answer hit the output limit, retrying with a larger output budget.",
         mode: "strong",
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
@@ -4819,7 +4903,12 @@ ${qualityRetryInstruction}`
       // Widen the retry context from the trimmed fast set to the full result set, but keep the P9
       // per-document crowding cap — the strong-initial route is capped, so the retry must be too.
       packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
-      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, { strong: true });
+      // Boost the cap: a max_output_tokens truncation retried on the SAME budget with MORE
+      // reasoning (strong) just re-truncates. This is the truncation self-heal.
+      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
+        strong: true,
+        maxOutputTokensOverride: strongRetryMaxOutputTokens,
+      });
       retrievalDiagnostics.routeMode = "strong";
     }
     if (generated.truncated) {
@@ -4896,7 +4985,12 @@ ${qualityRetryInstruction}`
       args.onRevising?.(retryReason);
       // Same as the truncation retry above: widen but keep the P9 per-document crowding cap.
       packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
-      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, { strong: true });
+      // Strong spends more reasoning tokens than the fast attempt it is replacing, so it needs
+      // the boosted cap to avoid truncating (and degrading to unsupported) on the escalation.
+      generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
+        strong: true,
+        maxOutputTokensOverride: strongRetryMaxOutputTokens,
+      });
       retrievalDiagnostics.routeMode = "strong";
       if (generated.truncated) {
         const truncatedReason = generationRetryReason("strong", generated);
@@ -4917,7 +5011,12 @@ ${qualityRetryInstruction}`
       ? generatedAnswerQualityFailureReason(answer, args.query, queryClass)
       : null;
     const answerNeedsStrongQualityRepair = usedStrongModel && Boolean(strongQualityFailureReason);
-    if (answerNeedsStrongQualityRepair) {
+    if (answerNeedsStrongQualityRepair && generationLatencyMs >= generationTotalBudgetMs) {
+      // A4 tail-latency guard: out of the cumulative generation time budget, so keep the
+      // valid (if imperfect) cited strong answer instead of spending a third generation
+      // and risking a truncation -> unsupported tail. Recorded for observability.
+      answerRetryReasons.push(`strong_quality_repair_skipped_time_budget:${strongQualityFailureReason}`);
+    } else if (answerNeedsStrongQualityRepair) {
       routingReason = `${routingReason}; strong_quality_retry`;
       answerRetryCount += 1;
       answerRetryReasons.push("strong_quality_retry");
@@ -4931,6 +5030,7 @@ ${qualityRetryInstruction}`
       args.onRevising?.("strong_quality_retry");
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
         strong: true,
+        maxOutputTokensOverride: strongRetryMaxOutputTokens,
         qualityRetryInstruction: `The previous answer failed deterministic validation (${strongQualityFailureReason}). Return schema-valid output only, with a complete natural clinical synthesis in the answer field. The first sentence must directly answer the question as a full sentence. Every clinical claim must be supported by valid retrieved citation_chunk_id values; do not invent citation IDs. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the evidence cannot support the requested clinical answer, return a concise source-gap answer instead. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.`,
       });
       retrievalDiagnostics.routeMode = "strong";

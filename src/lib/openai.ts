@@ -199,6 +199,30 @@ function resolveReasoningEffort(model: string, effort: OpenAIReasoningEffort) {
   return capabilities.allowedReasoningEfforts.has(effort) ? effort : "low";
 }
 
+// Reasoning models spend reasoning tokens from the SAME budget as the visible answer
+// (max_output_tokens). A budget sized only for the answer lets reasoning starve it ->
+// `incomplete: max_output_tokens` (the answer is discarded and the request degrades).
+// This floor guarantees a minimum TOTAL budget per effort level so no call site can
+// under-provision reasoning headroom — a site that declares its answer size gets that
+// answer size plus guaranteed reasoning room, and a site asking for MORE than the floor
+// keeps its own value (Math.max). The floor only ever RAISES a budget, and the budget is
+// a ceiling on token spend (billed per token actually used), so lifting small budgets to
+// it is free when the response finishes early.
+function reasoningHeadroomFloor(effort: OpenAIReasoningEffort): number {
+  switch (effort) {
+    case "xhigh":
+      return 16000;
+    case "high":
+      return 12000;
+    case "medium":
+      return 8000;
+    case "low":
+      return 2000;
+    default:
+      return 0;
+  }
+}
+
 function responseBody(
   input: OpenAIResponseInput,
   resolved: ResolvedTextGenerationOptions,
@@ -222,7 +246,7 @@ function responseBody(
     model: resolved.model,
     input,
     ...(resolved.instructions ? { instructions: resolved.instructions } : {}),
-    max_output_tokens: resolved.maxOutputTokens,
+    max_output_tokens: Math.max(resolved.maxOutputTokens, reasoningHeadroomFloor(resolvedReasoningEffort)),
     store: env.OPENAI_STORE_RESPONSES,
     prompt_cache_key: resolved.promptCacheKey ?? promptCacheKeyFor(operation),
     ...(promptCacheRetention ? { prompt_cache_retention: promptCacheRetention } : {}),

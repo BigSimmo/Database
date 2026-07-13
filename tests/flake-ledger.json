@@ -1,0 +1,37 @@
+{
+  "$comment": "Known-flaky Playwright specs. Durable knowledge so a failure gets attributed to a known flake instead of re-diagnosed from memory each time. Consumed by scripts/flake-ledger.mjs (loader + isKnownFlake) and the CI failure-triage workflow. `match` is a case-insensitive substring of the test title; keep entries narrow. Removing an entry means 'we believe this is fixed' — do that deliberately.",
+  "flakes": [
+    {
+      "id": "raf-portal-hydration",
+      "match": "composer hero",
+      "spec": "tests/ui-smoke.spec.ts",
+      "reason": "Hero-composer hydration depends on a rAF portal that starves under a headless render; fixed with a MutationObserver microtask (#502/#504) but can still flake on a cold render.",
+      "since": "2026-07-11",
+      "refs": ["#502", "#504"]
+    },
+    {
+      "id": "tap-target-subpixel",
+      "match": "tap target",
+      "spec": "tests/ui-smoke.spec.ts",
+      "reason": "min-h-11 tap-target rect rounds sub-pixel below 44px on some DPRs; mitigated by min-h-12 but historically flaky.",
+      "since": "2026-07-11",
+      "refs": []
+    },
+    {
+      "id": "narrow-viewport-parallel",
+      "match": "narrow viewport",
+      "spec": "tests/ui-tools.spec.ts",
+      "reason": "Differentials narrow-viewport assertions race only under parallel workers; the suite runs workers:1 but sharded CI can still interleave.",
+      "since": "2026-07-11",
+      "refs": []
+    },
+    {
+      "id": "rag-answer-fallback-timeout",
+      "match": "answer fallback",
+      "spec": "tests/ui-tools.spec.ts",
+      "reason": "The RAG answer-fallback path can exceed the 60s test timeout when the provider route is cold; a pre-existing advisory flake.",
+      "since": "2026-07-11",
+      "refs": []
+    }
+  ]
+}

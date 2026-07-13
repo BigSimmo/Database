@@ -43,6 +43,9 @@ describe("security headers", () => {
         const connectSrc = csp.split(";").find((directive) => directive.trim().startsWith("connect-src"));
         expect(connectSrc).toBeDefined();
         expect(connectSrc).toContain("https://*.supabase.co");
+        // OpenAI calls are server-side only; the browser must not be allowed
+        // to reach the provider origin (2026-07-13 audit, finding 12).
+        expect(connectSrc).not.toContain("api.openai.com");
       });
 
       it("keeps the baseline hardening headers", () => {
