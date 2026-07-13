@@ -138,9 +138,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.session) {
           setError(null);
           setNotice(null);
-        } else if (callbackError) {
-          setError(decodeURIComponent(callbackError));
-          setNotice(null);
+        } else {
+          clearPersistedAnswerThread();
+          clearRecentQueries();
+          if (callbackError) {
+            setError(decodeURIComponent(callbackError));
+            setNotice(null);
+          }
         }
       } catch {
         if (!active) return;
@@ -159,6 +163,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextSession) {
         setError(null);
         setNotice(null);
+      } else {
+        clearPersistedAnswerThread();
+        clearRecentQueries();
       }
     });
 
