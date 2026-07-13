@@ -1,0 +1,185 @@
+{
+  "description": "Golden cases for medspaCy assertion tagging (worker/python/analyze_assertions.py). AU community mental health phrasing. `expect.asserted` terms must NOT appear in negated_terms or uncertain_terms; other expect arrays assert membership in the corresponding *_terms output.",
+  "cases": [
+    {
+      "id": "denies-si",
+      "text": "On review the patient denies suicidal ideation and denies any plan or intent.",
+      "targets": ["suicidal ideation"],
+      "expect": { "negated": ["suicidal ideation"] }
+    },
+    {
+      "id": "no-self-harm",
+      "text": "No thoughts of self harm were reported during the assessment.",
+      "targets": ["self harm"],
+      "expect": { "negated": ["self harm"] }
+    },
+    {
+      "id": "nil-hallucinations",
+      "text": "Nil auditory hallucinations at present.",
+      "targets": ["auditory hallucinations"],
+      "expect": { "negated": ["auditory hallucinations"] }
+    },
+    {
+      "id": "denies-avh",
+      "text": "She denies auditory hallucinations but describes ongoing paranoid ideation.",
+      "targets": ["auditory hallucinations", "paranoid ideation"],
+      "expect": { "negated": ["auditory hallucinations"], "asserted": ["paranoid ideation"] }
+    },
+    {
+      "id": "no-chest-pain-but",
+      "text": "No chest pain, however the patient reports palpitations since starting clozapine.",
+      "targets": ["chest pain", "palpitations", "clozapine"],
+      "expect": { "negated": ["chest pain"], "asserted": ["palpitations", "clozapine"] }
+    },
+    {
+      "id": "without-eps",
+      "text": "The dose was increased without extrapyramidal side effects.",
+      "targets": ["extrapyramidal side effects"],
+      "expect": { "negated": ["extrapyramidal side effects"] }
+    },
+    {
+      "id": "no-nms-signs",
+      "text": "There were no signs of neuroleptic malignant syndrome on examination.",
+      "targets": ["neuroleptic malignant syndrome"],
+      "expect": { "negated": ["neuroleptic malignant syndrome"] }
+    },
+    {
+      "id": "denies-substance",
+      "text": "He denies current alcohol use and denies illicit substance use.",
+      "targets": ["alcohol use", "substance use"],
+      "expect": { "negated": ["alcohol use", "substance use"] }
+    },
+    {
+      "id": "no-neutropenia",
+      "text": "Weekly FBC shows no neutropenia and the absolute neutrophil count remains within range.",
+      "targets": ["neutropenia", "absolute neutrophil count"],
+      "expect": { "negated": ["neutropenia"], "asserted": ["absolute neutrophil count"] }
+    },
+    {
+      "id": "not-suicidal",
+      "text": "The consumer is not currently suicidal and was discharged with a safety plan.",
+      "targets": ["suicidal", "safety plan"],
+      "expect": { "negated": ["suicidal"], "asserted": ["safety plan"] }
+    },
+    {
+      "id": "possible-nms",
+      "text": "Possible neuroleptic malignant syndrome; cease antipsychotic and transfer to the emergency department.",
+      "targets": ["neuroleptic malignant syndrome", "antipsychotic"],
+      "expect": { "uncertain": ["neuroleptic malignant syndrome"] }
+    },
+    {
+      "id": "query-serotonin",
+      "text": "Impression: query serotonin syndrome given recent SSRI dose increase.",
+      "targets": ["serotonin syndrome", "ssri"],
+      "expect": { "uncertain": ["serotonin syndrome"] }
+    },
+    {
+      "id": "suspected-myocarditis",
+      "text": "Suspected myocarditis in week three of clozapine titration.",
+      "targets": ["myocarditis", "clozapine"],
+      "expect": { "uncertain": ["myocarditis"], "asserted": ["clozapine"] }
+    },
+    {
+      "id": "differential-psychosis",
+      "text": "Differential diagnosis includes drug induced psychosis versus first episode schizophrenia.",
+      "targets": ["psychosis", "schizophrenia"],
+      "expect": { "uncertain": ["psychosis", "schizophrenia"] }
+    },
+    {
+      "id": "may-have-akathisia",
+      "text": "The restlessness may represent akathisia rather than agitation.",
+      "targets": ["akathisia", "agitation"],
+      "expect": { "uncertain": ["akathisia"] }
+    },
+    {
+      "id": "if-toxicity",
+      "text": "If lithium toxicity develops, withhold the next dose and obtain an urgent level.",
+      "targets": ["lithium toxicity"],
+      "expect": { "uncertain": ["lithium toxicity"] }
+    },
+    {
+      "id": "family-bipolar",
+      "text": "Family history of bipolar disorder in her mother.",
+      "targets": ["bipolar disorder"],
+      "expect": { "family": ["bipolar disorder"] }
+    },
+    {
+      "id": "father-schizophrenia",
+      "text": "Her father was diagnosed with schizophrenia in his twenties.",
+      "targets": ["schizophrenia"],
+      "expect": { "family": ["schizophrenia"] }
+    },
+    {
+      "id": "family-suicide",
+      "text": "There is a family history of suicide on the paternal side.",
+      "targets": ["suicide"],
+      "expect": { "family": ["suicide"] }
+    },
+    {
+      "id": "history-dsh",
+      "text": "Past history of deliberate self harm as an adolescent.",
+      "targets": ["deliberate self harm"],
+      "expect": { "historical": ["deliberate self harm"] }
+    },
+    {
+      "id": "previous-overdose",
+      "text": "History of overdose in 2019 requiring ICU admission.",
+      "targets": ["overdose"],
+      "expect": { "historical": ["overdose"] }
+    },
+    {
+      "id": "prior-catatonia",
+      "text": "Previous episode of catatonia responded well to electroconvulsive therapy.",
+      "targets": ["catatonia", "electroconvulsive therapy"],
+      "expect": { "historical": ["catatonia"] }
+    },
+    {
+      "id": "asserted-avh",
+      "text": "The patient reports auditory hallucinations commanding self harm.",
+      "targets": ["auditory hallucinations"],
+      "expect": { "asserted": ["auditory hallucinations"] }
+    },
+    {
+      "id": "asserted-clozapine",
+      "text": "Commenced on clozapine 12.5 mg with standard titration and weekly monitoring.",
+      "targets": ["clozapine", "monitoring"],
+      "expect": { "asserted": ["clozapine", "monitoring"] }
+    },
+    {
+      "id": "asserted-qtc",
+      "text": "The ECG shows a prolonged QTc of 480 ms; repeat after dose reduction.",
+      "targets": ["qtc", "ecg"],
+      "expect": { "asserted": ["qtc", "ecg"] }
+    },
+    {
+      "id": "asserted-si-active",
+      "text": "He expresses active suicidal ideation with a specific plan.",
+      "targets": ["suicidal ideation"],
+      "expect": { "asserted": ["suicidal ideation"] }
+    },
+    {
+      "id": "asserted-seclusion",
+      "text": "Seclusion was initiated at 2140 following a code black.",
+      "targets": ["seclusion", "code black"],
+      "expect": { "asserted": ["seclusion", "code black"] }
+    },
+    {
+      "id": "asserted-cto",
+      "text": "She remains on a community treatment order reviewed by the tribunal in March.",
+      "targets": ["community treatment order"],
+      "expect": { "asserted": ["community treatment order"] }
+    },
+    {
+      "id": "mixed-negation-scope",
+      "text": "No evidence of serotonin syndrome, although tremor and hyperreflexia should prompt urgent review.",
+      "targets": ["serotonin syndrome", "tremor"],
+      "expect": { "negated": ["serotonin syndrome"] }
+    },
+    {
+      "id": "mixed-family-vs-patient",
+      "text": "Family history of depression; the patient herself reports low mood and anhedonia.",
+      "targets": ["depression", "low mood"],
+      "expect": { "family": ["depression"], "asserted": ["low mood"] }
+    }
+  ]
+}
