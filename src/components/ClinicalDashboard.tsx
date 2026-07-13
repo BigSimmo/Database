@@ -2548,7 +2548,11 @@ export function ClinicalDashboard({
   async function submitAnswerFeedback(feedbackType: AnswerFeedbackType) {
     if (!answer || pendingFeedback) return;
     if (clientDemoMode) {
-      setActionNotice({ tone: "warning", message: "Answer review is available after signing in to a real library." });
+      setActionNotice({ tone: "warning", message: "Answer review is unavailable for synthetic demo answers." });
+      return;
+    }
+    if (!answer.interactionId) {
+      setActionNotice({ tone: "warning", message: "This answer predates traceable feedback. Run the question again." });
       return;
     }
 
@@ -2556,37 +2560,29 @@ export function ClinicalDashboard({
     try {
       const sourceChunkIds = Array.from(new Set(sources.map((source) => source.id).filter(Boolean)));
       const citedChunkIds = Array.from(new Set(answer.citations.map((citation) => citation.chunk_id).filter(Boolean)));
-      const sourceFiles = Array.from(
-        new Set([
-          ...sources.map((source) => source.file_name).filter(Boolean),
-          ...answer.citations.map((citation) => citation.file_name).filter(Boolean),
-        ]),
-      );
-      const response = await fetch("/api/eval-cases", {
+      const digest = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(answer.answer));
+      const answerHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+      const response = await fetch("/api/answer-feedback", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...authorizationHeader,
         },
         body: JSON.stringify({
-          query,
-          feedbackType,
-          rating: feedbackType === "verified" ? "good" : "needs_fixing",
-          answer: answer.answer,
-          queryMode,
-          queryClass: answer.queryClass,
-          filters: compactScopeFilters(scopeFilters),
-          sourceChunkIds,
-          citedChunkIds,
-          sourceFiles,
-          sourceGovernanceWarnings: sourceGovernanceWarnings.map((warning) => warning.message),
-          unverifiedNumericTokens: answer.unverifiedNumericTokens ?? [],
+          interactionId: answer.interactionId,
+          feedbackCategory: feedbackType,
+          answerHash,
+          sourceIds: sourceChunkIds,
+          citedSourceIds: citedChunkIds,
+          route: answer.routingMode ?? null,
+          model: answer.modelUsed ?? null,
+          providerRequestIds: answer.openAIRequestIds ?? [],
         }),
       });
 
       if (response.status === 401) {
         markSessionExpired();
-        setActionNotice({ tone: "warning", message: "Sign in again before saving answer review." });
+        setActionNotice({ tone: "warning", message: "The session could not be validated for feedback." });
         return;
       }
       if (!response.ok) {
@@ -2595,10 +2591,7 @@ export function ClinicalDashboard({
       }
       setActionNotice({
         tone: "success",
-        message:
-          feedbackType === "verified"
-            ? "Verified answer saved for eval coverage."
-            : "Answer issue saved for eval coverage.",
+        message: feedbackType === "verified" ? "Verified answer feedback saved." : "Answer issue feedback saved.",
       });
     } catch (feedbackError) {
       setActionNotice({

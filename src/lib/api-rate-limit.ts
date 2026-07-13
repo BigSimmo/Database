@@ -37,6 +37,8 @@ export type ApiRateLimitBucket =
   | "document_summarize"
   | "document_reindex"
   | "bulk_reindex"
+  | "source_review"
+  | "answer_feedback"
   | "registry";
 
 export type ApiRateLimitResult = {
@@ -55,6 +57,8 @@ const apiRateLimitDefaults = {
   document_summarize: { limit: 12, windowSeconds: 60 },
   document_reindex: { limit: 6, windowSeconds: 60 },
   bulk_reindex: { limit: 2, windowSeconds: 60 },
+  source_review: { limit: 30, windowSeconds: 60 },
+  answer_feedback: { limit: 30, windowSeconds: 60 },
   registry: { limit: 120, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
@@ -63,6 +67,7 @@ const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit:
   search: { limit: 60, windowSeconds: 60 },
   document_read: { limit: 45, windowSeconds: 60 },
   document_upload: { limit: 3, windowSeconds: 60 },
+  answer_feedback: { limit: 12, windowSeconds: 60 },
 };
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;

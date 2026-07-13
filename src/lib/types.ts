@@ -913,6 +913,7 @@ export type ComparisonMatrix = {
 };
 
 export type RagAnswer = {
+  interactionId?: string;
   answer: string;
   grounded: boolean;
   confidence: "high" | "medium" | "low" | "unsupported";
