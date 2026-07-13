@@ -166,13 +166,16 @@ const reasoningEfforts = new Set<OpenAIReasoningEffort>(["low", "medium", "high"
 function openAIModelCapabilities(model: string) {
   const normalized = model.toLowerCase();
   const isGpt5 = /^gpt-5(?:[.-]|$)/.test(normalized);
-  const isGpt56 = /^gpt-5\.6(?:[.-]|$)/.test(normalized);
+  const gptVersionMatch = normalized.match(/^gpt-(\d+)(?:\.(\d+))?(?:[.-]|$)/);
+  const gptMajorVersion = Number(gptVersionMatch?.[1] ?? 0);
+  const gptMinorVersion = Number(gptVersionMatch?.[2] ?? 0);
+  const usesPromptCacheOptions = gptMajorVersion > 5 || (gptMajorVersion === 5 && gptMinorVersion >= 6);
   const isReasoningModel = isGpt5 || /^o\d(?:[.-]|$)/.test(normalized);
 
   return {
     supportsReasoning: isReasoningModel,
     supportsTextVerbosity: isGpt5,
-    usesPromptCacheOptions: isGpt56,
+    usesPromptCacheOptions,
     requiredPromptCacheRetention: /^gpt-5\.5(?:[.-]|$)/.test(normalized) ? "24h" : undefined,
     allowedReasoningEfforts: isReasoningModel ? reasoningEfforts : new Set<OpenAIReasoningEffort>(),
   };

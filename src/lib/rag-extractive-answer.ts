@@ -358,8 +358,12 @@ const maximumDoseEquivalentPattern = new RegExp(
   String.raw`\b(?:up\s+to|(?:do\s+)?not\s+exceed|not\s+to\s+exceed|(?:no|not)\s+more\s+than|at\s+most|limit(?:ed)?(?:\s+the\s+dose)?\s+to)\s+${clinicalDoseValueSource}\b`,
   "i",
 );
+const explicitMaximumDosePattern = new RegExp(
+  String.raw`(?:\bmax(?:imum)?(?:\s+\w+){0,3}\s+doses?\b|\bdoses?(?:\s+\w+){0,3}\s+max(?:imum)?\b|\bmax(?:imum)?(?:\s+\w+){0,3}\s+${clinicalDoseValueSource}\b|\b${clinicalDoseValueSource}(?:\s+\w+){0,3}\s+max(?:imum)?\b)`,
+  "i",
+);
 const doseIntentEvidencePattern = new RegExp(
-  String.raw`\b(?:doses?|dosing|dosage|max(?:imum)?|${clinicalDoseUnitSource}|eGFR|renal|creatinine|daily|bd|tds|mane|nocte)\b`,
+  String.raw`\b(?:doses?|dosing|dosage|${clinicalDoseUnitSource}|eGFR|renal|creatinine|daily|bd|tds|mane|nocte)\b`,
   "i",
 );
 
@@ -391,7 +395,7 @@ function hasWithholdActionEvidence(text: string) {
 
 /** Has explicit or equivalent maximum-dose evidence. */
 export function hasMaximumDoseEvidence(text: string) {
-  return /\bmax(?:imum)?\b/i.test(text) || maximumDoseEquivalentPattern.test(text);
+  return explicitMaximumDosePattern.test(text) || maximumDoseEquivalentPattern.test(text);
 }
 
 /** Result covers answer intent. */
@@ -677,7 +681,7 @@ function factKindForSentence(sentence: string, query: string, intent: AnswerInte
     return "monitoring";
   }
   if (
-    /\b(?:doses?|dosing|dosage|max(?:imum)?|daily|bd|tds|mane|nocte|mmol\/l)\b/i.test(text) ||
+    /\b(?:doses?|dosing|dosage|daily|bd|tds|mane|nocte|mmol\/l)\b/i.test(text) ||
     clinicalDoseValuePattern.test(text)
   ) {
     return "dose";

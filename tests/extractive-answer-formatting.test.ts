@@ -18,7 +18,10 @@ describe("maximum-dose evidence", () => {
     expect(hasMaximumDoseEvidence("Use at most 500 micrograms daily.")).toBe(true);
     expect(hasMaximumDoseEvidence("Limit the dose to 5 millilitres daily.")).toBe(true);
     expect(hasMaximumDoseEvidence("Use no more than 10 international units daily.")).toBe(true);
+    expect(hasMaximumDoseEvidence("The maximum recommended daily dose is 20 mg.")).toBe(true);
+    expect(hasMaximumDoseEvidence("The maximum is 20 mg daily.")).toBe(true);
     expect(hasMaximumDoseEvidence("The starting dose is 5 mg daily.")).toBe(false);
+    expect(hasMaximumDoseEvidence("Lithium has a maximum treatment duration of two years.")).toBe(false);
   });
 });
 

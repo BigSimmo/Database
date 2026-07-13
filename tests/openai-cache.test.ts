@@ -170,8 +170,8 @@ describe("OpenAI query embedding cache", () => {
     });
   });
 
-  it("uses GPT-5.6 prompt cache options instead of the deprecated retention field", async () => {
-    let capturedBody: Record<string, unknown> = {};
+  it("uses GPT-5.6-and-later prompt cache options instead of the deprecated retention field", async () => {
+    const capturedBodies: Record<string, unknown>[] = [];
 
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_PROMPT_CACHE_RETENTION", "24h");
@@ -182,7 +182,7 @@ describe("OpenAI query embedding cache", () => {
         embeddings = { create: vi.fn() };
         responses = {
           create: vi.fn((body: Record<string, unknown>) => {
-            capturedBody = body;
+            capturedBodies.push(body);
             return {
               withResponse: async () => ({
                 data: { status: "completed", output_text: '{"answer":"ok"}' },
@@ -200,12 +200,20 @@ describe("OpenAI query embedding cache", () => {
       { type: "object", properties: {}, required: [] },
       { model: "gpt-5.6-terra", operation: "answer", schemaName: "clinical_test" },
     );
+    await generateStructuredTextResult(
+      "Question",
+      { type: "object", properties: {}, required: [] },
+      { model: "gpt-5.7-terra", operation: "answer", schemaName: "clinical_test" },
+    );
 
-    expect(capturedBody).toMatchObject({
-      model: "gpt-5.6-terra",
-      prompt_cache_options: { ttl: "30m" },
-    });
-    expect(capturedBody).not.toHaveProperty("prompt_cache_retention");
+    expect(capturedBodies).toHaveLength(2);
+    for (const [index, model] of ["gpt-5.6-terra", "gpt-5.7-terra"].entries()) {
+      expect(capturedBodies[index]).toMatchObject({
+        model,
+        prompt_cache_options: { ttl: "30m" },
+      });
+      expect(capturedBodies[index]).not.toHaveProperty("prompt_cache_retention");
+    }
   });
 
   it("uses Responses parse for static Zod schemas and forwards a pseudonymous safety identifier", async () => {
