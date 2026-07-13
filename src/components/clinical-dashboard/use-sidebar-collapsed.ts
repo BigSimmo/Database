@@ -5,17 +5,28 @@ import { useCallback, useSyncExternalStore } from "react";
 const storageKey = "clinical-kb-sidebar-collapsed";
 const changeEvent = "clinical-kb-sidebar-collapsed-change";
 
+// In-memory fallback when localStorage writes fail (e.g. private browsing mode).
+// Null means no fallback needed; storage is the source of truth.
+let inMemoryFallback: boolean | null = null;
+
 function getSnapshot() {
+  // When storage writes have failed, the in-memory fallback takes precedence
+  // so the UI reflects the user's toggle even when persistence is unavailable.
+  if (inMemoryFallback !== null) {
+    return inMemoryFallback;
+  }
   try {
     const storedValue = window.localStorage.getItem(storageKey);
-    return storedValue === null ? true : storedValue === "1";
+    // New users get the labelled (expanded) sidebar: eight icon-only
+    // destinations demand recall/hover; collapsing stays a remembered choice.
+    return storedValue === null ? false : storedValue === "1";
   } catch {
-    return true;
+    return false;
   }
 }
 
 function getServerSnapshot() {
-  return true;
+  return false;
 }
 
 function subscribe(onChange: () => void) {
@@ -37,8 +48,13 @@ export function useSidebarCollapsed() {
   const setCollapsed = useCallback((next: boolean) => {
     try {
       window.localStorage.setItem(storageKey, next ? "1" : "0");
+      // Storage write succeeded; clear the in-memory fallback so persisted
+      // storage remains the source of truth.
+      inMemoryFallback = null;
     } catch {
-      // Ignore storage failures (private mode); state simply won't persist.
+      // Storage write failed (private mode, quota exceeded, etc.); remember
+      // the requested state in memory so the UI can reflect the toggle.
+      inMemoryFallback = next;
     }
     window.dispatchEvent(new Event(changeEvent));
   }, []);
