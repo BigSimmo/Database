@@ -4,12 +4,8 @@ import { answerSloSnapshot, type SloProbeClient } from "@/lib/observability/answ
 
 // Fake PostgREST count builder: from().select().gt() is the "total" query; adding
 // .not(column,...) narrows it to the hybrid-error or degraded count, and .ilike(col,
-<<<<<<< HEAD
-// pattern) narrows it to the truncation or timeout fallback subset by pattern. Awaiting
-=======
 // pattern) narrows it to the truncation or timeout fallback subset by pattern; the third
 // arg records the base .is(...) filters so tests can assert event-type scoping. Awaiting
->>>>>>> origin/main
 // resolves to { count, error }.
 type SloFilterKey = "total" | "hybrid" | "degraded" | "truncation" | "timeout";
 
