@@ -8,7 +8,6 @@
 # credits are exhausted ("Prepaid credits exhausted — enable usage-based
 # reviews"). That failure previously surfaced as a red ✗ check and acted as a
 # barrier on the PR; the settings below prevent it.
-version: 2
 reviews:
   # Do not post a CodeRabbit commit status check at all. This is what turns the
   # review into a blocking check, so disabling it keeps the review advisory.
