@@ -1514,7 +1514,7 @@ test.describe("Responsive layout guards", () => {
   ] as const;
 
   for (const route of mockupRoutes) {
-    test(`${route.name} never overflows horizontally across sizes`, async ({ page }) => {
+    test(`${route.name} never overflows horizontally across sizes @mockup`, async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 900 });
       await gotoLauncher(page, route.path);
       await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();

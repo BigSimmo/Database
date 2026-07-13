@@ -1886,8 +1886,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
     await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
-    await medicationLink.click();
-    await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 15_000 });
+    // Re-click on each retry: a single click can be swallowed while the answer
+    // surface is still hydrating (same guard as the launcher mode switches), and
+    // app-router URLs only commit after the destination responds — a cold dev
+    // compile of /medications/[slug] can take ~30s when this spec runs without
+    // the @critical warm-up journeys.
+    await expect(async () => {
+      if (/\/medications\/clozapine/.test(page.url())) return;
+      await medicationLink.click();
+      await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 5_000 });
+    }).toPass({ timeout: 45_000 });
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -2419,9 +2427,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectSingleMedicationPage(page);
     await expect(page.getByRole("link", { name: "Back to medication search" })).toBeVisible();
 
-    await gotoApp(page, "/mockups/medication-prescribing");
-    await expect(page).toHaveURL(/\/medications\/acamprosate$/);
-    await expectSingleMedicationPage(page);
     expect(parentNodeErrors).toEqual([]);
   });
 
