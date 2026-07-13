@@ -327,3 +327,19 @@ export function shouldRelaxWeakTextMatches(merged: SearchResult[]): boolean {
   if (merged.length < weakTextMatchMinResultCount) return true;
   return topTextRank < weakTextMatchTopRankFloor;
 }
+
+// PT-02: sibling query variants exist to rescue queries whose primary phrasing
+// misses. When the first variant already returns a deep pool anchored by a
+// precise lexical hit, firing the siblings re-derives the same evidence at two
+// extra RPC round-trips per lexical surface. "Strong" reuses the same rank bar
+// as the weak-OR skip above so both paths agree on what a precise hit is; the
+// depth floor stops a single lucky chunk from suppressing sibling recall.
+/** First-variant pool is strong enough to skip the sibling variant RPCs. */
+export function firstVariantPoolIsStrong(
+  results: ReadonlyArray<{ text_rank?: number | null }>,
+  matchCount: number,
+): boolean {
+  if (results.length < Math.ceil(matchCount / 2)) return false;
+  const topTextRank = results.reduce((top, result) => Math.max(top, result.text_rank ?? 0), 0);
+  return topTextRank >= strongTextMatchTopRankBar;
+}
