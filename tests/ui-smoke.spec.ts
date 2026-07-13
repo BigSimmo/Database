@@ -1,6 +1,7 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { scrollPrimarySurface } from "./playwright-scroll";
+import { recentQueryStorageKey } from "../src/components/clinical-dashboard/dashboard-contracts";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { deriveGovernanceFromSections } from "../src/lib/medication-records";
@@ -16,6 +17,9 @@ const dashboardViewports = [
   { name: "mobile-landscape", width: 667, height: 375 },
 ] as const;
 const uiAssertionTimeoutMs = 5_000;
+const demoAnswerThreadOwnerId = "local-demo-session";
+const demoAnswerThreadStorageKey = `${answerThreadStorageKey}:${demoAnswerThreadOwnerId}`;
+const demoRecentQueryStorageKey = `${recentQueryStorageKey}:${demoAnswerThreadOwnerId}`;
 
 async function expectNoPageHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => {
@@ -656,14 +660,14 @@ async function waitForPersistedAnswerThread(page: Page, minPriorTurns = 1) {
     .poll(async () =>
       page.evaluate((storageKey) => {
         try {
-          const raw = window.localStorage.getItem(storageKey);
+          const raw = window.sessionStorage.getItem(storageKey);
           if (!raw) return 0;
           const parsed = JSON.parse(raw) as { priorTurns?: unknown[] };
           return Array.isArray(parsed.priorTurns) ? parsed.priorTurns.length : 0;
         } catch {
           return 0;
         }
-      }, answerThreadStorageKey),
+      }, demoAnswerThreadStorageKey),
     )
     .toBeGreaterThanOrEqual(minPriorTurns);
 }
@@ -1455,11 +1459,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const answerRequests: string[] = [];
     await mockDemoApi(page, { onAnswerRequest: (query) => answerRequests.push(query) });
     const recent = "clozapine monitoring schedule";
-    // Seed persisted recent queries before the app loads (key mirrors
-    // `recentQueryStorageKey` in ClinicalDashboard.tsx).
-    await page.addInitScript((value) => {
-      window.localStorage.setItem("clinical-kb-recent-queries", JSON.stringify([value]));
-    }, recent);
+    // Seed the owner-scoped session history before the app loads.
+    await page.addInitScript(
+      ({ storageKey, value }) => {
+        window.sessionStorage.setItem(storageKey, JSON.stringify([value]));
+      },
+      { storageKey: demoRecentQueryStorageKey, value: recent },
+    );
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
