@@ -86,7 +86,7 @@ export function assertAllowedFile(file: File, maxUploadMb: number) {
 
   const maxBytes = maxUploadMb * 1024 * 1024;
   if (file.size > maxBytes) {
-    throw new PublicApiError(`File exceeds ${maxUploadMb} MB upload limit.`);
+    throw new PublicApiError(`File exceeds ${maxUploadMb} MB upload limit.`, 413, { code: "payload_too_large" });
   }
 }
 

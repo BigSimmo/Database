@@ -2,8 +2,9 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import { type Session, type SupabaseClient } from "@supabase/supabase-js";
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
+import { createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";
@@ -18,6 +19,9 @@ type AuthContextValue = {
   notice: string | null;
   isConfigured: boolean;
   authorizationHeader: Record<string, string>;
+  authEpoch: number;
+  registerAuthRequest: (controller: AbortController) => { epoch: number; release: () => void };
+  isAuthEpochCurrent: (epoch: number) => boolean;
   signInWithEmail: (email: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   signUpWithPassword: (email: string, password: string) => Promise<void>;
@@ -99,6 +103,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>(client ? "loading" : "unconfigured");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const authRequestsRef = useRef(createAuthRequestLifecycle());
+  const authFingerprintRef = useRef<string | null>(null);
+  const [authEpoch, setAuthEpoch] = useState(0);
+
+  const invalidateAuthRequests = useCallback(() => {
+    setAuthEpoch(authRequestsRef.current.invalidate());
+  }, []);
+  const registerAuthRequest = useCallback((controller: AbortController) => {
+    return authRequestsRef.current.register(controller);
+  }, []);
+  const isAuthEpochCurrent = useCallback((epoch: number) => authRequestsRef.current.isCurrent(epoch), []);
 
   useEffect(() => {
     if (!client) return () => undefined;
@@ -247,24 +262,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (!client) return;
+    invalidateAuthRequests();
     await client.auth.signOut();
     clearPersistedAnswerThread();
     setSession(null);
     setStatus("signed_out");
     setError(null);
     setNotice(null);
-  }, [client]);
+  }, [client, invalidateAuthRequests]);
 
   const markSessionExpired = useCallback(() => {
+    invalidateAuthRequests();
     clearPersistedAnswerThread();
     setSession(null);
     setStatus("expired");
     setNotice(null);
     setError("Your session expired. Sign in again to use private documents.");
-  }, []);
+  }, [invalidateAuthRequests]);
 
   const accessToken = session?.access_token ?? null;
   const authorizationHeader = useMemo(() => authorizationHeadersForAccessToken(accessToken), [accessToken]);
+
+  useEffect(() => {
+    const fingerprint = `${status}:${session?.user.id ?? "anonymous"}:${accessToken ?? "no-token"}`;
+    if (authFingerprintRef.current === null) {
+      authFingerprintRef.current = fingerprint;
+      return;
+    }
+    if (authFingerprintRef.current === fingerprint) return;
+    authFingerprintRef.current = fingerprint;
+    invalidateAuthRequests();
+  }, [accessToken, invalidateAuthRequests, session?.user.id, status]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -275,6 +303,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       notice,
       isConfigured: Boolean(client),
       authorizationHeader,
+      authEpoch,
+      registerAuthRequest,
+      isAuthEpochCurrent,
       signInWithEmail,
       signInWithPassword,
       signUpWithPassword,
@@ -289,6 +320,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       error,
       notice,
       authorizationHeader,
+      authEpoch,
+      registerAuthRequest,
+      isAuthEpochCurrent,
       signInWithEmail,
       signInWithPassword,
       signUpWithPassword,

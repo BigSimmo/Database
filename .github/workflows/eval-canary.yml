@@ -91,7 +91,14 @@ jobs:
         run: npm run eval:retrieval:quality -- --fail-on-threshold
 
       - name: Answer-quality subset (live generation)
-        run: npm run eval:quality -- --rag-only --limit ${{ github.event.inputs.answer_case_limit || '8' }} --fail-on-threshold
+        env:
+          ANSWER_CASE_LIMIT: ${{ github.event.inputs.answer_case_limit || '8' }}
+        run: |
+          if [[ ! "$ANSWER_CASE_LIMIT" =~ ^[0-9]+$ ]] || (( ANSWER_CASE_LIMIT < 1 || ANSWER_CASE_LIMIT > 100 )); then
+            echo "answer_case_limit must be an integer from 1 to 100" >&2
+            exit 2
+          fi
+          npm run eval:quality -- --rag-only --limit "$ANSWER_CASE_LIMIT" --fail-on-threshold
 
       - name: Open or update regression issue
         if: failure() && github.event_name == 'schedule'

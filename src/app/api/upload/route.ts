@@ -115,6 +115,12 @@ export async function POST(request: Request) {
       );
     }
 
+    const declaredLength = Number(request.headers.get("content-length"));
+    const multipartBudget = env.MAX_UPLOAD_MB * 1024 * 1024 + 1024 * 1024;
+    if (Number.isFinite(declaredLength) && declaredLength > multipartBudget) {
+      throw new PublicApiError("Upload request is too large.", 413, { code: "payload_too_large" });
+    }
+
     const formData = await request.formData().catch((cause) => {
       throw new PublicApiError("Invalid upload form data.", 400, {
         code: "invalid_form_data",

@@ -73,6 +73,7 @@ import {
   getCachedSearch,
   getSharedCachedAnswer,
   getSharedCachedSearch,
+  isSearchCacheEnabled,
   packAdjacentSourceContext,
   packedContextCacheKey,
   scopedAnswerCacheKey,
@@ -85,6 +86,7 @@ export {
   packedContextCacheKey,
   retrievalPlanCacheQuery,
 } from "@/lib/rag-cache";
+import { classifySearchCacheOutcome, recordCacheLookup } from "@/lib/observability/cache-metrics";
 import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag-source-block";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
 import {
@@ -2923,6 +2925,7 @@ function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   assertGlobalSearchAllowed(args);
   throwIfAborted(args.signal);
+  const indexingVersionAtRetrievalStart = await cacheIndexingVersion(args, { forceRefresh: true });
   const supabase = createAdminClient();
   // When the provider is source-only (offline mode, or auto mode without a usable key) we must
   // never call OpenAI for embeddings; retrieval falls back to the lexical text-fast-path only.
@@ -3015,10 +3018,20 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const queryVariants = buildRetrievalQueryVariants(retrievalQuery, queryAnalysis, ragAliases);
   telemetry.retrieval_query_variant_count = queryVariants.length;
   const cached = await getCachedSearch(args, queryClassification.queryClass, queryVariants);
+  // Only consult the shared cache when the process-local cache missed (preserves
+  // the original short-circuit), then record the hit-rate counter ONCE with full
+  // knowledge of both layers: a request served by either cache is a hit, so a
+  // cold process that falls through to a warm shared cache is not miscounted as a
+  // miss (deep /api/health cache hit-rate — docs/observability-slos.md §4).
+  const sharedCached = cached ? null : await getSharedCachedSearch(args, queryClassification.queryClass, queryVariants);
+  const cacheOutcome = classifySearchCacheOutcome(isSearchCacheEnabled(args), Boolean(cached), sharedCached);
+  if (cacheOutcome !== "skip") recordCacheLookup(cacheOutcome === "hit");
+
   if (cached) return cached;
-  const sharedCached = await getSharedCachedSearch(args, queryClassification.queryClass, queryVariants);
   if (sharedCached?.kind === "hit") {
-    await setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants);
+    await setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants, {
+      indexingVersionAtRetrievalStart,
+    });
     return { results: sharedCached.results, telemetry: sharedCached.telemetry };
   }
   if (sharedCached?.kind === "miss") {
@@ -3049,7 +3062,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.embedding_skip_reason = "unsupported_short_circuit";
     telemetry.retrieval_strategy = "unsupported_short_circuit";
     recordSearchScoreTelemetry(telemetry, []);
-    await setCachedSearch(args, [], telemetry, queryVariants);
+    await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
     return { results: [] as SearchResult[], telemetry };
   }
 
@@ -3115,7 +3128,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       markEmbeddingSkippedByTextFastPath(telemetry, baseTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      await setCachedSearch(args, textFastResults, telemetry, queryVariants);
+      await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
       return { results: textFastResults, telemetry };
     }
 
@@ -3158,7 +3171,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       markEmbeddingSkippedByTextFastPath(telemetry, boostedTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      await setCachedSearch(args, textFastResults, telemetry, queryVariants);
+      await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
       return { results: textFastResults, telemetry };
     }
   }
@@ -3269,7 +3282,9 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         );
         telemetry.retrieval_strategy = "document_lookup_fast_path";
         recordSearchScoreTelemetry(telemetry, documentLookupResults);
-        await setCachedSearch(args, documentLookupResults, telemetry, queryVariants);
+        await setCachedSearch(args, documentLookupResults, telemetry, queryVariants, {
+          indexingVersionAtRetrievalStart,
+        });
         return { results: documentLookupResults, telemetry };
       }
       textFastResults = mergeSearchResults(documentLookupResults, textFastResults);
@@ -3293,7 +3308,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     if (!args.forceEmbedding && coverageGate.accepted) {
       telemetry.retrieval_strategy = coverageGate.strategy;
       recordSearchScoreTelemetry(telemetry, coverageGateResults);
-      await setCachedSearch(args, coverageGateResults, telemetry, queryVariants);
+      await setCachedSearch(args, coverageGateResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
       return { results: coverageGateResults, telemetry };
     }
     textFastResults = mergeSearchResults(coverageGateResults, textFastResults);
@@ -3470,7 +3485,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
     telemetry.retrieval_strategy = "hybrid";
     recordSearchScoreTelemetry(telemetry, results);
-    await setCachedSearch(args, results, telemetry, queryVariants);
+    await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
     return { results, telemetry };
   }
 
@@ -3552,7 +3567,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
   telemetry.retrieval_strategy = "vector_fallback";
   recordSearchScoreTelemetry(telemetry, results);
-  await setCachedSearch(args, results, telemetry, queryVariants);
+  await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
   return { results, telemetry };
 }
 
@@ -4818,6 +4833,7 @@ ${qualityRetryInstruction}`
     await setCachedAnswer(args, answer, { indexingVersionAtRetrievalStart });
     return answer;
   } catch (error) {
+    if ((error instanceof DOMException && error.name === "AbortError") || args.signal?.aborted) throw error;
     const relatedDocuments = await relatedDocumentsPromise;
     await args.onProgress?.({
       stage: "finalizing",

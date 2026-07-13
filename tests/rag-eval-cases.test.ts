@@ -235,6 +235,20 @@ describe("captured RAG eval cases", () => {
     expect(quality?.expectedFiles).toEqual(["MHSP.Discharge.pdf"]);
   });
 
+  it("marks the diffuse duress cases as source-only-acceptable, still supported", () => {
+    // The duress-procedure query surfaces the same tangential RKPG cross-reference boilerplate as
+    // discharge, so its correct behaviour is a source-only answer citing the duress docs.
+    const core = ragEvalCases.find((item) => item.id === "duress-procedure");
+    expect(core?.supported).toBe(true);
+    expect(core?.acceptSourceOnly).toBe(true);
+    expect(core?.expectedFiles).toEqual(["MHSP.Duress.pdf"]);
+
+    const quality = answerQualityEvalCases.find((item) => item.id === "quality-duress-pathway");
+    expect(quality?.supported).toBe(true);
+    expect(quality?.acceptSourceOnly).toBe(true);
+    expect(quality?.expectedFiles).toEqual(["MHSP.Duress.pdf"]);
+  });
+
   it("scores an acceptSourceOnly case as relevant for a clean source-only answer", () => {
     const testCase = answerQualityEvalCases.find((item) => item.id === "quality-discharge-documentation")!;
     const sourceOnly = {

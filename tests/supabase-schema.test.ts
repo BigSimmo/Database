@@ -128,6 +128,10 @@ const searchDocumentChunksOwnerScopeMigration = readFileSync(
   new URL("../supabase/migrations/20260705133000_tighten_search_document_chunks_owner_scope.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const retrievalPlanCacheMigration = readFileSync(
+  new URL("../supabase/migrations/20260711120000_retrieval_fn_plan_cache_mode.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -146,6 +150,21 @@ function extractIndexUnitHybridFunction(sql: string) {
 }
 
 describe("Supabase schema Data API grants", () => {
+  it("codifies custom plans for non-inlined retrieval functions", () => {
+    for (const functionName of [
+      "match_document_table_facts_text",
+      "match_document_memory_cards_hybrid",
+      "match_document_index_units_hybrid",
+      "match_document_embedding_fields_hybrid",
+    ]) {
+      const start = schema.indexOf(`create or replace function public.${functionName}(`);
+      const end = schema.indexOf("as $$", start);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(schema.slice(start, end)).toContain("set plan_cache_mode = 'force_custom_plan'");
+      expect(retrievalPlanCacheMigration).toContain(`alter function public.${functionName}`);
+    }
+  });
+
   it("explicitly grants service-role access for upload and ingestion tables", () => {
     expect(schema).toContain("public.import_batches,");
     expect(schema).toContain("public.document_labels,");
@@ -157,17 +176,12 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("grant execute on all functions in schema public to service_role;");
   });
 
-  it("keeps browser Data API grants read-only except manual labels", () => {
+  it("keeps browser Data API table privileges disabled", () => {
     expect(schema).toContain("revoke all privileges on all tables in schema public from anon, authenticated;");
     expect(schema).toContain("revoke execute on all functions in schema public from public, anon, authenticated;");
-    expect(schema).toMatch(
-      /grant select on table .*public\.documents, .*public\.document_pages, .*public\.document_images, .*public\.document_labels, .*public\.document_summaries, .*public\.document_chunks, .*public\.ingestion_jobs, .*public\.rag_queries, .*public\.storage_cleanup_jobs.* to authenticated;/,
-    );
+    expect(schema).not.toMatch(/grant [^;]* on table [^;]* to authenticated;/);
     expect(schema).not.toContain("grant select, insert, update, delete on table public.documents to authenticated;");
     expect(schema).not.toContain("grant select, insert on table public.rag_queries to authenticated;");
-    const authenticatedSelectGrant = schema.match(/grant select on table ([^;]+) to authenticated;/)?.[1] ?? "";
-    expect(authenticatedSelectGrant).not.toContain("public.document_sections");
-    expect(authenticatedSelectGrant).not.toContain("public.document_memory_cards");
     expect(schema).not.toMatch(/grant [^;]* on table [^;]*public\.document_sections[^;]* to authenticated;/);
     expect(schema).not.toMatch(/grant [^;]* on table [^;]*public\.document_memory_cards[^;]* to authenticated;/);
     expect(schema).not.toMatch(/grant [^;]* on table [^;]* to anon;/);

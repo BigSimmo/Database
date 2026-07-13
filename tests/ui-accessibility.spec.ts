@@ -75,7 +75,7 @@ test.describe("Clinical KB accessibility media smoke", () => {
 
   test("dashboard remains usable with reduced motion", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.setViewportSize({ width: 390, height: 820 });
+    await page.setViewportSize({ width: 390, height: 844 });
     await mockMinimalDashboardApi(page);
     await gotoApp(page);
 
@@ -86,12 +86,24 @@ test.describe("Clinical KB accessibility media smoke", () => {
 
   test("dashboard remains usable with forced colors", async ({ page }) => {
     await page.emulateMedia({ forcedColors: "active" });
-    await page.setViewportSize({ width: 390, height: 820 });
+    await page.setViewportSize({ width: 390, height: 844 });
     await mockMinimalDashboardApi(page);
     await gotoApp(page);
 
     await expectDashboardUsable(page);
     await openScopeControl(page);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("dashboard remains usable at 200 percent zoom", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = "2";
+    });
+
+    await expectDashboardUsable(page);
     await expectNoPageHorizontalOverflow(page);
   });
 });

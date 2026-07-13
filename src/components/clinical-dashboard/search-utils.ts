@@ -22,6 +22,8 @@ export function isAnswerPayload(value: unknown): value is AnswerPayload {
 export type SearchError = Error & {
   status?: number;
   retryable?: boolean;
+  code?: string;
+  retryAfterMs?: number | null;
 };
 
 export const searchRetryDelaysMs = [500, 1000, 2000] as const;
@@ -66,8 +68,22 @@ export function isRetryableError(error: unknown) {
   return isRetryableMessage(searchError.message);
 }
 
-export function sleep(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
+export function sleep(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const timer = window.setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        window.clearTimeout(timer);
+        reject(new DOMException("Aborted", "AbortError"));
+      },
+      { once: true },
+    );
+  });
 }
 
 export function answerPayloadIsUsable(payload: AnswerPayload) {

@@ -490,7 +490,10 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
       const next = current.includes(service.slug)
         ? current.filter((item) => item !== service.slug)
         : [service.slug, ...current];
-      writeSavedRegistrySlugs(savedServicesStorageKey, next);
+      if (!writeSavedRegistrySlugs(savedServicesStorageKey, next)) {
+        setNotice("Save failed");
+        return;
+      }
       const nowSaved = next.includes(service.slug);
       setSaved(nowSaved);
       setNotice(nowSaved ? "Service saved" : "Service removed from saved items");

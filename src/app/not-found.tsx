@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { FileQuestion, Search } from "lucide-react";
 import { cn, primaryControl } from "@/components/ui-primitives";

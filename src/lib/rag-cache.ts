@@ -179,12 +179,20 @@ function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelem
   };
 }
 
+// Single source of truth for whether the process-local search cache is active
+// for a request. Shared with the observability counter so a size-0 (or TTL-0 /
+// skipCache) deployment records the lookup as neither hit nor miss rather than a
+// false miss (the shared-cache lookup does not itself short-circuit on size).
+export function isSearchCacheEnabled(args: Pick<SearchChunksArgs, "skipCache">): boolean {
+  return !args.skipCache && env.RAG_SEARCH_CACHE_TTL_MS > 0 && env.RAG_SEARCH_CACHE_SIZE > 0;
+}
+
 export async function getCachedSearch(
   args: SearchChunksArgs,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
 ): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
-  if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return null;
+  if (!isSearchCacheEnabled(args)) return null;
 
   const key = scopedSearchCacheKey(args, queryClass, queryVariants);
   const cached = searchCache.get(key);
@@ -221,11 +229,13 @@ export async function setCachedSearch(
   results: SearchResult[],
   telemetry: SearchTelemetry,
   queryVariants: string[] = [],
+  options?: { indexingVersionAtRetrievalStart?: string | null },
 ): Promise<void> {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
   const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
 
-  const indexingVersion = await cacheIndexingVersion(args);
+  const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
+  if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
@@ -275,8 +285,12 @@ function sharedCacheSelector(
   return query;
 }
 
-export async function cacheIndexingVersion(args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId">) {
+export async function cacheIndexingVersion(
+  args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId">,
+  options?: { forceRefresh?: boolean },
+) {
   const cacheKey = cacheIndexingVersionCacheKey(args);
+  if (options?.forceRefresh) cacheIndexingVersionCache.delete(cacheKey);
   const cached = readExpiringCacheEntry(cacheIndexingVersionCache, cacheKey);
   if (cached) return cached.value;
 

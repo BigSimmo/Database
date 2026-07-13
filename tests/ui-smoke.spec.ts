@@ -1502,6 +1502,26 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("stopping generation removes provisional output and exposes a stable rerun action", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page, { answerDelayMs: 1500 });
+    const question = "What monitoring is required for clozapine?";
+    await page.goto(`/?mode=answer&q=${encodeURIComponent(question)}&run=1`, { waitUntil: "domcontentloaded" });
+
+    const stop = page.getByTestId("stop-answer");
+    await expect(stop).toBeVisible();
+    await stop.focus();
+    await page.keyboard.press("Enter");
+
+    const cancelled = page.getByTestId("answer-cancelled");
+    await expect(cancelled).toContainText("Generation stopped");
+    await expect(cancelled.getByRole("button", { name: "Run again" })).toBeVisible();
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
+    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
+    await page.waitForTimeout(1700);
+    await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
+  });
+
   test("answer results surface cross-mode quick links", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
@@ -1773,9 +1793,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
   }
 
   for (const viewport of [
-    { name: "390px mobile", width: 390, height: 820, expands: true },
+    { name: "390px mobile", width: 390, height: 844, expands: true },
     { name: "768px tablet", width: 768, height: 1024, expands: true },
-    { name: "1440px desktop", width: 1440, height: 900, expands: false },
+    { name: "1280px desktop", width: 1280, height: 800, expands: false },
   ] as const) {
     test(`clinical table mobile expansion at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -2157,12 +2177,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.getByRole("button", { name: "Find matching documents" }).click();
 
     await expect(page).toHaveURL(/\/documents\/search\?.*q=lithium\+monitoring/);
-    await expect(page.getByRole("heading", { name: "Find source evidence" })).toBeVisible();
-    const documentResults = page.getByRole("region", { name: "Document results" });
-    await expect(documentResults).toContainText("Synthetic lithium monitoring protocol");
+    const documentResults = page.getByRole("article").filter({ hasText: "Synthetic Lithium Monitoring Protocol" });
+    await expect(documentResults).toBeVisible();
     await expect(documentResults).toContainText("Best match");
-    await expect(documentResults).toContainText("Tables 1");
-    const openDocumentLink = documentResults.getByRole("link", { name: "Open document" }).first();
+    await expect(documentResults).toContainText("1 table");
+    const openDocumentLink = documentResults
+      .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })
+      .last();
     await expect(openDocumentLink).toBeVisible();
     // Exact viewer target built from mockDemoApi's lithium result (document_id / bestPages[0] /
     // bestChunkIds[0]): a link to the wrong document, page, or chunk must fail this assertion.
@@ -2170,7 +2191,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "href",
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
     );
-    await expect(page.getByRole("complementary").filter({ hasText: "Selected source" })).toHaveCount(0);
+    await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -2207,7 +2228,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.getByRole("button", { name: "Find matching documents" }).click();
     await expect(page).toHaveURL(/\/documents\/search\?/);
     await expect(page.locator("body")).not.toContainText(/failed to fetch|Search failed/i);
-    await expect(page.getByRole("heading", { name: /Search command centre|Find source evidence/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "No matching documents" }).first()).toBeVisible();
 
     const demoDocId = "11111111-1111-4111-8111-111111111111";
     await gotoApp(page, `/documents/${demoDocId}?chunk=55555555-5555-4555-8555-555555555555`);

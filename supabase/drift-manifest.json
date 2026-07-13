@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-11T02:45:10.714Z",
+  "generated_at": "2026-07-12T19:37:18.660Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "aa8a419ab55b4637b858df628aa250b714ab1acd715d4f7786bcf6ec71f5e218",
-  "replay_seconds": 22,
+  "schema_sha256": "954cbd1034a1aaef729db486497ae3c2216680de1360cbf2957e6f6faec2e572",
+  "replay_seconds": 13,
   "snapshot": {
     "views": [
       {
@@ -654,7 +654,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -824,7 +823,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -936,7 +934,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -1170,7 +1167,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -1287,7 +1283,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -1468,7 +1463,6 @@
       },
       {
         "acl": [
-          "authenticated=arwd/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -1722,7 +1716,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -1936,7 +1929,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -2045,7 +2037,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -2191,7 +2182,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -2456,7 +2446,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -2829,7 +2818,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -3134,7 +3122,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -3227,7 +3214,106 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwdDxtm/postgres"
+        ],
+        "name": "rag_answer_feedback",
+        "columns": [
+          {
+            "name": "answer_hash",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "cited_source_ids",
+            "type": "uuid[]",
+            "default": "'{}'::uuid[]",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "feedback_category",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "interaction_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "model",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "provider_request_ids",
+            "type": "text[]",
+            "default": "'{}'::text[]",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "route",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "source_ids",
+            "type": "uuid[]",
+            "default": "'{}'::uuid[]",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -3304,7 +3390,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -3625,7 +3710,6 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -4062,7 +4146,122 @@
       },
       {
         "acl": [
-          "authenticated=r/postgres",
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwdDxtm/postgres"
+        ],
+        "name": "source_review_events",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "decision",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "document_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "evidence_references",
+            "type": "text[]",
+            "default": "'{}'::text[]",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "new_document_status",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "new_validation_status",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "prior_document_status",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "prior_validation_status",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "reason",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "replacement_document_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "review_date",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "reviewer_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
@@ -4240,6 +4439,12 @@
         "def_hash": "26c4becd95952ebdd2896baa2cd8af5d"
       },
       {
+        "def": "CREATE INDEX audit_logs_owner_id_idx ON public.audit_logs USING btree (owner_id)",
+        "name": "audit_logs_owner_id_idx",
+        "table": "audit_logs",
+        "def_hash": "7bbc9bf869bc94ca30e59c9880cdd203"
+      },
+      {
         "def": "CREATE UNIQUE INDEX audit_logs_pkey ON public.audit_logs USING btree (id)",
         "name": "audit_logs_pkey",
         "table": "audit_logs",
@@ -4250,6 +4455,12 @@
         "name": "clinical_registry_record_sources_document_idx",
         "table": "clinical_registry_record_sources",
         "def_hash": "c29c8a1dac5dec480b1b0634f90de59e"
+      },
+      {
+        "def": "CREATE INDEX clinical_registry_record_sources_owner_id_idx ON public.clinical_registry_record_sources USING btree (owner_id)",
+        "name": "clinical_registry_record_sources_owner_id_idx",
+        "table": "clinical_registry_record_sources",
+        "def_hash": "b77e4bd67fdb3ea7b04db0ddce7a422d"
       },
       {
         "def": "CREATE UNIQUE INDEX clinical_registry_record_sources_pkey ON public.clinical_registry_record_sources USING btree (id)",
@@ -4294,6 +4505,12 @@
         "def_hash": "101b09c5ffc2b9cbb9a5a89fefa4ddf8"
       },
       {
+        "def": "CREATE UNIQUE INDEX differential_records_owner_slug_kind_uidx ON public.differential_records USING btree (owner_id, slug, kind)",
+        "name": "differential_records_owner_slug_kind_uidx",
+        "table": "differential_records",
+        "def_hash": "6493cfd68d7112cadce862ef7301d9cd"
+      },
+      {
         "def": "CREATE INDEX differential_records_owner_status_idx ON public.differential_records USING btree (owner_id, status)",
         "name": "differential_records_owner_status_idx",
         "table": "differential_records",
@@ -4330,6 +4547,12 @@
         "def_hash": "6116ee95152dd5c594d9f818373a1304"
       },
       {
+        "def": "CREATE INDEX document_chunks_document_id_idx ON public.document_chunks USING btree (document_id)",
+        "name": "document_chunks_document_id_idx",
+        "table": "document_chunks",
+        "def_hash": "032b3404b9307c3f41d76dda23e035a8"
+      },
+      {
         "def": "CREATE INDEX document_chunks_document_idx ON public.document_chunks USING btree (document_id, chunk_index)",
         "name": "document_chunks_document_idx",
         "table": "document_chunks",
@@ -4348,6 +4571,12 @@
         "def_hash": "f7eff752fa5a51527c43c69672bfa498"
       },
       {
+        "def": "CREATE INDEX document_chunks_meta_rag_indexing_version_idx ON public.document_chunks USING btree (((metadata ->> 'rag_indexing_version'::text)))",
+        "name": "document_chunks_meta_rag_indexing_version_idx",
+        "table": "document_chunks",
+        "def_hash": "82b22e94cbc9aef35f801e03fabbd421"
+      },
+      {
         "def": "CREATE UNIQUE INDEX document_chunks_pkey ON public.document_chunks USING btree (id)",
         "name": "document_chunks_pkey",
         "table": "document_chunks",
@@ -4364,6 +4593,18 @@
         "name": "document_embedding_fields_dedup_idx",
         "table": "document_embedding_fields",
         "def_hash": "ecd71e75ddb61a863adffd5a1771778a"
+      },
+      {
+        "def": "CREATE INDEX document_embedding_fields_document_generation_idx ON public.document_embedding_fields USING btree (document_id, index_generation_id) WHERE (index_generation_id IS NOT NULL)",
+        "name": "document_embedding_fields_document_generation_idx",
+        "table": "document_embedding_fields",
+        "def_hash": "8121e0f506ea0d3eb78c93370ceafba0"
+      },
+      {
+        "def": "CREATE INDEX document_embedding_fields_document_id_idx ON public.document_embedding_fields USING btree (document_id)",
+        "name": "document_embedding_fields_document_id_idx",
+        "table": "document_embedding_fields",
+        "def_hash": "017400d5ddad0c85bacef1a1bda0f540"
       },
       {
         "def": "CREATE INDEX document_embedding_fields_document_idx ON public.document_embedding_fields USING btree (document_id, field_type)",
@@ -4420,10 +4661,34 @@
         "def_hash": "7224a35b50c37a7394210ca930e4e99f"
       },
       {
+        "def": "CREATE INDEX document_images_created_at_idx ON public.document_images USING btree (created_at)",
+        "name": "document_images_created_at_idx",
+        "table": "document_images",
+        "def_hash": "74c60efbe0bb810c62c38b61f651cb17"
+      },
+      {
+        "def": "CREATE INDEX document_images_document_generation_idx ON public.document_images USING btree (document_id, index_generation_id) WHERE (index_generation_id IS NOT NULL)",
+        "name": "document_images_document_generation_idx",
+        "table": "document_images",
+        "def_hash": "5396e530db0d80b567a17e91c3f5ce62"
+      },
+      {
+        "def": "CREATE INDEX document_images_document_id_idx ON public.document_images USING btree (document_id)",
+        "name": "document_images_document_id_idx",
+        "table": "document_images",
+        "def_hash": "5f94ef8f0db0d9297801de9ee94a1f8a"
+      },
+      {
         "def": "CREATE INDEX document_images_document_idx ON public.document_images USING btree (document_id, page_number)",
         "name": "document_images_document_idx",
         "table": "document_images",
         "def_hash": "941d83214261706d52f69051f9e5b356"
+      },
+      {
+        "def": "CREATE INDEX document_images_duplicate_group_idx ON public.document_images USING btree (document_id, visual_duplicate_group)",
+        "name": "document_images_duplicate_group_idx",
+        "table": "document_images",
+        "def_hash": "55ea55e28d3b036e9edbd560dcd12f61"
       },
       {
         "def": "CREATE INDEX document_images_hash_idx ON public.document_images USING btree (document_id, image_hash) WHERE (image_hash IS NOT NULL)",
@@ -4438,10 +4703,22 @@
         "def_hash": "cc6e5155f2d486e97a4f8622f6796929"
       },
       {
+        "def": "CREATE INDEX document_images_priority_idx ON public.document_images USING btree (document_id, clinical_priority_score DESC, page_number)",
+        "name": "document_images_priority_idx",
+        "table": "document_images",
+        "def_hash": "10b08574f74bb01b0727ce93ef68e25d"
+      },
+      {
         "def": "CREATE INDEX document_images_searchable_idx ON public.document_images USING btree (document_id, searchable, image_type, page_number)",
         "name": "document_images_searchable_idx",
         "table": "document_images",
         "def_hash": "e135802078cd6122e02c5f462c5ed4cb"
+      },
+      {
+        "def": "CREATE INDEX document_images_searchable_idx1 ON public.document_images USING btree (searchable)",
+        "name": "document_images_searchable_idx1",
+        "table": "document_images",
+        "def_hash": "b96ae8c3cce06502879b6afc0eb33989"
       },
       {
         "def": "CREATE INDEX document_images_structured_profile_gin_idx ON public.document_images USING gin (((metadata -> 'structured_visual_profile'::text)))",
@@ -4462,6 +4739,18 @@
         "def_hash": "064a542af2b97dc915fcc29e9a76e6c3"
       },
       {
+        "def": "CREATE INDEX document_index_quality_document_id_idx ON public.document_index_quality USING btree (document_id)",
+        "name": "document_index_quality_document_id_idx",
+        "table": "document_index_quality",
+        "def_hash": "0aee0a139d6701157a840f598c885c3f"
+      },
+      {
+        "def": "CREATE INDEX document_index_quality_owner_id_idx ON public.document_index_quality USING btree (owner_id)",
+        "name": "document_index_quality_owner_id_idx",
+        "table": "document_index_quality",
+        "def_hash": "1138b4bad91d02d36455f554a813e27b"
+      },
+      {
         "def": "CREATE INDEX document_index_quality_owner_score_idx ON public.document_index_quality USING btree (owner_id, quality_score, updated_at DESC)",
         "name": "document_index_quality_owner_score_idx",
         "table": "document_index_quality",
@@ -4478,6 +4767,18 @@
         "name": "document_index_units_chunk_idx",
         "table": "document_index_units",
         "def_hash": "23177769dc083936f9f6b5d42be88228"
+      },
+      {
+        "def": "CREATE INDEX document_index_units_document_generation_idx ON public.document_index_units USING btree (document_id, index_generation_id) WHERE (index_generation_id IS NOT NULL)",
+        "name": "document_index_units_document_generation_idx",
+        "table": "document_index_units",
+        "def_hash": "bf9ce31b401e73d55a3d6c579e034023"
+      },
+      {
+        "def": "CREATE INDEX document_index_units_document_id_idx ON public.document_index_units USING btree (document_id)",
+        "name": "document_index_units_document_id_idx",
+        "table": "document_index_units",
+        "def_hash": "ddab591784c2fd3bc4b373f7ad1b15ea"
       },
       {
         "def": "CREATE INDEX document_index_units_document_idx ON public.document_index_units USING btree (document_id, unit_type, page_start)",
@@ -4504,6 +4805,18 @@
         "def_hash": "2acbcf265eed582aeada506d20f1a2c9"
       },
       {
+        "def": "CREATE INDEX document_index_units_owner_document_created_idx ON public.document_index_units USING btree (owner_id, document_id, created_at DESC)",
+        "name": "document_index_units_owner_document_created_idx",
+        "table": "document_index_units",
+        "def_hash": "d9c21e179787a459c59754c3ace3a978"
+      },
+      {
+        "def": "CREATE INDEX document_index_units_owner_id_idx ON public.document_index_units USING btree (owner_id)",
+        "name": "document_index_units_owner_id_idx",
+        "table": "document_index_units",
+        "def_hash": "752ee8a3e4a213c142527fa46fe8a927"
+      },
+      {
         "def": "CREATE INDEX document_index_units_owner_type_idx ON public.document_index_units USING btree (owner_id, unit_type, quality_score DESC)",
         "name": "document_index_units_owner_type_idx",
         "table": "document_index_units",
@@ -4520,6 +4833,18 @@
         "name": "document_index_units_search_idx",
         "table": "document_index_units",
         "def_hash": "2daf014bbe1ddcaabbf04fd4e59aa1dd"
+      },
+      {
+        "def": "CREATE INDEX document_index_units_source_chunk_id_idx ON public.document_index_units USING btree (source_chunk_id)",
+        "name": "document_index_units_source_chunk_id_idx",
+        "table": "document_index_units",
+        "def_hash": "cd67ecd9aeac4372b06c5ac0fbc39fdc"
+      },
+      {
+        "def": "CREATE INDEX document_index_units_source_image_id_idx ON public.document_index_units USING btree (source_image_id)",
+        "name": "document_index_units_source_image_id_idx",
+        "table": "document_index_units",
+        "def_hash": "4017d6e7b740c1fb075484dc62247ea3"
       },
       {
         "def": "CREATE INDEX document_index_units_terms_idx ON public.document_index_units USING gin (normalized_terms)",
@@ -4546,6 +4871,12 @@
         "def_hash": "3eacf182331d8ecd11758ffb1398e2c9"
       },
       {
+        "def": "CREATE INDEX document_labels_owner_id_idx ON public.document_labels USING btree (owner_id)",
+        "name": "document_labels_owner_id_idx",
+        "table": "document_labels",
+        "def_hash": "0d17a0df3fea0e05426cc53b835bde3e"
+      },
+      {
         "def": "CREATE INDEX document_labels_owner_label_idx ON public.document_labels USING btree (owner_id, label_type, label)",
         "name": "document_labels_owner_label_idx",
         "table": "document_labels",
@@ -4558,6 +4889,18 @@
         "def_hash": "be7f08f94762e5e0f938a81897438627"
       },
       {
+        "def": "CREATE INDEX document_memory_cards_document_generation_idx ON public.document_memory_cards USING btree (document_id, index_generation_id) WHERE (index_generation_id IS NOT NULL)",
+        "name": "document_memory_cards_document_generation_idx",
+        "table": "document_memory_cards",
+        "def_hash": "f2e5509c4f11891506e1ce32abf38109"
+      },
+      {
+        "def": "CREATE INDEX document_memory_cards_document_id_idx ON public.document_memory_cards USING btree (document_id)",
+        "name": "document_memory_cards_document_id_idx",
+        "table": "document_memory_cards",
+        "def_hash": "3f9e920720f1f5aae3da0b48386d29bb"
+      },
+      {
         "def": "CREATE INDEX document_memory_cards_document_idx ON public.document_memory_cards USING btree (document_id, card_type, confidence DESC)",
         "name": "document_memory_cards_document_idx",
         "table": "document_memory_cards",
@@ -4568,6 +4911,12 @@
         "name": "document_memory_cards_embedding_hnsw_idx",
         "table": "document_memory_cards",
         "def_hash": "0a6948e68c1aae1d77c582936677e584"
+      },
+      {
+        "def": "CREATE INDEX document_memory_cards_owner_document_created_idx ON public.document_memory_cards USING btree (owner_id, document_id, created_at DESC)",
+        "name": "document_memory_cards_owner_document_created_idx",
+        "table": "document_memory_cards",
+        "def_hash": "98192936967c1d8dc7f44cb16544f9e8"
       },
       {
         "def": "CREATE INDEX document_memory_cards_owner_idx ON public.document_memory_cards USING btree (owner_id)",
@@ -4612,6 +4961,18 @@
         "def_hash": "001064d4f85791f720b56615ca14500f"
       },
       {
+        "def": "CREATE INDEX document_sections_document_generation_idx ON public.document_sections USING btree (document_id, index_generation_id) WHERE (index_generation_id IS NOT NULL)",
+        "name": "document_sections_document_generation_idx",
+        "table": "document_sections",
+        "def_hash": "9bc9e25017ac95c9406374e829a45b66"
+      },
+      {
+        "def": "CREATE INDEX document_sections_document_id_idx ON public.document_sections USING btree (document_id)",
+        "name": "document_sections_document_id_idx",
+        "table": "document_sections",
+        "def_hash": "30c10fb4eafa7366e116177da7e901bd"
+      },
+      {
         "def": "CREATE UNIQUE INDEX document_sections_document_id_section_index_key ON public.document_sections USING btree (document_id, section_index)",
         "name": "document_sections_document_id_section_index_key",
         "table": "document_sections",
@@ -4642,6 +5003,12 @@
         "def_hash": "b2c18ea1e491a079cd63f903d5927e83"
       },
       {
+        "def": "CREATE INDEX document_summaries_owner_id_idx ON public.document_summaries USING btree (owner_id)",
+        "name": "document_summaries_owner_id_idx",
+        "table": "document_summaries",
+        "def_hash": "c523b214ffeff9c2b138cf0baf1378c1"
+      },
+      {
         "def": "CREATE INDEX document_summaries_owner_idx ON public.document_summaries USING btree (owner_id, generated_at DESC)",
         "name": "document_summaries_owner_idx",
         "table": "document_summaries",
@@ -4664,6 +5031,12 @@
         "name": "document_table_facts_chunk_idx",
         "table": "document_table_facts",
         "def_hash": "d9190255ba83d0bed31aafdede595e13"
+      },
+      {
+        "def": "CREATE INDEX document_table_facts_document_generation_idx ON public.document_table_facts USING btree (document_id, index_generation_id) WHERE (index_generation_id IS NOT NULL)",
+        "name": "document_table_facts_document_generation_idx",
+        "table": "document_table_facts",
+        "def_hash": "0c8bdfebb614f179cbe3eeaf16772156"
       },
       {
         "def": "CREATE INDEX document_table_facts_document_idx ON public.document_table_facts USING btree (document_id, page_number)",
@@ -4702,6 +5075,12 @@
         "def_hash": "42127721dc292103a0118c33e1ba1034"
       },
       {
+        "def": "CREATE INDEX document_table_facts_title_row_param_trgm_idx ON public.document_table_facts USING gin (lower(((((COALESCE(table_title, ''::text) || ' '::text) || COALESCE(row_label, ''::text)) || ' '::text) || COALESCE(clinical_parameter, ''::text))) extensions.gin_trgm_ops)",
+        "name": "document_table_facts_title_row_param_trgm_idx",
+        "table": "document_table_facts",
+        "def_hash": "9ac4c08564d3f549df99a1e543875cb8"
+      },
+      {
         "def": "CREATE INDEX documents_import_batch_idx ON public.documents USING btree (import_batch_id)",
         "name": "documents_import_batch_idx",
         "table": "documents",
@@ -4712,6 +5091,12 @@
         "name": "documents_indexed_owner_title_idx",
         "table": "documents",
         "def_hash": "ec13cdd0bda40b9017955b13e9953c58"
+      },
+      {
+        "def": "CREATE INDEX documents_indexed_updated_at_idx ON public.documents USING btree (updated_at, id) WHERE (status = 'indexed'::text)",
+        "name": "documents_indexed_updated_at_idx",
+        "table": "documents",
+        "def_hash": "81e89e0778af4aadb980b0536ffb3d19"
       },
       {
         "def": "CREATE INDEX documents_indexing_v3_agent_claim_idx ON public.documents USING btree (status, ((metadata ->> 'enrichment_status'::text)), ((metadata ->> 'indexing_v3_agent_status'::text)), updated_at) WHERE (status = 'indexed'::text)",
@@ -4774,6 +5159,12 @@
         "def_hash": "2f2c90dfac660eb2a30bd869f686e665"
       },
       {
+        "def": "CREATE INDEX image_caption_cache_owner_id_idx ON public.image_caption_cache USING btree (owner_id)",
+        "name": "image_caption_cache_owner_id_idx",
+        "table": "image_caption_cache",
+        "def_hash": "6a7095d2f46b71c43f539d39cd85006b"
+      },
+      {
         "def": "CREATE UNIQUE INDEX image_caption_cache_owner_id_image_hash_model_key ON public.image_caption_cache USING btree (owner_id, image_hash, model)",
         "name": "image_caption_cache_owner_id_image_hash_model_key",
         "table": "image_caption_cache",
@@ -4784,6 +5175,12 @@
         "name": "image_caption_cache_pkey",
         "table": "image_caption_cache",
         "def_hash": "7c01c4b34e63a2ef7adf4d309c9e2a20"
+      },
+      {
+        "def": "CREATE INDEX import_batches_owner_id_idx ON public.import_batches USING btree (owner_id)",
+        "name": "import_batches_owner_id_idx",
+        "table": "import_batches",
+        "def_hash": "79fb12c0e2f184c05d46214f501537d6"
       },
       {
         "def": "CREATE INDEX import_batches_owner_status_idx ON public.import_batches USING btree (owner_id, status, created_at DESC)",
@@ -4834,6 +5231,12 @@
         "def_hash": "424bd9e873cff104a27de3143a5038aa"
       },
       {
+        "def": "CREATE INDEX ingestion_job_stages_job_idx ON public.ingestion_job_stages USING btree (job_id, started_at DESC)",
+        "name": "ingestion_job_stages_job_idx",
+        "table": "ingestion_job_stages",
+        "def_hash": "1be7cbb41010fa40169c29b624a864c3"
+      },
+      {
         "def": "CREATE INDEX ingestion_job_stages_job_stage_started_idx ON public.ingestion_job_stages USING btree (job_id, stage_name, started_at DESC)",
         "name": "ingestion_job_stages_job_stage_started_idx",
         "table": "ingestion_job_stages",
@@ -4876,10 +5279,22 @@
         "def_hash": "c698e7813ec7c23f9176072848ddfaa4"
       },
       {
+        "def": "CREATE INDEX ingestion_jobs_status_idx ON public.ingestion_jobs USING btree (status)",
+        "name": "ingestion_jobs_status_idx",
+        "table": "ingestion_jobs",
+        "def_hash": "9f81c0366c617eea2319b73f7b8db5d2"
+      },
+      {
         "def": "CREATE INDEX ingestion_jobs_status_next_run_idx ON public.ingestion_jobs USING btree (status, next_run_at, created_at) WHERE (status = ANY (ARRAY['pending'::text, 'processing'::text, 'failed'::text]))",
         "name": "ingestion_jobs_status_next_run_idx",
         "table": "ingestion_jobs",
         "def_hash": "5b76e9007454fd9118ca073fb122f205"
+      },
+      {
+        "def": "CREATE INDEX ingestion_jobs_updated_at_idx ON public.ingestion_jobs USING btree (updated_at)",
+        "name": "ingestion_jobs_updated_at_idx",
+        "table": "ingestion_jobs",
+        "def_hash": "ba5fbf2ba8979b11dafb08b4dc339be5"
       },
       {
         "def": "CREATE INDEX medication_records_owner_category_idx ON public.medication_records USING btree (owner_id, category)",
@@ -4936,6 +5351,30 @@
         "def_hash": "7cc5a5a8c70475e51a21636802aa00fd"
       },
       {
+        "def": "CREATE UNIQUE INDEX rag_answer_feedback_interaction_id_key ON public.rag_answer_feedback USING btree (interaction_id)",
+        "name": "rag_answer_feedback_interaction_id_key",
+        "table": "rag_answer_feedback",
+        "def_hash": "f9d7557e4acc34722d446a3a5d6b9f84"
+      },
+      {
+        "def": "CREATE INDEX rag_answer_feedback_owner_id_idx ON public.rag_answer_feedback USING btree (owner_id)",
+        "name": "rag_answer_feedback_owner_id_idx",
+        "table": "rag_answer_feedback",
+        "def_hash": "e4b3e1ec55506660faa3b47e0176587a"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX rag_answer_feedback_pkey ON public.rag_answer_feedback USING btree (id)",
+        "name": "rag_answer_feedback_pkey",
+        "table": "rag_answer_feedback",
+        "def_hash": "be51b56fee0247dfa8477adc8f2e2fd7"
+      },
+      {
+        "def": "CREATE INDEX rag_queries_owner_id_idx ON public.rag_queries USING btree (owner_id)",
+        "name": "rag_queries_owner_id_idx",
+        "table": "rag_queries",
+        "def_hash": "091478abc23f3d42331186f4f8be2c9d"
+      },
+      {
         "def": "CREATE INDEX rag_queries_owner_idx ON public.rag_queries USING btree (owner_id, created_at DESC)",
         "name": "rag_queries_owner_idx",
         "table": "rag_queries",
@@ -4960,6 +5399,18 @@
         "def_hash": "7c4309538ddcc2c8464eaece0bd8b843"
       },
       {
+        "def": "CREATE INDEX rag_query_misses_expected_chunk_id_idx ON public.rag_query_misses USING btree (expected_chunk_id)",
+        "name": "rag_query_misses_expected_chunk_id_idx",
+        "table": "rag_query_misses",
+        "def_hash": "436daca6aa95636c0d78fa3bf99f7386"
+      },
+      {
+        "def": "CREATE INDEX rag_query_misses_expected_document_id_idx ON public.rag_query_misses USING btree (expected_document_id)",
+        "name": "rag_query_misses_expected_document_id_idx",
+        "table": "rag_query_misses",
+        "def_hash": "6dbe70248304b14da2cdf30340ab2a21"
+      },
+      {
         "def": "CREATE INDEX rag_query_misses_normalized_idx ON public.rag_query_misses USING btree (normalized_query, created_at DESC)",
         "name": "rag_query_misses_normalized_idx",
         "table": "rag_query_misses",
@@ -4970,6 +5421,12 @@
         "name": "rag_query_misses_owner_created_idx",
         "table": "rag_query_misses",
         "def_hash": "e032e4e4da4f4f2d9422456a6e1c5bc0"
+      },
+      {
+        "def": "CREATE INDEX rag_query_misses_owner_id_idx ON public.rag_query_misses USING btree (owner_id)",
+        "name": "rag_query_misses_owner_id_idx",
+        "table": "rag_query_misses",
+        "def_hash": "402c8849994a0a6e27339568b735984f"
       },
       {
         "def": "CREATE INDEX rag_query_misses_owner_review_status_created_idx ON public.rag_query_misses USING btree (owner_id, review_status, created_at DESC)",
@@ -4996,6 +5453,12 @@
         "def_hash": "3bdfc874700c8efd2d564eaa1cbf9a76"
       },
       {
+        "def": "CREATE INDEX rag_response_cache_owner_id_idx ON public.rag_response_cache USING btree (owner_id)",
+        "name": "rag_response_cache_owner_id_idx",
+        "table": "rag_response_cache",
+        "def_hash": "e45eb5e0b45c59b127b1fe23327c4898"
+      },
+      {
         "def": "CREATE INDEX rag_response_cache_owner_kind_idx ON public.rag_response_cache USING btree (owner_id, cache_kind, updated_at DESC)",
         "name": "rag_response_cache_owner_kind_idx",
         "table": "rag_response_cache",
@@ -5018,6 +5481,12 @@
         "name": "rag_retrieval_logs_owner_created_idx",
         "table": "rag_retrieval_logs",
         "def_hash": "8505a0b9980a57e701259db684d5b40b"
+      },
+      {
+        "def": "CREATE INDEX rag_retrieval_logs_owner_id_idx ON public.rag_retrieval_logs USING btree (owner_id)",
+        "name": "rag_retrieval_logs_owner_id_idx",
+        "table": "rag_retrieval_logs",
+        "def_hash": "c958a15ea6b1c46d49587a8f9848758a"
       },
       {
         "def": "CREATE UNIQUE INDEX rag_retrieval_logs_pkey ON public.rag_retrieval_logs USING btree (id)",
@@ -5066,6 +5535,12 @@
         "name": "rag_visual_eval_runs_pkey",
         "table": "rag_visual_eval_runs",
         "def_hash": "6d913e54f17c817a9863443d02b8935c"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX source_review_events_pkey ON public.source_review_events USING btree (id)",
+        "name": "source_review_events_pkey",
+        "table": "source_review_events",
+        "def_hash": "616d06e4b7bca60c216c7c1a86d5e02f"
       },
       {
         "def": "CREATE INDEX storage_cleanup_jobs_document_idx ON public.storage_cleanup_jobs USING btree (document_id)",
@@ -5430,6 +5905,18 @@
         "with_check": null
       },
       {
+        "cmd": "ALL",
+        "name": "rag answer feedback service role",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "rag_answer_feedback",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
         "cmd": "SELECT",
         "name": "rag owner read",
         "qual": "(owner_id = ( SELECT auth.uid() AS uid))",
@@ -5497,6 +5984,18 @@
           "service_role"
         ],
         "table": "rag_visual_eval_runs",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
+        "name": "source review events service role",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "source_review_events",
         "schema": "public",
         "permissive": "PERMISSIVE",
         "with_check": "true"
@@ -5615,6 +6114,11 @@
         "table": "rag_response_cache"
       },
       {
+        "def": "CREATE TRIGGER source_review_events_immutable BEFORE DELETE OR UPDATE ON public.source_review_events FOR EACH ROW EXECUTE FUNCTION public.prevent_source_review_event_mutation()",
+        "name": "source_review_events_immutable",
+        "table": "source_review_events"
+      },
+      {
         "def": "CREATE TRIGGER storage_cleanup_jobs_updated_at BEFORE UPDATE ON public.storage_cleanup_jobs FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "storage_cleanup_jobs_updated_at",
         "table": "storage_cleanup_jobs"
@@ -5642,6 +6146,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "2edbe5e02d8585898df0f3fd8f2ade8a",
+        "signature": "public.backfill_legacy_index_health_batch(integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "e518193f2ffad7f87ae9bcd18164e099",
         "signature": "public.chunk_image_metadata(uuid[])"
       },
@@ -5650,7 +6162,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "fc509a871eb928b94d7a333b345904a0",
+        "def_hash": "55f95e3b799f7716a7fd264d2b3cdd5a",
         "signature": "public.claim_indexing_v3_agent_jobs(text,integer,integer)"
       },
       {
@@ -5668,6 +6180,14 @@
         ],
         "def_hash": "4ee148dcab28d6bbe10cfa542213f0f6",
         "signature": "public.cleanup_abandoned_document_index_generations(uuid,integer,boolean)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "eb9926823dccb2d5d91c01a664f049d7",
+        "signature": "public.commit_document_index_generation(uuid,text,uuid,uuid,text,integer,integer,integer,jsonb,jsonb,jsonb)"
       },
       {
         "acl": [
@@ -5770,8 +6290,16 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "40a59e4d265fa58bd90acd0aa6621ac6",
+        "def_hash": "ebb4dbc57321d9c0c4c011c52fc0dde1",
         "signature": "public.get_related_document_metadata(uuid[],uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "107d6e5eb6d846971b48102c258ab2eb",
+        "signature": "public.get_visual_evidence_cards(uuid,integer)"
       },
       {
         "acl": [
@@ -5826,7 +6354,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "6b939af904532b02ecea756f345a641b",
+        "def_hash": "85a0e56a079a2ad9b06e4d8d3065ef5b",
         "signature": "public.match_document_chunks_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)"
       },
       {
@@ -5842,7 +6370,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "be4f3ade7a4462b0a0af39f90824e0cc",
+        "def_hash": "7bd4afb2feb48b3f7f7e7e37d2618ffe",
         "signature": "public.match_document_chunks(extensions.vector,integer,double precision,uuid,uuid)"
       },
       {
@@ -5850,7 +6378,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "9f88829888c327466397c78e9bd71764",
+        "def_hash": "a2d97503e95af88097557029e0ea7836",
         "signature": "public.match_document_embedding_fields_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)"
       },
       {
@@ -5858,7 +6386,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "48117cf83cf9221a3630e31af0c701ec",
+        "def_hash": "6fa9e80ed59c16922806590e67083188",
         "signature": "public.match_document_embedding_fields_text(text,integer,double precision,uuid[],uuid)"
       },
       {
@@ -5866,7 +6394,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "2519ccc7472de09e21370a95eae52b9a",
+        "def_hash": "2e8810a1ec9927aba7c1f04fd18287d1",
         "signature": "public.match_document_index_units_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)"
       },
       {
@@ -5890,7 +6418,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "630b74038e6c603cd6b03ecca3fcc602",
+        "def_hash": "1a937f133f5cb6e6d59a5b00311ec685",
         "signature": "public.match_document_memory_cards_hybrid(extensions.vector,text,integer,double precision,uuid[],uuid)"
       },
       {
@@ -5898,7 +6426,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "66c996b85f233ccc73edff634f71d4d0",
+        "def_hash": "b8569b910ab5fb3b6b23af78eeeed374",
         "signature": "public.match_document_table_facts_text(text,integer,uuid[],uuid)"
       },
       {
@@ -5906,8 +6434,17 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "660de201d7d7d4d016a8f8a01e125503",
+        "def_hash": "8248e8d1aec23bbad35aca0ddc4dc94d",
         "signature": "public.match_documents_for_query(text,integer,uuid)"
+      },
+      {
+        "acl": [
+          "=X/postgres",
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "3c5d2fe027c7be638f4ade47eca4abd8",
+        "signature": "public.prevent_source_review_event_mutation()"
       },
       {
         "acl": [
@@ -5930,6 +6467,30 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "a6b80c8973f7f5a6eec0d4191a75d1ba",
+        "signature": "public.purge_expired_rag_response_cache()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "5009d9294403fdab9280c4bb0952e782",
+        "signature": "public.purge_expired_rag_response_cache(integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "874163cf5aa0b818f3e88ca1ac6f90b2",
+        "signature": "public.record_source_review(uuid,uuid,text,text,text[],date,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "843e3e00240d7fcbf6465bdfd3801525",
         "signature": "public.refresh_import_batch_status(uuid)"
       },
@@ -5938,8 +6499,24 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "bac3b2ee419e9ba7c019808f0f83b3ad",
+        "def_hash": "2258b6a4a9fd85bdf10a768778fb5d55",
+        "signature": "public.repair_enrichment_quality_batch(integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "62892dfd90b840b55e07e3bdfc988339",
         "signature": "public.repair_strict_enrichment_gate_batch(integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "9020d937b00df3a36669e870c4aae17b",
+        "signature": "public.request_indexing_v3_enrichment(uuid,uuid)"
       },
       {
         "acl": [
@@ -5956,6 +6533,22 @@
         ],
         "def_hash": "ca2877374851b432c4ca971e1e15f746",
         "signature": "public.retrieval_owner_matches(uuid,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "22124c67028e9957d39788548f0f358a",
+        "signature": "public.run_all_visual_eval_cases(integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "c0b5662d2c6f63ff05a7ed05573845fe",
+        "signature": "public.run_visual_eval_case(uuid,integer)"
       },
       {
         "acl": [
@@ -6665,6 +7258,26 @@
         "table": "rag_aliases"
       },
       {
+        "def": "CHECK ((feedback_category = ANY (ARRAY['verified'::text, 'needs_correction'::text, 'source_insufficient'::text, 'wrong_source'::text, 'missing_source'::text, 'unsupported_answer'::text, 'numeric_error'::text, 'outdated_guidance'::text])))",
+        "name": "rag_answer_feedback_feedback_category_check",
+        "table": "rag_answer_feedback"
+      },
+      {
+        "def": "UNIQUE (interaction_id)",
+        "name": "rag_answer_feedback_interaction_id_key",
+        "table": "rag_answer_feedback"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "name": "rag_answer_feedback_owner_id_fkey",
+        "table": "rag_answer_feedback"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "rag_answer_feedback_pkey",
+        "table": "rag_answer_feedback"
+      },
+      {
         "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE SET NULL",
         "name": "rag_queries_owner_id_fkey",
         "table": "rag_queries"
@@ -6753,6 +7366,21 @@
         "def": "PRIMARY KEY (id)",
         "name": "rag_visual_eval_runs_pkey",
         "table": "rag_visual_eval_runs"
+      },
+      {
+        "def": "CHECK ((decision = ANY (ARRAY['locally_reviewed'::text, 'approved'::text, 'rejected'::text, 'decommissioned'::text, 'superseded'::text])))",
+        "name": "source_review_events_decision_check",
+        "table": "source_review_events"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "source_review_events_pkey",
+        "table": "source_review_events"
+      },
+      {
+        "def": "CHECK (((char_length(reason) >= 3) AND (char_length(reason) <= 2000)))",
+        "name": "source_review_events_reason_check",
+        "table": "source_review_events"
       },
       {
         "def": "FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE SET NULL",

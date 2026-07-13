@@ -40,6 +40,20 @@ export async function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const csp = buildContentSecurityPolicy({ isDevelopment, isLocalHttpRuntime, nonce });
 
+  if (request.nextUrl.pathname === "/api/upload") {
+    const declaredLength = Number(request.headers.get("content-length"));
+    const uploadEnvelopeBytes = env.MAX_UPLOAD_MB * 1024 * 1024 + 1024 * 1024;
+    if (Number.isFinite(declaredLength) && declaredLength > uploadEnvelopeBytes) {
+      const response = NextResponse.json(
+        { error: "Upload request is too large.", code: "payload_too_large" },
+        { status: 413 },
+      );
+      response.headers.set("content-security-policy", csp);
+      response.headers.set("cache-control", "private, no-store");
+      return response;
+    }
+  }
+
   // Request headers Next.js reads during SSR: `x-nonce` for our own inline
   // <script>, and the CSP header from which Next extracts the nonce for its
   // scripts. Rebuilt from the *current* request each call so session-cookie

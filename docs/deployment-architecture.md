@@ -173,6 +173,11 @@ comparable (~200 ms) from Singapore or Sydney and does not favour either host.
   `/api/health`.
 - No secret is ever baked into a layer. `SUPABASE_SERVICE_ROLE_KEY`,
   `OPENAI_API_KEY`, etc. are injected at run time by Railway's variable store.
+- Request bodies are bounded twice: Next Proxy buffers at most 151 MiB, and
+  `/api/upload` rejects declared multipart bodies above `MAX_UPLOAD_MB` plus
+  1 MiB framing overhead before authentication or `request.formData()`. Keep
+  the managed host's request-body limit at 151 MiB or lower as a third ingress
+  fence; `MAX_UPLOAD_MB` is capped at 150 MiB by environment validation.
 
 ### Config as code (`railway.app.json`)
 

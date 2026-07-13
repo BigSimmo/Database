@@ -23,7 +23,7 @@ import {
   WifiOff,
   Wrench,
 } from "lucide-react";
-import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/client-env";
@@ -164,6 +164,9 @@ import {
   searchSubmissionSignature,
   type SearchNavigationContext,
 } from "@/lib/search-navigation-context";
+import { persistPrivateSearchScope, restorePrivateSearchScope } from "@/lib/private-search-scope";
+import { parseApiErrorResponse } from "@/lib/api-client-error";
+import { answerLifecycleReducer, initialAnswerLifecycle } from "@/lib/answer-lifecycle";
 import { rankFormRecords } from "@/lib/forms";
 import { rankServiceRecords } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
@@ -714,7 +717,7 @@ export function ClinicalDashboard({
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
   const autoRunSearchSignatureRef = useRef<string | null>(null);
-  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const refreshInFlightRef = useRef<{ epoch: number; promise: Promise<void> } | null>(null);
   const nextWorkStatePollRef = useRef(0);
   const urlSearchBootstrappedRef = useRef(false);
   const urlDocumentSearchBootstrappedRef = useRef(false);
@@ -770,6 +773,9 @@ export function ClinicalDashboard({
       : "";
   const routedSearchContext = useMemo(() => readSearchNavigationContext(searchParams), [searchParams]);
   const routedSearchContextSignature = searchNavigationContextSignature(routedSearchContext);
+  const [privateScopeStatus, setPrivateScopeStatus] = useState<"none" | "restoring" | "restored" | "unavailable">(
+    initialSearchNavigationContext.scopeRef ? "restoring" : "none",
+  );
 
   // Record matches come from the owner-scoped registry API (mock fixtures in
   // demo mode); ranking stays client-side so live-typing behaviour is
@@ -798,38 +804,6 @@ export function ClinicalDashboard({
     if (!answerThreadBootstrappedRef.current) return;
     if (answer === null) latestAnswerTurnRef.current = null;
   }, [answer]);
-  useEffect(() => {
-    queueMicrotask(() => {
-      const persisted = loadPersistedAnswerThread();
-      if (persisted) {
-        restoredThreadFromStorageRef.current = true;
-        setPriorAnswerTurns(persisted.priorTurns);
-        setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
-        if (persisted.latestTurn) {
-          latestAnswerTurnRef.current = persisted.latestTurn;
-          setAnswer(persisted.latestTurn.answer);
-          setSources(persisted.latestTurn.sources);
-          setModeSearchSubmitted(true);
-          setQuery("");
-          const restoredQuery = persisted.latestTurn.query.trim();
-          if (restoredQuery) {
-            autoRunSearchSignatureRef.current = `answer:${restoredQuery}`;
-          }
-        }
-        answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
-          const match = /^answer-turn-(\d+)$/.exec(turn.id);
-          return match ? Math.max(max, Number(match[1])) : max;
-        }, 0);
-        setCollapsedTurnIds(
-          persisted.collapsedTurnIds.length
-            ? new Set(persisted.collapsedTurnIds)
-            : new Set(persisted.priorTurns.map((turn) => turn.id)),
-        );
-      }
-      answerThreadBootstrappedRef.current = true;
-      setAnswerThreadBootstrapped(true);
-    });
-  }, []);
   useEffect(() => {
     if (
       !answerThreadBootstrappedRef.current ||
@@ -889,6 +863,7 @@ export function ClinicalDashboard({
   // `revising` = the quality gates dropped a provisional answer and are re-generating, so a
   // "revising for accuracy" state shows instead of stale text.
   const [streamingAnswer, setStreamingAnswer] = useState<{ text: string; revising: boolean } | null>(null);
+  const [answerLifecycle, dispatchAnswerLifecycle] = useReducer(answerLifecycleReducer, initialAnswerLifecycle);
   const [error, setError] = useState<string | null>(null);
   // Companion state for `error`, used to pick the right recovery UI (retry vs.
   // a calm no-results panel) and to re-run the exact query that failed. Only read
@@ -902,7 +877,19 @@ export function ClinicalDashboard({
   const [apiUnavailable, setApiUnavailable] = useState(false);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
-  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const routedDocumentId = searchParams.get("documentId");
+  const scopedDocumentIds = useMemo(
+    () =>
+      routedDocumentId &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(routedDocumentId)
+        ? [routedDocumentId]
+        : [],
+    [routedDocumentId],
+  );
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>(scopedDocumentIds);
+  useEffect(() => {
+    queueMicrotask(() => setSelectedDocumentIds(scopedDocumentIds));
+  }, [scopedDocumentIds]);
   const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const [pendingFeedback, setPendingFeedback] = useState<AnswerFeedbackType | null>(null);
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
@@ -940,15 +927,87 @@ export function ClinicalDashboard({
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
-  const { status: authStatus, authorizationHeader, markSessionExpired } = auth;
+  const {
+    status: authStatus,
+    authorizationHeader,
+    authEpoch,
+    registerAuthRequest,
+    isAuthEpochCurrent,
+    markSessionExpired,
+  } = auth;
+  const authBoundFetch = useCallback(
+    async (input: RequestInfo | URL, init: RequestInit = {}) => {
+      const controller = new AbortController();
+      const authRequest = registerAuthRequest(controller);
+      try {
+        const response = await fetch(input, { ...init, signal: controller.signal });
+        if (!isAuthEpochCurrent(authRequest.epoch)) throw new DOMException("Stale authentication epoch", "AbortError");
+        return response;
+      } finally {
+        authRequest.release();
+      }
+    },
+    [isAuthEpochCurrent, registerAuthRequest],
+  );
+  useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const scopeRef = routedSearchContext.scopeRef;
+      if (!scopeRef) {
+        setPrivateScopeStatus("none");
+        return;
+      }
+      if (authStatus === "loading") {
+        setPrivateScopeStatus("restoring");
+        return;
+      }
+      const ownerId = auth.session?.user.id;
+      if (authStatus !== "authenticated" || !ownerId) {
+        setSelectedDocumentIds([]);
+        setPrivateScopeStatus("unavailable");
+        return;
+      }
+      const restored = restorePrivateSearchScope(window.sessionStorage, scopeRef, ownerId);
+      if (restored.kind === "restored") {
+        setSelectedDocumentIds(restored.documentIds);
+        setPrivateScopeStatus("restored");
+      } else {
+        setSelectedDocumentIds([]);
+        setPrivateScopeStatus("unavailable");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.session?.user.id, authStatus, routedSearchContext.scopeRef]);
   const prevAuthStatusRef = useRef(authStatus);
   useEffect(() => {
     const previous = prevAuthStatusRef.current;
     prevAuthStatusRef.current = authStatus;
     if ((authStatus === "signed_out" || authStatus === "expired") && previous === "authenticated") {
+      searchRequestSeqRef.current += 1;
+      searchAbortRef.current?.abort();
+      searchAbortRef.current = null;
+      refreshInFlightRef.current = null;
       resetAnswerThread();
       setAnswer(null);
       setSources([]);
+      setStreamingAnswer(null);
+      setDocuments([]);
+      setDocumentsPagination(null);
+      setJobs([]);
+      setBatches([]);
+      setQualityItems([]);
+      setSelectedDocumentIds([]);
+      setDocumentMatches([]);
+      setSearchScope(null);
+      setSearchFacets(null);
+      setSourceGovernanceWarnings([]);
+      setActionNotice(null);
+      setLoading(false);
+      setAnswerProgress(null);
+      dispatchAnswerLifecycle({ type: "reset" });
       latestAnswerTurnRef.current = null;
     }
   }, [authStatus, resetAnswerThread]);
@@ -957,6 +1016,56 @@ export function ClinicalDashboard({
   const localNoAuthMode = isLocalNoAuthMode();
   const explicitDemoMode = demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const clientDemoMode = explicitDemoMode || browserAuthUnavailableDemoFallback || localNoAuthMode;
+  const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? "local-demo-session" : null);
+  const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
+  useEffect(() => {
+    const previousOwnerId = previousAnswerThreadOwnerIdRef.current;
+    previousAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
+    if (!previousOwnerId || previousOwnerId === answerThreadOwnerId) return;
+    answerThreadBootstrappedRef.current = false;
+    queueMicrotask(() => {
+      setPriorAnswerTurns([]);
+      setLatestAnswerQuery(null);
+      setCollapsedTurnIds(new Set());
+      setAnswer(null);
+      setSources([]);
+      latestAnswerTurnRef.current = null;
+      setAnswerThreadBootstrapped(false);
+    });
+  }, [answerThreadOwnerId]);
+  useEffect(() => {
+    if (authStatus === "loading" || answerThreadBootstrappedRef.current) return;
+    queueMicrotask(() => {
+      const persisted = answerThreadOwnerId ? loadPersistedAnswerThread(answerThreadOwnerId) : null;
+      if (persisted) {
+        restoredThreadFromStorageRef.current = true;
+        setPriorAnswerTurns(persisted.priorTurns);
+        setLatestAnswerQuery(persisted.latestTurn?.query ?? null);
+        if (persisted.latestTurn) {
+          latestAnswerTurnRef.current = persisted.latestTurn;
+          setAnswer(persisted.latestTurn.answer);
+          setSources(persisted.latestTurn.sources);
+          setModeSearchSubmitted(true);
+          setQuery("");
+          const restoredQuery = persisted.latestTurn.query.trim();
+          if (restoredQuery) autoRunSearchSignatureRef.current = `answer:${restoredQuery}`;
+        }
+        answerTurnSeqRef.current = persisted.priorTurns.reduce((max, turn) => {
+          const match = /^answer-turn-(\d+)$/.exec(turn.id);
+          return match ? Math.max(max, Number(match[1])) : max;
+        }, 0);
+        setCollapsedTurnIds(
+          persisted.collapsedTurnIds.length
+            ? new Set(persisted.collapsedTurnIds)
+            : new Set(persisted.priorTurns.map((turn) => turn.id)),
+        );
+      } else if (!answerThreadOwnerId) {
+        clearPersistedAnswerThread();
+      }
+      answerThreadBootstrappedRef.current = true;
+      setAnswerThreadBootstrapped(true);
+    });
+  }, [answerThreadOwnerId, authStatus]);
   const uploadReadOnlyMode =
     demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
@@ -1055,10 +1164,16 @@ export function ClinicalDashboard({
   }, [prefetchApplications]);
 
   useEffect(() => {
+    if (!answerThreadOwnerId) {
+      queueMicrotask(() => setRecentQueries([]));
+      return;
+    }
     let cancelled = false;
     const frame = window.requestAnimationFrame(() => {
       try {
-        const stored = JSON.parse(window.localStorage.getItem(recentQueryStorageKey) ?? "[]");
+        const stored = JSON.parse(
+          window.sessionStorage.getItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`) ?? "[]",
+        );
         if (Array.isArray(stored) && !cancelled) {
           setRecentQueries(
             stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5),
@@ -1072,24 +1187,29 @@ export function ClinicalDashboard({
       cancelled = true;
       window.cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [answerThreadOwnerId]);
 
-  const rememberRecentQuery = useCallback((value: string) => {
-    const trimmedValue = value.trim();
-    if (!trimmedValue) return;
-    setRecentQueries((current) => {
-      const next = [trimmedValue, ...current.filter((item) => item.toLowerCase() !== trimmedValue.toLowerCase())].slice(
-        0,
-        5,
-      );
-      try {
-        window.localStorage.setItem(recentQueryStorageKey, JSON.stringify(next));
-      } catch {
-        // Recent questions are a convenience only; ignore storage failures.
-      }
-      return next;
-    });
-  }, []);
+  const rememberRecentQuery = useCallback(
+    (value: string) => {
+      const trimmedValue = value.trim();
+      if (!trimmedValue) return;
+      setRecentQueries((current) => {
+        const next = [
+          trimmedValue,
+          ...current.filter((item) => item.toLowerCase() !== trimmedValue.toLowerCase()),
+        ].slice(0, 5);
+        try {
+          if (answerThreadOwnerId) {
+            window.sessionStorage.setItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`, JSON.stringify(next));
+          }
+        } catch {
+          // Recent questions are a convenience only; ignore storage failures.
+        }
+        return next;
+      });
+    },
+    [answerThreadOwnerId],
+  );
 
   useEffect(() => {
     if (!answerThreadBootstrapped) return;
@@ -1098,13 +1218,22 @@ export function ClinicalDashboard({
       clearPersistedAnswerThread();
       return;
     }
-    savePersistedAnswerThread({
+    if (!answerThreadOwnerId) return;
+    savePersistedAnswerThread(answerThreadOwnerId, {
       version: 1,
       priorTurns: priorAnswerTurns,
       latestTurn: latestAnswerTurnRef.current,
       collapsedTurnIds: [...collapsedTurnIds],
     });
-  }, [searchMode, answer, priorAnswerTurns, collapsedTurnIds, latestAnswerQuery, answerThreadBootstrapped]);
+  }, [
+    searchMode,
+    answer,
+    priorAnswerTurns,
+    collapsedTurnIds,
+    latestAnswerQuery,
+    answerThreadBootstrapped,
+    answerThreadOwnerId,
+  ]);
 
   useEffect(() => {
     jobsRef.current = jobs;
@@ -1116,9 +1245,13 @@ export function ClinicalDashboard({
 
   const refresh = useCallback(
     async (options: RefreshOptions = {}) => {
-      if (refreshInFlightRef.current) {
-        return refreshInFlightRef.current;
+      if (refreshInFlightRef.current?.epoch === authEpoch) {
+        return refreshInFlightRef.current.promise;
       }
+
+      const controller = new AbortController();
+      const authRequest = registerAuthRequest(controller);
+      const canCommit = () => isAuthEpochCurrent(authRequest.epoch) && !controller.signal.aborted;
 
       const promise = (async () => {
         const trackDashboardLoading = options.includeDashboardData ?? true;
@@ -1135,6 +1268,7 @@ export function ClinicalDashboard({
         setApiUnavailable(false);
 
         const localIdentity = await readLocalProjectIdentity().catch(() => null);
+        if (!canCommit()) return;
         if (!localIdentity?.localServer?.safeLocalOrigin) {
           setLocalProjectReady(false);
           setApiUnavailable(true);
@@ -1151,7 +1285,12 @@ export function ClinicalDashboard({
         setLocalProjectReady(true);
 
         if (includeSetup) {
-          const setupResponse = await fetch("/api/setup-status", { cache: "no-store" }).catch(() => null);
+          const setupResponse = await fetch("/api/setup-status", {
+            cache: "no-store",
+            headers: authorizationHeader,
+            signal: controller.signal,
+          }).catch(() => null);
+          if (!canCommit()) return;
 
           if (!setupResponse) {
             if (isDeployedClinicalKb()) {
@@ -1204,17 +1343,21 @@ export function ClinicalDashboard({
         if (shouldRefreshWorkState) nextWorkStatePollRef.current = now + indexingWorkDetailsPollMs;
 
         const [documentsResponse, jobsResponse, batchesResponse, qualityResponse] = await Promise.all([
-          fetch(`/api/documents?${documentParams.toString()}`, { headers: protectedHeaders }),
+          fetch(`/api/documents?${documentParams.toString()}`, {
+            headers: protectedHeaders,
+            signal: controller.signal,
+          }),
           shouldRefreshWorkState
-            ? fetch("/api/ingestion/jobs", { headers: protectedHeaders })
+            ? fetch("/api/ingestion/jobs", { headers: protectedHeaders, signal: controller.signal })
             : Promise.resolve(null as Response | null),
           shouldRefreshWorkState
-            ? fetch("/api/ingestion/batches", { headers: protectedHeaders })
+            ? fetch("/api/ingestion/batches", { headers: protectedHeaders, signal: controller.signal })
             : Promise.resolve(null as Response | null),
           shouldRefreshWorkState
-            ? fetch("/api/ingestion/quality", { headers: protectedHeaders })
+            ? fetch("/api/ingestion/quality", { headers: protectedHeaders, signal: controller.signal })
             : Promise.resolve(null as Response | null),
         ]);
+        if (!canCommit()) return;
 
         if (
           documentsResponse.status === 401 ||
@@ -1288,17 +1431,26 @@ export function ClinicalDashboard({
         setNextRefreshDelayMs(routePollDelayMs ?? (activeWork ? activeIndexingPollFallbackMs : null));
       })();
 
-      refreshInFlightRef.current = promise;
+      refreshInFlightRef.current = { epoch: authRequest.epoch, promise };
       try {
         return await promise;
       } finally {
-        if ((options.includeDashboardData ?? true) === true) setDashboardDataLoading(false);
-        if (refreshInFlightRef.current === promise) {
+        authRequest.release();
+        if ((options.includeDashboardData ?? true) === true && canCommit()) setDashboardDataLoading(false);
+        if (refreshInFlightRef.current?.promise === promise) {
           refreshInFlightRef.current = null;
         }
       }
     },
-    [authorizationHeader, canUsePrivateApis, clientDemoMode, markSessionExpired],
+    [
+      authEpoch,
+      authorizationHeader,
+      canUsePrivateApis,
+      clientDemoMode,
+      isAuthEpochCurrent,
+      markSessionExpired,
+      registerAuthRequest,
+    ],
   );
 
   const loadMoreDocuments = useCallback(async () => {
@@ -1309,7 +1461,7 @@ export function ClinicalDashboard({
     setLoadingMoreDocuments(true);
     try {
       const protectedHeaders = clientDemoMode ? undefined : authorizationHeader;
-      const response = await fetch(
+      const response = await authBoundFetch(
         `/api/documents?limit=${documentPageSize}&offset=${documentsPagination.nextOffset}`,
         { headers: protectedHeaders },
       );
@@ -1333,6 +1485,7 @@ export function ClinicalDashboard({
     }
   }, [
     authorizationHeader,
+    authBoundFetch,
     canUsePrivateApis,
     clientDemoMode,
     documentsPagination,
@@ -1344,7 +1497,7 @@ export function ClinicalDashboard({
     async (jobId: string) => {
       setIndexingActionId(jobId);
       try {
-        const response = await fetch(`/api/ingestion/jobs/${jobId}/retry`, {
+        const response = await authBoundFetch(`/api/ingestion/jobs/${jobId}/retry`, {
           method: "POST",
           headers: authorizationHeader,
         });
@@ -1362,6 +1515,7 @@ export function ClinicalDashboard({
         });
         await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
       } catch (error) {
+        if (isAbortError(error)) return;
         setActionNotice({
           tone: "warning",
           message: error instanceof Error ? error.message : "Job retry could not be started.",
@@ -1370,14 +1524,14 @@ export function ClinicalDashboard({
         setIndexingActionId(null);
       }
     },
-    [authorizationHeader, markSessionExpired, refresh],
+    [authBoundFetch, authorizationHeader, markSessionExpired, refresh],
   );
 
   const reindexDocument = useCallback(
     async (documentId: string, mode: "full" | "enrichment" = "full") => {
       setIndexingActionId(documentId);
       try {
-        const response = await fetch(`/api/documents/${documentId}/reindex`, {
+        const response = await authBoundFetch(`/api/documents/${documentId}/reindex`, {
           method: "POST",
           headers: {
             ...authorizationHeader,
@@ -1405,6 +1559,7 @@ export function ClinicalDashboard({
         });
         await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
       } catch (error) {
+        if (isAbortError(error)) return;
         setActionNotice({
           tone: "warning",
           message: error instanceof Error ? error.message : "Document reindex could not be started.",
@@ -1413,7 +1568,7 @@ export function ClinicalDashboard({
         setIndexingActionId(null);
       }
     },
-    [authorizationHeader, markSessionExpired, refresh],
+    [authBoundFetch, authorizationHeader, markSessionExpired, refresh],
   );
   const enrichDocument = useCallback(
     (documentId: string) => reindexDocument(documentId, "enrichment"),
@@ -1482,7 +1637,7 @@ export function ClinicalDashboard({
     async (documentId: string, method: "POST" | "PATCH", body: LabelReviewMutationBody) => {
       if (!canUsePrivateApis) return false;
       try {
-        const response = await fetch(`/api/documents/${documentId}/labels`, {
+        const response = await authBoundFetch(`/api/documents/${documentId}/labels`, {
           method,
           headers: {
             "Content-Type": "application/json",
@@ -1509,12 +1664,14 @@ export function ClinicalDashboard({
         }
         setActionNotice({ tone: "success", message: "Document label review updated." });
         return true;
-      } catch {
+      } catch (error) {
+        if (isAbortError(error)) return false;
         setActionNotice({ tone: "warning", message: "Label update failed." });
         return false;
       }
     },
     [
+      authBoundFetch,
       authorizationHeader,
       canUsePrivateApis,
       clientDemoMode,
@@ -1790,9 +1947,7 @@ export function ClinicalDashboard({
       throw makeSearchError("Search request was not authorized by the server.", 401, false);
     }
     if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      const message = typeof payload?.error === "string" ? payload.error : `${searchLabel} failed`;
-      throw makeSearchError(message, response.status, isRetryableStatus(response.status));
+      throw await parseApiErrorResponse(response);
     }
     const payload = await response.json();
     if (payload.demoMode) setDemoMode(true);
@@ -1846,9 +2001,7 @@ export function ClinicalDashboard({
       throw makeSearchError("Search request was not authorized by the server.", 401, false);
     }
     if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      const message = typeof payload?.error === "string" ? payload.error : "Answer generation failed";
-      throw makeSearchError(message, response.status, isRetryableStatus(response.status));
+      throw await parseApiErrorResponse(response);
     }
 
     let payload: AnswerPayload;
@@ -1856,8 +2009,14 @@ export function ClinicalDashboard({
       payload = await readAnswerStream(
         response,
         onProgress,
-        (delta) => setStreamingAnswer((prev) => ({ text: (prev?.text ?? "") + delta, revising: false })),
-        () => setStreamingAnswer({ text: "", revising: true }),
+        (delta) => {
+          dispatchAnswerLifecycle({ type: "stream" });
+          setStreamingAnswer((prev) => ({ text: (prev?.text ?? "") + delta, revising: false }));
+        },
+        () => {
+          dispatchAnswerLifecycle({ type: "revise" });
+          setStreamingAnswer({ text: "", revising: true });
+        },
         onStreamActivity,
       );
     } catch (error) {
@@ -1875,6 +2034,7 @@ export function ClinicalDashboard({
   async function runWithRetries<T>(
     operation: () => Promise<T>,
     onProgress: (message: string) => void = setAnswerProgress,
+    signal?: AbortSignal,
   ) {
     let lastError: unknown;
     for (let attempt = 0; attempt <= searchRetryCount; attempt += 1) {
@@ -1886,7 +2046,9 @@ export function ClinicalDashboard({
 
         const message = progressForRetry(attempt + 1);
         onProgress(message);
-        await sleep(searchRetryDelaysMs[attempt] ?? searchRetryDelaysMs[searchRetryDelaysMs.length - 1]);
+        const requestedDelay = (error as SearchError).retryAfterMs ?? 0;
+        const defaultDelay = searchRetryDelaysMs[attempt] ?? searchRetryDelaysMs[searchRetryDelaysMs.length - 1];
+        await sleep(Math.max(defaultDelay, requestedDelay), signal);
       }
     }
     throw lastError;
@@ -1912,7 +2074,13 @@ export function ClinicalDashboard({
   const answerTimedOutRef = useRef(false);
 
   function stopSearch() {
+    searchRequestSeqRef.current += 1;
     searchAbortRef.current?.abort();
+    searchAbortRef.current = null;
+    setStreamingAnswer(null);
+    setLoading(false);
+    setAnswerProgress(null);
+    dispatchAnswerLifecycle({ type: "cancel" });
   }
 
   function applySearchResult(payload: SearchResultModePayload, displayQuery?: string, archivePreviousAnswer = true) {
@@ -1972,11 +2140,17 @@ export function ClinicalDashboard({
     filtersOverride = scopeFilters,
     queryModeOverride = queryMode,
     replaceExistingAnswer = false,
+    scopeRefOverride?: string,
   ) {
     const trimmedQuery = searchText.trim();
     if (!trimmedQuery) return;
     const modeSearch = appModeSearchConfig(targetMode);
     const targetQueryMode = appModeQueryMode(targetMode, queryModeOverride);
+    const privateScopeRef =
+      scopeRefOverride ??
+      (selectedDocumentIds.length > 0 && auth.session?.user.id
+        ? (persistPrivateSearchScope(window.sessionStorage, auth.session.user.id, selectedDocumentIds) ?? undefined)
+        : undefined);
     const isDifferentialsMode = modeSearch.resultKind === "differentials";
     // Note: no automatic mode-default label scope for Services/Forms. Applying
     // one on every search routed resolveSearchScope's label path over the whole
@@ -2043,13 +2217,19 @@ export function ClinicalDashboard({
     // in-flight machinery (retry messages, keyword fallback, stream progress)
     // must also be discarded once a newer search takes over, or a slow stale
     // request repaints the progress banner under the newer query.
+    let requestIsCurrent = () => requestId === searchRequestSeqRef.current;
     const onProgress = (message: string | null) => {
-      if (requestId === searchRequestSeqRef.current) setAnswerProgress(message);
+      if (requestIsCurrent()) setAnswerProgress(message);
     };
     // A newer search already invalidated any prior request via requestId; abort
     // its network work too so the server stops generating, then own the signal.
     searchAbortRef.current?.abort();
     const abortController = new AbortController();
+    const authRequest = registerAuthRequest(abortController);
+    requestIsCurrent = () =>
+      requestId === searchRequestSeqRef.current &&
+      isAuthEpochCurrent(authRequest.epoch) &&
+      !abortController.signal.aborted;
     searchAbortRef.current = abortController;
     setLoading(true);
     setError(null);
@@ -2066,6 +2246,7 @@ export function ClinicalDashboard({
     // previous turn's question before retrieval. The raw text the user typed
     // is what the thread displays (via displayQuery below).
     const isAnswerRequest = modeSearch.resultKind === "answer";
+    if (isAnswerRequest) dispatchAnswerLifecycle({ type: "start", query: trimmedQuery });
     const priorTurnQuery = isAnswerRequest && !replaceExistingAnswer ? latestAnswerTurnRef.current?.query : undefined;
     const isAnswerFollowUp = isAnswerRequest && Boolean(priorTurnQuery);
     const requestQuery = isAnswerRequest ? buildAnswerFollowUpQuery(priorTurnQuery, trimmedQuery) : trimmedQuery;
@@ -2115,6 +2296,7 @@ export function ClinicalDashboard({
                       abortController.signal,
                     ),
                   onProgress,
+                  abortController.signal,
                 )
               : await runWithRetries(
                   () =>
@@ -2127,6 +2309,7 @@ export function ClinicalDashboard({
                       answerWatchdog.touch,
                     ),
                   onProgress,
+                  abortController.signal,
                 );
 
           if (!resultUsable(payload)) {
@@ -2159,10 +2342,11 @@ export function ClinicalDashboard({
       }
 
       // M10: discard a stale response — a newer search owns the UI state.
-      if (requestId === searchRequestSeqRef.current) {
+      if (requestIsCurrent()) {
         applySearchResult(successfulPayload, trimmedQuery, !replaceExistingAnswer);
         if (isDifferentialsMode) setDifferentialEvidenceQuery(trimmedQuery);
         if (successfulPayload.kind === "answer") {
+          dispatchAnswerLifecycle({ type: "complete" });
           // Explicit composer submissions do not pass through the URL auto-run
           // effect. Seed their completed context so a later in-place route to
           // the same query with different intent/scope is recognized as a
@@ -2170,6 +2354,7 @@ export function ClinicalDashboard({
           autoRunSearchSignatureRef.current = searchSubmissionSignature(targetMode, trimmedQuery, {
             queryMode: targetQueryMode,
             scopeFilters: filtersOverride,
+            scopeRef: privateScopeRef,
           });
           // The composer is a draft box in a conversation: clear it so the
           // user can type the next follow-up immediately.
@@ -2185,6 +2370,7 @@ export function ClinicalDashboard({
               run: true,
               queryMode: queryModeOverride,
               scopeFilters: filtersOverride,
+              scopeRef: privateScopeRef,
             }),
           );
           if (isAnswerFollowUp) {
@@ -2196,16 +2382,18 @@ export function ClinicalDashboard({
         }
       }
     } catch (requestError) {
-      if (requestId === searchRequestSeqRef.current && !isAbortError(requestError)) {
+      if (requestIsCurrent() && !isAbortError(requestError)) {
+        if (isAnswerRequest) dispatchAnswerLifecycle({ type: "fail" });
         setError(requestError instanceof Error ? requestError.message : "Search failed");
         setErrorKind(classifyAnswerError(requestError));
         setLastFailedQuery(trimmedQuery);
       }
     } finally {
       answerWatchdog.cancel();
+      authRequest.release();
       answerTimedOutRef.current = false;
       if (searchAbortRef.current === abortController) searchAbortRef.current = null;
-      if (requestId === searchRequestSeqRef.current) {
+      if (requestIsCurrent()) {
         setLoading(false);
         setAnswerProgress(null);
       }
@@ -2233,6 +2421,11 @@ export function ClinicalDashboard({
     const trimmedQuery = searchText.trim();
     const effectiveQueryMode = contextOverride?.queryMode ?? queryMode;
     const effectiveScopeFilters = contextOverride?.scopeFilters ?? scopeFilters;
+    const privateScopeRef =
+      contextOverride?.scopeRef ??
+      (selectedDocumentIds.length > 0 && auth.session?.user.id
+        ? (persistPrivateSearchScope(window.sessionStorage, auth.session.user.id, selectedDocumentIds) ?? undefined)
+        : undefined);
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
       router.push(
@@ -2242,6 +2435,7 @@ export function ClinicalDashboard({
           run: true,
           queryMode: effectiveQueryMode,
           scopeFilters: effectiveScopeFilters,
+          scopeRef: privateScopeRef,
         }),
       );
       return;
@@ -2250,7 +2444,14 @@ export function ClinicalDashboard({
       setMedicationSearchQuery(searchText);
       return;
     }
-    await executeSearch(searchText, searchMode, effectiveScopeFilters, effectiveQueryMode, replaceExistingAnswer);
+    await executeSearch(
+      searchText,
+      searchMode,
+      effectiveScopeFilters,
+      effectiveQueryMode,
+      replaceExistingAnswer,
+      privateScopeRef,
+    );
   }
   const askRef = useRef(ask);
   askRef.current = ask;
@@ -2260,6 +2461,7 @@ export function ClinicalDashboard({
     const submittedSearchText = searchMode === "answer" && submittedUrlQuery ? submittedUrlQuery : trimmedQuery;
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !submittedSearchText || !canAutoRunMode || loading) return;
+    if (routedSearchContext.scopeRef && privateScopeStatus !== "restored") return;
     if (searchMode === "answer" && !answerThreadBootstrapped) return;
     const previousSignature = autoRunSearchSignatureRef.current;
     const signature = searchSubmissionSignature(searchMode, submittedSearchText, routedSearchContext);
@@ -2294,6 +2496,7 @@ export function ClinicalDashboard({
     latestAnswerQuery,
     routedSearchContext,
     routedSearchContextSignature,
+    privateScopeStatus,
   ]);
 
   function pickRecentQuery(recentQuery: string) {
@@ -2527,7 +2730,7 @@ export function ClinicalDashboard({
     setBulkActionBusy(true);
     setBulkActionStatus(null);
     try {
-      const response = await fetch("/api/documents/bulk/reindex", {
+      const response = await authBoundFetch("/api/documents/bulk/reindex", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -2546,6 +2749,7 @@ export function ClinicalDashboard({
       );
       await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
     } catch (error) {
+      if (isAbortError(error)) return;
       setBulkActionStatus(error instanceof Error ? error.message : errorCopy.bulkReindexFailed);
     } finally {
       setBulkActionBusy(false);
@@ -2562,7 +2766,7 @@ export function ClinicalDashboard({
     setBulkActionBusy(true);
     setBulkActionStatus(null);
     try {
-      const response = await fetch("/api/documents/bulk", {
+      const response = await authBoundFetch("/api/documents/bulk", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -2579,6 +2783,7 @@ export function ClinicalDashboard({
       setBulkActionStatus(`${payload.updatedCount ?? 0} selected documents updated.`);
       await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
     } catch (error) {
+      if (isAbortError(error)) return;
       setBulkActionStatus(error instanceof Error ? error.message : errorCopy.bulkMetadataUpdateFailed);
     } finally {
       setBulkActionBusy(false);
@@ -3195,6 +3400,28 @@ export function ClinicalDashboard({
     [priorAnswerTurns, latestAnswerQuery],
   );
 
+  function removePrivateScopeRefFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    params.delete("scopeRef");
+    const next = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${next ? `?${next}` : ""}`);
+  }
+
+  function reselectUnavailablePrivateScope() {
+    removePrivateScopeRefFromUrl();
+    setPrivateScopeStatus("none");
+    setModeSearchSubmitted(false);
+    openSourceLibrary();
+  }
+
+  function runWithoutUnavailablePrivateScope() {
+    removePrivateScopeRefFromUrl();
+    setSelectedDocumentIds([]);
+    setPrivateScopeStatus("none");
+    autoRunSearchSignatureRef.current = null;
+    void executeSearch(submittedUrlQuery || query, searchMode, scopeFilters, queryMode, false, undefined);
+  }
+
   return (
     <div
       className={cn(
@@ -3284,6 +3511,27 @@ export function ClinicalDashboard({
           hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
           onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
         />
+
+        {privateScopeStatus === "unavailable" ? (
+          <div
+            role="alert"
+            data-testid="private-scope-unavailable"
+            className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8"
+          >
+            <p>
+              The original private document scope is unavailable. Choose the documents again or confirm a broader
+              search.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className={floatingControl} onClick={reselectUnavailablePrivateScope}>
+                Reselect documents
+              </button>
+              <button type="button" className={floatingControl} onClick={runWithoutUnavailablePrivateScope}>
+                Run without private scope
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <main
           id="main-content"
@@ -3382,7 +3630,30 @@ export function ClinicalDashboard({
                 <h2 data-testid="answer-section-heading" className="sr-only">
                   {activeModeSearch.resultHeading}
                 </h2>
-                {error && errorKind === "no-results" && activeModeResultKind === "answer" ? (
+                {answerLifecycle.status === "cancelled" && activeModeResultKind === "answer" ? (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    data-testid="answer-cancelled"
+                    className={cn(
+                      "flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4 text-sm",
+                      toneInfo,
+                    )}
+                  >
+                    <div>
+                      <p className="font-semibold text-[color:var(--text-heading)]">Generation stopped</p>
+                      <p className={textMuted}>No partial clinical answer was kept.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className={cn(primaryControl, "text-xs")}
+                      onClick={() => void ask(answerLifecycle.query ?? query)}
+                    >
+                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                      Run again
+                    </button>
+                  </div>
+                ) : error && errorKind === "no-results" && activeModeResultKind === "answer" ? (
                   <div
                     role="status"
                     data-testid="answer-no-results"
@@ -3838,6 +4109,9 @@ export function ClinicalDashboard({
                             demoMode={uploadReadOnlyMode}
                             canUpload={canUploadDocuments}
                             authorizationHeader={authorizationHeader}
+                            registerAuthRequest={registerAuthRequest}
+                            isAuthEpochCurrent={isAuthEpochCurrent}
+                            onSessionExpired={markSessionExpired}
                           />
                         </div>
                         <div
