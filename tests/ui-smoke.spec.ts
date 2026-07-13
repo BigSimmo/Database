@@ -1639,6 +1639,102 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  // Regression for PR #563: on phones a rendered answer must be content-sized and
+  // top-aligned, NOT inherit the centred-home viewport-height floor. Otherwise a
+  // short answer stretches the section to ~full height and `main` scrolls down into
+  // the near-black shell; the fixed composer reserve must also hug the real dock.
+  test("phone short answer stays top-aligned with no phantom scroll into black", async ({ page }) => {
+    // Tall phone viewport so the deliberately short answer comfortably fits — that
+    // is the whole point: content shorter than the viewport must not scroll.
+    await page.setViewportSize({ width: 390, height: 900 });
+    await mockDemoApi(page, {
+      // Strip the section/table-bearing fields so the surface is a few hundred px.
+      answerOverride: (query, documentId, documentIds) => ({
+        ...demoAnswer(query, documentId, documentIds),
+        answer: "Verify the cited passages before using any clinical numbers.",
+        answerSections: [],
+        visualEvidence: [],
+      }),
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "lithium dosing");
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(400);
+
+    const geo = await page.evaluate(() => {
+      const main = document.querySelector("main#main-content");
+      const header = document.querySelector("header");
+      const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
+      return {
+        scrollHeight: main?.scrollHeight ?? 0,
+        clientHeight: main?.clientHeight ?? 0,
+        headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
+        surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
+      };
+    });
+    // Content-sized section => no phantom scroll (old floor made scrollHeight ≫ clientHeight).
+    expect(geo.scrollHeight - geo.clientHeight).toBeLessThanOrEqual(4);
+    // Top-aligned: the answer sits just under the header, not pushed toward the dock
+    // (a bottom-anchor regression would push surfaceTop far down the viewport).
+    expect(geo.surfaceTop - geo.headerBottom).toBeGreaterThanOrEqual(0);
+    expect(geo.surfaceTop - geo.headerBottom).toBeLessThanOrEqual(160);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone long answer stays scrollable and clear of the composer dock", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    const longBody = Array.from(
+      { length: 16 },
+      (_, index) =>
+        `Paragraph ${index + 1}: the lithium source supports baseline renal, thyroid, calcium, weight, blood pressure and interacting-medicine checks, plus escalation for vomiting, diarrhoea, dehydration, tremor, confusion or ataxia.`,
+    ).join("\n\n");
+    await mockDemoApi(page, {
+      answerOverride: (query, documentId, documentIds) => ({
+        ...demoAnswer(query, documentId, documentIds),
+        answer: longBody,
+      }),
+    });
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await fillVisibleQuestionInput(page, "lithium dosing");
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(400);
+    // Start from the top so the assertions describe the resting, top-aligned view.
+    await page.locator("main#main-content").evaluate((el) => {
+      el.scrollTop = 0;
+    });
+
+    const geo = await page.evaluate(() => {
+      const main = document.querySelector("main#main-content");
+      const header = document.querySelector("header");
+      const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
+      return {
+        scrollHeight: main?.scrollHeight ?? 0,
+        clientHeight: main?.clientHeight ?? 0,
+        mainBottom: main ? Math.round(main.getBoundingClientRect().bottom) : 0,
+        headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
+        surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
+      };
+    });
+    // A long answer overflows and scrolls, still top-aligned under the header.
+    expect(geo.scrollHeight).toBeGreaterThan(geo.clientHeight + 40);
+    expect(geo.surfaceTop - geo.headerBottom).toBeLessThanOrEqual(160);
+    // The <main> reserve keeps the opaque composer input fully below the scroll
+    // viewport, so answer content clears the composer instead of being hidden
+    // behind it. (The dock's blur scrim intentionally fades content above the
+    // input, so we anchor on the input itself, not the scrim's bounding box.)
+    const composerInputTop = await visibleQuestionInput(page).evaluate((el) =>
+      Math.round(el.getBoundingClientRect().top),
+    );
+    expect(composerInputTop).toBeGreaterThanOrEqual(geo.mainBottom - 4);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     const answerRequests: string[] = [];
