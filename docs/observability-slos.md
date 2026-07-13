@@ -118,7 +118,9 @@ means the OpenAI path is broken while users still get 200s.
 - **Warn:** > 20 % over 1 h. **Page:** > 50 % over 1 h (generation is
   effectively down).
 
-Measure via `metadata->>'fallback_reason'` / `answer_model_demoted`.
+Measure true source-only degradation via the explicit `metadata->>'degraded' = 'true'`
+flag. Keep `fallback_reason` as diagnostic detail; it also contains correct
+fail-closed outcomes such as source gaps, conflicts, and unsupported queries.
 
 ## 3. Nightly production eval canary
 
@@ -177,7 +179,8 @@ header (same operator gate as the Supabase probe) — returns two counter blocks
 - **`slo`** — `answerSloSnapshot` (`src/lib/observability/answer-slo.ts`) counts
   `rag_queries` over the trailing `windowMinutes` (60) and reports
   `hybridRpcErrorQueries` / `hybridRpcErrorRate` (the §2 silent-RPC-death guard)
-  and `degradedQueries` / `degradedRate` (the source-only/fallback guard). These
+  and `degradedQueries` / `degradedRate` (the explicit source-only degradation
+  guard, excluding ordinary unsupported/source-gap outcomes). These
   are windowed rates straight from the persisted telemetry.
 
 - **`cache`** — `cacheMetricsSnapshot` (`src/lib/observability/cache-metrics.ts`)

@@ -2526,7 +2526,7 @@ function createDocumentRankingMetadataCache(): DocumentRankingMetadataCache {
 }
 
 /** Attach document ranking metadata. */
-async function attachDocumentRankingMetadata(
+export async function attachDocumentRankingMetadata(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
   ownerId?: string,
@@ -2563,17 +2563,22 @@ async function attachDocumentRankingMetadata(
     return attachIndexQualityMetadata(supabase, enriched, ownerId, cache);
   }
 
-  try {
-    const metadataRows = await fetchRelatedDocumentMetadata({
+  const [metadataRows, indexedResults] = await Promise.all([
+    fetchRelatedDocumentMetadata({
       supabase,
       ownerId,
       documentIds: missingDocumentIds,
-    });
+    }).catch(() => null),
+    attachIndexQualityMetadata(supabase, results, ownerId, cache),
+  ]);
+  if (!metadataRows) return indexedResults;
+
+  try {
     for (const documentId of missingDocumentIds) cache.documentMetadata.set(documentId, null);
     for (const row of metadataRows) {
       cache.documentMetadata.set(row.document_id, { labels: row.labels, summary: row.summary });
     }
-    const enriched = results.map((result) => {
+    return indexedResults.map((result) => {
       const metadata = cache.documentMetadata.get(result.document_id);
       if (!metadata) return result;
       return {
@@ -2582,9 +2587,8 @@ async function attachDocumentRankingMetadata(
         document_summary: metadata.summary,
       };
     });
-    return attachIndexQualityMetadata(supabase, enriched, ownerId, cache);
   } catch {
-    return results;
+    return indexedResults;
   }
 }
 
@@ -2624,7 +2628,7 @@ async function attachIndexQualityMetadata(
 }
 
 /** Attach page visual evidence. */
-async function attachPageVisualEvidence(
+export async function attachPageVisualEvidence(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
 ): Promise<SearchResult[]> {
@@ -2646,9 +2650,9 @@ async function attachPageVisualEvidence(
 
   const selectColumns =
     "id,document_id,page_number,storage_path,caption,bbox,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata";
-  const pageData =
+  const [pageData, directData] = await Promise.all([
     pageNumbers.length > 0
-      ? await supabase
+      ? supabase
           .from("document_images")
           .select(selectColumns)
           .in("document_id", documentIds)
@@ -2657,17 +2661,17 @@ async function attachPageVisualEvidence(
           .neq("image_type", "logo_decorative")
           .order("clinical_relevance_score", { ascending: false })
           .limit(80)
-      : { data: [], error: null };
-  const directData =
+      : Promise.resolve({ data: [], error: null }),
     sourceImageIds.length > 0
-      ? await supabase
+      ? supabase
           .from("document_images")
           .select(selectColumns)
           .in("id", sourceImageIds)
           .eq("searchable", true)
           .neq("image_type", "logo_decorative")
           .limit(sourceImageIds.length)
-      : { data: [], error: null };
+      : Promise.resolve({ data: [], error: null }),
+  ]);
 
   const data = [...(pageData.data ?? []), ...(directData.data ?? [])];
   if ((pageData.error && directData.error) || data.length === 0) return results;
@@ -4548,6 +4552,7 @@ async function answerQuestionWithScopeUncoalesced(
           routing_reason: route.reason,
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(route.reason),
+          degraded: finalizedAnswer.degradedMode?.active ?? false,
           model_used: null,
           retrieved_candidate_count: results.length,
           ...smartApiLogMetadata(smartApiPlan),
@@ -4676,6 +4681,7 @@ async function answerQuestionWithScopeUncoalesced(
           routing_reason: finalizedAnswer.routingReason,
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(finalizedAnswer.routingReason),
+          degraded: finalizedAnswer.degradedMode?.active ?? false,
           model_used: null,
           retrieved_candidate_count: results.length,
           ...smartApiLogMetadata(smartApiPlan),
@@ -5380,6 +5386,7 @@ ${qualityRetryInstruction}`
           routing_reason: routingReason,
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(answer.routingReason),
+          degraded: answer.degradedMode?.active ?? false,
           model_used: modelUsed,
           requested_fast_model: requestedOpenAIAnswerModels.fastAnswer,
           requested_strong_model: requestedOpenAIAnswerModels.strongAnswer,
@@ -5630,6 +5637,7 @@ ${qualityRetryInstruction}`
           routing_reason: fallbackAnswer.routingReason,
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(fallbackAnswer.routingReason),
+          degraded: fallbackAnswer.degradedMode?.active ?? false,
           model_used: null,
           requested_fast_model: requestedOpenAIAnswerModels.fastAnswer,
           requested_strong_model: requestedOpenAIAnswerModels.strongAnswer,

@@ -1,6 +1,6 @@
 # Cross-border disclosure basis — OpenAI (PIA-1)
 
-**Status:** Decision-ready — awaiting the operator/legal step · **Date:** 2026-07-13
+**Status:** Provider review refreshed — operator approved pursuit; legal execution pending · **Date:** 2026-07-14
 **Owner of the open step:** account holder for `OPENAI_API_KEY` + privacy adviser
 **Closes:** the contractual half of **PIA-1** in [docs/privacy-impact-assessment.md](privacy-impact-assessment.md) §10.
 **Companion:** the `/privacy` collection notice ([src/app/privacy/page.tsx](../src/app/privacy/page.tsx)) and composer reminder ([src/lib/ui-copy.ts](../src/lib/ui-copy.ts)) satisfy the APP 5 / APP 1 half.
@@ -14,11 +14,13 @@
 
 ## 1. Why this exists
 
-The app's only cross-border flow is the query text + retrieved excerpts sent to OpenAI in the United
-States for embedding and answer synthesis (PIA §3–4; verified still true in code —
+This document covers the model-provider leg: query text + retrieved excerpts sent to OpenAI in the
+United States for embedding and answer synthesis (PIA §3–4; verified still true in code —
 [src/lib/openai.ts:75-79](../src/lib/openai.ts) builds a plain `new OpenAI({ apiKey, timeout, maxRetries })`
 with no `baseURL`/ZDR header, `store:false` by default, and `prompt_cache_retention` forced to `"24h"`
-for gpt-5.5 at [openai.ts:174](../src/lib/openai.ts)).
+for gpt-5.5 at [openai.ts:174](../src/lib/openai.ts)). Railway application and worker processing in
+Singapore is the separate overseas processor leg recorded in the PIA; the APP 8 record must cover
+both providers.
 
 Two obligations attach to that flow:
 
@@ -93,22 +95,30 @@ mitigated. Record the answer in the status block.
 
 ## 7. Consistency with the shipped user-facing notice
 
-The `/privacy` page and composer notice already tell users: data is stored in **Sydney**; question
-text + excerpts go to **OpenAI in the US** ("the only point where data leaves Australia"); OpenAI is
-**asked not to retain** requests (`store:false`); retention is 30d/90d. This document must stay
-consistent with those claims.
+The `/privacy` page and composer notice tell users that durable database/storage data is in
+**Sydney**, Railway processes requests in **Singapore**, and question text + excerpts go to
+**OpenAI in the US**. OpenAI is asked not to store response objects (`store:false`), while separate
+provider retention and local 30d/90d retention are disclosed. This document must stay consistent
+with those claims.
 
 - **Merge status:** the APP-5 half is **live on `main`** — `src/app/privacy/page.tsx` and the composer
   notice landed via **PR #513** (`eeb2340ad`). So APP 5/1 is met; only the APP 8 contractual basis below
   remains.
-- **Follow-up:** if **Australia data residency** is enabled, the `/privacy` copy ("the only point where
-  data leaves Australia") stays accurate for _processing_, but the "where stored" section can be
-  strengthened to note US/AU storage — update copy if residency is adopted.
+- **Follow-up:** if **Australia data residency** is enabled, update the "where stored" section to
+  describe the selected OpenAI storage region without implying that inference is processed in
+  Australia.
 
 ## 8. Operator action checklist
 
 Actions **1–3 must be performed by the account holder** in OpenAI's dashboard/legal process — they
 involve accepting agreements and changing account settings, which an automated agent must not do.
+
+The operator approved pursuing these steps on 2026-07-14. That approval authorises evaluation and
+outreach; it is not a legal signature and does not prove that DPA, ZDR, or residency settings are in
+force. The production project also returned quota exhaustion during the approved model experiment,
+so endpoint/model comparisons are paused until quota is restored. ZDR/residency status was not
+available through the inspected API surface and remains to be confirmed in the provider account or
+in writing.
 
 - [ ] **1. Execute the OpenAI DPA** for the org behind the production `OPENAI_API_KEY`
       → [openai.com/policies/data-processing-addendum](https://openai.com/policies/data-processing-addendum/).
@@ -139,6 +149,10 @@ involve accepting agreements and changing account settings, which an automated a
 | No-training confirmed in contract   | _API default_             |      |          |
 | Counsel sign-off (APP 8)            | _pending_                 |      |          |
 
+Railway's companion contract step is also pending: complete Railway's DPA with the legal entity and
+authorised signer, retain the executed copy, and record the Singapore processor/sub-processor basis
+in the PIA. No automated action in this review accepted either provider's terms.
+
 ## 9. Code follow-ups triggered by the outcome
 
 These touch the OpenAI request path — do them **only after** the legal decision, and treat them as
@@ -160,5 +174,6 @@ provider-path changes (confirm before running against live).
 - OpenAI — [Data Processing Addendum](https://openai.com/policies/data-processing-addendum/) · [PDF v.010126](https://cdn.openai.com/pdf/openai-data-processing-addendum.pdf)
 - OpenAI — [Sub-processor list](https://openai.com/policies/sub-processor-list/)
 - OpenAI — [Data residency for the OpenAI API](https://help.openai.com/en/articles/10503543-data-residency-for-the-openai-api) · [Expanding data residency worldwide](https://openai.com/index/expanding-data-residency-access-to-business-customers-worldwide/)
+- Railway — [Data Processing Addendum](https://railway.com/legal/dpa) · [Trust Center](https://trust.railway.com/)
 - OAIC — Australian Privacy Principles (APP 8 cross-border disclosure; s16C accountability), _Privacy Act 1988_ (Cth)
 - Internal — [Privacy Impact Assessment](privacy-impact-assessment.md) (PIA-1, PIA-6)

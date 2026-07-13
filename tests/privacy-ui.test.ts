@@ -25,7 +25,7 @@ describe("privacy UI", () => {
       "What this tool is",
       "What is collected",
       "How questions are handled",
-      "Where data is stored",
+      "Where data is stored and processed",
       "External provider processing",
       "Retention",
       "Your responsibilities",
@@ -33,6 +33,9 @@ describe("privacy UI", () => {
       expect(markup).toContain(heading);
     }
     expect(markup).toContain("Generated answer text is also omitted from durable query logs by default");
+    expect(markup).toContain("application service in Singapore");
+    expect(markup).toContain("Railway in Singapore");
+    expect(markup).toContain("bounded hourly purge of expired response-cache rows");
     expect(markup).not.toContain("approved privacy policy");
   });
 });

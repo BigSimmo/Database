@@ -992,6 +992,7 @@ describe("RAG structured-output fallback", () => {
     const loggedMetadata = loggedRow.metadata ?? {};
     expect(loggedMetadata.answer_retry_count).toBe(2);
     expect(loggedMetadata.answer_retry_reasons).toEqual(["fast_template_retry_strong", "strong_quality_retry"]);
+    expect(loggedMetadata.degraded).toBe(false);
     // PIA-3: the generated answer text must not be persisted to rag_queries.answer
     // unless RAG_PERSIST_ANSWER_TEXT is enabled (default off), and the row records
     // that the answer was not retained.

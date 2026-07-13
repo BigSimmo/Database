@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { answerSloSnapshot, type SloProbeClient } from "@/lib/observability/answer-slo";
 
 // Fake PostgREST count builder: from().select().gt() is the "total" query; adding
-// .not(column,...) narrows it to the hybrid-error or degraded count, and .ilike(col,
-// pattern) narrows it to the truncation or timeout fallback subset by pattern; the third
-// arg records the base .is(...) filters so tests can assert event-type scoping. Awaiting
+// .not(column,...) narrows it to the hybrid-error count, .eq(column,...) narrows it
+// to explicitly degraded answers, and .ilike(col, pattern) narrows it to the
+// truncation or timeout fallback subset by pattern. Awaiting
 // resolves to { count, error }.
 type SloFilterKey = "total" | "hybrid" | "degraded" | "truncation" | "timeout";
 
@@ -13,6 +13,7 @@ function fakeClient(
   counts: { total: number; hybrid: number; degraded: number; truncation?: number; timeout?: number },
   error?: unknown,
   observedBaseFilters: Array<{ column: string; value: null }> = [],
+  observedNarrowingFilters: Array<{ method: "eq" | "not"; column: string; value: unknown }> = [],
 ): SloProbeClient {
   const build = (filter: SloFilterKey) => {
     const builder = {
@@ -21,7 +22,14 @@ function fakeClient(
         observedBaseFilters.push({ column, value });
         return builder;
       },
-      not: (column: string) => build(column.includes("hybrid_rpc_errors") ? "hybrid" : "degraded"),
+      eq: (column: string, value: string) => {
+        observedNarrowingFilters.push({ method: "eq", column, value });
+        return build("degraded");
+      },
+      not: (column: string, _operator: string, value: null) => {
+        observedNarrowingFilters.push({ method: "not", column, value });
+        return build("hybrid");
+      },
       ilike: (_column: string, pattern: string) =>
         build(pattern.includes("max_output_tokens") ? "truncation" : "timeout"),
       then: (resolve: (value: { count: number | null; error: unknown }) => unknown) =>
@@ -62,6 +70,25 @@ describe("answerSloSnapshot", () => {
     // Five base() queries now scope by event_type: total, hybrid, degraded, truncation, timeout.
     expect(observedBaseFilters).toEqual(
       Array.from({ length: 5 }, () => ({ column: "metadata->>event_type", value: null })),
+    );
+  });
+
+  it("counts only answers explicitly marked degraded, not every fallback reason", async () => {
+    const observedNarrowingFilters: Array<{
+      method: "eq" | "not";
+      column: string;
+      value: unknown;
+    }> = [];
+
+    await answerSloSnapshot(fakeClient({ total: 7, hybrid: 1, degraded: 2 }, undefined, [], observedNarrowingFilters));
+
+    expect(observedNarrowingFilters).toContainEqual({
+      method: "eq",
+      column: "metadata->>degraded",
+      value: "true",
+    });
+    expect(observedNarrowingFilters).not.toContainEqual(
+      expect.objectContaining({ method: "not", column: "metadata->>fallback_reason" }),
     );
   });
 
