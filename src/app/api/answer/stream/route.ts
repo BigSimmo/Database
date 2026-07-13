@@ -249,7 +249,6 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
             sourceGovernanceWarnings: warnings,
           });
         } catch (error) {
-          logStreamError(error, signal);
           // Parity with /api/answer (PR #315): outside production, a misconfigured
           // Supabase API key degrades to a visible demo answer instead of a stream
           // error — the UI's answer search uses this route, not /api/answer.
@@ -258,6 +257,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
             send("final", buildDemoStreamAnswer(body, fallbackReason));
             return;
           }
+          logStreamError(error, signal);
           const streamError = streamErrorPayload(error);
           send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
         } finally {
