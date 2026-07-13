@@ -2,8 +2,8 @@
 
 **Status:** Provider review refreshed — operator approved pursuit; legal execution pending · **Date:** 2026-07-14
 **Owner of the open step:** account holder for `OPENAI_API_KEY` + privacy adviser
-**Closes:** the contractual half of **PIA-1** in [docs/privacy-impact-assessment.md](privacy-impact-assessment.md) §10.
-**Companion:** the `/privacy` collection notice ([src/app/privacy/page.tsx](../src/app/privacy/page.tsx)) and composer reminder ([src/lib/ui-copy.ts](../src/lib/ui-copy.ts)) satisfy the APP 5 / APP 1 half.
+**Tracks:** the OpenAI contractual portion of **PIA-1** in [docs/privacy-impact-assessment.md](privacy-impact-assessment.md) §10; Railway's companion contract is tracked below.
+**Companion:** the `/privacy` collection notice ([src/app/privacy/page.tsx](../src/app/privacy/page.tsx)) and composer reminder ([src/lib/ui-copy.ts](../src/lib/ui-copy.ts)) ship as draft APP 5 / APP 1 controls pending governance approval under **PIA-5**.
 
 > **Not legal advice.** This records the current, verifiable facts about OpenAI's data-handling
 > terms and maps them to APP 8 so a qualified privacy adviser can sign off the cross-border basis.
@@ -30,7 +30,8 @@ Two obligations attach to that flow:
   recipient's acts unless an APP 8.2 exception applies. Health/mental-health data is _sensitive
   information_ — the highest-protection category — so this is the launch-critical item.
 - **APP 5 (notification).** Individuals must be told their information is disclosed overseas.
-  **Already shipped** in the `/privacy` page and composer notice (see §7).
+  Draft wording is **already shipped** in the `/privacy` page and composer notice; governance approval
+  remains open under **PIA-5** (see §7).
 
 The code-side controls cannot _by themselves_ discharge APP 8 — the "reasonable steps" are largely
 **contractual**. That contract is the open step this document tracks.
@@ -101,9 +102,9 @@ The `/privacy` page and composer notice tell users that durable database/storage
 provider retention and local 30d/90d retention are disclosed. This document must stay consistent
 with those claims.
 
-- **Merge status:** the APP-5 half is **live on `main`** — `src/app/privacy/page.tsx` and the composer
-  notice landed via **PR #513** (`eeb2340ad`). So APP 5/1 is met; only the APP 8 contractual basis below
-  remains.
+- **Merge status:** the draft APP-5/1 controls are **live on `main`** — `src/app/privacy/page.tsx` and
+  the composer notice landed via **PR #513** (`eeb2340ad`). Their final governance approval remains
+  open under **PIA-5**, alongside the APP 8 contractual basis below.
 - **Follow-up:** if **Australia data residency** is enabled, update the "where stored" section to
   describe the selected OpenAI storage region without implying that inference is processed in
   Australia.
@@ -123,18 +124,22 @@ in writing.
 - [ ] **1. Execute the OpenAI DPA** for the org behind the production `OPENAI_API_KEY`
       → [openai.com/policies/data-processing-addendum](https://openai.com/policies/data-processing-addendum/).
       Store the countersigned copy; record version + date below.
-- [ ] **2. Apply for ZDR** on the production project via the OpenAI account/sales team. Confirm it
+- [ ] **2. Execute Railway's DPA** with the legal entity and authorised signer. Retain the executed
+      copy and record the Singapore processor/sub-processor basis.
+- [ ] **3. Apply for ZDR** on the production project via the OpenAI account/sales team. Confirm it
       covers `/v1/responses` + `/v1/embeddings`. Record project id + approval date.
-- [ ] **3. Decide on Australia data residency** (new Project + country selection; sales-gated).
+- [ ] **4. Decide on Australia data residency** (new Project + country selection; sales-gated).
       Record region + date, or record an explicit decision not to adopt it and why.
-- [ ] **4. Confirm the ZDR ↔ prompt-cache behaviour** in writing (§6); record the answer.
-- [ ] **5. Review the sub-processor list** for anything counsel should note in the APP 8 chain.
-- [ ] **6. Legal sign-off** that the §5 package satisfies APP 8 for sensitive health information.
-- [ ] **7. Keep `/privacy` copy in sync** if AU residency is adopted (§7) — note US/AU storage.
-- [ ] **8. Code follow-ups** once the above land (§9), if adopted.
+- [ ] **5. Confirm the ZDR ↔ prompt-cache behaviour** in writing (§6); record the answer.
+- [ ] **6. Review both providers' sub-processor lists** for anything counsel should note in the APP 8 chain.
+- [ ] **7. Legal sign-off** that the §5 package satisfies APP 8 for sensitive health information and
+      approves the shipped draft APP 5/1 wording under PIA-5.
+- [ ] **8. Keep `/privacy` copy in sync** if AU residency is adopted (§7) — note US/AU storage.
+- [ ] **9. Code follow-ups** once the above land (§9), if adopted.
 
-> APP 5/1 (the collection notice + `/privacy` page) is **already done** — live on `main` via PR #513.
-> This checklist covers only the remaining **APP 8** contractual basis.
+> Draft APP 5/1 controls (the collection notice + `/privacy` page) are live on `main` via PR #513.
+> Final governance approval remains open under **PIA-5**; this checklist also tracks the remaining
+> **APP 8** contractual basis for both overseas providers.
 
 ### Status record — fill in as steps complete
 
@@ -142,11 +147,14 @@ in writing.
 | ----------------------------------- | ------------------------- | ---- | -------- |
 | OpenAI org / production project id  | _tbd_                     |      |          |
 | DPA executed (version)              | _no (v.010126 available)_ |      |          |
+| Railway DPA executed (version)      | _no_                      |      |          |
+| Railway Singapore processor basis   | _pending_                 |      |          |
 | ZDR approved (project)              | _no_                      |      |          |
 | ZDR covers /responses + /embeddings | _tbd_                     |      |          |
 | ZDR zeroes prompt cache? (§6)       | _tbd_                     |      |          |
 | Australia data residency            | _not enabled_             |      |          |
 | No-training confirmed in contract   | _API default_             |      |          |
+| APP 5/1 notice governance approval  | _pending (PIA-5)_         |      |          |
 | Counsel sign-off (APP 8)            | _pending_                 |      |          |
 
 Railway's companion contract step is also pending: complete Railway's DPA with the legal entity and
