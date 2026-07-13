@@ -2617,7 +2617,7 @@ export function ClinicalDashboard({
       setActionNotice({ tone: "warning", message: "Answer review is unavailable for synthetic demo answers." });
       return;
     }
-    if (!answer.interactionId) {
+    if (!answer.interactionId || !answer.feedbackToken) {
       setActionNotice({ tone: "warning", message: "This answer predates traceable feedback. Run the question again." });
       return;
     }
@@ -2636,6 +2636,7 @@ export function ClinicalDashboard({
         },
         body: JSON.stringify({
           interactionId: answer.interactionId,
+          feedbackToken: answer.feedbackToken,
           feedbackCategory: feedbackType,
           answerHash,
           sourceIds: sourceChunkIds,

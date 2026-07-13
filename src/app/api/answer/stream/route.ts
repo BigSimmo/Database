@@ -34,6 +34,7 @@ import { startSseHeartbeat } from "@/lib/sse-heartbeat";
 import { parseJsonBody } from "@/lib/validation/body";
 import { toPublicAnswerProgressEvent } from "@/lib/answer-progress-public";
 import type { RagAnswer } from "@/lib/types";
+import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 
 export const runtime = "nodejs";
 
@@ -46,6 +47,8 @@ const answerSchema = z.object({
 });
 
 type AnswerBody = z.infer<typeof answerSchema>;
+const emptyScopeAnswer =
+  "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.";
 
 function answerDegradedModeSignal(answer?: Pick<RagAnswer, "degradedMode" | "answerQualityTier" | "fallbackReason">) {
   if (answer?.degradedMode) return answer.degradedMode;
@@ -97,6 +100,10 @@ function streamErrorPayload(error: unknown) {
     message: "Search processing is temporarily unavailable.",
     status: 503,
   };
+}
+
+function streamAnswerFeedbackMetadata(interactionId: string, answer: string) {
+  return isDemoMode() ? { interactionId } : answerFeedbackMetadata(interactionId, answer);
 }
 
 function logStreamError(error: unknown, signal?: AbortSignal) {
@@ -185,8 +192,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
           sendProgress({ stage: "retrieving" });
           if (scope?.documentIds?.length === 0) {
             sendFinal({
-              answer:
-                "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.",
+              answer: emptyScopeAnswer,
               grounded: false,
               confidence: "unsupported",
               citations: [],
@@ -194,7 +200,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
               degradedMode: answerDegradedModeSignal(),
               scope: { ...scope, queryMode: body.queryMode },
               sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
-              interactionId,
+              ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
             });
             return;
           }
@@ -252,7 +258,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
               degradedMode: answerDegradedModeSignal(answer),
               scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
               sourceGovernanceWarnings: warnings,
-              interactionId,
+              ...streamAnswerFeedbackMetadata(interactionId, sourceGovernanceRefusalAnswer),
             });
             return;
           }
@@ -268,7 +274,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
             degradedMode: answerDegradedModeSignal(answer),
             scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
             sourceGovernanceWarnings: warnings,
-            interactionId,
+            ...streamAnswerFeedbackMetadata(interactionId, answer.answer),
           });
         } catch (error) {
           // Parity with /api/answer (PR #315): outside production, a misconfigured
