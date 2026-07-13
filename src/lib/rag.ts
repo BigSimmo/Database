@@ -986,12 +986,9 @@ function hasValidatedGenericLaiManagementExtractiveAnswer(args: {
   route: { mode: "unsupported" | "extractive" | "fast" | "strong"; reason: string };
   sourceBacked: boolean;
 }) {
-  const genericLaiManagementQuery =
-    /\blong[- ]acting injectables?\b/i.test(args.query) &&
-    /\b(?:manage|managed|management)\b/i.test(args.query) &&
-    !/\b(?:administer|compare|contraindicat|dose|dosing|escalat\w*|frequency|hepatic|initiat\w*|interval|missed|monitor\w*|observation|overdue|pregnan\w*|prescrib\w*|renal|risk\w*|route|side effect|stop|switch|versus|withhold)\b/i.test(
-      args.query,
-    );
+  const genericLaiManagementQuery = /^\s*how (?:are|should) long[- ]acting injectables? (?:be )?managed\??\s*$/i.test(
+    args.query,
+  );
 
   if (
     !genericLaiManagementQuery ||
