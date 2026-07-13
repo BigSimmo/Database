@@ -102,7 +102,7 @@ jobs:
 
       - name: Open or update regression issue
         if: failure() && github.event_name == 'schedule'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const label = "eval-canary";

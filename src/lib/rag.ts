@@ -110,6 +110,7 @@ import {
   expandClinicalQuery,
   hasDoseEvidenceSupport,
   hasStructuredThresholdEvidence,
+  isMedicationDoseEvidenceQuery,
   medicationDoseQueryContext,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
@@ -2608,6 +2609,10 @@ export function decideTextFastPath(
   if (queryClass === "medication_dose_risk" && !results.slice(0, 5).some((result) => hasDoseEvidenceSupport(result))) {
     return { returnFastPath: false, reason: "missing_dose_evidence" };
   }
+  if (queryClass === "medication_dose_risk" && isMedicationDoseEvidenceQuery(query)) {
+    const doseCoverage = evaluateEvidenceCoverageGate(query, results, queryClass);
+    if (!doseCoverage.accepted) return { returnFastPath: false, reason: doseCoverage.reason };
+  }
 
   if (queryClass === "table_threshold") {
     if (strongestScore >= 0.62 || topTextRank >= 0.045) {
@@ -2921,10 +2926,14 @@ export function evaluateEvidenceCoverageGate(
   }
 
   if (queryClass === "medication_dose_risk") {
+    const asksDoseAmount = /\b(?:dose|doses|dosage|dosages|dosing|mg|mcg|microgram|maximum|minimum)\b/i.test(query);
     const asksRoute =
       /\b(?:route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(query);
     const agitationOk = !/\bagitation|arousal\b/i.test(query) || /\bagitation|arousal\b/i.test(evidenceText);
-    const hasContextualDose = top.some(
+    const hasContextualDoseEvidence = top.some(
+      (result) => hasDoseEvidenceSupport(result) && medicationDoseQueryContext(query, result).matched,
+    );
+    const hasContextualDoseAmount = top.some(
       (result) =>
         hasDoseEvidenceSupport(result) &&
         hasDoseAmountEvidenceForGate(result) &&
@@ -2933,18 +2942,21 @@ export function evaluateEvidenceCoverageGate(
     const hasContextualRoute = top.some(
       (result) =>
         hasDoseEvidenceSupport(result) &&
-        hasDoseAmountEvidenceForGate(result) &&
         hasRouteEvidenceForGate(result) &&
         medicationDoseQueryContext(query, result).matched,
     );
-    const accepted = hasContextualDose && (!asksRoute || hasContextualRoute) && agitationOk;
+    const accepted =
+      hasContextualDoseEvidence &&
+      (!asksDoseAmount || hasContextualDoseAmount) &&
+      (!asksRoute || hasContextualRoute) &&
+      agitationOk;
     return {
       accepted,
       reason: accepted
         ? "dose_route_amount_evidence_gate"
         : !hasDoseAmount
           ? "missing_dose_amount_evidence"
-          : !hasContextualDose
+          : !hasContextualDoseEvidence || (asksDoseAmount && !hasContextualDoseAmount)
             ? "missing_dose_query_context"
             : !hasContextualRoute && asksRoute
               ? "missing_route_evidence"

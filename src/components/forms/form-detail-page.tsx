@@ -185,14 +185,14 @@ function DetailCard({ card }: { card: ServiceSummaryCard }) {
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:h-9 sm:w-9">
           {summaryIcon(card)}
         </span>
-        <p className="min-w-0 pt-0.5 text-4xs font-bold uppercase leading-[11px] text-[color:var(--text-soft)] sm:text-2xs sm:leading-4">
+        <p className="min-w-0 pt-0.5 text-2xs font-bold uppercase leading-4 text-[color:var(--text-muted)]">
           {displayText(card.label, "Priority fact")}
         </p>
       </div>
       <h3 className="text-xs font-semibold leading-[15px] text-[color:var(--text-heading)] sm:text-sm sm:leading-5">
         {displayText(card.title)}
       </h3>
-      <p className={cn("mt-0.5 text-3xs font-medium leading-[14px] sm:mt-1 sm:text-xs sm:leading-5", textMuted)}>
+      <p className={cn("mt-0.5 text-2xs font-medium leading-4 sm:mt-1 sm:text-xs sm:leading-5", textMuted)}>
         {displayText(card.detail)}
       </p>
     </article>
@@ -266,7 +266,7 @@ function PathwayContextCard({
             <span className={cn("text-2xl font-bold text-[color:var(--clinical-accent)]", codeText)}>{code}</span>
             <p className="text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
           </div>
-          <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-3xs font-bold text-[color:var(--clinical-accent)]">
+          <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]">
             You are here
           </span>
           <p className={cn("mt-2 text-xs leading-5", textMuted)}>{displayText(form.subtitle)}</p>
@@ -670,7 +670,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Legal boundary</h2>
-                    <span className={cn(metadataPill, "rounded-full text-3xs uppercase", toneWarning)}>Governance</span>
+                    <span className={cn(metadataPill, "rounded-full text-2xs uppercase", toneWarning)}>Governance</span>
                   </div>
                   <p className="mt-2 max-w-5xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                     {displayText(
@@ -726,7 +726,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   </p>
                   <span
                     className={cn(
-                      "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-3xs font-bold",
+                      "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-2xs font-bold",
                       sourceToneClass(form),
                     )}
                   >

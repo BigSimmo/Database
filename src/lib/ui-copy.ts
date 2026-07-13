@@ -105,15 +105,12 @@ export const emptyStates = {
   },
 } as const;
 
-// Privacy / data-handling copy — the APP-5 warning shown at the query composer
-// plus the labels for the /privacy transparency page. Wording is a
-// plain-language engineering summary of docs/privacy-impact-assessment.md; it is
-// not legal advice. See PIA-1 / PIA-5. The composer link is deliberately concise;
-// the full detail lives on /privacy.
+// Privacy / data-handling copy — labels for the /privacy transparency page.
+// Wording is a plain-language engineering summary of
+// docs/privacy-impact-assessment.md; it is not legal advice. See PIA-1 /
+// PIA-5. The APP-5 composer/upload warning itself lives in
+// components/privacy-input-notice.tsx.
 export const privacyCopy = {
-  composerWarning: "Don't enter identifiable patient details.",
-  composerLinkLabel: "Privacy & data handling",
-  noticeAriaLabel: "Privacy and data-handling notice",
   pageEyebrow: "Privacy",
   pageTitle: "Privacy & data handling",
 } as const;

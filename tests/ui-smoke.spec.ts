@@ -1563,8 +1563,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await page.goto("/privacy", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("main")).toBeVisible();
-      await expect(page.getByRole("heading", { level: 1, name: "Privacy and data processing" })).toBeVisible();
-      await expect(page.getByText("Draft for privacy and clinical-governance approval")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Privacy & data handling" })).toBeVisible();
+      await expect(page.getByText("This is draft product information", { exact: false })).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     });
   }
@@ -2155,6 +2155,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(dialog.getByRole("table")).toBeVisible();
       await expect(dialog).toContainText("FBC/ANC");
       await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
+      const modal = page.getByRole("dialog", { name: /clozapine monitoring/i });
+      await expect(modal).toBeVisible();
+      await page.keyboard.press("Shift+Tab");
+      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await page.keyboard.press("Tab");
+      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await expectNoPageHorizontalOverflow(page);
       await page.keyboard.press("Escape");
       await expect(dialog).toBeHidden();
