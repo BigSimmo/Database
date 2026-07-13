@@ -29,7 +29,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, memo, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibleTable, hasRenderableAccessibleTable } from "@/components/AccessibleTable";
 import { documentDisplayTitle, documentOrganizationProfile } from "@/components/DocumentOrganizationBadges";
 import { formatDocumentLabelDisplay } from "@/lib/document-tags";
@@ -765,7 +765,11 @@ function HighlightedSearchText({ text, terms }: { text: string; terms: string[] 
   );
 }
 
-function IndexedTextPanel({
+// Memoised: both the mobile <details> and desktop copies stay mounted and are
+// CSS-toggled, so without this every unrelated parent re-render (e.g. composer
+// typing) re-rendered both instances. All props are referentially stable across
+// those renders (onSearchChange is a stable setState), so memo actually elides them.
+const IndexedTextPanel = memo(function IndexedTextPanel({
   loading,
   selectedPage,
   chunks,
@@ -1006,7 +1010,7 @@ function IndexedTextPanel({
       </div>
     </section>
   );
-}
+});
 
 function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: string; initialPage: number }) {
   const maxFitScale = 2.8;
@@ -1111,16 +1115,23 @@ function PdfCanvasViewer({ url, title, initialPage }: { url: string; title: stri
     return () => document.removeEventListener("fullscreenchange", updateFullscreenState);
   }, []);
 
+  // Escape exits whichever fullscreen mode is active. Native fullscreen usually
+  // exits via the browser, but handling it here too keeps the in-app state in
+  // sync (and covers the in-app fallback overlay, which the browser doesn't own).
   useEffect(() => {
-    if (!fullscreenFallback) return;
+    if (!isFullscreen && !fullscreenFallback) return;
 
     function exitOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setFullscreenFallback(false);
+      if (event.key !== "Escape") return;
+      setFullscreenFallback(false);
+      if (document.fullscreenElement === fullscreenRootRef.current && document.exitFullscreen) {
+        void document.exitFullscreen();
+      }
     }
 
     window.addEventListener("keydown", exitOnEscape);
     return () => window.removeEventListener("keydown", exitOnEscape);
-  }, [fullscreenFallback]);
+  }, [isFullscreen, fullscreenFallback]);
 
   // Settle rapid zoom deltas into a single raster. The interim CSS transform on
   // the canvas keeps the view visually correct during this window.
@@ -1959,9 +1970,11 @@ export function DocumentViewer({
   }, []);
   const scrollHidden = useHideOnScroll(shellScrollContainer ? { scrollContainer: shellScrollContainer } : {});
   const composerScrollHidden = scrollHidden && !mobileActionsOpen && !composerChromeFocused;
-  const [useNativePdfViewer, setUseNativePdfViewer] = useState(() => getInitialPdfViewerMode().useNativePdfViewer);
+  // Read localStorage once on mount, then seed both derived states from it.
+  const [initialPdfViewerMode] = useState(getInitialPdfViewerMode);
+  const [useNativePdfViewer, setUseNativePdfViewer] = useState(initialPdfViewerMode.useNativePdfViewer);
   const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(
-    () => getInitialPdfViewerMode().hasExplicitPdfViewerMode,
+    initialPdfViewerMode.hasExplicitPdfViewerMode,
   );
   const [viewerModeInitialized] = useState(true);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
