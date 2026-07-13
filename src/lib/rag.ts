@@ -827,7 +827,18 @@ function buildRetrievalDiagnostics(args: {
   answerMode: "unsupported" | "extractive" | "fast" | "strong";
   fallbackReason?: string | null;
 }) {
-  const resultScores = args.results.map(scoreValue);
+  // Lexical-only retrieval rows carry a truthful score contract since migration
+  // 20260713062107_restore_text_fallback_lexical_score: similarity is 0 (no vector
+  // ran) and hybrid_score is deliberately capped at 0.48 so a keyword hit can never
+  // masquerade as a moderate/strong cosine match downstream. The honest lexical
+  // signal lives in lexical_score (0.4..0.99). This gate must therefore read
+  // max(scoreValue, lexical_score) — reading the capped hybrid_score alone makes
+  // topScore < 0.5 unconditional for every text-fast-path answer, refusing
+  // well-supported documentation lookups whose expected document is at rank 1.
+  // Ranking/selection ordering still uses scoreValue and is unchanged.
+  const resultScores = args.results.map((result) =>
+    Math.max(scoreValue(result), Math.min(1, result.lexical_score ?? 0)),
+  );
   const sortedScores = [...resultScores].sort((a, b) => b - a);
   const topScore = sortedScores[0] ?? 0;
   const secondScore = sortedScores[1] ?? 0;
