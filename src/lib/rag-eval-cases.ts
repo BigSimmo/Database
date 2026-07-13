@@ -128,8 +128,11 @@ export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answ
   const expectedClassOk = !testCase.expectedQueryClass || answer.queryClass === testCase.expectedQueryClass;
   const relevanceOk = testCase.supported
     ? testCase.acceptSourceOnly
-      ? // Diffuse question: a grounded synthesis OR a source-only/unsupported answer is acceptable.
-        (answer.grounded || unsupported) && expectedClassOk
+      ? // Diffuse question: a grounded synthesis OR a source-only/unsupported answer is acceptable,
+        // but it must still surface the expected documents (cite or name them). Without this a
+        // source-only answer that stopped retrieving the expected doc would still score relevant,
+        // hiding a retrieval regression in this canary.
+        (answer.grounded || unsupported) && expectedClassOk && citesOrNamesExpectedDocument(testCase, answer, text)
       : answer.grounded && answer.citations.length >= testCase.minCitations && expectedClassOk
     : unsupported;
   const readabilityOk = wordCount >= 5 && wordCount <= 220 && !fragmentPattern.test(text);
