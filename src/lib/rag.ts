@@ -5316,6 +5316,13 @@ ${qualityRetryInstruction}`
       const citedChunkIds = new Set(candidate.citations.map((citation) => citation.chunk_id));
       return candidate.sources.some((source) => !citedChunkIds.has(source.id));
     };
+    const retainCitedExtractiveFallbackEvidence = (candidate: RagAnswer) => {
+      const citedChunkIds = new Set(candidate.citations.map((citation) => citation.chunk_id));
+      return {
+        ...candidate,
+        sources: candidate.sources.filter((source) => citedChunkIds.has(source.id)),
+      };
+    };
     let extractiveFallbackAnswer = canRecoverGenerationErrorExtractively
       ? buildExtractiveFallbackCandidate(generationFallbackResults)
       : null;
@@ -5327,7 +5334,7 @@ ${qualityRetryInstruction}`
     ) {
       extractiveFallbackAnswer =
         generationFallbackResults
-          .map((result) => buildExtractiveFallbackCandidate([result]))
+          .map((result) => retainCitedExtractiveFallbackEvidence(buildExtractiveFallbackCandidate([result])))
           .find(isSafeExtractiveFallbackCandidate) ?? extractiveFallbackAnswer;
     }
     const extractiveFallbackQualityReason = extractiveFallbackAnswer
