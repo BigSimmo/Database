@@ -4947,6 +4947,7 @@ begin
         'operator follow-up required: run the six ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin '
         'statements from migration 20260713102000 via the Supabase dashboard SQL editor', current_user;
       raise;
+      raise;
   end;
 end $$;
 
