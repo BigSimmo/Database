@@ -54,6 +54,18 @@ const ingestionJobsOneOpenMigration = readFileSync(
   new URL("../supabase/migrations/20260708170000_ingestion_jobs_one_open_per_document.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const retrievalPublicExecuteMigration = readFileSync(
+  new URL("../supabase/migrations/20260708150150_harden_retrieval_public_execute.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ingestionRpcPrivilegesMigration = readFileSync(
+  new URL("../supabase/migrations/20260709062443_reconcile_ingestion_rpc_privileges_production.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const ingestionRpcPrivilegesDuplicateMigration = readFileSync(
+  new URL("../supabase/migrations/20260709150000_reconcile_ingestion_rpc_privileges.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const atomicReindexMigration = readFileSync(
   new URL("../supabase/migrations/20260628000000_atomic_reindex_generation_commit.sql", import.meta.url),
   "utf8",
@@ -953,5 +965,22 @@ describe("Supabase Preview replay guards", () => {
     expect(ingestionJobsOneOpenNeutralizedMigration).not.toContain("concurrently");
     expect(ingestionJobsOneOpenMigration).toContain("ingestion_jobs_one_open_per_document_uidx");
     expect(ingestionJobsOneOpenMigration).not.toContain("concurrently");
+  });
+
+  it("codifies production ACL migration versions and neutralizes the later duplicate", () => {
+    expect(retrievalPublicExecuteMigration).toContain(
+      "revoke execute on function public.retrieval_owner_matches(uuid, uuid)",
+    );
+    expect(retrievalPublicExecuteMigration).toContain(
+      "revoke execute on function public.search_document_chunks(uuid, text, integer, uuid)",
+    );
+    expect(ingestionRpcPrivilegesMigration).toContain(
+      "revoke execute on function public.complete_ingestion_job(uuid, uuid, uuid, text, text)",
+    );
+    expect(ingestionRpcPrivilegesMigration).toContain(
+      "revoke execute on function public.fail_or_retry_ingestion_job(uuid, uuid, uuid, boolean, text, text, text, timestamp with time zone, text)",
+    );
+    expect(ingestionRpcPrivilegesDuplicateMigration).toContain("NEUTRALIZED 2026-07-13");
+    expect(ingestionRpcPrivilegesDuplicateMigration).toContain("select 1 where false;");
   });
 });

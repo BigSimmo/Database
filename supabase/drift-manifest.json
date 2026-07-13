@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-13T08:06:40.593Z",
+  "generated_at": "2026-07-13T08:13:14.832Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
   "schema_sha256": "0a30a1ea8c8dbb3fd520115d28a17d99c94d9bc5164efe6c287c3b48969be81b",
