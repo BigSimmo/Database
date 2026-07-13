@@ -3,11 +3,12 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { memo, useEffect, useRef, useState } from "react";
-import { CircleAlert, Loader2 } from "lucide-react";
+import { CircleAlert, Loader2, Maximize2 } from "lucide-react";
 
 import { cn } from "@/components/ui-primitives";
-import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
-import { useAuthSession } from "@/lib/supabase/client";
+import { getCachedSignedUrl } from "@/lib/signed-url-cache";
+import { useSignedImageUrl } from "@/components/clinical-dashboard/use-signed-image-url";
+import { ImageLightbox } from "@/components/clinical-dashboard/image-lightbox";
 
 /**
  * Shared renderer for a private image served through a signed-URL endpoint.
@@ -19,7 +20,8 @@ import { useAuthSession } from "@/lib/supabase/client";
  * The network request is deferred behind an `IntersectionObserver` so a long
  * evidence gallery does not fire every signed-URL request — and download every
  * full-resolution image — on mount. The image lives in a fixed 4:3 frame so it
- * never resizes the layout when it decodes (no content shift on load).
+ * never resizes the layout when it decodes (no content shift on load). When
+ * `zoomable`, clicking opens a fullscreen lightbox with zoom/pan/rotate.
  */
 export const SignedImage = memo(function SignedImage({
   endpoint,
@@ -28,6 +30,8 @@ export const SignedImage = memo(function SignedImage({
   failureLabel = "Image preview could not load.",
   retryLabel = "Retry image",
   rootMargin = "640px 0px",
+  zoomable = false,
+  caption,
 }: {
   /** Signed-URL API route, e.g. `/api/images/{id}/signed-url`. */
   endpoint: string;
@@ -41,14 +45,17 @@ export const SignedImage = memo(function SignedImage({
   retryLabel?: string;
   /** IntersectionObserver root margin that gates the network request. */
   rootMargin?: string;
+  /** When true, the loaded image is clickable and opens a fullscreen lightbox. */
+  zoomable?: boolean;
+  /** Lightbox title; falls back to `alt`. */
+  caption?: string;
 }) {
-  const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
   const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
   const [loaded, setLoaded] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
-  const { authorizationHeader, markSessionExpired } = useAuthSession();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad);
 
   // Defer the request until the frame is near the viewport. A cached URL seeds
   // `shouldLoad` synchronously, so already-fetched images skip the observer.
@@ -74,58 +81,15 @@ export const SignedImage = memo(function SignedImage({
     return () => observer.disconnect();
   }, [rootMargin, shouldLoad]);
 
-  useEffect(() => {
-    if (!shouldLoad) return () => undefined;
-
-    const cached = getCachedSignedUrl(endpoint);
-    if (cached) {
-      let active = true;
-      window.requestAnimationFrame(() => {
-        if (!active) return;
-        setUrl(cached.url);
-        setFailed(false);
-      });
-      return () => {
-        active = false;
-      };
-    }
-
-    let active = true;
-    fetch(endpoint, { headers: authorizationHeader })
-      .then((response) => {
-        if (response.status === 401) markSessionExpired();
-        return response.ok ? response.json() : null;
-      })
-      .then((data) => {
-        if (active && data?.url) {
-          setCachedSignedUrl(endpoint, data);
-          setUrl(data.url);
-          setFailed(false);
-        } else if (active) {
-          setFailed(true);
-        }
-      })
-      .catch(() => {
-        if (active) setFailed(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt, authorizationHeader, endpoint, markSessionExpired, shouldLoad]);
-
   function retryImage() {
-    clearCachedSignedUrl(endpoint);
-    setUrl(null);
-    setFailed(false);
     setLoaded(false);
     setShouldLoad(true);
-    setAttempt((current) => current + 1);
+    retry();
   }
 
   function handleImageError() {
-    clearCachedSignedUrl(endpoint);
     setLoaded(false);
-    setFailed(true);
+    markFailed();
   }
 
   if (failed) {
@@ -161,7 +125,7 @@ export const SignedImage = memo(function SignedImage({
       ref={frameRef}
       className={cn(
         className,
-        "relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-[color:var(--surface-inset)]",
+        "group/signed-image relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-[color:var(--surface-inset)]",
       )}
     >
       {url ? (
@@ -177,6 +141,32 @@ export const SignedImage = memo(function SignedImage({
             loaded ? "opacity-100" : "opacity-0",
           )}
         />
+      ) : null}
+      {zoomable && url && loaded ? (
+        <>
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={() => setLightboxOpen(true)}
+            aria-label={`Expand image: ${caption?.trim() || alt}`}
+            className="absolute inset-0 z-[1] flex cursor-zoom-in items-start justify-end p-2 focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+          >
+            <span
+              aria-hidden="true"
+              className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface)]/85 p-1 text-[color:var(--text-muted)] opacity-0 shadow-[var(--shadow-tight)] backdrop-blur-md transition group-hover/signed-image:opacity-100 group-focus-within/signed-image:opacity-100 motion-reduce:transition-none"
+            >
+              <Maximize2 aria-hidden="true" className="h-3.5 w-3.5" />
+            </span>
+          </button>
+          <ImageLightbox
+            open={lightboxOpen}
+            onClose={() => setLightboxOpen(false)}
+            endpoint={endpoint}
+            alt={alt}
+            caption={caption}
+            returnFocusRef={triggerRef}
+          />
+        </>
       ) : null}
       {!url || !loaded ? (
         <div className="absolute inset-0 grid place-items-center gap-1 text-center text-xs font-semibold text-[color:var(--text-muted)]">

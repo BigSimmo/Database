@@ -30,6 +30,7 @@ type Point = { x: number; y: number };
 export function useViewerGestures({
   targetRef,
   wheelZoom = true,
+  wheelNeedsModifier = true,
   pinchZoom = true,
   pan = true,
   touchPan = false,
@@ -38,6 +39,9 @@ export function useViewerGestures({
 }: {
   targetRef: RefObject<HTMLElement | null>;
   wheelZoom?: boolean;
+  /** When true (default) only Ctrl/⌘ + wheel zooms; a scroll-backed surface keeps
+   *  plain wheel for native scrolling. A lightbox sets this false to zoom on any wheel. */
+  wheelNeedsModifier?: boolean;
   pinchZoom?: boolean;
   pan?: boolean;
   touchPan?: boolean;
@@ -63,7 +67,7 @@ export function useViewerGestures({
     if (!element || !wheelZoom) return () => undefined;
 
     function onWheel(event: WheelEvent) {
-      if (!(event.ctrlKey || event.metaKey)) return;
+      if (wheelNeedsModifier && !(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
       // deltaY is negative when zooming in. exp() keeps the step proportional so
       // fast scrolls zoom more without overshooting on a trackpad pinch.
@@ -72,7 +76,7 @@ export function useViewerGestures({
 
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
-  }, [targetRef, wheelZoom]);
+  }, [targetRef, wheelZoom, wheelNeedsModifier]);
 
   const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 

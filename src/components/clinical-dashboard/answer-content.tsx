@@ -65,7 +65,13 @@ export const SourceImage = memo(function SourceImage({
   className?: string;
 }) {
   return (
-    <SignedImage endpoint={endpoint} alt={caption?.trim() || "Clinical document image"} className={className} />
+    <SignedImage
+      endpoint={endpoint}
+      alt={caption?.trim() || "Clinical document image"}
+      caption={caption}
+      className={className}
+      zoomable
+    />
   );
 });
 

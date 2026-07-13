@@ -382,9 +382,11 @@ function DocumentImage({ image }: { image: ImageRow }) {
       <SignedImage
         endpoint={endpoint}
         alt={cleanCaption || tableHeading || "Document image"}
+        caption={tableHeading || cleanCaption || undefined}
         failureLabel="Image preview failed."
         retryLabel="Retry"
         className="w-full"
+        zoomable
       />
     </div>
   );
