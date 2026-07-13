@@ -45,6 +45,10 @@ export type SearchTelemetry = {
   text_candidate_budget?: number;
   text_fast_path_reason?: string | null;
   text_or_relaxation_used?: "none" | "empty_fallback" | "weak_augment";
+  /** RPCs actually issued per lexical surface after variant early-exit (PT-02). */
+  text_variant_rpc_calls?: Record<string, number>;
+  /** True when at least one lexical surface skipped its sibling variants. */
+  text_variant_early_exit?: boolean;
   corpus_grounding?: CorpusGroundingVerdict;
   synthetic_similarity_count?: number;
   embedding_skipped: boolean;

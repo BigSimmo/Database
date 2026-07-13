@@ -215,6 +215,7 @@ function ToolList({
             <button
               key={tool.id}
               type="button"
+              aria-label={`Preview ${tool.title}`}
               aria-pressed={active}
               onClick={() => onSelect(tool)}
               className={cn(

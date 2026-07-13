@@ -113,12 +113,12 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### Supabase, auth, env
 
-| Module                                                                               | Role                         |
-| ------------------------------------------------------------------------------------ | ---------------------------- |
-| `supabase/client.tsx`, `server.ts`, `admin.ts`, `auth.ts`, `health.ts`, `project.ts` | Clients and auth             |
-| `supabase/database.types.ts`                                                         | Generated DB types           |
-| `env.ts`                                                                             | Zod-validated environment    |
-| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                       | Multi-user scope and privacy |
+| Module                                                                                            | Role                         |
+| ------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `src/lib/supabase/` — `client.tsx`, `server.ts`, `admin.ts`, `auth.ts`, `health.ts`, `project.ts` | Clients and auth             |
+| `src/lib/supabase/database.types.ts`                                                              | Generated DB types           |
+| `env.ts`                                                                                          | Zod-validated environment    |
+| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                                    | Multi-user scope and privacy |
 
 ### Clinical product data
 
@@ -284,15 +284,16 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
 ## Related docs
 
-| Topic                   | Doc                                                              |
-| ----------------------- | ---------------------------------------------------------------- |
-| Routes and modes        | `docs/site-map.md`                                               |
-| Search/RAG roadmap      | `docs/search-rag-master-plan.md`                                 |
-| Reindex operations      | `docs/reindex-runbook.md`                                        |
-| Production readiness    | `docs/production-readiness-checklist.md`                         |
-| Capacity / scale-up     | `docs/capacity-review.md`, `docs/auth-connection-cap-runbook.md` |
-| Frontend architecture   | `docs/frontend-architecture.md`                                  |
-| Repo audit (2026-07-01) | `docs/audit/repo-audit-2026-07-01.md`                            |
+| Topic                    | Doc                                                              |
+| ------------------------ | ---------------------------------------------------------------- |
+| Full documentation index | `docs/README.md`                                                 |
+| Routes and modes         | `docs/site-map.md`                                               |
+| Search/RAG roadmap       | `docs/search-rag-master-plan.md`                                 |
+| Reindex operations       | `docs/reindex-runbook.md`                                        |
+| Production readiness     | `docs/production-readiness-checklist.md`                         |
+| Capacity / scale-up      | `docs/capacity-review.md`, `docs/auth-connection-cap-runbook.md` |
+| Frontend architecture    | `docs/frontend-architecture.md`                                  |
+| Repo audit (2026-07-01)  | `docs/audit/repo-audit-2026-07-01.md`                            |
 
 ---
 
