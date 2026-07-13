@@ -61,11 +61,13 @@ properties made it the pragmatic core platform:
 **The trade Railway forces — and why it was accepted:** Railway has **no
 Australian region** (its regions are US West, US East, Amsterdam, Singapore),
 while Supabase is in Sydney. The app therefore pays a cross-region hop to the
-database (quantified in §2.1). The penalty is real but bounded, falls almost
-entirely on _novel_ (cache-miss) answers, is dwarfed by OpenAI generation time,
-and is fully addressable within Railway (a Singapore read replica — §2.1). Given
-that shipping a real environment was the priority, a live-in-Singapore deployment
-beat an indefinitely blocked "optimal" one.
+database (quantified in §2.1). Warm responses show that this hop can be bounded,
+but 2026-07-14 cold probes also exposed database-execution outliers far larger
+than network RTT. A Singapore replica would copy those query plans rather than
+fix them, so the current first lever is RPC/query-plan work and, if needed, a
+small primary-compute comparison. Given that shipping a real environment was the
+priority, a live-in-Singapore deployment beat an indefinitely blocked "optimal"
+one.
 
 ### Why a long-lived container and not serverless (Vercel et al.)
 
@@ -116,6 +118,15 @@ inherent per RPC.
 | Authenticated PostgREST round-trip | Real per-RPC cost the app pays                          | **~145 ms best, ~340 ms typical**                     |
 | Production novel answer            | `supabase_rpc_latency_ms` (retrieval, 3 query variants) | **~4.4 s**; total ~25 s incl. ~19 s OpenAI generation |
 
+**Fresh production comparison, 2026-07-14:** one warmed repeat reported
+`supabase_rpc_latency_ms=0`, while two cold synthesis probes reported
+**48.5–49.4 s** of Supabase RPC time and **51–53 s** total. A six-case approved
+live-database retrieval run on the current local code preserved perfect fixture
+recall/hit-rate with **1.8 s median / 47.3 s p90** latency. Database statistics
+also show large temporary-file I/O in the slow hybrid RPC families. These
+outliers supersede the earlier assumption that generation or cross-region RTT is
+always the dominant latency.
+
 **What multiplies, what doesn't.** Retrieval fans out _wide_ but the RPCs within
 a stage run in parallel (`Promise.all`), so fan-out width costs ~1×RTT, not N×.
 What multiplies RTT is the sequential **depth** — ~5–8 serial DB round-trips on a
@@ -134,17 +145,22 @@ shared Postgres cache tier still pay ~one origin round-trip.
 - keep-alive connection reuse (undici default) removes repeated client→edge
   handshakes on the hot path.
 
-**Mitigations if the penalty starts to bite (not yet needed):**
+**Mitigations, in current priority order:**
 
-1. **Supabase read replica in Singapore** (biggest win). Co-locating a read
-   replica with Railway serves the read-heavy retrieval RPCs locally (~5 ms),
-   collapsing the penalty to near-parity with full co-location. Writes (telemetry,
-   cache) stay on the Sydney primary and are off the answer critical path. Cost:
-   the paid replica add-on **plus** app work to route reads to the replica
-   endpoint. This is the recommended first lever.
+1. **Profile and optimise the slow hybrid RPC plans**, then compare the Sydney
+   primary on Micro versus Small compute if execution remains resource-bound.
+   The live primary currently exposes the Micro connection ceiling (60 direct
+   connections) and a small `work_mem`; scaling the primary tests query-memory
+   headroom without adding read routing or replica staleness.
 2. **Reduce sequential DB depth** in the answer path (batch the cache-version +
    shared-cache probes, collapse hydration round-trips). App change; measure
    `latencyTimings.supabase_rpc_latency_ms` before/after.
+3. **Reconsider a Singapore read replica only after the query plans are fast and
+   network time is again material.** Supabase currently requires at least Small
+   compute for read replicas; a same-size replica is asynchronous/read-only and
+   adds compute/storage cost plus read-routing and freshness validation. It is
+   not justified by the current evidence because it would reproduce the observed
+   execution outliers.
 
 The OpenAI leg is region-agnostic: OpenAI is US-hosted, so app→OpenAI RTT is
 comparable (~200 ms) from Singapore or Sydney and does not favour either host.

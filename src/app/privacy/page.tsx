@@ -46,22 +46,23 @@ const SECTIONS: Section[] = [
     ),
   },
   {
-    heading: "Where data is stored",
-    body: "Documents, extracted evidence, metadata, account records, and owner-scoped operational records are stored in the configured Supabase project. File buckets are private and links are time-limited. The operator must verify the deployed project region and contractual controls.",
+    heading: "Where data is stored and processed",
+    body: "Documents, extracted evidence, metadata, account records, and owner-scoped operational records are stored in the configured Supabase project in Sydney. The production application and ingestion worker currently run on Railway in Singapore, so questions, retrieved evidence, answers, and ingestion material are processed in or transit through Singapore. File buckets are private and links are time-limited. The operator must verify deployed regions and contractual controls.",
   },
   {
     heading: "External provider processing",
     body: (
       <>
-        When model-backed answering is enabled, the question and selected source excerpts are sent to the configured
-        OpenAI API. This processing may occur outside Australia. Provider mode can also return a local source-only
-        response. The operator must verify provider regions, retention terms, contracts, and cross-border obligations.
+        When external provider mode is configured, question text may be sent to the OpenAI API to create a retrieval
+        embedding, including when the final response is source-only. When model-backed answer synthesis is used, the
+        question and selected source excerpts are also sent. This processing may occur outside Australia. The operator
+        must verify provider regions, retention terms, contracts, and cross-border obligations.
       </>
     ),
   },
   {
     heading: "Retention",
-    body: "Repository migrations configure 30-day retention for RAG query records and 90-day retention for retrieval logs when the database scheduler is available. Query-miss and expired response-cache cleanup require separate governance and operational controls. Uploaded documents remain until removed under the applicable process.",
+    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Uploaded documents remain until removed under the applicable process.",
   },
   {
     heading: "Your responsibilities",
@@ -91,8 +92,10 @@ export default function PrivacyPage() {
                 <ClinicalBadge tone="warning" label="Important" />
               </div>
               <p className="min-w-0 text-sm leading-6 text-[color:var(--text-heading)]">
-                Do not enter identifiable patient details such as names, dates of birth, or record numbers. When
-                model-backed answering is enabled, your question is sent to the configured OpenAI API.
+                Do not enter identifiable patient details such as names, dates of birth, or record numbers. Requests are
+                processed by the application service in Singapore. With external provider mode configured, question text
+                may be sent to the OpenAI API for retrieval embedding even when the final response is source-only;
+                model-backed answer synthesis also sends the question and selected evidence.
               </p>
             </div>
           </section>

@@ -7,9 +7,8 @@
 // into a scrapeable counter so host-native alerting can poll them instead of
 // running the SQL by hand. It only aggregates `rag_queries.metadata` (never raw
 // query text, which is redacted at write time), and runs behind the secret-gated
-// deep probe. The cache hit-rate counter from that doc is intentionally NOT here —
-// it needs in-process instrumentation of the retrieval hot path (rag-cache.ts) and
-// is tracked as a separate follow-up.
+// deep probe. Cache hit-rate is exposed separately by cache-metrics.ts because it
+// is an in-process hot-path counter rather than a trailing database aggregate.
 
 export type AnswerSloSnapshot = {
   windowMinutes: number;
@@ -37,9 +36,11 @@ type CountResult = { count: number | null; error: unknown };
 // route passes it directly and tests pass a small fake.
 type SloCountBuilder = PromiseLike<CountResult> & {
   gt(column: string, value: string): SloCountBuilder;
+  eq(column: string, value: string): SloCountBuilder;
   is(column: string, value: null): SloCountBuilder;
   not(column: string, operator: string, value: null): SloCountBuilder;
   ilike(column: string, pattern: string): SloCountBuilder;
+  or(filters: string): SloCountBuilder;
 };
 
 export type SloProbeClient = {
@@ -54,7 +55,7 @@ function rate(numerator: number, denominator: number) {
 
 /**
  * Count answered queries in the trailing window and how many carried a
- * `hybrid_rpc_errors` map or a `fallback_reason` (degraded/source-only). Throws on
+ * `hybrid_rpc_errors` map or an explicit provider-generation fallback flag. Throws on
  * a query error so the caller can mark the probe degraded rather than report a
  * falsely-healthy zero.
  */
@@ -73,7 +74,12 @@ export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 
   const [total, hybrid, degraded, truncation, timeout] = await Promise.all([
     base(),
     base().not("metadata->hybrid_rpc_errors", "is", null),
-    base().not("metadata->>fallback_reason", "is", null),
+    // Source-only/extractive answers can be intentional and healthy. Count only
+    // model-generation failures that actually forced a local fallback. Keep the
+    // legacy reason match until pre-flag rows have aged out of every SLO window.
+    base().or(
+      "metadata->>provider_generation_degraded.eq.true,metadata->>fallback_reason.ilike.%generation_fallback:%",
+    ),
     // fallback_reason values look like "...generation_fallback:provider_incomplete_max_output_tokens"
     // and "...generation_fallback:provider_timeout" (confirmed in live rag_queries).
     base().ilike("metadata->>fallback_reason", "%max_output_tokens%"),

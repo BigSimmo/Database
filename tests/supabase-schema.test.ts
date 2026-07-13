@@ -164,6 +164,10 @@ const ragQueryMissesRetentionMigration = readFileSync(
   new URL("../supabase/migrations/20260708120000_rag_query_misses_retention.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const responseCacheRetentionReconciliationMigration = readFileSync(
+  new URL("../supabase/migrations/20260713201542_consolidate_rag_response_cache_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const liveDatabaseDriftMigration = readFileSync(
   new URL("../supabase/migrations/20260705230000_reconcile_live_database_drift.sql", import.meta.url),
   "utf8",
@@ -1132,6 +1136,18 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).not.toMatch(/select cron\.schedule\(/);
     }
     expect(ragQueriesRetentionDuplicateMigration).toMatch(/select 1;/);
+  });
+
+  it("keeps response-cache cleanup bounded and consolidates its cron jobs", () => {
+    expect(responseCacheRetentionReconciliationMigration).toContain(
+      "where j.jobname in ('purge-rag-response-cache', 'purge-expired-rag-response-cache')",
+    );
+    expect(responseCacheRetentionReconciliationMigration).toContain(
+      "$job$select public.purge_expired_rag_response_cache(1000);$job$",
+    );
+    expect(responseCacheRetentionReconciliationMigration).not.toContain("delete from public.rag_response_cache");
+    expect(schema).toContain("purge_expired_rag_response_cache(p_limit integer default 1000)");
+    expect(schema).toContain("limit p_limit");
   });
 
   it("keeps ingestion_jobs_one_open stem neutralized for preview history parity", () => {
