@@ -885,9 +885,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("global-search-input")).toBeEnabled();
   });
 
+  test("desktop sidebar defaults to the labelled state for new users", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=answer");
+    await waitForDemoDashboardReady(page);
+
+    // No stored preference (PT-10): eight icon-only destinations demand recall,
+    // so first-run desktop shows the labelled sidebar; collapse is remembered.
+    await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
+  });
+
   test("desktop sidebar mode sync and accessibility affordances stay coherent", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
+    // This journey exercises the remembered-collapsed rail; new users now
+    // default to the labelled sidebar, so seed the stored preference.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoApp(page, "/?mode=tools");
 
     const sidebar = page.locator("#clinical-tools-sidebar");
@@ -936,14 +952,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByRole("button", { name: "Open Clinical Guide menu" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toHaveCount(0);
-    await expect(page.locator("#clinical-tools-sidebar")).toHaveCount(0);
+    // With the labelled default the expanded panel exists in the DOM but stays
+    // display:none below lg; tablet must still only present the icon rail.
+    await expect(page.locator("#clinical-tools-sidebar")).toBeHidden();
     await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
 
     for (const tool of [
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/services" },
-      { name: "Forms", href: "/forms" },
+      // The rail speaks the catalogue-maturity badge as part of the Forms name.
+      { name: "Forms (Early access)", href: "/forms" },
       { name: "Favourites", href: "/favourites" },
       { name: "Differentials", href: "/differentials" },
       { name: "Medications", href: "/?mode=prescribing" },
@@ -1018,6 +1037,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
+    // Exercises both collapsed and expanded account affordances; seed the
+    // remembered-collapsed preference now that new users default to labelled.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
@@ -1760,6 +1782,30 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("plain-answer-response")).toBeVisible();
     expect(answerRequests).toContain(recent);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("legacy unscoped recent-query storage is purged and never displayed @critical", async ({ page }) => {
+    // 2026-07-13 audit finding 4: a historical clinical query written by an
+    // older build into the unscoped localStorage key must not resurface for
+    // whoever uses the browser next, and must be deleted on load.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    const legacyQuery = "legacy cross-user clozapine query";
+    await page.addInitScript(
+      ({ storageKey, value }) => {
+        window.localStorage.setItem(storageKey, JSON.stringify([value]));
+        window.sessionStorage.setItem(storageKey, JSON.stringify([value]));
+      },
+      { storageKey: recentQueryStorageKey, value: legacyQuery },
+    );
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await expect(page.getByText(legacyQuery)).toHaveCount(0);
+    await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), recentQueryStorageKey)).toBeNull();
+    await expect
+      .poll(() => page.evaluate((key) => window.sessionStorage.getItem(key), recentQueryStorageKey))
+      .toBeNull();
   });
 
   test("answer search URL opens chat without the answer home copy", async ({ page }) => {
@@ -2708,6 +2754,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
         }),
       )
       .toBe(0);
+    // The scrim tail (taller than the bar) may leave only a whisper at the top
+    // edge while hidden — bound it so it can't grow into a visible band.
+    const scrimBottom = await page
+      .locator(".edge-glass-header-backdrop")
+      .evaluate((node) => node.getBoundingClientRect().bottom);
+    expect(scrimBottom).toBeLessThanOrEqual(34);
 
     // Any deliberate scroll up slides the glass bar back in.
     for (const offset of [160, 120, 60]) {
@@ -2716,6 +2768,37 @@ test.describe("Clinical KB UI smoke coverage", () => {
       }, offset);
     }
     await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+  });
+
+  test("private-scope alert stays reachable while the answer view scrolls", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    // An unauthenticated session with a routed private-scope ref resolves to
+    // privateScopeStatus="unavailable", which renders the recovery alert.
+    await gotoApp(page, "/?mode=answer&scopeRef=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+
+    const alert = page.getByTestId("private-scope-unavailable");
+    await expect(alert).toBeVisible({ timeout: 15000 });
+
+    const main = page.locator("main#main-content");
+    await main.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.style.height = "2000px";
+      node.appendChild(spacer);
+    });
+    for (const offset of [80, 160, 260, 380]) {
+      await main.evaluate((node, top) => {
+        node.scrollTop = top;
+      }, offset);
+    }
+
+    // Sticky inside <main>: the recovery actions must remain on-screen (they
+    // used to scroll away with content, stranding the user mid-thread).
+    await expect(alert).toBeVisible();
+    const box = await alert.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.y).toBeLessThanOrEqual(200);
   });
 
   test("answer glass header hides and returns on desktop widths too", async ({ page }) => {

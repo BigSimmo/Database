@@ -450,21 +450,23 @@ alter table public.document_labels set (
   autovacuum_analyze_scale_factor = 0.02, autovacuum_analyze_threshold = 100
 );
 
--- Content-quality guards observed live (added there as NOT VALID; codified
--- byte-identically -- pg_get_constraintdef includes the NOT VALID marker).
+-- Content-quality guards observed live. Originally added there as NOT VALID;
+-- validated by 20260713104000_validate_content_not_blank_constraints.sql after
+-- the 2026-07-13 audit confirmed zero violating rows, so the canonical replay
+-- creates them validated.
 do $guard$
 begin
   if not exists (select 1 from pg_constraint where conname = 'document_chunks_content_not_blank') then
     alter table public.document_chunks
-      add constraint document_chunks_content_not_blank check (length(btrim(content)) > 0) not valid;
+      add constraint document_chunks_content_not_blank check (length(btrim(content)) > 0);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'document_embedding_fields_content_not_blank') then
     alter table public.document_embedding_fields
-      add constraint document_embedding_fields_content_not_blank check (length(btrim(content)) > 0) not valid;
+      add constraint document_embedding_fields_content_not_blank check (length(btrim(content)) > 0);
   end if;
   if not exists (select 1 from pg_constraint where conname = 'document_index_units_content_not_blank') then
     alter table public.document_index_units
-      add constraint document_index_units_content_not_blank check (length(btrim(content)) > 0) not valid;
+      add constraint document_index_units_content_not_blank check (length(btrim(content)) > 0);
   end if;
 end
 $guard$;
@@ -3839,6 +3841,32 @@ as $$
   with query as (
     select websearch_to_tsquery('english', coalesce(query_text, '')) as tsq
   ),
+  -- The chunk/title disjunction is split into two separately indexable probes:
+  -- OR-ing predicates across document_chunks and documents defeated both GIN
+  -- indexes and sequential-scanned every chunk (2026-07-13 audit, finding 1).
+  -- Chunk-content matches probe document_chunks_search_idx directly.
+  chunk_hits as (
+    select c.id
+    from public.document_chunks c
+    cross join query
+    where c.search_tsv @@ query.tsq
+      and (document_filters is null or c.document_id = any(document_filters))
+  ),
+  -- Title matches probe documents_title_search_idx, then fan out to that
+  -- document's chunks through document_chunks_document_idx.
+  title_chunk_hits as (
+    select c.id
+    from public.documents d
+    cross join query
+    join public.document_chunks c on c.document_id = d.id
+    where d.title_search_tsv @@ query.tsq
+      and (document_filters is null or c.document_id = any(document_filters))
+  ),
+  lexical_candidates as (
+    select chunk_hits.id from chunk_hits
+    union
+    select title_chunk_hits.id from title_chunk_hits
+  ),
   ranked as (
     select
       c.id,
@@ -3856,14 +3884,13 @@ as $$
         ts_rank_cd(c.search_tsv, query.tsq) +
         (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
       )::double precision as text_rank
-    from public.document_chunks c
+    from lexical_candidates cand
+    join public.document_chunks c on c.id = cand.id
     join public.documents d on d.id = c.document_id
     cross join query
-    where (document_filters is null or c.document_id = any(document_filters))
-      and public.retrieval_owner_matches(owner_filter, d.owner_id)
+    where public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
       and public.is_committed_document_generation(c.index_generation_id, d.metadata)
-      and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
     order by (
       ts_rank_cd(c.search_tsv, query.tsq) +
       (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
@@ -4889,6 +4916,38 @@ alter default privileges for role postgres in schema public
   grant usage, select on sequences to service_role;
 alter default privileges for role postgres in schema public
   grant execute on functions to service_role;
+
+-- Default privileges are keyed to the creating role, so the postgres block
+-- above does not cover objects created by supabase_admin (dashboard SQL
+-- editor, platform tooling). Guarded because only a superuser or a member of
+-- supabase_admin may alter its defaults (2026-07-13 audit, finding 7).
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'supabase_admin') then
+    raise warning 'role supabase_admin does not exist; default-privilege hardening skipped';
+    return;
+  end if;
+
+  begin
+    alter default privileges for role supabase_admin in schema public
+      revoke all privileges on tables from anon, authenticated;
+    alter default privileges for role supabase_admin in schema public
+      revoke usage, select on sequences from anon, authenticated;
+    alter default privileges for role supabase_admin in schema public
+      revoke execute on functions from public, anon, authenticated;
+    alter default privileges for role supabase_admin in schema public
+      grant select, insert, update, delete on tables to service_role;
+    alter default privileges for role supabase_admin in schema public
+      grant usage, select on sequences to service_role;
+    alter default privileges for role supabase_admin in schema public
+      grant execute on functions to service_role;
+  exception
+    when insufficient_privilege then
+      raise warning 'cannot alter default privileges for supabase_admin as %; '
+        'operator follow-up required: run the six ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin '
+        'statements from migration 20260713102000 via the Supabase dashboard SQL editor', current_user;
+  end;
+end $$;
 
 revoke usage on schema public from anon;
 grant usage on schema public to authenticated, service_role;
@@ -6845,7 +6904,9 @@ create or replace function public.retrieval_owner_matches_v2(
   row_owner_id uuid,
   include_public boolean default true
 )
-returns boolean language sql immutable as $$
+returns boolean language sql immutable
+set search_path = public, extensions, pg_temp
+as $$
   select owner_filter is not null and (
     row_owner_id = owner_filter
     or (coalesce(include_public, false) and row_owner_id is null)

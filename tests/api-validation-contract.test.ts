@@ -467,7 +467,7 @@ describe("API validation contracts", () => {
     mockRuntime(uploadClient);
     const uploadRoute = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
     const uploadResponse = await uploadRoute.POST(
       authenticatedRequest("/api/upload", { method: "POST", body: formData }),
     );
@@ -531,7 +531,7 @@ describe("API validation contracts", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
     formData.set("title", "x".repeat(181));
 
     const response = await POST(authenticatedRequest("/api/upload", { method: "POST", body: formData }));
@@ -548,7 +548,7 @@ describe("API validation contracts", () => {
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
-    formData.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
     formData.set("title", new File(["Guideline"], "title.txt", { type: "text/plain" }));
 
     const response = await POST(authenticatedRequest("/api/upload", { method: "POST", body: formData }));

@@ -1,0 +1,120 @@
+# Ingestion autopilot. Probes the live ingestion queue (reindex-health) and, when
+# a stuck-queue signal is present, runs the existing recovery path. Alerts (opens/
+# updates an issue) only when Supabase is unreachable or recovery fails.
+#
+# ENABLED IN DRY-RUN: the 6-hourly schedule is active, but recovery only APPLIES when
+# BOTH the dispatch input `apply=true` AND repo variable INGESTION_AUTOPILOT_APPLY ==
+# "true". The variable is intentionally unset, so scheduled runs are read-only probes
+# that alert on unreachable Supabase or (with apply) failed recovery. To allow real
+# recovery after observing a clean dry-run cycle, set INGESTION_AUTOPILOT_APPLY=true.
+name: Ingestion Autopilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply recovery (requires repo var INGESTION_AUTOPILOT_APPLY=true)"
+        required: false
+        default: "false"
+  schedule:
+    # Every 6 hours.
+    - cron: "0 */6 * * *"
+
+concurrency:
+  group: ingestion-autopilot
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+  SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
+  SUPABASE_PROJECT_NAME: Clinical KB Database
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+jobs:
+  ingestion-autopilot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Preflight required secrets
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Ingestion autopilot cannot run — missing repo secret SUPABASE_SERVICE_ROLE_KEY"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Guard Supabase project identity
+        run: npm run check:supabase-project
+
+      - name: Run autopilot
+        id: autopilot
+        env:
+          # Apply only when BOTH the dispatch input and the repo variable allow it.
+          APPLY_REQUESTED: ${{ github.event.inputs.apply }}
+          APPLY_ALLOWED: ${{ vars.INGESTION_AUTOPILOT_APPLY }}
+        run: |
+          if [ "$APPLY_REQUESTED" = "true" ] && [ "$APPLY_ALLOWED" = "true" ]; then
+            echo "Applying recovery when stuck."
+            npm run ingestion:autopilot -- --apply
+          else
+            echo "Dry-run (set repo var INGESTION_AUTOPILOT_APPLY=true and dispatch apply=true to recover)."
+            npm run ingestion:autopilot
+          fi
+
+      - name: Open or update alert issue
+        if: failure() && github.event_name == 'schedule'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const label = "ingestion-autopilot";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `Ingestion autopilot failed on ${new Date().toISOString()}.`,
+              "",
+              `Run: ${runUrl}`,
+              "",
+              "Either Supabase was unreachable or recovery failed. Triage:",
+              "`npm run reindex:health`, then `npm run recover:ingestion -- --apply` if a stuck",
+              "queue is confirmed. Do not assume corruption — a transient outage looks the same.",
+            ].join("\n");
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: label,
+            });
+            if (existing.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: "Ingestion autopilot alert",
+                labels: [label],
+                body,
+              });
+            }

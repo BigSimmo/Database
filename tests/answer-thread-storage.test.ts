@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import type { RagAnswer } from "@/lib/types";
 import {
   answerThreadStorageKey,
+  answerThreadTtlMs,
   clearPersistedAnswerThread,
   loadPersistedAnswerThread,
   savePersistedAnswerThread,
@@ -92,5 +93,26 @@ describe("answer thread storage", () => {
   it("rejects invalid persisted payloads", () => {
     storage.set(`${answerThreadStorageKey}:user-a`, JSON.stringify({ version: 2 }));
     expect(loadPersistedAnswerThread("user-a")).toBeNull();
+  });
+
+  it("expires persisted threads once the TTL has elapsed", () => {
+    storage.set(
+      `${answerThreadStorageKey}:user-a`,
+      JSON.stringify({ ...sampleThread, savedAt: Date.now() - answerThreadTtlMs - 1 }),
+    );
+    expect(loadPersistedAnswerThread("user-a")).toBeNull();
+  });
+
+  it("keeps fresh threads and stamps savedAt on save", () => {
+    savePersistedAnswerThread("user-a", sampleThread);
+    const raw = JSON.parse(storage.get(`${answerThreadStorageKey}:user-a`) ?? "{}");
+    expect(typeof raw.savedAt).toBe("number");
+    expect(Date.now() - raw.savedAt).toBeLessThan(answerThreadTtlMs);
+    expect(loadPersistedAnswerThread("user-a")).toEqual(sampleThread);
+  });
+
+  it("accepts legacy payloads without a savedAt stamp", () => {
+    storage.set(`${answerThreadStorageKey}:user-a`, JSON.stringify(sampleThread));
+    expect(loadPersistedAnswerThread("user-a")).toEqual(sampleThread);
   });
 });

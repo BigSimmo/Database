@@ -140,6 +140,7 @@ const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright
 const coveragePatterns = ["data", "src", "tests", "vitest.config.mts"];
 
 const buildPatterns = [
+  "bundle-budget.json",
   "data",
   "src",
   "worker",
@@ -149,6 +150,7 @@ const buildPatterns = [
   "postcss.config.mjs",
   "package.json",
   "package-lock.json",
+  "scripts/check-bundle-budget.mjs",
   /^scripts\/(check-node-engine|guard-next-build|dev-free-port|ensure-local-server)\.(?:cjs|mjs)$/,
 ];
 
@@ -426,6 +428,13 @@ function selfTest() {
     coverage_changed: false,
     container_changed: true,
     workflow_changed: false,
+    build_changed: true,
+  });
+  assertScope("bundle-budget-config", ["bundle-budget.json"], {
+    build_changed: true,
+  });
+  assertScope("bundle-budget-checker", ["scripts/check-bundle-budget.mjs"], {
+    source_changed: true,
     build_changed: true,
   });
   assertScope("container", ["Dockerfile.worker", "worker/python/requirements.txt"], {
