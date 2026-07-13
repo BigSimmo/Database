@@ -362,6 +362,40 @@ describe("RAG model context budgeting", () => {
     expect(selected.map((result) => result.id)).toEqual(["chunk-2", "chunk-1"]);
   });
 
+  it("keeps a higher-ranked supplementary passage inside the routine fast budget", () => {
+    const selected = selectModelContextResults({
+      routeMode: "fast",
+      queryClass: "document_lookup",
+      crossDocument: false,
+      results: [
+        withRelevance(bmjSupplementarySource(1), "direct"),
+        withRelevance(waGovernedSource(2, "wa-doc-1"), "direct"),
+        withRelevance(waGovernedSource(3, "wa-doc-2"), "direct"),
+        withRelevance(waGovernedSource(4, "wa-doc-1"), "direct"),
+        withRelevance(waGovernedSource(5, "wa-doc-2"), "direct"),
+      ],
+    });
+
+    expect(selected.map((result) => result.id)).toEqual(["chunk-2", "chunk-3", "chunk-4", "chunk-1"]);
+  });
+
+  it("applies the document crowding cap before fixing the routine fast budget", () => {
+    const selected = selectModelContextResults({
+      routeMode: "fast",
+      queryClass: "document_lookup",
+      crossDocument: false,
+      results: [
+        source(1, { document_id: "crowded-doc" }),
+        source(2, { document_id: "crowded-doc" }),
+        source(3, { document_id: "crowded-doc" }),
+        source(4, { document_id: "crowded-doc" }),
+        source(5, { document_id: "other-doc" }),
+      ],
+    });
+
+    expect(selected.map((result) => result.id)).toEqual(["chunk-1", "chunk-2", "chunk-3", "chunk-5"]);
+  });
+
   it("uses a stable context pack cache key for matching retry inputs", () => {
     const key = packedContextCacheKey(results, "broad_summary", { crossDocument: true });
     const sameInputs = packedContextCacheKey([...results], "broad_summary", { crossDocument: true });
