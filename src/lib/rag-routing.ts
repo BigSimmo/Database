@@ -1,4 +1,5 @@
 import { classifyRagQuery } from "@/lib/clinical-search";
+import { canBuildDeterministicComparison } from "@/lib/rag-comparison";
 import type { ConflictOrGap, RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
 export type AnswerRouteMode = "unsupported" | "extractive" | "fast" | "strong";
@@ -24,6 +25,8 @@ const complexClinicalQueryPattern =
 const strongClinicalEscalationPattern =
   /\b(compare|compared|versus|vs|conflict|gap|contraindicat\w*|interaction\w*|side effect\w*|adverse|suicid\w*|toxicity|myocarditis|neutropenia|anc|fbc|red range|amber range|urgent|escalat\w*|withhold|cease|stop|discontinue|recommend\w*|decide|decision|pregnan\w*|renal impairment)\b/i;
 const comparisonQueryPattern = /\b(compare|compared|versus|vs|between|difference\w*|conflict\w*)\b/i;
+const complexComparisonPattern =
+  /\b(?:reconcile|implications?|recommend\w*|prioriti[sz]e|management|clinical approach|why|how should|trade-?offs?)\b/i;
 const routineCrossDocumentPattern =
   /\b(?:across|combine|combined|synthesi[sz]e|together|overall|all documents|these documents|different documents|multiple documents|several documents|from the documents)\b/i;
 const extractiveQuestionPattern =
@@ -627,11 +630,16 @@ export function chooseAnswerRoute(args: {
     queryClass === "comparison" ||
     (documents > 1 && comparisonQueryPattern.test(args.query) && !directTitleSupport)
   ) {
-    if (documents > 1 && strongestScore >= strongRetrievalThreshold) {
+    if (
+      documents > 1 &&
+      strongestScore >= strongRetrievalThreshold &&
+      !complexComparisonPattern.test(args.query) &&
+      canBuildDeterministicComparison({ query: args.query, results: args.results })
+    ) {
       return {
         mode: "extractive",
         model: null,
-        reason: "high_confidence_extractive_retrieval",
+        reason: "structured_comparison_matrix",
         strongestScore,
         documentCount: documents,
       };

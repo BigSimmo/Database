@@ -39,8 +39,8 @@ function captureQuerySignatures(): string[] {
 }
 
 describe("forward-codify retrieval target set stays in sync with the drift allowlist", () => {
-  it("finds a non-empty set of live-ahead retrieval functions in the allowlist", () => {
-    expect(liveAheadRetrievalSignatures().length).toBeGreaterThan(0);
+  it("has no unresolved live-ahead retrieval functions after reconciliation", () => {
+    expect(liveAheadRetrievalSignatures()).toEqual([]);
   });
 
   it("the capture query lists every live-ahead retrieval signature, and only those", () => {

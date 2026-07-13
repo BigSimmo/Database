@@ -4,7 +4,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
-import { createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
+import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";
@@ -284,7 +284,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const authorizationHeader = useMemo(() => authorizationHeadersForAccessToken(accessToken), [accessToken]);
 
   useEffect(() => {
-    const fingerprint = `${status}:${session?.user.id ?? "anonymous"}:${accessToken ?? "no-token"}`;
+    // Same-user access-token rotation is not an auth-owner change. Aborting
+    // uploads or answer streams during routine refresh leaves valid work stale.
+    const fingerprint = authSessionFingerprint(status, session?.user.id);
     if (authFingerprintRef.current === null) {
       authFingerprintRef.current = fingerprint;
       return;
@@ -292,7 +294,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (authFingerprintRef.current === fingerprint) return;
     authFingerprintRef.current = fingerprint;
     invalidateAuthRequests();
-  }, [accessToken, invalidateAuthRequests, session?.user.id, status]);
+  }, [invalidateAuthRequests, session?.user.id, status]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

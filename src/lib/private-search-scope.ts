@@ -27,8 +27,14 @@ export function persistPrivateSearchScope(
     documentIds: validated,
     expiresAt: now + privateSearchScopeTtlMs,
   };
-  storage.setItem(`${storagePrefix}${scopeRef}`, JSON.stringify(value));
-  return scopeRef;
+  try {
+    storage.setItem(`${storagePrefix}${scopeRef}`, JSON.stringify(value));
+    return scopeRef;
+  } catch {
+    // Browser privacy settings, quota exhaustion, or disabled storage should
+    // remove only URL restoration, not prevent the scoped request itself.
+    return null;
+  }
 }
 
 export function restorePrivateSearchScope(

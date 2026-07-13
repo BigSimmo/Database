@@ -229,7 +229,7 @@ function MapGraph({
           }}
           className={cn(
             "absolute left-1/2 top-[52%] z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center overflow-hidden rounded-full bg-[color:var(--clinical-accent)] p-3 px-2 text-center font-bold leading-tight break-words text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition hover:scale-[1.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
-            interactive ? "h-28 w-28 text-base" : "h-14 w-14 text-3xs sm:h-16 sm:w-16 sm:text-2xs",
+            interactive ? "h-28 w-28 text-base" : "h-14 w-14 text-2xs sm:h-16 sm:w-16",
             selectedId === "diagnosis" && "ring-4 ring-[color:var(--clinical-accent)]/25",
           )}
           aria-pressed={selectedId === "diagnosis"}
@@ -251,7 +251,7 @@ function MapGraph({
               }}
               className={cn(
                 "absolute z-20 grid -translate-x-1/2 -translate-y-1/2 place-items-center overflow-hidden rounded-full border p-2 px-1.5 text-center font-bold leading-tight break-words shadow-[var(--shadow-inset)] transition hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]",
-                interactive ? "h-24 w-24 text-xs" : "h-12 w-12 text-4xs sm:h-14 sm:w-14 sm:text-3xs",
+                interactive ? "h-24 w-24 text-xs" : "h-12 w-12 text-2xs sm:h-14 sm:w-14",
                 likelihoodTone[node.likelihood],
                 isSelected && "ring-4 ring-[color:var(--focus)]/25",
               )}
@@ -262,7 +262,7 @@ function MapGraph({
             >
               {node.label}
               {node.likelihood === "must-not-miss" && interactive ? (
-                <span className="absolute -right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--danger)] text-3xs font-bold text-[color:var(--danger-soft)] shadow-[var(--shadow-tight)]">
+                <span className="absolute -right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-[color:var(--danger)] text-2xs font-bold text-[color:var(--danger-soft)] shadow-[var(--shadow-tight)]">
                   !
                 </span>
               ) : null}

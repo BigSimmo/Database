@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
+import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
@@ -67,6 +68,7 @@ import { appModeIcons } from "@/lib/app-mode-icons";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
+import { privacyCopy } from "@/lib/ui-copy";
 
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
@@ -243,6 +245,12 @@ export function MasterSearchHeader({
    *  `useScrollHideReporter` wired to that element's scroll events. */
   hideOnScroll?: {
     strategy: "overlay" | "collapse";
+    /**
+     * Overlay-only: apply the hide/reveal (and the out-of-flow absolute header)
+     * at every breakpoint instead of phones only. The host must reserve
+     * matching top padding on its scroll container.
+     */
+    allBreakpoints?: boolean;
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
     scrollHidden?: boolean;
   };
@@ -831,7 +839,7 @@ export function MasterSearchHeader({
       <div className={cn("grid gap-2", compact ? "grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3")}>
         {labelScopeFilterFields.map((field) => (
           <label key={field.key} className="grid min-w-0 gap-1">
-            <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+            <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
               {field.label}
             </span>
             <input
@@ -998,7 +1006,7 @@ export function MasterSearchHeader({
           </summary>
           <div className="grid gap-2.5 border-t border-[color:var(--border-lux)] p-3">
             <label className="grid gap-1">
-              <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                 Search intent
               </span>
               <select
@@ -1016,7 +1024,7 @@ export function MasterSearchHeader({
             </label>
             <div className="grid grid-cols-2 gap-2">
               <label className="grid gap-1">
-                <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                   Status
                 </span>
                 <select
@@ -1040,7 +1048,7 @@ export function MasterSearchHeader({
                 </select>
               </label>
               <label className="grid gap-1">
-                <span className="text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
                   Locality
                 </span>
                 <select
@@ -1183,6 +1191,9 @@ export function MasterSearchHeader({
             className="answer-suggestion-row-composer-followups relative z-10 w-full sm:hidden"
           />
         ) : null}
+        {searchMode === "answer" ? (
+          <PrivacyInputNotice className="px-2 text-left sm:justify-center sm:text-center" />
+        ) : null}
         <UniversalSearchCommandSurface
           modeId={searchMode}
           query={query}
@@ -1265,6 +1276,7 @@ export function MasterSearchHeader({
                 aria-expanded={commandDropdownOpen}
                 aria-controls={commandDropdownOpen ? commandListboxId : undefined}
                 aria-autocomplete="list"
+                aria-describedby={searchMode === "answer" ? "answer-composer-privacy-warning" : undefined}
                 // React's onChange already fires on every input event; a duplicate
                 // onInput called onQueryChange twice per keystroke, doubling the
                 // controlled-state work on a large parent tree.
@@ -1314,6 +1326,15 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
+        {searchMode === "answer" ? (
+          <p
+            id="answer-composer-privacy-warning"
+            data-testid="answer-composer-privacy-warning"
+            className="relative z-10 mt-1.5 w-full px-3 text-center text-2xs leading-4 text-[color:var(--text-muted)]"
+          >
+            {privacyCopy.composerWarning}
+          </p>
+        ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
             open it even when the footer chip row is not shown. */}
         {hasScopeFooterChip && !usesScopeSheet && scopeOpen ? (
@@ -1373,6 +1394,10 @@ export function MasterSearchHeader({
   }
 
   const hideStrategy = hideOnScroll?.strategy;
+  // Overlay hosts that opt into all breakpoints take the header fully out of
+  // flow (absolute over the scrolling <main>, which reserves matching top
+  // padding) so content frosts under the glass bar at every width.
+  const overlayAllBreakpoints = hideStrategy === "overlay" && Boolean(hideOnScroll?.allBreakpoints);
   const chromeFocusProps = hideOnScroll
     ? {
         onFocusCapture: () => setHeaderChromeFocused(true),
@@ -1394,22 +1419,35 @@ export function MasterSearchHeader({
     <>
       <header
         id="search"
+        data-scroll-hidden={hideStrategy === "overlay" && headerChromeHidden ? "true" : undefined}
         className={cn(
-          "edge-glass-header universal-header z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl",
+          "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl backdrop-saturate-150",
           // Collapse hosts keep the header above an internally scrolling <main>, so
           // sticky is unnecessary on phones and fights the 0fr grid collapse by
-          // pinning the bar inside the viewport. Overlay hosts need sticky so the
-          // header rides document scroll and can translate away with zero layout shift.
-          hideStrategy === "collapse" ? "max-sm:relative sm:sticky sm:top-0" : "sticky top-0",
-          // Overlay hide-on-scroll (phones): a plain translate reveals the content
-          // already flowing beneath it. No transform is applied while visible so
-          // the fixed-position mobile mode menu keeps the viewport as its containing block.
+          // pinning the bar inside the viewport. All-breakpoints overlay hosts take
+          // the header out of flow entirely (absolute over the padded <main>) —
+          // sticky would be inert there because the scroll container is <main>, not
+          // an ancestor of the header. Legacy overlay hosts keep sticky (they ride
+          // document scroll) and can translate away with zero layout shift.
+          hideStrategy === "collapse"
+            ? "max-sm:relative sm:sticky sm:top-0"
+            : overlayAllBreakpoints
+              ? "absolute inset-x-0 top-0"
+              : "sticky top-0",
+          // Overlay hide-on-scroll: a plain translate reveals the content already
+          // flowing beneath it. No transform is applied while visible so the
+          // fixed-position mobile mode menu keeps the viewport as its containing block.
           hideStrategy === "overlay" &&
-            "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
-          hideStrategy === "overlay" && headerChromeHidden && "max-sm:-translate-y-full",
+            (overlayAllBreakpoints
+              ? "transition-transform duration-200 ease-out motion-reduce:transition-none"
+              : "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none"),
+          hideStrategy === "overlay" &&
+            headerChromeHidden &&
+            (overlayAllBreakpoints ? "-translate-y-full" : "max-sm:-translate-y-full"),
         )}
         {...(hideStrategy === "overlay" ? chromeFocusProps : undefined)}
       >
+        <div className="edge-glass-header-backdrop" aria-hidden="true" />
         <div
           className={cn(
             "relative mx-auto grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3",
@@ -1479,7 +1517,7 @@ export function MasterSearchHeader({
                 <SelectedAppModeIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
-                <span className="hidden truncate text-3xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-soft)] sm:block">
+                <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-muted)] sm:block">
                   Mode
                 </span>
                 <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">

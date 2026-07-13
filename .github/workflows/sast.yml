@@ -24,7 +24,6 @@ jobs:
   # Runs OSS-engine only — no Semgrep account or token required.
   semgrep:
     name: Semgrep
-    continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     container:
@@ -36,6 +35,7 @@ jobs:
           persist-credentials: false
 
       - name: Semgrep scan
+        continue-on-error: true
         # --error fails the job on any ERROR-severity finding; --oss-only keeps
         # it token-free; --metrics off sends no telemetry. Named registry rules
         # remain advisory because they can change independently of this repository.

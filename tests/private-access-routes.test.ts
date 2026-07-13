@@ -160,12 +160,15 @@ const defaultQueryResolver: QueryResolver = (call) => {
   if (call.table === "documents" && call.selected === "id,metadata,import_batch_id") {
     const explicitIds = call.inFilters.find((filter) => filter.column === "id")?.values as string[] | undefined;
     const ownerFilter = call.filters.find((filter) => filter.column === "owner_id");
+    const ownerPlusPublicFilter = call.orFilters.some(
+      (filter) => filter.includes(`owner_id.eq.${userId}`) && filter.includes("owner_id.is.null"),
+    );
     const ids = explicitIds?.length ? explicitIds : [documentId];
-    if (!ownerFilter) return ok([]);
-    if (ownerFilter.value === null) {
+    if (!ownerFilter && !ownerPlusPublicFilter) return ok([]);
+    if (ownerFilter?.value === null) {
       return ok(ids.filter((id) => id === documentId).map((id) => ({ id, metadata: {}, import_batch_id: null })));
     }
-    if (ownerFilter.value === userId) {
+    if (ownerFilter?.value === userId || ownerPlusPublicFilter) {
       return ok(ids.map((id) => ({ id, metadata: {}, import_batch_id: null })));
     }
     return ok([]);
@@ -283,6 +286,8 @@ function mockRuntime(
     openAiKey?: string;
     publicUploadsEnabled?: boolean;
     publicWorkspaceOwnerId?: string;
+    maxConcurrentUploads?: number;
+    maxInFlightUploadMb?: number;
   } = {},
 ) {
   vi.resetModules();
@@ -293,6 +298,8 @@ function mockRuntime(
   vi.doMock("@/lib/env", () => ({
     env: {
       MAX_UPLOAD_MB: 150,
+      MAX_CONCURRENT_UPLOADS: options.maxConcurrentUploads ?? 1,
+      MAX_IN_FLIGHT_UPLOAD_MB: options.maxInFlightUploadMb ?? 151,
       SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
       SUPABASE_IMAGE_BUCKET: "clinical-images",
       RAG_SEARCH_CACHE_TTL_MS: 0,
@@ -562,6 +569,40 @@ describe("private document API access", () => {
     expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
   });
 
+  it("allows anonymous users to read public document detail", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && matchesOwnerReadScope(call)) {
+        return ok({
+          id: documentId,
+          owner_id: null,
+          title: "Public guideline",
+          file_name: "guideline.pdf",
+          file_type: "application/pdf",
+          page_count: 2,
+          chunk_count: 1,
+          metadata: { index_generation_id: "generation-a" },
+        });
+      }
+      if (["document_pages", "document_images", "document_chunks", "document_table_facts"].includes(call.table)) {
+        return ok([]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await GET(request(`/api/documents/${documentId}`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.document).toMatchObject({ id: documentId, title: "Public guideline" });
+    expect(body.document).not.toHaveProperty("owner_id");
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
+  });
+
   it("allows authenticated users to open public document signed URLs", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
@@ -781,6 +822,36 @@ describe("private document API access", () => {
     expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`${userId}/images/${imageId}.png`, 600);
   });
 
+  it("allows anonymous image signed URLs when the parent document is public", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok({
+          document_id: documentId,
+          storage_path: `public/images/${imageId}.png`,
+          mime_type: "image/png",
+          caption: "Public image",
+          metadata: { index_generation_id: "generation-a" },
+        });
+      }
+      if (call.table === "documents" && matchesOwnerReadScope(call)) {
+        return ok({ id: documentId, metadata: { index_generation_id: "generation-a" } });
+      }
+      return ok(null);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/images/[id]/signed-url/route");
+
+    const response = await GET(request(`/api/images/${imageId}/signed-url`), {
+      params: Promise.resolve({ id: imageId }),
+    });
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.mimeType).toBe("image/png");
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`public/images/${imageId}.png`, 600);
+  });
+
   it("allows legacy image signed URLs when parent document generation metadata is missing", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "document_images") {
@@ -935,6 +1006,251 @@ describe("private document API access", () => {
     expect(response.status).toBe(503);
     expect(await payload(response)).toMatchObject({ error: "Rate limit check is temporarily unavailable." });
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("rejects an excessive Content-Length before parsing multipart data", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const uploadRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": String(152 * 1024 * 1024) },
+      body: new FormData(),
+    });
+    const formData = vi.spyOn(uploadRequest, "formData");
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(413);
+    expect(formData).not.toHaveBeenCalled();
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed Content-Length before parsing multipart data", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const uploadRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": "-5" },
+      body: new FormData(),
+    });
+    const formData = vi.spyOn(uploadRequest, "formData");
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(400);
+    expect(formData).not.toHaveBeenCalled();
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for authenticated uploads when the durable limiter is unavailable", async () => {
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_api_rate_limit" ? fail("limiter unavailable") : ok([]),
+    );
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const uploadRequest = authenticatedRequest("/api/upload", { method: "POST", body: new FormData() });
+    const formData = vi.spyOn(uploadRequest, "formData");
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(503);
+    expect(formData).not.toHaveBeenCalled();
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("stops an already-aborted upload before multipart parsing", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const controller = new AbortController();
+    controller.abort();
+    const uploadRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      body: new FormData(),
+      signal: controller.signal,
+    });
+    const formData = vi.spyOn(uploadRequest, "formData");
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(499);
+    expect(await payload(response)).toMatchObject({ error: "Upload cancelled by client." });
+    expect(formData).not.toHaveBeenCalled();
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("rejects upload byte-budget exhaustion before multipart parsing", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, undefined, { maxInFlightUploadMb: 1 });
+    const { POST } = await import("../src/app/api/upload/route");
+    const uploadRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": String(2 * 1024 * 1024) },
+      body: new FormData(),
+    });
+    const formData = vi.spyOn(uploadRequest, "formData");
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(503);
+    expect(await payload(response)).toMatchObject({
+      error: "Upload capacity is temporarily exhausted. Retry shortly.",
+    });
+    expect(formData).not.toHaveBeenCalled();
+  });
+
+  it("stops after multipart parsing when the client aborts before buffering", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const controller = new AbortController();
+    const uploadRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      body: new FormData(),
+      signal: controller.signal,
+    });
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    vi.spyOn(uploadRequest, "formData").mockImplementation(async () => {
+      controller.abort();
+      return form;
+    });
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(499);
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+    expect(client.calls.some((call) => call.operation === "insert")).toBe(false);
+  });
+
+  it("cleans up storage and skips database inserts when aborted before insertion", async () => {
+    const controller = new AbortController();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
+      return ok([]);
+    });
+    client.storageMocks.upload.mockImplementation(async () => {
+      controller.abort();
+      return { data: { path: "uploaded" }, error: null };
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", { method: "POST", body: form, signal: controller.signal }),
+    );
+
+    expect(response.status).toBe(499);
+    expect(client.calls.some((call) => call.operation === "insert")).toBe(false);
+    expect(client.storageMocks.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects concurrent upload capacity and releases it after the first request", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
+      if (call.table === "documents" && call.operation === "insert") return ok({ id: documentId });
+      if (call.table === "ingestion_jobs" && call.operation === "insert") return ok({ id: "job-1" });
+      return ok([]);
+    });
+    mockRuntime(client, undefined, { maxConcurrentUploads: 1 });
+    const { POST } = await import("../src/app/api/upload/route");
+    const firstRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": "1024" },
+      body: new FormData(),
+    });
+    let resolveForm!: (form: FormData) => void;
+    vi.spyOn(firstRequest, "formData").mockReturnValue(
+      new Promise<FormData>((resolve) => {
+        resolveForm = resolve;
+      }),
+    );
+
+    const firstResponsePromise = POST(firstRequest);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const rejectedRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": "1024" },
+      body: new FormData(),
+    });
+    const rejectedFormData = vi.spyOn(rejectedRequest, "formData");
+    const rejectedResponse = await POST(rejectedRequest);
+    expect(rejectedResponse.status).toBe(503);
+    expect(rejectedFormData).not.toHaveBeenCalled();
+
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    resolveForm(form);
+    expect((await firstResponsePromise).status).toBe(201);
+
+    const afterRelease = new FormData();
+    afterRelease.set("file", new File(["%PDF-1.7 revised"], "second.pdf", { type: "application/pdf" }));
+    const afterResponse = await POST(authenticatedRequest("/api/upload", { method: "POST", body: afterRelease }));
+    expect(afterResponse.status).toBe(201);
+  });
+
+  it("releases upload admission after multipart parsing fails", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
+      if (call.table === "documents" && call.operation === "insert") return ok({ id: documentId });
+      if (call.table === "ingestion_jobs" && call.operation === "insert") return ok({ id: "job-1" });
+      return ok([]);
+    });
+    mockRuntime(client, undefined, { maxConcurrentUploads: 1, maxInFlightUploadMb: 1 });
+    const { POST } = await import("../src/app/api/upload/route");
+    const failedRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": "1024" },
+      body: new FormData(),
+    });
+    vi.spyOn(failedRequest, "formData").mockRejectedValue(new Error("malformed multipart"));
+
+    const failedResponse = await POST(failedRequest);
+    expect(failedResponse.status).toBe(400);
+
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    const admittedResponse = await POST(
+      authenticatedRequest("/api/upload", {
+        method: "POST",
+        headers: { "content-length": "1024" },
+        body: form,
+      }),
+    );
+
+    expect(admittedResponse.status).toBe(201);
+    expect(client.storageMocks.upload).toHaveBeenCalledTimes(1);
+  });
+
+  it("cleans up document and storage when aborted after document insert", async () => {
+    const controller = new AbortController();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
+      if (call.table === "documents" && call.operation === "insert") {
+        controller.abort();
+        return ok({ id: documentId });
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", { method: "POST", body: form, signal: controller.signal }),
+    );
+
+    expect(response.status).toBe(499);
+    expect(client.calls.filter((call) => call.table === "documents" && call.operation === "insert")).toHaveLength(1);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
+    expect(client.calls.filter((call) => call.table === "documents" && call.operation === "delete")).toHaveLength(1);
+    expect(client.storageMocks.remove).toHaveBeenCalledTimes(1);
   });
 
   it("stores uploaded documents with owner_id and a user-scoped storage path", async () => {
@@ -1479,7 +1795,10 @@ describe("private document API access", () => {
     }));
     mockRuntime(client);
     vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
-    vi.doMock("@/lib/deep-memory", () => ({ upsertDocumentDeepMemory }));
+    vi.doMock("@/lib/deep-memory", () => ({
+      assertLocalDeepMemoryOwnership: vi.fn(async () => undefined),
+      upsertDocumentDeepMemory,
+    }));
     const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
 
     const response = await POST(
@@ -1490,28 +1809,11 @@ describe("private document API access", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(upsertDocumentEnrichment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        document: expect.objectContaining({
-          id: documentId,
-          title: "Future Uploaded Protocol",
-          metadata: { existing: true },
-        }),
-        chunks,
-        images,
-      }),
-    );
+    expect(response.status).toBe(202);
+    expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
     expect(client.calls[0].selected).toContain("metadata");
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
-    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        document: expect.objectContaining({ id: documentId }),
-        chunks,
-        images,
-        summary: "Source-backed summary.",
-      }),
-    );
+    expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
   it("filters enrichment-only reindex rows to the committed document generation", async () => {
@@ -1579,7 +1881,10 @@ describe("private document API access", () => {
     }));
     mockRuntime(client);
     vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
-    vi.doMock("@/lib/deep-memory", () => ({ upsertDocumentDeepMemory }));
+    vi.doMock("@/lib/deep-memory", () => ({
+      assertLocalDeepMemoryOwnership: vi.fn(async () => undefined),
+      upsertDocumentDeepMemory,
+    }));
     const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
 
     const response = await POST(
@@ -1590,19 +1895,9 @@ describe("private document API access", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(upsertDocumentEnrichment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chunks: [committedChunk],
-        images: [committedImage],
-      }),
-    );
-    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chunks: [committedChunk],
-        images: [committedImage],
-      }),
-    );
+    expect(response.status).toBe(202);
+    expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
+    expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
   it("paginates enrichment-only reindex chunks and images for deep memory rebuilds", async () => {
@@ -1676,7 +1971,10 @@ describe("private document API access", () => {
     }));
     mockRuntime(client);
     vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
-    vi.doMock("@/lib/deep-memory", () => ({ upsertDocumentDeepMemory }));
+    vi.doMock("@/lib/deep-memory", () => ({
+      assertLocalDeepMemoryOwnership: vi.fn(async () => undefined),
+      upsertDocumentDeepMemory,
+    }));
     const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
 
     const response = await POST(
@@ -1689,22 +1987,10 @@ describe("private document API access", () => {
     const chunkSelects = client.calls.filter((call) => call.table === "document_chunks");
     const imageSelects = client.calls.filter((call) => call.table === "document_images");
 
-    expect(response.status).toBe(200);
-    expect(chunkSelects.map((call) => call.range)).toEqual([
-      { from: 0, to: 999 },
-      { from: 1000, to: 1999 },
-    ]);
-    expect(imageSelects.map((call) => call.range)).toEqual([
-      { from: 0, to: 999 },
-      { from: 1000, to: 1999 },
-    ]);
-    expect(upsertDocumentDeepMemory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        chunks: expect.arrayContaining([expect.objectContaining({ id: "chunk-final" })]),
-        images: expect.arrayContaining([expect.objectContaining({ id: "image-final" })]),
-        summary: "Source-backed summary.",
-      }),
-    );
+    expect(response.status).toBe(202);
+    expect(chunkSelects).toEqual([]);
+    expect(imageSelects).toEqual([]);
+    expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
   it("blocks full reindex when the selected document already has active indexing work", async () => {
@@ -2288,11 +2574,11 @@ describe("private document API access", () => {
     expect(body.tableFacts.map((fact: { id: string }) => fact.id)).toEqual(["fact-old"]);
   });
 
-  it("filters direct document search fallback rows to the committed index generation", async () => {
+  it("lets anonymous users search a public document and filters fallback rows to the committed generation", async () => {
     const committedGeneration = "11111111-1111-4111-8111-111111111111";
     const replacementGeneration = "22222222-2222-4222-8222-222222222222";
     const client = createSupabaseMock((call) => {
-      if (call.table === "documents" && call.operation === "select") {
+      if (call.table === "documents" && call.operation === "select" && matchesOwnerReadScope(call)) {
         return ok({ id: documentId, metadata: { index_generation_id: committedGeneration } });
       }
       if (call.table === "document_chunks") {
@@ -2331,7 +2617,7 @@ describe("private document API access", () => {
     mockRuntime(client);
     const { GET } = await import("../src/app/api/documents/[id]/search/route");
 
-    const response = await GET(authenticatedRequest(`/api/documents/${documentId}/search?q=lithium`), {
+    const response = await GET(request(`/api/documents/${documentId}/search?q=lithium`), {
       params: Promise.resolve({ id: documentId }),
     });
     const body = (await payload(response)) as { strategy: string; results: Array<{ id: string }> };
@@ -2339,6 +2625,8 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(body.strategy).toBe("portable_ilike_fallback");
     expect(body.results.map((result: { id: string }) => result.id)).toEqual(["chunk-old"]);
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
   });
 
   it("filters table fact review rows to the committed index generation", async () => {
@@ -3917,9 +4205,10 @@ describe("private document API access", () => {
     expect(results).toEqual([]);
     expect(embedTextWithTelemetry).toHaveBeenCalled();
     expect(client.rpc).toHaveBeenCalledWith(
-      "match_document_chunks_hybrid",
+      "match_document_chunks_hybrid_v2",
       expect.objectContaining({
         owner_filter: userId,
+        include_public: true,
         document_filters: [otherDocumentId],
       }),
     );
@@ -3961,9 +4250,10 @@ describe("private document API access", () => {
     });
 
     expect(client.rpc).toHaveBeenCalledWith(
-      "match_documents_for_query",
+      "match_documents_for_query_v2",
       expect.objectContaining({
         owner_filter: userId,
+        include_public: true,
       }),
     );
   });

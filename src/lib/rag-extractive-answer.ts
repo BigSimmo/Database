@@ -39,6 +39,7 @@ import type {
   RagQueryClass,
   SearchResult,
 } from "@/lib/types";
+import { assessAndEnforceClaimSupport } from "@/lib/rag-claim-support";
 
 type AnswerIntent =
   | "dose"
@@ -1227,7 +1228,7 @@ export function buildExtractiveAnswer(args: {
     0,
     10,
   );
-  const citations = compactCitations(args.results).slice(0, Math.max(quoteCards.length, 1));
+  const citations = compactCitations(args.results, 6, "deterministic_support").slice(0, Math.max(quoteCards.length, 1));
   const citationIds = new Set(citations.map((citation) => citation.chunk_id));
   const resultById = new Map(args.results.map((result) => [result.id, result]));
   for (const card of memoryCards) {
@@ -1235,7 +1236,7 @@ export function buildExtractiveAnswer(args: {
       if (citationIds.has(chunkId)) continue;
       const source = resultById.get(chunkId);
       if (!source) continue;
-      citations.push(resultCitation(source));
+      citations.push(resultCitation(source, "deterministic_support"));
       citationIds.add(chunkId);
     }
   }
@@ -1244,7 +1245,7 @@ export function buildExtractiveAnswer(args: {
       // Guard the lookup: a quote card whose chunk_id was filtered out of results
       // would make find() return undefined and resultCitation(undefined) throw.
       const source = args.results.find((result) => result.id === quote.chunk_id);
-      if (source) citations.push(resultCitation(source));
+      if (source) citations.push(resultCitation(source, "exact_quote"));
     }
     citationIds.add(quote.chunk_id);
   }
@@ -1271,7 +1272,7 @@ export function buildExtractiveAnswer(args: {
     if (!citationIds.has(chunkId)) {
       const source = args.results.find((result) => result.id === chunkId);
       if (source) {
-        citations.push(resultCitation(source));
+        citations.push(resultCitation(source, "deterministic_support"));
         citationIds.add(chunkId);
       }
     }
@@ -1625,7 +1626,15 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
   return null;
 }
 
-/** Final quality failure. */
+/**
+ * Replaces an answer that fails final quality checks with an evidence-gap response.
+ *
+ * @param answer - The answer to replace.
+ * @param query - The original user query.
+ * @param queryClass - The classified query type.
+ * @param reason - The quality gate failure reason.
+ * @returns The answer marked as unsupported and requiring an evidence gap response.
+ */
 function finalQualityFailure(answer: RagAnswer, query: string, queryClass: RagQueryClass, reason: string): RagAnswer {
   return {
     ...answer,
@@ -1655,7 +1664,12 @@ const crossReferenceRedirectPattern =
 const crossReferenceDocumentObjectPattern =
   /\b(?:guidance|guidelines?|policy|policies|procedures?|protocols?|appendix|appendices|manuals?|documents?|documentation|frameworks?|standards?|sops?|handbooks?|factsheets?|leaflets?|booklets?|templates?|checklists?|forms?|sections?|chapters?)\b/i;
 
-/** Is bare cross-reference answer. */
+/**
+ * Determines whether text consists of a bare redirect to another source for additional information.
+ *
+ * @param text - The answer text to evaluate
+ * @returns `true` if the lead sentence directs the reader to another document or source for further information, `false` otherwise.
+ */
 export function isBareCrossReferenceAnswer(text: string) {
   const lead = firstSentence(text).replace(/\*\*/g, "");
   if (!lead) return false;
@@ -1666,7 +1680,14 @@ export function isBareCrossReferenceAnswer(text: string) {
   );
 }
 
-/** Should preserve source backed generated answer. */
+/**
+ * Determines whether a source-backed generated answer may bypass a quality-gate failure.
+ *
+ * @param answer - The generated answer and its source-selection metadata
+ * @param reason - The quality-gate failure reason
+ * @param cleanedAnswer - The sanitized answer text used for cross-reference detection
+ * @returns `true` if the answer is grounded and supported by relevant source-selection signals, `false` otherwise
+ */
 function shouldPreserveSourceBackedGeneratedAnswer(answer: RagAnswer, reason: string, cleanedAnswer: string) {
   if (reason !== "missing_query_intent" && reason !== "missing_query_overlap") return false;
   // Never rescue a bare cross-reference / "refer elsewhere for more information" pointer: it carries
@@ -1769,10 +1790,20 @@ export function finalizeRagAnswerQuality(
   queryClass: RagQueryClass,
   verificationSources?: SearchResult[],
 ): RagAnswer {
-  return applyProviderLabels(finalizeRagAnswerQualityCore(answer, query, queryClass, verificationSources));
+  return applyProviderLabels(
+    assessAndEnforceClaimSupport(finalizeRagAnswerQualityCore(answer, query, queryClass, verificationSources)),
+  );
 }
 
-/** Finalize rag answer quality core. */
+/**
+ * Finalizes an answer by applying quality gates, sanitizing content, and verifying numeric claims.
+ *
+ * @param answer - The answer to validate and finalize
+ * @param query - The user query used to assess relevance and highlight clinical terms
+ * @param queryClass - The classification of the user query
+ * @param verificationSources - Optional sources used to verify numeric claims
+ * @returns The finalized RAG answer with validated content, sections, and confidence metadata
+ */
 function finalizeRagAnswerQualityCore(
   answer: RagAnswer,
   query: string,

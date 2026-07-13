@@ -210,7 +210,7 @@ export function extractQuoteCards(results: SearchResult[], query: string, limit 
     if (seen.has(key)) continue;
     seen.add(key);
     quoteCards.push({
-      ...citationFromResult(result),
+      ...citationFromResult(result, "exact_quote"),
       quote,
       isTruncated: truncated,
       section_heading: result.section_heading,
@@ -293,13 +293,17 @@ export function buildSmartPanel(
 
 export function selectBestSourceRecommendation(
   results: SearchResult[],
-  quoteCards: QuoteCard[] = [],
+  quoteCards?: QuoteCard[],
 ): BestSourceRecommendation | null {
   if (results.length === 0) return null;
 
-  const candidates = results.some((result) => result.relevance?.isSourceBacked)
-    ? results.filter((result) => result.relevance?.isSourceBacked)
-    : results;
+  const quotedChunkIds = new Set((quoteCards ?? []).map((quote) => quote.chunk_id));
+  if (quoteCards && quotedChunkIds.size === 0) return null;
+
+  const quoteSupportedResults = quoteCards ? results.filter((result) => quotedChunkIds.has(result.id)) : results;
+  const candidates = quoteSupportedResults.some((result) => result.relevance?.isSourceBacked)
+    ? quoteSupportedResults.filter((result) => result.relevance?.isSourceBacked)
+    : quoteSupportedResults;
   let best = candidates[0];
   for (const result of candidates.slice(1)) {
     const bestScore = best.hybrid_score ?? best.similarity;
@@ -309,8 +313,8 @@ export function selectBestSourceRecommendation(
     }
   }
 
-  const directQuote = quoteCards.find((quote) => quote.chunk_id === best.id);
-  const documentQuote = quoteCards.find((quote) => quote.document_id === best.document_id);
+  const directQuote = quoteCards?.find((quote) => quote.chunk_id === best.id);
+  const documentQuote = quoteCards?.find((quote) => quote.document_id === best.document_id);
   const quote = directQuote?.quote ?? documentQuote?.quote;
   // Track truncation by the pre-slice length rather than guessing from the
   // post-trim snippet length (=== 260 dropped the ellipsis when trim shortened a

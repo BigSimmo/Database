@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Bookmark,
   Check,
-  ChevronDown,
   CircleAlert,
   CircleCheck,
   CircleX,
@@ -36,6 +35,8 @@ import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
+import { sortResultItems } from "@/lib/result-sort";
+import { useResultSort } from "@/components/use-result-sort";
 
 const defaultQuery = "13YARN crisis support aboriginal phone";
 
@@ -167,23 +168,26 @@ function Metric({
 function ServiceCard({
   service,
   index,
+  relevanceRank,
   selected,
   onToggleSelected,
 }: {
   service: ServiceRecord;
   index: number;
+  relevanceRank: number | null;
   selected: boolean;
   onToggleSelected: (slug: string) => void;
 }) {
   const rank = index + 1;
   const tags = [...(service.catchments ?? []), ...(service.tags ?? [])].slice(0, 4);
+  const showRelevanceCues = relevanceRank !== null && relevanceRank <= 2;
 
   return (
     <article
       data-testid={`service-search-result-${service.slug}`}
       className={cn(
         "rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]",
-        rank <= 2
+        showRelevanceCues
           ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent-border)]/35"
           : "border-[color:var(--border)]",
       )}
@@ -197,7 +201,7 @@ function ServiceCard({
             <h3 className="min-w-0 text-lg font-bold leading-tight text-[color:var(--text-heading)] max-sm:text-base">
               {service.title}
             </h3>
-            {rank <= 2 ? (
+            {showRelevanceCues ? (
               <span className="rounded-full bg-[color:var(--clinical-accent)] px-2.5 py-1 text-2xs font-bold text-[color:var(--clinical-accent-contrast)]">
                 Best fit
               </span>
@@ -422,6 +426,8 @@ function RightRail({
       <button
         className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         type="button"
+        disabled
+        title="Select services before comparing"
       >
         Compare selected ({selected.length})
       </button>
@@ -432,6 +438,7 @@ function RightRail({
 export function ServicesNavigatorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [sortValue, setSortValue] = useResultSort();
   const command = useSearchCommand();
   const urlQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const initialQuery = urlQuery || defaultQuery;
@@ -456,6 +463,17 @@ export function ServicesNavigatorPage() {
     if (!scopes.length) return matches;
     return matches.filter((service) => recordMatchesCommandScopes(service, scopes, "services"));
   }, [command?.commandScopes, matches]);
+  const displayedMatches = useMemo(
+    () => sortResultItems(scopedMatches, sortValue, (service) => service.title),
+    [scopedMatches, sortValue],
+  );
+  const relevanceRankMap = useMemo(() => {
+    const map = new Map<string, number>();
+    scopedMatches.forEach((service, index) => {
+      map.set(service.slug, index + 1);
+    });
+    return map;
+  }, [scopedMatches]);
   const [selectedSlugs, setSelectedSlugs] = useState(() => serviceRecords.slice(0, 2).map((service) => service.slug));
   const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
 
@@ -489,23 +507,27 @@ export function ServicesNavigatorPage() {
             <SearchResultsHeaderBand
               modeId="services"
               query={query}
-              matchCount={scopedMatches.length}
+              matchCount={displayedMatches.length}
               loading={registryLoading}
+              sortValue={sortValue}
+              onSortChange={setSortValue}
             />
           </div>
           <div className="hidden xl:block">
             <SearchResultsHeaderBand
               modeId="services"
               query={query}
-              matchCount={scopedMatches.length}
+              matchCount={displayedMatches.length}
               loading={registryLoading}
+              sortValue={sortValue}
+              onSortChange={setSortValue}
             />
           </div>
         </>
       }
       sidebar={
         <RightRail
-          matches={scopedMatches}
+          matches={displayedMatches}
           selected={selected}
           onClearSelected={() => setSelectedSlugs([])}
           onToggleSelected={toggleSelected}
@@ -530,7 +552,7 @@ export function ServicesNavigatorPage() {
             body="The services registry could not be loaded. Try again shortly."
           />
         )
-      ) : query.trim() && scopedMatches.length === 0 ? (
+      ) : query.trim() && displayedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"
           query={query}
@@ -543,19 +565,25 @@ export function ServicesNavigatorPage() {
             <div className="flex min-w-0 items-start justify-between gap-2 bg-[color:var(--surface-chrome)] p-3 sm:gap-3 sm:p-4">
               <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 sm:grid-cols-[3.25rem_minmax(0,1fr)]">
                 <span className="hidden h-12 w-12 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:grid">
-                  <span className="text-lg font-extrabold leading-none sm:text-xl">{scopedMatches.length}</span>
+                  <span className="text-lg font-extrabold leading-none sm:text-xl">{displayedMatches.length}</span>
                 </span>
                 <div className="min-w-0">
-                  <p className="hidden text-3xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] sm:block">
+                  <p className="hidden text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] sm:block">
                     Referral matches
                   </p>
                   <h1 className="text-2xl-minus font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:mt-0.5 sm:text-3xl">
-                    {scopedMatches.length} referral {scopedMatches.length === 1 ? "match" : "matches"}
+                    {displayedMatches.length} referral {displayedMatches.length === 1 ? "match" : "matches"}
                   </h1>
                   <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)] max-sm:max-w-[14rem]">
-                    <span className="sm:hidden">Best fit for crisis, ATSI-specific phone referral.</span>
+                    <span className="sm:hidden">
+                      {sortValue === "alpha"
+                        ? "Sorted A–Z for quick known-service lookup."
+                        : "Best fit for crisis, ATSI-specific phone referral."}
+                    </span>
                     <span className="hidden sm:inline">
-                      Ranked for crisis support, ATSI-specific access, and phone referral.
+                      {sortValue === "alpha"
+                        ? "Sorted A–Z for quick known-service lookup."
+                        : "Ranked for crisis support, ATSI-specific access, and phone referral."}
                     </span>
                   </p>
                 </div>
@@ -565,15 +593,11 @@ export function ServicesNavigatorPage() {
                   className="inline-flex min-h-10 w-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-11 sm:w-auto sm:px-4"
                   type="button"
                   aria-label="Open service filters"
+                  disabled
+                  title="Advanced filters are not available yet"
                 >
                   <SlidersHorizontal className="h-4 w-4" aria-hidden />
                   <span className="hidden sm:inline">Filters</span>
-                </button>
-                <button
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-11 sm:px-4"
-                  type="button"
-                >
-                  Sort <ChevronDown className="h-4 w-4" aria-hidden />
                 </button>
               </div>
             </div>
@@ -614,11 +638,12 @@ export function ServicesNavigatorPage() {
             </div>
           </div>
           <div data-testid="service-search-results" className="grid gap-3">
-            {scopedMatches.map((service, index) => (
+            {displayedMatches.map((service, index) => (
               <ServiceCard
                 key={service.slug}
                 service={service}
                 index={index}
+                relevanceRank={sortValue === "alpha" ? null : (relevanceRankMap.get(service.slug) ?? null)}
                 selected={selectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
               />

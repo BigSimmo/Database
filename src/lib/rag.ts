@@ -1,5 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireOwnerScope } from "@/lib/owner-scope";
+import {
+  PUBLIC_OWNER_FILTER_SENTINEL,
+  retrievalAccessScopeForArgs,
+  retrievalAccessScopeKey,
+  retrievalRpcScopeArgs,
+  type RetrievalAccessScope,
+} from "@/lib/owner-scope";
 import { classifyCorpusGrounding } from "@/lib/corpus-grounding";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createStreamingAnswerExtractor } from "@/lib/answer-stream-extractor";
@@ -12,6 +18,7 @@ import {
   sourceOnlyReason,
 } from "@/lib/rag-provider";
 import { allowedChunkMap, citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
+import { assessAndEnforceClaimSupport } from "@/lib/rag-claim-support";
 import {
   enrichGroundedReviewCitations,
   sanitizeConflictsOrGaps,
@@ -35,6 +42,12 @@ import {
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
 } from "@/lib/rag-extractive-answer";
+import {
+  buildComparisonAnswer,
+  buildComparisonEvidenceGapAnswer,
+  buildComparisonMatrix,
+  comparisonEvidenceGuide,
+} from "@/lib/rag-comparison";
 export {
   classifyAnswerIntent,
   completeExtractiveSentence,
@@ -65,6 +78,7 @@ export {
   textCandidateBudgetForQueryClass,
 } from "@/lib/rag-retrieval-variants";
 import {
+  answerCacheAllowedForOwner,
   answerInflight,
   cacheIndexingVersion,
   cloneAnswer,
@@ -96,6 +110,8 @@ import {
   expandClinicalQuery,
   hasDoseEvidenceSupport,
   hasStructuredThresholdEvidence,
+  isMedicationDoseEvidenceQuery,
+  medicationDoseQueryContext,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
   riskZoneActionPattern,
@@ -170,6 +186,7 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalModePrompt, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
+import { isMissingRetrievalRpcError } from "@/lib/retrieval-rpc-rollout";
 import { buildRetrievalIntent, selectRetrievalEvidence } from "@/lib/retrieval-selection";
 import { rankingConfig } from "@/lib/ranking-config";
 import { z } from "zod";
@@ -478,6 +495,76 @@ function recordRetrievalLayer(
 // the floor, which is how the live schema drift (42702) went unnoticed. Log it structurally and,
 // where telemetry is in scope, record the failing RPC + code so it shows up in rag_retrieval_logs.
 type SupabaseRpcError = { message?: string; code?: string; details?: string; hint?: string } | null;
+
+function legacyRankFields(versionedName: string) {
+  if (versionedName === "match_document_chunks_v2") return ["similarity"];
+  if (versionedName === "match_documents_for_query_v2") return ["text_rank"];
+  if (versionedName.includes("_text_v2")) return ["hybrid_score", "text_rank"];
+  return ["hybrid_score", "rrf_score", "similarity", "text_rank"];
+}
+
+function mergeLegacyAccessRows<T>(ownerRows: T[], publicRows: T[], matchCount: unknown, rankFields: string[]): T[] {
+  const byKey = new Map<string, T>();
+  const rowRecord = (row: T) => (row && typeof row === "object" ? (row as Record<string, unknown>) : {});
+  const rowKey = (row: T) => String(rowRecord(row).id ?? rowRecord(row).document_id ?? "");
+  const compare = (left: T, right: T) => {
+    const leftRecord = rowRecord(left);
+    const rightRecord = rowRecord(right);
+    for (const field of rankFields) {
+      const leftScore = typeof leftRecord[field] === "number" ? leftRecord[field] : Number.NEGATIVE_INFINITY;
+      const rightScore = typeof rightRecord[field] === "number" ? rightRecord[field] : Number.NEGATIVE_INFINITY;
+      if (leftScore !== rightScore) return rightScore - leftScore;
+    }
+    return rowKey(left).localeCompare(rowKey(right));
+  };
+  for (const row of [...ownerRows, ...publicRows]) {
+    const key = rowKey(row) || `unkeyed:${byKey.size}`;
+    const current = byKey.get(key);
+    if (!current || compare(row, current) < 0) byKey.set(key, row);
+  }
+  const merged = [...byKey.values()].sort(compare);
+  const limit = typeof matchCount === "number" ? Math.max(1, Math.min(matchCount, 100)) : merged.length;
+  return merged.slice(0, limit);
+}
+
+export async function callVersionedRetrievalRpc<T extends unknown[] = unknown[]>(
+  supabase: ReturnType<typeof createAdminClient>,
+  versionedName: string,
+  legacyName: string,
+  args: Record<string, unknown>,
+): Promise<{ data: T | null; error: SupabaseRpcError }> {
+  const client = supabase as unknown as {
+    rpc: (name: string, rpcArgs: Record<string, unknown>) => Promise<{ data: T | null; error: SupabaseRpcError }>;
+  };
+  const versioned = await client.rpc(versionedName, args);
+  if (versioned && !isMissingRetrievalRpcError(versioned.error)) return versioned;
+  const legacyArgs = { ...args };
+  delete legacyArgs.include_public;
+  const ownerResult = await client.rpc(legacyName, legacyArgs);
+  const ownerFilter = String(args.owner_filter ?? "");
+  if (
+    ownerResult.error ||
+    args.include_public !== true ||
+    !ownerFilter ||
+    ownerFilter === PUBLIC_OWNER_FILTER_SENTINEL
+  ) {
+    return ownerResult;
+  }
+  const publicResult = await client.rpc(legacyName, {
+    ...legacyArgs,
+    owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+  });
+  if (publicResult.error) return publicResult;
+  return {
+    data: mergeLegacyAccessRows(
+      ownerResult.data ?? [],
+      publicResult.data ?? [],
+      args.match_count,
+      legacyRankFields(versionedName),
+    ) as T,
+    error: null,
+  };
+}
 
 /** Record hybrid rpc error. */
 function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc: string, error: SupabaseRpcError) {
@@ -826,7 +913,7 @@ function sanitizeCitations(
     }
     if (seen.has(source.id)) continue;
     seen.add(source.id);
-    citations.push(resultCitation(source));
+    citations.push(resultCitation(source, "model_selected"));
   }
 
   if (citations.length > 0) return { citations, modelCited: true, proposedCount, invalidCount };
@@ -1363,18 +1450,25 @@ async function searchTextChunkCandidates(args: {
   supabase: ReturnType<typeof createAdminClient>;
   queryVariants: string[];
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   documentIds?: string[];
   allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
 }) {
   const runChunkText = async (queryText: string, matchCount: number) => {
-    const { data, error } = await args.supabase.rpc("match_document_chunks_text", {
-      query_text: queryText,
-      match_count: matchCount,
-      document_filters: args.documentIds ?? undefined,
-      owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
-    });
+    const accessScope = retrievalAccessScopeForArgs(args);
+    const { data, error } = await callVersionedRetrievalRpc<SearchResult[]>(
+      args.supabase,
+      "match_document_chunks_text_v2",
+      "match_document_chunks_text",
+      {
+        query_text: queryText,
+        match_count: matchCount,
+        document_filters: args.documentIds ?? undefined,
+        ...retrievalRpcScopeArgs(accessScope),
+      },
+    );
     // Report the error before returning empty so a schema drift on this
     // most-terminal lexical layer surfaces in hybrid_rpc_errors telemetry
     // instead of silently degrading to zero candidates. Return value unchanged.
@@ -1548,15 +1642,21 @@ async function fetchBestDocumentLookupChunks(args: {
   query: string;
   limit: number;
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   allowGlobalSearch?: boolean;
 }) {
   const terms = documentLookupChunkTerms(args.query);
-  const { data: rpcChunks, error: rpcError } = await args.supabase.rpc("match_document_lookup_chunks_text", {
-    query_text: args.query,
-    document_filters: args.documentIds ?? undefined,
-    match_count: Math.max(args.limit * 3, 24),
-    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
-  });
+  const { data: rpcChunks, error: rpcError } = await callVersionedRetrievalRpc(
+    args.supabase,
+    "match_document_lookup_chunks_text_v2",
+    "match_document_lookup_chunks_text",
+    {
+      query_text: args.query,
+      document_filters: args.documentIds ?? undefined,
+      match_count: Math.max(args.limit * 3, 24),
+      ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+    },
+  );
   if (!rpcError && rpcChunks?.length) {
     const ranked = (rpcChunks as DocumentLookupChunkRow[])
       .map((chunk) => ({
@@ -1599,7 +1699,7 @@ async function fetchBestDocumentLookupChunks(args: {
     if (ranked.length) return { chunks: ranked.slice(0, args.limit), terms };
   }
 
-  const { data: fallbackChunks, error: fallbackError } = await args.supabase
+  const fallbackQuery = args.supabase
     .from("document_chunks")
     .select(
       "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids",
@@ -1607,6 +1707,7 @@ async function fetchBestDocumentLookupChunks(args: {
     .in("document_id", args.documentIds)
     .order("chunk_index", { ascending: true })
     .limit(args.limit);
+  const { data: fallbackChunks, error: fallbackError } = await fallbackQuery;
   if (fallbackError || !fallbackChunks?.length) return { chunks: [] as DocumentLookupChunkRow[], terms };
   return { chunks: fallbackChunks as DocumentLookupChunkRow[], terms };
 }
@@ -1616,6 +1717,7 @@ async function fetchDocumentTitleAliasRows(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   documentIds?: string[];
 }) {
   const terms = analyzeClinicalQuery(args.query)
@@ -1630,7 +1732,14 @@ async function fetchDocumentTitleAliasRows(args: {
     .select("id,owner_id,title,file_name,status,page_count,chunk_count,image_count,metadata");
   if (typeof (query as { or?: unknown }).or !== "function") return [] as DocumentLookupRow[];
   query = query.or(filters).eq("status", "indexed").limit(12);
-  if (args.ownerId) query = query.eq("owner_id", args.ownerId);
+  const accessScope = retrievalAccessScopeForArgs(args);
+  if (accessScope.ownerId && accessScope.includePublic) {
+    query = query.or(`owner_id.eq.${accessScope.ownerId},owner_id.is.null`);
+  } else if (accessScope.ownerId) {
+    query = query.eq("owner_id", accessScope.ownerId);
+  } else {
+    query = query.is("owner_id", null);
+  }
   if (args.documentIds?.length) query = query.in("id", args.documentIds);
 
   const { data, error } = await query;
@@ -1654,6 +1763,7 @@ async function searchDocumentLookupFastPath(args: {
   query: string;
   queryVariants?: string[];
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   documentIds?: string[];
   matchCount: number;
   telemetry?: SearchTelemetry;
@@ -1665,11 +1775,16 @@ async function searchDocumentLookupFastPath(args: {
   );
   const documentSets = await Promise.all(
     variants.map(async (variant, index) => {
-      const { data, error } = await args.supabase.rpc("match_documents_for_query", {
-        query_text: variant,
-        match_count: index === 0 ? 12 : 8,
-        owner_filter: requireOwnerScope(args.ownerId),
-      });
+      const { data, error } = await callVersionedRetrievalRpc(
+        args.supabase,
+        "match_documents_for_query_v2",
+        "match_documents_for_query",
+        {
+          query_text: variant,
+          match_count: index === 0 ? 12 : 8,
+          ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+        },
+      );
       if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
       if (error || !data?.length) return [] as DocumentLookupRow[];
       return data as DocumentLookupRow[];
@@ -1679,6 +1794,7 @@ async function searchDocumentLookupFastPath(args: {
     supabase: args.supabase,
     query: args.query,
     ownerId: args.ownerId,
+    accessScope: args.accessScope,
     documentIds: args.documentIds,
   });
   const documentsById = new Map<string, DocumentLookupRow>();
@@ -1712,6 +1828,7 @@ async function searchDocumentLookupFastPath(args: {
     query: args.query,
     limit: Math.max(args.matchCount, rankedDocuments.length * 4),
     ownerId: args.ownerId,
+    accessScope: args.accessScope,
   });
 
   if (!chunks.length) return [];
@@ -1789,34 +1906,45 @@ function memoryCardChunkScore(card: DocumentMemoryCard) {
 }
 
 /** Load chunks for memory cards. */
-async function loadChunksForMemoryCards(
+export async function loadChunksForMemoryCards(
   supabase: ReturnType<typeof createAdminClient>,
   cards: DocumentMemoryCard[],
-  ownerId?: string,
+  accessScope: RetrievalAccessScope,
 ) {
-  const chunkIds = Array.from(new Set(cards.flatMap((card) => card.source_chunk_ids ?? []))).slice(0, 80);
-  if (chunkIds.length === 0) return [] as SearchResult[];
+  const documentIds = Array.from(new Set(cards.map((card) => card.document_id))).slice(0, 80);
+  if (documentIds.length === 0) return [] as SearchResult[];
+  let documentQuery = supabase
+    .from("documents")
+    .select("id,title,file_name,metadata,owner_id,status")
+    .in("id", documentIds)
+    .eq("status", "indexed");
+  if (accessScope.ownerId && accessScope.includePublic) {
+    documentQuery = documentQuery.or(`owner_id.eq.${accessScope.ownerId},owner_id.is.null`);
+  } else if (accessScope.ownerId) {
+    documentQuery = documentQuery.eq("owner_id", accessScope.ownerId);
+  } else {
+    documentQuery = documentQuery.is("owner_id", null);
+  }
+  const { data: documents, error: documentsError } = await documentQuery;
+  if (documentsError || !documents?.length) return [] as SearchResult[];
 
+  const documentById = new Map(documents.map((document) => [document.id, document]));
+  const allowedDocumentIds = new Set(documentById.keys());
+  const chunkIds = Array.from(
+    new Set(
+      cards.filter((card) => allowedDocumentIds.has(card.document_id)).flatMap((card) => card.source_chunk_ids ?? []),
+    ),
+  ).slice(0, 80);
+  if (chunkIds.length === 0) return [] as SearchResult[];
   const { data: chunks, error: chunksError } = await supabase
     .from("document_chunks")
     .select(
       "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id",
     )
     .in("id", chunkIds)
+    .in("document_id", [...allowedDocumentIds])
     .limit(chunkIds.length);
   if (chunksError || !chunks?.length) return [] as SearchResult[];
-
-  const documentIds = Array.from(new Set(chunks.map((chunk) => chunk.document_id)));
-  let documentQuery = supabase
-    .from("documents")
-    .select("id,title,file_name,metadata,owner_id,status")
-    .in("id", documentIds)
-    .eq("status", "indexed");
-  if (ownerId) documentQuery = documentQuery.eq("owner_id", ownerId);
-  const { data: documents, error: documentsError } = await documentQuery;
-  if (documentsError || !documents?.length) return [] as SearchResult[];
-
-  const documentById = new Map(documents.map((document) => [document.id, document]));
   const bestCardByChunk = new Map<string, DocumentMemoryCard>();
   for (const card of cards) {
     for (const chunkId of card.source_chunk_ids ?? []) {
@@ -1861,10 +1989,11 @@ async function loadChunksForMemoryCards(
 }
 
 /** Load chunks for signal matches. */
-async function loadChunksForSignalMatches(args: {
+export async function loadChunksForSignalMatches(args: {
   supabase: ReturnType<typeof createAdminClient>;
   matches: ChunkSignalMatch[];
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
 }) {
   const bestMatchByChunk = new Map<string, ChunkSignalMatch>();
   for (const match of args.matches) {
@@ -1874,26 +2003,44 @@ async function loadChunksForSignalMatches(args: {
   const chunkIds = Array.from(bestMatchByChunk.keys()).slice(0, 80);
   if (chunkIds.length === 0) return [] as SearchResult[];
 
-  const { data: chunks, error: chunksError } = await args.supabase
+  const accessScope = retrievalAccessScopeForArgs(args);
+  const { data: chunkScopes, error: chunkScopesError } = await args.supabase
     .from("document_chunks")
-    .select(
-      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id",
-    )
+    .select("id,document_id")
     .in("id", chunkIds)
     .limit(chunkIds.length);
-  if (chunksError || !chunks?.length) return [] as SearchResult[];
+  if (chunkScopesError || !chunkScopes?.length) return [] as SearchResult[];
 
-  const documentIds = Array.from(new Set(chunks.map((chunk) => chunk.document_id)));
+  const documentIds = Array.from(new Set(chunkScopes.map((chunk) => chunk.document_id)));
   let documentQuery = args.supabase
     .from("documents")
     .select("id,title,file_name,metadata,owner_id,status")
     .in("id", documentIds)
     .eq("status", "indexed");
-  if (args.ownerId) documentQuery = documentQuery.eq("owner_id", args.ownerId);
-  else documentQuery = documentQuery.is("owner_id", null);
+  if (accessScope.ownerId && accessScope.includePublic) {
+    documentQuery = documentQuery.or(`owner_id.eq.${accessScope.ownerId},owner_id.is.null`);
+  } else if (accessScope.ownerId) {
+    documentQuery = documentQuery.eq("owner_id", accessScope.ownerId);
+  } else {
+    documentQuery = documentQuery.is("owner_id", null);
+  }
   const { data: documents, error: documentsError } = await documentQuery;
   if (documentsError || !documents?.length) return [] as SearchResult[];
   const documentById = new Map(documents.map((document) => [document.id, document]));
+  const allowedDocumentIds = new Set(documentById.keys());
+  const allowedChunkIds = chunkScopes
+    .filter((chunk) => allowedDocumentIds.has(chunk.document_id))
+    .map((chunk) => chunk.id);
+  if (allowedChunkIds.length === 0) return [] as SearchResult[];
+  const { data: chunks, error: chunksError } = await args.supabase
+    .from("document_chunks")
+    .select(
+      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id",
+    )
+    .in("id", allowedChunkIds)
+    .in("document_id", [...allowedDocumentIds])
+    .limit(allowedChunkIds.length);
+  if (chunksError || !chunks?.length) return [] as SearchResult[];
 
   return chunks
     .map((chunk) => {
@@ -1957,6 +2104,7 @@ async function searchTableFactCandidates(args: {
   query: string;
   queryVariants?: string[];
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   documentIds?: string[];
   allowGlobalSearch?: boolean;
   matchCount: number;
@@ -1968,12 +2116,17 @@ async function searchTableFactCandidates(args: {
   );
   const factSets = await Promise.all(
     variants.map(async (variant, index) => {
-      const { data, error } = await args.supabase.rpc("match_document_table_facts_text", {
-        query_text: variant,
-        match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
-        document_filters: args.documentIds ?? undefined,
-        owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
-      });
+      const { data, error } = await callVersionedRetrievalRpc(
+        args.supabase,
+        "match_document_table_facts_text_v2",
+        "match_document_table_facts_text",
+        {
+          query_text: variant,
+          match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
+          document_filters: args.documentIds ?? undefined,
+          ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+        },
+      );
       if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
       if (error || !data?.length) return [] as TableFactRpcRow[];
       return data as TableFactRpcRow[];
@@ -2003,6 +2156,7 @@ async function searchTableFactCandidates(args: {
     supabase: args.supabase,
     matches: Array.from(grouped.values()),
     ownerId: args.ownerId,
+    accessScope: args.accessScope,
   });
 }
 
@@ -2012,19 +2166,25 @@ async function searchEmbeddingFieldCandidates(args: {
   query: string;
   queryEmbedding: number[];
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   documentIds?: string[];
   allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
 }) {
-  const { data, error } = await args.supabase.rpc("match_document_embedding_fields_hybrid", {
-    query_embedding: args.queryEmbedding as unknown as string,
-    query_text: buildClinicalTextSearchQuery(args.query),
-    match_count: args.matchCount,
-    min_similarity: 0.12,
-    document_filters: args.documentIds ?? undefined,
-    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
-  });
+  const { data, error } = await callVersionedRetrievalRpc(
+    args.supabase,
+    "match_document_embedding_fields_hybrid_v2",
+    "match_document_embedding_fields_hybrid",
+    {
+      query_embedding: args.queryEmbedding as unknown as string,
+      query_text: buildClinicalTextSearchQuery(args.query),
+      match_count: args.matchCount,
+      min_similarity: 0.12,
+      document_filters: args.documentIds ?? undefined,
+      ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+    },
+  );
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
   const matches = (
@@ -2055,7 +2215,12 @@ async function searchEmbeddingFieldCandidates(args: {
       reason: "section_context",
       fieldType: row.field_type,
     }));
-  return loadChunksForSignalMatches({ supabase: args.supabase, matches, ownerId: args.ownerId });
+  return loadChunksForSignalMatches({
+    supabase: args.supabase,
+    matches,
+    ownerId: args.ownerId,
+    accessScope: args.accessScope,
+  });
 }
 
 /** Search index unit candidates. */
@@ -2064,19 +2229,25 @@ async function searchIndexUnitCandidates(args: {
   query: string;
   queryEmbedding: number[];
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   documentIds?: string[];
   allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
 }) {
-  const { data, error } = await args.supabase.rpc("match_document_index_units_hybrid", {
-    query_embedding: args.queryEmbedding as unknown as string,
-    query_text: buildClinicalTextSearchQuery(args.query),
-    match_count: args.matchCount,
-    min_similarity: 0.1,
-    document_filters: args.documentIds ?? undefined,
-    owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, args.documentIds, args.allowGlobalSearch),
-  });
+  const { data, error } = await callVersionedRetrievalRpc(
+    args.supabase,
+    "match_document_index_units_hybrid_v2",
+    "match_document_index_units_hybrid",
+    {
+      query_embedding: args.queryEmbedding as unknown as string,
+      query_text: buildClinicalTextSearchQuery(args.query),
+      match_count: args.matchCount,
+      min_similarity: 0.1,
+      document_filters: args.documentIds ?? undefined,
+      ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+    },
+  );
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
   const matches = (data as IndexUnitRpcRow[])
@@ -2109,7 +2280,12 @@ async function searchIndexUnitCandidates(args: {
         metadata: row.metadata ?? null,
       },
     }));
-  return loadChunksForSignalMatches({ supabase: args.supabase, matches, ownerId: args.ownerId });
+  return loadChunksForSignalMatches({
+    supabase: args.supabase,
+    matches,
+    ownerId: args.ownerId,
+    accessScope: args.accessScope,
+  });
 }
 
 type MemoryCardCache = Map<string, ReturnType<typeof fetchMemoryCardsForQuery>>;
@@ -2121,6 +2297,7 @@ async function withMemoryBoostedCandidates(args: {
   candidates: SearchResult[];
   queryEmbedding?: number[];
   ownerId?: string;
+  accessScope?: RetrievalAccessScope;
   documentIds?: string[];
   matchCount: number;
   cardCache?: MemoryCardCache;
@@ -2130,7 +2307,7 @@ async function withMemoryBoostedCandidates(args: {
   const effectiveMatchCount = Math.max(args.matchCount, 48);
   const documentScope = args.documentIds?.length ? [...args.documentIds].sort().join(",") : "all-documents";
   const cacheKey = [
-    args.ownerId ?? "anonymous",
+    retrievalAccessScopeKey(retrievalAccessScopeForArgs(args)),
     documentScope,
     args.query,
     args.queryEmbedding?.length ? "vec" : "text",
@@ -2143,6 +2320,7 @@ async function withMemoryBoostedCandidates(args: {
       query: args.query,
       queryEmbedding: args.queryEmbedding,
       ownerId: args.ownerId,
+      accessScope: args.accessScope,
       documentIds: args.documentIds,
       matchCount: effectiveMatchCount,
     });
@@ -2151,7 +2329,7 @@ async function withMemoryBoostedCandidates(args: {
   const cards = await cardsPromise;
   if (cards.length === 0) return { results: args.candidates, cards };
 
-  const memoryChunkResults = await loadChunksForMemoryCards(args.supabase, cards, args.ownerId);
+  const memoryChunkResults = await loadChunksForMemoryCards(args.supabase, cards, retrievalAccessScopeForArgs(args));
   const merged = mergeSearchResults(memoryChunkResults, args.candidates);
   return {
     results: applyMemoryCardBoosts(args.query, merged, cards),
@@ -2431,6 +2609,10 @@ export function decideTextFastPath(
   if (queryClass === "medication_dose_risk" && !results.slice(0, 5).some((result) => hasDoseEvidenceSupport(result))) {
     return { returnFastPath: false, reason: "missing_dose_evidence" };
   }
+  if (queryClass === "medication_dose_risk" && isMedicationDoseEvidenceQuery(query)) {
+    const doseCoverage = evaluateEvidenceCoverageGate(query, results, queryClass);
+    if (!doseCoverage.accepted) return { returnFastPath: false, reason: doseCoverage.reason };
+  }
 
   if (queryClass === "table_threshold") {
     if (strongestScore >= 0.62 || topTextRank >= 0.045) {
@@ -2690,9 +2872,7 @@ export function evaluateEvidenceCoverageGate(
   }
 
   const hasStructuredThreshold = top.some(hasStructuredThresholdEvidence);
-  const hasDoseEvidence = top.some(hasDoseEvidenceSupport);
   const hasDoseAmount = top.some(hasDoseAmountEvidenceForGate);
-  const hasRoute = top.some(hasRouteEvidenceForGate);
   const hasVisualUnit = top.some((result) => visualEvidenceUnitTypes.has(result.index_unit?.unit_type ?? ""));
   const hasDirectTitle = directTitleOrAliasSupport(query, top);
 
@@ -2746,23 +2926,43 @@ export function evaluateEvidenceCoverageGate(
   }
 
   if (queryClass === "medication_dose_risk") {
-    const asksDoseRoute =
-      /\b(?:dose|dosage|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(
-        query,
-      );
+    const asksDoseAmount = /\b(?:dose|doses|dosage|dosages|dosing|mg|mcg|microgram|maximum|minimum)\b/i.test(query);
+    const asksRoute =
+      /\b(?:route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(query);
     const agitationOk = !/\bagitation|arousal\b/i.test(query) || /\bagitation|arousal\b/i.test(evidenceText);
-    const accepted = hasDoseEvidence && hasDoseAmount && (!asksDoseRoute || hasRoute) && agitationOk;
+    const hasContextualDoseEvidence = top.some(
+      (result) => hasDoseEvidenceSupport(result) && medicationDoseQueryContext(query, result).matched,
+    );
+    const hasContextualDoseAmount = top.some(
+      (result) =>
+        hasDoseEvidenceSupport(result) &&
+        hasDoseAmountEvidenceForGate(result) &&
+        medicationDoseQueryContext(query, result).matched,
+    );
+    const hasContextualRoute = top.some(
+      (result) =>
+        hasDoseEvidenceSupport(result) &&
+        hasRouteEvidenceForGate(result) &&
+        medicationDoseQueryContext(query, result).matched,
+    );
+    const accepted =
+      hasContextualDoseEvidence &&
+      (!asksDoseAmount || hasContextualDoseAmount) &&
+      (!asksRoute || hasContextualRoute) &&
+      agitationOk;
     return {
       accepted,
       reason: accepted
         ? "dose_route_amount_evidence_gate"
         : !hasDoseAmount
           ? "missing_dose_amount_evidence"
-          : !hasRoute && asksDoseRoute
-            ? "missing_route_evidence"
-            : !agitationOk
-              ? "missing_agitation_context"
-              : "missing_dose_evidence",
+          : !hasContextualDoseEvidence || (asksDoseAmount && !hasContextualDoseAmount)
+            ? "missing_dose_query_context"
+            : !hasContextualRoute && asksRoute
+              ? "missing_route_evidence"
+              : !agitationOk
+                ? "missing_agitation_context"
+                : "missing_dose_evidence",
       strategy: "text_fast_path",
       sourceImageRequired,
       sourceImageSatisfied,
@@ -2923,8 +3123,10 @@ function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
  * @returns The ranked search results and telemetry describing the retrieval process.
  */
 export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
+  args = { ...args, accessScope: retrievalAccessScopeForArgs(args) };
   assertGlobalSearchAllowed(args);
   throwIfAborted(args.signal);
+  const indexingVersionAtRetrievalStart = await cacheIndexingVersion(args, { forceRefresh: true });
   const supabase = createAdminClient();
   // When the provider is source-only (offline mode, or auto mode without a usable key) we must
   // never call OpenAI for embeddings; retrieval falls back to the lexical text-fast-path only.
@@ -2953,6 +3155,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         supabase,
         ownerFilter:
           ownerScopeForDocumentFilteredRetrieval(args.ownerId, documentFilterList, args.allowGlobalSearch) ?? null,
+        accessScope: args.accessScope,
       };
     } catch {
       return undefined;
@@ -3009,7 +3212,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   };
   if (queryAnalysis.corpusGrounding) telemetry.corpus_grounding = queryAnalysis.corpusGrounding;
 
-  const ragAliases = await fetchEnabledRagAliases(supabase, args.ownerId);
+  const ragAliases = await fetchEnabledRagAliases(supabase, args.ownerId, args.accessScope);
   const ragAliasExpansions = selectRagAliasExpansions(retrievalQuery, ragAliases);
   telemetry.rag_alias_count = ragAliases.length;
   telemetry.rag_alias_expansion_count = ragAliasExpansions.length;
@@ -3028,7 +3231,9 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
 
   if (cached) return cached;
   if (sharedCached?.kind === "hit") {
-    await setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants);
+    await setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants, {
+      indexingVersionAtRetrievalStart,
+    });
     return { results: sharedCached.results, telemetry: sharedCached.telemetry };
   }
   if (sharedCached?.kind === "miss") {
@@ -3059,7 +3264,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.embedding_skip_reason = "unsupported_short_circuit";
     telemetry.retrieval_strategy = "unsupported_short_circuit";
     recordSearchScoreTelemetry(telemetry, []);
-    await setCachedSearch(args, [], telemetry, queryVariants);
+    await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
     return { results: [] as SearchResult[], telemetry };
   }
 
@@ -3080,6 +3285,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     supabase,
     queryVariants,
     ownerId: args.ownerId,
+    accessScope: args.accessScope,
     documentIds: documentFilterList,
     allowGlobalSearch: args.allowGlobalSearch,
     matchCount: textCandidateCount,
@@ -3125,7 +3331,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       markEmbeddingSkippedByTextFastPath(telemetry, baseTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      await setCachedSearch(args, textFastResults, telemetry, queryVariants);
+      await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
       return { results: textFastResults, telemetry };
     }
 
@@ -3134,6 +3340,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       query: retrievalQuery,
       candidates: textCandidates,
       ownerId: args.ownerId,
+      accessScope: args.accessScope,
       documentIds: documentFilterList,
       matchCount: candidateCount,
       cardCache: memoryCardCache,
@@ -3168,7 +3375,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       markEmbeddingSkippedByTextFastPath(telemetry, boostedTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      await setCachedSearch(args, textFastResults, telemetry, queryVariants);
+      await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
       return { results: textFastResults, telemetry };
     }
   }
@@ -3183,6 +3390,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       query: retrievalQuery,
       queryVariants,
       ownerId: args.ownerId,
+      accessScope: args.accessScope,
       documentIds: documentFilterList,
       allowGlobalSearch: args.allowGlobalSearch,
       matchCount: Math.min(candidateCount, 48),
@@ -3206,6 +3414,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       query: args.query,
       queryVariants,
       ownerId: args.ownerId,
+      accessScope: args.accessScope,
       documentIds: documentFilterList,
       matchCount: candidateCount,
       telemetry,
@@ -3231,6 +3440,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         query: args.query,
         candidates: documentLookupCandidates,
         ownerId: args.ownerId,
+        accessScope: args.accessScope,
         documentIds: documentFilterList,
         matchCount: candidateCount,
         cardCache: memoryCardCache,
@@ -3279,7 +3489,9 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         );
         telemetry.retrieval_strategy = "document_lookup_fast_path";
         recordSearchScoreTelemetry(telemetry, documentLookupResults);
-        await setCachedSearch(args, documentLookupResults, telemetry, queryVariants);
+        await setCachedSearch(args, documentLookupResults, telemetry, queryVariants, {
+          indexingVersionAtRetrievalStart,
+        });
         return { results: documentLookupResults, telemetry };
       }
       textFastResults = mergeSearchResults(documentLookupResults, textFastResults);
@@ -3303,7 +3515,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     if (!args.forceEmbedding && coverageGate.accepted) {
       telemetry.retrieval_strategy = coverageGate.strategy;
       recordSearchScoreTelemetry(telemetry, coverageGateResults);
-      await setCachedSearch(args, coverageGateResults, telemetry, queryVariants);
+      await setCachedSearch(args, coverageGateResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
       return { results: coverageGateResults, telemetry };
     }
     textFastResults = mergeSearchResults(coverageGateResults, textFastResults);
@@ -3364,6 +3576,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         query: args.query,
         queryEmbedding: embedding,
         ownerId: args.ownerId,
+        accessScope: args.accessScope,
         documentIds: documentFilterList,
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 48),
@@ -3378,6 +3591,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         query: args.query,
         queryEmbedding: embedding,
         ownerId: args.ownerId,
+        accessScope: args.accessScope,
         documentIds: documentFilterList,
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 64),
@@ -3387,14 +3601,19 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     })(),
     (async () => {
       const startedAt = Date.now();
-      const { data, error } = await supabase.rpc("match_document_chunks_hybrid", {
-        query_embedding: embedding as unknown as string,
-        query_text: args.forceEmbedding ? "" : textSearchQuery,
-        match_count: candidateCount,
-        min_similarity: minSimilarity,
-        document_filters: documentFilterList ?? undefined,
-        owner_filter: ownerScopeForDocumentFilteredRetrieval(args.ownerId, documentFilterList, args.allowGlobalSearch),
-      });
+      const { data, error } = await callVersionedRetrievalRpc(
+        supabase,
+        "match_document_chunks_hybrid_v2",
+        "match_document_chunks_hybrid",
+        {
+          query_embedding: embedding as unknown as string,
+          query_text: args.forceEmbedding ? "" : textSearchQuery,
+          match_count: candidateCount,
+          min_similarity: minSimilarity,
+          document_filters: documentFilterList ?? undefined,
+          ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+        },
+      );
       return { data, error, latencyMs: Date.now() - startedAt };
     })(),
   ]);
@@ -3451,6 +3670,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       candidates: mergedWithMetadata,
       queryEmbedding: embedding,
       ownerId: args.ownerId,
+      accessScope: args.accessScope,
       documentIds: documentFilterList,
       matchCount: candidateCount,
       cardCache: memoryCardCache,
@@ -3480,7 +3700,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
     telemetry.retrieval_strategy = "hybrid";
     recordSearchScoreTelemetry(telemetry, results);
-    await setCachedSearch(args, results, telemetry, queryVariants);
+    await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
     return { results, telemetry };
   }
 
@@ -3489,17 +3709,18 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const fallbackRpcStartedAt = Date.now();
   const resultSets = await Promise.all(
     vectorFilters.map(async (documentFilter) => {
-      const { data, error } = await supabase.rpc("match_document_chunks", {
-        query_embedding: embedding as unknown as string,
-        match_count: candidateCount,
-        min_similarity: minSimilarity,
-        document_filter: documentFilter ?? undefined,
-        owner_filter: ownerScopeForDocumentFilteredRetrieval(
-          args.ownerId,
-          documentFilter ? [documentFilter] : undefined,
-          documentFilter ? undefined : args.allowGlobalSearch,
-        ),
-      });
+      const { data, error } = await callVersionedRetrievalRpc(
+        supabase,
+        "match_document_chunks_v2",
+        "match_document_chunks",
+        {
+          query_embedding: embedding as unknown as string,
+          match_count: candidateCount,
+          min_similarity: minSimilarity,
+          document_filter: documentFilter ?? undefined,
+          ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+        },
+      );
 
       if (error) throw new Error(error.message);
       return (data ?? []) as SearchResult[];
@@ -3533,6 +3754,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     candidates: mergedWithMetadata,
     queryEmbedding: embedding,
     ownerId: args.ownerId,
+    accessScope: args.accessScope,
     documentIds: documentFilterList,
     matchCount: candidateCount,
     cardCache: memoryCardCache,
@@ -3562,7 +3784,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
   telemetry.retrieval_strategy = "vector_fallback";
   recordSearchScoreTelemetry(telemetry, results);
-  await setCachedSearch(args, results, telemetry, queryVariants);
+  await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
   return { results, telemetry };
 }
 
@@ -3656,11 +3878,15 @@ export async function answerQuestion(query: string, documentId?: string) {
 /** Answer question with scope. */
 export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs): Promise<RagAnswer> {
   const startedAt = Date.now();
-  const coalescingEnabled = !args.skipCache && env.RAG_ANSWER_CACHE_TTL_MS > 0 && env.RAG_ANSWER_CACHE_SIZE > 0;
+  const coalescingEnabled =
+    answerCacheAllowedForOwner(args.ownerId) &&
+    !args.skipCache &&
+    env.RAG_ANSWER_CACHE_TTL_MS > 0 &&
+    env.RAG_ANSWER_CACHE_SIZE > 0;
   const inflightKey = coalescingEnabled ? scopedAnswerCacheKey(args) : null;
-  const existing = inflightKey ? answerInflight.get(inflightKey) : undefined;
+  let existing = inflightKey ? answerInflight.get(inflightKey) : undefined;
 
-  if (existing) {
+  while (existing) {
     await args.onProgress?.({
       stage: "cached",
       message: "Waiting for an identical cited answer request already in progress.",
@@ -3680,7 +3906,15 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
       // The in-flight request we coalesced onto failed — most often because the ORIGINATING
       // caller aborted mid-flight (its AbortSignal is not ours) or its search phase threw. Do
       // not propagate another caller's failure to this still-connected request: fall through to
-      // an independent, uncoalesced run so this request is decided only by its own inputs.
+      // one replacement run. Recheck the map first: another still-connected
+      // waiter may already have installed that replacement while this rejected
+      // promise's microtasks were draining.
+      const replacement = inflightKey ? answerInflight.get(inflightKey) : undefined;
+      if (replacement && replacement !== existing) {
+        existing = replacement;
+        continue;
+      }
+      break;
     }
   }
 
@@ -3727,14 +3961,14 @@ async function answerQuestionWithScopeUncoalesced(
       weakSourceCount: cachedRelevance.weakSourceCount,
       relevance: cachedRelevance,
     });
-    return {
+    return assessAndEnforceClaimSupport({
       ...cachedAnswer,
       sources: cachedSources,
       relevance: cachedRelevance,
       smartPanel: cachedAnswer.smartPanel
         ? { ...cachedAnswer.smartPanel, relevance: cachedRelevance }
         : cachedAnswer.smartPanel,
-    };
+    });
   }
   const sharedCachedAnswer = adversarialQuery ? null : await getSharedCachedAnswer(args, startedAt);
   if (sharedCachedAnswer) {
@@ -3753,14 +3987,14 @@ async function answerQuestionWithScopeUncoalesced(
       weakSourceCount: cachedRelevance.weakSourceCount,
       relevance: cachedRelevance,
     });
-    return {
+    return assessAndEnforceClaimSupport({
       ...sharedCachedAnswer,
       sources: cachedSources,
       relevance: cachedRelevance,
       smartPanel: sharedCachedAnswer.smartPanel
         ? { ...sharedCachedAnswer.smartPanel, relevance: cachedRelevance }
         : sharedCachedAnswer.smartPanel,
-    };
+    });
   }
 
   const searchStartedAt = Date.now();
@@ -3844,6 +4078,17 @@ async function answerQuestionWithScopeUncoalesced(
     fastModel: env.OPENAI_FAST_ANSWER_MODEL,
     strongModel: env.OPENAI_STRONG_ANSWER_MODEL,
   });
+  const explicitlySelectedComparisonDocuments = Array.from(
+    new Set([...(args.documentIds ?? []), ...(args.documentId ? [args.documentId] : [])]),
+  );
+  const comparisonEvaluation =
+    queryClass === "comparison"
+      ? buildComparisonMatrix({
+          query: args.query,
+          results: answerInputResults,
+          selectedDocuments: explicitlySelectedComparisonDocuments,
+        })
+      : null;
   const initialRetrievalDiagnostics = buildRetrievalDiagnostics({
     queryClass,
     query: answerFocusQuery,
@@ -3970,6 +4215,8 @@ async function answerQuestionWithScopeUncoalesced(
         queryClass,
         queryAnalysis,
         responseMode: smartApiPlan.displayMode,
+        comparisonMatrix: comparisonEvaluation?.matrix,
+        comparisonEvaluationState: comparisonEvaluation?.evaluationState,
         latencyTimings: {
           search_cache_hit: search.telemetry.search_cache_hit,
           shared_cache_hit: search.telemetry.shared_cache_hit,
@@ -4072,49 +4319,73 @@ async function answerQuestionWithScopeUncoalesced(
 
   if (route.mode === "extractive") {
     const relatedDocuments = await relatedDocumentsPromise;
+    const extractiveTimings: RagAnswer["latencyTimings"] = {
+      search_cache_hit: search.telemetry.search_cache_hit,
+      shared_cache_hit: search.telemetry.shared_cache_hit,
+      shared_cache_status: search.telemetry.shared_cache_status,
+      shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
+      text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
+      embedding_skipped: search.telemetry.embedding_skipped,
+      embedding_skip_reason: search.telemetry.embedding_skip_reason,
+      text_candidate_budget: search.telemetry.text_candidate_budget,
+      text_candidate_count: search.telemetry.text_candidate_count,
+      text_fast_path_reason: search.telemetry.text_fast_path_reason,
+      embedding_latency_ms: search.telemetry.embedding_latency_ms,
+      embedding_cache_hit: search.telemetry.embedding_cache_hit,
+      vector_candidate_count: search.telemetry.vector_candidate_count,
+      embedding_field_count: search.telemetry.embedding_field_count,
+      retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
+      supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
+      rerank_latency_ms: search.telemetry.rerank_latency_ms,
+      second_stage_rerank_used: search.telemetry.second_stage_rerank_used,
+      second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms,
+      context_pack_latency_ms: 0,
+      search_latency_ms: searchLatencyMs,
+      generation_latency_ms: 0,
+      total_latency_ms: Date.now() - startedAt,
+    };
     const answer: RagAnswer = annotateAnswerWithDiagnostics(
-      buildExtractiveAnswer({
-        query: args.query,
-        queryClass,
-        results: answerInputResults,
-        quoteCards,
-        documentBreakdown,
-        evidenceSummary,
-        sourceCoverage,
-        conflictsOrGaps,
-        visualEvidence,
-        bestSource,
-        smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
-        relatedDocuments,
-        routeReason: route.reason,
-        timings: {
-          search_cache_hit: search.telemetry.search_cache_hit,
-          shared_cache_hit: search.telemetry.shared_cache_hit,
-          shared_cache_status: search.telemetry.shared_cache_status,
-          shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
-          text_fast_path_latency_ms: search.telemetry.text_fast_path_latency_ms,
-          embedding_skipped: search.telemetry.embedding_skipped,
-          embedding_skip_reason: search.telemetry.embedding_skip_reason,
-          text_candidate_budget: search.telemetry.text_candidate_budget,
-          text_candidate_count: search.telemetry.text_candidate_count,
-          text_fast_path_reason: search.telemetry.text_fast_path_reason,
-          embedding_latency_ms: search.telemetry.embedding_latency_ms,
-          embedding_cache_hit: search.telemetry.embedding_cache_hit,
-          vector_candidate_count: search.telemetry.vector_candidate_count,
-          embedding_field_count: search.telemetry.embedding_field_count,
-          retrieval_query_variant_count: search.telemetry.retrieval_query_variant_count,
-          supabase_rpc_latency_ms: search.telemetry.supabase_rpc_latency_ms,
-          rerank_latency_ms: search.telemetry.rerank_latency_ms,
-          second_stage_rerank_used: search.telemetry.second_stage_rerank_used,
-          second_stage_rerank_latency_ms: search.telemetry.second_stage_rerank_latency_ms,
-          context_pack_latency_ms: 0,
-          search_latency_ms: searchLatencyMs,
-          generation_latency_ms: 0,
-          total_latency_ms: Date.now() - startedAt,
-        },
-      }),
+      queryClass === "comparison"
+        ? (buildComparisonAnswer({
+            query: args.query,
+            results: answerInputResults,
+            selectedDocuments: explicitlySelectedComparisonDocuments,
+            routeReason: route.reason,
+            timings: extractiveTimings,
+          }) ??
+            buildComparisonEvidenceGapAnswer({
+              query: args.query,
+              results: answerInputResults,
+              selectedDocuments: explicitlySelectedComparisonDocuments,
+              routeReason: `${route.reason}; comparison_evidence_gap`,
+              timings: extractiveTimings,
+            }))
+        : buildExtractiveAnswer({
+            query: args.query,
+            queryClass,
+            results: answerInputResults,
+            quoteCards,
+            documentBreakdown,
+            evidenceSummary,
+            sourceCoverage,
+            conflictsOrGaps,
+            visualEvidence,
+            bestSource,
+            smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+            relatedDocuments,
+            routeReason: route.reason,
+            timings: extractiveTimings,
+          }),
       retrievalDiagnostics,
     );
+    answer.quoteCards ??= quoteCards;
+    answer.documentBreakdown ??= documentBreakdown;
+    answer.evidenceSummary ??= evidenceSummary;
+    answer.sourceCoverage ??= sourceCoverage;
+    answer.conflictsOrGaps ??= conflictsOrGaps;
+    answer.visualEvidence ??= visualEvidence;
+    answer.bestSource ??= bestSource;
+    answer.relatedDocuments ??= relatedDocuments;
     answer.relevance = relevance;
     answer.queryAnalysis = queryAnalysis;
     answer.responseMode = smartApiPlan.displayMode;
@@ -4230,7 +4501,15 @@ Return data matching the supplied structured output schema.`;
   function buildAnswerInput(contextResults: SearchResult[]) {
     const sourceGuide = crossDocumentPlan.enabled ? buildCrossDocumentSourceGuide(contextResults) : "";
     const fusedBrief = crossDocumentFusionBrief?.text ?? "";
-    const crossDocumentContext = [sourceGuide, fusedBrief].filter(Boolean).join("\n\n");
+    const comparisonGuide =
+      queryClass === "comparison"
+        ? `Source-attributed comparison matrix (MISSING means do not infer a value):\n${comparisonEvidenceGuide({
+            query: args.query,
+            results: contextResults,
+            selectedDocuments: explicitlySelectedComparisonDocuments,
+          })}`
+        : "";
+    const crossDocumentContext = [comparisonGuide, sourceGuide, fusedBrief].filter(Boolean).join("\n\n");
     const validEvidenceChunkIds = Array.from(new Set(contextResults.map((result) => result.id).filter(Boolean))).join(
       ", ",
     );
@@ -4754,6 +5033,8 @@ ${qualityRetryInstruction}`
     answer.indexingQuality = indexingQuality;
     answer.smartApiPlan = buildCurrentSmartApiPlan(answer.routingMode, answer.routingReason);
     answer.responseMode = answer.smartApiPlan.displayMode;
+    answer.comparisonMatrix = comparisonEvaluation?.matrix;
+    answer.comparisonEvaluationState = comparisonEvaluation?.evaluationState;
     answer.scoreExplanations = answerScoreExplanations;
     answer.relevance = relevance;
     answer.smartPanel = answer.smartPanel ? { ...answer.smartPanel, relevance } : answer.smartPanel;
@@ -4828,6 +5109,7 @@ ${qualityRetryInstruction}`
     await setCachedAnswer(args, answer, { indexingVersionAtRetrievalStart });
     return answer;
   } catch (error) {
+    if ((error instanceof DOMException && error.name === "AbortError") || args.signal?.aborted) throw error;
     const relatedDocuments = await relatedDocumentsPromise;
     await args.onProgress?.({
       stage: "finalizing",
@@ -4837,7 +5119,25 @@ ${qualityRetryInstruction}`
     });
     const baseFallbackAnswer = await buildGenerationFallbackAnswer(error, relatedDocuments);
     const sanitizedReason = summarizeGenerationFailureReason(error);
+    const comparisonFallbackAnswer =
+      queryClass === "comparison"
+        ? (buildComparisonAnswer({
+            query: args.query,
+            results: answerInputResults,
+            selectedDocuments: explicitlySelectedComparisonDocuments,
+            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_source_safe_fallback`,
+            timings: baseFallbackAnswer.latencyTimings,
+          }) ??
+          buildComparisonEvidenceGapAnswer({
+            query: args.query,
+            results: answerInputResults,
+            selectedDocuments: explicitlySelectedComparisonDocuments,
+            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_evidence_gap`,
+            timings: baseFallbackAnswer.latencyTimings,
+          }))
+        : null;
     const canRecoverGenerationErrorExtractively =
+      queryClass !== "comparison" &&
       answerInputResults.length > 0 &&
       baseFallbackAnswer.citations.length > 0 &&
       !/(?:max_output_tokens|incomplete)/i.test(sanitizedReason);
@@ -4885,8 +5185,28 @@ ${qualityRetryInstruction}`
         ? "ungrounded_extractive_fallback"
         : extractiveFallbackQualityReason
       : null;
-    const generationFallbackAnswer =
-      extractiveFallbackAnswer && sourceBackedReviewReason
+    const generationFallbackAnswer = comparisonFallbackAnswer
+      ? {
+          ...comparisonFallbackAnswer,
+          quoteCards,
+          documentBreakdown,
+          evidenceSummary,
+          sourceCoverage,
+          conflictsOrGaps,
+          visualEvidence,
+          bestSource,
+          relatedDocuments,
+          smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+          openAIRequestIds,
+          openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,
+          queryAnalysis,
+          memoryCardsUsed,
+          indexingVersion: ragDeepMemoryVersion,
+          indexingQuality,
+          relevance,
+          scoreExplanations: answerScoreExplanations,
+        }
+      : extractiveFallbackAnswer && sourceBackedReviewReason
         ? (() => {
             const reviewRouteReason = [
               route.reason,
@@ -5065,5 +5385,5 @@ ${buildRagSourceBlock(results)}`;
     generation_latency_ms: generated.latencyMs,
     total_latency_ms: generated.latencyMs,
   };
-  return answer;
+  return assessAndEnforceClaimSupport(answer);
 }

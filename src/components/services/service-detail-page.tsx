@@ -379,7 +379,7 @@ function CriteriaGroup({
                 </div>
                 <span
                   className={cn(
-                    "inline-flex min-h-6 shrink-0 items-center rounded-full border px-2.5 text-3xs font-bold lowercase",
+                    "inline-flex min-h-6 shrink-0 items-center rounded-full border px-2.5 text-2xs font-bold lowercase",
                     pill.className,
                   )}
                 >
@@ -490,7 +490,10 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
       const next = current.includes(service.slug)
         ? current.filter((item) => item !== service.slug)
         : [service.slug, ...current];
-      writeSavedRegistrySlugs(savedServicesStorageKey, next);
+      if (!writeSavedRegistrySlugs(savedServicesStorageKey, next)) {
+        setNotice("Save failed");
+        return;
+      }
       const nowSaved = next.includes(service.slug);
       setSaved(nowSaved);
       setNotice(nowSaved ? "Service saved" : "Service removed from saved items");

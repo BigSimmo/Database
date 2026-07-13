@@ -165,6 +165,28 @@ describe("indexing-v3-agent behavior", () => {
     expect(edgeSource).toContain("metadata->>'source' = 'visual_intelligence'");
   });
 
+  it("replaces every generated enrichment family inside one database transaction", async () => {
+    const edgeSource = String(
+      await import("node:fs/promises").then((fs) =>
+        fs.readFile(new URL("../supabase/functions/indexing-v3-agent/index.ts", import.meta.url), "utf8"),
+      ),
+    );
+    const functionBody = (name: string, nextName: string) =>
+      edgeSource.slice(edgeSource.indexOf(`async function ${name}`), edgeSource.indexOf(`async function ${nextName}`));
+
+    for (const [name, nextName] of [
+      ["upsertMemoryCardsFromSections", "upsertSectionIndexUnits"],
+      ["upsertSectionIndexUnits", "upsertVisualArtifacts"],
+      ["upsertVisualArtifacts", "upsertCoreEmbeddingFields"],
+      ["upsertCoreEmbeddingFields", "updateQuality"],
+    ]) {
+      const body = functionBody(name, nextName);
+      expect(body).toContain("await sql.begin(async (tx) =>");
+      expect(body).toContain("await tx`");
+      expect(body.indexOf("delete from public.document_")).toBeLessThan(body.indexOf("insert into public.document_"));
+    }
+  });
+
   it("normalizes metadata counters for repeated idempotent runs", () => {
     expect(metadataNumber({ indexing_v3_agent_deferral_count: "4" }, "indexing_v3_agent_deferral_count")).toBe(4);
     expect(metadataNumber({ indexing_v3_agent_deferral_count: "bad" }, "indexing_v3_agent_deferral_count")).toBe(0);

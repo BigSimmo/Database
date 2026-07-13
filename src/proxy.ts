@@ -25,8 +25,6 @@ import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-
 
 const documentFlowRedirects: Record<string, string> = {
   "/mockups/document-search-command": "/documents/search",
-  "/mockups/document-search/source": "/documents/source",
-  "/mockups/document-search/source/evidence": "/documents/source/evidence",
 };
 
 // Same runtime flags next.config.ts uses for the static headers, so the nonce'd
@@ -39,6 +37,20 @@ export async function proxy(request: NextRequest) {
   // matches the documented pattern and keeps the value header-safe.
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const csp = buildContentSecurityPolicy({ isDevelopment, isLocalHttpRuntime, nonce });
+
+  if (request.nextUrl.pathname === "/api/upload") {
+    const declaredLength = Number(request.headers.get("content-length"));
+    const uploadEnvelopeBytes = env.MAX_UPLOAD_MB * 1024 * 1024 + 1024 * 1024;
+    if (Number.isFinite(declaredLength) && declaredLength > uploadEnvelopeBytes) {
+      const response = NextResponse.json(
+        { error: "Upload request is too large.", code: "payload_too_large" },
+        { status: 413 },
+      );
+      response.headers.set("content-security-policy", csp);
+      response.headers.set("cache-control", "private, no-store");
+      return response;
+    }
+  }
 
   // Request headers Next.js reads during SSR: `x-nonce` for our own inline
   // <script>, and the CSP header from which Next extracts the nonce for its

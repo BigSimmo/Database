@@ -125,6 +125,235 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
 }
 
 describe("answer render policy", () => {
+  it("labels review-only citations accurately instead of calling them generated-answer citations", () => {
+    const model = buildAnswerRenderModel(
+      answer({
+        citations: [citation({ provenance: "review_only" })],
+        bestSource: null,
+        answerSections: [],
+        quoteCards: [],
+      }),
+    );
+    expect(model.primarySources[0]?.reason).toBe("Added for source review; not accepted as claim support.");
+  });
+
+  it("makes review-due status visible", () => {
+    const reviewDue = source({
+      source_metadata: {
+        source_title: "Clozapine guideline",
+        publisher: "Local service",
+        jurisdiction: "WA",
+        version: "1",
+        publication_date: "2024-01-01",
+        review_date: "2026-01-01",
+        uploaded_at: "2024-01-01",
+        indexed_at: "2024-01-01",
+        uploaded_by: null,
+        document_status: "review_due",
+        clinical_validation_status: "approved",
+        extraction_quality: "good",
+      },
+    });
+    const model = buildAnswerRenderModel(
+      answer({
+        sources: [reviewDue],
+        bestSource: null,
+        quoteCards: [],
+        supportedClaims: [
+          {
+            claimId: "claim-1",
+            text: "Withhold clozapine.",
+            riskClass: "high_risk",
+            supportingChunkIds: ["chunk-1"],
+            supportStatus: "direct",
+          },
+        ],
+        evidenceAssessments: {
+          "chunk-1": {
+            relevance: "direct",
+            claimSupport: "direct",
+            authority: "approved",
+            currency: "review_due",
+            extractionQuality: "good",
+          },
+        },
+      }),
+    );
+    expect(model.warnings).toContain("A supporting source is due for review.");
+  });
+
+  it("does not describe an incidental review-due retrieval as a supporting source", () => {
+    const incidental = source({
+      id: "incidental",
+      document_id: "incidental-doc",
+      source_metadata: {
+        source_title: "Old directory",
+        publisher: "Local service",
+        jurisdiction: "WA",
+        version: "1",
+        publication_date: "2024-01-01",
+        review_date: "2026-01-01",
+        uploaded_at: "2024-01-01",
+        indexed_at: "2024-01-01",
+        uploaded_by: null,
+        document_status: "review_due",
+        clinical_validation_status: "unverified",
+        extraction_quality: "good",
+      },
+    });
+    const model = buildAnswerRenderModel(
+      answer({
+        sources: [source(), incidental],
+        supportedClaims: [
+          {
+            claimId: "claim-1",
+            text: "Withhold clozapine.",
+            riskClass: "high_risk",
+            supportingChunkIds: ["chunk-1"],
+            supportStatus: "direct",
+          },
+        ],
+        evidenceAssessments: {
+          "chunk-1": {
+            relevance: "direct",
+            claimSupport: "direct",
+            authority: "approved",
+            currency: "current",
+            extractionQuality: "good",
+          },
+          incidental: {
+            relevance: "none",
+            claimSupport: "unsupported",
+            authority: "unverified",
+            currency: "review_due",
+            extractionQuality: "good",
+          },
+        },
+      }),
+    );
+    expect(model.warnings).not.toContain("A supporting source is due for review.");
+  });
+
+  it("uses retrieved-source wording for review-due evidence when there is no material support", () => {
+    const reviewDue = source({
+      source_metadata: {
+        source_title: "Review source",
+        publisher: "Local service",
+        jurisdiction: "WA",
+        version: "1",
+        publication_date: "2024-01-01",
+        review_date: "2026-01-01",
+        uploaded_at: "2024-01-01",
+        indexed_at: "2024-01-01",
+        uploaded_by: null,
+        document_status: "review_due",
+        clinical_validation_status: "unverified",
+        extraction_quality: "good",
+      },
+    });
+    const model = buildAnswerRenderModel(
+      answer({
+        sources: [reviewDue],
+        supportedClaims: [
+          {
+            claimId: "claim-1",
+            text: "The retrieved material mentions a clinic.",
+            riskClass: "routine",
+            supportingChunkIds: [],
+            supportStatus: "unsupported",
+          },
+        ],
+        evidenceAssessments: {
+          "chunk-1": {
+            relevance: "nearby",
+            claimSupport: "unsupported",
+            authority: "unverified",
+            currency: "review_due",
+            extractionQuality: "good",
+          },
+        },
+      }),
+    );
+    expect(model.warnings).toContain("A retrieved source is due for review.");
+    expect(model.warnings).not.toContain("A supporting source is due for review.");
+  });
+
+  it("does not render high trust for high-risk claims supported only by unverified evidence", () => {
+    const model = buildAnswerRenderModel(
+      answer({
+        supportedClaims: [
+          {
+            claimId: "claim-1",
+            text: "Withhold clozapine.",
+            riskClass: "high_risk",
+            supportingChunkIds: ["chunk-1"],
+            supportStatus: "direct",
+          },
+        ],
+        evidenceAssessments: {
+          "chunk-1": {
+            relevance: "direct",
+            claimSupport: "direct",
+            authority: "unverified",
+            currency: "current",
+            extractionQuality: "good",
+          },
+        },
+      }),
+    );
+    expect(model.trust).not.toBe("high");
+  });
+
+  it.each([
+    ["missing assessment", undefined],
+    [
+      "missing authority",
+      {
+        relevance: "direct",
+        claimSupport: "direct",
+        currency: "current",
+        extractionQuality: "good",
+      },
+    ],
+  ])("caps high-risk trust for %s", (_label, assessment) => {
+    const model = buildAnswerRenderModel(
+      answer({
+        supportedClaims: [
+          {
+            claimId: "claim-1",
+            text: "Withhold clozapine.",
+            riskClass: "high_risk",
+            supportingChunkIds: ["chunk-1"],
+            supportStatus: "direct",
+          },
+        ],
+        evidenceAssessments: assessment
+          ? ({ "chunk-1": assessment } as unknown as RagAnswer["evidenceAssessments"])
+          : {},
+      }),
+    );
+    expect(model.trust).not.toBe("high");
+  });
+
+  it("prefers a direct supporting chunk as best source", () => {
+    const direct = source({ id: "chunk-2", document_id: "doc-2", title: "Direct threshold", file_name: "direct.pdf" });
+    const model = buildAnswerRenderModel(
+      answer({
+        sources: [source(), direct],
+        supportedClaims: [
+          {
+            claimId: "claim-1",
+            text: "Withhold clozapine.",
+            riskClass: "high_risk",
+            supportingChunkIds: ["chunk-2"],
+            supportStatus: "direct",
+          },
+        ],
+      }),
+    );
+    expect(model.bestSource?.chunk_id).toBe("chunk-2");
+  });
+
   it("copies the displayed table values, units, and canonical provenance", () => {
     const model = buildAnswerRenderModel(
       answer({
@@ -141,6 +370,18 @@ describe("answer render policy", () => {
     expect(model.copyText).toContain("0.49 ×10^9/L");
     expect(model.copyText).toContain("Stop and escalate");
     expect(model.copyText).toContain("/documents/doc-1?page=4&chunk=chunk-1");
+  });
+
+  it("omits the table-evidence heading when displayed evidence has no table rows", () => {
+    const text = formatAnswerRenderCopyText({
+      answerText: "Review the image source.",
+      trust: "high",
+      primarySources: [],
+      warnings: [],
+      visualEvidence: [visual({ tableRows: undefined, tableColumns: undefined })],
+    });
+
+    expect(text).not.toContain("Displayed table evidence");
   });
 
   it("strips high-yield bold markers from the copy/paste clinical draft", () => {
@@ -295,6 +536,162 @@ describe("answer render policy", () => {
 
     expect(model.quoteCards).toHaveLength(0);
     expect(model.allowedBlocks).not.toContain("quoteCards");
+  });
+
+  describe("canonical clinical tables", () => {
+    it("keeps ordinary prose unchanged when no accepted table is visible", () => {
+      const model = buildAnswerRenderModel(answer({ visualEvidence: [] }));
+
+      expect(model.tables).toEqual([]);
+      expect(model.copyText).toContain(model.answerText);
+      expect(model.copyText).not.toContain("Clinical tables");
+    });
+
+    it("uses the same canonical headers and rows for rendering and clipboard text", () => {
+      const model = buildAnswerRenderModel(
+        answer({
+          visualEvidence: [
+            visual({
+              tableTitle: "ANC actions",
+              tableColumns: ["ANC range", "Action"],
+              tableRows: [
+                ["1.0–1.5 × 10⁹/L", "Increase monitoring"],
+                ["<1.0 × 10⁹/L", "Withhold and seek specialist advice"],
+              ],
+            }),
+          ],
+        }),
+      );
+
+      expect(model.tables).toHaveLength(1);
+      expect(model.tables[0]).toMatchObject({
+        title: "ANC actions",
+        headers: ["ANC range", "Action"],
+        rows: [
+          ["1.0–1.5 × 10⁹/L", "Increase monitoring"],
+          ["<1.0 × 10⁹/L", "Withhold and seek specialist advice"],
+        ],
+        lowConfidence: false,
+        source: {
+          chunkId: "chunk-1",
+          href: "/documents/doc-1?page=4&chunk=chunk-1",
+        },
+      });
+      expect(model.copyText).toContain("ANC range | Action");
+      expect(model.copyText).toContain("1.0–1.5 × 10⁹/L | Increase monitoring");
+      expect(model.copyText).toContain("<1.0 × 10⁹/L | Withhold and seek specialist advice");
+      expect(model.copyText).toContain(
+        "Source: Clozapine Monitoring Guideline, page 4 | /documents/doc-1?page=4&chunk=chunk-1",
+      );
+    });
+
+    it("preserves low-confidence reconstruction and incomplete-header caveats without inventing cells", () => {
+      const model = buildAnswerRenderModel(
+        answer({
+          visualEvidence: [
+            visual({
+              tableTitle: "Dose and action",
+              tableColumns: ["Dose", "", "Action"],
+              tableRows: [["25 mg", "", "Review"]],
+            }),
+          ],
+        }),
+      );
+
+      expect(model.tables[0]).toMatchObject({
+        headers: ["Dose", null, "Action"],
+        rows: [["25 mg", null, "Review"]],
+        lowConfidence: true,
+      });
+      expect(model.tables[0]?.caveat).toContain("headers are incomplete");
+      expect(model.tables[0]?.caveat).toContain("could not be confidently reconstructed");
+      expect(model.copyText).toContain("Dose | [header missing] | Action");
+      expect(model.copyText).toContain("25 mg | [blank] | Review");
+      expect(model.copyText).not.toContain("Column 2");
+      expect(model.copyText).not.toContain("Details 2");
+    });
+
+    it("preserves a low-confidence reconstructed table when all headers are complete", () => {
+      const model = buildAnswerRenderModel(
+        answer({
+          visualEvidence: [
+            visual({
+              tableTitle: "Dose schedule",
+              tableColumns: ["Medicine", "Dose"],
+              tableRows: [
+                ["Drug A", "25 mg"],
+                ["", "daily"],
+              ],
+            }),
+          ],
+        }),
+      );
+
+      expect(model.tables[0]).toMatchObject({
+        headers: ["Medicine", "Dose"],
+        rows: [["Drug A", "25 mg daily"]],
+        lowConfidence: true,
+      });
+      expect(model.tables[0]?.caveat).toContain("could not be confidently reconstructed");
+      expect(model.tables[0]?.caveat).not.toContain("headers are incomplete");
+      expect(model.copyText).toContain("Medicine | Dose");
+      expect(model.copyText).toContain("Drug A | 25 mg daily");
+    });
+
+    it("copies numeric, source-status, and review-due warnings alongside tables", () => {
+      const model = buildAnswerRenderModel(
+        answer({
+          faithfulnessWarning: "Numeric claims require source verification.",
+          unverifiedNumericTokens: ["25 mg"],
+          sourceGovernanceWarnings: [
+            {
+              code: "unverified_source",
+              severity: "warning",
+              message: "One or more supporting sources are not locally validated.",
+            },
+          ],
+          supportedClaims: [
+            {
+              claimId: "claim-1",
+              text: "Review the dose.",
+              riskClass: "high_risk",
+              supportingChunkIds: ["chunk-1"],
+              supportStatus: "direct",
+            },
+          ],
+          evidenceAssessments: {
+            "chunk-1": {
+              relevance: "direct",
+              claimSupport: "direct",
+              authority: "approved",
+              currency: "review_due",
+              extractionQuality: "good",
+            },
+          },
+        }),
+      );
+
+      expect(model.copyText).toContain("Numeric claims require source verification.");
+      expect(model.copyText).toContain("Unverified numeric tokens: 25 mg.");
+      expect(model.copyText).toContain("One or more supporting sources are not locally validated.");
+      expect(model.copyText).toContain("A supporting source is due for review.");
+    });
+
+    it("does not copy clinical content hidden by render policy", () => {
+      const model = buildAnswerRenderModel(
+        answer({
+          grounded: false,
+          confidence: "unsupported",
+          routingMode: "unsupported",
+          responseMode: "evidence_gap",
+          visualEvidence: [visual({ tableRows: [["HIDDEN 900 mg", "Give now"]] })],
+        }),
+      );
+
+      expect(model.tables).toEqual([]);
+      expect(model.copyText).not.toContain("HIDDEN 900 mg");
+      expect(model.copyText).not.toContain("Give now");
+    });
   });
 
   describe("copy-text source-strength gloss (P4b)", () => {

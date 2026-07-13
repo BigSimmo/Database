@@ -7,7 +7,7 @@ afterEach(() => {
 });
 
 describe("/api/setup-status", () => {
-  it("returns setup posture for anonymous production requests without exposing secret values", async () => {
+  it("returns only coarse posture for anonymous production requests", async () => {
     vi.stubEnv("NODE_ENV", "production");
     const from = vi.fn(async () => ({ error: null, data: [], count: 0 }));
     const createAdminClient = vi.fn(() => ({
@@ -27,6 +27,15 @@ describe("/api/setup-status", () => {
       isLocalNoAuthMode: () => false,
     }));
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient }));
+    vi.doMock("@/lib/supabase/auth", () => {
+      class AuthenticationError extends Error {}
+      return {
+        AuthenticationError,
+        requireAuthenticatedUser: vi.fn(async () => {
+          throw new AuthenticationError("Authentication required.");
+        }),
+      };
+    });
     vi.doMock("@/lib/supabase/health", () => ({
       probeSupabaseHealth: vi.fn(async () => ({ ok: true })),
       isSupabaseUnavailableError: () => false,
@@ -42,13 +51,8 @@ describe("/api/setup-status", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toMatchObject({
-      demoMode: false,
-      checks: expect.arrayContaining([
-        expect.objectContaining({ id: "env" }),
-        expect.objectContaining({ id: "openai" }),
-      ]),
-    });
+    expect(body).toMatchObject({ demoMode: false, indexingActive: false });
+    expect(body.checks.length).toBeGreaterThan(0);
     expect(JSON.stringify(body)).not.toContain("service-role-key");
     expect(JSON.stringify(body)).not.toContain("openai-key");
   });
@@ -73,6 +77,11 @@ describe("/api/setup-status", () => {
       isLocalNoAuthMode: () => false,
     }));
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient }));
+    const requireAuthenticatedUser = vi.fn(async () => ({ id: "user-1" }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser,
+    }));
     vi.doMock("@/lib/supabase/health", () => ({
       probeSupabaseHealth: vi.fn(async () => ({ ok: true })),
       isSupabaseUnavailableError: () => false,
@@ -87,11 +96,16 @@ describe("/api/setup-status", () => {
     }));
     const { GET } = await import("../src/app/api/setup-status/route");
 
-    const response = await GET(new Request("https://clinical.example/api/setup-status"));
+    const response = await GET(
+      new Request("https://clinical.example/api/setup-status", {
+        headers: { authorization: "Bearer authenticated-user-token" },
+      }),
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body.checks).toEqual(expect.arrayContaining([expect.objectContaining({ id: "project", status: "ready" })]));
+    expect(requireAuthenticatedUser).toHaveBeenCalledOnce();
   });
 
   it("coarsens per-check detail for anonymous production callers and restores it with the operator token", async () => {

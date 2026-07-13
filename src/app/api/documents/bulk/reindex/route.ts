@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { upsertDocumentDeepMemory } from "@/lib/deep-memory";
-import { upsertDocumentEnrichment } from "@/lib/document-enrichment";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import {
@@ -15,11 +12,7 @@ import {
 } from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
-import {
-  committedIndexGeneration,
-  isAtomicReindexCandidate,
-  isCommittedGenerationMetadata,
-} from "@/lib/reindex-pipeline";
+import { isAtomicReindexCandidate } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -30,69 +23,6 @@ const bulkReindexSchema = z.object({
   documentIds: z.array(z.string().uuid()).min(1).max(10),
   mode: z.enum(["enrichment", "full", "retry_failed"]).default("enrichment"),
 });
-
-const pageSize = 1000;
-
-type ReindexChunk = {
-  id: string;
-  document_id: string;
-  page_number: number | null;
-  chunk_index: number;
-  section_heading: string | null;
-  content: string;
-  image_ids?: string[] | null;
-  metadata?: Record<string, unknown> | null;
-};
-
-type ReindexImage = {
-  id: string;
-  page_number: number | null;
-  caption: string | null;
-  image_type: string | null;
-  labels?: string[] | null;
-  source_kind?: string | null;
-  clinical_relevance_score?: number | null;
-  metadata?: Record<string, unknown> | null;
-};
-
-function committedReindexRows<T extends { metadata?: unknown }>(document: { metadata?: unknown }, rows: T[]) {
-  const committedGeneration = committedIndexGeneration(document.metadata);
-  return rows.filter((row) =>
-    isCommittedGenerationMetadata({
-      rowMetadata: row.metadata,
-      committedGeneration,
-    }),
-  );
-}
-
-async function selectRowsInPages<T>(args: {
-  supabase: ReturnType<typeof createAdminClient>;
-  table: "document_chunks" | "document_images";
-  select: string;
-  documentId: string;
-  searchableOnly?: boolean;
-}) {
-  const rows: T[] = [];
-  if (args.searchableOnly && args.table !== "document_images") {
-    throw new Error("searchableOnly reindex paging only supports the document_images table.");
-  }
-  for (let offset = 0; ; offset += pageSize) {
-    const dynamicSupabase = args.supabase as unknown as SupabaseClient;
-    const query = args.searchableOnly
-      ? dynamicSupabase
-          .from("document_images")
-          .select(args.select)
-          .eq("document_id", args.documentId)
-          .eq("searchable", true)
-      : dynamicSupabase.from(args.table).select(args.select).eq("document_id", args.documentId);
-    const { data, error } = await query.range(offset, offset + pageSize - 1);
-    if (error) throw new Error(error.message);
-    const page = (data ?? []) as T[];
-    rows.push(...page);
-    if (page.length < pageSize) break;
-  }
-  return rows;
-}
 
 export async function POST(request: Request) {
   try {
@@ -140,46 +70,16 @@ export async function POST(request: Request) {
         }
 
         if (parsed.mode === "enrichment") {
-          const [chunks, images] = await Promise.all([
-            selectRowsInPages<ReindexChunk>({
-              supabase,
-              table: "document_chunks",
-              select: "id,document_id,page_number,chunk_index,section_heading,content,image_ids,metadata",
-              documentId: document.id,
-            }),
-            selectRowsInPages<ReindexImage>({
-              supabase,
-              table: "document_images",
-              select: "id,page_number,caption,image_type,labels,source_kind,clinical_relevance_score,metadata",
-              documentId: document.id,
-              searchableOnly: true,
-            }),
-          ]);
-          const committedChunks = committedReindexRows(document, chunks);
-          const committedImages = committedReindexRows(document, images);
-          if (!committedChunks.length) throw new Error("Document has no indexed chunks to enrich.");
-          committedChunks.sort((a, b) => Number(a.chunk_index ?? 0) - Number(b.chunk_index ?? 0));
-          committedImages.sort(
-            (a, b) => Number(b.clinical_relevance_score ?? 0) - Number(a.clinical_relevance_score ?? 0),
-          );
-          const enrichment = await upsertDocumentEnrichment({
-            supabase,
-            document: document as Parameters<typeof upsertDocumentEnrichment>[0]["document"],
-            chunks: committedChunks,
-            images: committedImages,
+          const { data: queued, error: queueError } = await supabase.rpc("request_indexing_v3_enrichment", {
+            p_document_id: document.id,
+            p_owner_id: user.id,
           });
-          const memory = await upsertDocumentDeepMemory({
-            supabase,
-            document: document as Parameters<typeof upsertDocumentDeepMemory>[0]["document"],
-            chunks: committedChunks,
-            images: committedImages,
-            summary: enrichment.summary.summary,
-          });
+          if (queueError) throw new Error("Enrichment is already active or could not be queued safely.");
           results.push({
             documentId: document.id,
             mode: parsed.mode,
             ok: true,
-            jobId: `${enrichment.labels.length}:${memory.memoryCards.length}:${memory.indexUnits.length}`,
+            jobId: queued && typeof queued === "object" && "job_id" in queued ? String(queued.job_id ?? "") : undefined,
           });
           continue;
         }

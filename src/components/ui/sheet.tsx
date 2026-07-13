@@ -48,6 +48,7 @@ export function Sheet({
   mobileSize = "content",
   portal = false,
   desktopBackdropClassName,
+  testId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -74,12 +75,18 @@ export function Sheet({
   mobileSize?: SheetMobileSize;
   portal?: boolean;
   desktopBackdropClassName?: string;
+  testId?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
   const dragRef = useRef<{ startY: number; dragging: boolean }>({ startY: 0, dragging: false });
   const titleId = useId();
   const descId = useId();
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   // Swipe-to-dismiss for the mobile bottom sheet: dragging the grip down past a
   // threshold closes the sheet; a shorter drag snaps back. Grip-initiated only,
@@ -133,7 +140,7 @@ export function Sheet({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -179,7 +186,7 @@ export function Sheet({
         }, 50);
       });
     };
-  }, [open, onClose, initialFocusRef, returnFocusRef]);
+  }, [open, initialFocusRef, returnFocusRef]);
 
   if (!open) return null;
 
@@ -208,6 +215,7 @@ export function Sheet({
     >
       <div
         ref={panelRef}
+        data-testid={testId}
         role="dialog"
         aria-modal="true"
         aria-labelledby={resolvedLabelledBy}

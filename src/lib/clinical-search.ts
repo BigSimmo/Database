@@ -325,7 +325,7 @@ const intentPatterns: Array<{
   {
     intent: "drug_dosing",
     pattern:
-      /dose|dosage|dosing|titrate|mg|mcg|frequency|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer|table|chart|monitor/i,
+      /dose|dosage|dosing|titrate|mg|mcg|frequency|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|administer|table|chart/i,
     imageEvidenceFocus: true,
     sectionedLookup: false,
   },
@@ -354,7 +354,7 @@ const tableThresholdPattern =
 // genuine medication_dose_risk query still matches via a drug name, dose/route term, or the
 // medication/pharmacology/agitation vocabulary retained below.
 const medicationDoseRiskPattern =
-  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|subcutaneous|subcut|sublingual|administer\w*|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*|monitor\w*)\b/i;
+  /\b(medication|medicine|pharmacolog\w*|prescrib\w*|dose|dosage|dosing|mg|mcg|titrate|route|oral|intramuscular|subcutaneous|subcut|sublingual|administer\w*|\bim\b|\bpo\b|\bsc\b|\bsl\b|\bprn\b|clozapine|lithium|neuroleptic|antipsychotic|benzodiazepine|injectables?|agitation|arousal|side effect\w*|adverse|toxicity|contraindicat\w*)\b/i;
 const documentIncludePattern =
   /\b(?:what should|what must|what does|what do|which items?|requirements?|checklist|forms?)\b.{0,80}\b(?:include|contain|cover|require|required|needed|need)\b|\b(?:include|contain|cover|require|required|needed|need)\b.{0,80}\b(?:plan|form|checklist|protocol|procedure|guideline|document|file|pdf)\b/i;
 const explicitDocumentLookupPattern =
@@ -832,7 +832,12 @@ const explicitDoseTerms = ["dose", "dosage", "dosing", "titrat", "mg", "mcg"] as
 /** Classify query intent. */
 export function classifyQueryIntent(query: string): IntentSignals {
   const lowered = query.toLowerCase();
-  const match = intentPatterns.find((entry) => entry.pattern.test(query));
+  const hasMedicationContext =
+    medicationTerms(normalizeAnalysisText(query)).length > 0 || medicationDoseRiskPattern.test(query);
+  const medicationMonitoringIntent = hasMedicationContext && /\bmonitor\w*\b/i.test(query);
+  const match = medicationMonitoringIntent
+    ? intentPatterns.find((entry) => entry.intent === "drug_dosing")
+    : intentPatterns.find((entry) => entry.pattern.test(query));
   const hasDosingSignals = containsAny(lowered, intentSignalWords.dosing);
   const hasEscalationSignals = containsAny(lowered, intentSignalWords.escalation);
   const hasImageSignals = containsAny(lowered, intentSignalWords.visuals);
@@ -1098,6 +1103,71 @@ export function normalizedClinicalSearchTokens(query: string) {
     .filter((token) => (token.length > 2 || shortClinicalSearchTerms.has(token)) && !textSearchStopWords.has(token));
 }
 
+const genericMedicationDoseQueryTokens = new Set([
+  "administer",
+  "administration",
+  "chart",
+  "dose",
+  "dosage",
+  "dosing",
+  "drug",
+  "frequency",
+  "guidance",
+  "listed",
+  "management",
+  "maximum",
+  "medication",
+  "medicine",
+  "oral",
+  "intramuscular",
+  "subcutaneous",
+  "subcut",
+  "sublingual",
+  "route",
+  "shown",
+  "table",
+  "used",
+  "using",
+  "usual",
+  "im",
+  "po",
+  "patient",
+  "recommend",
+  "recommendation",
+  "recommended",
+  "sc",
+  "sl",
+]);
+
+/** Require dose evidence to carry the medication question's clinical subject. */
+export function medicationDoseQuerySubjectTokens(query: string) {
+  return normalizedClinicalSearchTokens(query).filter((token) => !genericMedicationDoseQueryTokens.has(token));
+}
+
+/** Whether the query explicitly asks for dose, route, or frequency evidence. */
+export function isMedicationDoseEvidenceQuery(query: string) {
+  return /\b(?:dose|doses|dosage|dosages|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|im|po|sc|sl|frequency|mg|mcg|microgram|maximum|minimum|prn)\b/i.test(
+    query,
+  );
+}
+
+/** Require dose evidence to carry the medication question's clinical subject. */
+export function medicationDoseQueryContext(query: string, result: SearchResult) {
+  const subjectTokens = medicationDoseQuerySubjectTokens(query);
+  if (!subjectTokens.length) {
+    return { hasClinicalSubject: false, matched: true, hitCount: 0, requiredHits: 0 };
+  }
+  const evidenceTokens = new Set(normalizedClinicalSearchTokens(clinicalResultEvidenceHaystack(result)));
+  const hitCount = subjectTokens.filter((token) => evidenceTokens.has(token)).length;
+  const requiredHits = Math.min(2, subjectTokens.length);
+  return {
+    hasClinicalSubject: true,
+    matched: hitCount >= requiredHits,
+    hitCount,
+    requiredHits,
+  };
+}
+
 /** Build clinical text search query. */
 export function buildClinicalTextSearchQuery(query: string) {
   const normalizedTokens = normalizedClinicalSearchTokens(query);
@@ -1281,6 +1351,15 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
       result.content,
     )
       ? -0.3
+      : 0;
+  const medicationDoseContext = medicationDoseQueryContext(query, result);
+  const medicationDoseContextBoost =
+    queryClass === "medication_dose_risk" && medicationDoseContext.hasClinicalSubject && medicationDoseContext.matched
+      ? 0.26
+      : 0;
+  const medicationDoseContextPenalty =
+    queryClass === "medication_dose_risk" && medicationDoseContext.hasClinicalSubject && !medicationDoseContext.matched
+      ? -0.24
       : 0;
   const protocolBoost =
     querySignal.intent === "protocol" && /(protocol|process|procedure|workflow|pathway|algorithm)/i.test(haystack)
@@ -1528,12 +1607,14 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     riskFlowchartCanonicalBoost +
     directAnswerBoost +
     comparisonCoverageBoost +
+    medicationDoseContextBoost +
     sectionDepth +
     indexUnitBoost +
     assetBoost;
   const rawPenalty =
     titleOnlyDosePenalty +
     administrativeDoseQueryPenalty +
+    medicationDoseContextPenalty +
     coreConceptPenalty +
     clozapineSpecificPenalty +
     genericDischargePenalty +

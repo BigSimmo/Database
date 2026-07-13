@@ -284,6 +284,30 @@ describe("retrieval query variants", () => {
         "medication_dose_risk",
       ),
     ).toEqual({ returnFastPath: true, reason: "dose_evidence_text_match" });
+
+    expect(
+      decideTextFastPath(
+        "How should agitation be managed when oral medication is refused?",
+        [
+          result({
+            content: "For agitation, use IM medication when oral medication is refused, with review and monitoring.",
+            similarity: 0.67,
+          }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: true, reason: "dose_evidence_text_match" });
+
+    expect(
+      decideTextFastPath(
+        "What medication doses are used for opioid withdrawal?",
+        [
+          result({ content: "Opioid withdrawal management guidance.", similarity: 0.9 }),
+          result({ content: "For agitation, lorazepam 1 mg IM may be used.", similarity: 0.88 }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toEqual({ returnFastPath: false, reason: "missing_dose_query_context" });
   });
 
   it("keeps flowchart zone-action fast paths gated on action evidence", () => {
@@ -692,6 +716,69 @@ describe("retrieval query variants", () => {
         "medication_dose_risk",
       ),
     ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
+  });
+
+  it("does not require route for a dose-only question when dose and subject are co-located", () => {
+    expect(
+      evaluateEvidenceCoverageGate(
+        "What medication doses are used for opioid withdrawal?",
+        [
+          result({
+            title: "Opioid use disorder",
+            content: "For opioid withdrawal, methadone 10 mg may be used initially.",
+            similarity: 0.8,
+          }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: true, reason: "dose_route_amount_evidence_gate" });
+  });
+
+  it("rejects entity-crossing dose evidence from an unrelated medication result", () => {
+    expect(
+      evaluateEvidenceCoverageGate(
+        "What medication doses are used for opioid withdrawal?",
+        [
+          result({ content: "Opioid withdrawal management guidance.", similarity: 0.9 }),
+          result({ content: "For agitation, lorazepam 1 mg IM may be used.", similarity: 0.88 }),
+        ],
+        "medication_dose_risk",
+      ),
+    ).toMatchObject({ accepted: false, reason: "missing_dose_query_context" });
+  });
+
+  it("ranks subject-matched dose evidence above stronger unrelated numeric dose results", () => {
+    const query = "What medication doses are used for opioid withdrawal?";
+    const ranked = rankClinicalResults(query, [
+      result({
+        id: "unrelated-dose",
+        title: "Nicotine Replacement Therapy",
+        content: "Nicotine patch 21 mg/24 hours and gum 4 mg are available.",
+        similarity: 0.9,
+      }),
+      result({
+        id: "opioid-dose",
+        title: "Opioid use disorder",
+        content: "For opioid withdrawal, methadone 10 mg may be used initially.",
+        similarity: 0.55,
+      }),
+    ]);
+
+    expect(ranked[0]?.id).toBe("opioid-dose");
+    expect(ranked[0]?.score_explanation?.clinicalSignalBoost).toBeGreaterThan(
+      ranked[1]?.score_explanation?.clinicalSignalBoost ?? 0,
+    );
+    expect(ranked[1]?.score_explanation?.rawPenalty).toBeLessThan(0);
+
+    const selected = selectRetrievalEvidence({
+      query,
+      queryClass: "medication_dose_risk",
+      results: ranked,
+      topK: 1,
+      maxResultsPerDocument: 2,
+    });
+    expect(selected.intent.requiredTermSignals).toContain("clinical_subject");
+    expect(selected.results[0]?.id).toBe("opioid-dose");
   });
 
   it("requires direct source image evidence for source image/table requests", () => {

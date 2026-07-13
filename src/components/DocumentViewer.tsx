@@ -68,6 +68,7 @@ import {
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
+import { documentPageHref } from "@/lib/document-viewer-navigation";
 import { formatClinicalDate } from "@/lib/source-metadata";
 import { partitionViewerImages } from "@/lib/image-filtering";
 import { isLocalNoAuthMode } from "@/lib/client-env";
@@ -570,7 +571,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
           {displayLabels.map((label) => (
             <span
               key={`${image.id}:${label}`}
-              className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-3xs font-semibold text-[color:var(--text-muted)]"
+              className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 text-2xs font-semibold text-[color:var(--text-muted)]"
             >
               {label}
             </span>
@@ -1090,7 +1091,7 @@ function IndexedTextPanel({
                       {chunk.matchedTerms.slice(0, 5).map((term) => (
                         <span
                           key={`${chunk.id}:${term}`}
-                          className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-2 text-3xs font-bold text-[color:var(--clinical-accent)]"
+                          className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]"
                         >
                           {term}
                         </span>
@@ -1994,6 +1995,14 @@ function DocumentOverviewLanding({
   );
 }
 
+/**
+ * Renders the clinical document viewer with source previews, extracted content, summaries, and document tools.
+ *
+ * @param documentId - The identifier of the document to load.
+ * @param initialPage - The page to display initially in the source preview.
+ * @param chunkId - An optional indexed passage to pin and scroll into view.
+ * @returns The document viewer interface.
+ */
 export function DocumentViewer({
   documentId,
   initialPage,
@@ -2140,7 +2149,7 @@ export function DocumentViewer({
           return null;
         }
         setLocalProjectReady(true);
-        return fetch("/api/setup-status");
+        return fetch("/api/setup-status", { headers: authorizationHeader });
       })
       .then((response) => (response?.ok ? response.json() : null))
       .then((payload) => {
@@ -2150,7 +2159,7 @@ export function DocumentViewer({
     return () => {
       active = false;
     };
-  }, [isConfigured]);
+  }, [authorizationHeader, isConfigured]);
 
   useEffect(() => {
     if (!canViewSourceDocuments && authStatus === "loading") {
@@ -2451,13 +2460,9 @@ export function DocumentViewer({
       : (effectiveViewerError ?? "Source unavailable");
   const documentHomeHref = "/?mode=documents";
   const scopedDocumentHref = readyDocument
-    ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}`
+    ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}&documentId=${encodeURIComponent(documentId)}`
     : documentHomeHref;
-  const documentPageHref = (page: number) => {
-    const params = new URLSearchParams({ page: String(Math.max(1, Math.trunc(page))) });
-    if (chunkId) params.set("chunk", chunkId);
-    return `/documents/${encodeURIComponent(documentId)}?${params.toString()}#pdf-preview-section`;
-  };
+  const usefulPageHref = (page: number) => documentPageHref(documentId, page);
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
   const summarizeTitle = canSummarizeDocument ? "Answer from this document" : "Load a source document before answering";
   const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
@@ -2740,7 +2745,7 @@ export function DocumentViewer({
               signedUrl={signedUrl}
               downloadUrl={downloadSignedUrl}
               pages={pages}
-              pageHref={documentPageHref}
+              pageHref={usefulPageHref}
               onAskFromDocument={() => void summarize()}
               onAddToScope={() => router.push(scopedDocumentHref)}
               canSummarizeDocument={canSummarizeDocument}

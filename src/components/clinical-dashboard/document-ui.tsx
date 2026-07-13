@@ -48,7 +48,7 @@ export function DocumentFileTile({
     <span
       className={cn(
         "grid shrink-0 place-items-center rounded-lg border font-bold uppercase shadow-[var(--shadow-inset)]",
-        compact ? "h-10 w-10 text-4xs" : "h-12 w-12 text-3xs",
+        compact ? "h-10 w-10 text-2xs" : "h-12 w-12 text-2xs",
         tileStyles[tone],
         className,
       )}
