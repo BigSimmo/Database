@@ -667,7 +667,15 @@ summary::-webkit-details-marker {
    the first line at rest — mirroring how the bottom dock zeroes its
    content-facing edge. Lives INSIDE <header> (first child) so it translates
    away with the header on scroll-hide. Unlayered on purpose, like the rest of
-   the positioning chrome (see the layering note above). */
+   the positioning chrome (see the layering note above).
+
+   AUTHORING RULE for every backdrop-filter in this file: write ONLY the
+   unprefixed property. The CSS pipeline auto-generates the -webkit- pair in
+   the built client stylesheet (verified in the served chunk), which is what
+   covers prefix-only Safari <= 17. Hand-writing the -webkit- duplicate in
+   source is what made Lightning CSS drop the whole property group — the
+   historical tint-only-glass bug — and a guard test now rejects hand-authored
+   -webkit-backdrop-filter declarations. */
 .edge-glass-header-backdrop {
   pointer-events: none;
   position: absolute;
