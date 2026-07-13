@@ -130,6 +130,7 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
     resolvedSearchMode !== "forms" &&
     resolvedSearchMode !== "favourites" &&
     resolvedSearchMode !== "differentials" &&
+    resolvedSearchMode !== "specifiers" &&
     !isDocumentSearchMockupRoute;
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
@@ -244,6 +245,7 @@ function GlobalStandaloneSearchShellClient({
     resolvedSearchMode !== "forms" &&
     resolvedSearchMode !== "favourites" &&
     resolvedSearchMode !== "differentials" &&
+    resolvedSearchMode !== "specifiers" &&
     !isDocumentSearchMockupRoute;
   const isStandaloneModeHome =
     !hasSubmittedModeSearch &&
@@ -252,6 +254,7 @@ function GlobalStandaloneSearchShellClient({
       (searchMode === "forms" && pathname === "/forms") ||
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials") ||
+      (searchMode === "specifiers" && pathname === "/specifiers") ||
       (searchMode === "tools" && pathname === "/tools"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
@@ -330,6 +333,7 @@ function GlobalStandaloneSearchShellClient({
     router.prefetch("/?mode=tools");
     router.prefetch("/favourites");
     router.prefetch("/differentials");
+    router.prefetch("/specifiers");
   }
 
   function openGuide() {

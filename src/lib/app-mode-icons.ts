@@ -5,6 +5,7 @@ import {
   Heart,
   Pill,
   Route,
+  Tags,
   Sparkles,
   Wrench,
   type LucideIcon,
@@ -20,6 +21,7 @@ export const appModeIcons: Record<AppModeId, LucideIcon> = {
   forms: FileSignature,
   favourites: Heart,
   differentials: BrainCircuit,
+  specifiers: Tags,
   prescribing: Pill,
   tools: Wrench,
 };

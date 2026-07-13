@@ -25,6 +25,7 @@ import {
   Filter,
   FolderOpen,
   GitBranch,
+  GitCompareArrows,
   Heart,
   ListChecks,
   Lock,
@@ -34,7 +35,9 @@ import {
   ShieldCheck,
   Sparkles,
   Table2,
+  Tags,
   UploadCloud,
+  Waypoints,
   Wrench,
   X,
   type LucideIcon,
@@ -45,7 +48,15 @@ import { Sheet } from "@/components/ui/sheet";
 import { cn, chatComposerIconButton, toolbarButton } from "@/components/ui-primitives";
 
 export type ModeActionSetId =
-  "answer" | "documents" | "services" | "forms" | "favourites" | "tools" | "differentials" | "prescribing";
+  | "answer"
+  | "documents"
+  | "services"
+  | "forms"
+  | "favourites"
+  | "tools"
+  | "differentials"
+  | "specifiers"
+  | "prescribing";
 export type ModeActionPlacement = "up" | "down";
 
 type IntegratedSurfaceLayout = {
@@ -106,7 +117,11 @@ export type ModeActionId =
   | "differentials-build"
   | "differentials-criteria"
   | "differentials-documents"
-  | "differentials-evidence";
+  | "differentials-evidence"
+  | "specifiers-search"
+  | "specifiers-builder"
+  | "specifiers-compare"
+  | "specifiers-map";
 
 export type ModeActionItem = {
   id: ModeActionId;
@@ -215,6 +230,28 @@ const modeActionSets = {
       icon: FileText,
     },
     { id: "differentials-evidence", label: "View evidence", description: "Review cited support", icon: ShieldCheck },
+  ],
+  specifiers: [
+    {
+      id: "specifiers-search",
+      label: "Find a specifier",
+      description: "Match presentation features",
+      icon: Tags,
+      primary: true,
+    },
+    {
+      id: "specifiers-builder",
+      label: "Build wording",
+      description: "Assemble diagnostic wording",
+      icon: ListChecks,
+    },
+    {
+      id: "specifiers-compare",
+      label: "Compare specifiers",
+      description: "Clarify close clinical calls",
+      icon: GitCompareArrows,
+    },
+    { id: "specifiers-map", label: "Specifier map", description: "Browse by diagnostic role", icon: Waypoints },
   ],
   prescribing: [
     {
