@@ -5455,14 +5455,14 @@ ${qualityRetryInstruction}`
         (verified.unverifiedNumericTokens?.length ?? 0) === 0
       );
     };
-    const retainCitedExtractiveFallbackEvidence = (candidate: RagAnswer): RagAnswer => {
+    const retainCitedExtractiveFallbackEvidence = <T extends RagAnswer>(candidate: T): T => {
       const citedChunkIds = new Set(candidate.citations.map((citation) => citation.chunk_id));
       return {
         ...candidate,
         sources: candidate.sources.filter((source) => citedChunkIds.has(source.id)),
       };
     };
-    let extractiveFallbackAnswer: RagAnswer | null = canRecoverGenerationErrorExtractively
+    let extractiveFallbackAnswer = canRecoverGenerationErrorExtractively
       ? buildExtractiveFallbackCandidate(generationFallbackResults)
       : null;
     // Generated synthesis has already failed, so do not stitch dose or threshold figures
