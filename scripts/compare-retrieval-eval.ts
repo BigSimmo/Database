@@ -44,6 +44,21 @@ const METRIC_SPECS: MetricSpec[] = [
   },
   { name: "latency_failed_cases", field: "latency_failed_cases", kind: "array", required: false, digits: 0 },
   { name: "index_units_layer_count", field: "index_units", kind: "layer", required: false, digits: 0 },
+  { name: "ndcg_at_10", field: "ndcg_at_10", kind: "number", required: false, digits: 4 },
+  {
+    name: "irrelevant_source_rate_at_10",
+    field: "irrelevant_source_rate_at_10",
+    kind: "number",
+    required: false,
+    digits: 4,
+  },
+  {
+    name: "required_signal_coverage_at_10",
+    field: "required_signal_coverage_at_10",
+    kind: "number",
+    required: false,
+    digits: 4,
+  },
 ];
 
 type MetricValue = { present: boolean; value: number };

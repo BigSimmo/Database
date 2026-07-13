@@ -75,7 +75,7 @@ export function sanitizeQuoteCards(
       if (!quote) return null;
       if (!isExactSourceQuote(quote, source)) return null;
       return {
-        ...resultCitation(source),
+        ...resultCitation(source, "exact_quote"),
         quote,
         section_heading: card.section_heading ?? source.section_heading,
       } satisfies QuoteCard;

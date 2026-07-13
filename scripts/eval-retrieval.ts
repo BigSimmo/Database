@@ -67,6 +67,10 @@ export type GoldenRetrievalResult = {
   topK: number;
   reciprocalRankAt10: number;
   contentReciprocalRankAt10: number;
+  declaredSignalCount: number;
+  ndcgAt10: number;
+  irrelevantSourceRateAt10: number;
+  requiredSignalCoverageAt10: number;
   latencyMs: number;
   retrievalStrategy: string | null;
   retrievalPlan: string | null;
@@ -361,14 +365,22 @@ function expectedContentHits(
   results: SearchResult[],
   limit: number,
 ) {
-  const topContentText = results.slice(0, limit).map(resultContentText).join(" ");
+  const topResults = results.slice(0, limit);
   const hits = expectedTerms.filter((expectation) =>
-    contentExpectationAlternatives(expectation).some((term) => textContainsClinicalTerm(topContentText, term)),
+    topResults.some((result) => contentExpectationMatchesResult(expectation, result)),
   );
   return {
     hits: hits.map(contentExpectationLabel),
     missing: expectedTerms.filter((expectation) => !hits.includes(expectation)).map(contentExpectationLabel),
   };
+}
+
+function contentExpectationMatchesResult(
+  expectation: GoldenRetrievalCase["expectedContentTerms"][number],
+  result: SearchResult,
+) {
+  const contentText = resultContentText(result);
+  return contentExpectationAlternatives(expectation).some((term) => textContainsClinicalTerm(contentText, term));
 }
 
 function reciprocalRankAt10(expectedSubstrings: string[], results: SearchResult[]) {
@@ -408,6 +420,60 @@ function contentReciprocalRankAt10(
     return sum + (index >= 0 ? 1 / (index + 1) : 0);
   }, 0);
   return total / expectedTerms.length;
+}
+
+type RetrievalSignalMetrics = {
+  declaredSignalCount: number;
+  ndcgAt10: number;
+  irrelevantSourceRateAt10: number;
+  requiredSignalCoverageAt10: number;
+};
+
+/**
+ * Scores only signals explicitly declared by a golden case. Each document expectation,
+ * content expectation group, and required table-evidence flag is one signal. A result's
+ * graded relevance is the number of those signals it carries; nDCG uses the ideal ordering
+ * of the observed grades, so it measures ordering independently from coverage.
+ */
+function retrievalSignalMetricsAt10(testCase: GoldenRetrievalCase, results: SearchResult[]): RetrievalSignalMetrics {
+  const top = results.slice(0, 10);
+  const documentSignals = testCase.expectedDocumentSubstrings.map((expectation) => (result: SearchResult) => {
+    const text =
+      !clinicalDocumentAliases[expectation] && !/\.pdf$/i.test(expectation)
+        ? resultDocumentEvidenceText(result)
+        : resultDocumentText(result);
+    return documentExpectationAlternatives(expectation).some((alternative) => text.includes(alternative));
+  });
+  const contentSignals = testCase.expectedContentTerms.map(
+    (expectation) => (result: SearchResult) => contentExpectationMatchesResult(expectation, result),
+  );
+  const signals = [
+    ...documentSignals,
+    ...contentSignals,
+    ...(testCase.expectTableEvidence ? [(result: SearchResult) => hasTableEvidence([result], 1)] : []),
+  ];
+  const declaredSignalCount = signals.length;
+  if (declaredSignalCount === 0) {
+    return {
+      declaredSignalCount: 0,
+      ndcgAt10: 1,
+      irrelevantSourceRateAt10: 0,
+      requiredSignalCoverageAt10: 1,
+    };
+  }
+
+  const grades = top.map((result) => signals.filter((matches) => matches(result)).length);
+  const dcg = (values: number[]) =>
+    values.reduce((sum, grade, index) => sum + (2 ** grade - 1) / Math.log2(index + 2), 0);
+  const idealDcg = dcg([...grades].sort((left, right) => right - left));
+  const matchedSignals = signals.filter((matches) => top.some((result) => matches(result))).length;
+
+  return {
+    declaredSignalCount,
+    ndcgAt10: idealDcg > 0 ? dcg(grades) / idealDcg : 0,
+    irrelevantSourceRateAt10: top.length > 0 ? grades.filter((grade) => grade === 0).length / top.length : 0,
+    requiredSignalCoverageAt10: matchedSignals / declaredSignalCount,
+  };
 }
 
 export function retrievalLimitForGoldenCase(testCase: GoldenRetrievalCase) {
@@ -528,6 +594,7 @@ export function evaluateGoldenRetrievalCase(args: {
       : contentHits.hits.length / args.testCase.expectedContentTerms.length;
   const tableEvidenceFound = hasTableEvidence(args.results, 5);
   const tableEvidenceFoundAtK = hasTableEvidence(args.results, topK);
+  const signalMetrics = retrievalSignalMetricsAt10(args.testCase, args.results);
   const actualQueryClass = args.telemetry.query_class ?? null;
   const failures: string[] = [];
   const vectorLayerCount = Object.entries(args.telemetry.retrieval_layer_counts ?? {}).reduce(
@@ -581,6 +648,7 @@ export function evaluateGoldenRetrievalCase(args: {
     topK,
     reciprocalRankAt10: reciprocalRankAt10(args.testCase.expectedDocumentSubstrings, args.results),
     contentReciprocalRankAt10: contentReciprocalRankAt10(args.testCase.expectedContentTerms, args.results),
+    ...signalMetrics,
     latencyMs: args.latencyMs,
     retrievalStrategy: args.telemetry.retrieval_strategy ?? null,
     retrievalPlan: args.telemetry.retrieval_plan ?? null,
@@ -645,6 +713,15 @@ export function summarizeGoldenRetrievalResults(results: GoldenRetrievalResult[]
     return counts;
   }, {});
   const forceEmbeddingResults = results.filter((result) => result.forceEmbedding);
+  const signalMetricResults = results.filter((result) => result.declaredSignalCount > 0);
+  const signalMetricAverage = (select: (result: GoldenRetrievalResult) => number, neutral: number) =>
+    signalMetricResults.length > 0
+      ? Number(
+          (signalMetricResults.reduce((sum, result) => sum + select(result), 0) / signalMetricResults.length).toFixed(
+            4,
+          ),
+        )
+      : neutral;
   return {
     case_count: results.length,
     document_recall_at_5: Number(
@@ -664,6 +741,10 @@ export function summarizeGoldenRetrievalResults(results: GoldenRetrievalResult[]
       ).toFixed(4),
     ),
     content_mrr_case_count: contentRankCases.length,
+    ndcg_at_10: signalMetricAverage((result) => result.ndcgAt10, 1),
+    irrelevant_source_rate_at_10: signalMetricAverage((result) => result.irrelevantSourceRateAt10, 0),
+    required_signal_coverage_at_10: signalMetricAverage((result) => result.requiredSignalCoverageAt10, 1),
+    signal_metric_case_count: signalMetricResults.length,
     median_latency_ms: percentile(
       results.map((result) => result.latencyMs),
       50,
@@ -753,6 +834,9 @@ function printHumanSummary(summary: ReturnType<typeof summarizeGoldenRetrievalRe
   console.log(
     `  content_mrr@10=${summary.content_mrr_at_10} (over ${summary.content_mrr_case_count} content-term case(s))`,
   );
+  console.log(`  ndcg@10=${summary.ndcg_at_10} (over ${summary.signal_metric_case_count} signal case(s))`);
+  console.log(`  irrelevant_source_rate@10=${summary.irrelevant_source_rate_at_10}`);
+  console.log(`  required_signal_coverage@10=${summary.required_signal_coverage_at_10}`);
   console.log(`  median_latency_ms=${summary.median_latency_ms}`);
   console.log(`  p90_latency_ms=${summary.p90_latency_ms}`);
   console.log(`  retrieval_strategy_counts=${JSON.stringify(summary.retrieval_strategy_counts)}`);
@@ -903,7 +987,7 @@ async function main() {
             ? "FAIL"
             : "PASS";
       console.log(
-        `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} contentRR@10=${result.contentReciprocalRankAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} gate=${result.coverageGateReason ?? "none"} layers=${JSON.stringify(result.retrievalLayerCounts ?? {})}`,
+        `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} contentRR@10=${result.contentReciprocalRankAt10.toFixed(2)} ndcg@10=${result.ndcgAt10.toFixed(2)} irrelevant@10=${result.irrelevantSourceRateAt10.toFixed(2)} signalCoverage@10=${result.requiredSignalCoverageAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} gate=${result.coverageGateReason ?? "none"} layers=${JSON.stringify(result.retrievalLayerCounts ?? {})}`,
       );
     }
   }

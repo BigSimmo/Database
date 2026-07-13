@@ -160,12 +160,15 @@ const defaultQueryResolver: QueryResolver = (call) => {
   if (call.table === "documents" && call.selected === "id,metadata,import_batch_id") {
     const explicitIds = call.inFilters.find((filter) => filter.column === "id")?.values as string[] | undefined;
     const ownerFilter = call.filters.find((filter) => filter.column === "owner_id");
+    const ownerPlusPublicFilter = call.orFilters.some(
+      (filter) => filter.includes(`owner_id.eq.${userId}`) && filter.includes("owner_id.is.null"),
+    );
     const ids = explicitIds?.length ? explicitIds : [documentId];
-    if (!ownerFilter) return ok([]);
-    if (ownerFilter.value === null) {
+    if (!ownerFilter && !ownerPlusPublicFilter) return ok([]);
+    if (ownerFilter?.value === null) {
       return ok(ids.filter((id) => id === documentId).map((id) => ({ id, metadata: {}, import_batch_id: null })));
     }
-    if (ownerFilter.value === userId) {
+    if (ownerFilter?.value === userId || ownerPlusPublicFilter) {
       return ok(ids.map((id) => ({ id, metadata: {}, import_batch_id: null })));
     }
     return ok([]);
@@ -283,6 +286,8 @@ function mockRuntime(
     openAiKey?: string;
     publicUploadsEnabled?: boolean;
     publicWorkspaceOwnerId?: string;
+    maxConcurrentUploads?: number;
+    maxInFlightUploadMb?: number;
   } = {},
 ) {
   vi.resetModules();
@@ -293,6 +298,8 @@ function mockRuntime(
   vi.doMock("@/lib/env", () => ({
     env: {
       MAX_UPLOAD_MB: 150,
+      MAX_CONCURRENT_UPLOADS: options.maxConcurrentUploads ?? 1,
+      MAX_IN_FLIGHT_UPLOAD_MB: options.maxInFlightUploadMb ?? 151,
       SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
       SUPABASE_IMAGE_BUCKET: "clinical-images",
       RAG_SEARCH_CACHE_TTL_MS: 0,
@@ -937,6 +944,251 @@ describe("private document API access", () => {
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
   });
 
+  it("rejects an excessive Content-Length before parsing multipart data", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const uploadRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": String(152 * 1024 * 1024) },
+      body: new FormData(),
+    });
+    const formData = vi.spyOn(uploadRequest, "formData");
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(413);
+    expect(formData).not.toHaveBeenCalled();
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed Content-Length before parsing multipart data", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const uploadRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": "-5" },
+      body: new FormData(),
+    });
+    const formData = vi.spyOn(uploadRequest, "formData");
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(400);
+    expect(formData).not.toHaveBeenCalled();
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for authenticated uploads when the durable limiter is unavailable", async () => {
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_api_rate_limit" ? fail("limiter unavailable") : ok([]),
+    );
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const uploadRequest = authenticatedRequest("/api/upload", { method: "POST", body: new FormData() });
+    const formData = vi.spyOn(uploadRequest, "formData");
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(503);
+    expect(formData).not.toHaveBeenCalled();
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("stops an already-aborted upload before multipart parsing", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const controller = new AbortController();
+    controller.abort();
+    const uploadRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      body: new FormData(),
+      signal: controller.signal,
+    });
+    const formData = vi.spyOn(uploadRequest, "formData");
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(499);
+    expect(await payload(response)).toMatchObject({ error: "Upload cancelled by client." });
+    expect(formData).not.toHaveBeenCalled();
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("rejects upload byte-budget exhaustion before multipart parsing", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, undefined, { maxInFlightUploadMb: 1 });
+    const { POST } = await import("../src/app/api/upload/route");
+    const uploadRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": String(2 * 1024 * 1024) },
+      body: new FormData(),
+    });
+    const formData = vi.spyOn(uploadRequest, "formData");
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(503);
+    expect(await payload(response)).toMatchObject({
+      error: "Upload capacity is temporarily exhausted. Retry shortly.",
+    });
+    expect(formData).not.toHaveBeenCalled();
+  });
+
+  it("stops after multipart parsing when the client aborts before buffering", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const controller = new AbortController();
+    const uploadRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      body: new FormData(),
+      signal: controller.signal,
+    });
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    vi.spyOn(uploadRequest, "formData").mockImplementation(async () => {
+      controller.abort();
+      return form;
+    });
+
+    const response = await POST(uploadRequest);
+
+    expect(response.status).toBe(499);
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+    expect(client.calls.some((call) => call.operation === "insert")).toBe(false);
+  });
+
+  it("cleans up storage and skips database inserts when aborted before insertion", async () => {
+    const controller = new AbortController();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
+      return ok([]);
+    });
+    client.storageMocks.upload.mockImplementation(async () => {
+      controller.abort();
+      return { data: { path: "uploaded" }, error: null };
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", { method: "POST", body: form, signal: controller.signal }),
+    );
+
+    expect(response.status).toBe(499);
+    expect(client.calls.some((call) => call.operation === "insert")).toBe(false);
+    expect(client.storageMocks.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects concurrent upload capacity and releases it after the first request", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
+      if (call.table === "documents" && call.operation === "insert") return ok({ id: documentId });
+      if (call.table === "ingestion_jobs" && call.operation === "insert") return ok({ id: "job-1" });
+      return ok([]);
+    });
+    mockRuntime(client, undefined, { maxConcurrentUploads: 1 });
+    const { POST } = await import("../src/app/api/upload/route");
+    const firstRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": "1024" },
+      body: new FormData(),
+    });
+    let resolveForm!: (form: FormData) => void;
+    vi.spyOn(firstRequest, "formData").mockReturnValue(
+      new Promise<FormData>((resolve) => {
+        resolveForm = resolve;
+      }),
+    );
+
+    const firstResponsePromise = POST(firstRequest);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const rejectedRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": "1024" },
+      body: new FormData(),
+    });
+    const rejectedFormData = vi.spyOn(rejectedRequest, "formData");
+    const rejectedResponse = await POST(rejectedRequest);
+    expect(rejectedResponse.status).toBe(503);
+    expect(rejectedFormData).not.toHaveBeenCalled();
+
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    resolveForm(form);
+    expect((await firstResponsePromise).status).toBe(201);
+
+    const afterRelease = new FormData();
+    afterRelease.set("file", new File(["%PDF-1.7 revised"], "second.pdf", { type: "application/pdf" }));
+    const afterResponse = await POST(authenticatedRequest("/api/upload", { method: "POST", body: afterRelease }));
+    expect(afterResponse.status).toBe(201);
+  });
+
+  it("releases upload admission after multipart parsing fails", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
+      if (call.table === "documents" && call.operation === "insert") return ok({ id: documentId });
+      if (call.table === "ingestion_jobs" && call.operation === "insert") return ok({ id: "job-1" });
+      return ok([]);
+    });
+    mockRuntime(client, undefined, { maxConcurrentUploads: 1, maxInFlightUploadMb: 1 });
+    const { POST } = await import("../src/app/api/upload/route");
+    const failedRequest = authenticatedRequest("/api/upload", {
+      method: "POST",
+      headers: { "content-length": "1024" },
+      body: new FormData(),
+    });
+    vi.spyOn(failedRequest, "formData").mockRejectedValue(new Error("malformed multipart"));
+
+    const failedResponse = await POST(failedRequest);
+    expect(failedResponse.status).toBe(400);
+
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+    const admittedResponse = await POST(
+      authenticatedRequest("/api/upload", {
+        method: "POST",
+        headers: { "content-length": "1024" },
+        body: form,
+      }),
+    );
+
+    expect(admittedResponse.status).toBe(201);
+    expect(client.storageMocks.upload).toHaveBeenCalledTimes(1);
+  });
+
+  it("cleans up document and storage when aborted after document insert", async () => {
+    const controller = new AbortController();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
+      if (call.table === "documents" && call.operation === "insert") {
+        controller.abort();
+        return ok({ id: documentId });
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", { method: "POST", body: form, signal: controller.signal }),
+    );
+
+    expect(response.status).toBe(499);
+    expect(client.calls.filter((call) => call.table === "documents" && call.operation === "insert")).toHaveLength(1);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
+    expect(client.calls.filter((call) => call.table === "documents" && call.operation === "delete")).toHaveLength(1);
+    expect(client.storageMocks.remove).toHaveBeenCalledTimes(1);
+  });
+
   it("stores uploaded documents with owner_id and a user-scoped storage path", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "insert") {
@@ -1479,7 +1731,10 @@ describe("private document API access", () => {
     }));
     mockRuntime(client);
     vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
-    vi.doMock("@/lib/deep-memory", () => ({ upsertDocumentDeepMemory }));
+    vi.doMock("@/lib/deep-memory", () => ({
+      assertLocalDeepMemoryOwnership: vi.fn(async () => undefined),
+      upsertDocumentDeepMemory,
+    }));
     const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
 
     const response = await POST(
@@ -1562,7 +1817,10 @@ describe("private document API access", () => {
     }));
     mockRuntime(client);
     vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
-    vi.doMock("@/lib/deep-memory", () => ({ upsertDocumentDeepMemory }));
+    vi.doMock("@/lib/deep-memory", () => ({
+      assertLocalDeepMemoryOwnership: vi.fn(async () => undefined),
+      upsertDocumentDeepMemory,
+    }));
     const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
 
     const response = await POST(
@@ -1649,7 +1907,10 @@ describe("private document API access", () => {
     }));
     mockRuntime(client);
     vi.doMock("@/lib/document-enrichment", () => ({ upsertDocumentEnrichment }));
-    vi.doMock("@/lib/deep-memory", () => ({ upsertDocumentDeepMemory }));
+    vi.doMock("@/lib/deep-memory", () => ({
+      assertLocalDeepMemoryOwnership: vi.fn(async () => undefined),
+      upsertDocumentDeepMemory,
+    }));
     const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
 
     const response = await POST(
@@ -3878,9 +4139,10 @@ describe("private document API access", () => {
     expect(results).toEqual([]);
     expect(embedTextWithTelemetry).toHaveBeenCalled();
     expect(client.rpc).toHaveBeenCalledWith(
-      "match_document_chunks_hybrid",
+      "match_document_chunks_hybrid_v2",
       expect.objectContaining({
         owner_filter: userId,
+        include_public: true,
         document_filters: [otherDocumentId],
       }),
     );
@@ -3922,9 +4184,10 @@ describe("private document API access", () => {
     });
 
     expect(client.rpc).toHaveBeenCalledWith(
-      "match_documents_for_query",
+      "match_documents_for_query_v2",
       expect.objectContaining({
         owner_filter: userId,
+        include_public: true,
       }),
     );
   });

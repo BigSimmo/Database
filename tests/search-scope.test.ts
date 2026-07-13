@@ -46,8 +46,7 @@ describe("search scope filters", () => {
     await expect(
       resolveSearchScope({
         supabase: { from } as never,
-        ownerId: undefined,
-        publicOnly: true,
+        accessScope: { includePublic: true },
       }),
     ).resolves.toMatchObject({
       documentIds: undefined,

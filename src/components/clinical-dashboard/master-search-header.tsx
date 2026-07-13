@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
+import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
@@ -1183,6 +1184,9 @@ export function MasterSearchHeader({
             layout="scroll"
             className="answer-suggestion-row-composer-followups relative z-10 w-full sm:hidden"
           />
+        ) : null}
+        {searchMode === "answer" ? (
+          <PrivacyInputNotice className="px-2 text-left sm:justify-center sm:text-center" />
         ) : null}
         <UniversalSearchCommandSurface
           modeId={searchMode}
