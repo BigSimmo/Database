@@ -39,10 +39,12 @@ begin
     raise notice 'supabase_admin future-object default privileges hardened';
   exception
     when insufficient_privilege then
+      -- Deliberately no re-raise: on hosted Supabase `postgres` may not be able
+      -- to act for supabase_admin, and this hardening must degrade to the
+      -- documented operator follow-up instead of aborting the migration chain.
       raise warning 'cannot alter default privileges for supabase_admin as %; '
         'operator follow-up required: run the six ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin '
         'statements from migration 20260713102000 via the Supabase dashboard SQL editor', current_user;
-      raise;
   end;
 end $$;
 

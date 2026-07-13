@@ -1046,8 +1046,11 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).toContain(
         "alter default privileges for role supabase_admin in schema public grant execute on functions to service_role;",
       );
-      // Guarded: only a superuser or member of supabase_admin may alter its defaults.
+      // Guarded: only a superuser or member of supabase_admin may alter its
+      // defaults. The guard must DEGRADE to a warning, never re-raise — a
+      // re-raise would abort the whole migration chain on hosted Supabase.
       expect(sql).toContain("when insufficient_privilege then");
+      expect(sql).not.toContain("raise;");
     }
     // The migration also proves the lockdown with future-object probes.
     expect(supabaseAdminDefaultPrivilegesMigration).toContain("_defacl_probe_table");
@@ -1076,8 +1079,12 @@ describe("Supabase Preview replay guards", () => {
     }
     // Cache rows are deleted, not re-keyed: a scrubbed key would never be hit again.
     expect(scrubLegacyQueryTextMigration).toContain("delete from public.rag_response_cache");
-    expect(scrubLegacyQueryTextMigration).toContain("where normalized_query not like 'redacted-cache:%'");
+    expect(scrubLegacyQueryTextMigration).toContain("where normalized_query !~ '^redacted-cache:[0-9a-f]{64}$'");
     expect(scrubLegacyQueryTextMigration).toContain("raise exception");
+    // The strict format check must accept this migration's own salted legacy
+    // placeholders, or the completion assertion aborts on the rows it just wrote.
+    expect(scrubLegacyQueryTextMigration).toContain("'^redacted-query:([0-9a-f]{64}|legacy:[0-9a-f]{32})$'");
+    expect(scrubLegacyQueryTextMigration).not.toContain("'^redacted-query:[0-9a-f]{64}$'");
   });
 
   it("validates the content_not_blank guards so they are no longer NOT VALID", () => {
