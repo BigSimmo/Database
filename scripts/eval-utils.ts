@@ -149,6 +149,11 @@ export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
     testCase.expectedFiles.length > 1 ? 5 : 3,
   );
   const expectedHit = testCase.expectedFiles.length > 1 ? expectedCoverage.allHit : expectedCoverage.anyHit;
+  const expectedCitationCoverage = expectedFileCoverage(
+    testCase.expectedFiles,
+    answer.citations,
+    answer.citations.length,
+  );
   const route = answer.routingMode ?? "unsupported";
   const visualEvidence = answer.visualEvidence ?? [];
 
@@ -167,6 +172,9 @@ export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
   }
   if (answer.citations.length < testCase.minCitations)
     failures.push(`expected at least ${testCase.minCitations} citations`);
+  if (testCase.requireExpectedFileCitation && !expectedCitationCoverage.allHit) {
+    failures.push(`expected documents missing from citations: ${expectedCitationCoverage.missingFiles.join(", ")}`);
+  }
   if (testCase.expectedFiles.length > 1 && !expectedCoverage.allHit) {
     failures.push(`expected documents missing from top 5: ${expectedCoverage.missingFiles.join(", ")}`);
   } else if (testCase.expectedFiles.length === 1 && !expectedCoverage.anyHit) {
