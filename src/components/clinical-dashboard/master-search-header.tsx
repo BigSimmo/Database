@@ -245,6 +245,12 @@ export function MasterSearchHeader({
    *  `useScrollHideReporter` wired to that element's scroll events. */
   hideOnScroll?: {
     strategy: "overlay" | "collapse";
+    /**
+     * Overlay-only: apply the hide/reveal (and the out-of-flow absolute header)
+     * at every breakpoint instead of phones only. The host must reserve
+     * matching top padding on its scroll container.
+     */
+    allBreakpoints?: boolean;
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
     scrollHidden?: boolean;
   };
@@ -1388,6 +1394,10 @@ export function MasterSearchHeader({
   }
 
   const hideStrategy = hideOnScroll?.strategy;
+  // Overlay hosts that opt into all breakpoints take the header fully out of
+  // flow (absolute over the scrolling <main>, which reserves matching top
+  // padding) so content frosts under the glass bar at every width.
+  const overlayAllBreakpoints = hideStrategy === "overlay" && Boolean(hideOnScroll?.allBreakpoints);
   const chromeFocusProps = hideOnScroll
     ? {
         onFocusCapture: () => setHeaderChromeFocused(true),
@@ -1409,22 +1419,35 @@ export function MasterSearchHeader({
     <>
       <header
         id="search"
+        data-scroll-hidden={hideStrategy === "overlay" && headerChromeHidden ? "true" : undefined}
         className={cn(
-          "edge-glass-header universal-header z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl",
+          "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)] backdrop-blur-xl backdrop-saturate-150",
           // Collapse hosts keep the header above an internally scrolling <main>, so
           // sticky is unnecessary on phones and fights the 0fr grid collapse by
-          // pinning the bar inside the viewport. Overlay hosts need sticky so the
-          // header rides document scroll and can translate away with zero layout shift.
-          hideStrategy === "collapse" ? "max-sm:relative sm:sticky sm:top-0" : "sticky top-0",
-          // Overlay hide-on-scroll (phones): a plain translate reveals the content
-          // already flowing beneath it. No transform is applied while visible so
-          // the fixed-position mobile mode menu keeps the viewport as its containing block.
+          // pinning the bar inside the viewport. All-breakpoints overlay hosts take
+          // the header out of flow entirely (absolute over the padded <main>) —
+          // sticky would be inert there because the scroll container is <main>, not
+          // an ancestor of the header. Legacy overlay hosts keep sticky (they ride
+          // document scroll) and can translate away with zero layout shift.
+          hideStrategy === "collapse"
+            ? "max-sm:relative sm:sticky sm:top-0"
+            : overlayAllBreakpoints
+              ? "absolute inset-x-0 top-0"
+              : "sticky top-0",
+          // Overlay hide-on-scroll: a plain translate reveals the content already
+          // flowing beneath it. No transform is applied while visible so the
+          // fixed-position mobile mode menu keeps the viewport as its containing block.
           hideStrategy === "overlay" &&
-            "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
-          hideStrategy === "overlay" && headerChromeHidden && "max-sm:-translate-y-full",
+            (overlayAllBreakpoints
+              ? "transition-transform duration-200 ease-out motion-reduce:transition-none"
+              : "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none"),
+          hideStrategy === "overlay" &&
+            headerChromeHidden &&
+            (overlayAllBreakpoints ? "-translate-y-full" : "max-sm:-translate-y-full"),
         )}
         {...(hideStrategy === "overlay" ? chromeFocusProps : undefined)}
       >
+        <div className="edge-glass-header-backdrop" aria-hidden="true" />
         <div
           className={cn(
             "relative mx-auto grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3",
