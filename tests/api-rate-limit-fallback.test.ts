@@ -213,7 +213,7 @@ describe("document_upload fail-closed limiter", () => {
       isLocalNoAuthMode: () => false,
     }));
     const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
-    const rpc = vi.fn(async () => ({
+    const rpc = vi.fn(async (_functionName: string, _args: Record<string, unknown>) => ({
       data: {
         limited: true,
         limit_value: 3,
