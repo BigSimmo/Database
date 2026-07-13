@@ -185,17 +185,24 @@ The app service's build/deploy config is captured in `railway.app.json` at the
 repo root (Railway schema). It is intentionally **not** named `railway.json`
 because a default-named file is auto-loaded by _every_ service in the project and
 would clash with the worker (which needs a different Dockerfile and no
-healthcheck). To activate it, set the app service's config-as-code path to
-`railway.app.json` (dashboard → service → Settings → Config-as-code, or the
-service-settings API). Until wired, the live service settings are the source of
-truth and the file mirrors them:
+healthcheck). The production app service uses `railway.app.json` as its
+config-as-code path (dashboard → service → Settings → Config-as-code, or the
+service-settings API); the worker uses `railway.worker.json`. Keep both paths
+wired: Railway does not auto-discover these service-specific filenames. After
+changing either file, confirm the deployment metadata reports the tracked health
+check and watch patterns rather than relying on dashboard defaults.
 
 ```jsonc
-// railway.app.json (mirrors the live app service)
+// railway.app.json (source of truth for the live app service)
 {
-  "build": { "builder": "DOCKERFILE", "dockerfilePath": "Dockerfile" },
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile",
+    "watchPatterns": ["/src/**", "/public/**", "/data/**", "..."],
+  },
   "deploy": {
-    "healthcheckPath": "/api/health",
+    "healthcheckPath": "/api/health/ready",
+    "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
     "multiRegionConfig": { "asia-southeast1-eqsg3a": { "numReplicas": 1 } },
   },
@@ -346,9 +353,12 @@ Rules:
   requests. It deliberately does not push to a registry; Railway builds the
   deployable image itself from the tree on deploy, after the standard gates
   (`verify` + `ui-smoke` + the clinical governance preflight where relevant).
-- **Deploy:** `railway up --service app` / `--service worker` (or a connected
-  GitHub source) builds and releases. Railway does a rolling deploy and marks the
-  release `SUCCESS` only after the `/api/health` check passes.
+- **Deploy:** `railway up --service Database` / `--service worker` (or the
+  connected GitHub source) builds and releases. Per-service watch patterns skip
+  docs, tests, and CI-only commits while retaining every runtime, dependency,
+  Docker, and service-config input. Railway does a rolling app deploy and marks
+  the release `SUCCESS` only after `/api/health/ready` passes. The non-HTTP worker
+  is verified through deployment status, logs, and `npm run reindex:health`.
 - **Rollback = redeploy the previous Railway deployment** (`railway redeploy`, or
   the dashboard's per-deployment rollback). Database migrations follow the
   existing rule: committed migrations + `schema.sql` reconciliation only, never
