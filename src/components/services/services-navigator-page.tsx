@@ -168,23 +168,26 @@ function Metric({
 function ServiceCard({
   service,
   index,
+  relevanceRank,
   selected,
   onToggleSelected,
 }: {
   service: ServiceRecord;
   index: number;
+  relevanceRank: number | null;
   selected: boolean;
   onToggleSelected: (slug: string) => void;
 }) {
   const rank = index + 1;
   const tags = [...(service.catchments ?? []), ...(service.tags ?? [])].slice(0, 4);
+  const showRelevanceCues = relevanceRank !== null && relevanceRank <= 2;
 
   return (
     <article
       data-testid={`service-search-result-${service.slug}`}
       className={cn(
         "rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]",
-        rank <= 2
+        showRelevanceCues
           ? "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent-border)]/35"
           : "border-[color:var(--border)]",
       )}
@@ -198,7 +201,7 @@ function ServiceCard({
             <h3 className="min-w-0 text-lg font-bold leading-tight text-[color:var(--text-heading)] max-sm:text-base">
               {service.title}
             </h3>
-            {rank <= 2 ? (
+            {showRelevanceCues ? (
               <span className="rounded-full bg-[color:var(--clinical-accent)] px-2.5 py-1 text-2xs font-bold text-[color:var(--clinical-accent-contrast)]">
                 Best fit
               </span>
@@ -464,6 +467,13 @@ export function ServicesNavigatorPage() {
     () => sortResultItems(scopedMatches, sortValue, (service) => service.title),
     [scopedMatches, sortValue],
   );
+  const relevanceRankMap = useMemo(() => {
+    const map = new Map<string, number>();
+    scopedMatches.forEach((service, index) => {
+      map.set(service.slug, index + 1);
+    });
+    return map;
+  }, [scopedMatches]);
   const [selectedSlugs, setSelectedSlugs] = useState(() => serviceRecords.slice(0, 2).map((service) => service.slug));
   const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
 
@@ -565,7 +575,11 @@ export function ServicesNavigatorPage() {
                     {displayedMatches.length} referral {displayedMatches.length === 1 ? "match" : "matches"}
                   </h1>
                   <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)] max-sm:max-w-[14rem]">
-                    <span className="sm:hidden">Best fit for crisis, ATSI-specific phone referral.</span>
+                    <span className="sm:hidden">
+                      {sortValue === "alpha"
+                        ? "Sorted A–Z for quick known-service lookup."
+                        : "Best fit for crisis, ATSI-specific phone referral."}
+                    </span>
                     <span className="hidden sm:inline">
                       {sortValue === "alpha"
                         ? "Sorted A–Z for quick known-service lookup."
@@ -629,6 +643,7 @@ export function ServicesNavigatorPage() {
                 key={service.slug}
                 service={service}
                 index={index}
+                relevanceRank={sortValue === "alpha" ? null : relevanceRankMap.get(service.slug) ?? null}
                 selected={selectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
               />

@@ -461,6 +461,13 @@ export function AccessibleTable({
         bodyClassName="p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-3"
       >
         <div>
+          {lowConfidence ? (
+            <p data-testid="table-low-confidence-note" className={cn("mb-1 text-xs", textMuted)}>
+              {showFallback
+                ? "Table structure could not be confidently reconstructed — showing the source document image instead."
+                : "Table structure could not be confidently reconstructed — verify values against the source document."}
+            </p>
+          ) : null}
           {showFallback ? (
             <div data-testid="table-source-image-fallback">{lowConfidenceFallback}</div>
           ) : (
