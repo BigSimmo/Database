@@ -49,12 +49,15 @@ export function PdfCanvasViewer({
   title,
   initialPage,
   onUrlExpired,
+  onLoadSuccess,
 }: {
   url: string;
   title: string;
   initialPage: number;
   /** Called when a load/render fails in a way consistent with an expired signed URL. */
   onUrlExpired?: () => void;
+  /** Called when the PDF document loads successfully (a genuine URL is valid). */
+  onLoadSuccess?: () => void;
 }) {
   const fullscreenRootRef = useRef<HTMLDivElement>(null);
   const holderRef = useRef<HTMLDivElement>(null);
@@ -80,11 +83,15 @@ export function PdfCanvasViewer({
   const [fullscreenFallback, setFullscreenFallback] = useState(false);
 
   const onUrlExpiredRef = useRef(onUrlExpired);
+  const onLoadSuccessRef = useRef(onLoadSuccess);
   const urlRef = useRef(url);
   const reportedExpiredUrlRef = useRef<string | null>(null);
   useEffect(() => {
     onUrlExpiredRef.current = onUrlExpired;
   }, [onUrlExpired]);
+  useEffect(() => {
+    onLoadSuccessRef.current = onLoadSuccess;
+  }, [onLoadSuccess]);
   useEffect(() => {
     urlRef.current = url;
   }, [url]);
@@ -119,6 +126,9 @@ export function PdfCanvasViewer({
         setPdf(loadedPdf);
         setTotalPages(loadedPdf.numPages);
         setPage((current) => Math.min(Math.max(current, 1), loadedPdf?.numPages ?? current));
+        // A valid load means any prior expiry was genuinely recovered — let the
+        // parent restore the refresh budget so a long session isn't dead-ended.
+        onLoadSuccessRef.current?.();
       } catch (loadError) {
         if (active) {
           if (isLikelyExpiredUrl(loadError)) reportUrlExpired();

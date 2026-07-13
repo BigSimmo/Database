@@ -1512,8 +1512,10 @@ export function DocumentViewer({
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [previewAttempt, setPreviewAttempt] = useState(0);
-  // Bounds auto-refresh of an expired PDF signed URL so a persistently failing
-  // URL can't loop. Reset when the document changes (see effect below).
+  // Bounds *consecutive* auto-refreshes of an expired PDF signed URL so a
+  // persistently failing URL can't loop. Reset on document change and on a
+  // successful reload, so a long session that legitimately expires many times
+  // over is never dead-ended — only an unrecoverable URL exhausts the budget.
   const signedUrlRefreshCountRef = useRef(0);
   const [sourceSearch, setSourceSearch] = useState("");
   const [documentSearchResults, setDocumentSearchResults] = useState<DocumentSearchResult[]>([]);
@@ -2012,6 +2014,12 @@ export function DocumentViewer({
     clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`);
     setPreviewAttempt((current) => current + 1);
   };
+  // A successful reload means the refreshed URL was accepted, so the recovery
+  // worked — restore the budget for the next (unrelated) TTL expiry. A broken
+  // URL never loads, so it never resets, and the cap still stops its loop.
+  const handlePdfLoadSuccess = () => {
+    signedUrlRefreshCountRef.current = 0;
+  };
   const handleDocumentRenamed = (updatedDocument: ClinicalDocument) => {
     setDocument((current) => (current?.id === updatedDocument.id ? { ...current, ...updatedDocument } : current));
   };
@@ -2369,6 +2377,7 @@ export function DocumentViewer({
                       title={documentDisplayTitle(document)}
                       initialPage={initialPage}
                       onUrlExpired={handleSignedUrlExpired}
+                      onLoadSuccess={handlePdfLoadSuccess}
                     />
                   )}
                 </>
