@@ -4,6 +4,8 @@ Plan derived from the multi-skill repository audit of `main` @ `570e6ba` (ledger
 [`branch-review-ledger.md`](branch-review-ledger.md)). This document is the sequenced address plan for
 every finding: major blockers first, then P2 sub-issues, then P3 cleanup.
 
+**Findings handover (inventory + status):** [`audit-handover-2026-07-14.md`](audit-handover-2026-07-14.md).
+
 **Rules for executing this plan**
 
 - Prefer the smallest safe change per finding; do not bundle unrelated domains in one PR.
