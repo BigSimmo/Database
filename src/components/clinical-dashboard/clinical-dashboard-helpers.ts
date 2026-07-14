@@ -72,12 +72,18 @@ export function answerTimedOutError() {
 
 export function answerReferencesDocument(answer: RagAnswer | null, documentId: string) {
   if (!answer) return false;
+  // Detection must cover every field applyRenamedDocumentToAnswer rewrites
+  // (incl. quoteCards and the nested smartPanel), otherwise a document referenced
+  // only there is guarded out and keeps its stale title after a rename.
   return (
     answer.citations.some((citation) => citation.document_id === documentId) ||
     answer.sources.some((source) => source.document_id === documentId) ||
+    Boolean(answer.quoteCards?.some((card) => card.document_id === documentId)) ||
     Boolean(answer.bestSource?.document_id === documentId) ||
     Boolean(answer.relatedDocuments?.some((document) => document.document_id === documentId)) ||
-    Boolean(answer.visualEvidence?.some((image) => image.document_id === documentId))
+    Boolean(answer.visualEvidence?.some((image) => image.document_id === documentId)) ||
+    Boolean(answer.smartPanel?.bestSource?.document_id === documentId) ||
+    Boolean(answer.smartPanel?.relatedDocuments?.some((document) => document.document_id === documentId))
   );
 }
 

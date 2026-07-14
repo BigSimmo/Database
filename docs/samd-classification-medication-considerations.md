@@ -47,6 +47,15 @@ substitute for it):
 
 ## Owner / next step
 
-Requires a human clinical + regulatory reviewer. Update this file with the
-determination (and link any external assessment) once made; do not mark the
-feature "classified" until that decision is recorded here.
+- **Owner:** to be assigned by the repository maintainer (a named clinical +
+  regulatory reviewer must be recorded here — "requires a reviewer" is not an
+  accountable assignment).
+- **Target review-by date:** to be set at triage; suggested within 30 days of
+  this note so the OPEN status cannot persist indefinitely.
+- **Tracking:** open/link a GitHub issue (label `governance`) for the
+  determination and reference it here, along with any external assessment.
+
+Update this file with the owner, date, tracking reference, and the final
+determination once made; do not mark the feature "classified" until that
+decision is recorded here. Human clinical and regulatory review remains
+required, and the feature stays OPEN until the decision is documented.

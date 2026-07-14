@@ -159,12 +159,28 @@ describe("answerReferencesDocument / applyRenamedDocumentToAnswer", () => {
     } as unknown as RagAnswer;
   }
 
-  it("detects references across citations and sources, and no-ops on null", () => {
+  it("detects references across every renamed field (citations, sources, quoteCards, smartPanel), and no-ops on null", () => {
     expect(answerReferencesDocument(null, "d1")).toBe(false);
     expect(answerReferencesDocument(answer({ citations: [{ document_id: "d1", title: "T" }] as never }), "d1")).toBe(
       true,
     );
     expect(answerReferencesDocument(answer({ sources: [{ document_id: "d2" }] as never }), "d2")).toBe(true);
+    // Fields only the rewriter used to touch — detection must cover them too.
+    expect(answerReferencesDocument(answer({ quoteCards: [{ document_id: "d3", title: "T" }] as never }), "d3")).toBe(
+      true,
+    );
+    expect(
+      answerReferencesDocument(
+        answer({ smartPanel: { bestSource: { document_id: "d4", title: "T" } } as never }),
+        "d4",
+      ),
+    ).toBe(true);
+    expect(
+      answerReferencesDocument(
+        answer({ smartPanel: { relatedDocuments: [{ document_id: "d5", title: "T" }] } as never }),
+        "d5",
+      ),
+    ).toBe(true);
     expect(answerReferencesDocument(answer({}), "d9")).toBe(false);
   });
 
@@ -179,5 +195,22 @@ describe("answerReferencesDocument / applyRenamedDocumentToAnswer", () => {
 
     const unrelated = applyRenamedDocumentToAnswer(original, doc({ id: "dX", title: "Nope" }));
     expect(unrelated).toBe(original); // unchanged reference when not referenced
+  });
+
+  it("renames a document referenced only through quoteCards or smartPanel", () => {
+    const quoteOnly = answer({ quoteCards: [{ document_id: "d1", title: "Old" }] as never });
+    const renamedQuote = applyRenamedDocumentToAnswer(quoteOnly, doc({ id: "d1", title: "New Title" }));
+    expect(renamedQuote).not.toBe(quoteOnly); // guard no longer skips quoteCards-only refs
+    expect(renamedQuote?.quoteCards?.[0].title).toBe("New Title");
+
+    const smartOnly = answer({
+      smartPanel: {
+        bestSource: { document_id: "d1", title: "Old" },
+        relatedDocuments: [{ document_id: "d1", title: "Old" }],
+      } as never,
+    });
+    const renamedSmart = applyRenamedDocumentToAnswer(smartOnly, doc({ id: "d1", title: "New Title" }));
+    expect(renamedSmart?.smartPanel?.bestSource?.title).toBe("New Title");
+    expect(renamedSmart?.smartPanel?.relatedDocuments?.[0].title).toBe("New Title");
   });
 });
