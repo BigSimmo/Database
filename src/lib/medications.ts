@@ -181,10 +181,13 @@ export function firstClinicalSentence(value: string): string {
     if (next !== undefined && !/\s/.test(next)) continue;
     const before = text.slice(0, match.index);
     if (/(?:^|[\s(])(?:e\.g|i\.e|etc|vs|approx)$/i.test(before)) continue;
-    // Single-letter clinical abbreviations — genus abbreviations such as
-    // "H. pylori", "E. coli", "C. difficile" — are not sentence ends; splitting
-    // here would drop the rest of the clause (e.g. an indication list).
-    if (/(?:^|[\s(])[A-Za-z]$/.test(before)) continue;
+    // Genus abbreviations ("H. pylori", "E. coli", "C. difficile") are a lone
+    // letter followed by a lowercase species — not a sentence end; splitting
+    // there would drop the rest of the clause. Restrict the skip to that shape
+    // so genuine single-letter sentence ends ("Pregnancy Category D. ...",
+    // "Vitamin C. ...", "Penicillin G. ...") still split.
+    const nextWord = text.slice(match.index + 1).match(/^\s+(\S)/);
+    if (/(?:^|[\s(])[A-Za-z]$/.test(before) && nextWord && /[a-z]/.test(nextWord[1])) continue;
     return before.trim();
   }
   return text;

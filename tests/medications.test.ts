@@ -212,12 +212,22 @@ describe("medication action tone", () => {
     expect(firstClinicalSentence("No trailing period")).toBe("No trailing period");
   });
 
-  it("does not cut at single-letter genus abbreviations", () => {
+  it("does not cut at single-letter genus abbreviations (lone letter + lowercase species)", () => {
     expect(firstClinicalSentence("Atypical CAP, H. pylori eradication, severe MAC complex in HIV.")).toBe(
       "Atypical CAP, H. pylori eradication, severe MAC complex in HIV",
     );
     expect(firstClinicalSentence("E. coli UTI. Second line.")).toBe("E. coli UTI");
     expect(firstClinicalSentence("C. difficile colitis (severe). Oral only.")).toBe("C. difficile colitis (severe)");
+  });
+
+  it("still splits genuine single-letter sentence ends (lone letter + uppercase next word)", () => {
+    expect(firstClinicalSentence("ABSOLUTE — Pregnancy Category D. Associated with malformations.")).toBe(
+      "ABSOLUTE — Pregnancy Category D",
+    );
+    expect(firstClinicalSentence("Vitamin C. Essential antioxidant.")).toBe("Vitamin C");
+    expect(firstClinicalSentence("Depot formulation of Penicillin G. Slowly leaches.")).toBe(
+      "Depot formulation of Penicillin G",
+    );
   });
 });
 
