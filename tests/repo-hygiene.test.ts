@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeParity, parseCiEnvNames, parseEnvSchemaNames } from "../scripts/check-env-parity.mjs";
-import { parseLedgerBranches } from "../scripts/sweep-branch-ledger.mjs";
+import { hasCompletedCleanupReview, parseLedgerBranches } from "../scripts/sweep-branch-ledger.mjs";
 
 describe("check-env-parity name parsing", () => {
   it("extracts UPPER_SNAKE schema keys from env.ts-style text", () => {
@@ -65,5 +65,26 @@ describe("sweep-branch-ledger parsing", () => {
     // the sweep strips origin/ from live refs before ledgerBranches.has(short)
     expect(names.has("claude/codebase-index-coverage")).toBe(true);
     expect(names.has("origin/claude/codebase-index-coverage")).toBe(false);
+  });
+});
+
+describe("hasCompletedCleanupReview", () => {
+  it("matches an exact completed branch-cleanup review (name + HEAD + scope)", () => {
+    const md = "| 2026-07-14 | copilot/fix | headsha | branch-cleanup | out | c |";
+    expect(hasCompletedCleanupReview(md, "copilot/fix", "headsha")).toBe(true);
+    // matches origin/-prefixed and "PR #N / " prefixed rows too
+    const md2 = "| 2026-07-14 | PR #654 / origin/fix/a11y | h2 | branch-cleanup | out | c |";
+    expect(hasCompletedCleanupReview(md2, "fix/a11y", "h2")).toBe(true);
+  });
+
+  it("does NOT treat a deletion-pending row as a completed review", () => {
+    const md = "| 2026-07-14 | copilot/fix-yet-again | headsha | branch-cleanup-deletion-pending | out | c |";
+    // scope differs, so the still-undeleted branch must be surfaced for retry
+    expect(hasCompletedCleanupReview(md, "copilot/fix-yet-again", "headsha")).toBe(false);
+  });
+
+  it("does NOT match when the HEAD has moved since the review", () => {
+    const md = "| 2026-07-14 | codex/foo | oldsha | branch-cleanup | out | c |";
+    expect(hasCompletedCleanupReview(md, "codex/foo", "newsha")).toBe(false);
   });
 });

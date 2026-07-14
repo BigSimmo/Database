@@ -33,10 +33,22 @@ function tryGit(args) {
 }
 
 /**
- * Branch names referenced in the review ledger. Parses the branch/ref column
- * (2nd table column, which may prefix "PR #N / ") generically so every namespace
- * is captured — claude/, codex/, copilot/, cursor/, fix/, and any future prefix —
- * rather than relying on a hard-coded prefix allowlist.
+ * Extract branch short-names from a ledger branch/ref cell. A ref token is
+ * "<namespace>/<name>" with no surrounding whitespace, so the "PR #N / " prefix and
+ * prose do not produce false matches; a leading "origin/" is stripped so
+ * remote-tracking rows normalize to the same short name the sweep compares against.
+ */
+function refTokensFromCell(cell) {
+  const out = [];
+  for (const m of cell.matchAll(/[A-Za-z0-9._-]+\/[A-Za-z0-9._/-]+/g)) {
+    out.push(m[0].replace(/^origin\//, ""));
+  }
+  return out;
+}
+
+/**
+ * Every branch name referenced anywhere in the review ledger (any scope, any HEAD),
+ * across every namespace — claude/, codex/, copilot/, cursor/, fix/, and future ones.
  */
 export function parseLedgerBranches(markdown) {
   const names = new Set();
@@ -45,15 +57,28 @@ export function parseLedgerBranches(markdown) {
     // | date | branch/ref | head | scope | outcome | checks |  -> column index 2
     const cell = (line.split("|")[2] ?? "").trim();
     if (!cell) continue;
-    // A ref token is "<namespace>/<name>" with no surrounding whitespace, so the
-    // "PR #N / " prefix and prose in the cell do not produce false matches. Strip a
-    // leading "origin/" so remote-tracking rows normalize to the same short name the
-    // sweep compares against (it strips "origin/" from live refs before the lookup).
-    for (const m of cell.matchAll(/[A-Za-z0-9._-]+\/[A-Za-z0-9._/-]+/g)) {
-      names.add(m[0].replace(/^origin\//, ""));
-    }
+    for (const name of refTokensFromCell(cell)) names.add(name);
   }
   return names;
+}
+
+/**
+ * Whether the ledger records a COMPLETED cleanup review that authorizes skipping this
+ * branch, per docs/branch-cleanup-guide.md: an exact row match on branch name, current
+ * HEAD, and scope `branch-cleanup`. Deliberately excludes `branch-cleanup-deletion-pending`
+ * (and any other scope) and stale-HEAD rows, so a pending deletion or a moved HEAD is
+ * surfaced for re-evaluation rather than reported as already handled.
+ */
+export function hasCompletedCleanupReview(markdown, shortName, headSha) {
+  if (!shortName || !headSha) return false;
+  for (const line of markdown.split("\n")) {
+    if (!line.startsWith("|")) continue;
+    const cols = line.split("|");
+    if ((cols[4] ?? "").trim() !== "branch-cleanup") continue;
+    if ((cols[3] ?? "").trim() !== headSha) continue;
+    if (refTokensFromCell((cols[2] ?? "").trim()).includes(shortName)) return true;
+  }
+  return false;
 }
 
 function main() {
@@ -66,11 +91,11 @@ function main() {
     }
   }
 
-  const ledgerBranches = (() => {
+  const ledgerText = (() => {
     try {
-      return parseLedgerBranches(readFileSync(LEDGER, "utf8"));
+      return readFileSync(LEDGER, "utf8");
     } catch {
-      return new Set();
+      return "";
     }
   })();
 
@@ -88,12 +113,15 @@ function main() {
     // Cherry-pick-aware: commits on the branch NOT already in main (by patch id).
     const uniqueLog = tryGit(["log", "--oneline", "--right-only", "--cherry-pick", `origin/main...${ref}`]);
     const uniqueCommits = uniqueLog ? uniqueLog.split("\n").filter(Boolean).length : 0;
+    const headSha = tryGit(["rev-parse", ref]);
     rows.push({
       branch: short,
       ahead,
       behind,
       uniqueCommits,
-      inLedger: ledgerBranches.has(short),
+      // Only a completed `branch-cleanup` review at the current HEAD counts as
+      // reviewed/skippable; deletion-pending rows and stale HEADs report `no`.
+      reviewed: hasCompletedCleanupReview(ledgerText, short, headSha),
       deletionCandidate: uniqueCommits === 0,
     });
   }
@@ -107,11 +135,11 @@ function main() {
 
   const candidates = rows.filter((r) => r.deletionCandidate);
   console.log(`Branch inventory vs origin/main (${rows.length} remote branches):\n`);
-  console.log("unique  ahead  behind  ledger  branch");
+  console.log("unique  ahead  behind  review  branch");
   for (const r of rows) {
     console.log(
       `${String(r.uniqueCommits).padStart(6)}  ${String(r.ahead).padStart(5)}  ${String(r.behind).padStart(6)}  ` +
-        `${r.inLedger ? "  yes " : "  no  "}  ${r.branch}`,
+        `${r.reviewed ? "  yes " : "  no  "}  ${r.branch}`,
     );
   }
   console.log(`\n${candidates.length} deletion candidate(s) (no unique patch content — squash-merged or empty):`);
